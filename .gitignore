@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+
+# Environment secrets
+.env
+backend/.env
+app/.env
+
+# Flutter/Dart
+app/build/
+app/.dart_tool/
+app/.flutter-plugin-dependencies
+
+# OS/editor junk
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
