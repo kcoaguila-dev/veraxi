@@ -1,5 +1,18 @@
+name: veraxi_app
+description: Veraxi chat application
+publish_to: "none"
+
 environment:
   sdk: ^3.5.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  import_lint: ^0.1.6
 
 import_lint:
   rules:
