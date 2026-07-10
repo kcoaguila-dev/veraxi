@@ -1,5 +1,7 @@
+# backend/config.py
 import os
 from dataclasses import dataclass
+from functools import lru_cache
 
 
 @dataclass
@@ -18,7 +20,7 @@ class Config:
             neo4j_uri=_require("NEO4J_URI"),
             neo4j_user=_require("NEO4J_USER"),
             neo4j_password=_require("NEO4J_PASSWORD"),
-            qdrant_url=_require("QDRANT_URL"), # We use url instead of uri becuase qdrant uses url in their documentation.
+            qdrant_url=_require("QDRANT_URL"),
             qdrant_api_key=os.environ.get("QDRANT_API_KEY", ""),
             anthropic_api_key=_require("ANTHROPIC_API_KEY"),
             embedding_api_key=os.environ.get("EMBEDDING_API_KEY", ""),
@@ -35,4 +37,8 @@ def _require(key: str) -> str:
     return value
 
 
-config = Config.from_env()
+@lru_cache
+def get_config() -> Config:
+    """Load and cache Config from environment. Call this where config is
+    actually needed (e.g. storage client init) — never at import time."""
+    return Config.from_env()
