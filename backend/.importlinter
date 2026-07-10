@@ -1,0 +1,27 @@
+[importlinter]
+root_packages=
+    backend
+
+[importlinter:contract:1]
+name=retrieval must not import mcp_server
+type=forbidden
+source_modules=
+    backend.retrieval
+forbidden_modules=
+    backend.mcp_server
+
+[importlinter:contract:2]
+name=storage must not import retrieval
+type=forbidden
+source_modules=
+    backend.storage
+forbidden_modules=
+    backend.retrieval
+
+[importlinter:contract:3]
+name=storage must not import mcp_server
+type=forbidden
+source_modules=
+    backend.storage
+forbidden_modules=
+    backend.mcp_server

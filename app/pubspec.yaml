@@ -1,0 +1,17 @@
+import_lint:
+  rules:
+    views_no_data_or_client:
+      target: "package:app/features/*/views/**.dart"
+      from: "package:app/features/*/data/**.dart"
+      except: []
+      severity: error
+    views_no_mcp_client:
+      target: "package:app/features/*/views/**.dart"
+      from: "package:app/core/mcp_client/**.dart"
+      except: []
+      severity: error
+    view_models_no_mcp_client:
+      target: "package:app/features/*/view_models/**.dart"
+      from: "package:app/core/mcp_client/**.dart"
+      except: []
+      severity: error

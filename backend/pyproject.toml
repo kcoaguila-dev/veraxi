@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "veraxi-backend"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "neo4j",
+    "qdrant-client",
+    "mcp",
+    "anthropic",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "import-linter",
+]
