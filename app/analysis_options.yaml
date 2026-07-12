@@ -1,0 +1,18 @@
+analyzer:
+  plugins:
+    - import_lint
+
+import_lint:
+  rules:
+    views_no_data_or_client:
+      target: "package:veraxi_app/features/*/views/**.dart"
+      from: "package:veraxi_app/features/*/data/**.dart"
+      severity: error
+    views_no_mcp_client:
+      target: "package:veraxi_app/features/*/views/**.dart"
+      from: "package:veraxi_app/core/mcp_client/**.dart"
+      severity: error
+    view_models_no_mcp_client:
+      target: "package:veraxi_app/features/*/view_models/**.dart"
+      from: "package:veraxi_app/core/mcp_client/**.dart"
+      severity: error
