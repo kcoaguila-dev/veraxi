@@ -11,6 +11,9 @@ The backend infrastructure, data extraction pipeline (constrained by rigorous sc
 
 See [docs/ROADMAP.md](docs/ROADMAP.md) for the current phase (Phase 4: Flutter UI).
 
+## Screenshots
+<!-- TODO: Upload a GIF of the working chat UI here -->
+
 ## 🏗 Architecture
 
 See [docs/architecture.md](docs/architecture.md) for a deep dive into the dependency flow and design rules.
@@ -85,7 +88,7 @@ curl -X POST http://localhost:8000/api/chat \
 ```
 
 ## Contributing
-See [CONTRIBUTING.md](CONTRIBUTING.md).
+We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for step-by-step instructions on setting up your local environment and understanding our strict architectural guidelines.
 
 ## License
 MIT — see [LICENSE](LICENSE).
