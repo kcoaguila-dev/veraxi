@@ -36,12 +36,12 @@ builds on this working reliably.
 - [x] `test_mcp_tools.py` — mocked DB clients, no real Neo4j/Qdrant required
 - [x] `test_entity_resolution.py`
 
-## Phase 4 — Flutter chat screen ← current phase
-- [ ] `features/chat` — chat_repository, chat_view_model, chat_screen
-- [ ] Wired to the now-working backend from Phase 3
-- [ ] `chat_view_model_test.dart`
+## Phase 4 — Flutter chat screen ✅ done
+- [x] `features/chat` — chat_repository, chat_view_model, chat_screen
+- [x] Wired to the now-working backend from Phase 3
+- [x] `chat_view_model_test.dart`
 
-## Phase 5 — Control panel
+## Phase 5 — Control panel ← current phase
 - [ ] `features/control_panel` — view graph/vector contents, trigger ingestion manually
 - [ ] `graph_analytics.py` — Neo4j Graph Data Science (community detection, link
       prediction) for surfacing non-obvious connections in the graph
@@ -56,4 +56,4 @@ builds on this working reliably.
 
 ---
 
-**Currently here:** starting Phase 4.
+**Currently here:** starting Phase 5.
