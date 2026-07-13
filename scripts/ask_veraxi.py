@@ -7,7 +7,7 @@ logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print("Usage: python -m scripts.test_prototype 'Your question here'")
+        print("Usage: python -m scripts.ask_veraxi 'Your question here'")
         sys.exit(1)
         
     question = " ".join(sys.argv[1:])
@@ -19,4 +19,4 @@ if __name__ == "__main__":
         print(answer)
         print("\n==============================================\n")
     except Exception as e:
-        print(f"\n❌ Error running prototype: {e}")
+        print(f"\n❌ Error running MCP inference: {e}")

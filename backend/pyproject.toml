@@ -15,7 +15,7 @@ dependencies = [
     "neo4j",
     "qdrant-client",
     "mcp",
-    "anthropic",
+    "google-genai",
     "splink",
 ]
 

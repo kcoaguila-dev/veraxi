@@ -11,7 +11,7 @@ class Config:
     neo4j_password: str
     qdrant_url: str
     qdrant_api_key: str
-    anthropic_api_key: str
+    gemini_api_key: str
     embedding_api_key: str
 
     @classmethod
@@ -22,7 +22,7 @@ class Config:
             neo4j_password=_require("NEO4J_PASSWORD"),
             qdrant_url=_require("QDRANT_URL"),
             qdrant_api_key=os.environ.get("QDRANT_API_KEY", ""),
-            anthropic_api_key=_require("ANTHROPIC_API_KEY"),
+            gemini_api_key=_require("GEMINI_API_KEY"),
             embedding_api_key=os.environ.get("EMBEDDING_API_KEY", ""),
         )
 
