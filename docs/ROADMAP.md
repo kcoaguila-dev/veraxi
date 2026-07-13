@@ -41,14 +41,14 @@ builds on this working reliably.
 - [x] Wired to the now-working backend from Phase 3
 - [x] `chat_view_model_test.dart`
 
-## Phase 5 — Control panel ← current phase
-- [ ] `features/control_panel` — view graph/vector contents, trigger ingestion manually
-- [ ] `graph_analytics.py` — Neo4j Graph Data Science (community detection, link
+## Phase 5 — Control panel ✅ done
+- [x] `features/control_panel` — view graph/vector contents, trigger ingestion manually
+- [x] `graph_analytics.py` — Neo4j Graph Data Science (community detection, link
       prediction) for surfacing non-obvious connections in the graph
-- [ ] Lower priority than chat — admin convenience, not core value
-- [ ] Good candidate for `good first issue` labels once open to contributors
+- [x] Lower priority than chat — admin convenience, not core value
+- [x] Good candidate for `good first issue` labels once open to contributors
 
-## Phase 6 — Hardening
+## Phase 6 — Hardening ← current phase
 - [ ] CI running lint (`ruff`, `dart analyze`) + tests on every PR
 - [ ] `pip-audit` / `npm audit` dependency check
 - [ ] README polish — setup instructions, screenshot/gif of chat working
@@ -56,4 +56,4 @@ builds on this working reliably.
 
 ---
 
-**Currently here:** starting Phase 5.
+**Currently here:** starting Phase 6.
