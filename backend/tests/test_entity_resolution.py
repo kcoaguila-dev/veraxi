@@ -1,4 +1,3 @@
-import pytest
 from backend.ingestion.entity_resolution import resolve_entities
 
 def test_resolve_entities_deduplication():

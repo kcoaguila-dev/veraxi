@@ -1,4 +1,3 @@
-import pytest
 from unittest.mock import MagicMock
 from backend.retrieval.graph_analytics import get_community_detection, get_node_degree_centrality
 

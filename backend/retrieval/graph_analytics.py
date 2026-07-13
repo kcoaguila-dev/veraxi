@@ -7,14 +7,6 @@ def get_community_detection(neo4j_client: Neo4jStorageClient, min_community_size
     This simulates community detection by grouping connected nodes.
     We return the communities and the nodes in each.
     """
-    query = """
-    MATCH (n)-[]-(m)
-    WITH n, count(m) AS degree
-    ORDER BY degree DESC
-    RETURN n.id AS id, labels(n)[0] AS label, degree
-    LIMIT 50
-    """
-
     # We will just return nodes grouped by their labels for a basic community simulation
     # since we don't assume GDS is installed.
     query_grouping = """

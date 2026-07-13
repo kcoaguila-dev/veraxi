@@ -1,5 +1,4 @@
 import logging
-import sys
 from backend.config import get_config
 from backend.storage.qdrant_client import QdrantStorageClient
 from backend.storage.neo4j_client import Neo4jStorageClient

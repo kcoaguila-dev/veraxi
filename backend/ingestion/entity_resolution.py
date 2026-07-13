@@ -68,7 +68,7 @@ def resolve_entities(entities: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         clusters = linker.clustering.cluster_pairwise_predictions_at_threshold(df_predict, 0.5)
 
         cluster_df = clusters.as_pandas_dataframe()
-    except Exception as e:
+    except Exception:
         # If Splink fails (e.g., zero matches, empty dataset after blocking), just return original
         return entities
 
