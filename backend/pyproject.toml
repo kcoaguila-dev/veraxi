@@ -17,6 +17,8 @@ dependencies = [
     "mcp",
     "google-genai",
     "splink",
+    "fastapi",
+    "uvicorn",
 ]
 
 [project.optional-dependencies]
