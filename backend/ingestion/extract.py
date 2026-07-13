@@ -1,7 +1,8 @@
 import json
 import logging
 from typing import List, Dict, Any, Tuple
-from anthropic import Anthropic
+from google import genai
+from google.genai import types
 from backend.config import get_config
 
 logger = logging.getLogger(__name__)
@@ -48,22 +49,21 @@ Only output valid JSON. No markdown formatting, no explanations.
 
 def extract_entities_and_relations(text: str) -> Tuple[List[Dict[str, Any]], List[Dict[str, str]]]:
     """
-    Extract entities and relations using Anthropic API constrained to a fixed schema.
+    Extract entities and relations using Gemini API constrained to a fixed schema.
     """
     config = get_config()
-    client = Anthropic(api_key=config.anthropic_api_key)
+    client = genai.Client(api_key=config.gemini_api_key)
 
     try:
-        response = client.messages.create(
-            model="claude-3-haiku-20240307",
-            max_tokens=1000,
-            system=EXTRACTION_PROMPT,
-            messages=[
-                {"role": "user", "content": text}
-            ],
-            temperature=0.0
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=[EXTRACTION_PROMPT, "\n\nText to analyze:\n", text],
+            config=types.GenerateContentConfig(
+                temperature=0.0,
+                response_mime_type="application/json"
+            )
         )
-        output = response.content[0].text
+        output = response.text
 
         # Clean markdown code blocks if the LLM adds them
         output = output.strip()
