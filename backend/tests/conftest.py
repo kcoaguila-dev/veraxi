@@ -14,11 +14,15 @@ def qdrant_container():
     with QdrantContainer("qdrant/qdrant:latest") as qdrant:
         yield qdrant
 
-@pytest.fixture(autouse=True)
+@pytest.fixture
 def patch_env(neo4j_container, qdrant_container, monkeypatch):
     """
-    Automatically override environment variables for all tests
-    to point to the testcontainers instead of the live database.
+    Override environment variables to point to the testcontainers instead
+    of the live database. Not autouse: only tests that actually touch
+    Neo4j/Qdrant should request this fixture. Pure-logic tests (e.g.
+    merge_rank) must be able to run with zero Docker dependency - that
+    testability guarantee is the reason merge_rank.py was built the way
+    it was (see docs/ROADMAP.md, Phase 2 rationale).
     """
     neo4j_url = neo4j_container.get_connection_url()
     neo4j_user = "neo4j"
