@@ -1,5 +1,7 @@
+import asyncio
 import logging
 from mcp.server import Server
+from mcp.server.stdio import stdio_server
 from backend.mcp_server.tools.search_vectors import search_vectors
 from backend.mcp_server.tools.query_graph import query_graph
 
@@ -42,3 +44,15 @@ def mcp_query_graph(entity_name: str, max_hops: int = 2) -> str:
     except Exception as e:
         logger.error(f"Error in query_graph tool: {e}")
         return f"Error executing tool: {e}"
+
+async def run():
+    """Run the MCP server over standard input/output."""
+    async with stdio_server() as (read_stream, write_stream):
+        await mcp_server.run(
+            read_stream,
+            write_stream,
+            mcp_server.create_initialization_options()
+        )
+
+if __name__ == "__main__":
+    asyncio.run(run())
