@@ -37,6 +37,9 @@ def patch_env(neo4j_container, qdrant_container, monkeypatch):
     monkeypatch.setenv("QDRANT_API_KEY", "")
     
     # Needs a dummy key for Anthropic if not set, else config fails
+    if not os.environ.get("GEMINI_API_KEY"):
+        monkeypatch.setenv("GEMINI_API_KEY", "test-dummy-key")
+
     if not os.environ.get("ANTHROPIC_API_KEY"):
         monkeypatch.setenv("ANTHROPIC_API_KEY", "test-dummy-key")
     
