@@ -26,7 +26,7 @@ def test_ingestion_linking():
     # 0. Run the orchestrator
     run_ingestion()
 
-    # 1. Fetch all nodes from Neo4j
+    # 1. Fetch all nodes from Neo4j (test database is empty)
     query = "MATCH (n) RETURN n.id AS id, n.qdrant_point_id AS qdrant_point_id"
 
     with neo4j.driver.session() as session:

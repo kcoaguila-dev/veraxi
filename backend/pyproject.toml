@@ -3,7 +3,7 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
-where = ["."]
+where = [".."]
 include = ["backend*"]
 
 
@@ -22,4 +22,5 @@ dependencies = [
 dev = [
     "pytest",
     "import-linter",
+    "testcontainers[neo4j,qdrant]",
 ]
