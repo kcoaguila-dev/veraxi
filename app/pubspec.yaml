@@ -8,8 +8,12 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_riverpod: ^2.6.1
+  http: ^1.6.0
+  riverpod: ^2.6.1
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   import_lint: ^1.0.1
+  mocktail: ^1.0.5
