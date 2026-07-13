@@ -1,0 +1,78 @@
+import pytest
+from unittest.mock import patch, MagicMock
+from backend.mcp_server.tools.search_vectors import search_vectors
+from backend.mcp_server.tools.query_graph import query_graph
+from backend.ingestion.extract import validate_extraction
+from backend.retrieval.merge_rank import VectorHit, GraphHit
+
+@patch("backend.mcp_server.tools.search_vectors.get_config")
+@patch("backend.mcp_server.tools.search_vectors.QdrantStorageClient")
+def test_search_vectors_shape(mock_qdrant_class, mock_get_config):
+    # Mock the search response
+    mock_instance = mock_qdrant_class.return_value
+    mock_instance.search.return_value = [
+        {"id": "uuid-1", "score": 0.9, "payload": {"text": "chunk 1"}},
+        {"id": "uuid-2", "score": 0.8, "payload": {"text": "chunk 2"}},
+    ]
+
+    hits = search_vectors("dummy query", limit=2)
+
+    assert len(hits) == 2
+    assert all(isinstance(hit, VectorHit) for hit in hits)
+    assert hits[0].id == "uuid-1"
+    assert hits[0].score == 0.9
+    assert hits[0].payload == {"text": "chunk 1"}
+
+@patch("backend.mcp_server.tools.query_graph.get_config")
+@patch("backend.mcp_server.tools.query_graph.Neo4jStorageClient")
+def test_query_graph_shape(mock_neo4j_class, mock_get_config):
+    # Mock the execute_read response
+    mock_instance = mock_neo4j_class.return_value
+    mock_instance.execute_read.return_value = [
+        {"id": "node-1", "qdrant_point_id": "uuid-1", "labels": ["Person"], "props": {"name": "Alice", "role": "Engineer"}},
+        {"id": "node-2", "qdrant_point_id": "uuid-3", "labels": ["Concept"], "props": {"name": "AI"}},
+    ]
+
+    hits = query_graph("Alice", max_hops=1)
+
+    assert len(hits) == 2
+    assert all(isinstance(hit, GraphHit) for hit in hits)
+    assert hits[0].id == "uuid-1"
+    assert hits[0].payload["name"] == "Alice"
+    assert "Person" in hits[0].payload["labels"]
+
+def test_extraction_validation_rejects_malformed():
+    malformed_entities = [
+        {"type": "InvalidType", "name": "Bob"}, # Invalid type
+        {"type": "Person"}, # Missing name
+        {"type": "Person", "name": "Alice", "properties": {"role": "CEO"}}, # Valid
+    ]
+    malformed_relations = [
+        {"from_entity": "Alice", "to_entity": "Bob", "type": "WORKS_AT"}, # Bob is invalid
+        {"from_entity": "Alice", "to_entity": "Veraxi", "type": "WORKS_AT"}, # Veraxi is missing
+        {"from_entity": "Alice", "to_entity": "Alice", "type": "INVALID_REL"} # Invalid relation type
+    ]
+
+    valid_ents, valid_rels = validate_extraction(malformed_entities, malformed_relations)
+
+    # Only Alice should be valid
+    assert len(valid_ents) == 1
+    assert valid_ents[0]["name"] == "Alice"
+
+    # All relations should be rejected because one side or the type is invalid
+    assert len(valid_rels) == 0
+
+def test_extraction_validation_accepts_correct():
+    entities = [
+        {"type": "Person", "name": "Alice"},
+        {"type": "Organization", "name": "Veraxi Corp"},
+    ]
+    relations = [
+        {"from_entity": "Alice", "to_entity": "Veraxi Corp", "type": "WORKS_AT"}
+    ]
+
+    valid_ents, valid_rels = validate_extraction(entities, relations)
+
+    assert len(valid_ents) == 2
+    assert len(valid_rels) == 1
+    assert valid_rels[0]["type"] == "WORKS_AT"

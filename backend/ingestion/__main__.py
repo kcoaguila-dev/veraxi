@@ -5,6 +5,7 @@ from backend.storage.qdrant_client import QdrantStorageClient
 from backend.storage.neo4j_client import Neo4jStorageClient
 from backend.ingestion.chunk_embed import chunk_and_embed
 from backend.ingestion.extract import extract_entities_and_relations
+from backend.ingestion.entity_resolution import resolve_entities
 from backend.ingestion.graph_write import write_to_graph
 
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
@@ -44,6 +45,9 @@ def main():
 
     # 4. Extract entities and relations
     entities, relations = extract_entities_and_relations(text)
+
+    # Resolve entities to deduplicate
+    entities = resolve_entities(entities)
 
     # 5. Write to Neo4j
     entity_id_map = write_to_graph(neo4j, entities, relations, qdrant_point_ids)
