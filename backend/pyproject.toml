@@ -16,6 +16,7 @@ dependencies = [
     "qdrant-client",
     "mcp",
     "anthropic",
+    "splink",
 ]
 
 [project.optional-dependencies]

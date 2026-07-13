@@ -23,20 +23,20 @@ builds on this working reliably.
 - [x] `merge_rank.py` — combine and rank graph + vector results via Reciprocal Rank Fusion
 - [x] `test_merge_rank.py` — fake inputs, known-correct expected output, zero DB dependency
 
-## Phase 3 — LLM chat loop + MCP tools ← current phase
-- [ ] `mcp_server/tools/query_graph.py`, `search_vectors.py`
-- [ ] Test `merge_rank.py` against real data from Phase 1 using the new retrieval tools
-- [ ] `llm_loop.py` — LLM decides when to call tools, returns an answer
-- [ ] Replace Phase 1's regex-based `extract.py` with schema-constrained LLM extraction
+## Phase 3 — LLM chat loop + MCP tools ✅ done
+- [x] `mcp_server/tools/query_graph.py`, `search_vectors.py`
+- [x] Test `merge_rank.py` against real data from Phase 1 using the new retrieval tools
+- [x] `llm_loop.py` — LLM decides when to call tools, returns an answer
+- [x] Replace Phase 1's regex-based `extract.py` with schema-constrained LLM extraction
       (defined entity/relation types, validated before writing to Neo4j)
-- [ ] `entity_resolution.py` — Splink-based deduplication, run between extraction and
+- [x] `entity_resolution.py` — Splink-based deduplication, run between extraction and
       `graph_write.py`, once real extraction produces enough entity volume for
       duplicates to actually appear
-- [ ] Test via command line / script — no UI needed yet
-- [ ] `test_mcp_tools.py` — mocked DB clients, no real Neo4j/Qdrant required
-- [ ] `test_entity_resolution.py`
+- [x] Test via command line / script — no UI needed yet
+- [x] `test_mcp_tools.py` — mocked DB clients, no real Neo4j/Qdrant required
+- [x] `test_entity_resolution.py`
 
-## Phase 4 — Flutter chat screen
+## Phase 4 — Flutter chat screen ← current phase
 - [ ] `features/chat` — chat_repository, chat_view_model, chat_screen
 - [ ] Wired to the now-working backend from Phase 3
 - [ ] `chat_view_model_test.dart`
@@ -56,4 +56,4 @@ builds on this working reliably.
 
 ---
 
-**Currently here:** starting Phase 3.
+**Currently here:** starting Phase 4.
