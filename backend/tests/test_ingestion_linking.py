@@ -4,7 +4,7 @@ from backend.storage.qdrant_client import QdrantStorageClient
 from backend.storage.neo4j_client import Neo4jStorageClient
 from backend.ingestion.__main__ import main as run_ingestion
 
-def test_ingestion_linking():
+def test_ingestion_linking(patch_env):
     config = get_config()
 
     # Initialize clients for setup/teardown
