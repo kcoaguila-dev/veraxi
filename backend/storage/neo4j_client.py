@@ -1,5 +1,5 @@
 import uuid
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 
 from neo4j import GraphDatabase
 
@@ -49,3 +49,9 @@ class Neo4jStorageClient:
 
         with self.driver.session() as session:
             session.run(query, from_id=from_id, to_id=to_id, props=props)
+
+    def execute_read(self, query: str, parameters: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
+        """Execute a read query with parameters."""
+        with self.driver.session() as session:
+            result = session.run(query, parameters or {})
+            return [record.data() for record in result]

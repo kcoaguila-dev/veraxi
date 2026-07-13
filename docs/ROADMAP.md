@@ -52,13 +52,13 @@ around it.
 
 \## Phase 3 — LLM chat loop + MCP tools
 
-\- \[ ] `mcp\_server/tools/query\_graph.py`, `search\_vectors.py`
+\- \[x] `mcp\_server/tools/query\_graph.py`, `search\_vectors.py`
 
-\- \[ ] `llm\_loop.py` — LLM decides when to call tools, returns an answer
+\- \[x] `llm\_loop.py` — LLM decides when to call tools, returns an answer
 
-\- \[ ] Test via command line / script — no UI needed yet
+\- \[x] Test via command line / script — no UI needed yet
 
-\- \[ ] `test\_mcp\_tools.py` — mocked DB clients, no real Neo4j/Qdrant required
+\- \[x] `test\_mcp\_tools.py` — mocked DB clients, no real Neo4j/Qdrant required
 
 
 
