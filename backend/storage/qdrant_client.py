@@ -52,3 +52,13 @@ class QdrantStorageClient:
             with_vectors=True,
         )
         return [{"id": p.id, "payload": p.payload, "vector": p.vector} for p in points]
+
+    def search(self, collection_name: str, query_vector: List[float], limit: int = 10) -> List[Dict[str, Any]]:
+        """Search for similar vectors."""
+        results = self.client.search(
+            collection_name=collection_name,
+            query_vector=query_vector,
+            limit=limit,
+            with_payload=True
+        )
+        return [{"id": hit.id, "score": hit.score, "payload": hit.payload} for hit in results]
