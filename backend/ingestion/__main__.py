@@ -10,9 +10,7 @@ from backend.ingestion.graph_write import write_to_graph
 
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 
-def main():
-    config = get_config()
-
+def run_ingestion(config):
     # 1. Initialize clients
     qdrant = QdrantStorageClient(url=config.qdrant_url, api_key=config.qdrant_api_key)
     neo4j = Neo4jStorageClient(uri=config.neo4j_uri, user=config.neo4j_user, password=config.neo4j_password)
@@ -55,6 +53,15 @@ def main():
     logging.info(f"Ingestion complete. {len(entity_id_map)} Neo4j nodes, {len(qdrant_point_ids)} Qdrant points, linking verified.")
 
     neo4j.close()
+
+    return {
+        "nodes_inserted": len(entity_id_map),
+        "vectors_inserted": len(qdrant_point_ids)
+    }
+
+def main():
+    config = get_config()
+    run_ingestion(config)
 
 if __name__ == "__main__":
     main()
