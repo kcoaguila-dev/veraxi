@@ -36,6 +36,9 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     answer: str
 
+class IngestRequest(BaseModel):
+    text: str
+
 @app.post("/api/chat", response_model=ChatResponse)
 async def chat_endpoint(request: ChatRequest, tenant_id: str = Depends(get_tenant_id)):
     logger.info(f"Received question: {request.question} for tenant: {tenant_id}")
@@ -95,10 +98,10 @@ def get_stats(tenant_id: str = Depends(get_tenant_id)):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/admin/ingest")
-def ingest_data(tenant_id: str = Depends(get_tenant_id)):
+def ingest_data(request: IngestRequest, tenant_id: str = Depends(get_tenant_id)):
     try:
         config = get_config()
-        result = run_ingestion(config, tenant_id)
+        result = run_ingestion(config, request.text, tenant_id)
         return result
     except Exception as e:
         logger.error(f"Error during ingestion: {e}")

@@ -9,7 +9,7 @@ from backend.ingestion.graph_write import write_to_graph
 
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 
-def run_ingestion(config, tenant_id: str = "default"):
+def run_ingestion(config, text: str, tenant_id: str = "default"):
     # 1. Initialize clients
     qdrant = QdrantStorageClient(url=config.qdrant_url, api_key=config.qdrant_api_key)
     neo4j = Neo4jStorageClient(uri=config.neo4j_uri, user=config.neo4j_user, password=config.neo4j_password)
@@ -17,13 +17,6 @@ def run_ingestion(config, tenant_id: str = "default"):
     # Ensure qdrant collection exists
     COLLECTION_NAME = "veraxi_docs"
     qdrant.create_collection(COLLECTION_NAME)
-
-    # Hardcoded test text
-    text = (
-        "Alice is a brilliant Engineer who works at Veraxi Corp. "
-        "Veraxi Corp is an innovative Tech company that develops advanced AI. "
-        "AI is transforming the Computer Science domain."
-    )
 
     logging.info(f"Starting ingestion for tenant: {tenant_id}...")
 
@@ -60,7 +53,12 @@ def run_ingestion(config, tenant_id: str = "default"):
 
 def main():
     config = get_config()
-    run_ingestion(config)
+    text = (
+        "Alice is a brilliant Engineer who works at Veraxi Corp. "
+        "Veraxi Corp is an innovative Tech company that develops advanced AI. "
+        "AI is transforming the Computer Science domain."
+    )
+    run_ingestion(config, text)
 
 if __name__ == "__main__":
     main()

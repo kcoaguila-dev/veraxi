@@ -65,7 +65,7 @@ class ControlPanelViewModel extends StateNotifier<ControlPanelState> {
     }
   }
 
-  Future<void> triggerIngestion() async {
+  Future<void> triggerIngestion(String text) async {
     state = state.copyWith(
       isIngesting: true,
       clearError: true,
@@ -73,7 +73,7 @@ class ControlPanelViewModel extends StateNotifier<ControlPanelState> {
     );
 
     try {
-      final result = await repository.triggerIngestion();
+      final result = await repository.triggerIngestion(text);
 
       // Update counts based on the returned result, or we can just fetchStats again
       await fetchStats();

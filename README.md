@@ -6,13 +6,13 @@ Veraxi utilizes Reciprocal Rank Fusion (RRF) to merge structured graph lookups a
 
 ## 🚀 Status
 
-**Phase 3 Complete: Core Intelligence Backend is Production-Ready.**
-The backend infrastructure, data extraction pipeline (constrained by rigorous schema validation and Splink entity resolution), and the LLM orchestration loop are fully functional.
+**Phase 8 Complete: Veraxi is fully functional with arbitrary document ingestion and Dockerized deployment.**
+The project now features a complete multi-tenant architecture, a Flutter UI with a Control Panel for ingestion, and a 1-click self-hostable Docker configuration.
 
-See [docs/ROADMAP.md](docs/ROADMAP.md) for the current phase (Phase 4: Flutter UI).
+See [docs/ROADMAP.md](docs/ROADMAP.md) for the full phase history.
 
 ## Screenshots
-<!-- TODO: Upload a GIF of the working chat UI here -->
+![Control Panel](docs/assets/control_panel.png)
 
 ## 🏗 Architecture
 
