@@ -19,4 +19,5 @@ app/.flutter-plugin-dependencies
 .DS_Store
 Thumbs.db
 .vscode/
-.idea/
+.idea//app/android/local.properties
+/app/ios/Flutter/Generated.xcconfig

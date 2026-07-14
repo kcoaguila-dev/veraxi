@@ -17,6 +17,21 @@ services:
     volumes:
       - qdrant_data:/qdrant/storage
 
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - NEO4J_URI=bolt://neo4j:7687
+      - QDRANT_URL=http://qdrant:6333
+    env_file:
+      - ./backend/.env
+    depends_on:
+      - neo4j
+      - qdrant
+
 volumes:
   neo4j_data:
   qdrant_data:

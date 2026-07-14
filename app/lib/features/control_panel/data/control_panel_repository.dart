@@ -33,10 +33,12 @@ class ControlPanelRepository {
     }
   }
 
-  Future<Map<String, dynamic>> triggerIngestion() async {
+  Future<Map<String, dynamic>> triggerIngestion(String text) async {
+    final headers = _getHeaders()..['Content-Type'] = 'application/json';
     final response = await client.post(
       Uri.parse('$baseUrl/api/admin/ingest'),
-      headers: _getHeaders(),
+      headers: headers,
+      body: jsonEncode({'text': text}),
     );
 
     if (response.statusCode == 200) {

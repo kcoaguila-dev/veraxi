@@ -54,6 +54,16 @@ builds on this working reliably.
 - [x] README polish — setup instructions, screenshot/gif of chat working
 - [x] `CONTRIBUTING.md` filled in with real dev-environment setup steps
 
+## Phase 7 — Multi-Tenant Architecture ✅ done
+- [x] Implement multi-tenancy in Qdrant (payload filtering) and Neo4j (tenant_id property)
+- [x] API Gateway middleware to extract tenant IDs
+- [x] Update retrieval to only search within tenant bounds
+
+## Phase 8 — Real Data Ingestion & Infrastructure Hardening ✅ done
+- [x] Arbitrary document ingestion (API and Flutter UI updates)
+- [x] Dockerize FastAPI backend for 1-click self-hosting
+- [x] Clean up CI and documentation
+
 ---
 
-**Currently here:** Project Complete! All phases 1-6 finished.
+**Currently here:** Project Complete! All phases 1-8 finished.

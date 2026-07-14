@@ -2,11 +2,24 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../view_models/control_panel_view_model.dart';
 
-class ControlPanelScreen extends ConsumerWidget {
+class ControlPanelScreen extends ConsumerStatefulWidget {
   const ControlPanelScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ControlPanelScreen> createState() => _ControlPanelScreenState();
+}
+
+class _ControlPanelScreenState extends ConsumerState<ControlPanelScreen> {
+  final TextEditingController _textController = TextEditingController();
+
+  @override
+  void dispose() {
+    _textController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final state = ref.watch(controlPanelViewModelProvider);
     final viewModel = ref.read(controlPanelViewModelProvider.notifier);
 
@@ -49,8 +62,24 @@ class ControlPanelScreen extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: 24),
+            TextField(
+              controller: _textController,
+              maxLines: 5,
+              decoration: const InputDecoration(
+                hintText: 'Enter text to ingest (e.g., Markdown or raw text)',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 16),
             ElevatedButton(
-              onPressed: state.isIngesting ? null : () => viewModel.triggerIngestion(),
+              onPressed: state.isIngesting
+                  ? null
+                  : () {
+                      if (_textController.text.isNotEmpty) {
+                        viewModel.triggerIngestion(_textController.text);
+                        _textController.clear();
+                      }
+                    },
               style: ElevatedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 16),
               ),
@@ -67,7 +96,7 @@ class ControlPanelScreen extends ConsumerWidget {
                         Text('Ingesting...'),
                       ],
                     )
-                  : const Text('Manually Trigger Ingestion Pipeline'),
+                  : const Text('Ingest Document'),
             ),
             if (state.error != null) ...[
               const SizedBox(height: 16),
