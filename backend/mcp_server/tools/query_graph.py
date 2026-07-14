@@ -3,7 +3,7 @@ from backend.config import get_config
 from backend.storage.neo4j_client import Neo4jStorageClient
 from backend.retrieval.merge_rank import GraphHit
 
-def query_graph(entity_name: str, max_hops: int = 2) -> List[GraphHit]:
+def query_graph(entity_name: str, max_hops: int = 2, tenant_id: str = "default") -> List[GraphHit]:
     """
     Perform a parameterized Cypher traversal from a starting entity out to max_hops.
     Returns results as GraphHit objects ready for merge_rank.
@@ -16,15 +16,15 @@ def query_graph(entity_name: str, max_hops: int = 2) -> List[GraphHit]:
     # We must ensure it's a positive integer to avoid injection.
     max_hops = max(1, int(max_hops))
 
-    # We parameterize the entity_name
+    # We parameterize the entity_name and tenant_id
     query = f"""
     MATCH (start {{name: $entity_name}})-[*1..{max_hops}]-(end)
-    WHERE end.qdrant_point_id IS NOT NULL
+    WHERE end.qdrant_point_id IS NOT NULL AND start.tenant_id = $tenant_id
     RETURN DISTINCT end.id AS id, end.qdrant_point_id AS qdrant_point_id, labels(end) AS labels, properties(end) AS props
     """
 
     # Execute query
-    results = neo4j.execute_read(query, {"entity_name": entity_name})
+    results = neo4j.execute_read(query, {"entity_name": entity_name, "tenant_id": tenant_id})
     neo4j.close()
 
     # Return as GraphHit objects

@@ -40,7 +40,7 @@ TOOLS = [
 ]
 
 
-def answer_question(question: str) -> str:
+def answer_question(question: str, tenant_id: str = "default") -> str:
     """
     LLM decides whether to call search_vectors and/or query_graph, gets results back,
     calls merge_rank to fuse them, then produces a final answer grounded in the fused results.
@@ -71,10 +71,10 @@ def answer_question(question: str) -> str:
 
             if tool_name == "search_vectors":
                 limit = int(tool_input.get("limit", 10))
-                vector_hits.extend(search_vectors(tool_input["query_text"], limit=limit))
+                vector_hits.extend(search_vectors(tool_input["query_text"], limit=limit, tenant_id=tenant_id))
             elif tool_name == "query_graph":
                 max_hops = int(tool_input.get("max_hops", 2))
-                graph_hits.extend(query_graph(tool_input["entity_name"], max_hops=max_hops))
+                graph_hits.extend(query_graph(tool_input["entity_name"], max_hops=max_hops, tenant_id=tenant_id))
 
     # Step 2: Merge and rank the results if any tools were called
     if vector_hits or graph_hits:

@@ -2,7 +2,7 @@ from typing import List, Dict, Any
 
 from backend.storage.neo4j_client import Neo4jStorageClient
 
-def write_to_graph(neo4j_client: Neo4jStorageClient, entities: List[Dict[str, Any]], relations: List[Dict[str, str]], qdrant_point_ids: Dict[str, str]) -> Dict[str, str]:
+def write_to_graph(neo4j_client: Neo4jStorageClient, entities: List[Dict[str, Any]], relations: List[Dict[str, str]], qdrant_point_ids: Dict[str, str], tenant_id: str = "default") -> Dict[str, str]:
     """
     Write entities and relations to Neo4j, linking to Qdrant point IDs.
     Returns a mapping from entity name to neo4j node ID.
@@ -21,6 +21,7 @@ def write_to_graph(neo4j_client: Neo4jStorageClient, entities: List[Dict[str, An
         # Link to qdrant - cycle through available qdrant points if there are more nodes than points
         qdrant_id = point_ids[i % len(point_ids)]
         props["qdrant_point_id"] = qdrant_id
+        props["tenant_id"] = tenant_id
 
         node_id = neo4j_client.create_node(entity["type"], props)
         entity_name_to_node_id[entity["name"]] = node_id
@@ -30,7 +31,7 @@ def write_to_graph(neo4j_client: Neo4jStorageClient, entities: List[Dict[str, An
     if len(point_ids) > len(entities):
         for i in range(len(entities), len(point_ids)):
             qdrant_id = point_ids[i]
-            props = {"name": f"UnlinkedChunk_{i}", "qdrant_point_id": qdrant_id}
+            props = {"name": f"UnlinkedChunk_{i}", "qdrant_point_id": qdrant_id, "tenant_id": tenant_id}
             neo4j_client.create_node("Chunk", props)
 
     for relation in relations:
