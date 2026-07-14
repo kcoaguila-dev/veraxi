@@ -48,12 +48,12 @@ builds on this working reliably.
 - [x] Lower priority than chat — admin convenience, not core value
 - [x] Good candidate for `good first issue` labels once open to contributors
 
-## Phase 6 — Hardening ← current phase
-- [ ] CI running lint (`ruff`, `dart analyze`) + tests on every PR
-- [ ] `pip-audit` / `npm audit` dependency check
-- [ ] README polish — setup instructions, screenshot/gif of chat working
-- [ ] `CONTRIBUTING.md` filled in with real dev-environment setup steps
+## Phase 6 — Hardening ✅ done
+- [x] CI running lint (`ruff`, `dart analyze`) + tests on every PR
+- [x] `pip-audit` / `npm audit` dependency check
+- [x] README polish — setup instructions, screenshot/gif of chat working
+- [x] `CONTRIBUTING.md` filled in with real dev-environment setup steps
 
 ---
 
-**Currently here:** starting Phase 6.
+**Currently here:** Project Complete! All phases 1-6 finished.
