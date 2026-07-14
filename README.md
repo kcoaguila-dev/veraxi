@@ -12,6 +12,7 @@ The project now features a complete multi-tenant architecture, a Flutter UI with
 See [docs/ROADMAP.md](docs/ROADMAP.md) for the full phase history.
 
 ## Screenshots
+![Chat](docs/assets/chat.png)
 ![Control Panel](docs/assets/control_panel.png)
 
 ## 🏗 Architecture

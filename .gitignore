@@ -21,3 +21,6 @@ Thumbs.db
 .vscode/
 .idea//app/android/local.properties
 /app/ios/Flutter/Generated.xcconfig
+/app/.idea
+*.iml
+*.log

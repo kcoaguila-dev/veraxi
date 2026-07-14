@@ -51,7 +51,7 @@ void main() {
   test('triggerIngestion sets isIngesting and updates stats on success', () async {
     when(() => mockRepository.fetchStats())
         .thenAnswer((_) async => {'node_count': 5, 'vector_count': 5});
-    when(() => mockRepository.triggerIngestion())
+    when(() => mockRepository.triggerIngestion(any()))
         .thenAnswer((_) async => {'nodes_inserted': 5, 'vectors_inserted': 5});
 
     final viewModel = ControlPanelViewModel(mockRepository);
@@ -59,7 +59,7 @@ void main() {
     // Let constructor fetch finish
     await Future.delayed(Duration.zero);
 
-    final future = viewModel.triggerIngestion();
+    final future = viewModel.triggerIngestion("test text");
 
     // State should be ingesting immediately after call
     expect(viewModel.state.isIngesting, true);
