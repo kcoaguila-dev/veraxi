@@ -18,9 +18,9 @@ void main() {
 
     final viewModel = ControlPanelViewModel(mockRepository);
 
-    expect(viewModel.debugState.nodeCount, 0);
-    expect(viewModel.debugState.vectorCount, 0);
-    expect(viewModel.debugState.isIngesting, false);
+    expect(viewModel.state.nodeCount, 0);
+    expect(viewModel.state.vectorCount, 0);
+    expect(viewModel.state.isIngesting, false);
   });
 
   test('fetchStats updates state correctly on success', () async {
@@ -32,9 +32,9 @@ void main() {
     // fetchStats is called in constructor
     await Future.delayed(Duration.zero);
 
-    expect(viewModel.debugState.nodeCount, 15);
-    expect(viewModel.debugState.vectorCount, 10);
-    expect(viewModel.debugState.error, null);
+    expect(viewModel.state.nodeCount, 15);
+    expect(viewModel.state.vectorCount, 10);
+    expect(viewModel.state.error, null);
   });
 
   test('fetchStats updates error state on failure', () async {
@@ -45,7 +45,7 @@ void main() {
 
     await Future.delayed(Duration.zero);
 
-    expect(viewModel.debugState.error, contains('API error'));
+    expect(viewModel.state.error, contains('API error'));
   });
 
   test('triggerIngestion sets isIngesting and updates stats on success', () async {
@@ -62,12 +62,12 @@ void main() {
     final future = viewModel.triggerIngestion();
 
     // State should be ingesting immediately after call
-    expect(viewModel.debugState.isIngesting, true);
+    expect(viewModel.state.isIngesting, true);
 
     await future;
 
     // State should not be ingesting and should have a success message
-    expect(viewModel.debugState.isIngesting, false);
-    expect(viewModel.debugState.successMessage, contains('5 nodes and 5 vectors'));
+    expect(viewModel.state.isIngesting, false);
+    expect(viewModel.state.successMessage, contains('5 nodes and 5 vectors'));
   });
 }

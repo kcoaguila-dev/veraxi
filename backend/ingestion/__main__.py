@@ -9,7 +9,7 @@ from backend.ingestion.graph_write import write_to_graph
 
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 
-def run_ingestion(config):
+def run_ingestion(config, tenant_id: str = "default"):
     # 1. Initialize clients
     qdrant = QdrantStorageClient(url=config.qdrant_url, api_key=config.qdrant_api_key)
     neo4j = Neo4jStorageClient(uri=config.neo4j_uri, user=config.neo4j_user, password=config.neo4j_password)
@@ -25,7 +25,7 @@ def run_ingestion(config):
         "AI is transforming the Computer Science domain."
     )
 
-    logging.info("Starting ingestion...")
+    logging.info(f"Starting ingestion for tenant: {tenant_id}...")
 
     # 2. Chunk and embed
     chunks_and_embeddings = chunk_and_embed(text)
@@ -34,7 +34,7 @@ def run_ingestion(config):
     payloads = [{"text": item[0]} for item in chunks_and_embeddings]
 
     # 3. Write to Qdrant
-    qdrant_point_ids_list = qdrant.insert_points(COLLECTION_NAME, vectors, payloads)
+    qdrant_point_ids_list = qdrant.insert_points(COLLECTION_NAME, vectors, payloads, tenant_id=tenant_id)
     logging.info(f"Inserted {len(qdrant_point_ids_list)} points into Qdrant.")
 
     # Create dict mapping to pass to graph step
@@ -47,7 +47,7 @@ def run_ingestion(config):
     entities = resolve_entities(entities)
 
     # 5. Write to Neo4j
-    entity_id_map = write_to_graph(neo4j, entities, relations, qdrant_point_ids)
+    entity_id_map = write_to_graph(neo4j, entities, relations, qdrant_point_ids, tenant_id=tenant_id)
 
     logging.info(f"Ingestion complete. {len(entity_id_map)} Neo4j nodes, {len(qdrant_point_ids)} Qdrant points, linking verified.")
 
