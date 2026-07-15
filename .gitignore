@@ -24,3 +24,7 @@ Thumbs.db
 /app/.idea
 *.iml
 *.log
+/app/macos/Flutter/ephemeral/
+/app/ios/Flutter/ephemeral/
+/app/ios/Flutter/flutter_export_environment.sh
+/app/android/local.properties
