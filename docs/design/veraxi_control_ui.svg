@@ -1,0 +1,219 @@
+<svg width="1440" height="1024" viewBox="0 0 1440 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap');
+      .font-inter { font-family: 'Inter', sans-serif; }
+    </style>
+  </defs>
+
+  <!-- Main Background -->
+  <rect width="1440" height="1024" fill="#212121" />
+
+  <!-- ========================================== -->
+  <!-- FAR-LEFT ICON SIDEBAR (Consistent with Chat)-->
+  <!-- ========================================== -->
+  <rect width="64" height="1024" fill="#171717" />
+  
+  <g transform="translate(20, 20)">
+    <rect x="2" y="2" width="8" height="8" rx="2" fill="none" stroke="#B4B4B4" stroke-width="1.5" />
+    <rect x="14" y="2" width="8" height="8" rx="2" fill="none" stroke="#B4B4B4" stroke-width="1.5" />
+    <rect x="2" y="14" width="8" height="8" rx="2" fill="none" stroke="#B4B4B4" stroke-width="1.5" />
+    <rect x="14" y="14" width="8" height="8" rx="2" fill="none" stroke="#B4B4B4" stroke-width="1.5" />
+  </g>
+
+  <!-- Vertical Icons Stack -->
+  <g transform="translate(22, 70)" stroke="#B4B4B4" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M 2 4 h 16 v 12 h -16 z M 6 10 h 8 M 6 16 L 2 20 v -4" />
+    <path d="M 2 40 h 12 l 4 4 v 12 h -16 z" />
+    <!-- Highlighted settings icon (since we are in Control Panel) -->
+    <g transform="translate(0, 72)">
+      <circle cx="10" cy="10" r="3" stroke="#3B82F6"></circle>
+      <path stroke="#3B82F6" d="M17.4 13a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V19a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 7 17.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H1a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 2.6 7a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H7a1.65 1.65 0 0 0 1-1.51V1a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V7a1.65 1.65 0 0 0 1.51 1H19a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" transform="scale(0.8) translate(2.5, 2.5)"></path>
+    </g>
+    <path d="M 4 112 h 12 v 12 h -12 z M 6 116 h 2 M 12 116 h 2 M 2 118 h -2 M 18 118 h 2 M 10 112 v -3 M 8 107 h 4" />
+    <path d="M 4 148 h 12 v 16 l -6 -4 l -6 4 z" />
+  </g>
+
+  <!-- Bottom Blue Logo -->
+  <g transform="translate(20, 970)">
+    <path d="M 12 0 L 24 20 L 0 20 Z" fill="#3B82F6" opacity="0.8" />
+  </g>
+
+  <!-- ========================================== -->
+  <!-- MAIN NAVIGATION SIDEBAR                    -->
+  <!-- ========================================== -->
+  <rect x="64" y="0" width="260" height="1024" fill="#171717" />
+  
+  <g transform="translate(80, 40)">
+    <text x="0" y="0" fill="#E3E3E3" font-size="18" font-weight="600" class="font-inter">Control Panel</text>
+    
+    <!-- Menu Items -->
+    <g transform="translate(0, 40)">
+      <!-- Selected Item -->
+      <rect x="-10" y="0" width="244" height="44" rx="8" fill="#2F2F2F" />
+      <rect x="-10" y="10" width="4" height="24" rx="2" fill="#3B82F6" />
+      <path d="M 10 16 L 16 10 L 22 16 M 16 10 L 16 30" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" fill="none" transform="translate(-10, 4) scale(0.6)" />
+      <text x="32" y="27" fill="#FFFFFF" font-size="14" font-weight="600" class="font-inter">MCP Integrations</text>
+
+      <path d="M 0 68 c 0 -4 8 -4 8 0 v 4 c 4 0 4 8 0 8 v 4 h -8 c 0 4 -8 4 -8 0 h -8 z" stroke="#B4B4B4" stroke-width="1.5" fill="none" transform="scale(0.5) translate(10, 50)" />
+      <text x="32" y="75" fill="#B4B4B4" font-size="14" font-weight="500" class="font-inter">Data Pipeline</text>
+
+      <circle cx="6" cy="118" r="4" stroke="#B4B4B4" stroke-width="2" fill="none" />
+      <path d="M 10 118 L 18 118 L 18 122 M 14 118 L 14 122" stroke="#B4B4B4" stroke-width="2" stroke-linecap="round" fill="none" />
+      <text x="32" y="123" fill="#B4B4B4" font-size="14" font-weight="500" class="font-inter">API Keys</text>
+
+      <path d="M 6 158 L 16 154 L 26 158 V 166 C 26 172 16 178 16 178 C 16 178 6 172 6 166 V 158 Z" stroke="#B4B4B4" stroke-width="2" stroke-linejoin="round" fill="none" transform="translate(-6, -4) scale(0.85)" />
+      <text x="32" y="171" fill="#B4B4B4" font-size="14" font-weight="500" class="font-inter">Security &amp; Logs</text>
+    </g>
+  </g>
+
+  <!-- ========================================== -->
+  <!-- MAIN CONTENT AREA                          -->
+  <!-- ========================================== -->
+  <g transform="translate(380, 60)">
+    
+    <!-- Header Section -->
+    <text x="0" y="0" fill="#FFFFFF" font-size="28" font-weight="700" class="font-inter">MCP Integrations</text>
+    <text x="0" y="30" fill="#878787" font-size="15" font-weight="400" class="font-inter">Manage the external tools, services, and capabilities available to the Sovereign Intelligence.</text>
+
+    <!-- Top Action Bar -->
+    <g transform="translate(0, 80)">
+      <!-- Search Input -->
+      <rect width="360" height="44" rx="8" fill="#171717" stroke="#333333" stroke-width="1" />
+      <circle cx="20" cy="22" r="6" stroke="#878787" stroke-width="1.5" fill="none" />
+      <line x1="24" y1="26" x2="30" y2="32" stroke="#878787" stroke-width="1.5" stroke-linecap="round" />
+      <text x="44" y="27" fill="#878787" font-size="14" class="font-inter">Search integrations...</text>
+
+      <!-- Add Button -->
+      <g transform="translate(840, 0)">
+        <rect width="180" height="44" rx="8" fill="#FFFFFF" />
+        <path d="M 40 22 L 56 22 M 48 14 L 48 30" stroke="#171717" stroke-width="2" stroke-linecap="round" />
+        <text x="64" y="27" fill="#171717" font-size="14" font-weight="600" class="font-inter">Add Server</text>
+      </g>
+    </g>
+
+    <!-- Cards Grid -->
+    <g transform="translate(0, 160)">
+      
+      <!-- Card 1: Penpot -->
+      <g transform="translate(0, 0)">
+        <rect width="500" height="140" rx="16" fill="#2F2F2F" stroke="#333" stroke-width="1" />
+        <rect x="24" y="24" width="48" height="48" rx="12" fill="#171717" />
+        <circle cx="48" cy="48" r="10" fill="#3B82F6" /> <!-- Placeholder Logo -->
+        
+        <text x="88" y="44" fill="#FFFFFF" font-size="16" font-weight="600" class="font-inter">Neo4j Graph Database</text>
+        <circle cx="94" cy="62" r="4" fill="#10B981" />
+        <text x="106" y="66" fill="#10B981" font-size="13" font-weight="500" class="font-inter">Live Connection Active</text>
+        
+        <text x="24" y="104" fill="#B4B4B4" font-size="14" font-weight="400" class="font-inter">Grants the AI access to query and traverse the enterprise knowledge graph.</text>
+
+        <!-- Toggle Switch ON -->
+        <g transform="translate(420, 32)">
+          <rect width="44" height="24" rx="12" fill="#3B82F6" />
+          <circle cx="32" cy="12" r="10" fill="#FFFFFF" />
+        </g>
+      </g>
+
+      <!-- Card 2: Apex Substrate -->
+      <g transform="translate(520, 0)">
+        <rect width="500" height="140" rx="16" fill="#2F2F2F" stroke="#333" stroke-width="1" />
+        <rect x="24" y="24" width="48" height="48" rx="12" fill="#171717" />
+        <!-- Server Icon -->
+        <rect x="36" y="34" width="24" height="28" rx="4" stroke="#E3E3E3" stroke-width="2" fill="none" />
+        <line x1="36" y1="48" x2="60" y2="48" stroke="#E3E3E3" stroke-width="2" />
+        
+        <text x="88" y="44" fill="#FFFFFF" font-size="16" font-weight="600" class="font-inter">Cloud GPU Processing</text>
+        <circle cx="94" cy="62" r="4" fill="#10B981" />
+        <text x="106" y="66" fill="#10B981" font-size="13" font-weight="500" class="font-inter">Securely Connected</text>
+        
+        <text x="24" y="104" fill="#B4B4B4" font-size="14" font-weight="400" class="font-inter">Grants the AI access to high-performance computing power.</text>
+
+        <!-- Toggle Switch ON -->
+        <g transform="translate(420, 32)">
+          <rect width="44" height="24" rx="12" fill="#3B82F6" />
+          <circle cx="32" cy="12" r="10" fill="#FFFFFF" />
+        </g>
+      </g>
+
+      <!-- Card 3: Local Filesystem -->
+      <g transform="translate(0, 160)">
+        <rect width="500" height="140" rx="16" fill="#2F2F2F" stroke="#333" stroke-width="1" />
+        <rect x="24" y="24" width="48" height="48" rx="12" fill="#171717" />
+        <!-- Folder Icon -->
+        <path d="M 34 38 L 44 38 L 48 42 L 62 42 V 58 H 34 Z" stroke="#878787" stroke-width="2" stroke-linejoin="round" fill="none" />
+        
+        <text x="88" y="44" fill="#E3E3E3" font-size="16" font-weight="600" class="font-inter">Local Filesystem</text>
+        <circle cx="94" cy="62" r="4" fill="#878787" />
+        <text x="106" y="66" fill="#878787" font-size="13" font-weight="500" class="font-inter">Disconnected</text>
+        
+        <text x="24" y="104" fill="#878787" font-size="14" font-weight="400" class="font-inter">Permits the AI to read, write, and execute files in the workspace.</text>
+
+        <!-- Toggle Switch OFF -->
+        <g transform="translate(420, 32)">
+          <rect width="44" height="24" rx="12" fill="#424242" />
+          <circle cx="12" cy="12" r="10" fill="#B4B4B4" />
+        </g>
+      </g>
+
+      <!-- Card 4: GitHub -->
+      <g transform="translate(520, 160)">
+        <rect width="500" height="140" rx="16" fill="#2F2F2F" stroke="#EF4444" stroke-width="1" />
+        <rect x="24" y="24" width="48" height="48" rx="12" fill="#171717" />
+        <!-- Code Icon -->
+        <path d="M 40 38 L 34 48 L 40 58 M 56 38 L 62 48 L 56 58" stroke="#E3E3E3" stroke-width="2" stroke-linecap="round" fill="none" />
+        
+        <text x="88" y="44" fill="#FFFFFF" font-size="16" font-weight="600" class="font-inter">GitHub Repositories</text>
+        <circle cx="94" cy="62" r="4" fill="#EF4444" />
+        <text x="106" y="66" fill="#EF4444" font-size="13" font-weight="500" class="font-inter">Login Required</text>
+        
+        <text x="24" y="104" fill="#B4B4B4" font-size="14" font-weight="400" class="font-inter">Connects to your codebase to help the AI answer technical questions.</text>
+
+        <!-- Toggle Switch ON but Error -->
+        <g transform="translate(420, 32)">
+          <rect width="44" height="24" rx="12" fill="#3B82F6" />
+          <circle cx="32" cy="12" r="10" fill="#FFFFFF" />
+        </g>
+      </g>
+
+    </g>
+
+    <!-- Recent Activity Panel (Friendly Telemetry) -->
+    <g transform="translate(0, 520)">
+      <text x="0" y="0" fill="#FFFFFF" font-size="20" font-weight="600" class="font-inter">Recent Agent Activity</text>
+      <text x="0" y="26" fill="#878787" font-size="14" font-weight="400" class="font-inter">A transparent log of tools executed by the AI on your behalf.</text>
+
+      <!-- Table Header -->
+      <rect y="50" width="1020" height="40" rx="8" fill="#171717" />
+      <text x="24" y="75" fill="#878787" font-size="12" font-weight="600" class="font-inter">TIMESTAMP</text>
+      <text x="140" y="75" fill="#878787" font-size="12" font-weight="600" class="font-inter">AGENT MODEL</text>
+      <text x="340" y="75" fill="#878787" font-size="12" font-weight="600" class="font-inter">ACTION PERFORMED</text>
+      <text x="880" y="75" fill="#878787" font-size="12" font-weight="600" class="font-inter">STATUS</text>
+
+      <!-- Table Rows -->
+      <!-- Row 1 -->
+      <line x1="0" y1="130" x2="1020" y2="130" stroke="#333" stroke-width="1" />
+      <text x="24" y="115" fill="#B4B4B4" font-size="13" class="font-inter">14:48:32 PM</text>
+      <text x="140" y="115" fill="#E3E3E3" font-size="13" font-weight="500" class="font-inter">gemini-2.5-flash-lite</text>
+      <text x="340" y="115" fill="#B4B4B4" font-size="13" class="font-inter">Read file: docs/architecture.md</text>
+      <rect x="880" y="100" width="70" height="24" rx="12" fill="#10B981" fill-opacity="0.1" />
+      <text x="894" y="116" fill="#10B981" font-size="12" font-weight="600" class="font-inter">Success</text>
+
+      <!-- Row 2 -->
+      <line x1="0" y1="170" x2="1020" y2="170" stroke="#333" stroke-width="1" />
+      <text x="24" y="155" fill="#B4B4B4" font-size="13" class="font-inter">14:45:10 PM</text>
+      <text x="140" y="155" fill="#E3E3E3" font-size="13" font-weight="500" class="font-inter">gemini-2.5-flash-lite</text>
+      <text x="340" y="155" fill="#B4B4B4" font-size="13" class="font-inter">Query Graph: Find architecture patterns</text>
+      <rect x="880" y="140" width="70" height="24" rx="12" fill="#10B981" fill-opacity="0.1" />
+      <text x="894" y="156" fill="#10B981" font-size="12" font-weight="600" class="font-inter">Success</text>
+
+      <!-- Row 3 -->
+      <text x="24" y="195" fill="#B4B4B4" font-size="13" class="font-inter">14:22:05 PM</text>
+      <text x="140" y="195" fill="#E3E3E3" font-size="13" font-weight="500" class="font-inter">gemini-2.5-flash-lite</text>
+      <text x="340" y="195" fill="#B4B4B4" font-size="13" class="font-inter">Fetch GitHub Repository: kcoaguila-dev/veraxi</text>
+      <rect x="880" y="180" width="70" height="24" rx="12" fill="#EF4444" fill-opacity="0.1" />
+      <text x="898" y="196" fill="#EF4444" font-size="12" font-weight="600" class="font-inter">Failed</text>
+
+    </g>
+
+  </g>
+</svg>
