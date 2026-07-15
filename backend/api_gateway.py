@@ -8,9 +8,18 @@ from backend.config import get_config
 from backend.storage.qdrant_client import QdrantStorageClient
 from backend.storage.neo4j_client import Neo4jStorageClient
 from backend.ingestion.__main__ import run_ingestion
+import sentry_sdk
 
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 logger = logging.getLogger(__name__)
+
+config = get_config()
+if config.sentry_dsn:
+    sentry_sdk.init(
+        dsn=config.sentry_dsn,
+        traces_sample_rate=1.0,
+        profiles_sample_rate=1.0,
+    )
 
 app = FastAPI(title="Veraxi API Gateway", description="Multi-Tenant SaaS HTTP Gateway for Phase 7")
 
@@ -54,6 +63,10 @@ async def chat_endpoint(request: ChatRequest, tenant_id: str = Depends(get_tenan
 @app.get("/health")
 async def health_check():
     return {"status": "ok"}
+
+@app.get("/sentry-debug")
+async def trigger_error():
+    division_by_zero = 1 / int("0")
 
 @app.get("/api/admin/stats")
 def get_stats(tenant_id: str = Depends(get_tenant_id)):

@@ -3,7 +3,7 @@ import 'package:http/http.dart' as http;
 
 class ChatRepository {
   final http.Client _client;
-  final String _baseUrl = 'http://localhost:8000/api/chat';
+  final String _baseUrl = '${const String.fromEnvironment('API_URL', defaultValue: 'http://localhost:8000')}/api/chat';
   final String? tenantId;
 
   ChatRepository({http.Client? client, this.tenantId}) : _client = client ?? http.Client();

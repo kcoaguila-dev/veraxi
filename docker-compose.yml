@@ -1,3 +1,4 @@
+version: "3.8"
 services:
   neo4j:
     image: neo4j:5
@@ -28,6 +29,8 @@ services:
       - QDRANT_URL=http://qdrant:6333
     env_file:
       - ./backend/.env
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
     depends_on:
       - neo4j
       - qdrant

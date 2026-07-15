@@ -7,7 +7,7 @@ class ControlPanelRepository {
   final String? tenantId;
 
   ControlPanelRepository({
-    this.baseUrl = 'http://localhost:8000',
+    this.baseUrl = const String.fromEnvironment('API_URL', defaultValue: 'http://localhost:8000'),
     http.Client? client,
     this.tenantId,
   }) : client = client ?? http.Client();

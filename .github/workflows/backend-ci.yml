@@ -35,5 +35,10 @@ jobs:
       - name: Security audit with pip-audit
         run: pip-audit
 
+      - name: Check License Compliance
+        run: |
+          pip install pip-licenses
+          pip-licenses --fail-on="GPL;AGPL;LGPL" --partial-match
+
       - name: Run tests with pytest
         run: pytest

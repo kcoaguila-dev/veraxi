@@ -5,6 +5,13 @@ this repo. Follow the rules below exactly — they're deliberate constraints,
 not suggestions, and violating them is treated as a bug even if the code
 otherwise works.
 
+## Agent Behavior & Scope Discipline
+
+- **Scope Containment**: Never refactor code outside the explicit scope of the user's request. If you encounter unrelated technical debt or poor naming conventions, flag it to the user in your response rather than silently changing it.
+- **Preserve Context**: NEVER delete existing docstrings or inline comments when modifying a file. You must actively preserve the documentation written by human developers.
+- **No Placeholders**: Never write `# TODO: implement`, `pass`, or leave mocked data in a finished feature unless explicitly instructed to build a stub. Implement the full logic.
+- **Read Before Writing**: If a task involves architecture, state management, or infrastructure, you MUST search and read the `docs/adr/` (Architectural Decision Records) directory before proposing a plan.
+
 ## Project shape
 
 - `backend/` — Python. Organized by responsibility, not feature-first,
@@ -75,6 +82,32 @@ honor system.
     A single caller with an eye toward "future reuse" is not a second caller.
 - When you do extract shared logic (like merge_rank.py), it lives in one
   named location — don't let a second copy drift into existence elsewhere.
+
+## Environment & Dependency Management
+
+- **Source of Truth**: All backend dependencies MUST be declared in `pyproject.toml`. All frontend dependencies MUST be declared in `pubspec.yaml`. Do not rely solely on imperative `pip install` or `flutter pub add` commands without updating these files.
+- **PEP 668 Virtual Environment Enforcement**: Never use global `pip` or global Python interpreters. The host OS (Debian/Ubuntu) enforces PEP 668 ("externally-managed-environment"). Always execute commands explicitly through the virtual environment (e.g., `backend/.venv/bin/pip` or `backend/.venv/bin/pytest`).
+- **Secrets Management**: Never hardcode credentials, URLs, or DSNs in the source code. Backend secrets must be loaded via `os.environ` and documented in `.env.example`. Frontend secrets must be passed via `--dart-define` and retrieved using `String.fromEnvironment`.
+- **IDE State Synchronization**: If you add a new dependency, you must account for the IDE's Language Server caching. If an import fails immediately after installation, do not assume the code is broken; inform the user to reload the Language Server.
+
+## Code Quality & CodeScene Constraints
+
+This project adheres to a strict "Zero-Warning" policy in CodeScene to prevent "Bumpy Road" technical debt. All agents MUST follow these structural rules:
+- **Zero Cognitive Complexity Tolerance**: Break down monolithic logic. If a function requires deep nesting (e.g., a `for` loop inside an `if` inside a `try`), you must extract the inner logic into a well-named private helper function.
+- **Single Responsibility Helpers**: Functions should do one thing. If you are doing entity validation, looping, and data transformation in one block, extract the validation.
+- **Fail Fast & Guard Clauses**: Avoid deep `if/else` blocks. Return early to keep the main execution path at the lowest indentation level possible.
+- **No Linter/Analyzer Warnings**: Code MUST compile cleanly without Dart Analyzer or Pyright warnings. Do not leave "experimental feature" warnings or unused variables.
+
+## UI & Aesthetics (Flutter)
+
+- **Premium Design Required**: Never deliver generic, unstyled Material widgets. All UIs must feel premium, modern, and highly polished.
+- **Micro-animations**: Interactions (hovering, tapping, loading) must include subtle animations or transitions. Static, rigid UIs are unacceptable.
+- **Styling**: Use harmonious color palettes (avoid plain red/blue/green), sleek dark modes if applicable, smooth gradients, and modern typography (e.g., Google Fonts like Inter or Roboto). Do not just use browser/device defaults.
+
+## Logging & Observability
+
+- **No Print Statements**: Never use `print()` for production logic. In Python, use `logging.getLogger(__name__)`. In Dart, use `debugPrint()` or the designated logging framework.
+- **Sentry Traceability**: If catching an exception that shouldn't crash the app, ensure it is still reported to Sentry via `sentry_sdk.capture_exception(e)` (Python) or `Sentry.captureException(e)` (Dart) rather than silently swallowing it.
 
 ## Testing expectations
 

@@ -1,0 +1,19 @@
+FROM ghcr.io/cirruslabs/flutter:stable AS build
+
+WORKDIR /app
+COPY pubspec.yaml pubspec.lock ./
+RUN flutter pub get
+
+COPY . .
+# Configure and build the Flutter web app (Progressive Web App)
+RUN flutter create . --platforms web
+RUN flutter build web
+
+# Use a lightweight python image to serve the static files
+FROM python:3.12-slim
+WORKDIR /web
+COPY --from=build /app/build/web /web
+EXPOSE 8081
+
+# Serve the static files on port 8081
+CMD ["python", "-m", "http.server", "8081"]

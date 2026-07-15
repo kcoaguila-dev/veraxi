@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Veraxi Graph Artifact</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.26.0/cytoscape.min.js"></script>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background-color: #1E293B; /* match AppTheme.surface */
+    }
+    #cy {
+      width: 100vw;
+      height: 100vh;
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <div id="cy"></div>
+  <script>
+    let cy;
+
+    function renderGraph(elementsJson) {
+      const elements = JSON.parse(elementsJson);
+      
+      cy = cytoscape({
+        container: document.getElementById('cy'),
+        elements: elements,
+        style: [
+          {
+            selector: 'node',
+            style: {
+              'background-color': '#818CF8', // AppTheme.primaryGradientStart
+              'label': 'data(label)',
+              'color': '#F8FAFC',
+              'font-size': '12px',
+              'text-valign': 'center',
+              'text-halign': 'center',
+              'width': '60px',
+              'height': '60px',
+              'text-wrap': 'wrap',
+              'text-max-width': '50px'
+            }
+          },
+          {
+            selector: 'edge',
+            style: {
+              'width': 2,
+              'line-color': '#94A3B8',
+              'target-arrow-color': '#94A3B8',
+              'target-arrow-shape': 'triangle',
+              'curve-style': 'bezier',
+              'label': 'data(type)',
+              'color': '#F8FAFC',
+              'font-size': '10px',
+              'text-rotation': 'autorotate'
+            }
+          }
+        ],
+        layout: {
+          name: 'cose', // force-directed
+          idealEdgeLength: 100,
+          nodeOverlap: 20,
+          refresh: 20,
+          fit: true,
+          padding: 30,
+          randomize: false,
+          componentSpacing: 100,
+          nodeRepulsion: 400000,
+          edgeElasticity: 100,
+          nestingFactor: 5,
+        }
+      });
+    }
+
+    // Example payload for testing when run in browser directly:
+    // renderGraph(JSON.stringify([
+    //   { data: { id: 'a', label: 'Veraxi' } },
+    //   { data: { id: 'b', label: 'GraphRAG' } },
+    //   { data: { id: 'ab', source: 'a', target: 'b', type: 'USES' } }
+    // ]));
+  </script>
+</body>
+</html>

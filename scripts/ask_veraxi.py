@@ -11,7 +11,7 @@ if __name__ == "__main__":
         sys.exit(1)
         
     question = " ".join(sys.argv[1:])
-    print(f"\n🤔 Question: {question}\n")
+    print(f"Question: {question}\n")
     
     try:
         answer = answer_question(question)

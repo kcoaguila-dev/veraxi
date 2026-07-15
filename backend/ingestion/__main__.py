@@ -5,7 +5,7 @@ from backend.storage.neo4j_client import Neo4jStorageClient
 from backend.ingestion.chunk_embed import chunk_and_embed
 from backend.ingestion.extract import extract_entities_and_relations
 from backend.ingestion.entity_resolution import resolve_entities
-from backend.ingestion.graph_write import write_to_graph
+from backend.ingestion.graph_write import write_to_graph, IngestionPayload
 
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 
@@ -39,8 +39,10 @@ def run_ingestion(config, text: str, tenant_id: str = "default"):
     # Resolve entities to deduplicate
     entities = resolve_entities(entities)
 
+    payload = IngestionPayload(entities=entities, relations=relations, qdrant_point_ids=qdrant_point_ids)
+
     # 5. Write to Neo4j
-    entity_id_map = write_to_graph(neo4j, entities, relations, qdrant_point_ids, tenant_id=tenant_id)
+    entity_id_map = write_to_graph(neo4j, payload, tenant_id=tenant_id)
 
     logging.info(f"Ingestion complete. {len(entity_id_map)} Neo4j nodes, {len(qdrant_point_ids)} Qdrant points, linking verified.")
 

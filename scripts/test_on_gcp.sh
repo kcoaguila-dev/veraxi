@@ -4,11 +4,17 @@ set -e
 VM_NAME="veraxi-staging"
 REMOTE_DIR="veraxi"
 
-echo "Starting Veraxi GCP Staging Test Workflow..."
+# Automatically extract the zone from Terraform vars to make this script zero-config
+ZONE=$(grep '^zone' infra/terraform.tfvars | awk -F '"' '{print $2}')
+if [ -z "$ZONE" ]; then
+    ZONE="asia-northeast2-a" # Default fallback
+fi
+
+echo "Starting Veraxi GCP Staging Test Workflow in zone: $ZONE..."
 
 # 1. Sync local code to VM
 echo "Syncing local code to GCP..."
-gcloud compute ssh $VM_NAME --command="mkdir -p ~/$REMOTE_DIR"
+gcloud compute ssh $VM_NAME --zone=$ZONE --command="mkdir -p ~/$REMOTE_DIR"
 
 # Using tar over SSH is the fastest and most robust way to sync while excluding heavy/temp folders
 tar \
@@ -18,22 +24,21 @@ tar \
   --exclude='backend/.pytest_cache' \
   --exclude='backend/__pycache__' \
   --exclude='.git' \
-  -czf - . | gcloud compute ssh $VM_NAME --command="cd ~/$REMOTE_DIR && tar -xzf -"
+  -czf - . | gcloud compute ssh $VM_NAME --zone=$ZONE --command="cd ~/$REMOTE_DIR && tar -xzf -"
 
-# 2. Run tests remotely
+# 2. Run tests remotely inside Docker
 echo "Running tests on GCP..."
-gcloud compute ssh $VM_NAME --command="
+gcloud compute ssh $VM_NAME --zone=$ZONE --command="
   cd ~/$REMOTE_DIR && \
-  docker compose up -d && \
-  cd backend && \
-  if [ ! -d '.venv' ]; then \
-    echo 'Setting up Python virtual environment...'; \
-    python3 -m venv .venv; \
-  fi && \
-  source .venv/bin/activate && \
-  echo 'Ensuring dependencies are up to date...' && \
-  pip install -e '.[dev]' > /dev/null 2>&1 && \
-  pytest
+  echo 'Running Flutter tests in ephemeral container...' && \
+  docker build -t veraxi-frontend-test -f app/Dockerfile.test app/ && \
+  docker run --rm veraxi-frontend-test && \
+  echo 'Starting backend services...' && \
+  docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "\$PWD:\$PWD" -w "\$PWD" docker/compose:latest up -d --build && \
+  echo 'Waiting for services to be ready...' && \
+  sleep 5 && \
+  echo 'Running pytest inside the backend container...' && \
+  docker exec veraxi_backend_1 bash -c \"cd backend && pip install -e .[dev] && USE_TESTCONTAINERS=false pytest\"
 "
 
 echo "Workflow completed!"

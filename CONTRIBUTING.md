@@ -21,41 +21,29 @@ Follow these step-by-step instructions to set up your local development environm
    cd veraxi
    ```
 
-2. **Set up environment variables:**
-   You must set up `.env` files in both the `backend/` and `app/` directories.
+2. **Run the automated setup:**
+   This command will automatically create your `.env` files, build your Python virtual environment, install the `pre-commit` security hooks, and fetch the Flutter dependencies.
    ```bash
-   # For the backend
-   cp backend/.env.example backend/.env
-   # Ensure you add your GEMINI_API_KEY to backend/.env
-
-   # For the frontend
-   cp app/.env.example app/.env
+   make setup
    ```
 
-3. **Start local databases:**
-   Start the local instances of Neo4j and Qdrant using Docker.
+3. **Set up your API Key:**
+   Open the newly created `backend/.env` file and paste your `GEMINI_API_KEY`.
+
+4. **Start the backend and databases:**
+   Spin up Neo4j, Qdrant, and the FastAPI server using Docker.
    ```bash
-   docker-compose up -d
+   make up
    ```
 
-4. **Set up the Python backend:**
-   Create a virtual environment and install the dependencies.
-   ```bash
-   cd backend
-   python3 -m venv .venv
-   source .venv/bin/activate
-   pip install -e ".[dev]"
-   cd ..
-   ```
-
-5. **Set up the Flutter frontend:**
-   Install Flutter dependencies and run the app.
+5. **Start the Flutter frontend:**
+   Run the app natively on your host machine to get UI hot-reloading.
    ```bash
    cd app
-   flutter pub get
    flutter run
-   cd ..
    ```
+
+*(Note: When you are done working, you can stop the databases by running `make down`).*
 
 ## Architectural Rules
 

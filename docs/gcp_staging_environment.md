@@ -6,64 +6,70 @@ This approach allows you to code locally on your primary development machine, bu
 
 ## 1. VM Specifications
 
-**Why not Google's Container-Optimized OS (COS) or Alpine?**
-While Google's Container-Optimized OS is incredibly lightweight and secure (it has no terminal shell/package manager by default), its root filesystem is read-only and it is designed *exclusively* for running Docker containers. Because our current Veraxi testing workflow requires running `pytest` in a local Python virtual environment (while only the databases are in Docker), a minimal Debian installation is the much better choice. It is still extremely lightweight (no GUI, minimal background processes) but allows you to easily run Python natively without complex workarounds.
+**Why Google's Container-Optimized OS (COS)?**
+Because Jules fully Dockerized the Veraxi stack in Phase 8 (including the FastAPI backend), we no longer need to run Python natively on the host machine. This allows us to use Google's Container-Optimized OS (COS). COS is a highly secure, incredibly lightweight OS purpose-built by Google *exclusively* for running Docker containers. It has no package manager and a read-only root filesystem, meaning it is virtually impervious to standard Linux malware and boots incredibly fast.
 
 - **Machine Type:** `e2-standard-4` (4 vCPU, 16GB RAM). *Neo4j and Qdrant are highly memory-intensive. 16GB provides enough headroom for the databases plus the Python backend.*
-- **OS Image:** `debian-12` (Minimal, no GUI).
+- **OS Image:** `cos-stable` (Container-Optimized OS).
 - **Disk:** 30GB Standard Persistent Disk.
 
 ## 2. One-Time VM Creation
 
-Run this command from your local machine (where `gcloud` is authenticated) to create the VM:
+You have two options for creating the VM depending on your preference:
+
+### Option A: Quick CLI (Recommended for beginners)
+Run this command from your local machine (where `gcloud` is authenticated) or from Google Cloud Shell:
 
 ```bash
 gcloud compute instances create veraxi-staging \
   --machine-type=e2-standard-4 \
-  --image-family=debian-12 \
-  --image-project=debian-cloud \
+  --image-family=cos-stable \
+  --image-project=cos-cloud \
   --boot-disk-size=30GB \
   --tags=http-server,https-server
 ```
 
-## 3. Initial VM Setup (Run Once)
+### Option B: Terraform (Recommended for teams)
+We use **Terraform** (Infrastructure as Code) to provision this VM so that our staging environment is perfectly reproducible.
 
-SSH into the new machine:
-```bash
-gcloud compute ssh veraxi-staging
-```
+1. Navigate to the `infra/` directory:
+   ```bash
+   cd infra
+   ```
+2. Create a file named `terraform.tfvars` (this file is ignored by git so your project ID stays private) and add your project ID:
+   ```hcl
+   project_id = "your-actual-gcp-project-id"
+   ```
+3. Initialize and apply the Terraform configuration:
+   ```bash
+   terraform init
+   terraform apply
+   ```
+*(Terraform will show you what it plans to create. Type `yes` to confirm).*
 
-Install Docker, Docker Compose, and Python tools:
-```bash
-# Update and install dependencies
-sudo apt-get update
-sudo apt-get install -y docker.io docker-compose-plugin python3-pip python3-venv git
+## 3. Initial VM Setup
 
-# Allow your user to run Docker without sudo
-sudo usermod -aG docker $USER
-newgrp docker
-```
+Because COS comes with Docker pre-installed out of the box, **there is zero initial setup required on the VM itself!** You do not need to install `docker`, `python`, or configure any virtual environments. 
 
-*(You can now log out of the SSH session).*
+*(You can skip straight to the workflow step).*
 
 ## 4. The Sync-and-Test Workflow
 
 Because you are writing code locally but testing in the cloud, do **not** use `git clone` on the VM. It will force you to commit unfinished code just to test it. 
 
-We have created an automated bash script that syncs your local code to the VM (excluding massive build folders) and runs the test suite in one command!
+We have automated this sync process into the project's Makefile!
 
 Whenever you want to test your local changes on GCP, simply run:
 ```bash
-./scripts/test_on_gcp.sh
+make test-gcp
 ```
 
-*(Note: If you or another contributor want to use a different VM name, you can pass it directly as an argument like `./scripts/test_on_gcp.sh my-custom-vm`)*
+*(Note: If you or another contributor want to use a different VM name, you can pass it directly to the underlying script like `./scripts/test_on_gcp.sh my-custom-vm`)*
 
 This script will automatically:
 1. Sync your current local directory to the GCP VM.
-2. SSH into the VM and start the database containers.
-3. Set up the Python virtual environment (if it doesn't exist).
-4. Run the entire `pytest` suite.
+2. SSH into the VM and use Docker to spin up the databases and the FastAPI backend.
+3. Run the entire `pytest` suite directly inside the backend container.
 
 ## 5. Cost Management: Stop, Don't Delete
 

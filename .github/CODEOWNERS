@@ -1,0 +1,12 @@
+# Global default owner (matches your GitHub handle based on the repo namespace)
+*       @kcoaguila-dev
+
+# Backend Logic
+/backend/     @kcoaguila-dev
+
+# Flutter Frontend
+/app/         @kcoaguila-dev
+
+# Infrastructure and DevOps
+/infra/       @kcoaguila-dev
+.github/      @kcoaguila-dev

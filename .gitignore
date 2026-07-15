@@ -28,3 +28,4 @@ Thumbs.db
 /app/ios/Flutter/ephemeral/
 /app/ios/Flutter/flutter_export_environment.sh
 /app/android/local.properties
+*.tfvars

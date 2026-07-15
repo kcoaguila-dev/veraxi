@@ -13,6 +13,7 @@ class Config:
     qdrant_api_key: str
     gemini_api_key: str
     embedding_api_key: str
+    sentry_dsn: str
 
     @classmethod
     def from_env(cls) -> "Config":
@@ -22,8 +23,9 @@ class Config:
             neo4j_password=_require("NEO4J_PASSWORD"),
             qdrant_url=_require("QDRANT_URL"),
             qdrant_api_key=os.environ.get("QDRANT_API_KEY", ""),
-            gemini_api_key=_require("GEMINI_API_KEY"),
+            gemini_api_key=os.environ.get("GEMINI_API_KEY", ""),
             embedding_api_key=os.environ.get("EMBEDDING_API_KEY", ""),
+            sentry_dsn=os.environ.get("SENTRY_DSN", ""),
         )
 
 
