@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
@@ -9,6 +9,9 @@ from backend.storage.qdrant_client import QdrantStorageClient
 from backend.storage.neo4j_client import Neo4jStorageClient
 from backend.ingestion.__main__ import run_ingestion
 import sentry_sdk
+import tempfile
+import os
+from docling.document_converter import DocumentConverter
 
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 logger = logging.getLogger(__name__)
@@ -118,4 +121,49 @@ def ingest_data(request: IngestRequest, tenant_id: str = Depends(get_tenant_id))
         return result
     except Exception as e:
         logger.error(f"Error during ingestion: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+class UrlIngestRequest(BaseModel):
+    url: str
+
+@app.post("/api/admin/ingest/upload")
+async def ingest_upload(file: UploadFile = File(...), tenant_id: str = Depends(get_tenant_id)):
+    try:
+        # Save uploaded file to temp file
+        _, file_extension = os.path.splitext(file.filename)
+        with tempfile.NamedTemporaryFile(delete=False, suffix=file_extension) as tmp_file:
+            content = await file.read()
+            tmp_file.write(content)
+            tmp_path = tmp_file.name
+
+        config = get_config()
+        logger.info(f"Converting file {file.filename} with Docling...")
+        converter = DocumentConverter()
+        result = converter.convert(tmp_path)
+        markdown_text = result.document.export_to_markdown()
+
+        # Clean up temp file
+        os.unlink(tmp_path)
+
+        logger.info(f"Ingesting {len(markdown_text)} bytes of markdown from {file.filename}")
+        ingestion_result = run_ingestion(config, markdown_text, tenant_id)
+        return ingestion_result
+    except Exception as e:
+        logger.error(f"Error during file ingestion: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/admin/ingest/url")
+def ingest_url(request: UrlIngestRequest, tenant_id: str = Depends(get_tenant_id)):
+    try:
+        config = get_config()
+        logger.info(f"Converting URL {request.url} with Docling...")
+        converter = DocumentConverter()
+        result = converter.convert(request.url)
+        markdown_text = result.document.export_to_markdown()
+
+        logger.info(f"Ingesting {len(markdown_text)} bytes of markdown from {request.url}")
+        ingestion_result = run_ingestion(config, markdown_text, tenant_id)
+        return ingestion_result
+    except Exception as e:
+        logger.error(f"Error during URL ingestion: {e}")
         raise HTTPException(status_code=500, detail=str(e))

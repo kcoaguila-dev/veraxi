@@ -19,6 +19,8 @@ dependencies = [
     "fastapi",
     "uvicorn",
     "sentry-sdk[fastapi]",
+    "docling",
+    "python-multipart",
 ]
 
 [project.optional-dependencies]
