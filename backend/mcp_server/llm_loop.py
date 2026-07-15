@@ -1,5 +1,5 @@
 import logging
-from typing import Tuple, List, Dict, Any
+from typing import Tuple, List, Any
 from google import genai
 from google.genai import types
 from backend.config import get_config

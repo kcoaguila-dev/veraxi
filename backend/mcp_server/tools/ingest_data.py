@@ -1,4 +1,3 @@
-from typing import Dict, Any
 import logging
 from backend.config import get_config
 from backend.ingestion.__main__ import run_ingestion

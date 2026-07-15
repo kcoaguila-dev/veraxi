@@ -69,7 +69,7 @@ async def health_check():
 
 @app.get("/sentry-debug")
 async def trigger_error():
-    division_by_zero = 1 / int("0")
+    _ = 1 / int("0")
 
 @app.get("/api/admin/stats")
 def get_stats(tenant_id: str = Depends(get_tenant_id)):
