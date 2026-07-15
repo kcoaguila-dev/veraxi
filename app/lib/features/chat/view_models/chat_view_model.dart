@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/chat_repository.dart';
+import '../data/chat_database.dart';
 
 class ChatMessage {
   final String text;
@@ -38,37 +39,58 @@ final chatRepositoryProvider = Provider<ChatRepository>((ref) {
 
 class ChatViewModel extends StateNotifier<ChatState> {
   final ChatRepository _repository;
+  final ChatDatabase _database;
 
-  ChatViewModel(this._repository) : super(ChatState());
+  ChatViewModel(this._repository, this._database) : super(ChatState()) {
+    _loadHistory();
+  }
+
+  Future<void> _loadHistory() async {
+    final rows = await _database.getMessages();
+    final messages = rows.map((row) => ChatMessage(
+      text: row['text'],
+      isUser: row['is_user'] == 1,
+    )).toList();
+    state = state.copyWith(messages: messages);
+  }
 
   Future<void> sendMessage(String text) async {
     if (text.trim().isEmpty) return;
 
-    // Add user message and set loading
     state = state.copyWith(
       messages: [...state.messages, ChatMessage(text: text, isUser: true)],
       isLoading: true,
       error: null,
     );
 
+    // Save user message
+    await _database.saveMessage(text, true);
+
     try {
       final answer = await _repository.sendMessage(text);
-      // Add bot message and clear loading
+      
+      // Save AI message
+      await _database.saveMessage(answer, false);
+      
       state = state.copyWith(
         messages: [...state.messages, ChatMessage(text: answer, isUser: false)],
         isLoading: false,
       );
     } catch (e) {
-      // Set error and clear loading
       state = state.copyWith(
         isLoading: false,
         error: e.toString(),
       );
     }
   }
+
+  Future<void> clearChat() async {
+    await _database.clearHistory();
+    state = state.copyWith(messages: []);
+  }
 }
 
 final chatViewModelProvider = StateNotifierProvider<ChatViewModel, ChatState>((ref) {
   final repository = ref.watch(chatRepositoryProvider);
-  return ChatViewModel(repository);
+  return ChatViewModel(repository, ChatDatabase.instance);
 });

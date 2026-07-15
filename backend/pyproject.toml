@@ -16,9 +16,9 @@ dependencies = [
     "qdrant-client",
     "mcp",
     "google-genai",
-    "splink",
     "fastapi",
     "uvicorn",
+    "sentry-sdk[fastapi]",
 ]
 
 [project.optional-dependencies]

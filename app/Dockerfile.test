@@ -1,0 +1,19 @@
+FROM ghcr.io/cirruslabs/flutter:stable
+
+# Install OS dependencies required by flutter_secure_storage on Linux
+RUN sudo apt-get update && sudo apt-get install -y libsecret-1-dev
+
+WORKDIR /app
+
+# Copy dependency files first to leverage Docker layer caching
+COPY pubspec.yaml pubspec.lock ./
+RUN flutter pub get
+
+# Copy the rest of the application
+COPY . .
+
+# Enforce Zero-Warning policy (CodeScene)
+RUN flutter analyze
+
+# Run the test suite
+CMD ["flutter", "test"]

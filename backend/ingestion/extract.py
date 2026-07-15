@@ -47,6 +47,83 @@ Allowed Relation Types:
 Only output valid JSON. No markdown formatting, no explanations.
 """
 
+def _clean_llm_json_output(output: str) -> str:
+    """Removes markdown code blocks if the LLM hallucinated them."""
+    output = output.strip()
+    if output.startswith("```json"):
+        output = output[7:]
+    elif output.startswith("```"):
+        output = output[3:]
+
+    if output.endswith("```"):
+        output = output[:-3]
+
+    return output.strip()
+
+def _is_valid_entity(ent_type: Any, name: Any) -> bool:
+    return ent_type in ALLOWED_ENTITY_TYPES and isinstance(name, str) and bool(name.strip())
+
+def _validate_single_relation(rel: Dict[str, str], entity_name_to_type: Dict[str, str]) -> Dict[str, str] | None:
+    if not isinstance(rel, dict):
+        return None
+
+    from_ent = rel.get("from_entity")
+    to_ent = rel.get("to_entity")
+    rel_type = rel.get("type")
+
+    if from_ent not in entity_name_to_type or to_ent not in entity_name_to_type:
+        return None
+
+    from_type = entity_name_to_type[from_ent]
+    to_type = entity_name_to_type[to_ent]
+
+    allowed_types = ALLOWED_RELATION_TYPES.get((from_type, to_type), [])
+    if rel_type in allowed_types:
+        return {
+            "from_entity": from_ent,
+            "to_entity": to_ent,
+            "type": rel_type
+        }
+    return None
+
+def _validate_entities(entities: List[Dict[str, Any]]) -> Tuple[List[Dict[str, Any]], Dict[str, str]]:
+    valid_entities = []
+    entity_name_to_type = {}
+
+    for ent in entities:
+        if not isinstance(ent, dict):
+            continue
+
+        ent_type = ent.get("type")
+        name = ent.get("name")
+        props = ent.get("properties", {})
+
+        if _is_valid_entity(ent_type, name):
+            valid_entities.append({
+                "type": ent_type,
+                "name": name,
+                "properties": props if isinstance(props, dict) else {}
+            })
+            entity_name_to_type[name] = ent_type
+
+    return valid_entities, entity_name_to_type
+
+def _validate_relations(relations: List[Dict[str, str]], entity_name_to_type: Dict[str, str]) -> List[Dict[str, str]]:
+    valid_relations = []
+    for rel in relations:
+        valid_rel = _validate_single_relation(rel, entity_name_to_type)
+        if valid_rel:
+            valid_relations.append(valid_rel)
+    return valid_relations
+
+def validate_extraction(entities: List[Dict[str, Any]], relations: List[Dict[str, str]]) -> Tuple[List[Dict[str, Any]], List[Dict[str, str]]]:
+    """
+    Pure-logic validation step that rejects/quarantines any LLM output that doesn't match the schema.
+    """
+    valid_entities, entity_name_to_type = _validate_entities(entities)
+    valid_relations = _validate_relations(relations, entity_name_to_type)
+    return valid_entities, valid_relations
+
 def extract_entities_and_relations(text: str) -> Tuple[List[Dict[str, Any]], List[Dict[str, str]]]:
     """
     Extract entities and relations using Gemini API constrained to a fixed schema.
@@ -63,20 +140,8 @@ def extract_entities_and_relations(text: str) -> Tuple[List[Dict[str, Any]], Lis
                 response_mime_type="application/json"
             )
         )
-        output = response.text
-
-        # Clean markdown code blocks if the LLM adds them
-        output = output.strip()
-        if output.startswith("```json"):
-            output = output[7:]
-        elif output.startswith("```"):
-            output = output[3:]
-
-        if output.endswith("```"):
-            output = output[:-3]
-
-        output = output.strip()
-
+        
+        output = _clean_llm_json_output(response.text)
         data = json.loads(output)
 
         raw_entities = data.get("entities", [])
@@ -86,52 +151,3 @@ def extract_entities_and_relations(text: str) -> Tuple[List[Dict[str, Any]], Lis
     except Exception as e:
         logger.error(f"Failed to extract entities/relations: {e}")
         return [], []
-
-def validate_extraction(entities: List[Dict[str, Any]], relations: List[Dict[str, str]]) -> Tuple[List[Dict[str, Any]], List[Dict[str, str]]]:
-    """
-    Pure-logic validation step that rejects/quarantines any LLM output that doesn't match the schema.
-    """
-    valid_entities = []
-    entity_name_to_type = {}
-
-    # Validate entities
-    for ent in entities:
-        if not isinstance(ent, dict):
-            continue
-
-        ent_type = ent.get("type")
-        name = ent.get("name")
-        props = ent.get("properties", {})
-
-        if ent_type in ALLOWED_ENTITY_TYPES and isinstance(name, str) and name.strip():
-            valid_entities.append({
-                "type": ent_type,
-                "name": name,
-                "properties": props if isinstance(props, dict) else {}
-            })
-            entity_name_to_type[name] = ent_type
-
-    valid_relations = []
-
-    # Validate relations
-    for rel in relations:
-        if not isinstance(rel, dict):
-            continue
-
-        from_ent = rel.get("from_entity")
-        to_ent = rel.get("to_entity")
-        rel_type = rel.get("type")
-
-        if from_ent in entity_name_to_type and to_ent in entity_name_to_type:
-            from_type = entity_name_to_type[from_ent]
-            to_type = entity_name_to_type[to_ent]
-
-            allowed_types = ALLOWED_RELATION_TYPES.get((from_type, to_type), [])
-            if rel_type in allowed_types:
-                valid_relations.append({
-                    "from_entity": from_ent,
-                    "to_entity": to_ent,
-                    "type": rel_type
-                })
-
-    return valid_entities, valid_relations

@@ -8,6 +8,10 @@ class MockControlPanelRepository extends Mock implements ControlPanelRepository 
 void main() {
   late MockControlPanelRepository mockRepository;
 
+  setUpAll(() {
+    registerFallbackValue('');
+  });
+
   setUp(() {
     mockRepository = MockControlPanelRepository();
   });

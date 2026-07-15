@@ -1,26 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../view_models/chat_view_model.dart';
+import 'package:veraxi_app/core/theme.dart';
+import 'package:veraxi_app/features/chat/view_models/chat_view_model.dart';
+import 'package:veraxi_app/features/chat/views/widgets/chat_bubble.dart';
+import 'package:veraxi_app/features/chat/views/widgets/chat_input.dart';
 
 class ChatScreen extends ConsumerStatefulWidget {
-  const ChatScreen({Key? key}) : super(key: key);
+  const ChatScreen({super.key});
 
   @override
   ConsumerState<ChatScreen> createState() => _ChatScreenState();
 }
 
 class _ChatScreenState extends ConsumerState<ChatScreen> {
-  final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
-
-  void _sendMessage() {
-    final text = _controller.text;
-    if (text.trim().isNotEmpty) {
-      ref.read(chatViewModelProvider.notifier).sendMessage(text);
-      _controller.clear();
-      _scrollToBottom();
-    }
-  }
 
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -37,82 +30,58 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   @override
   Widget build(BuildContext context) {
     final chatState = ref.watch(chatViewModelProvider);
+    final viewModel = ref.read(chatViewModelProvider.notifier);
 
     // Auto-scroll when new messages arrive
     ref.listen<ChatState>(chatViewModelProvider, (previous, next) {
-      if (previous?.messages.length != next.messages.length) {
+      if ((previous?.messages.length ?? 0) != next.messages.length) {
         _scrollToBottom();
       }
     });
 
     return Scaffold(
+      backgroundColor: AppTheme.background,
       appBar: AppBar(
-        title: const Text('Veraxi Chat'),
+        title: const Text('Veraxi Intelligence', style: TextStyle(fontWeight: FontWeight.bold)),
+        backgroundColor: AppTheme.background,
+        elevation: 0,
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1.0),
+          child: Container(
+            color: AppTheme.surfaceHighlight,
+            height: 1.0,
+          ),
+        ),
       ),
       body: Column(
         children: [
           if (chatState.error != null)
             Container(
-              padding: const EdgeInsets.all(8.0),
-              color: Colors.red.shade100,
+              width: double.infinity,
+              padding: const EdgeInsets.all(12.0),
+              color: Colors.redAccent.withAlpha(25),
               child: Text(
                 chatState.error!,
-                style: const TextStyle(color: Colors.red),
+                style: const TextStyle(color: Colors.redAccent),
+                textAlign: TextAlign.center,
               ),
             ),
           Expanded(
             child: ListView.builder(
               controller: _scrollController,
+              padding: const EdgeInsets.symmetric(vertical: 16.0),
               itemCount: chatState.messages.length,
               itemBuilder: (context, index) {
                 final message = chatState.messages[index];
-                return Align(
-                  alignment: message.isUser ? Alignment.centerRight : Alignment.centerLeft,
-                  child: Container(
-                    margin: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 8.0),
-                    padding: const EdgeInsets.all(12.0),
-                    decoration: BoxDecoration(
-                      color: message.isUser ? Colors.blue : Colors.grey.shade300,
-                      borderRadius: BorderRadius.circular(16.0),
-                    ),
-                    child: Text(
-                      message.text,
-                      style: TextStyle(
-                        color: message.isUser ? Colors.white : Colors.black,
-                      ),
-                    ),
-                  ),
-                );
+                return ChatBubble(message: message);
               },
             ),
           ),
-          if (chatState.isLoading)
-            const Padding(
-              padding: EdgeInsets.all(8.0),
-              child: CircularProgressIndicator(),
-            ),
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _controller,
-                    decoration: const InputDecoration(
-                      hintText: 'Type your message...',
-                      border: OutlineInputBorder(),
-                    ),
-                    onSubmitted: (_) => _sendMessage(),
-                    enabled: !chatState.isLoading,
-                  ),
-                ),
-                const SizedBox(width: 8.0),
-                IconButton(
-                  icon: const Icon(Icons.send),
-                  onPressed: chatState.isLoading ? null : _sendMessage,
-                ),
-              ],
-            ),
+          ChatInput(
+            isLoading: chatState.isLoading,
+            onSend: (text) {
+              viewModel.sendMessage(text);
+            },
           ),
         ],
       ),
@@ -121,7 +90,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   @override
   void dispose() {
-    _controller.dispose();
     _scrollController.dispose();
     super.dispose();
   }

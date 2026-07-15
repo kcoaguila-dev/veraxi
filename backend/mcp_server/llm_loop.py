@@ -1,4 +1,5 @@
 import logging
+from typing import Tuple, List, Dict, Any
 from google import genai
 from google.genai import types
 from backend.config import get_config
@@ -39,6 +40,35 @@ TOOLS = [
     )
 ]
 
+def _execute_tools(function_calls: List[Any], tenant_id: str) -> Tuple[List[Any], List[Any]]:
+    """Execute LLM requested tools and return vectors and graph hits."""
+    vector_hits = []
+    graph_hits = []
+
+    for function_call in function_calls:
+        tool_name = function_call.name
+        tool_input = function_call.args
+
+        logging.info(f"LLM called tool: {tool_name} with args: {tool_input}")
+
+        if tool_name == "search_vectors":
+            limit = int(tool_input.get("limit", 10))
+            vector_hits.extend(search_vectors(tool_input["query_text"], limit=limit, tenant_id=tenant_id))
+        elif tool_name == "query_graph":
+            max_hops = int(tool_input.get("max_hops", 2))
+            graph_hits.extend(query_graph(tool_input["entity_name"], max_hops=max_hops, tenant_id=tenant_id))
+            
+    return vector_hits, graph_hits
+
+def _build_context_string(merged_results: List[Any]) -> str:
+    """Build a formatted context string from fused results."""
+    context_parts = []
+    for i, res in enumerate(merged_results, 1):
+        source_info = " and ".join(res.sources)
+        payload_str = str(res.payload)
+        context_parts.append(f"[Result {i} (from {source_info})]: {payload_str}")
+
+    return "\n".join(context_parts)
 
 def answer_question(question: str, tenant_id: str = "default") -> str:
     """
@@ -46,6 +76,19 @@ def answer_question(question: str, tenant_id: str = "default") -> str:
     calls merge_rank to fuse them, then produces a final answer grounded in the fused results.
     Logs the provenance.
     """
+    # [MOCK] Generative UI Test Hook
+    if "show me a graph" in question.lower():
+        return '''{
+  "type": "graph",
+  "elements": [
+    { "data": { "id": "a", "label": "Veraxi" } },
+    { "data": { "id": "b", "label": "GraphRAG" } },
+    { "data": { "id": "c", "label": "Qdrant" } },
+    { "data": { "id": "ab", "source": "a", "target": "b", "type": "USES" } },
+    { "data": { "id": "bc", "source": "b", "target": "c", "type": "INTEGRATES" } }
+  ]
+}'''
+
     config = get_config()
     client = genai.Client(api_key=config.gemini_api_key)
 
@@ -59,53 +102,33 @@ def answer_question(question: str, tenant_id: str = "default") -> str:
         )
     )
 
-    vector_hits = []
-    graph_hits = []
-
-    if response.function_calls:
-        for function_call in response.function_calls:
-            tool_name = function_call.name
-            tool_input = function_call.args
-
-            logging.info(f"LLM called tool: {tool_name} with args: {tool_input}")
-
-            if tool_name == "search_vectors":
-                limit = int(tool_input.get("limit", 10))
-                vector_hits.extend(search_vectors(tool_input["query_text"], limit=limit, tenant_id=tenant_id))
-            elif tool_name == "query_graph":
-                max_hops = int(tool_input.get("max_hops", 2))
-                graph_hits.extend(query_graph(tool_input["entity_name"], max_hops=max_hops, tenant_id=tenant_id))
-
-    # Step 2: Merge and rank the results if any tools were called
-    if vector_hits or graph_hits:
-        merged_results = merge_rank(vector_hits, graph_hits)
-
-        logging.info(f"Provenance: Generated {len(merged_results)} fused results from tools.")
-
-        # Build context string
-        context_parts = []
-        for i, res in enumerate(merged_results, 1):
-            source_info = " and ".join(res.sources)
-            payload_str = str(res.payload)
-            context_parts.append(f"[Result {i} (from {source_info})]: {payload_str}")
-
-        context_str = "\n".join(context_parts)
-
-        # Step 3: Ask LLM for final answer grounded in context
-        final_prompt = (
-            f"Please answer the following question strictly based on the provided context.\n\n"
-            f"Context:\n{context_str}\n\n"
-            f"Question: {question}"
-        )
-
-        final_response = client.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=[final_prompt],
-            config=types.GenerateContentConfig(temperature=0.0)
-        )
-
-        return final_response.text
-    else:
+    if not response.function_calls:
         # LLM decided not to use tools
         logging.info("LLM did not call any tools. Returning its direct response.")
         return response.text
+
+    # Step 2: Merge and rank the results if any tools were called
+    vector_hits, graph_hits = _execute_tools(response.function_calls, tenant_id)
+    
+    if not vector_hits and not graph_hits:
+        return response.text
+
+    merged_results = merge_rank(vector_hits, graph_hits)
+    logging.info(f"Provenance: Generated {len(merged_results)} fused results from tools.")
+
+    context_str = _build_context_string(merged_results)
+
+    # Step 3: Ask LLM for final answer grounded in context
+    final_prompt = (
+        f"Please answer the following question strictly based on the provided context.\n\n"
+        f"Context:\n{context_str}\n\n"
+        f"Question: {question}"
+    )
+
+    final_response = client.models.generate_content(
+        model="gemini-2.5-flash",
+        contents=[final_prompt],
+        config=types.GenerateContentConfig(temperature=0.0)
+    )
+
+    return final_response.text
