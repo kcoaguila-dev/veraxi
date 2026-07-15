@@ -5,10 +5,12 @@ import 'package:http/http.dart' as http;
 
 class ChatRepository {
   final http.Client _client;
-  final String _baseUrl = '${const String.fromEnvironment('API_URL', defaultValue: 'http://localhost:8000')}/api/chat';
+  final String _baseUrl =
+      '${const String.fromEnvironment('API_URL', defaultValue: 'http://localhost:8000')}/api/chat';
   final String? tenantId;
 
-  ChatRepository({http.Client? client, this.tenantId}) : _client = client ?? http.Client();
+  ChatRepository({http.Client? client, this.tenantId})
+      : _client = client ?? http.Client();
 
   Future<String> sendMessage(String question) async {
     final headers = <String, String>{
@@ -19,13 +21,15 @@ class ChatRepository {
     }
 
     try {
-      final response = await _client.post(
-        Uri.parse(_baseUrl),
-        headers: headers,
-        body: jsonEncode({
-          'question': question,
-        }),
-      ).timeout(const Duration(seconds: 10));
+      final response = await _client
+          .post(
+            Uri.parse(_baseUrl),
+            headers: headers,
+            body: jsonEncode({
+              'question': question,
+            }),
+          )
+          .timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);

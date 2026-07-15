@@ -20,11 +20,14 @@ class BackendStats {
 
 class SettingsRepository {
   final ApiKeyStorage _storage = ApiKeyStorage();
-  final String _baseUrl = const String.fromEnvironment('API_URL', defaultValue: 'http://127.0.0.1:8000'); // Default API Gateway URL
+  final String _baseUrl = const String.fromEnvironment('API_URL',
+      defaultValue: 'http://127.0.0.1:8000'); // Default API Gateway URL
 
   Future<BackendStats> fetchStats() async {
     try {
-      final response = await http.get(Uri.parse('$_baseUrl/api/admin/stats')).timeout(const Duration(seconds: 10));
+      final response = await http
+          .get(Uri.parse('$_baseUrl/api/admin/stats'))
+          .timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         return BackendStats.fromJson(jsonDecode(response.body));

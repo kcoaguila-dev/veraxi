@@ -15,7 +15,8 @@ class ControlPanelScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Control Panel', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text('Control Panel',
+            style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: Colors.transparent,
         elevation: 0,
       ),
@@ -24,23 +25,36 @@ class ControlPanelScreen extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('System Intelligence', style: Theme.of(context).textTheme.titleLarge)
-                .animate().fade().slideY(begin: 0.2),
+            Text('System Intelligence',
+                    style: Theme.of(context).textTheme.titleLarge)
+                .animate()
+                .fade()
+                .slideY(begin: 0.2),
             const SizedBox(height: 16),
             _buildStatsGrid(state)
-                .animate().fade(delay: 100.ms).slideY(begin: 0.2),
+                .animate()
+                .fade(delay: 100.ms)
+                .slideY(begin: 0.2),
             const SizedBox(height: 32),
             Text('Configuration', style: Theme.of(context).textTheme.titleLarge)
-                .animate().fade(delay: 200.ms).slideY(begin: 0.2),
+                .animate()
+                .fade(delay: 200.ms)
+                .slideY(begin: 0.2),
             const SizedBox(height: 16),
             _buildApiKeyCard(state, viewModel)
-                .animate().fade(delay: 300.ms).slideY(begin: 0.2),
+                .animate()
+                .fade(delay: 300.ms)
+                .slideY(begin: 0.2),
             const SizedBox(height: 32),
             Text('Diagnostics', style: Theme.of(context).textTheme.titleLarge)
-                .animate().fade(delay: 400.ms).slideY(begin: 0.2),
+                .animate()
+                .fade(delay: 400.ms)
+                .slideY(begin: 0.2),
             const SizedBox(height: 16),
             _buildDiagnosticsCard()
-                .animate().fade(delay: 500.ms).slideY(begin: 0.2),
+                .animate()
+                .fade(delay: 500.ms)
+                .slideY(begin: 0.2),
           ],
         ),
       ),
@@ -89,7 +103,9 @@ class ControlPanelScreen extends ConsumerWidget {
               children: [
                 Icon(Icons.vpn_key_outlined, color: AppTheme.primary),
                 SizedBox(width: 8),
-                Text('Gemini API Key', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                Text('Gemini API Key',
+                    style:
+                        TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
               ],
             ),
             const SizedBox(height: 16),

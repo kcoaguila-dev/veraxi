@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -9,6 +8,7 @@ import 'package:veraxi_app/features/chat/view_models/chat_view_model.dart';
 import 'package:veraxi_app/features/chat/views/chat_screen.dart';
 
 class MockChatRepository extends Mock implements ChatRepository {}
+
 class MockChatDatabase extends Mock implements ChatDatabase {}
 
 void main() {
@@ -23,13 +23,16 @@ void main() {
     when(() => mockDatabase.saveMessage(any(), any())).thenAnswer((_) async {});
   });
 
-  testWidgets('ChatScreen shows error container instead of spinner on timeout', (WidgetTester tester) async {
-    when(() => mockRepository.sendMessage(any())).thenThrow(Exception('Connection timeout: Server took too long to respond.'));
+  testWidgets('ChatScreen shows error container instead of spinner on timeout',
+      (WidgetTester tester) async {
+    when(() => mockRepository.sendMessage(any())).thenThrow(
+        Exception('Connection timeout: Server took too long to respond.'));
 
     final container = ProviderContainer(
       overrides: [
         chatRepositoryProvider.overrideWithValue(mockRepository),
-        chatViewModelProvider.overrideWith((ref) => ChatViewModel(mockRepository, mockDatabase)),
+        chatViewModelProvider
+            .overrideWith((ref) => ChatViewModel(mockRepository, mockDatabase)),
       ],
     );
 
@@ -65,7 +68,10 @@ void main() {
     expect(find.byType(CircularProgressIndicator), findsNothing);
 
     // Verify the error text is visible in ChatInput
-    expect(find.textContaining('Connection timeout: Server took too long to respond.'), findsOneWidget);
+    expect(
+        find.textContaining(
+            'Connection timeout: Server took too long to respond.'),
+        findsOneWidget);
 
     // Verify TextField and send button are replaced by error state (we show an error outline icon)
     expect(find.byType(TextField), findsNothing);

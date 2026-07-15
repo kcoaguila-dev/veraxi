@@ -6,11 +6,11 @@ class AppTheme {
   static const Color background = Color(0xFF0F172A); // Slate 900
   static const Color surface = Color(0xFF1E293B); // Slate 800
   static const Color surfaceHighlight = Color(0xFF334155); // Slate 700
-  
+
   static const Color primary = Color(0xFF6366F1); // Indigo 500
   static const Color primaryGradientStart = Color(0xFF818CF8); // Indigo 400
   static const Color primaryGradientEnd = Color(0xFF6366F1); // Indigo 500
-  
+
   static const Color textPrimary = Color(0xFFF8FAFC); // Slate 50
   static const Color textSecondary = Color(0xFF94A3B8); // Slate 400
 
@@ -23,10 +23,12 @@ class AppTheme {
         onPrimary: Colors.white,
         onSurface: textPrimary,
       ),
-      textTheme: GoogleFonts.interTextTheme(ThemeData.dark().textTheme).copyWith(
+      textTheme:
+          GoogleFonts.interTextTheme(ThemeData.dark().textTheme).copyWith(
         bodyLarge: GoogleFonts.inter(color: textPrimary, fontSize: 16),
         bodyMedium: GoogleFonts.inter(color: textSecondary, fontSize: 14),
-        titleLarge: GoogleFonts.inter(color: textPrimary, fontSize: 20, fontWeight: FontWeight.bold),
+        titleLarge: GoogleFonts.inter(
+            color: textPrimary, fontSize: 20, fontWeight: FontWeight.bold),
       ),
       cardTheme: CardThemeData(
         color: surface,
@@ -52,7 +54,8 @@ class AppTheme {
           borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: primary, width: 2),
         ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       ),
     );
   }

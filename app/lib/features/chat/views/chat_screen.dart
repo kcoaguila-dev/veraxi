@@ -42,7 +42,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     return Scaffold(
       backgroundColor: AppTheme.background,
       appBar: AppBar(
-        title: const Text('Veraxi Intelligence', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text('Veraxi Intelligence',
+            style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: AppTheme.background,
         elevation: 0,
         bottom: PreferredSize(

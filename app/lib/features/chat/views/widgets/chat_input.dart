@@ -39,9 +39,7 @@ class _ChatInputState extends State<ChatInput> {
         border: Border(top: BorderSide(color: AppTheme.surfaceHighlight)),
       ),
       child: SafeArea(
-        child: widget.error != null
-            ? _buildErrorState()
-            : _buildInputState(),
+        child: widget.error != null ? _buildErrorState() : _buildInputState(),
       ),
     );
   }

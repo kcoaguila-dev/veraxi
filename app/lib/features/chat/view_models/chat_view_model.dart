@@ -47,10 +47,12 @@ class ChatViewModel extends StateNotifier<ChatState> {
 
   Future<void> _loadHistory() async {
     final rows = await _database.getMessages();
-    final messages = rows.map((row) => ChatMessage(
-      text: row['text'],
-      isUser: row['is_user'] == 1,
-    )).toList();
+    final messages = rows
+        .map((row) => ChatMessage(
+              text: row['text'],
+              isUser: row['is_user'] == 1,
+            ))
+        .toList();
     state = state.copyWith(messages: messages);
   }
 
@@ -68,10 +70,10 @@ class ChatViewModel extends StateNotifier<ChatState> {
 
     try {
       final answer = await _repository.sendMessage(text);
-      
+
       // Save AI message
       await _database.saveMessage(answer, false);
-      
+
       state = state.copyWith(
         messages: [...state.messages, ChatMessage(text: answer, isUser: false)],
         isLoading: false,
@@ -94,7 +96,8 @@ class ChatViewModel extends StateNotifier<ChatState> {
   }
 }
 
-final chatViewModelProvider = StateNotifierProvider<ChatViewModel, ChatState>((ref) {
+final chatViewModelProvider =
+    StateNotifierProvider<ChatViewModel, ChatState>((ref) {
   final repository = ref.watch(chatRepositoryProvider);
   return ChatViewModel(repository, ChatDatabase.instance);
 });

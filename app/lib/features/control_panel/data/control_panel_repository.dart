@@ -9,7 +9,8 @@ class ControlPanelRepository {
   final String? tenantId;
 
   ControlPanelRepository({
-    this.baseUrl = const String.fromEnvironment('API_URL', defaultValue: 'http://localhost:8000'),
+    this.baseUrl = const String.fromEnvironment('API_URL',
+        defaultValue: 'http://localhost:8000'),
     http.Client? client,
     this.tenantId,
   }) : client = client ?? http.Client();
@@ -24,10 +25,12 @@ class ControlPanelRepository {
 
   Future<Map<String, dynamic>> fetchStats() async {
     try {
-      final response = await client.get(
-        Uri.parse('$baseUrl/api/admin/stats'),
-        headers: _getHeaders(),
-      ).timeout(const Duration(seconds: 10));
+      final response = await client
+          .get(
+            Uri.parse('$baseUrl/api/admin/stats'),
+            headers: _getHeaders(),
+          )
+          .timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         return jsonDecode(response.body) as Map<String, dynamic>;
@@ -47,11 +50,13 @@ class ControlPanelRepository {
     final headers = _getHeaders()..['Content-Type'] = 'application/json';
 
     try {
-      final response = await client.post(
-        Uri.parse('$baseUrl/api/admin/ingest'),
-        headers: headers,
-        body: jsonEncode({'text': text}),
-      ).timeout(const Duration(seconds: 10));
+      final response = await client
+          .post(
+            Uri.parse('$baseUrl/api/admin/ingest'),
+            headers: headers,
+            body: jsonEncode({'text': text}),
+          )
+          .timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         return jsonDecode(response.body) as Map<String, dynamic>;
