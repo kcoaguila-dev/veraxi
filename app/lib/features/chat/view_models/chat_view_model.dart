@@ -88,6 +88,10 @@ class ChatViewModel extends StateNotifier<ChatState> {
     await _database.clearHistory();
     state = state.copyWith(messages: []);
   }
+
+  void clearError() {
+    state = state.copyWith(error: null);
+  }
 }
 
 final chatViewModelProvider = StateNotifierProvider<ChatViewModel, ChatState>((ref) {

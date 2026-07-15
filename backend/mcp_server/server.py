@@ -4,6 +4,7 @@ from mcp.server import Server
 from mcp.server.stdio import stdio_server
 from backend.mcp_server.tools.search_vectors import search_vectors
 from backend.mcp_server.tools.query_graph import query_graph
+from backend.mcp_server.tools.ingest_data import ingest_data
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +45,13 @@ def mcp_query_graph(entity_name: str, max_hops: int = 2) -> str:
     except Exception as e:
         logger.error(f"Error in query_graph tool: {e}")
         return f"Error executing tool: {e}"
+
+@mcp_server.tool()
+def mcp_ingest_data(text: str) -> str:
+    """
+    Ingest text data into the knowledge graph and vector store.
+    """
+    return ingest_data(text)
 
 async def run():
     """Run the MCP server over standard input/output."""

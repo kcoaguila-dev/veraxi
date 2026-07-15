@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'package:http/http.dart' as http;
 
 class ControlPanelRepository {
@@ -21,30 +23,47 @@ class ControlPanelRepository {
   }
 
   Future<Map<String, dynamic>> fetchStats() async {
-    final response = await client.get(
-      Uri.parse('$baseUrl/api/admin/stats'),
-      headers: _getHeaders(),
-    );
+    try {
+      final response = await client.get(
+        Uri.parse('$baseUrl/api/admin/stats'),
+        headers: _getHeaders(),
+      ).timeout(const Duration(seconds: 10));
 
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body) as Map<String, dynamic>;
-    } else {
-      throw Exception('Failed to load stats: ${response.statusCode}');
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      } else {
+        throw Exception('Server error: ${response.statusCode}');
+      }
+    } on SocketException {
+      throw Exception('Network error: Unable to connect to the server.');
+    } on TimeoutException {
+      throw Exception('Connection timeout: Server took too long to respond.');
+    } catch (e) {
+      throw Exception(e.toString());
     }
   }
 
   Future<Map<String, dynamic>> triggerIngestion(String text) async {
     final headers = _getHeaders()..['Content-Type'] = 'application/json';
-    final response = await client.post(
-      Uri.parse('$baseUrl/api/admin/ingest'),
-      headers: headers,
-      body: jsonEncode({'text': text}),
-    );
 
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body) as Map<String, dynamic>;
-    } else {
-      throw Exception('Failed to trigger ingestion: ${response.statusCode}');
+    try {
+      final response = await client.post(
+        Uri.parse('$baseUrl/api/admin/ingest'),
+        headers: headers,
+        body: jsonEncode({'text': text}),
+      ).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      } else {
+        throw Exception('Server error: ${response.statusCode}');
+      }
+    } on SocketException {
+      throw Exception('Network error: Unable to connect to the server.');
+    } on TimeoutException {
+      throw Exception('Connection timeout: Server took too long to respond.');
+    } catch (e) {
+      throw Exception(e.toString());
     }
   }
 }
