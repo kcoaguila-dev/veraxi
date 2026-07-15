@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:veraxi_app/core/theme.dart';
-import 'package:veraxi_app/features/chat/views/chat_screen.dart';
-import 'package:veraxi_app/features/control_panel/views/control_panel_screen.dart';
 
 import 'package:sentry_flutter/sentry_flutter.dart';
+import 'package:go_router/go_router.dart';
+
+import 'package:veraxi_app/core/router.dart';
 
 Future<void> main() async {
   await SentryFlutter.init(
@@ -25,39 +26,32 @@ class VeraxiApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+    return MaterialApp.router(
       title: 'Veraxi',
       theme: AppTheme.darkTheme,
-      home: const MainScreen(),
+      routerConfig: goRouter,
       debugShowCheckedModeBanner: false,
     );
   }
 }
 
-class MainScreen extends StatefulWidget {
-  const MainScreen({super.key});
+class ScaffoldWithNavBar extends StatelessWidget {
+  const ScaffoldWithNavBar({
+    required this.navigationShell,
+    super.key,
+  });
 
-  @override
-  State<MainScreen> createState() => _MainScreenState();
-}
-
-class _MainScreenState extends State<MainScreen> {
-  int _selectedIndex = 0;
-
-  static const List<Widget> _pages = <Widget>[
-    ChatScreen(),
-    ControlPanelScreen(),
-  ];
+  final StatefulNavigationShell navigationShell;
 
   void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
+    navigationShell.goBranch(
+      index,
+      initialLocation: index == navigationShell.currentIndex,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    // Determine if we are on a wide screen (desktop/tablet)
     final bool isWideScreen = MediaQuery.of(context).size.width >= 600;
 
     return Scaffold(
@@ -67,7 +61,7 @@ class _MainScreenState extends State<MainScreen> {
             NavigationRail(
               backgroundColor: AppTheme.background,
               indicatorColor: AppTheme.primary.withAlpha(51),
-              selectedIndex: _selectedIndex,
+              selectedIndex: navigationShell.currentIndex,
               onDestinationSelected: _onItemTapped,
               selectedIconTheme: const IconThemeData(color: AppTheme.primary),
               unselectedIconTheme: const IconThemeData(color: AppTheme.textSecondary),
@@ -87,7 +81,7 @@ class _MainScreenState extends State<MainScreen> {
           if (isWideScreen)
             const VerticalDivider(thickness: 1, width: 1, color: AppTheme.surfaceHighlight),
           Expanded(
-            child: _pages[_selectedIndex],
+            child: navigationShell,
           ),
         ],
       ),
@@ -109,7 +103,7 @@ class _MainScreenState extends State<MainScreen> {
                   label: 'Control Panel',
                 ),
               ],
-              currentIndex: _selectedIndex,
+              currentIndex: navigationShell.currentIndex,
               onTap: _onItemTapped,
             ),
     );
