@@ -43,11 +43,13 @@ class SettingsViewModel extends StateNotifier<SettingsState> {
     try {
       final key = await _repository.getGeminiKey() ?? '';
       final stats = await _repository.fetchStats();
-      state = state.copyWith(geminiKey: key, stats: stats, isLoading: false, error: null);
+      state = state.copyWith(
+          geminiKey: key, stats: stats, isLoading: false, error: null);
     } catch (e) {
       // If backend is down, we still load the key
       final key = await _repository.getGeminiKey() ?? '';
-      state = state.copyWith(geminiKey: key, isLoading: false, error: e.toString());
+      state =
+          state.copyWith(geminiKey: key, isLoading: false, error: e.toString());
     }
   }
 
@@ -67,6 +69,7 @@ class SettingsViewModel extends StateNotifier<SettingsState> {
   }
 }
 
-final settingsViewModelProvider = StateNotifierProvider<SettingsViewModel, SettingsState>((ref) {
+final settingsViewModelProvider =
+    StateNotifierProvider<SettingsViewModel, SettingsState>((ref) {
   return SettingsViewModel(ref.read(settingsRepositoryProvider));
 });

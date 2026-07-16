@@ -3,7 +3,8 @@ import 'package:mocktail/mocktail.dart';
 import 'package:veraxi_app/features/control_panel/data/control_panel_repository.dart';
 import 'package:veraxi_app/features/control_panel/view_models/control_panel_view_model.dart';
 
-class MockControlPanelRepository extends Mock implements ControlPanelRepository {}
+class MockControlPanelRepository extends Mock
+    implements ControlPanelRepository {}
 
 void main() {
   late MockControlPanelRepository mockRepository;
@@ -42,8 +43,7 @@ void main() {
   });
 
   test('fetchStats updates error state on failure', () async {
-    when(() => mockRepository.fetchStats())
-        .thenThrow(Exception('API error'));
+    when(() => mockRepository.fetchStats()).thenThrow(Exception('API error'));
 
     final viewModel = ControlPanelViewModel(mockRepository);
 
@@ -52,7 +52,8 @@ void main() {
     expect(viewModel.state.error, contains('API error'));
   });
 
-  test('triggerIngestion sets isIngesting and updates stats on success', () async {
+  test('triggerIngestion sets isIngesting and updates stats on success',
+      () async {
     when(() => mockRepository.fetchStats())
         .thenAnswer((_) async => {'node_count': 5, 'vector_count': 5});
     when(() => mockRepository.triggerIngestion(any()))

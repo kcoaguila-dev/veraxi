@@ -83,7 +83,9 @@ class _GraphArtifactState extends State<GraphArtifact> {
       child: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
-              ? Center(child: Text(_error!, style: const TextStyle(color: Colors.redAccent)))
+              ? Center(
+                  child: Text(_error!,
+                      style: const TextStyle(color: Colors.redAccent)))
               : WebViewWidget(controller: _controller),
     );
   }

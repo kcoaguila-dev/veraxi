@@ -10,7 +10,8 @@ import 'package:veraxi_app/core/router.dart';
 Future<void> main() async {
   await SentryFlutter.init(
     (options) {
-      options.dsn = const String.fromEnvironment('SENTRY_DSN', defaultValue: '');
+      options.dsn =
+          const String.fromEnvironment('SENTRY_DSN', defaultValue: '');
       options.tracesSampleRate = 1.0;
     },
     appRunner: () => runApp(
@@ -64,7 +65,8 @@ class ScaffoldWithNavBar extends StatelessWidget {
               selectedIndex: navigationShell.currentIndex,
               onDestinationSelected: _onItemTapped,
               selectedIconTheme: const IconThemeData(color: AppTheme.primary),
-              unselectedIconTheme: const IconThemeData(color: AppTheme.textSecondary),
+              unselectedIconTheme:
+                  const IconThemeData(color: AppTheme.textSecondary),
               destinations: const <NavigationRailDestination>[
                 NavigationRailDestination(
                   icon: Icon(Icons.chat_bubble_outline),
@@ -79,7 +81,8 @@ class ScaffoldWithNavBar extends StatelessWidget {
               ],
             ),
           if (isWideScreen)
-            const VerticalDivider(thickness: 1, width: 1, color: AppTheme.surfaceHighlight),
+            const VerticalDivider(
+                thickness: 1, width: 1, color: AppTheme.surfaceHighlight),
           Expanded(
             child: navigationShell,
           ),

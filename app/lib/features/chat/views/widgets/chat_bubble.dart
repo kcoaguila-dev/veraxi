@@ -22,10 +22,16 @@ class ChatBubble extends StatelessWidget {
         margin: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
         padding: const EdgeInsets.all(16.0),
         decoration: BoxDecoration(
-          color: message.isUser ? AppTheme.primary : AppTheme.surfaceHighlight.withAlpha(128),
+          color: message.isUser
+              ? AppTheme.primary
+              : AppTheme.surfaceHighlight.withAlpha(128),
           borderRadius: BorderRadius.circular(16).copyWith(
-            bottomRight: message.isUser ? const Radius.circular(0) : const Radius.circular(16),
-            bottomLeft: !message.isUser ? const Radius.circular(0) : const Radius.circular(16),
+            bottomRight: message.isUser
+                ? const Radius.circular(0)
+                : const Radius.circular(16),
+            bottomLeft: !message.isUser
+                ? const Radius.circular(0)
+                : const Radius.circular(16),
           ),
           border: message.isUser
               ? null
@@ -53,7 +59,9 @@ class ChatBubble extends StatelessWidget {
               children: [
                 Icon(Icons.auto_graph, color: AppTheme.primary, size: 18),
                 SizedBox(width: 8),
-                Text('Graph Visualization Artifact', style: TextStyle(color: AppTheme.primary, fontWeight: FontWeight.bold)),
+                Text('Graph Visualization Artifact',
+                    style: TextStyle(
+                        color: AppTheme.primary, fontWeight: FontWeight.bold)),
               ],
             ),
             const SizedBox(height: 12),

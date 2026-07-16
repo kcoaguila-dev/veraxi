@@ -30,7 +30,8 @@ class ControlPanelState {
       vectorCount: vectorCount ?? this.vectorCount,
       isIngesting: isIngesting ?? this.isIngesting,
       error: clearError ? null : (error ?? this.error),
-      successMessage: clearSuccessMessage ? null : (successMessage ?? this.successMessage),
+      successMessage:
+          clearSuccessMessage ? null : (successMessage ?? this.successMessage),
     );
   }
 }
@@ -83,7 +84,8 @@ class ControlPanelViewModel extends StateNotifier<ControlPanelState> {
 
       state = state.copyWith(
         isIngesting: false,
-        successMessage: 'Ingestion complete: ${nodes} nodes and ${vectors} vectors inserted.',
+        successMessage:
+            'Ingestion complete: ${nodes} nodes and ${vectors} vectors inserted.',
       );
     } catch (e) {
       state = state.copyWith(

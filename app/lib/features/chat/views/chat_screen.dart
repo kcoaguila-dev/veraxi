@@ -42,7 +42,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     return Scaffold(
       backgroundColor: AppTheme.background,
       appBar: AppBar(
-        title: const Text('Veraxi Intelligence', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text('Veraxi Intelligence',
+            style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: AppTheme.background,
         elevation: 0,
         bottom: PreferredSize(
@@ -55,17 +56,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       ),
       body: Column(
         children: [
-          if (chatState.error != null)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(12.0),
-              color: Colors.redAccent.withAlpha(25),
-              child: Text(
-                chatState.error!,
-                style: const TextStyle(color: Colors.redAccent),
-                textAlign: TextAlign.center,
-              ),
-            ),
           Expanded(
             child: ListView.builder(
               controller: _scrollController,
@@ -79,6 +69,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           ),
           ChatInput(
             isLoading: chatState.isLoading,
+            error: chatState.error,
+            onDismissError: () {
+              viewModel.clearError();
+            },
             onSend: (text) {
               viewModel.sendMessage(text);
             },

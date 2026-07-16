@@ -1,6 +1,7 @@
 from unittest.mock import patch
 from backend.mcp_server.tools.search_vectors import search_vectors
 from backend.mcp_server.tools.query_graph import query_graph
+from backend.mcp_server.tools.ingest_data import ingest_data
 from backend.ingestion.extract import validate_extraction
 from backend.retrieval.merge_rank import VectorHit, GraphHit
 
@@ -75,3 +76,18 @@ def test_extraction_validation_accepts_correct():
     assert len(valid_ents) == 2
     assert len(valid_rels) == 1
     assert valid_rels[0]["type"] == "WORKS_AT"
+
+@patch("backend.mcp_server.tools.ingest_data.run_ingestion")
+@patch("backend.mcp_server.tools.ingest_data.get_config")
+def test_ingest_data_shape(mock_get_config, mock_run_ingestion):
+    # Mock the ingestion response
+    mock_run_ingestion.return_value = {
+        "nodes_inserted": 5,
+        "vectors_inserted": 5
+    }
+
+    result = ingest_data("dummy text")
+
+    assert "Successfully ingested data." in result
+    assert "Inserted 5 graph nodes and 5 vector embeddings." in result
+    mock_run_ingestion.assert_called_once()

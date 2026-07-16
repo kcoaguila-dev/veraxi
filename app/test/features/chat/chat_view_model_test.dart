@@ -5,6 +5,7 @@ import 'package:veraxi_app/features/chat/data/chat_database.dart';
 import 'package:veraxi_app/features/chat/view_models/chat_view_model.dart';
 
 class MockChatRepository extends Mock implements ChatRepository {}
+
 class MockChatDatabase extends Mock implements ChatDatabase {}
 
 void main() {
@@ -15,11 +16,11 @@ void main() {
   setUp(() {
     mockRepository = MockChatRepository();
     mockDatabase = MockChatDatabase();
-    
+
     // Stub database load history call which happens in the constructor
     when(() => mockDatabase.getMessages()).thenAnswer((_) async => []);
     when(() => mockDatabase.saveMessage(any(), any())).thenAnswer((_) async {});
-    
+
     viewModel = ChatViewModel(mockRepository, mockDatabase);
   });
 
