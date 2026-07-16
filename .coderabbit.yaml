@@ -1,0 +1,39 @@
+# .coderabbit.yaml
+# Configuration for CodeRabbit AI Reviewer
+
+language: "en-US"
+early_access: false
+
+reviews:
+  profile: "chill"
+  request_changes_workflow: false
+  high_level_summary: true
+  poem: false
+  review_status: true
+  collapse_walkthrough: false
+  auto_review:
+    drafts: false
+
+chat:
+  auto_reply: true
+
+# Custom instructions to enforce Veraxi's specific architecture rules
+instructions: |
+  You are an expert AI code reviewer for the Veraxi Sovereign Intelligence project.
+  Please enforce the following strict architectural rules defined in our AGENTS.md:
+
+  1. BACKEND ARCHITECTURE (Python):
+     - The backend is a pipeline: ingestion -> storage, and retrieval -> storage.
+     - NEVER allow `mcp_server` to be imported by `storage` or `retrieval`.
+     - NEVER allow Cypher queries (Neo4j) to be built via string concatenation. They MUST use parameterized queries for security.
+     - Ensure Python code has zero cognitive complexity warnings. Break down deep nesting.
+
+  2. FRONTEND ARCHITECTURE (Flutter/Dart):
+     - All features must live under `lib/features/<feature_name>/`.
+     - Inside a feature, the strict dependency flow is: `views/` -> `view_models/` -> `data/`.
+     - `views/` (UI widgets) must NEVER import from `data/` or `core/mcp_client` directly.
+     - Do not allow generic, unstyled Material widgets. All UIs must feel premium and use the colors defined in `AppTheme`.
+
+  3. GENERAL:
+     - Flag any deleted docstrings or inline comments. Humans wrote those for a reason.
+     - Catch any `# TODO: implement` or mocked data. Features should be fully implemented unless explicitly marked as a stub.
