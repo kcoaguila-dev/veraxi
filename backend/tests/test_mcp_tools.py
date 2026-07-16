@@ -1,6 +1,7 @@
 from unittest.mock import patch
 from backend.mcp_server.tools.search_vectors import search_vectors
 from backend.mcp_server.tools.query_graph import query_graph
+from backend.mcp_server.tools.ingest_data import ingest_data
 from backend.ingestion.extract import validate_extraction
 from backend.retrieval.merge_rank import VectorHit, GraphHit
 
@@ -75,3 +76,50 @@ def test_extraction_validation_accepts_correct():
     assert len(valid_ents) == 2
     assert len(valid_rels) == 1
     assert valid_rels[0]["type"] == "WORKS_AT"
+
+@patch("backend.mcp_server.tools.ingest_data.run_ingestion")
+@patch("backend.mcp_server.tools.ingest_data.get_config")
+def test_ingest_data_shape(mock_get_config, mock_run_ingestion):
+    # Mock the ingestion response
+    mock_run_ingestion.return_value = {
+        "nodes_inserted": 5,
+        "vectors_inserted": 5
+    }
+
+    result = ingest_data("dummy text")
+
+    assert "Successfully ingested data." in result
+    assert "Inserted 5 graph nodes and 5 vector embeddings." in result
+    mock_run_ingestion.assert_called_once()
+
+@patch("backend.mcp_server.tools.ingest_data.run_ingestion")
+@patch("backend.mcp_server.tools.ingest_data.get_config")
+def test_ingest_data_passes_tenant_id(mock_get_config, mock_run_ingestion):
+    mock_config = mock_get_config.return_value
+    mock_run_ingestion.return_value = {"nodes_inserted": 1, "vectors_inserted": 1}
+
+    ingest_data("dummy text", tenant_id="tenant-42")
+
+    mock_run_ingestion.assert_called_once_with(
+        mock_config, "dummy text", tenant_id="tenant-42"
+    )
+
+@patch("backend.mcp_server.tools.ingest_data.run_ingestion")
+@patch("backend.mcp_server.tools.ingest_data.get_config")
+def test_ingest_data_defaults_missing_counts_to_zero(mock_get_config, mock_run_ingestion):
+    # Ingestion pipeline may return a result missing the expected keys
+    mock_run_ingestion.return_value = {}
+
+    result = ingest_data("dummy text")
+
+    assert "Inserted 0 graph nodes and 0 vector embeddings." in result
+
+@patch("backend.mcp_server.tools.ingest_data.run_ingestion")
+@patch("backend.mcp_server.tools.ingest_data.get_config")
+def test_ingest_data_returns_error_message_on_exception(mock_get_config, mock_run_ingestion):
+    mock_run_ingestion.side_effect = RuntimeError("pipeline failure")
+
+    result = ingest_data("dummy text")
+
+    assert "Error executing ingestion tool" in result
+    assert "pipeline failure" in result
