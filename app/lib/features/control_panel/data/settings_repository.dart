@@ -21,12 +21,22 @@ class SettingsRepository {
   final String _baseUrl = const String.fromEnvironment('API_URL', defaultValue: 'http://127.0.0.1:8000'); // Default API Gateway URL
 
   Future<BackendStats> fetchStats() async {
-    final response = await http.get(Uri.parse('$_baseUrl/api/admin/stats'));
+    try {
+      final response = await http.get(Uri.parse('$_baseUrl/api/admin/stats')).timeout(const Duration(seconds: 10));
 
-    if (response.statusCode == 200) {
-      return BackendStats.fromJson(jsonDecode(response.body));
-    } else {
-      throw Exception('Failed to load stats: ${response.body}');
+      if (response.statusCode == 200) {
+        return BackendStats.fromJson(jsonDecode(response.body));
+      } else {
+        throw Exception('Server error: ${response.statusCode}');
+      }
+    } on Exception catch (e) {
+      if (e.toString().contains('SocketException')) {
+        throw Exception('Network error: Unable to connect to the server.');
+      }
+      if (e.toString().contains('TimeoutException')) {
+        throw Exception('Connection timeout: Server took too long to respond.');
+      }
+      rethrow;
     }
   }
 

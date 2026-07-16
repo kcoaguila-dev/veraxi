@@ -1,7 +1,10 @@
 from typing import List, Dict, Any
 from backend.storage.neo4j_client import Neo4jStorageClient
 
-def get_community_detection(neo4j_client: Neo4jStorageClient, min_community_size: int = 1) -> List[Dict[str, Any]]:
+
+def get_community_detection(
+    neo4j_client: Neo4jStorageClient, min_community_size: int = 1
+) -> List[Dict[str, Any]]:
     """
     Uses Neo4j to find loosely connected components/communities.
     This simulates community detection by grouping connected nodes.
@@ -17,9 +20,14 @@ def get_community_detection(neo4j_client: Neo4jStorageClient, min_community_size
     ORDER BY size DESC
     """
 
-    return neo4j_client.execute_read(query_grouping, parameters={"min_community_size": min_community_size})
+    return neo4j_client.execute_read(
+        query_grouping, parameters={"min_community_size": min_community_size}
+    )
 
-def get_node_degree_centrality(neo4j_client: Neo4jStorageClient, limit: int = 10) -> List[Dict[str, Any]]:
+
+def get_node_degree_centrality(
+    neo4j_client: Neo4jStorageClient, limit: int = 10
+) -> List[Dict[str, Any]]:
     """
     Returns the nodes with the most relationships.
     """

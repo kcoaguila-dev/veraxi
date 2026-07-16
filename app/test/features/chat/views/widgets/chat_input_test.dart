@@ -85,11 +85,12 @@ void main() {
       expect(called, isFalse);
     });
 
-    testWidgets('shows the error state instead of the text field when '
+    testWidgets(
+        'shows the error state instead of the text field when '
         'an error is present', (tester) async {
       await tester.pumpWidget(wrap(ChatInput(
         isLoading: false,
-        error: 'Network error: Unable to connect to the server.',
+        errorText: 'Network error: Unable to connect to the server.',
         onSend: (_) {},
       )));
 
@@ -106,12 +107,12 @@ void main() {
       var dismissed = false;
       await tester.pumpWidget(wrap(ChatInput(
         isLoading: false,
-        error: 'Something went wrong',
+        errorText: 'Something went wrong',
         onSend: (_) {},
         onDismissError: () => dismissed = true,
       )));
 
-      await tester.tap(find.byTooltip('Dismiss error'));
+      await tester.tap(find.byIcon(Icons.close));
       await tester.pump();
 
       expect(dismissed, isTrue);

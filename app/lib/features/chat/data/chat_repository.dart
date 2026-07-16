@@ -16,19 +16,29 @@ class ChatRepository {
       headers['Authorization'] = 'Bearer $tenantId';
     }
 
-    final response = await _client.post(
-      Uri.parse(_baseUrl),
-      headers: headers,
-      body: jsonEncode({
-        'question': question,
-      }),
-    );
+    try {
+      final response = await _client.post(
+        Uri.parse(_baseUrl),
+        headers: headers,
+        body: jsonEncode({
+          'question': question,
+        }),
+      ).timeout(const Duration(seconds: 10));
 
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      return data['answer'] as String;
-    } else {
-      throw Exception('Failed to send message: ${response.statusCode}');
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data['answer'] as String;
+      } else {
+        throw Exception('Server error: ${response.statusCode}');
+      }
+    } on Exception catch (e) {
+      if (e.toString().contains('SocketException')) {
+        throw Exception('Network error: Unable to connect to the server.');
+      }
+      if (e.toString().contains('TimeoutException')) {
+        throw Exception('Connection timeout: Server took too long to respond.');
+      }
+      rethrow;
     }
   }
 }

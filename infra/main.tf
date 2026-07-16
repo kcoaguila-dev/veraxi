@@ -32,8 +32,8 @@ resource "google_compute_instance" "staging_vm" {
 
   network_interface {
     network = "default"
-    
+
     # This empty access_config block ensures the VM gets a public IP address
-    access_config {} 
+    access_config {}
   }
 }

@@ -13,7 +13,7 @@
   <!-- FAR-LEFT ICON SIDEBAR (Consistent with Chat)-->
   <!-- ========================================== -->
   <rect width="64" height="1024" fill="#171717" />
-  
+
   <g transform="translate(20, 20)">
     <rect x="2" y="2" width="8" height="8" rx="2" fill="none" stroke="#B4B4B4" stroke-width="1.5" />
     <rect x="14" y="2" width="8" height="8" rx="2" fill="none" stroke="#B4B4B4" stroke-width="1.5" />
@@ -43,10 +43,10 @@
   <!-- MAIN NAVIGATION SIDEBAR                    -->
   <!-- ========================================== -->
   <rect x="64" y="0" width="260" height="1024" fill="#171717" />
-  
+
   <g transform="translate(80, 40)">
     <text x="0" y="0" fill="#E3E3E3" font-size="18" font-weight="600" class="font-inter">Control Panel</text>
-    
+
     <!-- Menu Items -->
     <g transform="translate(0, 40)">
       <!-- Selected Item -->
@@ -71,7 +71,7 @@
   <!-- MAIN CONTENT AREA                          -->
   <!-- ========================================== -->
   <g transform="translate(380, 60)">
-    
+
     <!-- Header Section -->
     <text x="0" y="0" fill="#FFFFFF" font-size="28" font-weight="700" class="font-inter">MCP Integrations</text>
     <text x="0" y="30" fill="#878787" font-size="15" font-weight="400" class="font-inter">Manage the external tools, services, and capabilities available to the Sovereign Intelligence.</text>
@@ -94,17 +94,17 @@
 
     <!-- Cards Grid -->
     <g transform="translate(0, 160)">
-      
+
       <!-- Card 1: Penpot -->
       <g transform="translate(0, 0)">
         <rect width="500" height="140" rx="16" fill="#2F2F2F" stroke="#333" stroke-width="1" />
         <rect x="24" y="24" width="48" height="48" rx="12" fill="#171717" />
         <circle cx="48" cy="48" r="10" fill="#3B82F6" /> <!-- Placeholder Logo -->
-        
+
         <text x="88" y="44" fill="#FFFFFF" font-size="16" font-weight="600" class="font-inter">Neo4j Graph Database</text>
         <circle cx="94" cy="62" r="4" fill="#10B981" />
         <text x="106" y="66" fill="#10B981" font-size="13" font-weight="500" class="font-inter">Live Connection Active</text>
-        
+
         <text x="24" y="104" fill="#B4B4B4" font-size="14" font-weight="400" class="font-inter">Grants the AI access to query and traverse the enterprise knowledge graph.</text>
 
         <!-- Toggle Switch ON -->
@@ -121,11 +121,11 @@
         <!-- Server Icon -->
         <rect x="36" y="34" width="24" height="28" rx="4" stroke="#E3E3E3" stroke-width="2" fill="none" />
         <line x1="36" y1="48" x2="60" y2="48" stroke="#E3E3E3" stroke-width="2" />
-        
+
         <text x="88" y="44" fill="#FFFFFF" font-size="16" font-weight="600" class="font-inter">Cloud GPU Processing</text>
         <circle cx="94" cy="62" r="4" fill="#10B981" />
         <text x="106" y="66" fill="#10B981" font-size="13" font-weight="500" class="font-inter">Securely Connected</text>
-        
+
         <text x="24" y="104" fill="#B4B4B4" font-size="14" font-weight="400" class="font-inter">Grants the AI access to high-performance computing power.</text>
 
         <!-- Toggle Switch ON -->
@@ -141,11 +141,11 @@
         <rect x="24" y="24" width="48" height="48" rx="12" fill="#171717" />
         <!-- Folder Icon -->
         <path d="M 34 38 L 44 38 L 48 42 L 62 42 V 58 H 34 Z" stroke="#878787" stroke-width="2" stroke-linejoin="round" fill="none" />
-        
+
         <text x="88" y="44" fill="#E3E3E3" font-size="16" font-weight="600" class="font-inter">Local Filesystem</text>
         <circle cx="94" cy="62" r="4" fill="#878787" />
         <text x="106" y="66" fill="#878787" font-size="13" font-weight="500" class="font-inter">Disconnected</text>
-        
+
         <text x="24" y="104" fill="#878787" font-size="14" font-weight="400" class="font-inter">Permits the AI to read, write, and execute files in the workspace.</text>
 
         <!-- Toggle Switch OFF -->
@@ -161,11 +161,11 @@
         <rect x="24" y="24" width="48" height="48" rx="12" fill="#171717" />
         <!-- Code Icon -->
         <path d="M 40 38 L 34 48 L 40 58 M 56 38 L 62 48 L 56 58" stroke="#E3E3E3" stroke-width="2" stroke-linecap="round" fill="none" />
-        
+
         <text x="88" y="44" fill="#FFFFFF" font-size="16" font-weight="600" class="font-inter">GitHub Repositories</text>
         <circle cx="94" cy="62" r="4" fill="#EF4444" />
         <text x="106" y="66" fill="#EF4444" font-size="13" font-weight="500" class="font-inter">Login Required</text>
-        
+
         <text x="24" y="104" fill="#B4B4B4" font-size="14" font-weight="400" class="font-inter">Connects to your codebase to help the AI answer technical questions.</text>
 
         <!-- Toggle Switch ON but Error -->
