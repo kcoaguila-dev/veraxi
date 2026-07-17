@@ -33,14 +33,18 @@ class ChatRepository {
         throw Exception('Server error: ${response.statusCode}');
       }
     } on Exception catch (e, stackTrace) {
-      Sentry.captureException(e, stackTrace: stackTrace);
-      if (e.toString().contains('SocketException')) {
-        throw Exception('Network error: Unable to connect to the server.');
-      }
-      if (e.toString().contains('TimeoutException')) {
-        throw Exception('Connection timeout: Server took too long to respond.');
-      }
+      _handleNetworkException(e, stackTrace);
       rethrow;
+    }
+  }
+
+  void _handleNetworkException(Exception e, StackTrace stackTrace) {
+    Sentry.captureException(e, stackTrace: stackTrace);
+    if (e.toString().contains('SocketException')) {
+      throw Exception('Network error: Unable to connect to the server.');
+    }
+    if (e.toString().contains('TimeoutException')) {
+      throw Exception('Connection timeout: Server took too long to respond.');
     }
   }
 }

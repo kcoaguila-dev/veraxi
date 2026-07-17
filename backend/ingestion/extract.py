@@ -4,6 +4,7 @@ from typing import List, Dict, Any, Tuple
 from google import genai
 from google.genai import types
 from backend.config import get_config
+from backend.prompts import EXTRACTION_PROMPT
 
 logger = logging.getLogger(__name__)
 
@@ -16,36 +17,7 @@ ALLOWED_RELATION_TYPES = {
     ("Person", "Concept"): ["INVENTED", "RESEARCHES"],
 }
 
-EXTRACTION_PROMPT = """
-You are a precise data extraction tool. Extract entities and relationships from the following text.
-Strictly adhere to this JSON format and schema:
 
-{
-  "entities": [
-    {
-      "type": "Person|Organization|Concept",
-      "name": "string",
-      "properties": {"key": "value"}
-    }
-  ],
-  "relations": [
-    {
-      "from_entity": "string (must match an entity name)",
-      "to_entity": "string (must match an entity name)",
-      "type": "string"
-    }
-  ]
-}
-
-Allowed Entity Types: Person, Organization, Concept
-Allowed Relation Types:
-- Person to Organization: WORKS_AT, FOUNDED
-- Organization to Concept: DEVELOPS, USES
-- Concept to Concept: RELATES_TO
-- Person to Concept: INVENTED, RESEARCHES
-
-Only output valid JSON. No markdown formatting, no explanations.
-"""
 
 
 def _clean_llm_json_output(output: str) -> str:
@@ -92,6 +64,15 @@ def _validate_single_relation(
     return None
 
 
+def _normalize_single_property(value: Any) -> Any | None:
+    if value is None:
+        return None
+    if isinstance(value, (str, int, float, bool)):
+        return value
+    if isinstance(value, list) and all(isinstance(item, (str, int, float, bool)) for item in value):
+        return value
+    return None
+
 def _normalize_properties(props: Any) -> Dict[str, Any]:
     """
     Normalize properties to Neo4j-safe values.
@@ -102,17 +83,9 @@ def _normalize_properties(props: Any) -> Dict[str, Any]:
 
     normalized = {}
     for key, value in props.items():
-        # Keep only primitives and arrays of primitives
-        if value is None:
-            continue
-        elif isinstance(value, (str, int, float, bool)):
-            normalized[key] = value
-        elif isinstance(value, list):
-            # Keep only if all elements are primitives
-            if all(isinstance(item, (str, int, float, bool)) for item in value):
-                normalized[key] = value
-            # Otherwise drop it (nested structure)
-        # Drop dicts and other complex types
+        norm_val = _normalize_single_property(value)
+        if norm_val is not None:
+            normalized[key] = norm_val
 
     return normalized
 
@@ -173,11 +146,11 @@ def extract_entities_and_relations(
     Extract entities and relations using Gemini API constrained to a fixed schema.
     """
     config = get_config()
-    client = genai.Client(api_key=config.gemini_api_key)
+    client = genai.Client(api_key=config.llm_api_key)
 
     try:
         response = client.models.generate_content(
-            model="gemini-2.5-flash",
+            model=config.llm_model_name,
             contents=[EXTRACTION_PROMPT, "\n\nText to analyze:\n", text],
             config=types.GenerateContentConfig(
                 temperature=0.0, response_mime_type="application/json"

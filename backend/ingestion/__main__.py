@@ -18,7 +18,7 @@ def run_ingestion(config, text: str, tenant_id: str = "default"):
     )
 
     # Ensure qdrant collection exists
-    COLLECTION_NAME = "veraxi_docs"
+    COLLECTION_NAME = config.qdrant_collection_name
     qdrant.create_collection(COLLECTION_NAME)
 
     logging.info(f"Starting ingestion for tenant: {tenant_id}...")

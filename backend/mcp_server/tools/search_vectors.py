@@ -13,15 +13,15 @@ def search_vectors(
     Embeds the query_text, performs a vector search, and returns VectorHit objects ready for merge_rank.
     """
     config = get_config()
-    qdrant = QdrantStorageClient(url=config.qdrant_url, api_key=config.qdrant_api_key)
-
-    COLLECTION_NAME = "veraxi_docs"
+    qdrant_client = QdrantStorageClient(config.qdrant_url, config.qdrant_api_key)
+    
+    COLLECTION_NAME = config.qdrant_collection_name
 
     # Embed the query
     query_vector = embed_text(query_text)
 
     # Perform search
-    results = qdrant.search(
+    results = qdrant_client.search(
         collection_name=COLLECTION_NAME,
         query_vector=query_vector,
         limit=limit,

@@ -6,9 +6,10 @@ Veraxi utilizes Reciprocal Rank Fusion (RRF) to merge structured graph lookups a
 
 ## Status
 
-**Phase 13 Complete: Sovereign Cross-Platform Architecture is Production-Ready.**
-The backend infrastructure, data extraction pipeline, and LLM orchestration loop are fully functional.
-The Flutter frontend has been upgraded to a secure, persistent, cross-platform app featuring Generative UI (Cytoscape.js) and local SQLite storage.
+**Phase 10 Complete: Enterprise API Gateway & MCP Server Hardened.**
+The backend infrastructure is fully production-ready. We have successfully deployed a multi-tenant FastAPI gateway featuring Stripe webhook integration, secure JWT authentication, Docling-powered multimodal ingestion, and an SSE-based Model Context Protocol (MCP) transport layer with dynamic rate limiting.
+
+**Up Next: Phase 11 — Premium Flutter UI Redesign.** We are now transitioning focus to the frontend to build a beautiful, modern, cross-platform client that consumes this hardened architecture.
 
 See [docs/ROADMAP.md](docs/ROADMAP.md) for the current active phase.
 
@@ -92,6 +93,22 @@ If you want to run the entire backend (Neo4j, Qdrant, and the Python MCP API Gat
 docker-compose up -d --build
 ```
 Once running, the API Gateway is instantly available at `http://localhost:8000`!
+
+### 4. Self-Hosted / Open-Source Desktop Clients
+If you are an open-source contributor and want to connect the official Claude Desktop app or Cursor directly to your local instance without routing through the API Gateway, you can use the lightweight `stdio` runner.
+
+Simply add this to your `claude_desktop_config.json`:
+```json
+{
+  "mcpServers": {
+    "veraxi": {
+      "command": "python",
+      "args": ["-m", "backend.mcp_server"]
+    }
+  }
+}
+```
+*Note: Make sure to run this command from the root `veraxi` directory so that Python can resolve the `backend` package.*
 
 ## 🧪 Containerized Testing
 
