@@ -14,6 +14,7 @@ app/.env
 app/build/
 app/.dart_tool/
 app/.flutter-plugin-dependencies
+app/.flutter-plugins-dependencies
 
 # OS/editor junk
 .DS_Store

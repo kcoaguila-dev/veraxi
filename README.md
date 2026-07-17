@@ -7,7 +7,7 @@ Veraxi utilizes Reciprocal Rank Fusion (RRF) to merge structured graph lookups a
 ## Status
 
 **Phase 13 Complete: Sovereign Cross-Platform Architecture is Production-Ready.**
-The backend infrastructure, data extraction pipeline, and LLM orchestration loop are fully functional. 
+The backend infrastructure, data extraction pipeline, and LLM orchestration loop are fully functional.
 The Flutter frontend has been upgraded to a secure, persistent, cross-platform app featuring Generative UI (Cytoscape.js) and local SQLite storage.
 
 See [docs/ROADMAP.md](docs/ROADMAP.md) for the current active phase.
@@ -24,9 +24,9 @@ See [docs/architecture.md](docs/architecture.md) for a deep dive into the depend
 
 ## Can I run this for free?
 
-**Yes!** 
+**Yes!**
 - The databases (Neo4j and Qdrant) run entirely locally for free via Docker.
-- The intelligence engine uses the **Google Gemini API**, which currently offers a **very generous Free Tier** (up to 15 RPM for Gemini 2.5 Flash). 
+- The intelligence engine uses the **Google Gemini API**, which currently offers a **very generous Free Tier** (up to 15 RPM for Gemini 2.5 Flash).
 
 Anyone can clone this repo and run their own autonomous intelligence system on their local machine at absolutely no cost.
 

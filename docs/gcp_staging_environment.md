@@ -1,6 +1,6 @@
 # GCP Staging Environment Setup
 
-This document outlines how to spin up a persistent Google Cloud Platform (GCP) Virtual Machine specifically for staging and testing the Veraxi application. 
+This document outlines how to spin up a persistent Google Cloud Platform (GCP) Virtual Machine specifically for staging and testing the Veraxi application.
 
 This approach allows you to code locally on your primary development machine, but push the code to a high-RAM cloud environment to run the heavy components (Neo4j, Qdrant, and LLM integrations) without bogging down your local system.
 
@@ -49,13 +49,13 @@ We use **Terraform** (Infrastructure as Code) to provision this VM so that our s
 
 ## 3. Initial VM Setup
 
-Because COS comes with Docker pre-installed out of the box, **there is zero initial setup required on the VM itself!** You do not need to install `docker`, `python`, or configure any virtual environments. 
+Because COS comes with Docker pre-installed out of the box, **there is zero initial setup required on the VM itself!** You do not need to install `docker`, `python`, or configure any virtual environments.
 
 *(You can skip straight to the workflow step).*
 
 ## 4. The Sync-and-Test Workflow
 
-Because you are writing code locally but testing in the cloud, do **not** use `git clone` on the VM. It will force you to commit unfinished code just to test it. 
+Because you are writing code locally but testing in the cloud, do **not** use `git clone` on the VM. It will force you to commit unfinished code just to test it.
 
 We have automated this sync process into the project's Makefile!
 

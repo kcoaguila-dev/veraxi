@@ -3,6 +3,7 @@ from typing import Dict, Any, Optional, List
 
 from neo4j import GraphDatabase
 
+
 class Neo4jStorageClient:
     def __init__(self, uri: str, user: str, password: str):
         self.driver = GraphDatabase.driver(uri, auth=(user, password))
@@ -34,9 +35,15 @@ class Neo4jStorageClient:
                 return record["id"]
         return ""
 
-    def create_relationship(self, from_id: str, to_id: str, rel_type: str, properties: Optional[Dict[str, Any]] = None):
+    def create_relationship(
+        self,
+        from_id: str,
+        to_id: str,
+        rel_type: str,
+        properties: Optional[Dict[str, Any]] = None,
+    ):
         """Create a relationship between two nodes by their IDs."""
-        if not rel_type.replace('_', '').isalnum():
+        if not rel_type.replace("_", "").isalnum():
             raise ValueError("Relationship type must be alphanumeric/underscores")
 
         props = properties or {}
@@ -50,7 +57,9 @@ class Neo4jStorageClient:
         with self.driver.session() as session:
             session.run(query, from_id=from_id, to_id=to_id, props=props)
 
-    def execute_read(self, query: str, parameters: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
+    def execute_read(
+        self, query: str, parameters: Optional[Dict[str, Any]] = None
+    ) -> List[Dict[str, Any]]:
         """Execute a read query with parameters."""
         with self.driver.session() as session:
             result = session.run(query, parameters or {})

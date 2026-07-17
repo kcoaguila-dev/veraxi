@@ -1,5 +1,5 @@
 import logging
-from typing import Tuple, List, Dict, Any
+from typing import Tuple, List, Any
 from google import genai
 from google.genai import types
 from backend.config import get_config
@@ -18,11 +18,17 @@ TOOLS = [
                 parameters=types.Schema(
                     type=types.Type.OBJECT,
                     properties={
-                        "query_text": types.Schema(type=types.Type.STRING, description="The text to search for."),
-                        "limit": types.Schema(type=types.Type.INTEGER, description="Maximum number of results to return (default 10).")
+                        "query_text": types.Schema(
+                            type=types.Type.STRING,
+                            description="The text to search for.",
+                        ),
+                        "limit": types.Schema(
+                            type=types.Type.INTEGER,
+                            description="Maximum number of results to return (default 10).",
+                        ),
                     },
-                    required=["query_text"]
-                )
+                    required=["query_text"],
+                ),
             ),
             types.FunctionDeclaration(
                 name="query_graph",
@@ -30,17 +36,26 @@ TOOLS = [
                 parameters=types.Schema(
                     type=types.Type.OBJECT,
                     properties={
-                        "entity_name": types.Schema(type=types.Type.STRING, description="The name of the entity to start the traversal from."),
-                        "max_hops": types.Schema(type=types.Type.INTEGER, description="Maximum number of relationship hops (default 2).")
+                        "entity_name": types.Schema(
+                            type=types.Type.STRING,
+                            description="The name of the entity to start the traversal from.",
+                        ),
+                        "max_hops": types.Schema(
+                            type=types.Type.INTEGER,
+                            description="Maximum number of relationship hops (default 2).",
+                        ),
                     },
-                    required=["entity_name"]
-                )
-            )
+                    required=["entity_name"],
+                ),
+            ),
         ]
     )
 ]
 
-def _execute_tools(function_calls: List[Any], tenant_id: str) -> Tuple[List[Any], List[Any]]:
+
+def _execute_tools(
+    function_calls: List[Any], tenant_id: str
+) -> Tuple[List[Any], List[Any]]:
     """Execute LLM requested tools and return vectors and graph hits."""
     vector_hits = []
     graph_hits = []
@@ -53,12 +68,21 @@ def _execute_tools(function_calls: List[Any], tenant_id: str) -> Tuple[List[Any]
 
         if tool_name == "search_vectors":
             limit = int(tool_input.get("limit", 10))
-            vector_hits.extend(search_vectors(tool_input["query_text"], limit=limit, tenant_id=tenant_id))
+            vector_hits.extend(
+                search_vectors(
+                    tool_input["query_text"], limit=limit, tenant_id=tenant_id
+                )
+            )
         elif tool_name == "query_graph":
             max_hops = int(tool_input.get("max_hops", 2))
-            graph_hits.extend(query_graph(tool_input["entity_name"], max_hops=max_hops, tenant_id=tenant_id))
-            
+            graph_hits.extend(
+                query_graph(
+                    tool_input["entity_name"], max_hops=max_hops, tenant_id=tenant_id
+                )
+            )
+
     return vector_hits, graph_hits
+
 
 def _build_context_string(merged_results: List[Any]) -> str:
     """Build a formatted context string from fused results."""
@@ -70,6 +94,7 @@ def _build_context_string(merged_results: List[Any]) -> str:
 
     return "\n".join(context_parts)
 
+
 def answer_question(question: str, tenant_id: str = "default") -> str:
     """
     LLM decides whether to call search_vectors and/or query_graph, gets results back,
@@ -78,7 +103,7 @@ def answer_question(question: str, tenant_id: str = "default") -> str:
     """
     # [MOCK] Generative UI Test Hook
     if "show me a graph" in question.lower():
-        return '''{
+        return """{
   "type": "graph",
   "elements": [
     { "data": { "id": "a", "label": "Veraxi" } },
@@ -87,7 +112,7 @@ def answer_question(question: str, tenant_id: str = "default") -> str:
     { "data": { "id": "ab", "source": "a", "target": "b", "type": "USES" } },
     { "data": { "id": "bc", "source": "b", "target": "c", "type": "INTEGRATES" } }
   ]
-}'''
+}"""
 
     config = get_config()
     client = genai.Client(api_key=config.gemini_api_key)
@@ -96,10 +121,7 @@ def answer_question(question: str, tenant_id: str = "default") -> str:
     response = client.models.generate_content(
         model="gemini-2.5-flash",
         contents=[question],
-        config=types.GenerateContentConfig(
-            tools=TOOLS,
-            temperature=0.0
-        )
+        config=types.GenerateContentConfig(tools=TOOLS, temperature=0.0),
     )
 
     if not response.function_calls:
@@ -109,12 +131,14 @@ def answer_question(question: str, tenant_id: str = "default") -> str:
 
     # Step 2: Merge and rank the results if any tools were called
     vector_hits, graph_hits = _execute_tools(response.function_calls, tenant_id)
-    
+
     if not vector_hits and not graph_hits:
         return response.text
 
     merged_results = merge_rank(vector_hits, graph_hits)
-    logging.info(f"Provenance: Generated {len(merged_results)} fused results from tools.")
+    logging.info(
+        f"Provenance: Generated {len(merged_results)} fused results from tools."
+    )
 
     context_str = _build_context_string(merged_results)
 
@@ -128,7 +152,7 @@ def answer_question(question: str, tenant_id: str = "default") -> str:
     final_response = client.models.generate_content(
         model="gemini-2.5-flash",
         contents=[final_prompt],
-        config=types.GenerateContentConfig(temperature=0.0)
+        config=types.GenerateContentConfig(temperature=0.0),
     )
 
     return final_response.text

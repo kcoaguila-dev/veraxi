@@ -5,6 +5,7 @@ import 'package:veraxi_app/features/chat/data/chat_database.dart';
 import 'package:veraxi_app/features/chat/view_models/chat_view_model.dart';
 
 class MockChatRepository extends Mock implements ChatRepository {}
+
 class MockChatDatabase extends Mock implements ChatDatabase {}
 
 void main() {
@@ -15,11 +16,11 @@ void main() {
   setUp(() {
     mockRepository = MockChatRepository();
     mockDatabase = MockChatDatabase();
-    
+
     // Stub database load history call which happens in the constructor
     when(() => mockDatabase.getMessages()).thenAnswer((_) async => []);
     when(() => mockDatabase.saveMessage(any(), any())).thenAnswer((_) async {});
-    
+
     viewModel = ChatViewModel(mockRepository, mockDatabase);
   });
 
@@ -79,5 +80,32 @@ void main() {
 
     expect(viewModel.state.messages, isEmpty);
     verifyNever(() => mockRepository.sendMessage(any()));
+  });
+
+  test('clearError resets the error to null without touching messages',
+      () async {
+    await pumpEventQueue();
+    const question = 'Break it?';
+
+    when(() => mockRepository.sendMessage(question))
+        .thenThrow(Exception('API error'));
+
+    await viewModel.sendMessage(question);
+    expect(viewModel.state.error, isNotNull);
+
+    viewModel.clearError();
+
+    expect(viewModel.state.error, isNull);
+    expect(viewModel.state.messages.length, 1);
+    expect(viewModel.state.isLoading, isFalse);
+  });
+
+  test('clearError is a no-op when there is no error', () async {
+    await pumpEventQueue();
+
+    viewModel.clearError();
+
+    expect(viewModel.state.error, isNull);
+    expect(viewModel.state.messages, isEmpty);
   });
 }
