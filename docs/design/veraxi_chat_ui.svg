@@ -18,7 +18,7 @@
   <!-- FAR-LEFT ICON SIDEBAR                      -->
   <!-- ========================================== -->
   <rect width="64" height="1024" fill="#171717" />
-  
+
   <g transform="translate(20, 20)">
     <rect x="2" y="2" width="8" height="8" rx="2" fill="none" stroke="#B4B4B4" stroke-width="1.5" />
     <rect x="14" y="2" width="8" height="8" rx="2" fill="none" stroke="#B4B4B4" stroke-width="1.5" />
@@ -43,13 +43,13 @@
   <!-- MAIN SIDEBAR (Projects / Chats)            -->
   <!-- ========================================== -->
   <rect x="64" y="0" width="220" height="1024" fill="#171717" />
-  
+
   <g transform="translate(80, 20)">
     <text x="0" y="12" fill="#878787" font-size="12" font-weight="600" class="font-inter">Projects</text>
     <path d="M 50 8 L 54 12 L 50 16" stroke="#878787" stroke-width="1.5" fill="none" />
     <path d="M 170 8 h 10 v 10 h -10 z" stroke="#B4B4B4" stroke-width="1.5" fill="none" />
     <path d="M 173 11 h 10 v 10 h -10 z" fill="#171717" stroke="#B4B4B4" stroke-width="1.5" />
-    
+
     <text x="0" y="44" fill="#878787" font-size="12" font-weight="600" class="font-inter">Chats</text>
     <path d="M 40 40 L 44 44 L 40 48" stroke="#878787" stroke-width="1.5" fill="none" />
     <path d="M 175 36 l 5 5 l -10 10 h -5 v -5 z M 172 49 l 6 6" stroke="#B4B4B4" stroke-width="1.5" fill="none" />
@@ -61,7 +61,7 @@
   <g transform="translate(300, 24)">
     <path d="M 10 16 C 6.7 16 4 13.3 4 10 C 4 6.7 6.7 4 10 4 C 11.5 4 12.8 4.5 13.8 5.4 L 12.3 6.9 C 11.7 6.4 10.9 6.1 10 6.1 C 7.8 6.1 6.1 7.8 6.1 10 C 6.1 12.2 7.8 13.9 10 13.9 C 12.2 13.9 13.1 12.4 13.4 11.4 L 10 11.4 L 10 9.4 L 15.6 9.4 C 15.6 9.7 15.7 10 15.7 10.4 C 15.7 13.6 13.5 16 10 16 Z" fill="#FFFFFF" />
     <text x="24" y="15" fill="#FFFFFF" font-size="15" font-weight="600" class="font-inter">gemini-2.5-flash-lite</text>
-    
+
     <g transform="translate(180, 0)">
       <rect x="2" y="2" width="12" height="12" rx="2" stroke="#9E9E9E" stroke-width="1.5" fill="none" />
       <rect x="6" y="6" width="12" height="12" rx="2" stroke="#9E9E9E" stroke-width="1.5" fill="#212121" />
@@ -84,7 +84,7 @@
   <g transform="translate(540, 560)">
     <rect width="660" height="100" rx="24" fill="#2F2F2F" />
     <text x="16" y="30" fill="#878787" font-size="14" font-weight="400" class="font-inter">Message Gemini</text>
-    
+
     <g transform="translate(16, 60)">
       <path d="M 6 12 L 6 4 C 6 2.3 7.3 1 9 1 C 10.7 1 12 2.3 12 4 L 12 14 C 12 16.8 9.8 19 7 19 C 4.2 19 2 16.8 2 14 L 2 4" stroke="#B4B4B4" stroke-width="2" stroke-linecap="round" fill="none" />
       <g transform="translate(30, 0)" stroke="#B4B4B4" stroke-width="2" stroke-linecap="round">
@@ -109,14 +109,14 @@
   <!-- ========================================== -->
   <g transform="translate(300, 56)">
     <rect width="220" height="340" rx="12" fill="#171717" stroke="#333333" stroke-width="1" />
-    
+
     <g transform="translate(12, 12)">
       <rect width="196" height="32" rx="8" fill="transparent" stroke="#B4B4B4" stroke-width="1" />
       <text x="12" y="21" fill="#878787" font-size="12" class="font-inter">Search models...</text>
     </g>
 
     <g transform="translate(4, 52)">
-      
+
       <!-- OpenAI Row -->
       <g transform="translate(0, 0)">
         <rect width="212" height="36" rx="8" fill="transparent" />
@@ -143,7 +143,7 @@
         <use href="#gear-icon" stroke="#878787" transform="translate(150, 6) scale(0.66)" />
         <path d="M 186 14 L 190 18 L 186 22" stroke="#878787" stroke-width="1.5" stroke-linecap="round" fill="none" />
       </g>
-      
+
       <!-- 302AI -->
       <g transform="translate(0, 108)">
         <circle cx="16" cy="18" r="8" fill="#E3E3E3" />

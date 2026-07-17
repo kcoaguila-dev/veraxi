@@ -1,11 +1,15 @@
 from unittest.mock import MagicMock
-from backend.retrieval.graph_analytics import get_community_detection, get_node_degree_centrality
+from backend.retrieval.graph_analytics import (
+    get_community_detection,
+    get_node_degree_centrality,
+)
+
 
 def test_get_community_detection_calls_client():
     mock_client = MagicMock()
     mock_client.execute_read.return_value = [
         {"community": "Person", "size": 2, "members": ["id1", "id2"]},
-        {"community": "Organization", "size": 1, "members": ["id3"]}
+        {"community": "Organization", "size": 1, "members": ["id3"]},
     ]
 
     result = get_community_detection(mock_client, min_community_size=1)
@@ -21,11 +25,12 @@ def test_get_community_detection_calls_client():
     assert result[0]["community"] == "Person"
     assert result[0]["size"] == 2
 
+
 def test_get_node_degree_centrality_calls_client():
     mock_client = MagicMock()
     mock_client.execute_read.return_value = [
         {"id": "id1", "label": "Person", "degree": 5},
-        {"id": "id2", "label": "Organization", "degree": 2}
+        {"id": "id2", "label": "Organization", "degree": 2},
     ]
 
     result = get_node_degree_centrality(mock_client, limit=5)

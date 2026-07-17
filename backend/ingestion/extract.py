@@ -13,7 +13,7 @@ ALLOWED_RELATION_TYPES = {
     ("Person", "Organization"): ["WORKS_AT", "FOUNDED"],
     ("Organization", "Concept"): ["DEVELOPS", "USES"],
     ("Concept", "Concept"): ["RELATES_TO"],
-    ("Person", "Concept"): ["INVENTED", "RESEARCHES"]
+    ("Person", "Concept"): ["INVENTED", "RESEARCHES"],
 }
 
 EXTRACTION_PROMPT = """
@@ -47,6 +47,7 @@ Allowed Relation Types:
 Only output valid JSON. No markdown formatting, no explanations.
 """
 
+
 def _clean_llm_json_output(output: str) -> str:
     """Removes markdown code blocks if the LLM hallucinated them."""
     output = output.strip()
@@ -60,10 +61,18 @@ def _clean_llm_json_output(output: str) -> str:
 
     return output.strip()
 
-def _is_valid_entity(ent_type: Any, name: Any) -> bool:
-    return ent_type in ALLOWED_ENTITY_TYPES and isinstance(name, str) and bool(name.strip())
 
-def _validate_single_relation(rel: Dict[str, str], entity_name_to_type: Dict[str, str]) -> Dict[str, str] | None:
+def _is_valid_entity(ent_type: Any, name: Any) -> bool:
+    return (
+        ent_type in ALLOWED_ENTITY_TYPES
+        and isinstance(name, str)
+        and bool(name.strip())
+    )
+
+
+def _validate_single_relation(
+    rel: Dict[str, str], entity_name_to_type: Dict[str, str]
+) -> Dict[str, str] | None:
     if not isinstance(rel, dict):
         return None
 
@@ -79,14 +88,38 @@ def _validate_single_relation(rel: Dict[str, str], entity_name_to_type: Dict[str
 
     allowed_types = ALLOWED_RELATION_TYPES.get((from_type, to_type), [])
     if rel_type in allowed_types:
-        return {
-            "from_entity": from_ent,
-            "to_entity": to_ent,
-            "type": rel_type
-        }
+        return {"from_entity": from_ent, "to_entity": to_ent, "type": rel_type}
     return None
 
-def _validate_entities(entities: List[Dict[str, Any]]) -> Tuple[List[Dict[str, Any]], Dict[str, str]]:
+
+def _normalize_properties(props: Any) -> Dict[str, Any]:
+    """
+    Normalize properties to Neo4j-safe values.
+    Neo4j properties must be primitives or arrays of primitives - no nested maps.
+    """
+    if not isinstance(props, dict):
+        return {}
+
+    normalized = {}
+    for key, value in props.items():
+        # Keep only primitives and arrays of primitives
+        if value is None:
+            continue
+        elif isinstance(value, (str, int, float, bool)):
+            normalized[key] = value
+        elif isinstance(value, list):
+            # Keep only if all elements are primitives
+            if all(isinstance(item, (str, int, float, bool)) for item in value):
+                normalized[key] = value
+            # Otherwise drop it (nested structure)
+        # Drop dicts and other complex types
+
+    return normalized
+
+
+def _validate_entities(
+    entities: List[Dict[str, Any]],
+) -> Tuple[List[Dict[str, Any]], Dict[str, str]]:
     valid_entities = []
     entity_name_to_type = {}
 
@@ -99,16 +132,21 @@ def _validate_entities(entities: List[Dict[str, Any]]) -> Tuple[List[Dict[str, A
         props = ent.get("properties", {})
 
         if _is_valid_entity(ent_type, name):
-            valid_entities.append({
-                "type": ent_type,
-                "name": name,
-                "properties": props if isinstance(props, dict) else {}
-            })
+            valid_entities.append(
+                {
+                    "type": ent_type,
+                    "name": name,
+                    "properties": _normalize_properties(props),
+                }
+            )
             entity_name_to_type[name] = ent_type
 
     return valid_entities, entity_name_to_type
 
-def _validate_relations(relations: List[Dict[str, str]], entity_name_to_type: Dict[str, str]) -> List[Dict[str, str]]:
+
+def _validate_relations(
+    relations: List[Dict[str, str]], entity_name_to_type: Dict[str, str]
+) -> List[Dict[str, str]]:
     valid_relations = []
     for rel in relations:
         valid_rel = _validate_single_relation(rel, entity_name_to_type)
@@ -116,7 +154,10 @@ def _validate_relations(relations: List[Dict[str, str]], entity_name_to_type: Di
             valid_relations.append(valid_rel)
     return valid_relations
 
-def validate_extraction(entities: List[Dict[str, Any]], relations: List[Dict[str, str]]) -> Tuple[List[Dict[str, Any]], List[Dict[str, str]]]:
+
+def validate_extraction(
+    entities: List[Dict[str, Any]], relations: List[Dict[str, str]]
+) -> Tuple[List[Dict[str, Any]], List[Dict[str, str]]]:
     """
     Pure-logic validation step that rejects/quarantines any LLM output that doesn't match the schema.
     """
@@ -124,7 +165,10 @@ def validate_extraction(entities: List[Dict[str, Any]], relations: List[Dict[str
     valid_relations = _validate_relations(relations, entity_name_to_type)
     return valid_entities, valid_relations
 
-def extract_entities_and_relations(text: str) -> Tuple[List[Dict[str, Any]], List[Dict[str, str]]]:
+
+def extract_entities_and_relations(
+    text: str,
+) -> Tuple[List[Dict[str, Any]], List[Dict[str, str]]]:
     """
     Extract entities and relations using Gemini API constrained to a fixed schema.
     """
@@ -136,11 +180,10 @@ def extract_entities_and_relations(text: str) -> Tuple[List[Dict[str, Any]], Lis
             model="gemini-2.5-flash",
             contents=[EXTRACTION_PROMPT, "\n\nText to analyze:\n", text],
             config=types.GenerateContentConfig(
-                temperature=0.0,
-                response_mime_type="application/json"
-            )
+                temperature=0.0, response_mime_type="application/json"
+            ),
         )
-        
+
         output = _clean_llm_json_output(response.text)
         data = json.loads(output)
 

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:veraxi_app/features/chat/views/chat_screen.dart';
 import 'package:veraxi_app/features/control_panel/views/control_panel_screen.dart';
-import 'package:veraxi_app/main.dart'; 
+import 'package:veraxi_app/main.dart';
 
 final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'root');
 

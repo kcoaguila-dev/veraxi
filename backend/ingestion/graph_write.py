@@ -2,19 +2,35 @@ from typing import List, Dict, Any
 from dataclasses import dataclass
 from backend.storage.neo4j_client import Neo4jStorageClient
 
+
 @dataclass
 class IngestionPayload:
     entities: List[Dict[str, Any]]
     relations: List[Dict[str, str]]
     qdrant_point_ids: Dict[str, str]
 
-def _create_unlinked_chunks(neo4j_client: Neo4jStorageClient, point_ids: List[str], start_idx: int, tenant_id: str):
+
+def _create_unlinked_chunks(
+    neo4j_client: Neo4jStorageClient,
+    point_ids: List[str],
+    start_idx: int,
+    tenant_id: str,
+):
     for i in range(start_idx, len(point_ids)):
         qdrant_id = point_ids[i]
-        props = {"name": f"UnlinkedChunk_{i}", "qdrant_point_id": qdrant_id, "tenant_id": tenant_id}
+        props = {
+            "name": f"UnlinkedChunk_{i}",
+            "qdrant_point_id": qdrant_id,
+            "tenant_id": tenant_id,
+        }
         neo4j_client.create_node("Chunk", props)
 
-def write_to_graph(neo4j_client: Neo4jStorageClient, payload: IngestionPayload, tenant_id: str = "default") -> Dict[str, str]:
+
+def write_to_graph(
+    neo4j_client: Neo4jStorageClient,
+    payload: IngestionPayload,
+    tenant_id: str = "default",
+) -> Dict[str, str]:
     """
     Write entities and relations to Neo4j, linking to Qdrant point IDs.
     Returns a mapping from entity name to neo4j node ID.
@@ -40,7 +56,9 @@ def write_to_graph(neo4j_client: Neo4jStorageClient, payload: IngestionPayload, 
 
     # Ensure every Qdrant point is stored in Neo4j (critical link requirement)
     if len(point_ids) > len(payload.entities):
-        _create_unlinked_chunks(neo4j_client, point_ids, len(payload.entities), tenant_id)
+        _create_unlinked_chunks(
+            neo4j_client, point_ids, len(payload.entities), tenant_id
+        )
 
     for relation in payload.relations:
         from_node_id = entity_name_to_node_id.get(relation["from_entity"])

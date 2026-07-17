@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:sentry_flutter/sentry_flutter.dart';
 
 class ControlPanelRepository {
   final String baseUrl;
@@ -21,30 +22,52 @@ class ControlPanelRepository {
   }
 
   Future<Map<String, dynamic>> fetchStats() async {
-    final response = await client.get(
-      Uri.parse('$baseUrl/api/admin/stats'),
-      headers: _getHeaders(),
-    );
+    try {
+      final response = await client.get(
+        Uri.parse('$baseUrl/api/admin/stats'),
+        headers: _getHeaders(),
+      ).timeout(const Duration(seconds: 10));
 
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body) as Map<String, dynamic>;
-    } else {
-      throw Exception('Failed to load stats: ${response.statusCode}');
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      } else {
+        throw Exception('Server error: ${response.statusCode}');
+      }
+    } on Exception catch (e, stackTrace) {
+      Sentry.captureException(e, stackTrace: stackTrace);
+      if (e.toString().contains('SocketException')) {
+        throw Exception('Network error: Unable to connect to the server.');
+      }
+      if (e.toString().contains('TimeoutException')) {
+        throw Exception('Connection timeout: Server took too long to respond.');
+      }
+      rethrow;
     }
   }
 
   Future<Map<String, dynamic>> triggerIngestion(String text) async {
     final headers = _getHeaders()..['Content-Type'] = 'application/json';
-    final response = await client.post(
-      Uri.parse('$baseUrl/api/admin/ingest'),
-      headers: headers,
-      body: jsonEncode({'text': text}),
-    );
+    try {
+      final response = await client.post(
+        Uri.parse('$baseUrl/api/admin/ingest'),
+        headers: headers,
+        body: jsonEncode({'text': text}),
+      ).timeout(const Duration(seconds: 10));
 
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body) as Map<String, dynamic>;
-    } else {
-      throw Exception('Failed to trigger ingestion: ${response.statusCode}');
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      } else {
+        throw Exception('Server error: ${response.statusCode}');
+      }
+    } on Exception catch (e, stackTrace) {
+      Sentry.captureException(e, stackTrace: stackTrace);
+      if (e.toString().contains('SocketException')) {
+        throw Exception('Network error: Unable to connect to the server.');
+      }
+      if (e.toString().contains('TimeoutException')) {
+        throw Exception('Connection timeout: Server took too long to respond.');
+      }
+      rethrow;
     }
   }
 }

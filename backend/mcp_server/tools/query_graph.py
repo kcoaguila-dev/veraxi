@@ -3,14 +3,19 @@ from backend.config import get_config
 from backend.storage.neo4j_client import Neo4jStorageClient
 from backend.retrieval.merge_rank import GraphHit
 
-def query_graph(entity_name: str, max_hops: int = 2, tenant_id: str = "default") -> List[GraphHit]:
+
+def query_graph(
+    entity_name: str, max_hops: int = 2, tenant_id: str = "default"
+) -> List[GraphHit]:
     """
     Perform a parameterized Cypher traversal from a starting entity out to max_hops.
     Returns results as GraphHit objects ready for merge_rank.
     No string-concatenated queries for user inputs.
     """
     config = get_config()
-    neo4j = Neo4jStorageClient(uri=config.neo4j_uri, user=config.neo4j_user, password=config.neo4j_password)
+    neo4j = Neo4jStorageClient(
+        uri=config.neo4j_uri, user=config.neo4j_user, password=config.neo4j_password
+    )
 
     # max_hops is an integer and controlled/validated by us (or typed as int from MCP tool).
     # We must ensure it's a positive integer to avoid injection.
@@ -24,7 +29,9 @@ def query_graph(entity_name: str, max_hops: int = 2, tenant_id: str = "default")
     """
 
     # Execute query
-    results = neo4j.execute_read(query, {"entity_name": entity_name, "tenant_id": tenant_id})
+    results = neo4j.execute_read(
+        query, {"entity_name": entity_name, "tenant_id": tenant_id}
+    )
     neo4j.close()
 
     # Return as GraphHit objects
@@ -40,9 +47,6 @@ def query_graph(entity_name: str, max_hops: int = 2, tenant_id: str = "default")
             seen.add(q_id)
             payload = row.get("props", {})
             payload["labels"] = row.get("labels", [])
-            hits.append(GraphHit(
-                id=q_id,
-                payload=payload
-            ))
+            hits.append(GraphHit(id=q_id, payload=payload))
 
     return hits

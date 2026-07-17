@@ -13,7 +13,7 @@ import tempfile
 import os
 from docling.document_converter import DocumentConverter
 
-logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
+logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
 
 config = get_config()
@@ -24,7 +24,9 @@ if config.sentry_dsn:
         profiles_sample_rate=1.0,
     )
 
-app = FastAPI(title="Veraxi API Gateway", description="Multi-Tenant SaaS HTTP Gateway for Phase 7")
+app = FastAPI(
+    title="Veraxi API Gateway", description="Multi-Tenant SaaS HTTP Gateway for Phase 7"
+)
 
 # Allow Flutter app to communicate cross-origin
 app.add_middleware(
@@ -37,19 +39,24 @@ app.add_middleware(
 
 security = HTTPBearer(auto_error=False)
 
+
 def get_tenant_id(credentials: HTTPAuthorizationCredentials = Depends(security)) -> str:
     if credentials:
         return credentials.credentials
     return "default"
 
+
 class ChatRequest(BaseModel):
     question: str
+
 
 class ChatResponse(BaseModel):
     answer: str
 
+
 class IngestRequest(BaseModel):
     text: str
+
 
 @app.post("/api/chat", response_model=ChatResponse)
 async def chat_endpoint(request: ChatRequest, tenant_id: str = Depends(get_tenant_id)):
@@ -63,20 +70,27 @@ async def chat_endpoint(request: ChatRequest, tenant_id: str = Depends(get_tenan
         logger.error(f"Error processing question: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+
 @app.get("/health")
 async def health_check():
     return {"status": "ok"}
 
+
 @app.get("/sentry-debug")
 async def trigger_error():
-    division_by_zero = 1 / int("0")
+    _ = 1 / int("0")
+
 
 @app.get("/api/admin/stats")
 def get_stats(tenant_id: str = Depends(get_tenant_id)):
     try:
         config = get_config()
-        qdrant = QdrantStorageClient(url=config.qdrant_url, api_key=config.qdrant_api_key)
-        neo4j = Neo4jStorageClient(uri=config.neo4j_uri, user=config.neo4j_user, password=config.neo4j_password)
+        qdrant = QdrantStorageClient(
+            url=config.qdrant_url, api_key=config.qdrant_api_key
+        )
+        neo4j = Neo4jStorageClient(
+            uri=config.neo4j_uri, user=config.neo4j_user, password=config.neo4j_password
+        )
 
         # Get Qdrant stats
         try:
@@ -84,8 +98,17 @@ def get_stats(tenant_id: str = Depends(get_tenant_id)):
             # For this MVP phase 7, we'll just do a scroll or assume the stats are global unless we run a count query.
             # Qdrant client natively supports count with filter:
             from qdrant_client.http import models
-            filter = models.Filter(must=[models.FieldCondition(key="tenant_id", match=models.MatchValue(value=tenant_id))])
-            count_result = qdrant.client.count(collection_name="veraxi_docs", count_filter=filter)
+
+            filter = models.Filter(
+                must=[
+                    models.FieldCondition(
+                        key="tenant_id", match=models.MatchValue(value=tenant_id)
+                    )
+                ]
+            )
+            count_result = qdrant.client.count(
+                collection_name="veraxi_docs", count_filter=filter
+            )
             vector_count = count_result.count
         except Exception as e:
             logger.warning(f"Failed to get qdrant stats: {e}")
@@ -95,7 +118,7 @@ def get_stats(tenant_id: str = Depends(get_tenant_id)):
         try:
             records = neo4j.execute_read(
                 "MATCH (n) WHERE n.tenant_id = $tenant_id RETURN count(n) AS count",
-                parameters={"tenant_id": tenant_id}
+                parameters={"tenant_id": tenant_id},
             )
             node_count = records[0]["count"] if records else 0
         except Exception as e:
@@ -107,11 +130,12 @@ def get_stats(tenant_id: str = Depends(get_tenant_id)):
         return {
             "node_count": node_count,
             "vector_count": vector_count,
-            "tenant_id": tenant_id
+            "tenant_id": tenant_id,
         }
     except Exception as e:
         logger.error(f"Error getting stats: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.post("/api/admin/ingest")
 def ingest_data(request: IngestRequest, tenant_id: str = Depends(get_tenant_id)):
@@ -123,15 +147,21 @@ def ingest_data(request: IngestRequest, tenant_id: str = Depends(get_tenant_id))
         logger.error(f"Error during ingestion: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+
 class UrlIngestRequest(BaseModel):
     url: str
 
+
 @app.post("/api/admin/ingest/upload")
-async def ingest_upload(file: UploadFile = File(...), tenant_id: str = Depends(get_tenant_id)):
+async def ingest_upload(
+    file: UploadFile = File(...), tenant_id: str = Depends(get_tenant_id)
+):
     try:
         # Save uploaded file to temp file
         _, file_extension = os.path.splitext(file.filename)
-        with tempfile.NamedTemporaryFile(delete=False, suffix=file_extension) as tmp_file:
+        with tempfile.NamedTemporaryFile(
+            delete=False, suffix=file_extension
+        ) as tmp_file:
             content = await file.read()
             tmp_file.write(content)
             tmp_path = tmp_file.name
@@ -145,12 +175,15 @@ async def ingest_upload(file: UploadFile = File(...), tenant_id: str = Depends(g
         # Clean up temp file
         os.unlink(tmp_path)
 
-        logger.info(f"Ingesting {len(markdown_text)} bytes of markdown from {file.filename}")
+        logger.info(
+            f"Ingesting {len(markdown_text)} bytes of markdown from {file.filename}"
+        )
         ingestion_result = run_ingestion(config, markdown_text, tenant_id)
         return ingestion_result
     except Exception as e:
         logger.error(f"Error during file ingestion: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.post("/api/admin/ingest/url")
 def ingest_url(request: UrlIngestRequest, tenant_id: str = Depends(get_tenant_id)):
@@ -161,7 +194,9 @@ def ingest_url(request: UrlIngestRequest, tenant_id: str = Depends(get_tenant_id
         result = converter.convert(request.url)
         markdown_text = result.document.export_to_markdown()
 
-        logger.info(f"Ingesting {len(markdown_text)} bytes of markdown from {request.url}")
+        logger.info(
+            f"Ingesting {len(markdown_text)} bytes of markdown from {request.url}"
+        )
         ingestion_result = run_ingestion(config, markdown_text, tenant_id)
         return ingestion_result
     except Exception as e:
