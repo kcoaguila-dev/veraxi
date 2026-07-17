@@ -10,6 +10,7 @@ logger = logging.getLogger(__name__)
 # Initialize the MCP Server
 mcp_server = Server("veraxi_mcp")
 
+
 @mcp_server.tool()
 def mcp_search_vectors(query_text: str, limit: int = 10) -> str:
     """
@@ -23,6 +24,7 @@ def mcp_search_vectors(query_text: str, limit: int = 10) -> str:
     except Exception as e:
         logger.error(f"Error in search_vectors tool: {e}")
         return f"Error executing tool: {e}"
+
 
 @mcp_server.tool()
 def mcp_query_graph(entity_name: str, max_hops: int = 2) -> str:
@@ -38,21 +40,23 @@ def mcp_query_graph(entity_name: str, max_hops: int = 2) -> str:
             labels = ", ".join(hit.payload.get("labels", []))
             name = hit.payload.get("name", "Unknown")
             # Other properties
-            props = {k: v for k, v in hit.payload.items() if k not in ["labels", "name"]}
+            props = {
+                k: v for k, v in hit.payload.items() if k not in ["labels", "name"]
+            }
             results.append(f"Entity: {name} (Types: {labels}) - Properties: {props}")
         return "\n".join(results)
     except Exception as e:
         logger.error(f"Error in query_graph tool: {e}")
         return f"Error executing tool: {e}"
 
+
 async def run():
     """Run the MCP server over standard input/output."""
     async with stdio_server() as (read_stream, write_stream):
         await mcp_server.run(
-            read_stream,
-            write_stream,
-            mcp_server.create_initialization_options()
+            read_stream, write_stream, mcp_server.create_initialization_options()
         )
+
 
 if __name__ == "__main__":
     asyncio.run(run())

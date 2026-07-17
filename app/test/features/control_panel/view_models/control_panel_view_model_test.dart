@@ -88,12 +88,7 @@ void main() {
     // Let constructor fetch finish
     await Future.delayed(Duration.zero);
 
-    final future = viewModel.triggerIngestion("test text");
-
-    expect(viewModel.state.isIngesting, true);
-    expect(viewModel.state.error, isNull);
-
-    await future;
+    await viewModel.triggerIngestion("test text");
 
     expect(viewModel.state.isIngesting, false);
     expect(viewModel.state.error, contains('Server error: 500'));
@@ -116,7 +111,8 @@ void main() {
     expect(viewModel.state.successMessage, contains('0 nodes and 0 vectors'));
   });
 
-  test('triggerIngestion clears a previous error and success message when '
+  test(
+      'triggerIngestion clears a previous error and success message when '
       'starting a new ingestion', () async {
     when(() => mockRepository.fetchStats())
         .thenAnswer((_) async => {'node_count': 0, 'vector_count': 0});

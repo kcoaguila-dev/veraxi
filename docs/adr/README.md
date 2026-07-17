@@ -1,6 +1,6 @@
 # Architecture Decision Records (ADRs)
 
-This directory contains Architecture Decision Records (ADRs) for the Veraxi project. 
+This directory contains Architecture Decision Records (ADRs) for the Veraxi project.
 
 An ADR is a short text file in a format similar to an Alexandrian pattern that describes a set of forces and a single decision in response to those forces.
 

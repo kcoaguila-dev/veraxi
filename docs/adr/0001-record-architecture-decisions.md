@@ -12,7 +12,7 @@ We need to record the architectural decisions made on this project. Without a fo
 
 ## Decision
 
-We will use Architecture Decision Records (ADRs), as described by Michael Nygard. We will store them in the `docs/adr` directory as Markdown files. 
+We will use Architecture Decision Records (ADRs), as described by Michael Nygard. We will store them in the `docs/adr` directory as Markdown files.
 
 Each ADR will follow a standard format:
 - Title
@@ -23,5 +23,5 @@ Each ADR will follow a standard format:
 
 ## Consequences
 
-See Michael Nygard's article, http://thinkrelevance.com/blog/2011/11/15/documenting-architecture-decisions, for more information about this format. 
+See Michael Nygard's article, http://thinkrelevance.com/blog/2011/11/15/documenting-architecture-decisions, for more information about this format.
 We will have a historical log of all major architectural shifts.

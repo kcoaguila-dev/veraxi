@@ -3,7 +3,8 @@ from backend.mcp_server.tools.search_vectors import search_vectors
 from backend.mcp_server.tools.query_graph import query_graph
 from backend.retrieval.merge_rank import merge_rank
 
-logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
+logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
+
 
 def test_integration():
     """
@@ -26,6 +27,7 @@ def test_integration():
         top_result = merged[0]
         logging.info(f"Top result score: {top_result.fused_score}")
         logging.info(f"Top result sources: {top_result.sources}")
+
 
 if __name__ == "__main__":
     test_integration()
