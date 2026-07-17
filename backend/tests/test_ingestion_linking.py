@@ -60,8 +60,20 @@ def test_ingestion_linking(patch_env):
         ), f"Qdrant point {q_id} referenced by Neo4j does not exist in Qdrant"
 
     # 3. Assert: every Qdrant point can be found in Neo4j (via qdrant_point_id)
-    scroll_result = qdrant.client.scroll(collection_name=COLLECTION_NAME, limit=100)
-    all_qdrant_points = scroll_result[0]
+    # Paginate through all scroll results
+    all_qdrant_points = []
+    next_page_offset = None
+    while True:
+        scroll_result = qdrant.client.scroll(
+            collection_name=COLLECTION_NAME,
+            limit=100,
+            offset=next_page_offset
+        )
+        points, next_page_offset = scroll_result[0], scroll_result[1]
+        all_qdrant_points.extend(points)
+        if not next_page_offset:
+            break
+
     all_qdrant_ids = {p.id for p in all_qdrant_points}
 
     for q_id in all_qdrant_ids:

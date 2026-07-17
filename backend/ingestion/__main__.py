@@ -43,11 +43,22 @@ def run_ingestion(config, text: str, tenant_id: str = "default"):
     # 4. Extract entities and relations
     entities, relations = extract_entities_and_relations(text)
 
-    # Resolve entities to deduplicate
-    entities = resolve_entities(entities)
+    # Resolve entities to deduplicate and get alias mapping
+    entities, alias_to_canonical = resolve_entities(entities)
+
+    # Rewrite relation endpoints through alias mapping
+    rewritten_relations = []
+    for rel in relations:
+        from_entity = alias_to_canonical.get(rel["from_entity"], rel["from_entity"])
+        to_entity = alias_to_canonical.get(rel["to_entity"], rel["to_entity"])
+        rewritten_relations.append({
+            "from_entity": from_entity,
+            "to_entity": to_entity,
+            "type": rel["type"]
+        })
 
     payload = IngestionPayload(
-        entities=entities, relations=relations, qdrant_point_ids=qdrant_point_ids
+        entities=entities, relations=rewritten_relations, qdrant_point_ids=qdrant_point_ids
     )
 
     # 5. Write to Neo4j

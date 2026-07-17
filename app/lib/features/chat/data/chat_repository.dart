@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:sentry_flutter/sentry_flutter.dart';
 
 class ChatRepository {
   final http.Client _client;
@@ -31,7 +32,8 @@ class ChatRepository {
       } else {
         throw Exception('Server error: ${response.statusCode}');
       }
-    } on Exception catch (e) {
+    } on Exception catch (e, stackTrace) {
+      Sentry.captureException(e, stackTrace: stackTrace);
       if (e.toString().contains('SocketException')) {
         throw Exception('Network error: Unable to connect to the server.');
       }

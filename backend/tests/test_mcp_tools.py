@@ -106,6 +106,40 @@ def test_extraction_validation_accepts_correct():
     assert valid_rels[0]["type"] == "WORKS_AT"
 
 
+def test_extraction_validation_normalizes_nested_properties():
+    """Test that nested properties are dropped/normalized for Neo4j compatibility."""
+    entities = [
+        {
+            "type": "Person",
+            "name": "Alice",
+            "properties": {
+                "role": "Engineer",  # Valid primitive
+                "skills": ["Python", "Go"],  # Valid array of primitives
+                "nested_dict": {"key": "value"},  # Invalid - nested dict
+                "count": 42,  # Valid primitive
+                "active": True,  # Valid primitive
+                "mixed_array": ["text", {"nested": "object"}],  # Invalid - contains nested object
+            },
+        }
+    ]
+    relations = []
+
+    valid_ents, valid_rels = validate_extraction(entities, relations)
+
+    assert len(valid_ents) == 1
+    props = valid_ents[0]["properties"]
+
+    # Valid properties should be retained
+    assert props["role"] == "Engineer"
+    assert props["skills"] == ["Python", "Go"]
+    assert props["count"] == 42
+    assert props["active"] is True
+
+    # Invalid properties should be dropped
+    assert "nested_dict" not in props
+    assert "mixed_array" not in props
+
+
 @patch("backend.mcp_server.tools.ingest_data.run_ingestion")
 @patch("backend.mcp_server.tools.ingest_data.get_config")
 def test_ingest_data_shape(mock_get_config, mock_run_ingestion):
@@ -134,7 +168,7 @@ def test_ingest_data_passes_tenant_id(mock_get_config, mock_run_ingestion):
 
 @patch("backend.mcp_server.tools.ingest_data.run_ingestion")
 @patch("backend.mcp_server.tools.ingest_data.get_config")
-def test_ingest_data_defaults_missing_counts_to_zero(
+def test_ingest_data_errors_on_incomplete_result(
     mock_get_config, mock_run_ingestion
 ):
     # Ingestion pipeline may return a result missing the expected keys
@@ -142,12 +176,13 @@ def test_ingest_data_defaults_missing_counts_to_zero(
 
     result = ingest_data("dummy text")
 
-    assert "Inserted 0 graph nodes and 0 vector embeddings." in result
+    assert "Error executing ingestion tool" in result
+    assert "Incomplete result" in result
 
 
 @patch("backend.mcp_server.tools.ingest_data.run_ingestion")
 @patch("backend.mcp_server.tools.ingest_data.get_config")
-def test_ingest_data_returns_error_message_on_exception(
+def test_ingest_data_returns_generic_error_message_on_exception(
     mock_get_config, mock_run_ingestion
 ):
     mock_run_ingestion.side_effect = RuntimeError("pipeline failure")
@@ -155,4 +190,6 @@ def test_ingest_data_returns_error_message_on_exception(
     result = ingest_data("dummy text")
 
     assert "Error executing ingestion tool" in result
-    assert "pipeline failure" in result
+    assert "unexpected error occurred" in result
+    # Should NOT contain the raw exception message
+    assert "pipeline failure" not in result

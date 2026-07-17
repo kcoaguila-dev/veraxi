@@ -13,10 +13,15 @@ def ingest_data(text: str, tenant_id: str = "default") -> str:
         config = get_config()
         result = run_ingestion(config, text, tenant_id=tenant_id)
 
-        nodes_inserted = result.get("nodes_inserted", 0)
-        vectors_inserted = result.get("vectors_inserted", 0)
+        # Require both counters to be present - incomplete result is an error
+        if "nodes_inserted" not in result or "vectors_inserted" not in result:
+            logger.error(f"Incomplete ingestion result: {result}")
+            return "Error executing ingestion tool: Incomplete result from ingestion pipeline."
+
+        nodes_inserted = result["nodes_inserted"]
+        vectors_inserted = result["vectors_inserted"]
 
         return f"Successfully ingested data. Inserted {nodes_inserted} graph nodes and {vectors_inserted} vector embeddings."
     except Exception as e:
-        logger.error(f"Error executing ingestion tool: {e}")
-        return f"Error executing ingestion tool: {e}"
+        logger.error(f"Error executing ingestion tool: {e}", exc_info=True)
+        return "Error executing ingestion tool: An unexpected error occurred during ingestion."

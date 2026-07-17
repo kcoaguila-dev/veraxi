@@ -1,4 +1,4 @@
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Tuple
 import difflib
 
 
@@ -30,13 +30,14 @@ def _merge_cluster(cluster: List[Dict[str, Any]]) -> Dict[str, Any]:
     return canonical_ent
 
 
-def resolve_entities(entities: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def resolve_entities(entities: List[Dict[str, Any]]) -> Tuple[List[Dict[str, Any]], Dict[str, str]]:
     """
     Deduplication pass using native Python to collapse similar entities.
     Expects entities to have 'name' and 'type'.
+    Returns a tuple of (resolved_entities, alias_to_canonical_mapping).
     """
     if not entities:
-        return []
+        return [], {}
 
     # Group entities by type first to avoid comparing apples to oranges
     type_groups: Dict[str, List[Dict[str, Any]]] = {}
@@ -45,6 +46,7 @@ def resolve_entities(entities: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         type_groups.setdefault(ent_type, []).append(ent)
 
     resolved_entities = []
+    alias_to_canonical: Dict[str, str] = {}
 
     for ent_type, group in type_groups.items():
         clusters: List[List[Dict[str, Any]]] = []
@@ -60,6 +62,12 @@ def resolve_entities(entities: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
 
         # Merge each cluster into a single representative entity
         for cluster in clusters:
-            resolved_entities.append(_merge_cluster(cluster))
+            merged = _merge_cluster(cluster)
+            resolved_entities.append(merged)
 
-    return resolved_entities
+            # Build alias mapping: all names in cluster map to canonical name
+            canonical_name = merged["name"]
+            for ent in cluster:
+                alias_to_canonical[ent["name"]] = canonical_name
+
+    return resolved_entities, alias_to_canonical

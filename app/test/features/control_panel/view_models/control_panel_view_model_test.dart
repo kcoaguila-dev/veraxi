@@ -88,14 +88,7 @@ void main() {
     // Let constructor fetch finish
     await Future.delayed(Duration.zero);
 
-    final future = viewModel.triggerIngestion("test text");
-
-    // The state isn't guaranteed to synchronously change when using await
-    // inside the function before an exception is thrown without pump/microtasks.
-    // Let's just wait for the future and check the final state for this test.
-    try {
-      await future;
-    } catch (_) {}
+    await viewModel.triggerIngestion("test text");
 
     expect(viewModel.state.isIngesting, false);
     expect(viewModel.state.error, contains('Server error: 500'));

@@ -92,6 +92,31 @@ def _validate_single_relation(
     return None
 
 
+def _normalize_properties(props: Any) -> Dict[str, Any]:
+    """
+    Normalize properties to Neo4j-safe values.
+    Neo4j properties must be primitives or arrays of primitives - no nested maps.
+    """
+    if not isinstance(props, dict):
+        return {}
+
+    normalized = {}
+    for key, value in props.items():
+        # Keep only primitives and arrays of primitives
+        if value is None:
+            continue
+        elif isinstance(value, (str, int, float, bool)):
+            normalized[key] = value
+        elif isinstance(value, list):
+            # Keep only if all elements are primitives
+            if all(isinstance(item, (str, int, float, bool)) for item in value):
+                normalized[key] = value
+            # Otherwise drop it (nested structure)
+        # Drop dicts and other complex types
+
+    return normalized
+
+
 def _validate_entities(
     entities: List[Dict[str, Any]],
 ) -> Tuple[List[Dict[str, Any]], Dict[str, str]]:
@@ -111,7 +136,7 @@ def _validate_entities(
                 {
                     "type": ent_type,
                     "name": name,
-                    "properties": props if isinstance(props, dict) else {},
+                    "properties": _normalize_properties(props),
                 }
             )
             entity_name_to_type[name] = ent_type
