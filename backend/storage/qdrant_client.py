@@ -85,3 +85,27 @@ class QdrantStorageClient:
             {"id": hit.id, "score": hit.score, "payload": hit.payload}
             for hit in results
         ]
+
+    def delete_points(self, collection_name: str, point_ids: List[str]):
+        """Delete points by their IDs."""
+        from qdrant_client.http import models
+        self.client.delete(
+            collection_name=collection_name,
+            points_selector=models.PointIdsList(points=point_ids)
+        )
+
+    def count(self, collection_name: str, tenant_id: str = "default") -> int:
+        """Count the number of vectors for a given tenant."""
+        from qdrant_client.http import models
+        count_filter = models.Filter(
+            must=[
+                models.FieldCondition(
+                    key="tenant_id", match=models.MatchValue(value=tenant_id)
+                )
+            ]
+        )
+        return self.client.count(
+            collection_name=collection_name,
+            count_filter=count_filter,
+            exact=True
+        ).count

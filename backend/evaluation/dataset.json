@@ -1,0 +1,17 @@
+[
+  {
+    "query": "Who developed GraphRAG?",
+    "expected_answer": "GraphRAG was developed by Microsoft Research.",
+    "tenant_id": "default"
+  },
+  {
+    "query": "What is Qdrant?",
+    "expected_answer": "Qdrant is a high-performance vector database optimized for nearest-neighbor search.",
+    "tenant_id": "default"
+  },
+  {
+    "query": "How are relationships created in Neo4j?",
+    "expected_answer": "Relationships in Neo4j connect nodes and must have a direction and a type, typically created using the Cypher MERGE or CREATE commands.",
+    "tenant_id": "default"
+  }
+]

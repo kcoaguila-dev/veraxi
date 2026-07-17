@@ -64,6 +64,23 @@ builds on this working reliably.
 - [x] Dockerize FastAPI backend for 1-click self-hosting
 - [x] Clean up CI and documentation
 
+## Phase 9 — Sovereign Pure MCP Architecture ✅ done
+- [x] Decouple backend from Gemini API for pure sovereign ingestion
+- [x] Replace `RapidFuzz` with `paraphrase-multilingual-MiniLM-L12-v2` local semantic embeddings
+- [x] Expose 6 refined MCP tools: `insert_graph_nodes`, `insert_vectors`, `query_graph`, `search_vectors`, `merge_rank`, and `get_graph_schema`
+
+## Phase 10 — Cloud Run & SSE Authentication ✅ done
+- [x] Refactor `server.py` from `stdio` to `SseServerTransport` (FastAPI)
+- [x] Add JWT Bearer token validation middleware to FastAPI
+- [x] Extract `tenant_id` securely from the JWT payload
+- [x] Hardened API Gateway (Rate limiting, MIME magic bytes, Docling ingestion, Stripe Webhooks)
+- [x] Ready for deployment to Google Cloud Run for zero-cost scaling
+
+## Phase 11 — Premium Flutter UI Redesign
+- [ ] Overhaul Flutter app based on `veraxi_control_ui.svg`
+- [ ] Implement glassmorphism, modern typography (Inter), and dynamic color palettes
+- [ ] Add micro-animations to chat interactions and node exploration
+
 ---
 
-**Currently here:** Project Complete! All phases 1-8 finished.
+**Currently here:** Phase 11 — Premium Flutter UI Redesign.

@@ -1,7 +1,6 @@
 from unittest.mock import patch
 from backend.mcp_server.tools.search_vectors import search_vectors
 from backend.mcp_server.tools.query_graph import query_graph
-from backend.mcp_server.tools.ingest_data import ingest_data
 from backend.ingestion.extract import validate_extraction
 from backend.retrieval.merge_rank import VectorHit, GraphHit
 
@@ -140,56 +139,36 @@ def test_extraction_validation_normalizes_nested_properties():
     assert "mixed_array" not in props
 
 
-@patch("backend.mcp_server.tools.ingest_data.run_ingestion")
-@patch("backend.mcp_server.tools.ingest_data.get_config")
-def test_ingest_data_shape(mock_get_config, mock_run_ingestion):
-    # Mock the ingestion response
-    mock_run_ingestion.return_value = {"nodes_inserted": 5, "vectors_inserted": 5}
+from backend.mcp_server.tools.insert_graph import insert_graph_nodes
+from backend.mcp_server.tools.insert_vector import insert_vectors
 
-    result = ingest_data("dummy text")
+@patch("backend.mcp_server.tools.insert_graph.get_config")
+@patch("backend.mcp_server.tools.insert_graph.Neo4jStorageClient")
+def test_insert_graph_nodes_success(mock_neo4j_class, mock_get_config):
+    mock_instance = mock_neo4j_class.return_value
+    mock_instance.create_node.return_value = "node-id"
 
-    assert "Successfully ingested data." in result
-    assert "Inserted 5 graph nodes and 5 vector embeddings." in result
-    mock_run_ingestion.assert_called_once()
+    nodes = [{"type": "Person", "name": "Alice"}]
+    relations = []
 
+    result = insert_graph_nodes(nodes, relations)
 
-@patch("backend.mcp_server.tools.ingest_data.run_ingestion")
-@patch("backend.mcp_server.tools.ingest_data.get_config")
-def test_ingest_data_passes_tenant_id(mock_get_config, mock_run_ingestion):
-    mock_config = mock_get_config.return_value
-    mock_run_ingestion.return_value = {"nodes_inserted": 1, "vectors_inserted": 1}
+    assert result["status"] == "success"
+    assert result["nodes_inserted"] == 1
+    assert result["relations_inserted"] == 0
+    mock_instance.create_node.assert_called_once()
 
-    ingest_data("dummy text", tenant_id="tenant-42")
+@patch("backend.mcp_server.tools.insert_vector.get_config")
+@patch("backend.mcp_server.tools.insert_vector.QdrantStorageClient")
+def test_insert_vectors_success(mock_qdrant_class, mock_get_config):
+    mock_instance = mock_qdrant_class.return_value
+    mock_instance.insert_points.return_value = ["uuid-1", "uuid-2"]
 
-    mock_run_ingestion.assert_called_once_with(
-        mock_config, "dummy text", tenant_id="tenant-42"
-    )
+    texts = ["chunk 1", "chunk 2"]
 
+    result = insert_vectors(texts)
 
-@patch("backend.mcp_server.tools.ingest_data.run_ingestion")
-@patch("backend.mcp_server.tools.ingest_data.get_config")
-def test_ingest_data_errors_on_incomplete_result(
-    mock_get_config, mock_run_ingestion
-):
-    # Ingestion pipeline may return a result missing the expected keys
-    mock_run_ingestion.return_value = {}
-
-    result = ingest_data("dummy text")
-
-    assert "Error executing ingestion tool" in result
-    assert "Incomplete result" in result
-
-
-@patch("backend.mcp_server.tools.ingest_data.run_ingestion")
-@patch("backend.mcp_server.tools.ingest_data.get_config")
-def test_ingest_data_returns_generic_error_message_on_exception(
-    mock_get_config, mock_run_ingestion
-):
-    mock_run_ingestion.side_effect = RuntimeError("pipeline failure")
-
-    result = ingest_data("dummy text")
-
-    assert "Error executing ingestion tool" in result
-    assert "unexpected error occurred" in result
-    # Should NOT contain the raw exception message
-    assert "pipeline failure" not in result
+    assert result["status"] == "success"
+    assert result["vectors_inserted"] == 2
+    assert result["point_ids"] == ["uuid-1", "uuid-2"]
+    mock_instance.insert_points.assert_called_once()

@@ -1,4 +1,19 @@
+import os
+import pytest
 from backend.ingestion.entity_resolution import resolve_entities
+from backend.config import get_config
+
+@pytest.fixture(autouse=True)
+def mock_env(monkeypatch):
+    """Mock config environment variables so chunk_embed.py doesn't crash."""
+    monkeypatch.setenv("NEO4J_URI", "dummy")
+    monkeypatch.setenv("NEO4J_USER", "dummy")
+    monkeypatch.setenv("NEO4J_PASSWORD", "dummy")
+    monkeypatch.setenv("QDRANT_URL", "dummy")
+    monkeypatch.setenv("QDRANT_COLLECTION_NAME", "veraxi_docs")
+    monkeypatch.setenv("LLM_MODEL_NAME", "dummy-llm")
+    monkeypatch.setenv("EMBEDDING_MODEL_NAME", "paraphrase-multilingual-MiniLM-L12-v2")
+    get_config.cache_clear()
 
 
 def test_resolve_entities_deduplication():

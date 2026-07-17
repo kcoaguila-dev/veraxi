@@ -9,49 +9,61 @@ from backend.retrieval.merge_rank import merge_rank
 
 logger = logging.getLogger(__name__)
 
-TOOLS = [
-    types.Tool(
-        function_declarations=[
-            types.FunctionDeclaration(
-                name="search_vectors",
-                description="Search for semantically similar text chunks in the vector database.",
-                parameters=types.Schema(
-                    type=types.Type.OBJECT,
-                    properties={
-                        "query_text": types.Schema(
-                            type=types.Type.STRING,
-                            description="The text to search for.",
-                        ),
-                        "limit": types.Schema(
-                            type=types.Type.INTEGER,
-                            description="Maximum number of results to return (default 10).",
-                        ),
-                    },
-                    required=["query_text"],
+def get_tools() -> list:
+    config = get_config()
+    return [
+        types.Tool(
+            function_declarations=[
+                types.FunctionDeclaration(
+                    name="search_vectors",
+                    description="Search for semantically similar text chunks in the vector database.",
+                    parameters=types.Schema(
+                        type=types.Type.OBJECT,
+                        properties={
+                            "query_text": types.Schema(
+                                type=types.Type.STRING,
+                                description="The text to search for.",
+                            ),
+                            "limit": types.Schema(
+                                type=types.Type.INTEGER,
+                                description=f"Maximum number of results to return (default {config.default_search_limit}).",
+                            ),
+                        },
+                        required=["query_text"],
+                    ),
                 ),
-            ),
-            types.FunctionDeclaration(
-                name="query_graph",
-                description="Query the knowledge graph starting from a specific entity.",
-                parameters=types.Schema(
-                    type=types.Type.OBJECT,
-                    properties={
-                        "entity_name": types.Schema(
-                            type=types.Type.STRING,
-                            description="The name of the entity to start the traversal from.",
-                        ),
-                        "max_hops": types.Schema(
-                            type=types.Type.INTEGER,
-                            description="Maximum number of relationship hops (default 2).",
-                        ),
-                    },
-                    required=["entity_name"],
+                types.FunctionDeclaration(
+                    name="query_graph",
+                    description="Query the knowledge graph starting from a specific entity.",
+                    parameters=types.Schema(
+                        type=types.Type.OBJECT,
+                        properties={
+                            "entity_name": types.Schema(
+                                type=types.Type.STRING,
+                                description="The name of the entity to start the traversal from.",
+                            ),
+                            "max_hops": types.Schema(
+                                type=types.Type.INTEGER,
+                                description=f"Maximum number of relationship hops (default {config.default_max_hops}).",
+                            ),
+                        },
+                        required=["entity_name"],
+                    ),
                 ),
-            ),
-        ]
-    )
-]
+            ]
+        )
+    ]
 
+
+def _execute_single_tool(tool_name: str, tool_input: dict, tenant_id: str) -> Tuple[List[Any], List[Any]]:
+    config = get_config()
+    if tool_name == "search_vectors":
+        limit = int(tool_input.get("limit", config.default_search_limit))
+        return search_vectors(tool_input["query_text"], limit=limit, tenant_id=tenant_id), []
+    elif tool_name == "query_graph":
+        max_hops = int(tool_input.get("max_hops", config.default_max_hops))
+        return [], query_graph(tool_input["entity_name"], max_hops=max_hops, tenant_id=tenant_id)
+    return [], []
 
 def _execute_tools(
     function_calls: List[Any], tenant_id: str
@@ -65,21 +77,10 @@ def _execute_tools(
         tool_input = function_call.args
 
         logging.info(f"LLM called tool: {tool_name} with args: {tool_input}")
-
-        if tool_name == "search_vectors":
-            limit = int(tool_input.get("limit", 10))
-            vector_hits.extend(
-                search_vectors(
-                    tool_input["query_text"], limit=limit, tenant_id=tenant_id
-                )
-            )
-        elif tool_name == "query_graph":
-            max_hops = int(tool_input.get("max_hops", 2))
-            graph_hits.extend(
-                query_graph(
-                    tool_input["entity_name"], max_hops=max_hops, tenant_id=tenant_id
-                )
-            )
+        
+        v_hits, g_hits = _execute_single_tool(tool_name, tool_input, tenant_id)
+        vector_hits.extend(v_hits)
+        graph_hits.extend(g_hits)
 
     return vector_hits, graph_hits
 
@@ -95,50 +96,47 @@ def _build_context_string(merged_results: List[Any]) -> str:
     return "\n".join(context_parts)
 
 
-def answer_question(question: str, tenant_id: str = "default") -> str:
+def _execute_and_merge_tools(function_calls, tenant_id: str) -> list:
+    vector_hits, graph_hits = _execute_tools(function_calls, tenant_id)
+    if not vector_hits and not graph_hits:
+        return []
+    
+    merged = merge_rank(vector_hits, graph_hits)
+    logging.info(f"Provenance: Generated {len(merged)} fused results from tools.")
+    return merged
+
+def _format_return(text: str, context: str, return_context: bool) -> str | Tuple[str, str]:
+    if return_context:
+        return text, context
+    return text
+
+def answer_question(question: str, tenant_id: str = "default", return_context: bool = False) -> str | Tuple[str, str]:
     """
     LLM decides whether to call search_vectors and/or query_graph, gets results back,
     calls merge_rank to fuse them, then produces a final answer grounded in the fused results.
     Logs the provenance.
+    If return_context is True, returns (final_answer, context_str).
     """
-    # [MOCK] Generative UI Test Hook
-    if "show me a graph" in question.lower():
-        return """{
-  "type": "graph",
-  "elements": [
-    { "data": { "id": "a", "label": "Veraxi" } },
-    { "data": { "id": "b", "label": "GraphRAG" } },
-    { "data": { "id": "c", "label": "Qdrant" } },
-    { "data": { "id": "ab", "source": "a", "target": "b", "type": "USES" } },
-    { "data": { "id": "bc", "source": "b", "target": "c", "type": "INTEGRATES" } }
-  ]
-}"""
-
     config = get_config()
-    client = genai.Client(api_key=config.gemini_api_key)
+    client = genai.Client(api_key=config.llm_api_key)
 
     # Step 1: Ask the LLM to decide on tools
+    tools = get_tools()
     response = client.models.generate_content(
-        model="gemini-2.5-flash",
+        model=config.llm_model_name,
         contents=[question],
-        config=types.GenerateContentConfig(tools=TOOLS, temperature=0.0),
+        config=types.GenerateContentConfig(tools=tools, temperature=0.0),
     )
 
     if not response.function_calls:
         # LLM decided not to use tools
         logging.info("LLM did not call any tools. Returning its direct response.")
-        return response.text
+        return _format_return(response.text, "", return_context)
 
-    # Step 2: Merge and rank the results if any tools were called
-    vector_hits, graph_hits = _execute_tools(response.function_calls, tenant_id)
-
-    if not vector_hits and not graph_hits:
-        return response.text
-
-    merged_results = merge_rank(vector_hits, graph_hits)
-    logging.info(
-        f"Provenance: Generated {len(merged_results)} fused results from tools."
-    )
+    # Step 2: Execute tools and merge results
+    merged_results = _execute_and_merge_tools(response.function_calls, tenant_id)
+    if not merged_results:
+        return _format_return(response.text, "", return_context)
 
     context_str = _build_context_string(merged_results)
 
@@ -150,9 +148,9 @@ def answer_question(question: str, tenant_id: str = "default") -> str:
     )
 
     final_response = client.models.generate_content(
-        model="gemini-2.5-flash",
+        model=config.llm_model_name,
         contents=[final_prompt],
         config=types.GenerateContentConfig(temperature=0.0),
     )
 
-    return final_response.text
+    return _format_return(final_response.text, context_str, return_context)

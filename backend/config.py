@@ -2,6 +2,10 @@
 import os
 from dataclasses import dataclass
 from functools import lru_cache
+from typing import Optional
+from dotenv import load_dotenv
+
+load_dotenv()
 
 
 @dataclass
@@ -10,10 +14,22 @@ class Config:
     neo4j_user: str
     neo4j_password: str
     qdrant_url: str
-    qdrant_api_key: str
-    gemini_api_key: str
+    qdrant_api_key: Optional[str]
+    qdrant_collection_name: str
+    llm_api_key: str
+    llm_model_name: str
     embedding_api_key: str
+    embedding_model_name: str
     sentry_dsn: str
+    stripe_api_key: str
+    stripe_webhook_secret: str
+    supabase_url: str
+    supabase_service_key: str
+    rate_limit_chat: str
+    rate_limit_ingest: str
+    rate_limit_sse: str
+    default_search_limit: int
+    default_max_hops: int
 
     @classmethod
     def from_env(cls) -> "Config":
@@ -22,12 +38,25 @@ class Config:
             neo4j_user=_require("NEO4J_USER"),
             neo4j_password=_require("NEO4J_PASSWORD"),
             qdrant_url=_require("QDRANT_URL"),
-            qdrant_api_key=os.environ.get("QDRANT_API_KEY", ""),
-            gemini_api_key=os.environ.get("GEMINI_API_KEY", ""),
+            qdrant_api_key=os.environ.get("QDRANT_API_KEY"),
+            qdrant_collection_name=os.environ.get("QDRANT_COLLECTION_NAME", "veraxi_docs"),
+            llm_api_key=os.environ.get("LLM_API_KEY", ""),
+            llm_model_name=os.environ.get("LLM_MODEL_NAME", "gemini-2.5-flash"),
             embedding_api_key=os.environ.get("EMBEDDING_API_KEY", ""),
+            embedding_model_name=os.environ.get(
+                "EMBEDDING_MODEL_NAME", "text-embedding-004"
+            ),
             sentry_dsn=os.environ.get("SENTRY_DSN", ""),
+            stripe_api_key=os.environ.get("STRIPE_API_KEY", "sk_test_1234567890"),
+            stripe_webhook_secret=os.environ.get("STRIPE_WEBHOOK_SECRET", "whsec_1234567890"),
+            supabase_url=os.environ.get("SUPABASE_URL", "https://xyzcompany.supabase.co"),
+            supabase_service_key=os.environ.get("SUPABASE_SERVICE_KEY", "dummy-service-key-for-local-dev"),
+            rate_limit_chat=os.environ.get("RATE_LIMIT_CHAT", "100/day"),
+            rate_limit_ingest=os.environ.get("RATE_LIMIT_INGEST", "50/day"),
+            rate_limit_sse=os.environ.get("RATE_LIMIT_SSE", "10/minute"),
+            default_search_limit=int(os.environ.get("DEFAULT_SEARCH_LIMIT", "10")),
+            default_max_hops=int(os.environ.get("DEFAULT_MAX_HOPS", "2")),
         )
-
 
 def _require(key: str) -> str:
     value = os.environ.get(key)
