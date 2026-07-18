@@ -49,13 +49,13 @@ class NavBar extends StatelessWidget {
           Row(
             children: [
               TextButton(
-                onPressed: () {},
+                onPressed: () => context.go('/login'),
                 style: TextButton.styleFrom(foregroundColor: AppTheme.textPrimary),
                 child: const Text('Sign In'),
               ),
               const SizedBox(width: 16),
               ElevatedButton(
-                onPressed: () => context.go('/chat'),
+                onPressed: () => context.go('/login'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppTheme.textPrimary,
                   foregroundColor: AppTheme.background,
