@@ -63,9 +63,7 @@
     <!-- Announcement Pill -->
     <g transform="translate(0, 0)">
       <rect x="-160" y="-18" width="320" height="36" rx="18" fill="#2A2A2A" stroke="#333" stroke-width="1" />
-      <circle cx="-135" cy="0" r="4" fill="#10B981" />
-      <text x="0" y="5" fill="#B4B4B4" font-size="13" font-weight="500" class="font-inter">Veraxi Live: Sovereign Local LLMs</text>
-      <path d="M 125 -4 L 133 0 L 125 4" stroke="#B4B4B4" stroke-width="1.5" fill="none" />
+      <text x="0" y="5" fill="#B4B4B4" font-size="13" font-weight="500" class="font-inter">Still in development</text>
     </g>
 
     <!-- Main Headline -->
