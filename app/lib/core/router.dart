@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:veraxi_app/features/auth/views/login_screen.dart';
 import 'package:veraxi_app/features/chat/views/chat_screen.dart';
 import 'package:veraxi_app/features/control_panel/views/control_panel_screen.dart';
+import 'package:veraxi_app/features/docs/views/docs_screen.dart';
 import 'package:veraxi_app/features/landing/views/landing_screen.dart';
 import 'package:veraxi_app/main.dart';
 
@@ -33,6 +34,10 @@ final goRouter = GoRouter(
     GoRoute(
       path: '/',
       builder: (BuildContext context, GoRouterState state) => const LandingScreen(),
+    ),
+    GoRoute(
+      path: '/docs',
+      builder: (BuildContext context, GoRouterState state) => const DocsScreen(),
     ),
     GoRoute(
       path: '/login',

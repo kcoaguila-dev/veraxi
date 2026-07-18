@@ -82,8 +82,8 @@ class CodeSnippetVisualization extends StatelessWidget {
                     ),
                     // Simulated highlight for the LLM
                     Positioned(
-                      top: 130,
-                      left: 20,
+                      bottom: 20,
+                      right: 20,
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
