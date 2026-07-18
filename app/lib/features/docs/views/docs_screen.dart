@@ -24,7 +24,7 @@ Veraxi is an advanced Model Context Protocol (MCP) server that empowers AI agent
 ## Using the CLI
 To initialize Veraxi in your workspace, run:
 ```bash
-antigravity mcp install veraxi
+<your_agent_cli> mcp install veraxi
 ```
 
 ## Creating Entities
