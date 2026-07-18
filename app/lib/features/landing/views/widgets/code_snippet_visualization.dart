@@ -23,45 +23,41 @@ class CodeSnippetVisualization extends StatelessWidget {
           )
         ],
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(12),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Window Header
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                decoration: const BoxDecoration(
-                  border: Border(bottom: BorderSide(color: AppTheme.surfaceHighlight)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Window Header
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: const BoxDecoration(
+              border: Border(bottom: BorderSide(color: AppTheme.surfaceHighlight)),
+            ),
+            child: Row(
+              children: [
+                _buildDot(const Color(0xFFEF4444)),
+                const SizedBox(width: 8),
+                _buildDot(const Color(0xFFEAB308)),
+                const SizedBox(width: 8),
+                _buildDot(const Color(0xFF10B981)),
+                const SizedBox(width: 16),
+                Text(
+                  'claude_desktop_config.json',
+                  style: GoogleFonts.inter(
+                    color: AppTheme.textSecondary,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
-                child: Row(
-                  children: [
-                    _buildDot(const Color(0xFFEF4444)),
-                    const SizedBox(width: 8),
-                    _buildDot(const Color(0xFFEAB308)),
-                    const SizedBox(width: 8),
-                    _buildDot(const Color(0xFF10B981)),
-                    const SizedBox(width: 16),
-                    Text(
-                      'claude_desktop_config.json',
-                      style: GoogleFonts.inter(
-                        color: AppTheme.textSecondary,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              // Code Content
-              Padding(
-                padding: const EdgeInsets.all(24.0),
-                child: Stack(
-                  children: [
-                    Text(
-                      '''{
+              ],
+            ),
+          ),
+          // Code Content
+          Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Stack(
+              children: [
+                Text(
+                  '''{
   "mcpServers": {
     "veraxi-knowledge-graph": {
       "command": "veraxi",
@@ -74,45 +70,43 @@ class CodeSnippetVisualization extends StatelessWidget {
     }
   }
 }''',
-                      style: GoogleFonts.firaCode(
-                        color: AppTheme.textSecondary,
-                        fontSize: 14,
-                        height: 1.6,
-                      ),
-                    ),
-                    // Simulated highlight for the LLM
-                    Positioned(
-                      bottom: 20,
-                      right: 20,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: AppTheme.primary.withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(4),
-                          border: Border.all(color: AppTheme.primary),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.check_circle, color: Color(0xFF10B981), size: 12),
-                            const SizedBox(width: 4),
-                            Text(
-                              'Local Sovereign LLM',
-                              style: GoogleFonts.inter(
-                                color: const Color(0xFF10B981),
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    )
-                  ],
+                  style: GoogleFonts.firaCode(
+                    color: AppTheme.textSecondary,
+                    fontSize: 14,
+                    height: 1.6,
+                  ),
                 ),
-              ),
-            ],
+                // Simulated highlight for the LLM
+                Positioned(
+                  bottom: 20,
+                  right: 20,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primary.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(color: AppTheme.primary),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.check_circle, color: Color(0xFF10B981), size: 12),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Local Sovereign LLM',
+                          style: GoogleFonts.inter(
+                            color: const Color(0xFF10B981),
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
