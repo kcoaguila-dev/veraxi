@@ -2,14 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:veraxi_app/features/chat/views/chat_screen.dart';
 import 'package:veraxi_app/features/control_panel/views/control_panel_screen.dart';
+import 'package:veraxi_app/features/landing/views/landing_screen.dart';
 import 'package:veraxi_app/main.dart';
 
 final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'root');
 
 final goRouter = GoRouter(
   navigatorKey: _rootNavigatorKey,
-  initialLocation: '/chat',
+  initialLocation: '/',
   routes: <RouteBase>[
+    GoRoute(
+      path: '/',
+      builder: (BuildContext context, GoRouterState state) => const LandingScreen(),
+    ),
     StatefulShellRoute.indexedStack(
       builder: (BuildContext context, GoRouterState state, StatefulNavigationShell navigationShell) {
         return ScaffoldWithNavBar(navigationShell: navigationShell);
