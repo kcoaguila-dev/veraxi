@@ -48,7 +48,7 @@ Agents can create entities autonomously using the MCP protocol.
       backgroundColor: AppTheme.background,
       body: Column(
         children: [
-          const NavBar(),
+          NavBar(onFeaturesTap: () => context.go('/')),
           Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 60),
