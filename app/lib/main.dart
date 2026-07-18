@@ -13,7 +13,7 @@ Future<void> main() async {
 
   await Supabase.initialize(
     url: const String.fromEnvironment('SUPABASE_URL', defaultValue: 'https://placeholder.supabase.co'),
-    anonKey: const String.fromEnvironment('SUPABASE_ANON_KEY', defaultValue: 'placeholder'),
+    publishableKey: const String.fromEnvironment('SUPABASE_ANON_KEY', defaultValue: 'placeholder'),
   );
 
   await SentryFlutter.init(
