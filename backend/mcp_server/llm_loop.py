@@ -1,7 +1,8 @@
 import logging
 from typing import Tuple, List, Any
-from google import genai
-from google.genai import types
+import json
+from openai import OpenAI
+import json
 from backend.config import get_config
 from backend.mcp_server.tools.search_vectors import search_vectors
 from backend.mcp_server.tools.query_graph import query_graph
@@ -12,46 +13,48 @@ logger = logging.getLogger(__name__)
 def get_tools() -> list:
     config = get_config()
     return [
-        types.Tool(
-            function_declarations=[
-                types.FunctionDeclaration(
-                    name="search_vectors",
-                    description="Search for semantically similar text chunks in the vector database.",
-                    parameters=types.Schema(
-                        type=types.Type.OBJECT,
-                        properties={
-                            "query_text": types.Schema(
-                                type=types.Type.STRING,
-                                description="The text to search for.",
-                            ),
-                            "limit": types.Schema(
-                                type=types.Type.INTEGER,
-                                description=f"Maximum number of results to return (default {config.default_search_limit}).",
-                            ),
+        {
+            "type": "function",
+            "function": {
+                "name": "search_vectors",
+                "description": "Search for semantically similar text chunks in the vector database.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "query_text": {
+                            "type": "string",
+                            "description": "The text to search for."
                         },
-                        required=["query_text"],
-                    ),
-                ),
-                types.FunctionDeclaration(
-                    name="query_graph",
-                    description="Query the knowledge graph starting from a specific entity.",
-                    parameters=types.Schema(
-                        type=types.Type.OBJECT,
-                        properties={
-                            "entity_name": types.Schema(
-                                type=types.Type.STRING,
-                                description="The name of the entity to start the traversal from.",
-                            ),
-                            "max_hops": types.Schema(
-                                type=types.Type.INTEGER,
-                                description=f"Maximum number of relationship hops (default {config.default_max_hops}).",
-                            ),
+                        "limit": {
+                            "type": "integer",
+                            "description": f"Maximum number of results to return (default {config.default_search_limit})."
+                        }
+                    },
+                    "required": ["query_text"]
+                }
+            }
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "query_graph",
+                "description": "Query the knowledge graph starting from a specific entity.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "entity_name": {
+                            "type": "string",
+                            "description": "The name of the entity to start the traversal from."
                         },
-                        required=["entity_name"],
-                    ),
-                ),
-            ]
-        )
+                        "max_hops": {
+                            "type": "integer",
+                            "description": f"Maximum number of relationship hops (default {config.default_max_hops})."
+                        }
+                    },
+                    "required": ["entity_name"]
+                }
+            }
+        }
     ]
 
 
@@ -73,8 +76,8 @@ def _execute_tools(
     graph_hits = []
 
     for function_call in function_calls:
-        tool_name = function_call.name
-        tool_input = function_call.args
+        tool_name = function_call.function.name
+        tool_input = json.loads(function_call.function.arguments)
 
         logging.info(f"LLM called tool: {tool_name} with args: {tool_input}")
         
@@ -118,25 +121,33 @@ def answer_question(question: str, tenant_id: str = "default", return_context: b
     If return_context is True, returns (final_answer, context_str).
     """
     config = get_config()
-    client = genai.Client(api_key=config.llm_api_key)
+    client_args = {}
+    if config.llm_api_key:
+        client_args["api_key"] = config.llm_api_key
+    if config.llm_base_url:
+        client_args["base_url"] = config.llm_base_url
+        
+    client = OpenAI(**client_args)
 
     # Step 1: Ask the LLM to decide on tools
     tools = get_tools()
-    response = client.models.generate_content(
+    response = client.chat.completions.create(
         model=config.llm_model_name,
-        contents=[question],
-        config=types.GenerateContentConfig(tools=tools, temperature=0.0),
+        messages=[{"role": "user", "content": question}],
+        tools=tools,
+        temperature=0.0
     )
 
-    if not response.function_calls:
+    message = response.choices[0].message
+    if not message.tool_calls:
         # LLM decided not to use tools
         logging.info("LLM did not call any tools. Returning its direct response.")
-        return _format_return(response.text, "", return_context)
+        return _format_return(message.content, "", return_context)
 
     # Step 2: Execute tools and merge results
-    merged_results = _execute_and_merge_tools(response.function_calls, tenant_id)
+    merged_results = _execute_and_merge_tools(message.tool_calls, tenant_id)
     if not merged_results:
-        return _format_return(response.text, "", return_context)
+        return _format_return(message.content or "No results found.", "", return_context)
 
     context_str = _build_context_string(merged_results)
 
@@ -147,10 +158,10 @@ def answer_question(question: str, tenant_id: str = "default", return_context: b
         f"Question: {question}"
     )
 
-    final_response = client.models.generate_content(
+    final_response = client.chat.completions.create(
         model=config.llm_model_name,
-        contents=[final_prompt],
-        config=types.GenerateContentConfig(temperature=0.0),
+        messages=[{"role": "user", "content": final_prompt}],
+        temperature=0.0
     )
 
-    return _format_return(final_response.text, context_str, return_context)
+    return _format_return(final_response.choices[0].message.content, context_str, return_context)

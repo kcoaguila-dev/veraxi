@@ -1,8 +1,7 @@
 import json
 import logging
 from typing import List, Dict, Any, Tuple
-from google import genai
-from google.genai import types
+from openai import OpenAI
 from backend.config import get_config
 from backend.prompts import EXTRACTION_PROMPT
 
@@ -143,21 +142,29 @@ def extract_entities_and_relations(
     text: str,
 ) -> Tuple[List[Dict[str, Any]], List[Dict[str, str]]]:
     """
-    Extract entities and relations using Gemini API constrained to a fixed schema.
+    Extract entities and relations using OpenAI API constrained to a fixed schema.
     """
     config = get_config()
-    client = genai.Client(api_key=config.llm_api_key)
+    client_args = {}
+    if config.llm_api_key:
+        client_args["api_key"] = config.llm_api_key
+    if config.llm_base_url:
+        client_args["base_url"] = config.llm_base_url
+        
+    client = OpenAI(**client_args)
 
     try:
-        response = client.models.generate_content(
+        response = client.chat.completions.create(
             model=config.llm_model_name,
-            contents=[EXTRACTION_PROMPT, "\n\nText to analyze:\n", text],
-            config=types.GenerateContentConfig(
-                temperature=0.0, response_mime_type="application/json"
-            ),
+            messages=[
+                {"role": "system", "content": EXTRACTION_PROMPT},
+                {"role": "user", "content": f"Text to analyze:\n{text}"}
+            ],
+            response_format={"type": "json_object"},
+            temperature=0.0
         )
 
-        output = _clean_llm_json_output(response.text)
+        output = _clean_llm_json_output(response.choices[0].message.content)
         data = json.loads(output)
 
         raw_entities = data.get("entities", [])

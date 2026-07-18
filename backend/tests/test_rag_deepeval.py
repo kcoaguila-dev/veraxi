@@ -6,7 +6,7 @@ from deepeval.test_case import LLMTestCase
 from deepeval.metrics import FaithfulnessMetric, ContextualPrecisionMetric, AnswerRelevancyMetric
 
 from backend.mcp_server.llm_loop import answer_question
-from backend.tests.custom_gemini_eval import GeminiDeepEvalModel
+from backend.tests.custom_openai_eval import OpenAIDeepEvalModel
 
 def get_test_cases():
     """Load dataset and generate Pytest parameters."""
@@ -44,13 +44,13 @@ def test_rag_pipeline(item, mock_env):
         retrieval_context=retrieval_context,
     )
 
-    # Initialize our custom Gemini Judge
-    gemini_judge = GeminiDeepEvalModel()
+    # Initialize our custom OpenAI Judge
+    openai_judge = OpenAIDeepEvalModel()
 
     # Define strict metrics
-    faithfulness = FaithfulnessMetric(threshold=0.8, model=gemini_judge)
-    context_precision = ContextualPrecisionMetric(threshold=0.8, model=gemini_judge)
-    answer_relevancy = AnswerRelevancyMetric(threshold=0.8, model=gemini_judge)
+    faithfulness = FaithfulnessMetric(threshold=0.8, model=openai_judge)
+    context_precision = ContextualPrecisionMetric(threshold=0.8, model=openai_judge)
+    answer_relevancy = AnswerRelevancyMetric(threshold=0.8, model=openai_judge)
 
     # Run the assertions
     assert_test(test_case, [faithfulness, context_precision, answer_relevancy])

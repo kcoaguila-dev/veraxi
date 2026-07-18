@@ -17,6 +17,7 @@ class Config:
     qdrant_api_key: Optional[str]
     qdrant_collection_name: str
     llm_api_key: str
+    llm_base_url: str
     llm_model_name: str
     embedding_api_key: str
     embedding_model_name: str
@@ -41,6 +42,7 @@ class Config:
             qdrant_api_key=os.environ.get("QDRANT_API_KEY"),
             qdrant_collection_name=os.environ.get("QDRANT_COLLECTION_NAME", "veraxi_docs"),
             llm_api_key=os.environ.get("LLM_API_KEY", ""),
+            llm_base_url=os.environ.get("LLM_BASE_URL", ""),
             llm_model_name=os.environ.get("LLM_MODEL_NAME", "gemini-2.5-flash"),
             embedding_api_key=os.environ.get("EMBEDDING_API_KEY", ""),
             embedding_model_name=os.environ.get(

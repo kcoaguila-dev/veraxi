@@ -65,7 +65,7 @@ builds on this working reliably.
 - [x] Clean up CI and documentation
 
 ## Phase 9 — Sovereign Pure MCP Architecture ✅ done
-- [x] Decouple backend from Gemini API for pure sovereign ingestion
+- [x] Standardize ingestion pipeline (Note: LLM extraction remains coupled to Gemini API)
 - [x] Replace `RapidFuzz` with `paraphrase-multilingual-MiniLM-L12-v2` local semantic embeddings
 - [x] Expose 6 refined MCP tools: `insert_graph_nodes`, `insert_vectors`, `query_graph`, `search_vectors`, `merge_rank`, and `get_graph_schema`
 
@@ -80,6 +80,10 @@ builds on this working reliably.
 - [ ] Overhaul Flutter app based on `veraxi_control_ui.svg`
 - [ ] Implement glassmorphism, modern typography (Inter), and dynamic color palettes
 - [ ] Add micro-animations to chat interactions and node exploration
+
+## Phase 12 — True Sovereign LLM Decoupling
+- [ ] Migrate `google.genai` dependencies to `openai` Python package in `extract.py` and `llm_loop.py`
+- [ ] Support local Ollama/vLLM endpoints for 100% offline sovereign ingestion
 
 ---
 

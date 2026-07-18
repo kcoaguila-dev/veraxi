@@ -2,6 +2,7 @@ import os
 import pytest
 from testcontainers.neo4j import Neo4jContainer
 from testcontainers.qdrant import QdrantContainer
+from unittest.mock import patch
 from backend.config import get_config
 
 
@@ -21,6 +22,26 @@ def qdrant_container():
     else:
         with QdrantContainer("qdrant/qdrant:latest") as qdrant:
             yield qdrant
+
+
+@pytest.fixture(autouse=True)
+def mock_embed_text():
+    """
+    Mock the embed_text function to prevent downloading HuggingFace models
+    during test runs, ensuring offline capability and fast execution.
+    """
+    with patch("backend.ingestion.entity_resolution.embed_text") as mock_er_embed, \
+         patch("backend.mcp_server.tools.insert_vector.embed_text") as mock_iv_embed, \
+         patch("backend.mcp_server.tools.search_vectors.embed_text") as mock_sv_embed, \
+         patch("backend.ingestion.chunk_embed.embed_text") as mock_ce_embed:
+        
+        # Return a dummy vector of the expected size (384 for paraphrase-multilingual-MiniLM-L12-v2)
+        dummy_embedding = [0.1] * 384
+        mock_er_embed.return_value = dummy_embedding
+        mock_iv_embed.return_value = dummy_embedding
+        mock_sv_embed.return_value = dummy_embedding
+        mock_ce_embed.return_value = dummy_embedding
+        yield
 
 
 @pytest.fixture
