@@ -100,6 +100,7 @@ This project adheres to a strict "Zero-Warning" policy in CodeScene to prevent "
 
 ## UI & Aesthetics (Flutter)
 
+- **Design-First Workflow Constraint**: Never write or modify Flutter UI code without first verifying that a corresponding SVG design mockup exists in `docs/design/` (or generating one). AI agents must establish a visual contract before implementing user interfaces to ensure strict architectural and aesthetic scaling.
 - **Premium Design Required**: Never deliver generic, unstyled Material widgets. All UIs must feel premium, modern, and highly polished.
 - **Micro-animations**: Interactions (hovering, tapping, loading) must include subtle animations or transitions. Static, rigid UIs are unacceptable.
 - **Styling**: Use harmonious color palettes (avoid plain red/blue/green), sleek dark modes if applicable, smooth gradients, and modern typography (e.g., Google Fonts like Inter or Roboto). Do not just use browser/device defaults.
