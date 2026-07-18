@@ -5,7 +5,8 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:veraxi_app/core/theme.dart';
 
 class NavBar extends StatelessWidget {
-  const NavBar({super.key});
+  final VoidCallback? onFeaturesTap;
+  const NavBar({super.key, this.onFeaturesTap});
 
   @override
   Widget build(BuildContext context) {
@@ -40,7 +41,7 @@ class NavBar extends StatelessWidget {
                 children: [
                   _NavLink(
                     title: 'Features',
-                    onTap: () => context.go('/'),
+                    onTap: onFeaturesTap ?? () {},
                   ),
                   const SizedBox(width: 32),
                   _NavLink(
