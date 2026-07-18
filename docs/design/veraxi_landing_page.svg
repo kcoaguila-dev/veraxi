@@ -28,9 +28,17 @@
   <circle cx="720" cy="400" r="600" fill="url(#glow)" />
 
   <!-- ========================================== -->
-  <!-- TOP NAVIGATION BAR                         -->
+  <!-- TOP BANNER                                 -->
   <!-- ========================================== -->
   <g transform="translate(0, 0)">
+    <rect width="1440" height="40" fill="#3B82F6" fill-opacity="0.15" stroke="#3B82F6" stroke-width="1" />
+    <text x="720" y="24" fill="#E3E3E3" font-size="13" font-weight="500" class="font-inter" text-anchor="middle">Veraxi is still in development. Join the waitlist for early access.</text>
+  </g>
+
+  <!-- ========================================== -->
+  <!-- TOP NAVIGATION BAR                         -->
+  <!-- ========================================== -->
+  <g transform="translate(0, 40)">
     <rect width="1440" height="80" fill="#1A1A1A" fill-opacity="0.9" />
     <line x1="0" y1="80" x2="1440" y2="80" stroke="#333333" stroke-width="1" />
     
@@ -60,12 +68,6 @@
   <!-- HERO SECTION                               -->
   <!-- ========================================== -->
   <g transform="translate(720, 240)" text-anchor="middle">
-    <!-- Announcement Pill -->
-    <g transform="translate(0, 0)">
-      <rect x="-160" y="-18" width="320" height="36" rx="18" fill="#2A2A2A" stroke="#333" stroke-width="1" />
-      <text x="0" y="5" fill="#B4B4B4" font-size="13" font-weight="500" class="font-inter">Still in development</text>
-    </g>
-
     <!-- Main Headline -->
     <text x="0" y="70" fill="#FFFFFF" font-size="64" font-weight="800" class="font-inter" letter-spacing="-1.5">
       Give your AI agents a <tspan fill="url(#primaryGradient)">brain.</tspan>
