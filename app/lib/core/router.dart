@@ -19,8 +19,9 @@ final goRouter = GoRouter(
     
     final isLoggingIn = state.matchedLocation == '/login';
     final isLanding = state.matchedLocation == '/';
+    final isDocs = state.matchedLocation == '/docs';
 
-    if (!isAuth && !isLoggingIn && !isLanding) {
+    if (!isAuth && !isLoggingIn && !isLanding && !isDocs) {
       return '/login';
     }
 
