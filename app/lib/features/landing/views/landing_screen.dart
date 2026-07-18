@@ -20,7 +20,7 @@ class _LandingScreenState extends State<LandingScreen> {
     if (_featuresKey.currentContext != null) {
       Scrollable.ensureVisible(
         _featuresKey.currentContext!,
-        duration: const Duration(milliseconds: 500),
+        duration: const Duration(milliseconds: 300),
         curve: Curves.easeInOut,
       );
     }
