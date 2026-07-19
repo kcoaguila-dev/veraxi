@@ -39,10 +39,24 @@ if config.sentry_dsn:
 jwks_url = f"{config.supabase_url}/auth/v1/.well-known/jwks.json"
 jwks_client = PyJWKClient(jwks_url)
 
+from contextlib import asynccontextmanager
+from arq import create_pool
+from arq.connections import RedisSettings
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
+    config = get_config()
+    app.state.redis = await create_pool(RedisSettings.from_dsn(config.redis_url))
+    yield
+    # Shutdown
+    await app.state.redis.close()
+
 app = FastAPI(
     title="Veraxi API Gateway", 
     description="Multi-Tenant SaaS HTTP Gateway",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan
 )
 
 def get_auth_token_key(request: Request) -> str:
@@ -99,12 +113,14 @@ def get_tenant_id(credentials: HTTPAuthorizationCredentials = Depends(security))
 class ChatRequest(BaseModel):
     question: str
     calculate_grounding: bool = False
+    thread_id: str | None = None
 
 
 class ChatResponse(BaseModel):
     answer: str
     context: str | None = None
     grounding_score: float | None = None
+    thread_id: str | None = None
 
 
 class IngestRequest(BaseModel):
@@ -116,16 +132,28 @@ class IngestRequest(BaseModel):
 async def chat_endpoint(request: Request, chat_request: ChatRequest, tenant_id: str = Depends(get_tenant_id)):
     logger.info(f"Received question: {chat_request.question} for tenant: {tenant_id}")
     try:
-        # The llm_loop functions are currently synchronous
-        # In a high-throughput production environment, we'd run this in a threadpool
-        answer, context = answer_question(chat_request.question, tenant_id, return_context=True)
+        import uuid
+        thread_id = chat_request.thread_id or str(uuid.uuid4())
+        
+        # In a high-throughput production environment, we run this asynchronously
+        answer, context = await answer_question(
+            chat_request.question, 
+            tenant_id=tenant_id, 
+            thread_id=thread_id,
+            return_context=True
+        )
         
         score = None
         if chat_request.calculate_grounding:
             from backend.evaluation.grounding import evaluate_groundedness
             score = evaluate_groundedness(answer, context)
             
-        return ChatResponse(answer=answer, context=context, grounding_score=score)
+        return ChatResponse(
+            answer=answer, 
+            context=context, 
+            grounding_score=score,
+            thread_id=thread_id
+        )
     except Exception as e:
         logger.error(f"Error processing question: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -194,11 +222,10 @@ def get_stats(tenant_id: str = Depends(get_tenant_id)):
 
 @app.post("/api/admin/ingest")
 @limiter.limit(config.rate_limit_ingest)
-def ingest_data(request: Request, ingest_request: IngestRequest, tenant_id: str = Depends(get_tenant_id)):
+async def ingest_data(request: Request, ingest_request: IngestRequest, tenant_id: str = Depends(get_tenant_id)):
     try:
-        config = get_config()
-        result = run_ingestion(config, ingest_request.text, tenant_id)
-        return result
+        job = await request.app.state.redis.enqueue_job("process_ingestion_task", ingest_request.text, tenant_id)
+        return {"status": "queued", "job_id": job.job_id}
     except Exception as e:
         logger.error(f"Error during ingestion: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -249,11 +276,9 @@ async def ingest_upload(
         # Clean up temp file
         os.unlink(tmp_path)
 
-        logger.info(
-            f"Ingesting {len(markdown_text)} bytes of markdown from {file.filename}"
-        )
-        ingestion_result = run_ingestion(config, markdown_text, tenant_id)
-        return ingestion_result
+        logger.info(f"Enqueueing {len(markdown_text)} bytes of markdown from {file.filename}")
+        job = await request.app.state.redis.enqueue_job("process_ingestion_task", markdown_text, tenant_id)
+        return {"status": "queued", "job_id": job.job_id}
     except HTTPException:
         raise
     except Exception as e:
@@ -263,7 +288,7 @@ async def ingest_upload(
 
 @app.post("/api/admin/ingest/url")
 @limiter.limit(config.rate_limit_ingest)
-def ingest_url(request: Request, url_request: UrlIngestRequest, tenant_id: str = Depends(get_tenant_id)):
+async def ingest_url(request: Request, url_request: UrlIngestRequest, tenant_id: str = Depends(get_tenant_id)):
     try:
         config = get_config()
         logger.info(f"Converting URL {url_request.url} with Docling...")
@@ -271,11 +296,9 @@ def ingest_url(request: Request, url_request: UrlIngestRequest, tenant_id: str =
         result = converter.convert(url_request.url)
         markdown_text = result.document.export_to_markdown()
 
-        logger.info(
-            f"Ingesting {len(markdown_text)} bytes of markdown from {url_request.url}"
-        )
-        ingestion_result = run_ingestion(config, markdown_text, tenant_id)
-        return ingestion_result
+        logger.info(f"Enqueueing {len(markdown_text)} bytes of markdown from {url_request.url}")
+        job = await request.app.state.redis.enqueue_job("process_ingestion_task", markdown_text, tenant_id)
+        return {"status": "queued", "job_id": job.job_id}
     except Exception as e:
         logger.error(f"Error during URL ingestion: {e}")
         raise HTTPException(status_code=500, detail=str(e))

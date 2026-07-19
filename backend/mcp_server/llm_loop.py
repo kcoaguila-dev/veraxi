@@ -1,14 +1,39 @@
 import logging
-from typing import Tuple, List, Any
 import json
-from openai import OpenAI
-import json
+from typing import Tuple, List, Any, TypedDict, Annotated, Sequence
+from langchain_openai import ChatOpenAI
+import asyncio
+from langchain_core.messages import BaseMessage, HumanMessage, ToolMessage, AIMessage
+from langgraph.graph import StateGraph, START, END
+from langgraph.graph.message import add_messages
+from langgraph.checkpoint.redis.aio import AsyncRedisSaver
+import redis.asyncio as redis_async
+
 from backend.config import get_config
 from backend.mcp_server.tools.search_vectors import search_vectors
 from backend.mcp_server.tools.query_graph import query_graph
 from backend.retrieval.merge_rank import merge_rank
 
 logger = logging.getLogger(__name__)
+
+# We will initialize the connection dynamically or just keep a global pool
+_redis_conn = None
+_app = None
+
+def _get_workflow():
+    workflow = StateGraph(AgentState)
+    workflow.add_node("agent", call_model)
+    workflow.add_node("tools", execute_tools)
+
+    workflow.add_edge(START, "agent")
+    workflow.add_conditional_edges("agent", should_continue, ["tools", END])
+    workflow.add_edge("tools", "agent")
+    
+    return workflow
+
+class AgentState(TypedDict):
+    messages: Annotated[Sequence[BaseMessage], add_messages]
+    tenant_id: str
 
 def get_tools() -> list:
     config = get_config()
@@ -57,7 +82,6 @@ def get_tools() -> list:
         }
     ]
 
-
 def _execute_single_tool(tool_name: str, tool_input: dict, tenant_id: str) -> Tuple[List[Any], List[Any]]:
     config = get_config()
     if tool_name == "search_vectors":
@@ -67,26 +91,6 @@ def _execute_single_tool(tool_name: str, tool_input: dict, tenant_id: str) -> Tu
         max_hops = int(tool_input.get("max_hops", config.default_max_hops))
         return [], query_graph(tool_input["entity_name"], max_hops=max_hops, tenant_id=tenant_id)
     return [], []
-
-def _execute_tools(
-    function_calls: List[Any], tenant_id: str
-) -> Tuple[List[Any], List[Any]]:
-    """Execute LLM requested tools and return vectors and graph hits."""
-    vector_hits = []
-    graph_hits = []
-
-    for function_call in function_calls:
-        tool_name = function_call.function.name
-        tool_input = json.loads(function_call.function.arguments)
-
-        logging.info(f"LLM called tool: {tool_name} with args: {tool_input}")
-        
-        v_hits, g_hits = _execute_single_tool(tool_name, tool_input, tenant_id)
-        vector_hits.extend(v_hits)
-        graph_hits.extend(g_hits)
-
-    return vector_hits, graph_hits
-
 
 def _build_context_string(merged_results: List[Any]) -> str:
     """Build a formatted context string from fused results."""
@@ -98,28 +102,12 @@ def _build_context_string(merged_results: List[Any]) -> str:
 
     return "\n".join(context_parts)
 
+# --- LangGraph Nodes ---
 
-def _execute_and_merge_tools(function_calls, tenant_id: str) -> list:
-    vector_hits, graph_hits = _execute_tools(function_calls, tenant_id)
-    if not vector_hits and not graph_hits:
-        return []
+async def call_model(state: AgentState):
+    """The AI Agent node that decides what to do."""
+    messages = state["messages"]
     
-    merged = merge_rank(vector_hits, graph_hits)
-    logging.info(f"Provenance: Generated {len(merged)} fused results from tools.")
-    return merged
-
-def _format_return(text: str, context: str, return_context: bool) -> str | Tuple[str, str]:
-    if return_context:
-        return text, context
-    return text
-
-def answer_question(question: str, tenant_id: str = "default", return_context: bool = False) -> str | Tuple[str, str]:
-    """
-    LLM decides whether to call search_vectors and/or query_graph, gets results back,
-    calls merge_rank to fuse them, then produces a final answer grounded in the fused results.
-    Logs the provenance.
-    If return_context is True, returns (final_answer, context_str).
-    """
     config = get_config()
     client_args = {}
     if config.llm_api_key:
@@ -127,41 +115,119 @@ def answer_question(question: str, tenant_id: str = "default", return_context: b
     if config.llm_base_url:
         client_args["base_url"] = config.llm_base_url
         
-    client = OpenAI(**client_args)
-
-    # Step 1: Ask the LLM to decide on tools
-    tools = get_tools()
-    response = client.chat.completions.create(
+    llm = ChatOpenAI(
         model=config.llm_model_name,
-        messages=[{"role": "user", "content": question}],
-        tools=tools,
-        temperature=0.0
+        temperature=0.0,
+        **client_args
     )
+    
+    # Bind our raw JSON schema tools to the model
+    llm_with_tools = llm.bind_tools(get_tools())
+    
+    response = await llm_with_tools.ainvoke(messages)
+    return {"messages": [response]}
 
-    message = response.choices[0].message
-    if not message.tool_calls:
-        # LLM decided not to use tools
-        logging.info("LLM did not call any tools. Returning its direct response.")
-        return _format_return(message.content, "", return_context)
 
-    # Step 2: Execute tools and merge results
-    merged_results = _execute_and_merge_tools(message.tool_calls, tenant_id)
-    if not merged_results:
-        return _format_return(message.content or "No results found.", "", return_context)
-
-    context_str = _build_context_string(merged_results)
-
-    # Step 3: Ask LLM for final answer grounded in context
-    final_prompt = (
-        f"Please answer the following question strictly based on the provided context.\n\n"
-        f"Context:\n{context_str}\n\n"
-        f"Question: {question}"
+async def execute_tools(state: AgentState):
+    """The Tool execution node that runs DB queries and merges them."""
+    messages = state["messages"]
+    tenant_id = state["tenant_id"]
+    
+    # The last message is the AIMessage containing tool calls
+    last_message = messages[-1]
+    
+    tool_messages = []
+    vector_hits = []
+    graph_hits = []
+    
+    for tool_call in last_message.tool_calls:
+        tool_name = tool_call["name"]
+        tool_input = tool_call["args"]
+        tool_call_id = tool_call["id"]
+        
+        logger.info(f"LangGraph Agent called tool: {tool_name} with args: {tool_input}")
+        
+        # Run synchronous DB calls in threadpool
+        loop = asyncio.get_running_loop()
+        v_hits, g_hits = await loop.run_in_executor(None, _execute_single_tool, tool_name, tool_input, tenant_id)
+        
+        vector_hits.extend(v_hits)
+        graph_hits.extend(g_hits)
+        
+        # We don't return the raw DB output to the LLM directly as it's unranked.
+        # We will merge it later, but we need to satisfy LangChain's ToolMessage requirement
+        tool_messages.append(
+            ToolMessage(
+                content="Executed tool. Results are being fused.",
+                tool_call_id=tool_call_id
+            )
+        )
+        
+    # Merge and rank the results
+    merged = merge_rank(vector_hits, graph_hits)
+    context_str = _build_context_string(merged)
+    
+    if not context_str:
+        context_str = "No results found."
+        
+    # We inject the synthesized context back as a system-like human message to force grounding
+    grounding_message = HumanMessage(
+        content=(
+            f"Here is the context retrieved from the database:\n{context_str}\n\n"
+            f"Please provide your final answer based strictly on this context."
+        )
     )
+    
+    return {"messages": tool_messages + [grounding_message]}
 
-    final_response = client.chat.completions.create(
-        model=config.llm_model_name,
-        messages=[{"role": "user", "content": final_prompt}],
-        temperature=0.0
-    )
 
-    return _format_return(final_response.choices[0].message.content, context_str, return_context)
+def should_continue(state: AgentState) -> str:
+    """Router that determines if we need to call tools or if we are done."""
+    messages = state["messages"]
+    last_message = messages[-1]
+    
+    # If the LLM made a tool call, route to tools
+    if last_message.tool_calls:
+        return "tools"
+    
+    # Otherwise, we are done
+    return END
+
+
+async def answer_question(question: str, tenant_id: str = "default", thread_id: str = "default", return_context: bool = False) -> str | Tuple[str, str]:
+    """
+    Executes the LangGraph state machine.
+    Maintains conversation memory per thread_id.
+    """
+    config_obj = get_config()
+    config = {"configurable": {"thread_id": thread_id}}
+    
+    initial_state = {
+        "messages": [HumanMessage(content=question)],
+        "tenant_id": tenant_id
+    }
+    
+    logger.info(f"Starting async LangGraph run for thread_id={thread_id}")
+    
+    workflow = _get_workflow()
+    
+    # Run the graph asynchronously using context manager for memory
+    async with AsyncRedisSaver.from_conn_string(config_obj.redis_url) as memory:
+        app = workflow.compile(checkpointer=memory)
+        final_state = await app.ainvoke(initial_state, config=config)
+    
+    # The final message is the AIMessage containing the answer
+    final_answer = final_state["messages"][-1].content
+    
+    # Extract context (hacky extraction from the last human message if tools were called)
+    context_str = ""
+    if len(final_state["messages"]) > 2:
+        # Find the last human message that contains "Here is the context retrieved"
+        for msg in reversed(final_state["messages"]):
+            if isinstance(msg, HumanMessage) and "Here is the context retrieved" in msg.content:
+                context_str = msg.content.split("Here is the context retrieved from the database:\n")[1].split("\n\nPlease provide")[0]
+                break
+                
+    if return_context:
+        return final_answer, context_str
+    return final_answer

@@ -81,9 +81,9 @@ builds on this working reliably.
 - [ ] Implement glassmorphism, modern typography (Inter), and dynamic color palettes
 - [ ] Add micro-animations to chat interactions and node exploration
 
-## Phase 12 — True Sovereign LLM Decoupling
-- [ ] Migrate `google.genai` dependencies to `openai` Python package in `extract.py` and `llm_loop.py`
-- [ ] Support local Ollama/vLLM endpoints for 100% offline sovereign ingestion
+## Phase 12 — True Sovereign LLM Decoupling ✅ done
+- [x] Migrate `google.genai` dependencies to `openai` Python package in `extract.py` and `llm_loop.py`
+- [x] Support local Ollama/vLLM endpoints for 100% offline sovereign ingestion
 
 ## Phase 13 — Enterprise Groundedness Evaluation ✅ done
 - [x] Integrate LLM-as-a-judge logic in `backend/evaluation/grounding.py`

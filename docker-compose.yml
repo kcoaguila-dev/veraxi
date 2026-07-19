@@ -34,7 +34,34 @@ services:
     depends_on:
       - neo4j
       - qdrant
+      - redis
+
+  redis:
+    image: redis/redis-stack-server:latest
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command: arq backend.worker.WorkerSettings
+    environment:
+      - NEO4J_URI=bolt://neo4j:7687
+      - QDRANT_URL=http://qdrant:6333
+      - REDIS_URL=redis://redis:6379/0
+    env_file:
+      - ./backend/.env
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      - neo4j
+      - qdrant
+      - redis
 
 volumes:
   neo4j_data:
   qdrant_data:
+  redis_data:
