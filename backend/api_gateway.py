@@ -98,11 +98,13 @@ def get_tenant_id(credentials: HTTPAuthorizationCredentials = Depends(security))
 
 class ChatRequest(BaseModel):
     question: str
+    calculate_grounding: bool = False
 
 
 class ChatResponse(BaseModel):
     answer: str
     context: str | None = None
+    grounding_score: float | None = None
 
 
 class IngestRequest(BaseModel):
@@ -117,7 +119,13 @@ async def chat_endpoint(request: Request, chat_request: ChatRequest, tenant_id: 
         # The llm_loop functions are currently synchronous
         # In a high-throughput production environment, we'd run this in a threadpool
         answer, context = answer_question(chat_request.question, tenant_id, return_context=True)
-        return ChatResponse(answer=answer, context=context)
+        
+        score = None
+        if chat_request.calculate_grounding:
+            from backend.evaluation.grounding import evaluate_groundedness
+            score = evaluate_groundedness(answer, context)
+            
+        return ChatResponse(answer=answer, context=context, grounding_score=score)
     except Exception as e:
         logger.error(f"Error processing question: {e}")
         raise HTTPException(status_code=500, detail=str(e))
