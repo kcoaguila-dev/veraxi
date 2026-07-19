@@ -85,6 +85,11 @@ builds on this working reliably.
 - [ ] Migrate `google.genai` dependencies to `openai` Python package in `extract.py` and `llm_loop.py`
 - [ ] Support local Ollama/vLLM endpoints for 100% offline sovereign ingestion
 
+## Phase 13 — Enterprise Groundedness Evaluation ✅ done
+- [x] Integrate LLM-as-a-judge logic in `backend/evaluation/grounding.py`
+- [x] Expose `mcp_evaluate_grounding` tool in MCP Server
+- [x] Add optional `calculate_grounding` flag to `/api/chat` endpoint
+
 ---
 
 **Currently here:** Phase 11 — Premium Flutter UI Redesign.

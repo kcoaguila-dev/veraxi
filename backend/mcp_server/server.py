@@ -252,6 +252,18 @@ REGISTERED_TOOLS = [
             "required": ["document_id", "payload"],
         },
     ),
+    Tool(
+        name="mcp_evaluate_grounding",
+        description="Evaluates what percentage of a generated response is mathematically supported by the retrieved context. Returns a float between 0.0 and 1.0.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "response_text": {"type": "string"},
+                "context_text": {"type": "string"}
+            },
+            "required": ["response_text", "context_text"],
+        },
+    ),
 ]
 
 def _handle_search_vectors(args: dict, tenant_id: str) -> list[TextContent]:
@@ -340,6 +352,11 @@ def _handle_update_document_metadata(args: dict, tenant_id: str) -> list[TextCon
     result = update_document_metadata(args["document_id"], args["payload"], tenant_id=tenant_id)
     return [TextContent(type="text", text=result)]
 
+def _handle_evaluate_grounding(args: dict, tenant_id: str) -> list[TextContent]:
+    from backend.mcp_server.tools.evaluate_grounding import mcp_evaluate_grounding
+    score = mcp_evaluate_grounding(args["response_text"], args["context_text"])
+    return [TextContent(type="text", text=str(score))]
+
 TOOL_HANDLERS = {
     "mcp_search_vectors": _handle_search_vectors,
     "mcp_query_graph": _handle_query_graph,
@@ -354,6 +371,7 @@ TOOL_HANDLERS = {
     "mcp_run_community_detection": _handle_run_community_detection,
     "mcp_delete_relationship": _handle_delete_relationship,
     "mcp_update_document_metadata": _handle_update_document_metadata,
+    "mcp_evaluate_grounding": _handle_evaluate_grounding,
 }
 
 @mcp_server.list_tools()
