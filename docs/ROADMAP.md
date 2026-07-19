@@ -90,6 +90,12 @@ builds on this working reliably.
 - [x] Expose `mcp_evaluate_grounding` tool in MCP Server
 - [x] Add optional `calculate_grounding` flag to `/api/chat` endpoint
 
+## Phase 14 — Corrective Retrieval Augmented Generation (CRAG)
+- [ ] Add Retrieval Evaluator to intercept context before generation
+- [ ] Implement conditional logic (Correct, Incorrect, Ambiguous)
+- [ ] Build Fallback mechanisms (e.g. Web Search integration)
+- [ ] Consider integrating LangGraph for agentic orchestration
+
 ---
 
 **Currently here:** Phase 11 — Premium Flutter UI Redesign.
