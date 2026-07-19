@@ -117,15 +117,6 @@ class _FeatureCardState extends State<_FeatureCard> {
               : AppTheme.surfaceHighlight,
             width: 1.5,
           ),
-          boxShadow: _isHovered
-              ? [
-                  BoxShadow(
-                    color: widget.iconColor.withValues(alpha: 0.15),
-                    blurRadius: 30,
-                    offset: const Offset(0, 10),
-                  )
-                ]
-              : null,
         ),
         child: Padding(
           padding: const EdgeInsets.all(32.0),
