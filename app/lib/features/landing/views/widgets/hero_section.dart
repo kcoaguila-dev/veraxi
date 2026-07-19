@@ -13,19 +13,14 @@ class HeroSection extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          ShaderMask(
-            shaderCallback: (bounds) => const LinearGradient(
-              colors: [AppTheme.primaryGradientStart, AppTheme.primaryGradientEnd],
-            ).createShader(bounds),
-            child: Text(
-              'Give your AI agents a brain.',
-              textAlign: TextAlign.center,
-              style: GoogleFonts.inter(
-                color: Colors.white,
-                fontSize: 64,
-                fontWeight: FontWeight.w800,
-                letterSpacing: -1.5,
-              ),
+          Text(
+            'Give your AI agents a brain.',
+            textAlign: TextAlign.center,
+            style: GoogleFonts.inter(
+              color: AppTheme.primary,
+              fontSize: 64,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -1.5,
             ),
           ),
           const SizedBox(height: 24),

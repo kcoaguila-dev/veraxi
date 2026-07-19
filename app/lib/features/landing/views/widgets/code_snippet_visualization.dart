@@ -15,13 +15,6 @@ class CodeSnippetVisualization extends StatelessWidget {
         color: const Color(0xFF131313),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AppTheme.surfaceHighlight),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.5),
-            blurRadius: 30,
-            offset: const Offset(0, 10),
-          )
-        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
