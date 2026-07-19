@@ -31,6 +31,7 @@ class Config:
     rate_limit_sse: str
     default_search_limit: int
     default_max_hops: int
+    searxng_url: str
 
     @classmethod
     def from_env(cls) -> "Config":
@@ -58,6 +59,7 @@ class Config:
             rate_limit_sse=os.environ.get("RATE_LIMIT_SSE", "10/minute"),
             default_search_limit=int(os.environ.get("DEFAULT_SEARCH_LIMIT", "10")),
             default_max_hops=int(os.environ.get("DEFAULT_MAX_HOPS", "2")),
+            searxng_url=os.environ.get("SEARXNG_URL", "http://localhost:8080/search"),
         )
 
 def _require(key: str) -> str:

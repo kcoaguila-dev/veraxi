@@ -15,7 +15,7 @@ from backend.mcp_server.tools.run_analytics import run_community_detection
 from backend.mcp_server.tools.delete_relationship import delete_relationship
 from backend.mcp_server.tools.update_document import update_document_metadata
 from backend.mcp_server.context import tenant_context
-from backend.prompts import INGEST_KNOWLEDGE_PROMPT
+from backend.prompts import INGEST_KNOWLEDGE_PROMPT, CRAG_ORCHESTRATOR_PROMPT
 from backend.config import get_config
 
 mcp_server = Server("veraxi_mcp")
@@ -63,6 +63,11 @@ async def handle_list_prompts() -> list[Prompt]:
             name="ingest_knowledge",
             description="Provides strict instructions to the Host AI on how to read source material and construct GraphRAG structures.",
             arguments=[]
+        ),
+        Prompt(
+            name="crag_orchestrator",
+            description="Instructs the Host AI to act as a Corrective Retrieval Augmented Generation orchestrator, combining internal database retrieval with live web search.",
+            arguments=[]
         )
     ]
 
@@ -75,6 +80,14 @@ async def handle_get_prompt(name: str, arguments: dict | None) -> PromptMessage:
             content=TextContent(
                 type="text",
                 text=INGEST_KNOWLEDGE_PROMPT
+            )
+        )
+    elif name == "crag_orchestrator":
+        return PromptMessage(
+            role="user",
+            content=TextContent(
+                type="text",
+                text=CRAG_ORCHESTRATOR_PROMPT
             )
         )
     raise ValueError(f"Prompt not found: {name}")
@@ -264,6 +277,18 @@ REGISTERED_TOOLS = [
             "required": ["response_text", "context_text"],
         },
     ),
+    Tool(
+        name="mcp_web_search",
+        description="Fallback mechanism to search the live web when internal retrieval yields insufficient context. Returns a list of JSON snippets.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "query": {"type": "string"},
+                "max_results": {"type": "integer", "default": 3}
+            },
+            "required": ["query"],
+        },
+    ),
 ]
 
 def _handle_search_vectors(args: dict, tenant_id: str) -> list[TextContent]:
@@ -357,6 +382,11 @@ def _handle_evaluate_grounding(args: dict, tenant_id: str) -> list[TextContent]:
     score = mcp_evaluate_grounding(args["response_text"], args["context_text"])
     return [TextContent(type="text", text=str(score))]
 
+def _handle_web_search(args: dict, tenant_id: str) -> list[TextContent]:
+    from backend.mcp_server.tools.web_search import mcp_web_search
+    results = mcp_web_search(args["query"], args.get("max_results", 3))
+    return [TextContent(type="text", text=json.dumps(results))]
+
 TOOL_HANDLERS = {
     "mcp_search_vectors": _handle_search_vectors,
     "mcp_query_graph": _handle_query_graph,
@@ -372,6 +402,7 @@ TOOL_HANDLERS = {
     "mcp_delete_relationship": _handle_delete_relationship,
     "mcp_update_document_metadata": _handle_update_document_metadata,
     "mcp_evaluate_grounding": _handle_evaluate_grounding,
+    "mcp_web_search": _handle_web_search,
 }
 
 @mcp_server.list_tools()
