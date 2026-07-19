@@ -27,7 +27,13 @@ dependencies = [
     "python-magic",
     "slowapi",
     "supabase",
-    "stripe"
+    "stripe",
+    "langgraph",
+    "langchain-core",
+    "langchain-openai",
+    "arq",
+    "redis",
+    "langgraph-checkpoint-redis"
 ]
 
 [project.optional-dependencies]

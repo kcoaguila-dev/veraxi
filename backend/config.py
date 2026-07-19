@@ -32,6 +32,7 @@ class Config:
     default_search_limit: int
     default_max_hops: int
     searxng_url: str
+    redis_url: str
 
     @classmethod
     def from_env(cls) -> "Config":
@@ -60,6 +61,7 @@ class Config:
             default_search_limit=int(os.environ.get("DEFAULT_SEARCH_LIMIT", "10")),
             default_max_hops=int(os.environ.get("DEFAULT_MAX_HOPS", "2")),
             searxng_url=os.environ.get("SEARXNG_URL", "http://localhost:8080/search"),
+            redis_url=os.environ.get("REDIS_URL", "redis://localhost:6379/0"),
         )
 
 def _require(key: str) -> str:
