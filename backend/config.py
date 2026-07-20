@@ -33,6 +33,7 @@ class Config:
     default_max_hops: int
     searxng_url: str
     redis_url: str
+    auth_enabled: bool
 
     @classmethod
     def from_env(cls) -> "Config":
@@ -62,7 +63,17 @@ class Config:
             default_max_hops=int(os.environ.get("DEFAULT_MAX_HOPS", "2")),
             searxng_url=os.environ.get("SEARXNG_URL", "http://localhost:8080/search"),
             redis_url=os.environ.get("REDIS_URL", "redis://localhost:6379/0"),
+            auth_enabled=os.environ.get("AUTH_ENABLED", "true").lower() == "true",
         )
+
+    def get_llm_client_args(self) -> dict:
+        """Returns kwargs for initializing OpenAI-compatible clients."""
+        args = {}
+        if self.llm_api_key:
+            args["api_key"] = self.llm_api_key
+        if self.llm_base_url:
+            args["base_url"] = self.llm_base_url
+        return args
 
 def _require(key: str) -> str:
     value = os.environ.get(key)

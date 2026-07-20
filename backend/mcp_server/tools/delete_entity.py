@@ -6,9 +6,7 @@ def delete_entity(entity_name: str, tenant_id: str = "default") -> str:
     Deletes an entity (node) and all its connected relationships from Neo4j.
     """
     config = get_config()
-    neo4j = Neo4jStorageClient(
-        uri=config.neo4j_uri, user=config.neo4j_user, password=config.neo4j_password
-    )
+    neo4j = Neo4jStorageClient.from_config(config)
 
     query = """
     MATCH (n {name: $entity_name, tenant_id: $tenant_id})

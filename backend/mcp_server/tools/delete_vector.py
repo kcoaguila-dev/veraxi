@@ -7,7 +7,7 @@ def delete_vector(document_id: str, tenant_id: str = "default") -> str:
     Note: Qdrant client handles tenant authorization if the ID belongs to them (though ID is unique anyway).
     """
     config = get_config()
-    qdrant = QdrantStorageClient(url=config.qdrant_url, api_key=config.qdrant_api_key)
+    qdrant = QdrantStorageClient.from_config(config)
     
     COLLECTION_NAME = config.qdrant_collection_name
     

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:veraxi_app/core/theme.dart';
+import 'package:veraxi_app/core/theme_provider.dart';
 
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:go_router/go_router.dart';
@@ -11,10 +12,14 @@ import 'package:veraxi_app/core/router.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await Supabase.initialize(
-    url: const String.fromEnvironment('SUPABASE_URL', defaultValue: 'https://placeholder.supabase.co'),
-    publishableKey: const String.fromEnvironment('SUPABASE_ANON_KEY', defaultValue: 'placeholder'),
-  );
+  const bool isAuthEnabled = bool.fromEnvironment('AUTH_ENABLED', defaultValue: true);
+  
+  if (isAuthEnabled) {
+    await Supabase.initialize(
+      url: const String.fromEnvironment('SUPABASE_URL', defaultValue: 'https://placeholder.supabase.co'),
+      publishableKey: const String.fromEnvironment('SUPABASE_ANON_KEY', defaultValue: 'placeholder'),
+    );
+  }
 
   await SentryFlutter.init(
     (options) {
@@ -29,14 +34,18 @@ Future<void> main() async {
   );
 }
 
-class VeraxiApp extends StatelessWidget {
+class VeraxiApp extends ConsumerWidget {
   const VeraxiApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final themeMode = ref.watch(themeProvider);
+
     return MaterialApp.router(
       title: 'Veraxi',
-      theme: AppTheme.darkTheme,
+      theme: AppTheme.lightTheme,
+      darkTheme: AppTheme.darkTheme,
+      themeMode: themeMode,
       routerConfig: goRouter,
       debugShowCheckedModeBanner: false,
     );
@@ -62,17 +71,19 @@ class ScaffoldWithNavBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final bool isWideScreen = MediaQuery.of(context).size.width >= 600;
 
+    final theme = Theme.of(context);
+
     return Scaffold(
       body: Row(
         children: [
           if (isWideScreen)
             NavigationRail(
-              backgroundColor: AppTheme.background,
-              indicatorColor: AppTheme.primary.withAlpha(51),
+              backgroundColor: theme.scaffoldBackgroundColor,
+              indicatorColor: theme.colorScheme.primary.withValues(alpha: 0.2),
               selectedIndex: navigationShell.currentIndex,
               onDestinationSelected: _onItemTapped,
-              selectedIconTheme: const IconThemeData(color: AppTheme.primary),
-              unselectedIconTheme: const IconThemeData(color: AppTheme.textSecondary),
+              selectedIconTheme: IconThemeData(color: theme.colorScheme.primary),
+              unselectedIconTheme: IconThemeData(color: theme.colorScheme.onSurface.withValues(alpha: 0.5)),
               destinations: const <NavigationRailDestination>[
                 NavigationRailDestination(
                   icon: Icon(Icons.chat_bubble_outline),
@@ -87,7 +98,7 @@ class ScaffoldWithNavBar extends StatelessWidget {
               ],
             ),
           if (isWideScreen)
-            const VerticalDivider(thickness: 1, width: 1, color: AppTheme.surfaceHighlight),
+            const VerticalDivider(thickness: 1, width: 1),
           Expanded(
             child: navigationShell,
           ),
@@ -96,9 +107,8 @@ class ScaffoldWithNavBar extends StatelessWidget {
       bottomNavigationBar: isWideScreen
           ? null
           : BottomNavigationBar(
-              backgroundColor: AppTheme.background,
-              selectedItemColor: AppTheme.primary,
-              unselectedItemColor: AppTheme.textSecondary,
+              selectedItemColor: theme.colorScheme.primary,
+              unselectedItemColor: theme.colorScheme.onSurface.withValues(alpha: 0.5),
               items: const <BottomNavigationBarItem>[
                 BottomNavigationBarItem(
                   icon: Icon(Icons.chat_bubble_outline),

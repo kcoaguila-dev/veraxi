@@ -312,6 +312,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "4.1.2"
+  import_lint:
+    dependency: "direct dev"
+    description:
+      name: import_lint
+      sha256: a90f3c9ab2c6acf9c77e83dc11cb4d1469f901f940edc31a4f4ca8d8a394cdf7
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.1.6"
   jni:
     dependency: transitive
     description:

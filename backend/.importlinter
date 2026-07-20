@@ -25,3 +25,11 @@ source_modules=
     backend.storage
 forbidden_modules=
     backend.mcp_server
+
+[importlinter:contract:4]
+name=ingestion must not import retrieval
+type=forbidden
+source_modules=
+    backend.ingestion
+forbidden_modules=
+    backend.retrieval

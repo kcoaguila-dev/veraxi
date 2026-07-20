@@ -1,4 +1,5 @@
 import asyncio
+import sentry_sdk
 import json
 from mcp.server import Server
 from mcp.types import Tool, TextContent, Resource, Prompt, PromptMessage
@@ -423,5 +424,6 @@ async def handle_call_tool(name: str, arguments: dict | None) -> list[TextConten
     try:
         return handler(args, tenant_id)
     except Exception as e:
+        sentry_sdk.capture_exception(e)
         return [TextContent(type="text", text=f"Error executing tool {name}: {str(e)}")]
 

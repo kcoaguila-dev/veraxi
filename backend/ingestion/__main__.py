@@ -12,10 +12,8 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 
 def run_ingestion(config, text: str, tenant_id: str = "default"):
     # 1. Initialize clients
-    qdrant = QdrantStorageClient(url=config.qdrant_url, api_key=config.qdrant_api_key)
-    neo4j = Neo4jStorageClient(
-        uri=config.neo4j_uri, user=config.neo4j_user, password=config.neo4j_password
-    )
+    qdrant = QdrantStorageClient.from_config(config)
+    neo4j = Neo4jStorageClient.from_config(config)
 
     # Ensure qdrant collection exists
     COLLECTION_NAME = config.qdrant_collection_name

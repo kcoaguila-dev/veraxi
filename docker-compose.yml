@@ -27,6 +27,7 @@ services:
     environment:
       - NEO4J_URI=bolt://neo4j:7687
       - QDRANT_URL=http://qdrant:6333
+      - AUTH_ENABLED=${AUTH_ENABLED:-true}
     env_file:
       - ./backend/.env
     volumes:
@@ -52,6 +53,7 @@ services:
       - NEO4J_URI=bolt://neo4j:7687
       - QDRANT_URL=http://qdrant:6333
       - REDIS_URL=redis://redis:6379/0
+      - AUTH_ENABLED=${AUTH_ENABLED:-true}
     env_file:
       - ./backend/.env
     volumes:
@@ -61,7 +63,33 @@ services:
       - qdrant
       - redis
 
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - web
+      - backend
+
+  web:
+    build:
+      context: ./app
+      dockerfile: Dockerfile
+      args:
+        - IS_SELF_HOSTED=${IS_SELF_HOSTED:-true}
+        - AUTH_ENABLED=${AUTH_ENABLED:-true}
+    depends_on:
+      - backend
+
 volumes:
   neo4j_data:
   qdrant_data:
   redis_data:
+  caddy_data:
+  caddy_config:

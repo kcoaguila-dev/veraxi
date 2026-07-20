@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:veraxi_app/core/theme.dart';
 import 'package:veraxi_app/features/landing/views/widgets/code_snippet_visualization.dart';
 import 'package:veraxi_app/features/landing/views/widgets/development_banner.dart';
 import 'package:veraxi_app/features/landing/views/widgets/hero_section.dart';
@@ -28,8 +27,10 @@ class _LandingScreenState extends State<LandingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    
     return Scaffold(
-      backgroundColor: AppTheme.background,
+      backgroundColor: theme.scaffoldBackgroundColor,
       body: SingleChildScrollView(
         child: Column(
           children: [

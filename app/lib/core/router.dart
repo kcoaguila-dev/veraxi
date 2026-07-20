@@ -10,16 +10,25 @@ import 'package:veraxi_app/main.dart';
 
 final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'root');
 
+const bool isAuthEnabled = bool.fromEnvironment('AUTH_ENABLED', defaultValue: true);
+
+const bool isSelfHosted = bool.fromEnvironment('IS_SELF_HOSTED', defaultValue: false);
+
 final goRouter = GoRouter(
   navigatorKey: _rootNavigatorKey,
-  initialLocation: '/',
+  initialLocation: isSelfHosted ? '/login' : '/',
   redirect: (context, state) {
-    final session = Supabase.instance.client.auth.currentSession;
-    final isAuth = session != null;
+    // Short-circuit auth check to prevent crashing if Supabase isn't initialized
+    final isAuth = !isAuthEnabled || Supabase.instance.client.auth.currentSession != null;
     
     final isLoggingIn = state.matchedLocation == '/login';
     final isLanding = state.matchedLocation == '/';
     final isDocs = state.matchedLocation == '/docs';
+
+    // If self-hosted and user tries to access landing page, force to login
+    if (isSelfHosted && isLanding) {
+      return '/login';
+    }
 
     if (!isAuth && !isLoggingIn && !isLanding && !isDocs) {
       return '/login';

@@ -2,8 +2,11 @@ from fastapi import FastAPI, HTTPException, Depends, UploadFile, File, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
+from fastapi.responses import StreamingResponse
 import logging
-from backend.mcp_server.llm_loop import answer_question
+import json
+import uuid
+from backend.mcp_server.llm_loop import answer_question, stream_answer_question
 from backend.config import get_config
 from backend.storage.qdrant_client import QdrantStorageClient
 from backend.storage.neo4j_client import Neo4jStorageClient
@@ -80,7 +83,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-security = HTTPBearer(auto_error=True)
+security = HTTPBearer(auto_error=False)
 
 def _get_jwt_payload(token: str) -> dict:
     try:
@@ -106,7 +109,13 @@ def _decode_and_validate_jwt(token: str) -> str:
         raise HTTPException(status_code=401, detail="Invalid token: missing sub (user ID) claim")
     return tenant_id
 
-def get_tenant_id(credentials: HTTPAuthorizationCredentials = Depends(security)) -> str:
+def get_tenant_id(credentials: HTTPAuthorizationCredentials | None = Depends(security)) -> str:
+    if not config.auth_enabled:
+        return "local_personal_user"
+    
+    if not credentials:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+        
     return _decode_and_validate_jwt(credentials.credentials)
 
 
@@ -114,6 +123,7 @@ class ChatRequest(BaseModel):
     question: str
     calculate_grounding: bool = False
     thread_id: str | None = None
+    stream: bool = False
 
 
 class ChatResponse(BaseModel):
@@ -132,8 +142,20 @@ class IngestRequest(BaseModel):
 async def chat_endpoint(request: Request, chat_request: ChatRequest, tenant_id: str = Depends(get_tenant_id)):
     logger.info(f"Received question: {chat_request.question} for tenant: {tenant_id}")
     try:
-        import uuid
         thread_id = chat_request.thread_id or str(uuid.uuid4())
+        
+        # Track thread_id for this tenant
+        await request.app.state.redis.sadd(f"tenant:{tenant_id}:threads", thread_id)
+        
+        if chat_request.stream:
+            async def event_generator():
+                async for event in stream_answer_question(chat_request.question, tenant_id=tenant_id, thread_id=thread_id):
+                    # Yield SSE formatted data
+                    yield f"data: {json.dumps(event)}\n\n"
+                # Send a final 'done' event to signal stream completion
+                yield "data: [DONE]\n\n"
+            
+            return StreamingResponse(event_generator(), media_type="text/event-stream")
         
         # In a high-throughput production environment, we run this asynchronously
         answer, context = await answer_question(
@@ -155,7 +177,70 @@ async def chat_endpoint(request: Request, chat_request: ChatRequest, tenant_id: 
             thread_id=thread_id
         )
     except Exception as e:
+        sentry_sdk.capture_exception(e)
         logger.error(f"Error processing question: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+def _extract_messages_from_state(raw_messages: list) -> list:
+    messages_out = []
+    for msg in raw_messages:
+        msg_type = msg.__class__.__name__
+        if msg_type in ["HumanMessage", "AIMessage"]:
+            messages_out.append({
+                "role": "user" if msg_type == "HumanMessage" else "assistant",
+                "content": msg.content
+            })
+    return messages_out
+
+@app.get("/api/chat/threads")
+async def list_threads(request: Request, tenant_id: str = Depends(get_tenant_id)):
+    """
+    Returns a list of all thread IDs belonging to the tenant.
+    """
+    try:
+        threads = await request.app.state.redis.smembers(f"tenant:{tenant_id}:threads")
+        # In a full production app, we would query the checkpointer for the first message to use as a "Title"
+        # For now, we return the raw list of UUIDs.
+        return {"threads": [t.decode("utf-8") for t in threads]}
+    except Exception as e:
+        sentry_sdk.capture_exception(e)
+        logger.error(f"Error listing threads: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/chat/threads/{thread_id}")
+async def get_thread_history(thread_id: str, request: Request, tenant_id: str = Depends(get_tenant_id)):
+    """
+    Returns the message history for a specific thread.
+    """
+    try:
+        # Verify ownership
+        is_owner = await request.app.state.redis.sismember(f"tenant:{tenant_id}:threads", thread_id)
+        if not is_owner:
+            raise HTTPException(status_code=403, detail="Thread not found or access denied.")
+            
+        from langgraph.checkpoint.redis.aio import AsyncRedisSaver
+        
+        config_obj = get_config()
+        config = {"configurable": {"thread_id": thread_id}}
+        
+        async with AsyncRedisSaver.from_conn_string(config_obj.redis_url) as memory:
+            state = await memory.aget_tuple(config)
+            
+        if not state:
+            return {"messages": []}
+            
+        # Extract messages from the LangGraph state blob
+        raw_messages = state.checkpoint.get("channel_values", {}).get("messages", [])
+        
+        messages_out = _extract_messages_from_state(raw_messages)
+                
+        return {"messages": messages_out}
+    except HTTPException:
+        raise
+    except Exception as e:
+        sentry_sdk.capture_exception(e)
+        logger.error(f"Error fetching thread {thread_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -173,17 +258,13 @@ async def trigger_error():
 def get_stats(tenant_id: str = Depends(get_tenant_id)):
     try:
         config = get_config()
-        qdrant = QdrantStorageClient(
-            url=config.qdrant_url, api_key=config.qdrant_api_key
-        )
-        neo4j = Neo4jStorageClient(
-            uri=config.neo4j_uri, user=config.neo4j_user, password=config.neo4j_password
-        )
+        qdrant = QdrantStorageClient.from_config(config)
+        neo4j = Neo4jStorageClient.from_config(config)
 
         stats = {}
         # Get Qdrant stats
         try:
-            qdrant = QdrantStorageClient(url=config.qdrant_url, api_key=config.qdrant_api_key)
+            qdrant = QdrantStorageClient.from_config(config)
             from qdrant_client.http import models
 
             filter = models.Filter(must=[models.FieldCondition(key="tenant_id", match=models.MatchValue(value=tenant_id))])
@@ -194,6 +275,7 @@ def get_stats(tenant_id: str = Depends(get_tenant_id)):
             vector_count = qdrant_points.count
             stats["qdrant_points"] = vector_count
         except Exception as e:
+            sentry_sdk.capture_exception(e)
             logger.warning(f"Failed to get qdrant stats: {e}")
             vector_count = 0
 
@@ -205,6 +287,7 @@ def get_stats(tenant_id: str = Depends(get_tenant_id)):
             )
             node_count = records[0]["count"] if records else 0
         except Exception as e:
+            sentry_sdk.capture_exception(e)
             logger.warning(f"Failed to get neo4j stats: {e}")
             node_count = 0
         finally:
@@ -216,6 +299,7 @@ def get_stats(tenant_id: str = Depends(get_tenant_id)):
             "tenant_id": tenant_id,
         }
     except Exception as e:
+        sentry_sdk.capture_exception(e)
         logger.error(f"Error getting stats: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -227,6 +311,7 @@ async def ingest_data(request: Request, ingest_request: IngestRequest, tenant_id
         job = await request.app.state.redis.enqueue_job("process_ingestion_task", ingest_request.text, tenant_id)
         return {"status": "queued", "job_id": job.job_id}
     except Exception as e:
+        sentry_sdk.capture_exception(e)
         logger.error(f"Error during ingestion: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -282,6 +367,7 @@ async def ingest_upload(
     except HTTPException:
         raise
     except Exception as e:
+        sentry_sdk.capture_exception(e)
         logger.error(f"Error during file ingestion: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -300,6 +386,7 @@ async def ingest_url(request: Request, url_request: UrlIngestRequest, tenant_id:
         job = await request.app.state.redis.enqueue_job("process_ingestion_task", markdown_text, tenant_id)
         return {"status": "queued", "job_id": job.job_id}
     except Exception as e:
+        sentry_sdk.capture_exception(e)
         logger.error(f"Error during URL ingestion: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -354,6 +441,7 @@ def _activate_tenant_subscription(tenant_id: str | None, config):
         supabase_client.table("users").update({"is_subscribed": True}).eq("id", tenant_id).execute()
         logger.info(f"Database updated: user {tenant_id} is now subscribed.")
     except Exception as e:
+        sentry_sdk.capture_exception(e)
         logger.error(f"Failed to update database for tenant {tenant_id}: {e}")
 
 @app.post("/api/admin/stripe-webhook")

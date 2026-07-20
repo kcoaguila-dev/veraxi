@@ -1,4 +1,5 @@
 import json
+import sentry_sdk
 import logging
 import urllib.request
 import urllib.parse
@@ -50,6 +51,7 @@ def mcp_web_search(query: str, max_results: int = 3) -> list[dict]:
             else:
                 logger.error(f"SearXNG returned status code {response.status}")
     except Exception as e:
+        sentry_sdk.capture_exception(e)
         logger.error(f"Error during SearXNG web search: {e}")
         # Return empty list so the orchestrator handles fallback gracefully
         return []

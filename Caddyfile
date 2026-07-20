@@ -1,0 +1,7 @@
+:80 {
+    # Route all /api/* requests to the FastAPI backend
+    reverse_proxy /api/* backend:8000
+    
+    # Route everything else to the Flutter Web (Nginx) container
+    reverse_proxy /* web:80
+}

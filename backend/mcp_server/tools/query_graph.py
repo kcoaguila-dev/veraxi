@@ -13,9 +13,7 @@ def query_graph(
     No string-concatenated queries for user inputs.
     """
     config = get_config()
-    neo4j = Neo4jStorageClient(
-        uri=config.neo4j_uri, user=config.neo4j_user, password=config.neo4j_password
-    )
+    neo4j = Neo4jStorageClient.from_config(config)
 
     # max_hops is an integer and controlled/validated by us (or typed as int from MCP tool).
     # We must ensure it's a positive integer to avoid injection.
