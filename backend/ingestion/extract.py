@@ -1,4 +1,5 @@
 import json
+import sentry_sdk
 import logging
 from typing import List, Dict, Any, Tuple
 from openai import OpenAI
@@ -145,13 +146,7 @@ def extract_entities_and_relations(
     Extract entities and relations using OpenAI API constrained to a fixed schema.
     """
     config = get_config()
-    client_args = {}
-    if config.llm_api_key:
-        client_args["api_key"] = config.llm_api_key
-    if config.llm_base_url:
-        client_args["base_url"] = config.llm_base_url
-        
-    client = OpenAI(**client_args)
+    client = OpenAI(**config.get_llm_client_args())
 
     try:
         response = client.chat.completions.create(
@@ -172,5 +167,6 @@ def extract_entities_and_relations(
 
         return validate_extraction(raw_entities, raw_relations)
     except Exception as e:
+        sentry_sdk.capture_exception(e)
         logger.error(f"Failed to extract entities/relations: {e}")
         return [], []

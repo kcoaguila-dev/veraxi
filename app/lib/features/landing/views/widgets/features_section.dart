@@ -1,13 +1,13 @@
-
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:veraxi_app/core/theme.dart';
 
 class FeaturesSection extends StatelessWidget {
   const FeaturesSection({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(vertical: 80, horizontal: 40),
@@ -18,7 +18,7 @@ class FeaturesSection extends StatelessWidget {
           Text(
             'CAPABILITIES',
             style: GoogleFonts.inter(
-              color: AppTheme.primary,
+              color: theme.colorScheme.primary,
               fontSize: 14,
               fontWeight: FontWeight.bold,
               letterSpacing: 2.0,
@@ -28,7 +28,7 @@ class FeaturesSection extends StatelessWidget {
           Text(
             'Everything your agents need to know.',
             style: GoogleFonts.inter(
-              color: AppTheme.textPrimary,
+              color: theme.colorScheme.onSurface,
               fontSize: 42,
               fontWeight: FontWeight.bold,
               letterSpacing: -1.0,
@@ -39,36 +39,36 @@ class FeaturesSection extends StatelessWidget {
           Text(
             'A unified intelligence layer designed for autonomous AI systems.',
             style: GoogleFonts.inter(
-              color: AppTheme.textSecondary,
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
               fontSize: 18,
             ),
             textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 80),
+          const SizedBox(height: 64),
           
           // Cards Grid
           Wrap(
             spacing: 32,
             runSpacing: 32,
             alignment: WrapAlignment.center,
-            children: const [
+            children: [
               _FeatureCard(
-                title: 'GraphRAG Synthesis',
-                description: 'Extracts complex relationships and hierarchies from messy data using native Neo4j integration.',
+                title: 'GraphRAG Intelligence',
+                description: 'Veraxi navigates codebases like a senior engineer, using Neo4j to trace logical dependencies and data flows.',
                 iconData: Icons.hub_outlined,
-                iconColor: Color(0xFF6366F1),
+                iconColor: theme.colorScheme.primary,
               ),
               _FeatureCard(
                 title: 'Semantic Search',
-                description: 'High-performance vector retrieval via Qdrant, enabling fuzzy matching and conceptual queries instantly.',
+                description: 'Instantly find relevant code snippets and documentation across thousands of files using Qdrant vector search.',
                 iconData: Icons.search_rounded,
-                iconColor: Color(0xFF10B981),
+                iconColor: theme.colorScheme.secondary,
               ),
               _FeatureCard(
-                title: 'Universal Access',
-                description: 'A standard MCP interface means Veraxi works out-of-the-box with Claude, Cursor, Copilot, and more.',
-                iconData: Icons.terminal_rounded,
-                iconColor: Color(0xFFEAB308),
+                title: 'Live Context Fallbacks',
+                description: 'When internal knowledge is insufficient, Veraxi seamlessly falls back to real-time web searches to gather external context.',
+                iconData: Icons.bolt,
+                iconColor: theme.colorScheme.primary,
               ),
             ],
           ),
@@ -100,62 +100,64 @@ class _FeatureCardState extends State<_FeatureCard> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
+      cursor: SystemMouseCursors.click,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         width: 340,
         height: 260,
         transform: Matrix4.translationValues(0, _isHovered ? -8 : 0, 0),
         decoration: BoxDecoration(
-          color: const Color(0xFF131313).withValues(alpha: 0.6),
-          borderRadius: BorderRadius.circular(16),
+          color: theme.colorScheme.surface.withValues(alpha: 0.6),
+          borderRadius: BorderRadius.circular(24),
           border: Border.all(
             color: _isHovered 
               ? widget.iconColor.withValues(alpha: 0.5) 
-              : AppTheme.surfaceHighlight,
+              : theme.colorScheme.outline.withValues(alpha: 0.2),
             width: 1.5,
           ),
         ),
-        child: Padding(
-          padding: const EdgeInsets.all(32.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: widget.iconColor.withValues(alpha: 0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  widget.iconData,
-                  color: widget.iconColor,
-                  size: 24,
-                ),
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: widget.iconColor.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
               ),
-              const SizedBox(height: 24),
-              Text(
-                widget.title,
-                style: GoogleFonts.inter(
-                  color: AppTheme.textPrimary,
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
+              child: Icon(
+                widget.iconData,
+                color: widget.iconColor,
+                size: 24,
               ),
-              const SizedBox(height: 12),
-              Text(
-                widget.description,
-                style: GoogleFonts.inter(
-                  color: AppTheme.textSecondary,
-                  fontSize: 15,
-                  height: 1.5,
-                ),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              widget.title,
+              style: GoogleFonts.inter(
+                color: theme.colorScheme.onSurface,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
               ),
-            ],
-          ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              widget.description,
+              style: GoogleFonts.inter(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                fontSize: 15,
+                height: 1.5,
+              ),
+            ),
+          ],
         ),
       ),
     );

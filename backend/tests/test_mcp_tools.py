@@ -9,7 +9,7 @@ from backend.retrieval.merge_rank import VectorHit, GraphHit
 @patch("backend.mcp_server.tools.search_vectors.QdrantStorageClient")
 def test_search_vectors_shape(mock_qdrant_class, mock_get_config):
     # Mock the search response
-    mock_instance = mock_qdrant_class.return_value
+    mock_instance = mock_qdrant_class.from_config.return_value
     mock_instance.search.return_value = [
         {"id": "uuid-1", "score": 0.9, "payload": {"text": "chunk 1"}},
         {"id": "uuid-2", "score": 0.8, "payload": {"text": "chunk 2"}},
@@ -28,7 +28,7 @@ def test_search_vectors_shape(mock_qdrant_class, mock_get_config):
 @patch("backend.mcp_server.tools.query_graph.Neo4jStorageClient")
 def test_query_graph_shape(mock_neo4j_class, mock_get_config):
     # Mock the execute_read response
-    mock_instance = mock_neo4j_class.return_value
+    mock_instance = mock_neo4j_class.from_config.return_value
     mock_instance.execute_read.return_value = [
         {
             "id": "node-1",
@@ -145,7 +145,7 @@ from backend.mcp_server.tools.insert_vector import insert_vectors
 @patch("backend.mcp_server.tools.insert_graph.get_config")
 @patch("backend.mcp_server.tools.insert_graph.Neo4jStorageClient")
 def test_insert_graph_nodes_success(mock_neo4j_class, mock_get_config):
-    mock_instance = mock_neo4j_class.return_value
+    mock_instance = mock_neo4j_class.from_config.return_value
     mock_instance.create_node.return_value = "node-id"
 
     nodes = [{"type": "Person", "name": "Alice"}]
@@ -161,7 +161,7 @@ def test_insert_graph_nodes_success(mock_neo4j_class, mock_get_config):
 @patch("backend.mcp_server.tools.insert_vector.get_config")
 @patch("backend.mcp_server.tools.insert_vector.QdrantStorageClient")
 def test_insert_vectors_success(mock_qdrant_class, mock_get_config):
-    mock_instance = mock_qdrant_class.return_value
+    mock_instance = mock_qdrant_class.from_config.return_value
     mock_instance.insert_points.return_value = ["uuid-1", "uuid-2"]
 
     texts = ["chunk 1", "chunk 2"]

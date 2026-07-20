@@ -8,7 +8,7 @@ def update_document_metadata(document_id: str, payload: Dict[str, Any], tenant_i
     Updates the payload (metadata) of an existing vector in Qdrant.
     """
     config = get_config()
-    qdrant = QdrantStorageClient(url=config.qdrant_url, api_key=config.qdrant_api_key)
+    qdrant = QdrantStorageClient.from_config(config)
     COLLECTION_NAME = config.qdrant_collection_name
     
     # Ensure tenant_id remains enforced if they try to override it

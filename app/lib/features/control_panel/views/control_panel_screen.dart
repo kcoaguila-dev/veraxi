@@ -2,20 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:veraxi_app/core/theme.dart';
-import 'package:veraxi_app/features/control_panel/view_models/settings_view_model.dart';
+import 'package:veraxi_app/features/control_panel/view_models/control_panel_view_model.dart';
 
 class ControlPanelScreen extends ConsumerWidget {
   const ControlPanelScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final state = ref.watch(settingsViewModelProvider);
-    final viewModel = ref.read(settingsViewModelProvider.notifier);
+    final state = ref.watch(controlPanelViewModelProvider);
+    final viewModel = ref.read(controlPanelViewModelProvider.notifier);
+    final theme = Theme.of(context);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Control Panel', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: Text('Control Panel', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
         backgroundColor: Colors.transparent,
         elevation: 0,
       ),
@@ -24,35 +24,36 @@ class ControlPanelScreen extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('System Intelligence', style: Theme.of(context).textTheme.titleLarge)
+            Text('System Intelligence', style: theme.textTheme.titleLarge)
                 .animate().fade().slideY(begin: 0.2),
             const SizedBox(height: 16),
-            _buildStatsGrid(state)
+            _buildStatsGrid(context, state)
                 .animate().fade(delay: 100.ms).slideY(begin: 0.2),
             const SizedBox(height: 32),
-            Text('Configuration', style: Theme.of(context).textTheme.titleLarge)
+            Text('Configuration', style: theme.textTheme.titleLarge)
                 .animate().fade(delay: 200.ms).slideY(begin: 0.2),
             const SizedBox(height: 16),
-            _buildApiKeyCard(state, viewModel)
+            _buildIngestionCard(context, state, viewModel)
                 .animate().fade(delay: 300.ms).slideY(begin: 0.2),
             const SizedBox(height: 32),
-            Text('Diagnostics', style: Theme.of(context).textTheme.titleLarge)
+            Text('Diagnostics', style: theme.textTheme.titleLarge)
                 .animate().fade(delay: 400.ms).slideY(begin: 0.2),
             const SizedBox(height: 16),
-            _buildDiagnosticsCard()
+            _buildDiagnosticsCard(context)
                 .animate().fade(delay: 500.ms).slideY(begin: 0.2),
           ],
         ),
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () => viewModel.refreshStats(),
-        backgroundColor: AppTheme.primary,
-        child: const Icon(Icons.refresh, color: Colors.white),
+        onPressed: () => viewModel.fetchStats(),
+        backgroundColor: theme.colorScheme.primary,
+        child: Icon(Icons.refresh, color: theme.colorScheme.onPrimary),
       ),
     );
   }
 
-  Widget _buildStatsGrid(SettingsState state) {
+  Widget _buildStatsGrid(BuildContext context, ControlPanelState state) {
+    final theme = Theme.of(context);
     return Row(
       children: [
         Expanded(
@@ -60,8 +61,8 @@ class ControlPanelScreen extends ConsumerWidget {
             title: 'Knowledge Nodes',
             value: state.stats?.nodeCount.toString() ?? '-',
             icon: Icons.share,
-            color: Colors.blueAccent,
-            isLoading: state.isLoading,
+            color: theme.colorScheme.primary,
+            isLoading: state.stats == null,
           ),
         ),
         const SizedBox(width: 16),
@@ -70,45 +71,49 @@ class ControlPanelScreen extends ConsumerWidget {
             title: 'Vector Embeddings',
             value: state.stats?.vectorCount.toString() ?? '-',
             icon: Icons.data_array,
-            color: Colors.purpleAccent,
-            isLoading: state.isLoading,
+            color: theme.colorScheme.secondary,
+            isLoading: state.stats == null,
           ),
         ),
       ],
     );
   }
 
-  Widget _buildApiKeyCard(SettingsState state, SettingsViewModel viewModel) {
+  Widget _buildIngestionCard(BuildContext context, ControlPanelState state, ControlPanelViewModel viewModel) {
+    final theme = Theme.of(context);
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(20.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Row(
+            Row(
               children: [
-                Icon(Icons.vpn_key_outlined, color: AppTheme.primary),
-                SizedBox(width: 8),
-                Text('Gemini API Key', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                Icon(Icons.upload_file, color: theme.colorScheme.primary),
+                const SizedBox(width: 8),
+                Text('Trigger Data Ingestion', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
               ],
             ),
             const SizedBox(height: 16),
-            TextFormField(
-              initialValue: state.geminiKey,
-              obscureText: true,
-              decoration: const InputDecoration(
-                hintText: 'AIzaSy...',
-              ),
-              onChanged: (val) {
-                // In a real app, debounce this or use a save button.
-                viewModel.saveGeminiKey(val);
-              },
+            ElevatedButton.icon(
+              onPressed: state.isIngesting ? null : () => viewModel.triggerIngestion("Run"),
+              icon: state.isIngesting 
+                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Icon(Icons.play_arrow),
+              label: Text(state.isIngesting ? 'Ingesting...' : 'Start Pipeline'),
             ),
+            if (state.successMessage != null) ...[
+              const SizedBox(height: 12),
+              Text(
+                state.successMessage!,
+                style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.primary),
+              ),
+            ],
             if (state.error != null) ...[
               const SizedBox(height: 12),
               Text(
-                'API Error: \${state.error}',
-                style: const TextStyle(color: Colors.redAccent, fontSize: 12),
+                'Error: ${state.error}',
+                style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.error),
               ),
             ]
           ],
@@ -117,13 +122,14 @@ class ControlPanelScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildDiagnosticsCard() {
+  Widget _buildDiagnosticsCard(BuildContext context) {
+    final theme = Theme.of(context);
     return Card(
       child: ListTile(
-        leading: const Icon(Icons.bug_report_outlined, color: Colors.redAccent),
-        title: const Text('Trigger Sentry Exception'),
-        subtitle: const Text('Simulate a crash to test telemetry.'),
-        trailing: const Icon(Icons.chevron_right),
+        leading: Icon(Icons.bug_report_outlined, color: theme.colorScheme.error),
+        title: Text('Trigger Sentry Exception', style: theme.textTheme.bodyLarge),
+        subtitle: Text('Simulate a crash to test telemetry.', style: theme.textTheme.bodySmall),
+        trailing: Icon(Icons.chevron_right, color: theme.colorScheme.onSurfaceVariant),
         onTap: () {
           try {
             throw Exception("Manual test exception from Control Panel!");
@@ -153,6 +159,7 @@ class _StatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(20.0),
@@ -169,13 +176,13 @@ class _StatCard extends StatelessWidget {
                   )
                 : Text(
                     value,
-                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                    style: theme.textTheme.headlineMedium?.copyWith(
                           fontWeight: FontWeight.bold,
-                          color: AppTheme.textPrimary,
+                          color: theme.colorScheme.onSurface,
                         ),
                   ),
             const SizedBox(height: 4),
-            Text(title, style: Theme.of(context).textTheme.bodyMedium),
+            Text(title, style: theme.textTheme.bodyMedium),
           ],
         ),
       ),

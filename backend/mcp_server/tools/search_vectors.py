@@ -13,7 +13,7 @@ def search_vectors(
     Embeds the query_text, performs a vector search, and returns VectorHit objects ready for merge_rank.
     """
     config = get_config()
-    qdrant_client = QdrantStorageClient(config.qdrant_url, config.qdrant_api_key)
+    qdrant_client = QdrantStorageClient.from_config(config)
     
     COLLECTION_NAME = config.qdrant_collection_name
 

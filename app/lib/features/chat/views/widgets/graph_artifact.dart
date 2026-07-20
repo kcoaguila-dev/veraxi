@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:flutter/services.dart' show rootBundle;
-import 'package:veraxi_app/core/theme.dart';
 import 'dart:convert';
 
 class GraphArtifact extends StatefulWidget {
@@ -24,9 +23,11 @@ class _GraphArtifactState extends State<GraphArtifact> {
   @override
   void initState() {
     super.initState();
+    // Cannot easily access theme in initState without didChangeDependencies,
+    // so we set transparent background and rely on container color
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setBackgroundColor(AppTheme.surface)
+      ..setBackgroundColor(Colors.transparent)
       ..setNavigationDelegate(
         NavigationDelegate(
           onPageFinished: (String url) {
@@ -48,6 +49,15 @@ class _GraphArtifactState extends State<GraphArtifact> {
     _loadHtml();
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Re-inject if theme changes
+    if (!_isLoading) {
+      _injectGraphData();
+    }
+  }
+
   Future<void> _loadHtml() async {
     try {
       final htmlString = await rootBundle.loadString('assets/graph.html');
@@ -63,21 +73,32 @@ class _GraphArtifactState extends State<GraphArtifact> {
   }
 
   void _injectGraphData() {
-    // The JavaScript function renderGraph expects a stringified JSON array
-    // Safely encode the JSON string for injection to prevent syntax errors
+    if (!mounted) return;
+    final theme = Theme.of(context);
+    
+    // Safely encode the JSON string for injection
     final safeJson = jsonEncode(widget.jsonElements);
-    _controller.runJavaScript("renderGraph($safeJson);");
+    
+    // Create a theme payload for the JS side
+    final themePayload = jsonEncode({
+      'primary': '#${theme.colorScheme.primary.toARGB32().toRadixString(16).substring(2, 8)}',
+      'onSurface': '#${theme.colorScheme.onSurface.toARGB32().toRadixString(16).substring(2, 8)}',
+      'outline': '#${theme.colorScheme.outlineVariant.toARGB32().toRadixString(16).substring(2, 8)}',
+    });
+
+    _controller.runJavaScript("renderGraph($safeJson, $themePayload);");
   }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Container(
       height: 300,
       width: double.infinity,
       decoration: BoxDecoration(
-        color: AppTheme.surface,
+        color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.surfaceHighlight, width: 1),
+        border: Border.all(color: theme.colorScheme.outlineVariant, width: 1),
       ),
       clipBehavior: Clip.antiAlias,
       child: _isLoading

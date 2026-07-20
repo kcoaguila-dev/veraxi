@@ -12,7 +12,7 @@ def insert_vectors(
     Does not require a Gemini API key.
     """
     config = get_config()
-    qdrant_client = QdrantStorageClient(config.qdrant_url, config.qdrant_api_key)
+    qdrant_client = QdrantStorageClient.from_config(config)
     COLLECTION_NAME = config.qdrant_collection_name
     qdrant_client.create_collection(COLLECTION_NAME)
 

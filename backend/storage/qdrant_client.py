@@ -12,6 +12,10 @@ class QdrantStorageClient:
         else:
             self.client = QdrantClient(url=url)
 
+    @classmethod
+    def from_config(cls, config) -> "QdrantStorageClient":
+        return cls(url=config.qdrant_url, api_key=config.qdrant_api_key)
+
     def create_collection(self, collection_name: str, vector_size: int = 384):
         """Create a collection if it doesn't already exist."""
         if not self.client.collection_exists(collection_name):

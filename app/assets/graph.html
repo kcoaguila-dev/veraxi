@@ -9,7 +9,7 @@
       margin: 0;
       padding: 0;
       overflow: hidden;
-      background-color: #1E293B; /* match AppTheme.surface */
+      background-color: transparent;
     }
     #cy {
       width: 100vw;
@@ -23,8 +23,9 @@
   <script>
     let cy;
 
-    function renderGraph(elementsJson) {
+    function renderGraph(elementsJson, themeJson) {
       const elements = JSON.parse(elementsJson);
+      const theme = JSON.parse(themeJson);
 
       cy = cytoscape({
         container: document.getElementById('cy'),
@@ -33,9 +34,9 @@
           {
             selector: 'node',
             style: {
-              'background-color': '#818CF8', // AppTheme.primaryGradientStart
+              'background-color': theme.primary,
               'label': 'data(label)',
-              'color': '#F8FAFC',
+              'color': theme.onSurface,
               'font-size': '12px',
               'text-valign': 'center',
               'text-halign': 'center',
@@ -49,12 +50,12 @@
             selector: 'edge',
             style: {
               'width': 2,
-              'line-color': '#94A3B8',
-              'target-arrow-color': '#94A3B8',
+              'line-color': theme.outline,
+              'target-arrow-color': theme.outline,
               'target-arrow-shape': 'triangle',
               'curve-style': 'bezier',
               'label': 'data(type)',
-              'color': '#F8FAFC',
+              'color': theme.onSurface,
               'font-size': '10px',
               'text-rotation': 'autorotate'
             }

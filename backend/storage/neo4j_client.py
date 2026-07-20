@@ -8,6 +8,10 @@ class Neo4jStorageClient:
     def __init__(self, uri: str, user: str, password: str):
         self.driver = GraphDatabase.driver(uri, auth=(user, password))
 
+    @classmethod
+    def from_config(cls, config) -> "Neo4jStorageClient":
+        return cls(uri=config.neo4j_uri, user=config.neo4j_user, password=config.neo4j_password)
+
     def close(self):
         self.driver.close()
 

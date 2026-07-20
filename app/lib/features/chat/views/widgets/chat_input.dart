@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:veraxi_app/core/theme.dart';
 
 class ChatInput extends StatefulWidget {
   final bool isLoading;
@@ -32,12 +31,14 @@ class _ChatInputState extends State<ChatInput> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    
     if (widget.errorText != null) {
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
-        decoration: const BoxDecoration(
-          color: AppTheme.background,
-          border: Border(top: BorderSide(color: AppTheme.surfaceHighlight)),
+        decoration: BoxDecoration(
+          color: theme.scaffoldBackgroundColor,
+          border: Border(top: BorderSide(color: theme.colorScheme.outlineVariant)),
         ),
         child: SafeArea(
           child: Row(
@@ -62,9 +63,9 @@ class _ChatInputState extends State<ChatInput> {
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
-      decoration: const BoxDecoration(
-        color: AppTheme.background,
-        border: Border(top: BorderSide(color: AppTheme.surfaceHighlight)),
+      decoration: BoxDecoration(
+        color: theme.scaffoldBackgroundColor,
+        border: Border(top: BorderSide(color: theme.colorScheme.outlineVariant)),
       ),
       child: SafeArea(
         child: Row(
@@ -75,7 +76,7 @@ class _ChatInputState extends State<ChatInput> {
                 controller: _controller,
                 minLines: 1,
                 maxLines: 5,
-                style: const TextStyle(color: AppTheme.textPrimary),
+                style: TextStyle(color: theme.colorScheme.onSurface),
                 decoration: const InputDecoration(
                   hintText: 'Message Veraxi...',
                 ),
@@ -85,8 +86,8 @@ class _ChatInputState extends State<ChatInput> {
             ),
             const SizedBox(width: 12),
             Container(
-              decoration: const BoxDecoration(
-                color: AppTheme.primary,
+              decoration: BoxDecoration(
+                color: theme.colorScheme.primary,
                 shape: BoxShape.circle,
               ),
               child: IconButton(

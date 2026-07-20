@@ -13,9 +13,7 @@ def insert_graph_nodes(
     Relations must have 'from_entity', 'to_entity' (names), and 'type'.
     """
     config = get_config()
-    neo4j_client = Neo4jStorageClient(
-        config.neo4j_uri, config.neo4j_user, config.neo4j_password
-    )
+    neo4j_client = Neo4jStorageClient.from_config(config)
 
     entity_name_to_node_id = {}
     nodes_inserted = 0

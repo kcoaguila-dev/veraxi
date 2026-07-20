@@ -9,9 +9,7 @@ def delete_relationship(from_entity: str, to_entity: str, rel_type: str, tenant_
         raise ValueError("Relationship type must be alphanumeric/underscores")
 
     config = get_config()
-    neo4j = Neo4jStorageClient(
-        uri=config.neo4j_uri, user=config.neo4j_user, password=config.neo4j_password
-    )
+    neo4j = Neo4jStorageClient.from_config(config)
 
     query = f"""
     MATCH (a {{name: $from_entity, tenant_id: $tenant_id}})-[r:{rel_type}]->(b {{name: $to_entity, tenant_id: $tenant_id}})

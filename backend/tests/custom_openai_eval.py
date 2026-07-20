@@ -7,14 +7,12 @@ class OpenAIDeepEvalModel(DeepEvalBaseLLM):
     Custom DeepEval Judge that uses the openai SDK 
     to evaluate metrics using the configured model.
     """
-    def __init__(self):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
         self.config = get_config()
-        client_args = {}
-        if self.config.llm_api_key:
-            client_args["api_key"] = self.config.llm_api_key
-        if self.config.llm_base_url:
-            client_args["base_url"] = self.config.llm_base_url
-            
+        
+        client_args = self.config.get_llm_client_args()
+        
         self.client = OpenAI(**client_args)
         self.async_client = AsyncOpenAI(**client_args)
         self.model_name = self.config.llm_model_name

@@ -1,4 +1,5 @@
 import json
+import sentry_sdk
 import logging
 from openai import OpenAI
 from backend.config import get_config
@@ -22,6 +23,34 @@ Return ONLY a valid JSON object with the following schema, and no other text:
 }
 """
 
+def _parse_grounding_score(result_content: str) -> float:
+    if not result_content:
+        return 0.0
+    try:
+        result_json = json.loads(result_content)
+        score = float(result_json.get("score", 0.0))
+        return max(0.0, min(1.0, score))
+    except Exception as e:
+        sentry_sdk.capture_exception(e)
+        logger.error(f"Failed to parse grounding score: {e}")
+        return 0.0
+
+def _call_llm_for_grounding(config, context_text: str, response_text: str) -> float:
+    user_message = f"Context:\n{context_text}\n\nResponse:\n{response_text}"
+    client = OpenAI(**config.get_llm_client_args())
+
+    response = client.chat.completions.create(
+        model=config.llm_model_name,
+        messages=[
+            {"role": "system", "content": GROUNDING_PROMPT},
+            {"role": "user", "content": user_message}
+        ],
+        response_format={"type": "json_object"},
+        temperature=0.0
+    )
+    
+    return _parse_grounding_score(response.choices[0].message.content)
+
 def evaluate_groundedness(response_text: str, context_text: str) -> float:
     """
     Evaluates how much of the response_text is supported by context_text.
@@ -35,39 +64,10 @@ def evaluate_groundedness(response_text: str, context_text: str) -> float:
         return 0.0
 
     config = get_config()
-    client_args = {}
-    if config.llm_api_key:
-        client_args["api_key"] = config.llm_api_key
-    if config.llm_base_url:
-        client_args["base_url"] = config.llm_base_url
-        
     try:
-        user_message = (
-            f"Context:\n{context_text}\n\n"
-            f"Response:\n{response_text}"
-        )
-        client = OpenAI(**client_args)
-
-        response = client.chat.completions.create(
-            model=config.llm_model_name,
-            messages=[
-                {"role": "system", "content": GROUNDING_PROMPT},
-                {"role": "user", "content": user_message}
-            ],
-            response_format={"type": "json_object"},
-            temperature=0.0
-        )
-        
-        result_content = response.choices[0].message.content
-        if not result_content:
-            return 0.0
-            
-        result_json = json.loads(result_content)
-        score = float(result_json.get("score", 0.0))
-        
-        # Ensure score is within bounds
-        return max(0.0, min(1.0, score))
+        return _call_llm_for_grounding(config, context_text, response_text)
     except Exception as e:
+        sentry_sdk.capture_exception(e)
         logger.error(f"Error calculating grounding score: {e}")
         # In case of evaluation failure, we return 0.0 to fail safely
         return 0.0

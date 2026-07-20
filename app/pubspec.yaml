@@ -28,6 +28,7 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   mocktail: ^1.0.5
+  import_lint: ^0.1.6
 
 flutter:
   uses-material-design: true

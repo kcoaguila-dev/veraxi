@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:veraxi_app/core/theme.dart';
+import 'package:veraxi_app/core/theme_provider.dart';
 import 'package:veraxi_app/features/auth/view_models/auth_view_model.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -37,7 +37,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(authState.error.toString(), style: const TextStyle(color: Colors.white)),
-          backgroundColor: Colors.red.shade800,
+          backgroundColor: Theme.of(context).colorScheme.error,
         ),
       );
     }
@@ -53,6 +53,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authViewModelProvider);
+    final theme = Theme.of(context);
 
     // If authenticated successfully, the router redirect will automatically handle it,
     // but we can also react here just in case.
@@ -63,7 +64,27 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     });
 
     return Scaffold(
-      backgroundColor: AppTheme.background,
+      backgroundColor: theme.scaffoldBackgroundColor,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back, color: theme.colorScheme.onSurface),
+          onPressed: () => context.go('/'),
+        ),
+        actions: [
+          IconButton(
+            icon: Icon(
+              theme.brightness == Brightness.dark ? Icons.light_mode : Icons.dark_mode,
+              color: theme.colorScheme.onSurface,
+            ),
+            onPressed: () {
+              ref.read(themeProvider.notifier).toggle();
+            },
+          ),
+          const SizedBox(width: 8),
+        ],
+      ),
       body: Stack(
         children: [
           // Background Gradient Orbs
@@ -75,7 +96,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               height: 400,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: AppTheme.primary.withValues(alpha: 0.15),
+                color: theme.colorScheme.primary.withValues(alpha: 0.15),
               ),
             ).animate().fadeIn(duration: const Duration(seconds: 1)).scale(),
           ),
@@ -84,9 +105,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               width: 400,
               padding: const EdgeInsets.all(40),
               decoration: BoxDecoration(
-                color: AppTheme.surface.withValues(alpha: 0.5),
+                color: theme.colorScheme.surface.withValues(alpha: 0.5),
                 borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: AppTheme.surfaceHighlight),
+                border: Border.all(color: theme.colorScheme.outlineVariant),
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withValues(alpha: 0.2),
@@ -102,12 +123,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.change_history, color: AppTheme.primary, size: 48),
+                      Icon(Icons.change_history, color: theme.colorScheme.primary, size: 48),
                       const SizedBox(height: 24),
                       Text(
                         _isSignUp ? 'Create Account' : 'Welcome Back',
                         style: GoogleFonts.inter(
-                          color: Colors.white,
+                          color: theme.colorScheme.onSurface,
                           fontSize: 28,
                           fontWeight: FontWeight.bold,
                           letterSpacing: -0.5,
@@ -117,27 +138,27 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       Text(
                         _isSignUp ? 'Join Veraxi today.' : 'Sign in to access your agents.',
                         style: GoogleFonts.inter(
-                          color: AppTheme.textSecondary,
+                          color: theme.colorScheme.onSurfaceVariant,
                           fontSize: 14,
                         ),
                       ),
                       const SizedBox(height: 32),
                       TextField(
                         controller: _emailController,
-                        style: const TextStyle(color: Colors.white),
-                        decoration: const InputDecoration(
+                        style: TextStyle(color: theme.colorScheme.onSurface),
+                        decoration: InputDecoration(
                           hintText: 'Email Address',
-                          prefixIcon: Icon(Icons.email_outlined, color: AppTheme.textSecondary),
+                          prefixIcon: Icon(Icons.email_outlined, color: theme.colorScheme.onSurfaceVariant),
                         ),
                       ),
                       const SizedBox(height: 16),
                       TextField(
                         controller: _passwordController,
                         obscureText: true,
-                        style: const TextStyle(color: Colors.white),
-                        decoration: const InputDecoration(
+                        style: TextStyle(color: theme.colorScheme.onSurface),
+                        decoration: InputDecoration(
                           hintText: 'Password',
-                          prefixIcon: Icon(Icons.lock_outline, color: AppTheme.textSecondary),
+                          prefixIcon: Icon(Icons.lock_outline, color: theme.colorScheme.onSurfaceVariant),
                         ),
                       ),
                       const SizedBox(height: 32),
@@ -146,17 +167,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         child: ElevatedButton(
                           onPressed: authState.isLoading ? null : _submit,
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: AppTheme.primary,
-                            foregroundColor: Colors.white,
+                            backgroundColor: theme.colorScheme.primary,
+                            foregroundColor: theme.colorScheme.onPrimary,
                             padding: const EdgeInsets.symmetric(vertical: 20),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                             elevation: 0,
                           ),
                           child: authState.isLoading
-                              ? const SizedBox(
+                              ? SizedBox(
                                   width: 24,
                                   height: 24,
-                                  child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                                  child: CircularProgressIndicator(color: theme.colorScheme.onPrimary, strokeWidth: 2),
                                 )
                               : Text(
                                   _isSignUp ? 'Sign Up' : 'Sign In',
@@ -173,7 +194,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         },
                         child: Text(
                           _isSignUp ? 'Already have an account? Sign in' : "Don't have an account? Sign up",
-                          style: TextStyle(color: AppTheme.textSecondary),
+                          style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
                         ),
                       )
                     ],
@@ -182,15 +203,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               ),
             ),
           ),
-          // Back Button
-          Positioned(
-            top: 40,
-            left: 40,
-            child: IconButton(
-              icon: const Icon(Icons.arrow_back, color: AppTheme.textSecondary),
-              onPressed: () => context.go('/'),
-            ),
-          )
         ],
       ),
     );

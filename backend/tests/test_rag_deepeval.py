@@ -19,8 +19,9 @@ def get_test_cases():
         
     return dataset
 
+@pytest.mark.asyncio
 @pytest.mark.parametrize("item", get_test_cases())
-def test_rag_pipeline(item, mock_env):
+async def test_rag_pipeline(item, patch_env):
     """
     Evaluates the RAG pipeline using DeepEval's LLM-as-a-judge (Gemini).
     Checks Context Precision, Faithfulness, and Answer Relevance.
@@ -31,7 +32,7 @@ def test_rag_pipeline(item, mock_env):
     expected_output = item["expected_answer"]
 
     # Execute the RAG pipeline
-    actual_output, context_str = answer_question(query, tenant_id=tenant_id, return_context=True)
+    actual_output, context_str = await answer_question(query, tenant_id=tenant_id, return_context=True)
     
     # We pass the context_str as a list of strings (retrieval context)
     retrieval_context = [context_str] if context_str else ["No context retrieved."]

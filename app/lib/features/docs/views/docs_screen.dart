@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:veraxi_app/core/theme.dart';
 import 'package:veraxi_app/features/landing/views/widgets/nav_bar.dart';
 
 class DocsScreen extends StatelessWidget {
@@ -44,8 +43,9 @@ Agents can create entities autonomously using the MCP protocol.
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
-      backgroundColor: AppTheme.background,
+      backgroundColor: theme.scaffoldBackgroundColor,
       body: Column(
         children: [
           NavBar(onFeaturesTap: () => context.go('/')),
@@ -57,9 +57,9 @@ Agents can create entities autonomously using the MCP protocol.
                   width: 800,
                   padding: const EdgeInsets.all(40),
                   decoration: BoxDecoration(
-                    color: AppTheme.surface,
+                    color: theme.colorScheme.surface,
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: AppTheme.surfaceHighlight),
+                    border: Border.all(color: theme.colorScheme.outlineVariant),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -67,14 +67,14 @@ Agents can create entities autonomously using the MCP protocol.
                       Row(
                         children: [
                           IconButton(
-                            icon: const Icon(Icons.arrow_back, color: AppTheme.textSecondary),
+                            icon: Icon(Icons.arrow_back, color: theme.colorScheme.onSurfaceVariant),
                             onPressed: () => context.go('/'),
                           ),
                           const SizedBox(width: 16),
                           Text(
                             'Documentation',
                             style: GoogleFonts.inter(
-                              color: AppTheme.textPrimary,
+                              color: theme.colorScheme.onSurface,
                               fontSize: 24,
                               fontWeight: FontWeight.bold,
                             ),
@@ -86,19 +86,19 @@ Agents can create entities autonomously using the MCP protocol.
                         data: _docsContent,
                         selectable: true,
                         styleSheet: MarkdownStyleSheet(
-                          h1: GoogleFonts.inter(color: AppTheme.textPrimary, fontSize: 32, fontWeight: FontWeight.bold),
-                          h2: GoogleFonts.inter(color: AppTheme.textPrimary, fontSize: 24, fontWeight: FontWeight.bold),
-                          h3: GoogleFonts.inter(color: AppTheme.textPrimary, fontSize: 20, fontWeight: FontWeight.w600),
-                          p: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: 16, height: 1.6),
-                          code: GoogleFonts.firaCode(color: const Color(0xFF10B981), backgroundColor: const Color(0xFF131313), fontSize: 14),
+                          h1: GoogleFonts.inter(color: theme.colorScheme.onSurface, fontSize: 32, fontWeight: FontWeight.bold),
+                          h2: GoogleFonts.inter(color: theme.colorScheme.onSurface, fontSize: 24, fontWeight: FontWeight.bold),
+                          h3: GoogleFonts.inter(color: theme.colorScheme.onSurface, fontSize: 20, fontWeight: FontWeight.w600),
+                          p: GoogleFonts.inter(color: theme.colorScheme.onSurfaceVariant, fontSize: 16, height: 1.6),
+                          code: GoogleFonts.firaCode(color: const Color(0xFF10B981), backgroundColor: theme.colorScheme.surfaceContainerHighest, fontSize: 14),
                           codeblockDecoration: BoxDecoration(
-                            color: const Color(0xFF131313),
+                            color: theme.colorScheme.surfaceContainerHighest,
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: AppTheme.surfaceHighlight),
+                            border: Border.all(color: theme.colorScheme.outlineVariant),
                           ),
-                          blockquote: GoogleFonts.inter(color: AppTheme.textSecondary, fontStyle: FontStyle.italic),
-                          blockquoteDecoration: const BoxDecoration(
-                            border: Border(left: BorderSide(color: AppTheme.primary, width: 4)),
+                          blockquote: GoogleFonts.inter(color: theme.colorScheme.onSurfaceVariant, fontStyle: FontStyle.italic),
+                          blockquoteDecoration: BoxDecoration(
+                            border: Border(left: BorderSide(color: theme.colorScheme.primary, width: 4)),
                           ),
                         ),
                       ),

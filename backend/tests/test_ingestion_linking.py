@@ -41,10 +41,8 @@ def test_ingestion_linking(patch_env):
     config = get_config()
 
     # Initialize clients for setup/teardown
-    qdrant = QdrantStorageClient(url=config.qdrant_url, api_key=config.qdrant_api_key)
-    neo4j = Neo4jStorageClient(
-        uri=config.neo4j_uri, user=config.neo4j_user, password=config.neo4j_password
-    )
+    qdrant = QdrantStorageClient.from_config(config)
+    neo4j = Neo4jStorageClient.from_config(config)
 
     COLLECTION_NAME = config.qdrant_collection_name
 

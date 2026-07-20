@@ -8,9 +8,7 @@ def get_graph_schema() -> Dict[str, List[str]]:
     This helps the Host AI understand the existing schema before inserting new data.
     """
     config = get_config()
-    neo4j_client = Neo4jStorageClient(
-        config.neo4j_uri, config.neo4j_user, config.neo4j_password
-    )
+    neo4j_client = Neo4jStorageClient.from_config(config)
 
     try:
         # Get all node labels
