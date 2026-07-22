@@ -1,0 +1,11 @@
+.venv
+.venv/
+**/.venv
+**/.venv/**
+backend/.venv
+app/.dart_tool
+app/build
+node_modules
+**/node_modules/**
+__pycache__
+*.pyc

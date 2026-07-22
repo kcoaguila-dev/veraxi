@@ -2,6 +2,8 @@
 __pycache__/
 *.pyc
 .venv/
+**/.venv/
+backend/.venv/
 venv/
 *.egg-info/
 
@@ -20,7 +22,8 @@ app/.flutter-plugins-dependencies
 .DS_Store
 Thumbs.db
 .vscode/
-.idea//app/android/local.properties
+.idea/
+/app/android/local.properties
 /app/ios/Flutter/Generated.xcconfig
 /app/.idea
 *.iml
