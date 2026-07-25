@@ -56,8 +56,8 @@ async def lifespan(app: FastAPI):
     await app.state.redis.close()
 
 app = FastAPI(
-    title="Veraxi API Gateway", 
-    description="Multi-Tenant SaaS HTTP Gateway",
+    title="Veraxi Intelligence Engine", 
+    description="Sovereign Hybrid GraphRAG & MCP Intelligence Platform",
     version="1.0.0",
     lifespan=lifespan
 )
@@ -91,7 +91,7 @@ def _get_jwt_payload(token: str) -> dict:
         return jwt.decode(
             token, 
             signing_key.key, 
-            algorithms=["ES256", "RS256", "HS256"],
+            algorithms=["RS256"],
             audience="authenticated"
         )
     except jwt.ExpiredSignatureError:

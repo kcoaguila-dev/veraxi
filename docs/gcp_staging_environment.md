@@ -7,7 +7,7 @@ This approach allows you to code locally on your primary development machine, bu
 ## 1. VM Specifications
 
 **Why Google's Container-Optimized OS (COS)?**
-Because Jules fully Dockerized the Veraxi stack in Phase 8 (including the FastAPI backend), we no longer need to run Python natively on the host machine. This allows us to use Google's Container-Optimized OS (COS). COS is a highly secure, incredibly lightweight OS purpose-built by Google *exclusively* for running Docker containers. It has no package manager and a read-only root filesystem, meaning it is virtually impervious to standard Linux malware and boots incredibly fast.
+Because the Veraxi stack is fully Dockerized (including the FastAPI backend), we no longer need to run Python natively on the host machine. This allows us to use Google's Container-Optimized OS (COS). COS is a highly secure, incredibly lightweight OS purpose-built by Google *exclusively* for running Docker containers. It has no package manager and a read-only root filesystem, meaning it is virtually impervious to standard Linux malware and boots incredibly fast.
 
 - **Machine Type:** `e2-standard-4` (4 vCPU, 16GB RAM). *Neo4j and Qdrant are highly memory-intensive. 16GB provides enough headroom for the databases plus the Python backend.*
 - **OS Image:** `cos-stable` (Container-Optimized OS).

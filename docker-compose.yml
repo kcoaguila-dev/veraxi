@@ -6,7 +6,7 @@ services:
       - "7474:7474"   # browser UI
       - "7687:7687"   # bolt protocol
     environment:
-      - NEO4J_AUTH=neo4j/changeme_local_password
+      - NEO4J_AUTH=${NEO4J_AUTH:-neo4j/changeme_local_password}
     volumes:
       - neo4j_data:/data
 
@@ -30,8 +30,6 @@ services:
       - AUTH_ENABLED=${AUTH_ENABLED:-true}
     env_file:
       - ./backend/.env
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
     depends_on:
       - neo4j
       - qdrant
@@ -56,8 +54,6 @@ services:
       - AUTH_ENABLED=${AUTH_ENABLED:-true}
     env_file:
       - ./backend/.env
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
     depends_on:
       - neo4j
       - qdrant

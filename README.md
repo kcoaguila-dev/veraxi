@@ -2,24 +2,37 @@
 
 A sovereign intelligence platform that combines a knowledge graph (Neo4j) and vector search (Qdrant) to give an LLM (Gemini 2.5 Flash) autonomous, tool-based access to both relational and semantic context.
 
-Veraxi utilizes Reciprocal Rank Fusion (RRF) to merge structured graph lookups and semantic vector similarities into a single, high-fidelity context window, allowing the LLM to deduce deep architectural and organizational realities without hallucinating.
+Veraxi utilizes Reciprocal Rank Fusion (RRF) to merge structured graph lookups and semantic vector similarities into a single, high-fidelity context window, allowing the LLM to deduce deep architectural and organizational realities with significantly reduced hallucination risk.
+
+## Why Hybrid GraphRAG?
+
+Standard vector-based RAG excels at simple, local lookups but hallucinates heavily when asked "global" or multi-hop questions (e.g., connecting disparate entities across a large corpus). Veraxi solves this by explicitly mapping relationships as hard mathematical edges in a graph, while still preserving vector search for fuzzy concepts. 
+
+According to recent enterprise benchmarks, moving from standard vector RAG to a Hybrid GraphRAG architecture yields:
+- **~62% average reduction in hallucinations** across production deployments.
+- **Nearly 30% absolute accuracy improvements** on complex queries (e.g., jumping from 50% to 80% accuracy in industry benchmarks).
+- **Global Sensemaking:** The ability to run Graph Data Science community detection to summarize macroscopic themes across thousands of documents without relying solely on limited LLM context windows.
 
 ## Status
 
-**Phase 10 Complete: Enterprise API Gateway & MCP Server Hardened.**
-The backend infrastructure is fully production-ready. We have successfully deployed a multi-tenant FastAPI gateway featuring Stripe webhook integration, secure JWT authentication, Docling-powered multimodal ingestion, and an SSE-based Model Context Protocol (MCP) transport layer with dynamic rate limiting.
+**Alpha / Work In Progress.**
+The Veraxi platform is currently in active development. While much of the foundational infrastructure is built, we are currently working on implementing the backend for the Chat UI to fully connect the frontend to the intelligence engine.
 
-**Up Next: Phase 11 — Premium Flutter UI Redesign.** We are now transitioning focus to the frontend to build a beautiful, modern, cross-platform client that consumes this hardened architecture.
+Features successfully implemented so far include:
+- A multi-tenant FastAPI engine featuring Stripe webhook integration and secure JWT authentication.
+- Docling-powered multimodal ingestion and an SSE-based Model Context Protocol (MCP) transport layer with dynamic rate limiting.
+- A premium, modern, cross-platform Flutter client (UI currently being wired to the backend).
+- Corrective Retrieval Augmented Generation (CRAG) with web search fallback and LLM-as-a-judge grounding evaluation.
 
-See [docs/ROADMAP.md](docs/ROADMAP.md) for the current active phase.
+See [docs/ROADMAP.md](docs/ROADMAP.md) for the historical evolution of the project.
 
 ## Architecture
 
 See [docs/architecture.md](docs/architecture.md) for a deep dive into the dependency flow and design rules.
 
 - **Storage:** Neo4j (Graph), Qdrant (Vectors), SQLite (UI Persistence)
-- **Intelligence:** Google GenAI SDK (Gemini 2.5 Flash)
-- **Backend API Gateway:** FastAPI
+- **Intelligence:** OpenAI-compatible SDK (Gemini 2.5 Flash / Local LLMs)
+- **Backend Intelligence Engine:** FastAPI
 - **Frontend:** Flutter (Dart), Riverpod, flutter_secure_storage (libsecret)
 - **CI/CD:** Ephemeral Docker Environments (GCP Staging)
 
@@ -88,14 +101,14 @@ python -m scripts.ask_veraxi "What is Veraxi?"
 ```
 
 ### 3. Fully Automated Containerized Backend
-If you want to run the entire backend (Neo4j, Qdrant, and the Python MCP API Gateway) without installing Python or dealing with virtual environments, you can run the entire stack with a single command:
+If you want to run the entire backend (Neo4j, Qdrant, and the Python MCP Intelligence Engine) without installing Python or dealing with virtual environments, you can run the entire stack with a single command:
 ```bash
 docker-compose up -d --build
 ```
-Once running, the API Gateway is instantly available at `http://localhost:8000`!
+Once running, the Intelligence Engine is instantly available at `http://localhost:8000`!
 
 ### 4. Self-Hosted / Open-Source Desktop Clients
-If you are an open-source contributor and want to connect the official Claude Desktop app or Cursor directly to your local instance without routing through the API Gateway, you can use the lightweight `stdio` runner.
+If you are an open-source contributor and want to connect the official Claude Desktop app or Cursor directly to your local instance without routing through the Intelligence Engine, you can use the lightweight `stdio` runner.
 
 Simply add this to your `claude_desktop_config.json`:
 ```json
@@ -110,13 +123,22 @@ Simply add this to your `claude_desktop_config.json`:
 ```
 *Note: Make sure to run this command from the root `veraxi` directory so that Python can resolve the `backend` package.*
 
-## 🧪 Containerized Testing
+## Containerized Testing
 
 Veraxi enforces a strict **Zero-Warning** CodeScene policy. We guarantee 100% reproducible test environments by containerizing both the frontend and backend testing pipelines.
 To run the full suite (including `flutter analyze`, `flutter test`, and `pytest`) in an ephemeral Docker environment:
 ```bash
 make test-gcp
 ```
+
+### ⚠️ Production RAG Evaluation
+The repository includes a baseline "Golden Dataset" (`backend/evaluation/dataset.json`) and a matching test corpus (`graphrag_test_corpus.txt`) used by DeepEval to test the hybrid RAG engine. 
+
+**Before deploying Veraxi to production on your company's data, you MUST:**
+1. Replace the test corpus with a massive, industry-standard dataset (e.g., **Paul Graham's Essays** or the **Needle In A Haystack** benchmark). 
+2. Update the Golden Dataset to reflect the new text. 
+
+A 300-word test corpus is insufficient for testing true Vector Retrieval Precision. RAG engines must be stressed with thousands of chunks of distractor "noise" to mathematically prove they do not hallucinate.
 
 ## Contributing
 See [CONTRIBUTING.md](CONTRIBUTING.md).

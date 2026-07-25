@@ -12,8 +12,13 @@ Interactive Swagger documentation is available at `http://<host>:8001/docs` when
 - **`POST /api/chat`**: Submit a natural language question. Returns a GraphRAG answer.
 - **`GET /api/admin/stats`**: Retrieve live node and vector counts for the authenticated tenant.
 - **`POST /api/admin/ingest`**: Submit raw text for chunking, embedding, and Neo4j graph extraction.
-- **`POST /api/admin/ingest/upload`**: Upload a document (PDF, DOCX) to be processed by Docling and ingested.
+- **`POST /api/admin/ingest/upload`**: Upload a document (PDF, Word, PowerPoint, Excel, HTML, Text, and Images like PNG/JPG) to be processed by Docling and ingested.
 - **`POST /api/admin/ingest/url`**: Provide a URL to be scraped, processed by Docling, and ingested.
+- **`GET /api/chat/threads`**: Retrieve a list of chat threads.
+- **`GET /api/chat/threads/{thread_id}`**: Retrieve a specific chat thread.
+- **`GET /health`**: Health check endpoint.
+- **`GET /sentry-debug`**: Endpoint for testing Sentry integration.
+- **`POST /api/admin/stripe-webhook`**: Handle Stripe webhooks.
 
 
 ## 2. Model Context Protocol (MCP) Setup
@@ -33,7 +38,7 @@ Resources are static or live data endpoints that the Host AI can read directly w
 
 #### `veraxi://schema`
 **Name**: Database Schema
-**Description**: The ontology of the Neo4j Knowledge Graph.
+**Description**: The structural schema (labels and relationships) of the Neo4j Knowledge Graph.
 **Mime Type**: application/json
 
 #### `veraxi://stats`
@@ -47,6 +52,9 @@ Prompts are templates provided by the server to instruct the Host AI on specific
 
 #### `ingest_knowledge`
 **Description**: Provides strict instructions to the Host AI on how to read source material and construct GraphRAG structures.
+
+#### `crag_orchestrator`
+**Description**: Instructs the Host AI to act as a Corrective Retrieval Augmented Generation orchestrator, combining internal database retrieval with live web search.
 
 
 ### Tools
@@ -202,7 +210,7 @@ Tools allow the Host AI to take actions within the Veraxi ecosystem.
 ```
 
 #### `mcp_get_graph_schema`
-**Description**: Retrieves all unique Node Labels and Relationship Types currently in the Neo4j database. Call this before inserting data to understand the ontology.
+**Description**: Retrieves all unique Node Labels and Relationship Types currently in the Neo4j database. Call this before inserting data to understand the graph schema.
 **Input Schema**:
 ```json
 {
@@ -337,3 +345,44 @@ Tools allow the Host AI to take actions within the Veraxi ecosystem.
 }
 ```
 
+#### `mcp_evaluate_grounding`
+**Description**: Evaluates what percentage of a generated response is mathematically supported by the retrieved context. Returns a float between 0.0 and 1.0.
+**Input Schema**:
+```json
+{
+  "type": "object",
+  "properties": {
+    "response_text": {
+      "type": "string"
+    },
+    "context_text": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "response_text",
+    "context_text"
+  ]
+}
+```
+
+#### `mcp_web_search`
+**Description**: Fallback mechanism to search the live web when internal retrieval yields insufficient context. Returns a list of JSON snippets.
+**Input Schema**:
+```json
+{
+  "type": "object",
+  "properties": {
+    "query": {
+      "type": "string"
+    },
+    "max_results": {
+      "type": "integer",
+      "default": 3
+    }
+  },
+  "required": [
+    "query"
+  ]
+}
+```
