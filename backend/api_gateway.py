@@ -72,12 +72,10 @@ limiter = Limiter(key_func=get_auth_token_key)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-# Allow Flutter app to communicate cross-origin
-# TODO(Production): Change allow_origins=["*"] to your exact Flutter web URL (e.g., ["https://app.veraxi.com"])
-# to prevent unauthorized websites from making requests to this API.
+# Cross-Origin Resource Sharing (CORS) configured via environment variables
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=config.cors_origins.split(","),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -249,9 +247,7 @@ async def health_check():
     return {"status": "ok"}
 
 
-@app.get("/sentry-debug")
-async def trigger_error():
-    _ = 1 / int("0")
+
 
 
 @app.get("/api/admin/stats")
