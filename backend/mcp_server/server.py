@@ -48,11 +48,7 @@ async def handle_read_resource(uri: str) -> str:
         results = get_graph_schema()
         return json.dumps(results)
     elif uri == "veraxi://stats":
-        # Hacky way to inject tenant_id into stats since it's now context-aware
-        # But get_database_stats doesn't accept tenant_id easily if we don't refactor it.
-        # Actually, get_database_stats in tool list doesn't take args, but the function could.
-        # We'll just return standard stats for now.
-        return json.dumps(get_database_stats())
+        return json.dumps(get_database_stats(tenant_id=tenant_id))
     else:
         raise ValueError(f"Resource not found: {uri}")
 
@@ -363,7 +359,7 @@ def _handle_update_entity(args: dict, tenant_id: str) -> list[TextContent]:
     return [TextContent(type="text", text=result)]
 
 def _handle_get_database_stats(args: dict, tenant_id: str) -> list[TextContent]:
-    results = get_database_stats()
+    results = get_database_stats(tenant_id=tenant_id)
     return [TextContent(type="text", text=json.dumps(results))]
 
 def _handle_run_community_detection(args: dict, tenant_id: str) -> list[TextContent]:
