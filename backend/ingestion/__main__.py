@@ -76,11 +76,17 @@ def run_ingestion(config, text: str, tenant_id: str = "default"):
 
 def main():
     config = get_config()
-    text = (
-        "Alice is a brilliant Engineer who works at Veraxi Corp. "
-        "Veraxi Corp is an innovative Tech company that develops advanced AI. "
-        "AI is transforming the Computer Science domain."
-    )
+    import os
+    
+    # ⚠️ ARCHITECTURE NOTE FOR PRODUCTION ⚠️
+    # The current 'graphrag_test_corpus.txt' is a tiny 300-word file meant ONLY for fast CI/CD pipeline checks. 
+    # To properly test RAG (Reciprocal Rank Fusion, Context Precision/Recall), you must replace this file 
+    # with a massive, unstructured text corpus (e.g., the 'Paul Graham Essays' dataset or a 50-page PDF).
+    # You must also inject a "Needle In A Haystack" fact into that corpus and update `dataset.json` to query it.
+    
+    corpus_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "tests", "data", "graphrag_test_corpus.txt")
+    with open(corpus_path, "r", encoding="utf-8") as f:
+        text = f.read()
     run_ingestion(config, text)
 
 

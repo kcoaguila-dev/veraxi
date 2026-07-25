@@ -3,6 +3,7 @@ set -e
 
 VM_NAME="veraxi-staging"
 REMOTE_DIR="veraxi"
+MAX_RETRIES=${MAX_RETRIES:-30}
 
 # Automatically extract the zone from Terraform vars to make this script zero-config
 ZONE=$(grep '^zone' infra/terraform.tfvars | awk -F '"' '{print $2}')
@@ -29,16 +30,32 @@ tar \
 # 2. Run tests remotely inside Docker
 echo "Running tests on GCP..."
 gcloud compute ssh $VM_NAME --zone=$ZONE --command="
-  cd ~/$REMOTE_DIR && \
-  echo 'Running Flutter tests in ephemeral container...' && \
-  docker build -t veraxi-frontend-test -f app/Dockerfile.test app/ && \
-  docker run --rm veraxi-frontend-test && \
-  echo 'Starting backend services...' && \
-  docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "\$PWD:\$PWD" -w "\$PWD" docker/compose:latest up -d --build && \
-  echo 'Waiting for services to be ready...' && \
-  sleep 5 && \
-  echo 'Running pytest inside the backend container...' && \
-  docker exec veraxi_backend_1 bash -c \"cd backend && pip install -e .[dev] && USE_TESTCONTAINERS=false pytest\"
+  set -e
+  cd ~/$REMOTE_DIR
+  
+  echo 'Running Flutter tests in ephemeral container...'
+  docker build -t veraxi-frontend-test -f app/Dockerfile.test app/
+  docker run --rm veraxi-frontend-test
+  
+  echo 'Starting backend services natively via Docker Compose...'
+  # Cleanup hook: Guarantee the containers are destroyed even if tests fail
+  trap 'echo \"Cleaning up Staging VM state...\" && docker compose down' EXIT
+  
+  docker compose up -d --build
+  
+  echo 'Waiting for backend API to be ready...'
+  retries=$MAX_RETRIES
+  while ! curl -s http://localhost:8000/health > /dev/null; do
+    retries=\$((\$retries - 1))
+    if [ \$retries -le 0 ]; then
+      echo 'Timeout waiting for API gateway.'
+      exit 1
+    fi
+    sleep 2
+  done
+  
+  echo 'Running pytest inside the backend container...'
+  docker compose exec -T backend bash -c \"cd backend && pip install .[dev] && USE_TESTCONTAINERS=false pytest\"
 "
 
-echo "Workflow completed!"
+echo "Workflow completed and Staging VM cleaned up successfully!"

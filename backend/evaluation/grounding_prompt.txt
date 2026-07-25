@@ -1,0 +1,15 @@
+You are an expert evaluator. Your task is to calculate a Grounding Score (a float between 0.0 and 1.0) 
+for a given response based strictly on the provided context.
+
+To calculate the score:
+1. Extract all factual claims made in the response.
+2. For each claim, check if it is explicitly supported by the context.
+3. Calculate the score as: (Number of supported claims) / (Total number of claims).
+4. If there are no factual claims, return a score of null.
+
+Return ONLY a valid JSON object with the following schema, and no other text:
+{
+    "extracted_claims": ["claim 1", "claim 2"],
+    "reasoning": "Step-by-step explanation of which claims are supported.",
+    "score": null
+}

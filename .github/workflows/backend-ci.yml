@@ -32,8 +32,48 @@ jobs:
       - name: Lint with ruff
         run: ruff check .
 
+      - name: Static Type Checking with Mypy
+        run: |
+          pip install mypy
+          mypy . --ignore-missing-imports
+
+      - name: AST Semantic Scan with Semgrep
+        run: |
+          pip install semgrep
+          semgrep --config p/python --error .
+
+      - name: Dead Code Detection with Vulture
+        run: |
+          pip install vulture
+          vulture .
+
+      - name: Complexity Check with Radon
+        run: |
+          pip install radon
+          radon mi --fail C .
+
+      - name: Docstring Coverage with Interrogate
+        run: |
+          pip install interrogate
+          interrogate -vv -i --fail-under=80 .
+
       - name: Security audit with pip-audit
         run: pip-audit
+
+      - name: Dockerfile Linter with Hadolint
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: backend/Dockerfile
+
+      - name: Container Security Scan with Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'table'
+          exit-code: '1'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
 
       - name: Check License Compliance
         run: |

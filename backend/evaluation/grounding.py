@@ -1,34 +1,32 @@
 import json
 import sentry_sdk
 import logging
+import os
+from functools import lru_cache
 from openai import OpenAI
 from backend.config import get_config
 
 logger = logging.getLogger(__name__)
 
-GROUNDING_PROMPT = """
-You are an expert evaluator. Your task is to calculate a Grounding Score (a float between 0.0 and 1.0) 
-for a given response based strictly on the provided context.
-
-To calculate the score:
-1. Extract all factual claims made in the response.
-2. For each claim, check if it is explicitly supported by the context.
-3. Calculate the score as: (Number of supported claims) / (Total number of claims).
-4. If there are no factual claims, return a score of 1.0.
-
-Return ONLY a valid JSON object with the following schema, and no other text:
-{
-    "score": 0.85,
-    "reasoning": "Brief explanation of which claims were supported and which were not."
-}
-"""
+@lru_cache(maxsize=1)
+def _load_prompt() -> str:
+    prompt_path = os.path.join(os.path.dirname(__file__), "grounding_prompt.txt")
+    with open(prompt_path, "r", encoding="utf-8") as f:
+        return f.read()
 
 def _parse_grounding_score(result_content: str) -> float:
     if not result_content:
         return 0.0
     try:
         result_json = json.loads(result_content)
-        score = float(result_json.get("score", 0.0))
+        score_val = result_json.get("score")
+        
+        # Explicit Edge Case Handling: 0/0 Division
+        if score_val is None:
+            logger.info("Grounding evaluation found zero factual claims. Bypassing hallucination check (defaulting to 1.0).")
+            return 1.0
+            
+        score = float(score_val)
         return max(0.0, min(1.0, score))
     except Exception as e:
         sentry_sdk.capture_exception(e)
@@ -42,7 +40,7 @@ def _call_llm_for_grounding(config, context_text: str, response_text: str) -> fl
     response = client.chat.completions.create(
         model=config.llm_model_name,
         messages=[
-            {"role": "system", "content": GROUNDING_PROMPT},
+            {"role": "system", "content": _load_prompt()},
             {"role": "user", "content": user_message}
         ],
         response_format={"type": "json_object"},

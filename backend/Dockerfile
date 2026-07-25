@@ -12,8 +12,12 @@ ENV PYTHONPATH=/app
 # Install system dependencies required for OpenCV/Docling
 RUN apt-get update && apt-get install -y libgl1 libglib2.0-0 && rm -rf /var/lib/apt/lists/*
 
-# Install python dependencies
-RUN cd backend && pip install --no-cache-dir -e .
+# Install python dependencies statically for production
+RUN cd backend && pip install --no-cache-dir .
+
+# Create non-root user for security
+RUN useradd -m appuser && chown -R appuser:appuser /app
+USER appuser
 
 # Expose port
 EXPOSE 8000
