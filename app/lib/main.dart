@@ -12,7 +12,7 @@ import 'package:veraxi_app/core/router.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  const bool isAuthEnabled = bool.fromEnvironment('AUTH_ENABLED', defaultValue: true);
+  const bool isAuthEnabled = false;
   
   if (isAuthEnabled) {
     await Supabase.initialize(

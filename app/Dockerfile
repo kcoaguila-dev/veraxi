@@ -1,5 +1,5 @@
 # Stage 1: Build the Flutter Web App
-FROM ghcr.io/cirruslabs/flutter:3.24.0 AS build-env
+FROM ghcr.io/cirruslabs/flutter:latest AS build-env
 
 # Set working directory
 WORKDIR /app
@@ -16,7 +16,7 @@ ARG IS_SELF_HOSTED=true
 ARG AUTH_ENABLED=true
 
 # Build the web application (outputs to /app/build/web)
-RUN flutter build web --release --dart-define=IS_SELF_HOSTED=$IS_SELF_HOSTED --dart-define=AUTH_ENABLED=$AUTH_ENABLED
+RUN flutter build web --release --dart-define=IS_SELF_HOSTED=true --dart-define=AUTH_ENABLED=false
 
 # Stage 2: Serve the app with Nginx
 FROM nginx:alpine
