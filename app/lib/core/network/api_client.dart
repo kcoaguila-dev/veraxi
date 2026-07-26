@@ -5,7 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 
 final apiClientProvider = Provider<ApiClient>((ref) {
-  const bool isAuthEnabled = bool.fromEnvironment('AUTH_ENABLED', defaultValue: true);
+  const bool isAuthEnabled = false;
   String? tenantId;
   if (isAuthEnabled) {
     tenantId = Supabase.instance.client.auth.currentSession?.user.id;

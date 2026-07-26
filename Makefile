@@ -8,6 +8,7 @@ help:
 	@echo "  make test     - Runs backend and frontend tests locally"
 	@echo "  make test-gcp - Syncs code and runs the test suite on the GCP Staging VM"
 	@echo "  make run-backend - Starts the FastAPI backend natively (outside Docker) with hot-reload"
+	@echo "  make run      - Starts the Docker backend and immediately launches the Flutter desktop app"
 	@echo "  make clean    - Removes virtual environments and cached build files"
 
 setup:
@@ -29,6 +30,13 @@ run-backend:
 up:
 	@echo "--- Starting Veraxi stack ---"
 	docker compose up -d --build
+
+run:
+	@echo "--- Starting full Veraxi stack locally ---"
+	docker compose down
+	docker compose up -d --build
+	@echo "--- Launching Flutter Desktop App ---"
+	cd app && flutter run -d linux
 
 down:
 	@echo "--- Stopping Veraxi stack ---"
