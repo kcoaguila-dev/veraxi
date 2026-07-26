@@ -49,4 +49,21 @@ void main() {
     expect(viewModel.state.messages, isEmpty);
     verifyNever(() => mockRepository.streamChat(any()));
   });
+
+  test('sendMessage handles tool calls during streaming', () async {
+    await pumpEventQueue();
+    const question = 'Search graph';
+
+    when(() => mockRepository.streamChat(question, threadId: any(named: 'threadId')))
+        .thenAnswer((_) => Stream.fromIterable([
+          {'event': 'on_tool_start', 'name': 'query_graph'},
+          {'event': 'on_tool_end', 'name': 'query_graph'},
+          {'event': 'on_chat_model_stream', 'data': {'chunk': {'content': 'Result found'}}},
+        ]));
+
+    await viewModel.sendMessage(question);
+
+    expect(viewModel.state.messages.length, 2);
+    expect(viewModel.state.messages[1].text, 'Result found');
+  });
 }
