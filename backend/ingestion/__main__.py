@@ -10,7 +10,7 @@ from backend.ingestion.graph_write import write_to_graph, IngestionPayload
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 
 
-def run_ingestion(config, text: str, tenant_id: str = "default"):
+def run_ingestion(config, text: str, schema: dict, tenant_id: str = "default"):
     # 1. Initialize clients
     qdrant = QdrantStorageClient.from_config(config)
     neo4j = Neo4jStorageClient.from_config(config)
@@ -39,7 +39,7 @@ def run_ingestion(config, text: str, tenant_id: str = "default"):
     }
 
     # 4. Extract entities and relations
-    entities, relations = extract_entities_and_relations(text)
+    entities, relations = extract_entities_and_relations(text, schema)
 
     # Resolve entities to deduplicate and get alias mapping
     entities, alias_to_canonical = resolve_entities(entities)
@@ -87,7 +87,13 @@ def main():
     corpus_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "tests", "data", "graphrag_test_corpus.txt")
     with open(corpus_path, "r", encoding="utf-8") as f:
         text = f.read()
-    run_ingestion(config, text)
+        
+    # For local CLI testing, we mock a schema since it is now strictly required.
+    mock_schema = {
+        "entities": ["Person", "Organization", "Location"],
+        "relations": {"Person": {"Organization": ["WORKS_AT"]}}
+    }
+    run_ingestion(config, text, schema=mock_schema)
 
 
 if __name__ == "__main__":

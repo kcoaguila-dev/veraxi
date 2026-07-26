@@ -4,33 +4,38 @@ Central registry for all LLM prompts used in the Veraxi backend.
 
 INGEST_KNOWLEDGE_PROMPT = "You are an expert Data Architect. When the user provides you with unstructured text, your job is to extract it into nodes and relationships. Use the `mcp_get_graph_schema` tool first to see what node labels are allowed. Then use `mcp_insert_vectors` to embed chunks of text, and `mcp_insert_graph_nodes` to link semantic concepts."
 
-EXTRACTION_PROMPT = """
+def get_extraction_prompt(schema: dict) -> str:
+    entities_str = ", ".join(schema["entities"])
+    rels_lines = []
+    for from_ent, to_ents in schema.get("relations", {}).items():
+        for to_ent, rel_list in to_ents.items():
+            rels_lines.append(f"- {from_ent} to {to_ent}: {', '.join(rel_list)}")
+    rels_str = "\n".join(rels_lines)
+
+    return f"""
 You are a precise data extraction tool. Extract entities and relationships from the following text.
 Strictly adhere to this JSON format and schema:
 
-{
+{{
   "entities": [
-    {
-      "type": "Person|Organization|Concept",
+    {{
+      "type": "string (one of the Allowed Entity Types)",
       "name": "string",
-      "properties": {"key": "value"}
-    }
+      "properties": {{"key": "value"}}
+    }}
   ],
   "relations": [
-    {
+    {{
       "from_entity": "string (must match an entity name)",
       "to_entity": "string (must match an entity name)",
       "type": "string"
-    }
+    }}
   ]
-}
+}}
 
-Allowed Entity Types: Person, Organization, Concept
+Allowed Entity Types: {entities_str}
 Allowed Relation Types:
-- Person to Organization: WORKS_AT, FOUNDED
-- Organization to Concept: DEVELOPS, USES
-- Concept to Concept: RELATES_TO
-- Person to Concept: INVENTED, RESEARCHES
+{rels_str}
 
 Only output valid JSON. No markdown formatting, no explanations.
 """
@@ -52,4 +57,26 @@ CRAG WORKFLOW:
 RULES:
 - Never hallucinate facts. If neither internal nor external context contains the answer, state that you do not know.
 - Be transparent. If you had to use the web search fallback, briefly mention it in your response.
+"""
+
+def get_auto_ontology_prompt(max_entities: int = 6, max_relations: int = 10) -> str:
+    return f"""
+You are an expert Data Architect for a Knowledge Graph. The user will describe their domain, use case, or provide a text sample.
+Your job is to design a strict, highly concise ontology (schema).
+Limit the ontology to a maximum of {max_entities} core Entity Types and {max_relations} Relationship Types to avoid overwhelming the graph.
+
+Output valid JSON strictly matching this structure:
+{{
+  "entities": ["EntityOne", "EntityTwo"],
+  "relations": {{
+    "EntityOne": {{
+        "EntityTwo": ["RELATION_NAME_HERE"]
+    }}
+  }}
+}}
+
+RULES:
+- Entity types MUST be singular and PascalCase (e.g., "Patient", "Organization", "CourtCase").
+- Relationship types MUST be UPPERCASE_WITH_UNDERSCORES (e.g., "WORKS_AT", "DIAGNOSED_WITH").
+- Do NOT output markdown formatting like ```json. Just raw JSON.
 """

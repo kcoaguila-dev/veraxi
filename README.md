@@ -20,6 +20,7 @@ The Veraxi platform is currently in active development. While much of the founda
 
 Features successfully implemented so far include:
 - A multi-tenant FastAPI engine featuring Stripe webhook integration and secure JWT authentication.
+- Tenant-Specific Dynamic Ontologies: A strict, user-defined graph schema enforced during ingestion, with LLM auto-generation for effortless setup.
 - Docling-powered multimodal ingestion and an SSE-based Model Context Protocol (MCP) transport layer with dynamic rate limiting.
 - A premium, modern, cross-platform Flutter client (UI currently being wired to the backend).
 - Corrective Retrieval Augmented Generation (CRAG) with web search fallback and LLM-as-a-judge grounding evaluation.

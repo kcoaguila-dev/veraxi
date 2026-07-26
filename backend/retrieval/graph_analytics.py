@@ -6,15 +6,20 @@ def get_community_detection(
     neo4j_client: Neo4jStorageClient, min_community_size: int = 1, tenant_id: str = "default"
 ) -> List[Dict[str, Any]]:
     """
-    Uses Neo4j to find loosely connected components/communities within a specific tenant's graph.
-    This simulates community detection by grouping connected nodes.
-    We return the communities and the nodes in each.
+    Uses the Neo4j Graph Data Science (GDS) Louvain algorithm to find densely connected components.
+    Uses an anonymous Cypher projection to strictly isolate the graph to the given tenant_id.
     """
     query_grouping = """
-    MATCH (n {tenant_id: $tenant_id})
-    WITH labels(n)[0] AS community, count(n) AS size, collect(n.name) AS members
+    CALL gds.louvain.stream({
+        nodeQuery: 'MATCH (n {tenant_id: $tenant_id}) RETURN id(n) AS id',
+        relationshipQuery: 'MATCH (n {tenant_id: $tenant_id})-[r]->(m {tenant_id: $tenant_id}) RETURN id(n) AS source, id(m) AS target',
+        parameters: { tenant_id: $tenant_id }
+    })
+    YIELD nodeId, communityId
+    WITH gds.util.asNode(nodeId) AS n, communityId
+    WITH communityId AS community, count(n) AS size, collect(n.name) AS members
     WHERE size >= $min_community_size
-    RETURN community, size, members
+    RETURN toString(community) AS community, size, members
     ORDER BY size DESC
     """
 
