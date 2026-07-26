@@ -4,18 +4,9 @@ import logging
 from typing import List, Dict, Any, Tuple
 from openai import OpenAI
 from backend.config import get_config
-from backend.prompts import EXTRACTION_PROMPT
+from backend.prompts import get_extraction_prompt
 
 logger = logging.getLogger(__name__)
-
-# Fixed allowed schema
-ALLOWED_ENTITY_TYPES = {"Person", "Organization", "Concept"}
-ALLOWED_RELATION_TYPES = {
-    ("Person", "Organization"): ["WORKS_AT", "FOUNDED"],
-    ("Organization", "Concept"): ["DEVELOPS", "USES"],
-    ("Concept", "Concept"): ["RELATES_TO"],
-    ("Person", "Concept"): ["INVENTED", "RESEARCHES"],
-}
 
 
 
@@ -34,16 +25,16 @@ def _clean_llm_json_output(output: str) -> str:
     return output.strip()
 
 
-def _is_valid_entity(ent_type: Any, name: Any) -> bool:
+def _is_valid_entity(ent_type: Any, name: Any, allowed_entities: list[str]) -> bool:
     return (
-        ent_type in ALLOWED_ENTITY_TYPES
+        ent_type in allowed_entities
         and isinstance(name, str)
         and bool(name.strip())
     )
 
 
 def _validate_single_relation(
-    rel: Dict[str, str], entity_name_to_type: Dict[str, str]
+    rel: Dict[str, str], entity_name_to_type: Dict[str, str], allowed_relations: dict
 ) -> Dict[str, str] | None:
     if not isinstance(rel, dict):
         return None
@@ -58,7 +49,7 @@ def _validate_single_relation(
     from_type = entity_name_to_type[from_ent]
     to_type = entity_name_to_type[to_ent]
 
-    allowed_types = ALLOWED_RELATION_TYPES.get((from_type, to_type), [])
+    allowed_types = allowed_relations.get(from_type, {}).get(to_type, [])
     if rel_type in allowed_types:
         return {"from_entity": from_ent, "to_entity": to_ent, "type": rel_type}
     return None
@@ -91,7 +82,7 @@ def _normalize_properties(props: Any) -> Dict[str, Any]:
 
 
 def _validate_entities(
-    entities: List[Dict[str, Any]],
+    entities: List[Dict[str, Any]], allowed_entities: list[str]
 ) -> Tuple[List[Dict[str, Any]], Dict[str, str]]:
     valid_entities = []
     entity_name_to_type = {}
@@ -104,7 +95,7 @@ def _validate_entities(
         name = ent.get("name")
         props = ent.get("properties", {})
 
-        if _is_valid_entity(ent_type, name):
+        if _is_valid_entity(ent_type, name, allowed_entities):
             valid_entities.append(
                 {
                     "type": ent_type,
@@ -118,33 +109,38 @@ def _validate_entities(
 
 
 def _validate_relations(
-    relations: List[Dict[str, str]], entity_name_to_type: Dict[str, str]
+    relations: List[Dict[str, str]], entity_name_to_type: Dict[str, str], allowed_relations: dict
 ) -> List[Dict[str, str]]:
     valid_relations = []
     for rel in relations:
-        valid_rel = _validate_single_relation(rel, entity_name_to_type)
+        valid_rel = _validate_single_relation(rel, entity_name_to_type, allowed_relations)
         if valid_rel:
             valid_relations.append(valid_rel)
     return valid_relations
 
 
 def validate_extraction(
-    entities: List[Dict[str, Any]], relations: List[Dict[str, str]]
+    entities: List[Dict[str, Any]], relations: List[Dict[str, str]], schema: dict
 ) -> Tuple[List[Dict[str, Any]], List[Dict[str, str]]]:
     """
     Pure-logic validation step that rejects/quarantines any LLM output that doesn't match the schema.
     """
-    valid_entities, entity_name_to_type = _validate_entities(entities)
-    valid_relations = _validate_relations(relations, entity_name_to_type)
+    if not schema:
+        raise ValueError("A valid schema must be provided for validation.")
+    valid_entities, entity_name_to_type = _validate_entities(entities, schema["entities"])
+    valid_relations = _validate_relations(relations, entity_name_to_type, schema.get("relations", {}))
     return valid_entities, valid_relations
 
 
 def extract_entities_and_relations(
-    text: str,
+    text: str, schema: dict
 ) -> Tuple[List[Dict[str, Any]], List[Dict[str, str]]]:
     """
-    Extract entities and relations using OpenAI API constrained to a fixed schema.
+    Extract entities and relations using OpenAI API constrained to a dynamic schema.
     """
+    if not schema:
+        raise ValueError("A valid schema must be provided for extraction.")
+        
     config = get_config()
     client = OpenAI(**config.get_llm_client_args())
 
@@ -152,7 +148,7 @@ def extract_entities_and_relations(
         response = client.chat.completions.create(
             model=config.llm_model_name,
             messages=[
-                {"role": "system", "content": EXTRACTION_PROMPT},
+                {"role": "system", "content": get_extraction_prompt(schema)},
                 {"role": "user", "content": f"Text to analyze:\n{text}"}
             ],
             response_format={"type": "json_object"},
@@ -165,7 +161,7 @@ def extract_entities_and_relations(
         raw_entities = data.get("entities", [])
         raw_relations = data.get("relations", [])
 
-        return validate_extraction(raw_entities, raw_relations)
+        return validate_extraction(raw_entities, raw_relations, schema)
     except Exception as e:
         sentry_sdk.capture_exception(e)
         logger.error(f"Failed to extract entities/relations: {e}")

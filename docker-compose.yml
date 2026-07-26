@@ -7,6 +7,8 @@ services:
       - "7687:7687"   # bolt protocol
     environment:
       - NEO4J_AUTH=${NEO4J_AUTH:-neo4j/changeme_local_password}
+      - NEO4J_PLUGINS=["graph-data-science"]
+      - NEO4J_dbms_security_procedures_unrestricted=gds.*
     volumes:
       - neo4j_data:/data
 

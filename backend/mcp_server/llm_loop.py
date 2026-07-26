@@ -43,6 +43,7 @@ class AgentState(TypedDict):
     messages: Annotated[Sequence[BaseMessage], add_messages]
     tenant_id: str
     context_relevance: str
+    retrieved_context: str
 
 def get_tools() -> list:
     config = get_config()
@@ -180,7 +181,7 @@ async def execute_tools(state: AgentState):
         )
     )
     
-    return {"messages": tool_messages + [grounding_message]}
+    return {"messages": tool_messages + [grounding_message], "retrieved_context": context_str}
 
 class GradeDocuments(BaseModel):
     """Binary score for relevance check on retrieved documents."""
@@ -195,17 +196,10 @@ async def evaluate_context(state: AgentState):
     # Original user query
     user_query = messages[0].content
     
-    # The last message is the HumanMessage with the retrieved context
-    last_message = messages[-1]
+    context_str = state.get("retrieved_context", "")
     
-    # Only evaluate if the last message actually contains context (defensive check)
-    if not isinstance(last_message, HumanMessage) or "Here is the context retrieved from the database" not in last_message.content:
-        return {"context_relevance": "no"}
-
-    context_str = last_message.content
-    
-    # If the DB returned nothing
-    if "No results found." in context_str:
+    # If the DB returned nothing or is empty
+    if not context_str or "No results found." in context_str:
         logger.info("CRAG: No DB results found. Grading as irrelevant.")
         return {"context_relevance": "no"}
         
@@ -278,7 +272,7 @@ async def web_search_fallback(state: AgentState):
                 f"Please provide your final answer based strictly on the above context."
             )
         )
-        return {"messages": [grounding_message]}
+        return {"messages": [grounding_message], "retrieved_context": context_str}
     except Exception as e:
         sentry_sdk.capture_exception(e)
         logger.error(f"CRAG Web Search failed: {e}")
@@ -323,14 +317,8 @@ async def answer_question(question: str, tenant_id: str = "default", thread_id: 
     # The final message is the AIMessage containing the answer
     final_answer = final_state["messages"][-1].content
     
-    # Extract context (hacky extraction from the last human message if tools were called)
-    context_str = ""
-    if len(final_state["messages"]) > 2:
-        # Find the last human message that contains "Here is the context retrieved"
-        for msg in reversed(final_state["messages"]):
-            if isinstance(msg, HumanMessage) and "Here is the context retrieved" in msg.content:
-                context_str = msg.content.split("Here is the context retrieved from the database:\n")[1].split("\n\nPlease provide")[0]
-                break
+    # Extract context cleanly from the dedicated state field
+    context_str = final_state.get("retrieved_context", "")
                 
     if return_context:
         return final_answer, context_str

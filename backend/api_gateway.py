@@ -312,6 +312,52 @@ async def ingest_data(request: Request, ingest_request: IngestRequest, tenant_id
         raise HTTPException(status_code=500, detail=str(e))
 
 
+class SchemaDefinition(BaseModel):
+    entities: list[str]
+    relations: dict[str, dict[str, list[str]]]
+
+@app.get("/api/admin/schema")
+async def get_schema(request: Request, tenant_id: str = Depends(get_tenant_id)):
+    schema = await request.app.state.redis.get(f"tenant:{tenant_id}:schema")
+    if schema:
+        return json.loads(schema)
+    raise HTTPException(status_code=404, detail="No schema defined for this tenant.")
+
+@app.post("/api/admin/schema")
+async def set_schema(request: Request, schema: SchemaDefinition, tenant_id: str = Depends(get_tenant_id)):
+    await request.app.state.redis.set(f"tenant:{tenant_id}:schema", schema.model_dump_json())
+    return {"status": "success"}
+
+class AutoGenerateSchemaRequest(BaseModel):
+    description: str
+    temperature: float = 0.3
+    max_entities: int = 6
+    max_relations: int = 10
+
+@app.post("/api/admin/schema/auto-generate")
+async def auto_generate_schema(data: AutoGenerateSchemaRequest):
+    config = get_config()
+    from openai import AsyncOpenAI
+    from backend.prompts import get_auto_ontology_prompt
+    
+    client = AsyncOpenAI(**config.get_llm_client_args())
+    try:
+        prompt = get_auto_ontology_prompt(data.max_entities, data.max_relations)
+        response = await client.chat.completions.create(
+            model=config.llm_model_name,
+            messages=[
+                {"role": "system", "content": prompt},
+                {"role": "user", "content": data.description}
+            ],
+            response_format={"type": "json_object"},
+            temperature=data.temperature
+        )
+        content = response.choices[0].message.content
+        schema = json.loads(content)
+        return schema
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to generate valid schema: {str(e)}")
+
 class UrlIngestRequest(BaseModel):
     url: str
 

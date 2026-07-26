@@ -16,12 +16,22 @@ class QdrantStorageClient:
     def from_config(cls, config) -> "QdrantStorageClient":
         return cls(url=config.qdrant_url, api_key=config.qdrant_api_key)
 
-    def create_collection(self, collection_name: str, vector_size: int = 384):
+    def create_collection(self, collection_name: str, vector_size: int = 384, distance_metric: str = "Cosine"):
         """Create a collection if it doesn't already exist."""
+        
+        # Safely map the string to the official Qdrant Enum
+        d_enum = Distance.COSINE
+        if distance_metric.upper() == "EUCLID":
+            d_enum = Distance.EUCLID
+        elif distance_metric.upper() == "DOT":
+            d_enum = Distance.DOT
+        elif distance_metric.upper() == "MANHATTAN":
+            d_enum = Distance.MANHATTAN
+            
         if not self.client.collection_exists(collection_name):
             self.client.create_collection(
                 collection_name=collection_name,
-                vectors_config=VectorParams(size=vector_size, distance=Distance.COSINE),
+                vectors_config=VectorParams(size=vector_size, distance=d_enum),
             )
 
     def insert_points(

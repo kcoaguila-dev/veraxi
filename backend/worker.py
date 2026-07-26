@@ -13,9 +13,20 @@ async def process_ingestion_task(ctx, text: str, tenant_id: str):
     logger.info(f"Worker received ingestion task for tenant {tenant_id}")
     config = get_config()
     
+    import json
+    redis = ctx['redis']
+    schema_json = await redis.get(f"tenant:{tenant_id}:schema")
+    
+    if not schema_json:
+        error_msg = f"Ingestion failed for tenant {tenant_id}: No ontology defined. Please generate a schema in the settings first."
+        logger.error(error_msg)
+        return {"status": "error", "message": error_msg}
+        
+    schema = json.loads(schema_json)
+    
     # run_ingestion is currently synchronous, so we run it in a threadpool to avoid blocking the worker event loop
     loop = asyncio.get_running_loop()
-    result = await loop.run_in_executor(None, run_ingestion, config, text, tenant_id)
+    result = await loop.run_in_executor(None, run_ingestion, config, text, schema, tenant_id)
     
     logger.info(f"Worker completed ingestion task for tenant {tenant_id}: {result}")
     return result
