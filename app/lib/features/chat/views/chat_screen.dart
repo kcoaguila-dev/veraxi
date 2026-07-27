@@ -54,8 +54,18 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        title: Text('Veraxi Intelligence', style: theme.textTheme.titleLarge),
-        centerTitle: true,
+        title: GestureDetector(
+          onTap: () => _showModelSelector(context),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('Select AI Model', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+              const SizedBox(width: 4),
+              Icon(Icons.keyboard_arrow_down, size: 20, color: theme.colorScheme.onSurface.withValues(alpha: 0.7)),
+            ],
+          ),
+        ),
+        centerTitle: false,
         iconTheme: IconThemeData(color: theme.colorScheme.onSurface),
         actions: [
           IconButton(
@@ -293,7 +303,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             ),
           ),
           const SizedBox(width: 12),
-          const SizedBox(width: 12),
           GestureDetector(
             onTap: () => _sendMessage(viewModel),
             child: Container(
@@ -315,6 +324,52 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  void _showModelSelector(BuildContext context) {
+    final theme = Theme.of(context);
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: theme.colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Text('Select AI Model', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600)),
+              ),
+              const Divider(height: 1),
+              _buildModelOption(context, 'OpenAI', Icons.api, Colors.white),
+              _buildModelOption(context, 'Google', Icons.android, Colors.green),
+              _buildModelOption(context, 'Anthropic', Icons.psychology, Colors.orange),
+              _buildModelOption(context, 'DeepSeek', Icons.search, Colors.blue),
+              _buildModelOption(context, 'Cohere', Icons.language, Colors.purple),
+              const SizedBox(height: 16),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildModelOption(BuildContext context, String name, IconData icon, Color iconColor) {
+    final theme = Theme.of(context);
+    return ListTile(
+      leading: CircleAvatar(
+        backgroundColor: theme.colorScheme.onSurface.withValues(alpha: 0.05),
+        child: Icon(icon, color: iconColor, size: 20),
+      ),
+      title: Text(name, style: theme.textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w500)),
+      trailing: Icon(Icons.settings_outlined, color: theme.colorScheme.onSurface.withValues(alpha: 0.5), size: 20),
+      onTap: () {
+        Navigator.pop(context);
+      },
     );
   }
 }
