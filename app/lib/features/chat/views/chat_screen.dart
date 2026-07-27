@@ -54,18 +54,30 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        title: GestureDetector(
-          onTap: () => _showModelSelector(context),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
+        title: Text('Veraxi Intelligence', style: theme.textTheme.titleLarge),
+        centerTitle: true,
+        leadingWidth: 240,
+        leading: Builder(
+          builder: (context) => Row(
             children: [
-              Text('Select AI Model', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
-              const SizedBox(width: 4),
-              Icon(Icons.keyboard_arrow_down, size: 20, color: theme.colorScheme.onSurface.withValues(alpha: 0.7)),
+              IconButton(
+                icon: const Icon(Icons.menu),
+                onPressed: () => Scaffold.of(context).openDrawer(),
+              ),
+              GestureDetector(
+                onTap: () => _showModelSelector(context),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text('Select AI Model', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+                    const SizedBox(width: 4),
+                    Icon(Icons.keyboard_arrow_down, size: 20, color: theme.colorScheme.onSurface.withValues(alpha: 0.7)),
+                  ],
+                ),
+              ),
             ],
           ),
         ),
-        centerTitle: false,
         iconTheme: IconThemeData(color: theme.colorScheme.onSurface),
         actions: [
           IconButton(
