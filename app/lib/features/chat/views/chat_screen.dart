@@ -51,70 +51,75 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       drawer: _buildDrawer(state, viewModel, theme, ext),
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        title: Text('Veraxi Intelligence', style: theme.textTheme.titleLarge),
-        centerTitle: true,
-        leadingWidth: 240,
-        leading: Builder(
-          builder: (context) => Row(
-            children: [
-              IconButton(
-                icon: const Icon(Icons.menu),
-                onPressed: () => Scaffold.of(context).openDrawer(),
-              ),
-              GestureDetector(
+      body: SafeArea(
+        child: Stack(
+          children: [
+            Column(
+              children: [
+                Expanded(
+                  child: state.isLoadingHistory 
+                    ? Center(child: CircularProgressIndicator(color: theme.colorScheme.primary))
+                    : state.messages.isEmpty
+                        ? _buildEmptyState(theme, ext)
+                        : ListView.builder(
+                            controller: _scrollController,
+                            padding: const EdgeInsets.only(left: 16, right: 16, top: 80, bottom: 120),
+                            itemCount: state.messages.length,
+                            itemBuilder: (context, index) {
+                              final msg = state.messages[index];
+                              return _buildChatMessage(msg, theme, ext);
+                            },
+                          ),
+                ),
+              ],
+            ),
+            
+            // Top Left Model Selector (Floating)
+            Positioned(
+              top: 16,
+              left: 16,
+              child: GestureDetector(
                 onTap: () => _showModelSelector(context),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text('Select AI Model', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
-                    const SizedBox(width: 4),
-                    Icon(Icons.keyboard_arrow_down, size: 20, color: theme.colorScheme.onSurface.withValues(alpha: 0.7)),
-                  ],
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.transparent,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text('Select AI Model', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600, color: Colors.white)),
+                      const SizedBox(width: 8),
+                      const Icon(Icons.keyboard_arrow_down, size: 20, color: Colors.white),
+                    ],
+                  ),
                 ),
               ),
-            ],
-          ),
-        ),
-        iconTheme: IconThemeData(color: theme.colorScheme.onSurface),
-        actions: [
-          IconButton(
-            icon: Icon(
-              theme.brightness == Brightness.dark ? Icons.light_mode : Icons.dark_mode,
             ),
-            onPressed: () {
-              ref.read(themeProvider.notifier).toggle();
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.add),
-            onPressed: () {
-              viewModel.startNewChat();
-            },
-          )
-        ],
-      ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            Expanded(
-              child: state.isLoadingHistory 
-                ? Center(child: CircularProgressIndicator(color: theme.colorScheme.primary))
-                : state.messages.isEmpty
-                    ? _buildEmptyState(theme, ext)
-                    : ListView.builder(
-                        controller: _scrollController,
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-                        itemCount: state.messages.length,
-                        itemBuilder: (context, index) {
-                          final msg = state.messages[index];
-                          return _buildChatMessage(msg, theme, ext);
-                        },
-                      ),
+            
+            // Hamburger Menu for mobile (only if narrow screen, optional)
+            Positioned(
+              top: 16,
+              right: 16,
+              child: IconButton(
+                icon: const Icon(Icons.menu, color: Colors.white),
+                onPressed: () => Scaffold.of(context).openDrawer(),
+              ),
             ),
-            _buildInputArea(viewModel, theme),
+            
+            // Floating Input Area at Bottom
+            Positioned(
+              bottom: 24,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 660),
+                  child: _buildInputArea(viewModel, theme),
+                ),
+              ),
+            ),
           ],
         ),
       ),
@@ -123,30 +128,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   Widget _buildEmptyState(ThemeData theme, AppThemeExtension ext) {
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: theme.colorScheme.primary.withValues(alpha: 0.1),
-            ),
-            child: Icon(Icons.hub_outlined, size: 64, color: ext.primaryGradientStart),
-          ).animate().fade(duration: 800.ms).scale(curve: Curves.easeOutBack),
-          const SizedBox(height: 24),
-          Text(
-            'How can I help you today?',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(fontSize: 24),
-          ).animate().fade(delay: 200.ms, duration: 600.ms).slideY(begin: 0.2, end: 0),
-          const SizedBox(height: 8),
-          Text(
-            'Query the knowledge graph, analyze architecture,\nor explore codebase insights.',
-            textAlign: TextAlign.center,
-            style: theme.textTheme.bodyLarge?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.7)),
-          ).animate().fade(delay: 400.ms, duration: 600.ms).slideY(begin: 0.2, end: 0),
-        ],
-      ),
+      child: Text(
+        'Good afternoon, Guest',
+        style: theme.textTheme.headlineMedium?.copyWith(
+          color: Colors.white,
+          fontWeight: FontWeight.w600,
+        ),
+      ).animate().fade(duration: 800.ms).slideY(begin: 0.1, end: 0),
     );
   }
 
@@ -271,67 +259,66 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   }
 
   Widget _buildInputArea(ChatViewModel viewModel, ThemeData theme) {
+    final ext = theme.extension<AppThemeExtension>()!;
     return Container(
-      padding: const EdgeInsets.all(16).copyWith(bottom: 16 + MediaQuery.of(context).padding.bottom),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        border: Border(top: BorderSide(color: theme.colorScheme.onSurface.withValues(alpha: 0.1))),
+        color: const Color(0xFF2F2F2F),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: theme.colorScheme.onSurface.withValues(alpha: 0.05)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.2),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
+          IconButton(
+            icon: const Icon(Icons.add_circle_outline, color: Color(0xFFB4B4B4)),
+            onPressed: () {},
+          ),
           Expanded(
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(24),
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.onSurface.withValues(alpha: 0.05),
-                    borderRadius: BorderRadius.circular(24),
-                    border: Border.all(color: theme.colorScheme.onSurface.withValues(alpha: 0.1)),
-                  ),
-                  child: TextField(
-                    controller: _textController,
-                    style: theme.textTheme.bodyLarge,
-                    maxLines: 5,
-                    minLines: 1,
-                    textInputAction: TextInputAction.send,
-                    onSubmitted: (value) {
-                      _sendMessage(viewModel);
-                    },
-                    decoration: InputDecoration(
-                      hintText: 'Message Veraxi...',
-                      hintStyle: theme.textTheme.bodyLarge?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.4)),
-                      border: InputBorder.none,
-                      filled: false,
-                      enabledBorder: InputBorder.none,
-                      focusedBorder: InputBorder.none,
-                    ),
-                  ),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              child: TextField(
+                controller: _textController,
+                style: theme.textTheme.bodyLarge?.copyWith(color: Colors.white),
+                maxLines: 5,
+                minLines: 1,
+                textInputAction: TextInputAction.send,
+                onSubmitted: (value) {
+                  _sendMessage(viewModel);
+                },
+                decoration: InputDecoration(
+                  hintText: 'Message Veraxi...',
+                  hintStyle: theme.textTheme.bodyLarge?.copyWith(color: const Color(0xFF878787)),
+                  border: InputBorder.none,
+                  filled: false,
+                  enabledBorder: InputBorder.none,
+                  focusedBorder: InputBorder.none,
                 ),
               ),
             ),
           ),
-          const SizedBox(width: 12),
+          IconButton(
+            icon: const Icon(Icons.mic_none, color: Color(0xFFB4B4B4)),
+            onPressed: () {},
+          ),
           GestureDetector(
             onTap: () => _sendMessage(viewModel),
             child: Container(
-              height: 52,
-              width: 52,
-              decoration: BoxDecoration(
-                color: theme.colorScheme.primary,
-                borderRadius: BorderRadius.circular(26),
-                boxShadow: [
-                  BoxShadow(
-                    color: theme.colorScheme.primary.withValues(alpha: 0.4),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
-                  )
-                ],
+              margin: const EdgeInsets.all(4),
+              height: 40,
+              width: 40,
+              decoration: const BoxDecoration(
+                color: Color(0xFF424242),
+                shape: BoxShape.circle,
               ),
-              child: Icon(Icons.send_rounded, color: theme.colorScheme.onPrimary),
+              child: const Icon(Icons.arrow_upward, color: Colors.white, size: 20),
             ),
           ),
         ],
