@@ -78,7 +78,7 @@ class ScaffoldWithNavBar extends StatelessWidget {
         children: [
           if (isWideScreen)
             NavigationRail(
-              backgroundColor: theme.scaffoldBackgroundColor,
+              backgroundColor: theme.colorScheme.surface,
               indicatorColor: theme.colorScheme.primary.withValues(alpha: 0.2),
               selectedIndex: navigationShell.currentIndex,
               onDestinationSelected: _onItemTapped,
