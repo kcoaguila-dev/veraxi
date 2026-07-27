@@ -67,6 +67,30 @@ class ScaffoldWithNavBar extends StatelessWidget {
     );
   }
 
+  Widget _buildSidebarIcon(IconData icon, int index, int currentIndex) {
+    final isSelected = index == currentIndex;
+    return GestureDetector(
+      onTap: () {
+        if (index != -1) _onItemTapped(index);
+      },
+      child: Container(
+        width: 36,
+        height: 36,
+        decoration: isSelected
+            ? BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: const Color(0xFF3B82F6), width: 1.5),
+              )
+            : null,
+        child: Icon(
+          icon,
+          color: isSelected ? const Color(0xFF3B82F6) : const Color(0xFFB4B4B4),
+          size: 20,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final bool isWideScreen = MediaQuery.of(context).size.width >= 600;
@@ -77,28 +101,32 @@ class ScaffoldWithNavBar extends StatelessWidget {
       body: Row(
         children: [
           if (isWideScreen)
-            NavigationRail(
-              backgroundColor: theme.colorScheme.surface,
-              indicatorColor: theme.colorScheme.primary.withValues(alpha: 0.2),
-              selectedIndex: navigationShell.currentIndex,
-              onDestinationSelected: _onItemTapped,
-              selectedIconTheme: IconThemeData(color: theme.colorScheme.primary),
-              unselectedIconTheme: IconThemeData(color: theme.colorScheme.onSurface.withValues(alpha: 0.5)),
-              destinations: const <NavigationRailDestination>[
-                NavigationRailDestination(
-                  icon: Icon(Icons.chat_bubble_outline),
-                  selectedIcon: Icon(Icons.chat_bubble),
-                  label: Text('Chat'),
-                ),
-                NavigationRailDestination(
-                  icon: Icon(Icons.admin_panel_settings_outlined),
-                  selectedIcon: Icon(Icons.admin_panel_settings),
-                  label: Text('Control Panel'),
-                ),
-              ],
+            Container(
+              width: 64,
+              color: const Color(0xFF171717),
+              child: Column(
+                children: [
+                  const SizedBox(height: 20),
+                  const Icon(Icons.grid_view, color: Color(0xFFB4B4B4), size: 24),
+                  const SizedBox(height: 30),
+                  
+                  _buildSidebarIcon(Icons.chat_bubble_outline, 0, navigationShell.currentIndex),
+                  const SizedBox(height: 16),
+                  _buildSidebarIcon(Icons.description_outlined, -1, navigationShell.currentIndex),
+                  const SizedBox(height: 16),
+                  _buildSidebarIcon(Icons.settings_outlined, 1, navigationShell.currentIndex),
+                  const SizedBox(height: 16),
+                  _buildSidebarIcon(Icons.terminal_outlined, -1, navigationShell.currentIndex),
+                  const SizedBox(height: 16),
+                  _buildSidebarIcon(Icons.bookmark_border, -1, navigationShell.currentIndex),
+                  
+                  const Spacer(),
+                  
+                  Icon(Icons.change_history, color: const Color(0xFF3B82F6).withValues(alpha: 0.8), size: 28),
+                  const SizedBox(height: 24),
+                ],
+              ),
             ),
-          if (isWideScreen)
-            const VerticalDivider(thickness: 1, width: 1),
           Expanded(
             child: navigationShell,
           ),

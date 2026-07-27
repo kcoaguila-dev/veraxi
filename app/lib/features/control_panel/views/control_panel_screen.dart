@@ -27,13 +27,13 @@ class ControlPanelScreen extends ConsumerWidget {
                   padding: const EdgeInsets.only(left: 8.0, bottom: 32),
                   child: Text('Control Panel', style: theme.textTheme.titleMedium?.copyWith(color: const Color(0xFFE3E3E3), fontWeight: FontWeight.w600, fontSize: 18)),
                 ),
-                _buildMenuItem('MCP Integrations', Icons.hub, true),
+                _buildMenuItem('MCP Integrations', Icons.hub_outlined, true),
                 const SizedBox(height: 8),
-                _buildMenuItem('Data Pipeline', Icons.dataset, false),
+                _buildMenuItem('Data Pipeline', Icons.dataset_outlined, false),
                 const SizedBox(height: 8),
-                _buildMenuItem('API Keys', Icons.vpn_key, false),
+                _buildMenuItem('API Keys', Icons.vpn_key_outlined, false),
                 const SizedBox(height: 8),
-                _buildMenuItem('Security & Logs', Icons.security, false),
+                _buildMenuItem('Security & Logs', Icons.security_outlined, false),
               ],
             ),
           ),
@@ -198,12 +198,29 @@ class ControlPanelScreen extends ConsumerWidget {
         color: isSelected ? const Color(0xFF2F2F2F) : Colors.transparent,
         borderRadius: BorderRadius.circular(8),
       ),
-      child: ListTile(
-        leading: Icon(icon, color: isSelected ? Colors.white : const Color(0xFFB4B4B4), size: 20),
-        title: Text(title, style: TextStyle(color: isSelected ? Colors.white : const Color(0xFFB4B4B4), fontSize: 14, fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500)),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-        dense: true,
-        onTap: () {},
+      child: Stack(
+        children: [
+          if (isSelected)
+            Positioned(
+              left: -4, // Pull to the left edge to overlap
+              top: 8,
+              bottom: 8,
+              child: Container(
+                width: 4,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF3B82F6),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+          ListTile(
+            leading: Icon(icon, color: isSelected ? Colors.white : const Color(0xFFB4B4B4), size: 20),
+            title: Text(title, style: TextStyle(color: isSelected ? Colors.white : const Color(0xFFB4B4B4), fontSize: 14, fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500)),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+            dense: true,
+            onTap: () {},
+          ),
+        ],
       ),
     );
   }
