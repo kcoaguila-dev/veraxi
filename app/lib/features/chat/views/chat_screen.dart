@@ -328,47 +328,133 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   void _showModelSelector(BuildContext context) {
     final theme = Theme.of(context);
-    showModalBottomSheet(
+    
+    // Instead of a bottom sheet, show a dialog positioned near the top-left
+    showDialog(
       context: context,
-      backgroundColor: theme.colorScheme.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
+      barrierColor: Colors.transparent, // transparent background
       builder: (context) {
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Text('Select AI Model', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600)),
+        return Stack(
+          children: [
+            Positioned(
+              top: 64, // Just below the "Select AI Model" button
+              left: 16,
+              child: Material(
+                color: Colors.transparent,
+                child: Container(
+                  width: 220,
+                  height: 380,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF171717),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFF333333)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.3),
+                        blurRadius: 16,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    children: [
+                      // Search Bar
+                      Padding(
+                        padding: const EdgeInsets.all(12.0),
+                        child: Container(
+                          height: 32,
+                          decoration: BoxDecoration(
+                            border: Border.all(color: const Color(0xFFB4B4B4)),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          alignment: Alignment.centerLeft,
+                          child: const Text('Search models...', style: TextStyle(color: Color(0xFF878787), fontSize: 12)),
+                        ),
+                      ),
+                      // Model List
+                      Expanded(
+                        child: ListView(
+                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
+                          children: [
+                            _buildModelOptionRow(context, 'OpenAI', Colors.white, false),
+                            _buildModelOptionRow(context, 'Google', Colors.white, true),
+                            _buildModelOptionRow(context, 'Anthropic', const Color(0xFFE3E3E3), false),
+                            _buildModelOptionRow(context, '302AI', const Color(0xFFE3E3E3), false),
+                            _buildModelOptionRow(context, 'APIpie', const Color(0xFF10B981), false),
+                            _buildModelOptionRow(context, 'cohere', const Color(0xFFE3E3E3), false),
+                            _buildModelOptionRow(context, 'DeepSeek', const Color(0xFF3B82F6), false),
+                            _buildModelOptionRow(context, 'Fireworks', const Color(0xFFE3E3E3), false),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
-              const Divider(height: 1),
-              _buildModelOption(context, 'OpenAI', Icons.api, Colors.white),
-              _buildModelOption(context, 'Google', Icons.android, Colors.green),
-              _buildModelOption(context, 'Anthropic', Icons.psychology, Colors.orange),
-              _buildModelOption(context, 'DeepSeek', Icons.search, Colors.blue),
-              _buildModelOption(context, 'Cohere', Icons.language, Colors.purple),
-              const SizedBox(height: 16),
-            ],
-          ),
+            ),
+          ],
         );
       },
     );
   }
 
-  Widget _buildModelOption(BuildContext context, String name, IconData icon, Color iconColor) {
-    final theme = Theme.of(context);
-    return ListTile(
-      leading: CircleAvatar(
-        backgroundColor: theme.colorScheme.onSurface.withValues(alpha: 0.05),
-        child: Icon(icon, color: iconColor, size: 20),
+  Widget _buildModelOptionRow(BuildContext context, String name, Color circleColor, bool isSelected) {
+    return GestureDetector(
+      onTap: () => Navigator.pop(context),
+      child: Container(
+        height: 36,
+        margin: const EdgeInsets.only(bottom: 2),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFF2F2F2F) : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Stack(
+          children: [
+            if (isSelected)
+              Positioned(
+                left: 0,
+                top: 8,
+                child: Container(
+                  width: 3,
+                  height: 20,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(1.5),
+                  ),
+                ),
+              ),
+            Row(
+              children: [
+                const SizedBox(width: 16),
+                Container(
+                  width: 16,
+                  height: 16,
+                  decoration: BoxDecoration(
+                    color: circleColor,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    name,
+                    style: TextStyle(
+                      color: isSelected ? Colors.white : const Color(0xFFB4B4B4),
+                      fontSize: 13,
+                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                    ),
+                  ),
+                ),
+                Icon(Icons.settings_outlined, color: isSelected ? Colors.white : const Color(0xFF878787), size: 16),
+                const SizedBox(width: 8),
+                Icon(Icons.chevron_right, color: isSelected ? Colors.white : const Color(0xFF878787), size: 18),
+                const SizedBox(width: 8),
+              ],
+            ),
+          ],
+        ),
       ),
-      title: Text(name, style: theme.textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w500)),
-      trailing: Icon(Icons.settings_outlined, color: theme.colorScheme.onSurface.withValues(alpha: 0.5), size: 20),
-      onTap: () {
-        Navigator.pop(context);
-      },
     );
   }
 }
