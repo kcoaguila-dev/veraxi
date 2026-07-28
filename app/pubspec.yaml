@@ -23,12 +23,17 @@ dependencies:
   supabase_flutter: ^2.16.0
   url_launcher: ^6.3.2
   flutter_markdown_plus: ^1.0.12
+  flutter_highlighter: ^0.1.1
+  just_audio: ^0.10.6
+  flutter_tts: ^4.2.5
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   mocktail: ^1.0.5
   import_lint: ^0.1.6
+  integration_test:
+    sdk: flutter
 
 flutter:
   uses-material-design: true

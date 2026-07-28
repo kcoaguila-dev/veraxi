@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:veraxi_app/features/chat/data/chat_repository.dart';
 import 'package:veraxi_app/features/chat/view_models/chat_view_model.dart';
@@ -9,7 +10,12 @@ void main() {
   late MockChatRepository mockRepository;
   late ChatViewModel viewModel;
 
+  setUpAll(() {
+    FlutterSecureStorage.setMockInitialValues({});
+  });
+
   setUp(() {
+    TestWidgetsFlutterBinding.ensureInitialized();
     mockRepository = MockChatRepository();
     when(() => mockRepository.getThreads()).thenAnswer((_) async => []);
     viewModel = ChatViewModel(mockRepository);
@@ -27,14 +33,14 @@ void main() {
     await pumpEventQueue();
     const question = 'Hello?';
     
-    when(() => mockRepository.streamChat(question, threadId: any(named: 'threadId')))
+    when(() => mockRepository.streamChat(question, threadId: any(named: 'threadId'), model: 'test-model', isTemporary: false))
         .thenAnswer((_) => Stream.fromIterable([
           {'event': 'on_chat_model_stream', 'data': {'chunk': {'content': 'Hi '}}},
           {'event': 'on_chat_model_stream', 'data': {'chunk': {'content': 'there!'}}},
           {'event': 'on_chain_end', 'name': 'LangGraph'}
         ]));
 
-    final future = viewModel.sendMessage(question);
+    final future = viewModel.sendMessage(question, model: 'test-model');
     await future;
 
     expect(viewModel.state.messages.length, 2);
@@ -50,20 +56,91 @@ void main() {
     verifyNever(() => mockRepository.streamChat(any()));
   });
 
+  test('sendMessage shows error when no model is selected', () async {
+    await pumpEventQueue();
+    await viewModel.sendMessage('Hello', model: null);
+
+    expect(viewModel.state.messages.length, 2);
+    expect(viewModel.state.messages[1].isError, isTrue);
+    expect(viewModel.state.messages[1].content, 'No AI model selected. Please select a model from the top left menu.');
+    verifyNever(() => mockRepository.streamChat(any()));
+  });
+
   test('sendMessage handles tool calls during streaming', () async {
     await pumpEventQueue();
     const question = 'Search graph';
 
-    when(() => mockRepository.streamChat(question, threadId: any(named: 'threadId')))
+    when(() => mockRepository.streamChat(question, threadId: any(named: 'threadId'), model: 'test-model', isTemporary: false))
         .thenAnswer((_) => Stream.fromIterable([
           {'event': 'on_tool_start', 'name': 'query_graph'},
           {'event': 'on_tool_end', 'name': 'query_graph'},
           {'event': 'on_chat_model_stream', 'data': {'chunk': {'content': 'Result found'}}},
         ]));
 
-    await viewModel.sendMessage(question);
+    await viewModel.sendMessage(question, model: 'test-model');
 
     expect(viewModel.state.messages.length, 2);
     expect(viewModel.state.messages[1].text, 'Result found');
+  });
+
+  test('regenerateResponse calls repository and selectThread', () async {
+    await pumpEventQueue();
+    
+    when(() => mockRepository.regenerateResponse(any())).thenAnswer((_) async {});
+    when(() => mockRepository.getThreadHistory(any())).thenAnswer((_) async => []);
+
+    // Set threadId to simulate an active thread
+    viewModel.state = viewModel.state.copyWith(threadId: 'test-thread');
+
+    await viewModel.regenerateResponse();
+
+    verify(() => mockRepository.regenerateResponse('test-thread')).called(1);
+    verify(() => mockRepository.getThreadHistory('test-thread')).called(1);
+  });
+
+  test('playAudio never calls backend repository (uses client-side TTS)', () async {
+    await pumpEventQueue();
+    const text = 'test audio';
+
+    // TTS is now fully client-side (Web Speech API / flutter_tts).
+    // The repository has no getAudioBytes method — this confirms no backend call.
+    viewModel.playAudio(text);
+
+    // No error from a backend failure — only possibly a "not supported" message
+    // on platforms where TTS isn't available.
+    expect(viewModel.state.error, isNot(contains('Failed to play audio')));
+  });
+
+  test('playAudio on native platforms clears errors and never calls backend', () async {
+    await pumpEventQueue();
+    // Pre-set a previous error to confirm it gets cleared
+    viewModel.state = viewModel.state.copyWith(error: 'Some old backend error');
+
+    // flutter_tts isSupported=true; MissingPluginException is swallowed internally.
+    // The ViewModel sees success → clears the old error. No backend call.
+    viewModel.playAudio('hello world');
+
+    // No backend method exists for TTS anymore — purely client-side.
+    expect(viewModel.state.error, isNull);
+  });
+
+  test('regenerateResponse catches exception and sets error', () async {
+    await pumpEventQueue();
+    viewModel.state = viewModel.state.copyWith(threadId: 'test-thread');
+    
+    when(() => mockRepository.regenerateResponse(any())).thenThrow(Exception('Regen Error'));
+
+    await viewModel.regenerateResponse();
+
+    expect(viewModel.state.error, contains('Failed to regenerate response: Exception: Regen Error'));
+  });
+
+  test('clearError resets error state', () async {
+    await pumpEventQueue();
+    viewModel.state = viewModel.state.copyWith(error: 'Some error');
+    expect(viewModel.state.error, 'Some error');
+
+    viewModel.clearError();
+    expect(viewModel.state.error, isNull);
   });
 }

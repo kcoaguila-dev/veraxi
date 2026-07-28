@@ -1,6 +1,7 @@
 import logging
 import sentry_sdk
 import json
+from contextvars import ContextVar
 from typing import Tuple, List, Any, TypedDict, Annotated, Sequence
 from langchain_openai import ChatOpenAI
 import asyncio
@@ -19,6 +20,11 @@ from backend.mcp_server.tools.query_graph import query_graph
 from backend.retrieval.merge_rank import merge_rank
 
 logger = logging.getLogger(__name__)
+
+# Per-async-task context variable that carries the caller's API key for the
+# duration of a single request — avoids mutating shared config.
+_request_api_key: ContextVar[str | None] = ContextVar("_request_api_key", default=None)
+_request_model: ContextVar[str | None] = ContextVar("_request_model", default=None)
 
 # We will initialize the connection dynamically or just keep a global pool
 _redis_conn = None
@@ -119,16 +125,30 @@ async def call_model(state: AgentState):
     messages = state["messages"]
     
     config = get_config()
+    
+    effective_model = _request_model.get() or config.llm_model_name
+    
+    # Inherit base args (including the gemini url injection if applicable)
+    llm_args = config.get_llm_client_args(model_name=effective_model)
+    
+    # Prefer a per-request key (set by the caller via _request_api_key contextvar)
+    # over the server-wide LLM_API_KEY so users can supply their own key via the UI.
+    effective_api_key = _request_api_key.get() or config.llm_api_key
+    if effective_api_key:
+        llm_args["api_key"] = effective_api_key
+        
     llm = ChatOpenAI(
-        model=config.llm_model_name,
+        model=effective_model,
         temperature=0,
-        **config.get_llm_client_args()
+        **llm_args,
     )
     
     # Bind our raw JSON schema tools to the model
     llm_with_tools = llm.bind_tools(get_tools())
     
     response = await llm_with_tools.ainvoke(messages)
+    # Inject the model name into the response so it gets saved to history and sent to frontend
+    response.additional_kwargs["model_name"] = effective_model
     return {"messages": [response]}
 
 
@@ -292,11 +312,22 @@ def should_continue(state: AgentState) -> str:
     return END
 
 
-async def answer_question(question: str, tenant_id: str = "default", thread_id: str = "default", return_context: bool = False) -> str | Tuple[str, str]:
+async def answer_question(
+    question: str,
+    tenant_id: str = "default",
+    thread_id: str = "default",
+    return_context: bool = False,
+    is_temporary: bool = False,
+    api_key_override: str | None = None,
+    model_override: str | None = None,
+) -> str | Tuple[str, str]:
     """
     Executes the LangGraph state machine.
-    Maintains conversation memory per thread_id.
+    Maintains conversation memory per thread_id, unless is_temporary is True.
     """
+    # Set the per-request API key so call_model picks it up through the contextvar
+    token_api = _request_api_key.set(api_key_override)
+    token_model = _request_model.set(model_override)
     config_obj = get_config()
     config = {"configurable": {"thread_id": thread_id}}
     
@@ -305,14 +336,23 @@ async def answer_question(question: str, tenant_id: str = "default", thread_id: 
         "tenant_id": tenant_id
     }
     
-    logger.info(f"Starting async LangGraph run for thread_id={thread_id}")
+    logger.info(f"Starting async LangGraph run for thread_id={thread_id} (temporary={is_temporary})")
     
     workflow = _get_workflow()
     
-    # Run the graph asynchronously using context manager for memory
-    async with AsyncRedisSaver.from_conn_string(config_obj.redis_url) as memory:
-        app = workflow.compile(checkpointer=memory)
-        final_state = await app.ainvoke(initial_state, config=config)
+    try:
+        if is_temporary:
+            app = workflow.compile()
+            final_state = await app.ainvoke(initial_state, config=config)
+        else:
+            # Run the graph asynchronously using context manager for memory
+            async with AsyncRedisSaver.from_conn_string(config_obj.redis_url) as memory:
+                app = workflow.compile(checkpointer=memory)
+                final_state = await app.ainvoke(initial_state, config=config)
+    finally:
+        # Always restore the contextvar regardless of success or failure
+        _request_api_key.reset(token_api)
+        _request_model.reset(token_model)
     
     # The final message is the AIMessage containing the answer
     final_answer = final_state["messages"][-1].content
@@ -327,22 +367,41 @@ async def answer_question(question: str, tenant_id: str = "default", thread_id: 
 
 from typing import AsyncGenerator
 
-async def stream_answer_question(question: str, tenant_id: str = "default", thread_id: str = "default") -> AsyncGenerator[dict, None]:
+async def stream_answer_question(
+    question: str,
+    tenant_id: str = "default",
+    thread_id: str = "default",
+    is_temporary: bool = False,
+    api_key_override: str | None = None,
+    model_override: str | None = None,
+) -> AsyncGenerator[dict, None]:
     """
     Executes the LangGraph state machine and yields raw astream_events.
     """
-    config_obj = get_config()
-    config = {"configurable": {"thread_id": thread_id}}
-    
-    initial_state = {
-        "messages": [HumanMessage(content=question)],
-        "tenant_id": tenant_id
-    }
-    
-    logger.info(f"Starting async streaming LangGraph run for thread_id={thread_id}")
-    workflow = _get_workflow()
-    
-    async with AsyncRedisSaver.from_conn_string(config_obj.redis_url) as memory:
-        app = workflow.compile(checkpointer=memory)
-        async for event in app.astream_events(initial_state, config=config, version="v2"):
-            yield event
+    # Set the per-request API key so call_model picks it up through the contextvar
+    token_api = _request_api_key.set(api_key_override)
+    token_model = _request_model.set(model_override)
+    try:
+        config_obj = get_config()
+        config = {"configurable": {"thread_id": thread_id}}
+        
+        initial_state = {
+            "messages": [HumanMessage(content=question)],
+            "tenant_id": tenant_id
+        }
+        
+        logger.info(f"Starting async streaming LangGraph run for thread_id={thread_id} (temporary={is_temporary})")
+        workflow = _get_workflow()
+        
+        if is_temporary:
+            app = workflow.compile()
+            async for event in app.astream_events(initial_state, config=config, version="v2"):
+                yield event
+        else:
+            async with AsyncRedisSaver.from_conn_string(config_obj.redis_url) as memory:
+                app = workflow.compile(checkpointer=memory)
+                async for event in app.astream_events(initial_state, config=config, version="v2"):
+                    yield event
+    finally:
+        _request_api_key.reset(token_api)
+        _request_model.reset(token_model)

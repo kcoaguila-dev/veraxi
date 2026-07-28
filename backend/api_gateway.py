@@ -25,6 +25,7 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 import stripe
+import asyncio
 from supabase import create_client, Client
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
@@ -122,6 +123,11 @@ class ChatRequest(BaseModel):
     calculate_grounding: bool = False
     thread_id: str | None = None
     stream: bool = False
+    is_temporary: bool = False
+    # Optional per-request API key — overrides LLM_API_KEY in .env when provided
+    api_key: str | None = None
+    # Optional per-request model — overrides LLM_MODEL_NAME in .env when provided
+    model: str | None = None
 
 
 class ChatResponse(BaseModel):
@@ -135,23 +141,69 @@ class IngestRequest(BaseModel):
     text: str
 
 
+async def _generate_and_save_title(question: str, tenant_id: str, thread_id: str, redis):
+    try:
+        from backend.mcp_server.llm_loop import answer_question
+        prompt = f"Summarize this conversation starter into a concise 3-5 word title: {question}"
+        answer, _ = await answer_question(
+            prompt, 
+            tenant_id=tenant_id, 
+            thread_id=f"title_gen_{uuid.uuid4().hex[:8]}", 
+            return_context=False, 
+            is_temporary=True,
+            model_override="gemini-3.5-flash"
+        )
+        title = answer.strip('"\'. \n')
+        await redis.hset(f"tenant:{tenant_id}:thread_titles", thread_id, title)
+    except Exception as e:
+        logger.error(f"Error generating title for thread {thread_id}: {e}")
+
 @app.post("/api/chat", response_model=ChatResponse)
 @limiter.limit(config.rate_limit_chat)
 async def chat_endpoint(request: Request, chat_request: ChatRequest, tenant_id: str = Depends(get_tenant_id)):
     logger.info(f"Received question: {chat_request.question} for tenant: {tenant_id}")
+    if not chat_request.model:
+        raise HTTPException(status_code=400, detail="No AI model selected")
+        
     try:
         thread_id = chat_request.thread_id or str(uuid.uuid4())
+        # Use per-request key if provided, fall back to server-side LLM_API_KEY env var
+        api_key_override = chat_request.api_key or None
         
-        # Track thread_id for this tenant
-        await request.app.state.redis.sadd(f"tenant:{tenant_id}:threads", thread_id)
+        # Track thread_id for this tenant if not temporary
+        is_new_thread = False
+        if not chat_request.is_temporary:
+            added = await request.app.state.redis.sadd(f"tenant:{tenant_id}:threads", thread_id)
+            if added == 1:
+                is_new_thread = True
+                asyncio.create_task(_generate_and_save_title(chat_request.question, tenant_id, thread_id, request.app.state.redis))
         
         if chat_request.stream:
             async def event_generator():
-                async for event in stream_answer_question(chat_request.question, tenant_id=tenant_id, thread_id=thread_id):
-                    # Yield SSE formatted data
-                    yield f"data: {json.dumps(event)}\n\n"
-                # Send a final 'done' event to signal stream completion
-                yield "data: [DONE]\n\n"
+                try:
+                    async for event in stream_answer_question(
+                        chat_request.question, 
+                        tenant_id=tenant_id,
+                        thread_id=thread_id,
+                        is_temporary=chat_request.is_temporary,
+                        api_key_override=api_key_override,
+                        model_override=chat_request.model,
+                    ):
+                        # Yield SSE formatted data
+                        def custom_encoder(obj):
+                            if hasattr(obj, 'model_dump'):
+                                return obj.model_dump()
+                            if hasattr(obj, 'dict'):
+                                return obj.dict()
+                            return str(obj)
+                        yield f"data: {json.dumps(event, default=custom_encoder)}\n\n"
+                    # Send a final 'done' event to signal stream completion
+                    yield "data: [DONE]\n\n"
+                except Exception as e:
+                    import traceback
+                    traceback.print_exc()
+                    yield f"data: {json.dumps({'error': str(e)})}\n\n"
+                    yield "data: [DONE]\n\n"
             
             return StreamingResponse(event_generator(), media_type="text/event-stream")
         
@@ -160,7 +212,10 @@ async def chat_endpoint(request: Request, chat_request: ChatRequest, tenant_id: 
             chat_request.question, 
             tenant_id=tenant_id, 
             thread_id=thread_id,
-            return_context=True
+            return_context=True,
+            is_temporary=chat_request.is_temporary,
+            api_key_override=api_key_override,
+            model_override=chat_request.model,
         )
         
         score = None
@@ -179,14 +234,22 @@ async def chat_endpoint(request: Request, chat_request: ChatRequest, tenant_id: 
         logger.error(f"Error processing question: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-def _extract_messages_from_state(raw_messages: list) -> list:
+def _extract_messages_from_state(raw_messages: list, feedback_dict: dict = None) -> list:
+    if feedback_dict is None:
+        feedback_dict = {}
     messages_out = []
     for msg in raw_messages:
         msg_type = msg.__class__.__name__
         if msg_type in ["HumanMessage", "AIMessage"]:
+            msg_id = getattr(msg, "id", None)
+            if not msg_id:
+                msg_id = getattr(msg, "additional_kwargs", {}).get("id") or str(id(msg))
             messages_out.append({
+                "id": str(msg_id),
                 "role": "user" if msg_type == "HumanMessage" else "assistant",
-                "content": msg.content
+                "content": msg.content,
+                "feedback": int(feedback_dict.get(str(msg_id), 0)),
+                "model_name": getattr(msg, "additional_kwargs", {}).get("model_name")
             })
     return messages_out
 
@@ -197,9 +260,17 @@ async def list_threads(request: Request, tenant_id: str = Depends(get_tenant_id)
     """
     try:
         threads = await request.app.state.redis.smembers(f"tenant:{tenant_id}:threads")
-        # In a full production app, we would query the checkpointer for the first message to use as a "Title"
-        # For now, we return the raw list of UUIDs.
-        return {"threads": [t.decode("utf-8") for t in threads]}
+        titles = await request.app.state.redis.hgetall(f"tenant:{tenant_id}:thread_titles")
+        
+        thread_list = []
+        for t in threads:
+            tid = t.decode("utf-8")
+            title = titles.get(t, b"").decode("utf-8")
+            if not title:
+                title = "New Chat"
+            thread_list.append({"thread_id": tid, "title": title})
+            
+        return {"threads": thread_list}
     except Exception as e:
         sentry_sdk.capture_exception(e)
         logger.error(f"Error listing threads: {e}")
@@ -231,7 +302,17 @@ async def get_thread_history(thread_id: str, request: Request, tenant_id: str = 
         # Extract messages from the LangGraph state blob
         raw_messages = state.checkpoint.get("channel_values", {}).get("messages", [])
         
-        messages_out = _extract_messages_from_state(raw_messages)
+        # Fetch feedbacks
+        feedback_dict = {}
+        try:
+            feedbacks_raw = await request.app.state.redis.hgetall(f"tenant:{tenant_id}:message_feedback")
+            for k, v in feedbacks_raw.items():
+                feedback_dict[k.decode("utf-8")] = int(v.decode("utf-8"))
+        except Exception as e:
+            logger.error(f"Failed to fetch feedback: {e}")
+            pass
+
+        messages_out = _extract_messages_from_state(raw_messages, feedback_dict)
                 
         return {"messages": messages_out}
     except HTTPException:
@@ -241,6 +322,62 @@ async def get_thread_history(thread_id: str, request: Request, tenant_id: str = 
         logger.error(f"Error fetching thread {thread_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+
+class FeedbackRequest(BaseModel):
+    value: int # 1 for upvote, -1 for downvote, 0 to clear
+
+@app.post("/api/chat/messages/{message_id}/feedback")
+async def submit_feedback(message_id: str, payload: FeedbackRequest, request: Request, tenant_id: str = Depends(get_tenant_id)):
+    try:
+        if payload.value == 0:
+            await request.app.state.redis.hdel(f"tenant:{tenant_id}:message_feedback", message_id)
+        else:
+            await request.app.state.redis.hset(f"tenant:{tenant_id}:message_feedback", message_id, payload.value)
+        return {"status": "ok"}
+    except Exception as e:
+        logger.error(f"Error saving feedback: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+
+class EditRequest(BaseModel):
+    content: str
+    thread_id: str
+
+@app.put("/api/chat/messages/{message_id}")
+async def edit_message(message_id: str, payload: EditRequest, request: Request, tenant_id: str = Depends(get_tenant_id)):
+    try:
+        from langgraph.checkpoint.redis.aio import AsyncRedisSaver
+        config_obj = get_config()
+        config = {"configurable": {"thread_id": payload.thread_id}}
+        
+        async with AsyncRedisSaver.from_conn_string(config_obj.redis_url) as memory:
+            state = await memory.aget_tuple(config)
+            if not state:
+                raise HTTPException(status_code=404, detail="Thread not found")
+                
+            raw_messages = state.checkpoint.get("channel_values", {}).get("messages", [])
+            target_msg = None
+            for msg in raw_messages:
+                msg_id = getattr(msg, "id", None) or getattr(msg, "additional_kwargs", {}).get("id") or str(id(msg))
+                if str(msg_id) == message_id:
+                    msg.content = payload.content
+                    target_msg = msg
+                    break
+                    
+            if target_msg:
+                await memory.aupdate_state(config, {"messages": [target_msg]})
+                
+        return {"status": "ok"}
+    except Exception as e:
+        logger.error(f"Error editing message: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/chat/threads/{thread_id}/regenerate")
+async def regenerate_response(thread_id: str, request: Request, tenant_id: str = Depends(get_tenant_id)):
+    # Placeholder for regenerating response. Usually involves removing last AI message and streaming again.
+    # A full implementation requires deep LangGraph state manipulation.
+    return {"status": "ok", "message": "Regenerate triggered (mock)"}
 
 @app.get("/health")
 async def health_check():
