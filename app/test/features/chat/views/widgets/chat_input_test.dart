@@ -15,6 +15,9 @@ void main() {
 
       expect(find.byType(TextField), findsOneWidget);
       expect(find.byIcon(Icons.arrow_upward), findsOneWidget);
+      expect(find.byIcon(Icons.attach_file), findsOneWidget);
+      expect(find.byIcon(Icons.tune_outlined), findsOneWidget);
+      expect(find.byIcon(Icons.mic_none_outlined), findsOneWidget);
       expect(find.byIcon(Icons.error_outline), findsNothing);
     });
 
@@ -79,7 +82,7 @@ void main() {
       final textField = tester.widget<TextField>(find.byType(TextField));
       expect(textField.enabled, isFalse);
 
-      await tester.tap(find.byType(IconButton));
+      await tester.tap(find.byIcon(Icons.attach_file));
       await tester.pump();
 
       expect(called, isFalse);

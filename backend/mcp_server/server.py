@@ -283,7 +283,44 @@ REGISTERED_TOOLS = [
                 "query": {"type": "string"},
                 "max_results": {"type": "integer", "default": 3}
             },
-            "required": ["query"],
+        },
+    ),
+    Tool(
+        name="mcp_skills",
+        description="Lists available agentic skills for tool augmentation.",
+        inputSchema={
+            "type": "object",
+            "properties": {},
+        },
+    ),
+    Tool(
+        name="mcp_run_code",
+        description="Executes Python code in a secure sandbox and returns the stdout/stderr.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "code": {"type": "string"},
+            },
+            "required": ["code"],
+        },
+    ),
+    Tool(
+        name="mcp_list_artifacts",
+        description="Lists all artifacts stored in the workspace for the current tenant.",
+        inputSchema={
+            "type": "object",
+            "properties": {},
+        },
+    ),
+    Tool(
+        name="mcp_read_artifact",
+        description="Reads the content of a specific artifact by its name.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "artifact_name": {"type": "string"},
+            },
+            "required": ["artifact_name"],
         },
     ),
 ]
@@ -383,6 +420,25 @@ def _handle_web_search(args: dict, tenant_id: str) -> list[TextContent]:
     from backend.mcp_server.tools.web_search import mcp_web_search
     results = mcp_web_search(args["query"], args.get("max_results", 3))
     return [TextContent(type="text", text=json.dumps(results))]
+def _handle_skills(args: dict, tenant_id: str) -> list[TextContent]:
+    from backend.mcp_server.tools.skills import list_skills
+    results = list_skills()
+    return [TextContent(type="text", text=json.dumps(results))]
+
+def _handle_run_code(args: dict, tenant_id: str) -> list[TextContent]:
+    from backend.mcp_server.tools.run_code import execute_python_code
+    result = execute_python_code(args["code"])
+    return [TextContent(type="text", text=json.dumps(result))]
+
+def _handle_list_artifacts(args: dict, tenant_id: str) -> list[TextContent]:
+    from backend.mcp_server.tools.artifacts import list_artifacts
+    results = list_artifacts(tenant_id)
+    return [TextContent(type="text", text=json.dumps(results))]
+
+def _handle_read_artifact(args: dict, tenant_id: str) -> list[TextContent]:
+    from backend.mcp_server.tools.artifacts import read_artifact
+    result = read_artifact(tenant_id, args["artifact_name"])
+    return [TextContent(type="text", text=result)]
 
 TOOL_HANDLERS = {
     "mcp_search_vectors": _handle_search_vectors,
@@ -400,6 +456,10 @@ TOOL_HANDLERS = {
     "mcp_update_document_metadata": _handle_update_document_metadata,
     "mcp_evaluate_grounding": _handle_evaluate_grounding,
     "mcp_web_search": _handle_web_search,
+    "mcp_skills": _handle_skills,
+    "mcp_run_code": _handle_run_code,
+    "mcp_list_artifacts": _handle_list_artifacts,
+    "mcp_read_artifact": _handle_read_artifact,
 }
 
 @mcp_server.list_tools()

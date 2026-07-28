@@ -9,8 +9,8 @@ COPY . /app/backend/
 # Set Python path so `backend` module can be imported
 ENV PYTHONPATH=/app
 
-# Install system dependencies required for OpenCV/Docling
-RUN apt-get update && apt-get install -y libgl1 libglib2.0-0 && rm -rf /var/lib/apt/lists/*
+# Install system dependencies required for OpenCV/Docling/Python-magic
+RUN apt-get update && apt-get install -y libgl1 libglib2.0-0 libmagic1 && rm -rf /var/lib/apt/lists/*
 
 # Install python dependencies statically for production
 RUN cd backend && pip install --no-cache-dir .

@@ -26,6 +26,8 @@ services:
       dockerfile: Dockerfile
     ports:
       - "8000:8000"
+    volumes:
+      - ./backend:/app/backend
     environment:
       - NEO4J_URI=bolt://neo4j:7687
       - QDRANT_URL=http://qdrant:6333

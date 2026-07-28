@@ -47,7 +47,7 @@ class Config:
             qdrant_collection_name=os.environ.get("QDRANT_COLLECTION_NAME", "veraxi_docs"),
             llm_api_key=os.environ.get("LLM_API_KEY", ""),
             llm_base_url=os.environ.get("LLM_BASE_URL", ""),
-            llm_model_name=os.environ.get("LLM_MODEL_NAME", "gemini-2.5-flash"),
+            llm_model_name=os.environ.get("LLM_MODEL_NAME", "gemini-3.5-flash-lite"),
             embedding_api_key=os.environ.get("EMBEDDING_API_KEY", ""),
             embedding_model_name=os.environ.get(
                 "EMBEDDING_MODEL_NAME", "text-embedding-004"
@@ -68,13 +68,17 @@ class Config:
             cors_origins=os.environ.get("CORS_ORIGINS", "*"),
         )
 
-    def get_llm_client_args(self) -> dict:
+    def get_llm_client_args(self, model_name: Optional[str] = None) -> dict:
         """Returns kwargs for initializing OpenAI-compatible clients."""
         args = {}
         if self.llm_api_key:
             args["api_key"] = self.llm_api_key
         if self.llm_base_url:
             args["base_url"] = self.llm_base_url
+        else:
+            effective_model = model_name or self.llm_model_name
+            if effective_model.startswith("gemini"):
+                args["base_url"] = "https://generativelanguage.googleapis.com/v1beta/openai/"
         return args
 
 def _require(key: str) -> str:

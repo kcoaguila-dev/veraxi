@@ -1,8 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:sentry_flutter/sentry_flutter.dart';
-import 'package:flutter_animate/flutter_animate.dart';
-import 'package:veraxi_app/features/control_panel/view_models/control_panel_view_model.dart';
 
 class ControlPanelScreen extends ConsumerWidget {
   const ControlPanelScreen({super.key});
@@ -268,7 +265,6 @@ class ControlPanelScreen extends ConsumerWidget {
                     Switch(
                       value: isOn,
                       onChanged: (val) {},
-                      activeColor: Colors.white,
                       activeTrackColor: const Color(0xFF3B82F6),
                       inactiveThumbColor: const Color(0xFFB4B4B4),
                       inactiveTrackColor: const Color(0xFF424242),

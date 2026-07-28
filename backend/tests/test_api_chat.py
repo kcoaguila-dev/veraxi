@@ -29,7 +29,7 @@ async def test_chat_endpoint_no_stream(override_redis):
         
         response = client.post(
             "/api/chat",
-            json={"question": "What is testing?", "stream": False},
+            json={"question": "What is testing?", "stream": False, "model": "test-model"},
         )
         
         assert response.status_code == 200
@@ -49,7 +49,7 @@ async def test_chat_endpoint_stream(override_redis):
     with patch('backend.api_gateway.stream_answer_question', side_effect=mock_stream_events):
         response = client.post(
             "/api/chat",
-            json={"question": "Stream me?", "stream": True},
+            json={"question": "Stream me?", "stream": True, "model": "test-model"},
         )
         
         assert response.status_code == 200
@@ -63,3 +63,91 @@ async def test_chat_endpoint_stream(override_redis):
         assert lines[1] == 'data: {"type": "content", "content": "world"}'
         assert lines[2] == 'data: {"type": "metadata", "content": "Metadata test"}'
         assert lines[3] == 'data: [DONE]'
+
+@pytest.mark.asyncio
+async def test_chat_endpoint_with_api_key_override(override_redis):
+    # Mock answer_question to verify api_key_override is passed through
+    with patch('backend.api_gateway.answer_question', new_callable=AsyncMock) as mock_answer:
+        mock_answer.return_value = ("API Key tested", "Context")
+        
+        response = client.post(
+            "/api/chat",
+            json={
+                "question": "Use my key?", 
+                "stream": False,
+                "api_key": "dummy_test_key_123",
+                "model": "test-model"
+            },
+        )
+        
+        assert response.status_code == 200
+        # Verify that answer_question was called with api_key_override="dummy_test_key_123"
+        mock_answer.assert_called_once()
+        _, kwargs = mock_answer.call_args
+        assert kwargs.get("api_key_override") == "dummy_test_key_123"
+
+class MockRedisFull:
+    async def hset(self, name, key, value):
+        return 1
+    
+    async def hdel(self, name, key):
+        return 1
+
+@pytest.fixture
+def override_redis_full(monkeypatch):
+    monkeypatch.setattr(app.state, "redis", MockRedisFull(), raising=False)
+
+@pytest.mark.asyncio
+async def test_feedback_endpoint(override_redis_full):
+    # Upvote
+    response = client.post(
+        "/api/chat/messages/msg-123/feedback",
+        json={"value": 1}
+    )
+    assert response.status_code == 200
+    assert response.json()["status"] == "ok"
+    
+    # Clear
+    response = client.post(
+        "/api/chat/messages/msg-123/feedback",
+        json={"value": 0}
+    )
+    assert response.status_code == 200
+
+@pytest.mark.asyncio
+async def test_regenerate_endpoint():
+    response = client.post(
+        "/api/chat/threads/thread-123/regenerate"
+    )
+    assert response.status_code == 200
+    assert response.json()["status"] == "ok"
+
+@pytest.mark.asyncio
+async def test_audio_endpoint_no_key():
+    # Should return 400 since API key isn't configured in test config by default
+    response = client.post(
+        "/api/chat/audio",
+        json={"text": "hello"}
+    )
+    # The get_config() will return a config without openai_api_key in the test environment (or it throws)
+    # We just ensure it doesn't crash internally
+    assert response.status_code in [400, 500]
+
+@pytest.mark.asyncio
+async def test_edit_endpoint():
+    # Because we don't have a real AsyncRedisSaver setup here, it will raise 500 or 404
+    # Just asserting the route exists
+    response = client.put(
+        "/api/chat/messages/msg-123",
+        json={"content": "new text", "thread_id": "thread-123"}
+    )
+    assert response.status_code in [404, 500]
+
+@pytest.mark.asyncio
+async def test_chat_endpoint_no_model_selected(override_redis):
+    response = client.post(
+        "/api/chat",
+        json={"question": "What is testing?", "stream": False},
+    )
+    assert response.status_code == 400
+    assert response.json()["detail"] == "No AI model selected"

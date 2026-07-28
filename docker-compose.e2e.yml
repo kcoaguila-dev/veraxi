@@ -1,0 +1,49 @@
+version: "3.8"
+services:
+  neo4j:
+    image: neo4j:5
+    environment:
+      - NEO4J_AUTH=${NEO4J_AUTH:-neo4j/changeme_local_password}
+      - NEO4J_PLUGINS=["graph-data-science"]
+      - NEO4J_dbms_security_procedures_unrestricted=gds.*
+    # Use ephemeral tmpfs for tests
+    tmpfs:
+      - /data
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    tmpfs:
+      - /qdrant/storage
+
+  redis:
+    image: redis/redis-stack-server:latest
+
+  mock-llm-server:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.mock
+    command: ["python", "tests/mock_llm_server.py"]
+    ports:
+      - "8001:8001"
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - NEO4J_URI=bolt://neo4j:7687
+      - QDRANT_URL=http://qdrant:6333
+      - REDIS_URL=redis://redis:6379/0
+      - LLM_BASE_URL=http://mock-llm-server:8001
+      - LLM_API_KEY=dummy_e2e_key_123
+      - CORS_ORIGINS=*
+      - AUTH_ENABLED=false
+    env_file:
+      - ./backend/.env
+    depends_on:
+      - neo4j
+      - qdrant
+      - redis
+      - mock-llm-server
