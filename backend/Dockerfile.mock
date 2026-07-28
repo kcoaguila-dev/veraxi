@@ -1,0 +1,5 @@
+FROM python:3.12-alpine
+WORKDIR /app
+RUN pip install fastapi uvicorn
+COPY tests/mock_llm_server.py /app/tests/mock_llm_server.py
+CMD ["python", "tests/mock_llm_server.py"]
