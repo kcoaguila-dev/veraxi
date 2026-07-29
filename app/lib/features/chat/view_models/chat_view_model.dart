@@ -332,21 +332,22 @@ class ChatViewModel extends StateNotifier<ChatState> {
   /// Falls back to the browser's built-in Web Speech API otherwise.
   Future<void> playAudio(String text, {required String messageId}) async {
     try {
+      final wasPlayingSameMessage = state.currentlyPlayingMessageId == messageId;
+
       // Check if we are already playing something via just_audio
       if (_audioPlayer.playing) {
         await _audioPlayer.stop();
-        if (state.currentlyPlayingMessageId == messageId) {
-          state = state.copyWith(clearPlayingId: true);
-          return; // True toggle off
-        }
       }
 
       if (WebSpeechService.instance.isSpeaking) {
         WebSpeechService.instance.stop();
-        if (state.currentlyPlayingMessageId == messageId) {
-          state = state.copyWith(clearPlayingId: true);
-          return;
-        }
+      }
+
+      // If neither was actually reporting as "playing" to the view model (e.g. mock test environments),
+      // we still need to respect the toggle behavior conceptually if the IDs match
+      if (wasPlayingSameMessage) {
+        state = state.copyWith(clearPlayingId: true);
+        return; // True toggle off
       }
 
       state = state.copyWith(currentlyPlayingMessageId: messageId);

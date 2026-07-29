@@ -128,17 +128,26 @@ void main() {
 
   test('playAudio sets playing state and toggles off on same message', () async {
     await pumpEventQueue();
-    // Simulate web speech not speaking for simplicity (fallback branch uses it, but initially it's quiet)
 
-    // Attempt play on message "msg1"
-    viewModel.playAudio('test', messageId: 'msg1');
+    // Initial call on msg1
+    await viewModel.playAudio('test', messageId: 'msg1');
     expect(viewModel.state.currentlyPlayingMessageId, 'msg1');
 
-    // Play same message again -> should toggle off
-    viewModel.playAudio('test', messageId: 'msg1');
-    // Because it's an async operation and relies on the state, in a mocked test without a real player
-    // the state would clear. However since we use `just_audio` player, we'd need more complex mocking
-    // to test the full loop. Let's at least test the synchronous state setting part is correct conceptually.
+    // Play same message again -> should toggle off to null
+    await viewModel.playAudio('test', messageId: 'msg1');
+    expect(viewModel.state.currentlyPlayingMessageId, isNull);
+  });
+
+  test('playAudio switches to new message if another is currently playing', () async {
+    await pumpEventQueue();
+
+    // Play msg1
+    await viewModel.playAudio('test', messageId: 'msg1');
+    expect(viewModel.state.currentlyPlayingMessageId, 'msg1');
+
+    // Play msg2
+    await viewModel.playAudio('test2', messageId: 'msg2');
+    expect(viewModel.state.currentlyPlayingMessageId, 'msg2');
   });
 
   test('regenerateResponse catches exception and sets error', () async {
