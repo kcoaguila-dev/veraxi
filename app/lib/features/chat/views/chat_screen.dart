@@ -679,8 +679,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                 message: 'Read aloud',
                                 child: InkWell(
                                   borderRadius: BorderRadius.circular(4),
-                                  onTap: () => ref.read(chatViewModelProvider.notifier).playAudio(msg.content),
-                                  child: Icon(Icons.volume_up_outlined, size: 16, color: theme.colorScheme.onSurface.withValues(alpha: 0.5)),
+                                  onTap: () => ref.read(chatViewModelProvider.notifier).playAudio(msg.content, messageId: msg.id ?? msg.hashCode.toString()),
+                                  child: Icon(
+                                    ref.watch(chatViewModelProvider).currentlyPlayingMessageId == (msg.id ?? msg.hashCode.toString())
+                                        ? Icons.stop_circle_outlined
+                                        : Icons.volume_up_outlined,
+                                    size: 16,
+                                    color: theme.colorScheme.onSurface.withValues(alpha: 0.5)
+                                  ),
                                 ),
                               ),
                               const SizedBox(width: 16),

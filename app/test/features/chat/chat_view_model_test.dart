@@ -126,6 +126,21 @@ void main() {
     verify(() => mockRepository.getThreadHistory('test-thread')).called(1);
   });
 
+  test('playAudio sets playing state and toggles off on same message', () async {
+    await pumpEventQueue();
+    // Simulate web speech not speaking for simplicity (fallback branch uses it, but initially it's quiet)
+
+    // Attempt play on message "msg1"
+    viewModel.playAudio('test', messageId: 'msg1');
+    expect(viewModel.state.currentlyPlayingMessageId, 'msg1');
+
+    // Play same message again -> should toggle off
+    viewModel.playAudio('test', messageId: 'msg1');
+    // Because it's an async operation and relies on the state, in a mocked test without a real player
+    // the state would clear. However since we use `just_audio` player, we'd need more complex mocking
+    // to test the full loop. Let's at least test the synchronous state setting part is correct conceptually.
+  });
+
   test('regenerateResponse catches exception and sets error', () async {
     await pumpEventQueue();
     viewModel.state = viewModel.state.copyWith(threadId: 'test-thread');

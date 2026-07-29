@@ -61,6 +61,7 @@ class ChatState {
   final bool isLoading;
   final bool isTemporary;
   final String? error;
+  final String? currentlyPlayingMessageId;
 
   ChatState({
     this.threadId,
@@ -70,6 +71,7 @@ class ChatState {
     this.isLoading = false,
     this.isTemporary = false,
     this.error,
+    this.currentlyPlayingMessageId,
   });
 
   ChatState copyWith({
@@ -81,6 +83,8 @@ class ChatState {
     bool? isTemporary,
     String? error,
     bool clearError = false,
+    String? currentlyPlayingMessageId,
+    bool clearPlayingId = false,
   }) {
     return ChatState(
       threadId: threadId ?? this.threadId,
@@ -90,6 +94,7 @@ class ChatState {
       isLoading: isLoading ?? this.isLoading,
       isTemporary: isTemporary ?? this.isTemporary,
       error: clearError ? null : (error ?? this.error),
+      currentlyPlayingMessageId: clearPlayingId ? null : (currentlyPlayingMessageId ?? this.currentlyPlayingMessageId),
     );
   }
 }
@@ -112,6 +117,11 @@ class ChatViewModel extends StateNotifier<ChatState> {
 
   ChatViewModel(this._repository, this._ref) : super(ChatState()) {
     loadThreads();
+    _audioPlayer.playerStateStream.listen((playerState) {
+      if (playerState.processingState == ProcessingState.completed) {
+        state = state.copyWith(clearPlayingId: true);
+      }
+    });
   }
 
   @override
@@ -320,18 +330,26 @@ class ChatViewModel extends StateNotifier<ChatState> {
   ///
   /// Uses GPT-SoVITS via backend if a custom voice is selected.
   /// Falls back to the browser's built-in Web Speech API otherwise.
-  Future<void> playAudio(String text) async {
+  Future<void> playAudio(String text, {required String messageId}) async {
     try {
-      // Check if we are already playing something via just_audio and stop it
+      // Check if we are already playing something via just_audio
       if (_audioPlayer.playing) {
         await _audioPlayer.stop();
-        return; // act as a toggle
+        if (state.currentlyPlayingMessageId == messageId) {
+          state = state.copyWith(clearPlayingId: true);
+          return; // True toggle off
+        }
       }
 
       if (WebSpeechService.instance.isSpeaking) {
         WebSpeechService.instance.stop();
-        return;
+        if (state.currentlyPlayingMessageId == messageId) {
+          state = state.copyWith(clearPlayingId: true);
+          return;
+        }
       }
+
+      state = state.copyWith(currentlyPlayingMessageId: messageId);
 
       final ttsState = _ref.read(ttsSettingsViewModelProvider);
       final voiceId = ttsState.selectedVoiceId;
@@ -349,7 +367,7 @@ class ChatViewModel extends StateNotifier<ChatState> {
 
         if (response.statusCode == 200) {
           final audioBytes = response.bodyBytes;
-          await _audioPlayer.setAudioSource(MyCustomSource(audioBytes));
+          await _audioPlayer.setAudioSource(BytesAudioSource(audioBytes));
           await _audioPlayer.play();
           state = state.copyWith(clearError: true);
           return;
@@ -388,12 +406,13 @@ class ChatViewModel extends StateNotifier<ChatState> {
   void stopAudio() {
     _audioPlayer.stop();
     WebSpeechService.instance.stop();
+    state = state.copyWith(clearPlayingId: true);
   }
 }
 
-class MyCustomSource extends StreamAudioSource {
+class BytesAudioSource extends StreamAudioSource {
   final List<int> bytes;
-  MyCustomSource(this.bytes);
+  BytesAudioSource(this.bytes);
 
   @override
   Future<StreamAudioResponse> request([int? start, int? end]) async {
