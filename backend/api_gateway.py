@@ -10,7 +10,6 @@ from backend.mcp_server.llm_loop import answer_question, stream_answer_question
 from backend.config import get_config
 from backend.storage.qdrant_client import QdrantStorageClient
 from backend.storage.neo4j_client import Neo4jStorageClient
-from backend.ingestion.__main__ import run_ingestion
 from backend.mcp_server.server import mcp_server
 from backend.mcp_server.context import tenant_context
 from mcp.server.sse import SseServerTransport
@@ -322,6 +321,51 @@ async def get_thread_history(thread_id: str, request: Request, tenant_id: str = 
         logger.error(f"Error fetching thread {thread_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+
+class VoiceListResponse(BaseModel):
+    voices: list[dict[str, str]]
+
+@app.get("/api/voices", response_model=VoiceListResponse)
+async def get_voices():
+    from backend.tts.voices import get_available_voices
+    return {"voices": get_available_voices()}
+
+class AudioRequest(BaseModel):
+    text: str
+    voice_id: str
+
+@app.post("/api/chat/audio")
+async def chat_audio(request: AudioRequest):
+    from backend.tts.voices import get_voice
+    from backend.tts.gpt_sovits_client import GPTSoVITSClient
+
+    voice = get_voice(request.voice_id)
+    if not voice:
+        raise HTTPException(status_code=400, detail="Invalid voice ID")
+
+    if not voice.get("ref_audio_path") or not voice.get("prompt_text"):
+        # Could be default system voice or unconfigured voice
+        raise HTTPException(status_code=400, detail="Voice not configured for backend synthesis")
+
+    client = GPTSoVITSClient()
+    try:
+        audio_bytes = await client.synthesize(
+            text=request.text,
+            ref_audio_path=voice["ref_audio_path"],
+            prompt_text=voice["prompt_text"],
+            prompt_lang=voice.get("prompt_lang", "en"),
+            text_lang=voice.get("text_lang", "en")
+        )
+        return StreamingResponse(
+            iter([audio_bytes]),
+            media_type="audio/wav",
+            headers={"Content-Disposition": "attachment; filename=audio.wav"}
+        )
+    except Exception as e:
+        logger.error(f"Failed to synthesize audio: {e}")
+        raise HTTPException(status_code=500, detail="Failed to synthesize audio")
+    finally:
+        await client.close()
 
 class FeedbackRequest(BaseModel):
     value: int # 1 for upvote, -1 for downvote, 0 to clear

@@ -2,7 +2,6 @@ import pytest
 from fastapi.testclient import TestClient
 from unittest.mock import patch, AsyncMock
 from backend.api_gateway import app, get_tenant_id
-import json
 
 # Mock the dependency to return a static tenant ID
 def override_get_tenant_id():
@@ -123,15 +122,31 @@ async def test_regenerate_endpoint():
     assert response.json()["status"] == "ok"
 
 @pytest.mark.asyncio
-async def test_audio_endpoint_no_key():
-    # Should return 400 since API key isn't configured in test config by default
+async def test_audio_endpoint_missing_voice_id():
     response = client.post(
         "/api/chat/audio",
         json={"text": "hello"}
     )
-    # The get_config() will return a config without openai_api_key in the test environment (or it throws)
-    # We just ensure it doesn't crash internally
-    assert response.status_code in [400, 500]
+    # Should return 422 because voice_id is missing from AudioRequest
+    assert response.status_code == 422
+
+@pytest.mark.asyncio
+async def test_audio_endpoint_success():
+    with patch("backend.tts.gpt_sovits_client.GPTSoVITSClient.synthesize", new_callable=AsyncMock) as mock_synthesize:
+        mock_synthesize.return_value = b"fake audio bytes"
+        response = client.post(
+            "/api/chat/audio",
+            json={"text": "hello world", "voice_id": "voice_1"}
+        )
+        assert response.status_code == 200
+        assert response.content == b"fake audio bytes"
+        mock_synthesize.assert_called_once_with(
+            text="hello world",
+            ref_audio_path="alex_ref.wav",
+            prompt_text="This is a reference audio for Alex.",
+            prompt_lang="en",
+            text_lang="en"
+        )
 
 @pytest.mark.asyncio
 async def test_edit_endpoint():

@@ -1,15 +1,16 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:veraxi_app/features/settings/view_models/tts_settings_view_model.dart';
 
-
-class SettingsDialog extends StatefulWidget {
+class SettingsDialog extends ConsumerStatefulWidget {
   const SettingsDialog({super.key});
 
   @override
-  State<SettingsDialog> createState() => _SettingsDialogState();
+  ConsumerState<SettingsDialog> createState() => _SettingsDialogState();
 }
 
-class _SettingsDialogState extends State<SettingsDialog> {
+class _SettingsDialogState extends ConsumerState<SettingsDialog> {
   String _selectedTab = 'General';
 
   final List<String> _tabs = [
@@ -54,7 +55,8 @@ class _SettingsDialogState extends State<SettingsDialog> {
           children: [
             // Header
             Padding(
-              padding: const EdgeInsets.only(left: 24, right: 16, top: 16, bottom: 16),
+              padding: const EdgeInsets.only(
+                  left: 24, right: 16, top: 16, bottom: 16),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -67,7 +69,8 @@ class _SettingsDialogState extends State<SettingsDialog> {
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.close, color: Color(0xFF878787), size: 20),
+                    icon: const Icon(Icons.close,
+                        color: Color(0xFF878787), size: 20),
                     onPressed: () => Navigator.of(context).pop(),
                     splashRadius: 20,
                   ),
@@ -98,15 +101,18 @@ class _SettingsDialogState extends State<SettingsDialog> {
                           child: Row(
                             children: [
                               const SizedBox(width: 12),
-                              const Icon(Icons.search, color: Color(0xFF878787), size: 16),
+                              const Icon(Icons.search,
+                                  color: Color(0xFF878787), size: 16),
                               const SizedBox(width: 8),
                               Expanded(
                                 child: TextField(
-                                  style: const TextStyle(color: Colors.white, fontSize: 13),
+                                  style: const TextStyle(
+                                      color: Colors.white, fontSize: 13),
                                   cursorColor: Colors.white,
                                   decoration: const InputDecoration.collapsed(
                                     hintText: 'Search settings',
-                                    hintStyle: TextStyle(color: Color(0xFF878787), fontSize: 13),
+                                    hintStyle: TextStyle(
+                                        color: Color(0xFF878787), fontSize: 13),
                                   ),
                                 ),
                               ),
@@ -132,9 +138,12 @@ class _SettingsDialogState extends State<SettingsDialog> {
                                   borderRadius: BorderRadius.circular(8),
                                   hoverColor: const Color(0xFF2F2F2F),
                                   child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 12, vertical: 10),
                                     decoration: BoxDecoration(
-                                      color: isSelected ? const Color(0xFF2F2F2F) : Colors.transparent,
+                                      color: isSelected
+                                          ? const Color(0xFF2F2F2F)
+                                          : Colors.transparent,
                                       borderRadius: BorderRadius.circular(8),
                                     ),
                                     child: Row(
@@ -199,7 +208,11 @@ class _SettingsDialogState extends State<SettingsDialog> {
       case 'About':
         return _buildAboutTab();
       default:
-        return [const Center(child: Text('Not implemented yet', style: TextStyle(color: Color(0xFF878787))))];
+        return [
+          const Center(
+              child: Text('Not implemented yet',
+                  style: TextStyle(color: Color(0xFF878787))))
+        ];
     }
   }
 
@@ -244,10 +257,47 @@ class _SettingsDialogState extends State<SettingsDialog> {
   }
 
   List<Widget> _buildSpeechTab() {
+    final ttsState = ref.watch(ttsSettingsViewModelProvider);
+    final String voiceDisplay = ttsState.isLoading
+        ? 'Loading...'
+        : (ttsState.error != null
+            ? 'Error'
+            : (ttsState.voices.firstWhere(
+                    (v) => v['id'] == ttsState.selectedVoiceId,
+                    orElse: () => {'name': 'Default (System)'})['name'] ??
+                'Default (System)'));
+
     return [
       _buildSectionHeader('TEXT TO SPEECH'),
       _buildSettingsGroup([
-        _buildDropdownRow('Voice', 'Default (System)'),
+        _buildDropdownRow('Voice', voiceDisplay, onTap: () {
+          if (ttsState.isLoading ||
+              ttsState.error != null ||
+              ttsState.voices.isEmpty) return;
+
+          showCupertinoModalPopup(
+            context: context,
+            builder: (BuildContext context) => CupertinoActionSheet(
+              title: const Text('Select Voice'),
+              actions: ttsState.voices.map((v) {
+                return CupertinoActionSheetAction(
+                  onPressed: () {
+                    ref
+                        .read(ttsSettingsViewModelProvider.notifier)
+                        .setVoice(v['id']!);
+                    Navigator.pop(context);
+                  },
+                  child: Text(v['name'] ?? ''),
+                );
+              }).toList(),
+              cancelButton: CupertinoActionSheetAction(
+                isDestructiveAction: true,
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel'),
+              ),
+            ),
+          );
+        }),
         _buildDropdownRow('Playback speed', '1.0x'),
       ]),
       const SizedBox(height: 32),
@@ -262,8 +312,11 @@ class _SettingsDialogState extends State<SettingsDialog> {
     return [
       _buildSectionHeader('YOUR DATA'),
       _buildSettingsGroup([
-        _buildActionRow('Export data', 'Download a copy of your data', 'Export'),
-        _buildActionRow('Delete all chats', 'Permanently remove all conversations', 'Delete', isDestructive: true),
+        _buildActionRow(
+            'Export data', 'Download a copy of your data', 'Export'),
+        _buildActionRow('Delete all chats',
+            'Permanently remove all conversations', 'Delete',
+            isDestructive: true),
       ]),
       const SizedBox(height: 32),
       _buildSectionHeader('TELEMETRY'),
@@ -283,7 +336,9 @@ class _SettingsDialogState extends State<SettingsDialog> {
       const SizedBox(height: 32),
       _buildSectionHeader('DANGER ZONE', isDestructive: true),
       _buildSettingsGroup([
-        _buildActionRow('Delete account', 'Permanently remove your account and data', 'Delete', isDestructive: true),
+        _buildActionRow('Delete account',
+            'Permanently remove your account and data', 'Delete',
+            isDestructive: true),
       ]),
     ];
   }
@@ -305,7 +360,10 @@ class _SettingsDialogState extends State<SettingsDialog> {
             const SizedBox(height: 16),
             const Text(
               'Veraxi Chat',
-              style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 4),
             const Text(
@@ -346,7 +404,8 @@ class _SettingsDialogState extends State<SettingsDialog> {
       child: Text(
         title,
         style: TextStyle(
-          color: isDestructive ? const Color(0xFFE53935) : const Color(0xFF878787),
+          color:
+              isDestructive ? const Color(0xFFE53935) : const Color(0xFF878787),
           fontSize: 11,
           fontWeight: FontWeight.bold,
           letterSpacing: 0.5,
@@ -376,28 +435,35 @@ class _SettingsDialogState extends State<SettingsDialog> {
     );
   }
 
-  Widget _buildDropdownRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label, style: const TextStyle(color: Color(0xFFECECEC), fontSize: 13)),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: const Color(0xFF2A2A2A),
-              borderRadius: BorderRadius.circular(6),
+  Widget _buildDropdownRow(String label, String value, {VoidCallback? onTap}) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(label,
+                style: const TextStyle(color: Color(0xFFECECEC), fontSize: 13)),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: const Color(0xFF2A2A2A),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Row(
+                children: [
+                  Text(value,
+                      style:
+                          const TextStyle(color: Colors.white, fontSize: 13)),
+                  const SizedBox(width: 8),
+                  const Icon(Icons.keyboard_arrow_down,
+                      color: Color(0xFF878787), size: 16),
+                ],
+              ),
             ),
-            child: Row(
-              children: [
-                Text(value, style: const TextStyle(color: Colors.white, fontSize: 13)),
-                const SizedBox(width: 8),
-                const Icon(Icons.keyboard_arrow_down, color: Color(0xFF878787), size: 16),
-              ],
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -408,14 +474,16 @@ class _SettingsDialogState extends State<SettingsDialog> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: const TextStyle(color: Color(0xFFECECEC), fontSize: 13)),
+          Text(label,
+              style: const TextStyle(color: Color(0xFFECECEC), fontSize: 13)),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
               color: const Color(0xFF2A2A2A),
               borderRadius: BorderRadius.circular(6),
             ),
-            child: Text(value, style: const TextStyle(color: Colors.white, fontSize: 13)),
+            child: Text(value,
+                style: const TextStyle(color: Colors.white, fontSize: 13)),
           ),
         ],
       ),
@@ -428,7 +496,8 @@ class _SettingsDialogState extends State<SettingsDialog> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: const TextStyle(color: Color(0xFFECECEC), fontSize: 13)),
+          Text(label,
+              style: const TextStyle(color: Color(0xFFECECEC), fontSize: 13)),
           CupertinoSwitch(
             value: value,
             onChanged: (v) {},
@@ -440,7 +509,8 @@ class _SettingsDialogState extends State<SettingsDialog> {
     );
   }
 
-  Widget _buildActionRow(String title, String subtitle, String buttonText, {bool isDestructive = false}) {
+  Widget _buildActionRow(String title, String subtitle, String buttonText,
+      {bool isDestructive = false}) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(
@@ -450,10 +520,14 @@ class _SettingsDialogState extends State<SettingsDialog> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: const TextStyle(color: Color(0xFFECECEC), fontSize: 14)),
+                Text(title,
+                    style: const TextStyle(
+                        color: Color(0xFFECECEC), fontSize: 14)),
                 if (subtitle.isNotEmpty) ...[
                   const SizedBox(height: 2),
-                  Text(subtitle, style: const TextStyle(color: Color(0xFF878787), fontSize: 12)),
+                  Text(subtitle,
+                      style: const TextStyle(
+                          color: Color(0xFF878787), fontSize: 12)),
                 ],
               ],
             ),
@@ -461,14 +535,20 @@ class _SettingsDialogState extends State<SettingsDialog> {
           ElevatedButton(
             onPressed: () {},
             style: ElevatedButton.styleFrom(
-              foregroundColor: isDestructive ? Colors.white : const Color(0xFFECECEC),
-              backgroundColor: isDestructive ? const Color(0xFFD32F2F) : Colors.transparent,
+              foregroundColor:
+                  isDestructive ? Colors.white : const Color(0xFFECECEC),
+              backgroundColor:
+                  isDestructive ? const Color(0xFFD32F2F) : Colors.transparent,
               elevation: 0,
-              side: isDestructive ? null : const BorderSide(color: Color(0xFF3A3A3A)),
+              side: isDestructive
+                  ? null
+                  : const BorderSide(color: Color(0xFF3A3A3A)),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8)),
             ),
-            child: Text(buttonText, style: const TextStyle(fontWeight: FontWeight.w500)),
+            child: Text(buttonText,
+                style: const TextStyle(fontWeight: FontWeight.w500)),
           ),
         ],
       ),
