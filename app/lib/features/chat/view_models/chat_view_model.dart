@@ -1,9 +1,12 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'dart:convert';
 import 'package:sentry_flutter/sentry_flutter.dart';
+import 'package:just_audio/just_audio.dart';
 import 'package:veraxi_app/core/network/api_client.dart';
 import 'package:veraxi_app/core/api_key_storage.dart';
 import 'package:veraxi_app/core/web_speech_service.dart';
 import 'package:veraxi_app/features/chat/data/chat_repository.dart';
+import 'package:veraxi_app/features/settings/view_models/tts_settings_view_model.dart';
 
 class ChatMessage {
   final String? id;
@@ -29,7 +32,14 @@ class ChatMessage {
   bool get isUser => role == 'user';
   String get text => content;
 
-  ChatMessage copyWith({String? id, String? content, bool? isStreaming, String? activeTool, bool? isError, int? feedback, String? modelName}) {
+  ChatMessage copyWith(
+      {String? id,
+      String? content,
+      bool? isStreaming,
+      String? activeTool,
+      bool? isError,
+      int? feedback,
+      String? modelName}) {
     return ChatMessage(
       id: id ?? this.id,
       role: role,
@@ -89,16 +99,25 @@ final chatRepositoryProvider = Provider<ChatRepository>((ref) {
   return ChatRepository(apiClient: apiClient);
 });
 
-final chatViewModelProvider = StateNotifierProvider<ChatViewModel, ChatState>((ref) {
+final chatViewModelProvider =
+    StateNotifierProvider<ChatViewModel, ChatState>((ref) {
   final repo = ref.watch(chatRepositoryProvider);
-  return ChatViewModel(repo);
+  return ChatViewModel(repo, ref);
 });
 
 class ChatViewModel extends StateNotifier<ChatState> {
   final ChatRepository _repository;
+  final Ref _ref;
+  final AudioPlayer _audioPlayer = AudioPlayer();
 
-  ChatViewModel(this._repository) : super(ChatState()) {
+  ChatViewModel(this._repository, this._ref) : super(ChatState()) {
     loadThreads();
+  }
+
+  @override
+  void dispose() {
+    _audioPlayer.dispose();
+    super.dispose();
   }
 
   Future<void> loadThreads() async {
@@ -111,16 +130,19 @@ class ChatViewModel extends StateNotifier<ChatState> {
   }
 
   Future<void> selectThread(String threadId) async {
-    state = state.copyWith(isLoadingHistory: true, threadId: threadId, messages: []);
+    state = state
+        .copyWith(isLoadingHistory: true, threadId: threadId, messages: []);
     try {
       final history = await _repository.getThreadHistory(threadId);
-      final messages = history.map((m) => ChatMessage(
-        id: m['id'] as String?,
-        role: m['role'] as String,
-        content: m['content'] as String,
-        feedback: m['feedback'] as int? ?? 0,
-        modelName: m['model_name'] as String?,
-      )).toList();
+      final messages = history
+          .map((m) => ChatMessage(
+                id: m['id'] as String?,
+                role: m['role'] as String,
+                content: m['content'] as String,
+                feedback: m['feedback'] as int? ?? 0,
+                modelName: m['model_name'] as String?,
+              ))
+          .toList();
       state = state.copyWith(messages: messages, isLoadingHistory: false);
     } catch (e, st) {
       Sentry.captureException(e, stackTrace: st);
@@ -136,7 +158,8 @@ class ChatViewModel extends StateNotifier<ChatState> {
     final newIsTemporary = !state.isTemporary;
     if (newIsTemporary) {
       // If toggling ON, clear the current context
-      state = state.copyWith(isTemporary: newIsTemporary, threadId: null, messages: []);
+      state = state
+          .copyWith(isTemporary: newIsTemporary, threadId: null, messages: []);
     } else {
       state = state.copyWith(isTemporary: newIsTemporary);
     }
@@ -149,7 +172,8 @@ class ChatViewModel extends StateNotifier<ChatState> {
       final userMsg = ChatMessage(role: 'user', content: text);
       final errorMsg = ChatMessage(
         role: 'assistant',
-        content: 'No AI model selected. Please select a model from the top left menu.',
+        content:
+            'No AI model selected. Please select a model from the top left menu.',
         isError: true,
       );
       state = state.copyWith(messages: [...state.messages, userMsg, errorMsg]);
@@ -157,12 +181,14 @@ class ChatViewModel extends StateNotifier<ChatState> {
     }
 
     final hasExpired = await ApiKeyStorage().isGeminiKeyExpired();
-    if (hasExpired && (model.startsWith('gemini') || model.startsWith('Google'))) {
+    if (hasExpired &&
+        (model.startsWith('gemini') || model.startsWith('Google'))) {
       final expireDate = await ApiKeyStorage().getGeminiKeyExpirationDate();
       final userMsg = ChatMessage(role: 'user', content: text);
       final errorMsg = ChatMessage(
-        role: 'assistant', 
-        content: 'Provided key for google expired at $expireDate. Please provide a new key and try again.',
+        role: 'assistant',
+        content:
+            'Provided key for google expired at $expireDate. Please provide a new key and try again.',
         isError: true,
       );
       state = state.copyWith(messages: [...state.messages, userMsg, errorMsg]);
@@ -171,10 +197,18 @@ class ChatViewModel extends StateNotifier<ChatState> {
 
     final userMsg = ChatMessage(role: 'user', content: text);
     // Add user message and empty AI message
-    state = state.copyWith(messages: [...state.messages, userMsg, ChatMessage(role: 'assistant', content: '', isStreaming: true, modelName: model)]);
-    
+    state = state.copyWith(messages: [
+      ...state.messages,
+      userMsg,
+      ChatMessage(
+          role: 'assistant', content: '', isStreaming: true, modelName: model)
+    ]);
+
     try {
-      await for (final event in _repository.streamChat(text, threadId: state.threadId, isTemporary: state.isTemporary, model: model)) {
+      await for (final event in _repository.streamChat(text,
+          threadId: state.threadId,
+          isTemporary: state.isTemporary,
+          model: model)) {
         _handleStreamEvent(event);
       }
     } catch (e, st) {
@@ -182,7 +216,8 @@ class ChatViewModel extends StateNotifier<ChatState> {
       final errorStr = e.toString();
       String uiError = "Error: Unable to complete request.";
       if (errorStr.contains("No AI model selected")) {
-        uiError = "No AI model selected. Please select a model from the top left menu.";
+        uiError =
+            "No AI model selected. Please select a model from the top left menu.";
       }
       _updateLastMessage(content: uiError, isStreaming: false, isError: true);
     }
@@ -197,7 +232,8 @@ class ChatViewModel extends StateNotifier<ChatState> {
         if (content != null && content is String) {
           final msgs = List<ChatMessage>.from(state.messages);
           final last = msgs.last;
-          msgs[msgs.length - 1] = last.copyWith(content: last.content + content);
+          msgs[msgs.length - 1] =
+              last.copyWith(content: last.content + content);
           state = state.copyWith(messages: msgs);
         }
       }
@@ -209,17 +245,18 @@ class ChatViewModel extends StateNotifier<ChatState> {
     } else if (type == 'on_chain_end' && event['name'] == 'LangGraph') {
       // Graph finished
       _updateLastMessage(isStreaming: false, activeTool: null);
-      
+
       // If this was a new chat, we need to extract the thread ID from somewhere, or reload threads
       loadThreads();
     }
   }
 
-  void _updateLastMessage({String? content, bool? isStreaming, String? activeTool, bool? isError}) {
+  void _updateLastMessage(
+      {String? content, bool? isStreaming, String? activeTool, bool? isError}) {
     if (state.messages.isEmpty) return;
     final msgs = List<ChatMessage>.from(state.messages);
     final last = msgs.last;
-    
+
     msgs[msgs.length - 1] = ChatMessage(
       id: last.id,
       role: last.role,
@@ -241,7 +278,9 @@ class ChatViewModel extends StateNotifier<ChatState> {
     try {
       await _repository.submitFeedback(messageId, value);
       // Update local state
-      final msgs = state.messages.map((m) => m.id == messageId ? m.copyWith(feedback: value) : m).toList();
+      final msgs = state.messages
+          .map((m) => m.id == messageId ? m.copyWith(feedback: value) : m)
+          .toList();
       state = state.copyWith(messages: msgs, clearError: true);
     } catch (e, st) {
       Sentry.captureException(e, stackTrace: st);
@@ -254,7 +293,9 @@ class ChatViewModel extends StateNotifier<ChatState> {
     try {
       await _repository.editMessage(messageId, content, state.threadId!);
       // Update local state
-      final msgs = state.messages.map((m) => m.id == messageId ? m.copyWith(content: content) : m).toList();
+      final msgs = state.messages
+          .map((m) => m.id == messageId ? m.copyWith(content: content) : m)
+          .toList();
       state = state.copyWith(messages: msgs, clearError: true);
     } catch (e, st) {
       Sentry.captureException(e, stackTrace: st);
@@ -268,38 +309,102 @@ class ChatViewModel extends StateNotifier<ChatState> {
       await _repository.regenerateResponse(state.threadId!);
       state = state.copyWith(clearError: true);
       // Mock refresh - in reality we should drop the last message and call streamChat again
-      selectThread(state.threadId!); 
+      selectThread(state.threadId!);
     } catch (e, st) {
       Sentry.captureException(e, stackTrace: st);
       state = state.copyWith(error: 'Failed to regenerate response: $e');
     }
   }
 
-  /// Speaks [text] aloud using the browser's built-in Web Speech API.
+  /// Speaks [text] aloud.
   ///
-  /// This is the industry-standard free TTS approach used by LibreChat, Open WebUI,
-  /// and all major open-source chat interfaces. No API key or backend call required.
-  void playAudio(String text) {
+  /// Uses GPT-SoVITS via backend if a custom voice is selected.
+  /// Falls back to the browser's built-in Web Speech API otherwise.
+  Future<void> playAudio(String text) async {
     try {
-      if (!WebSpeechService.instance.isSupported) {
-        state = state.copyWith(error: 'Text-to-speech is not supported in this browser.');
-        return;
+      // Check if we are already playing something via just_audio and stop it
+      if (_audioPlayer.playing) {
+        await _audioPlayer.stop();
+        return; // act as a toggle
       }
-      // Toggle: if already speaking the same message, stop it
+
       if (WebSpeechService.instance.isSpeaking) {
         WebSpeechService.instance.stop();
-      } else {
-        WebSpeechService.instance.speak(text);
+        return;
       }
+
+      final ttsState = _ref.read(ttsSettingsViewModelProvider);
+      final voiceId = ttsState.selectedVoiceId;
+
+      if (voiceId != 'default_system') {
+        // Use custom backend synthesis
+        final apiClient = _ref.read(apiClientProvider);
+        final uri = Uri.parse('${apiClient.baseUrl}/chat/audio');
+        final headers = apiClient.getDefaultHeaders()
+          ..['Content-Type'] = 'application/json';
+        final body = jsonEncode({'text': text, 'voice_id': voiceId});
+
+        final response =
+            await apiClient.client.post(uri, headers: headers, body: body);
+
+        if (response.statusCode == 200) {
+          final audioBytes = response.bodyBytes;
+          await _audioPlayer.setAudioSource(MyCustomSource(audioBytes));
+          await _audioPlayer.play();
+          state = state.copyWith(clearError: true);
+          return;
+        } else {
+          // If backend synthesis fails, log and fallback
+          throw Exception('Backend synthesis failed: ${response.statusCode}');
+        }
+      }
+
+      // Fallback to Web Speech API
+      if (!WebSpeechService.instance.isSupported) {
+        state = state.copyWith(
+            error: 'Text-to-speech is not supported in this browser.');
+        return;
+      }
+      WebSpeechService.instance.speak(text);
       state = state.copyWith(clearError: true);
     } catch (e, st) {
       Sentry.captureException(e, stackTrace: st);
-      state = state.copyWith(error: 'Failed to play audio: $e');
+
+      // Try fallback if backend failed
+      try {
+        if (WebSpeechService.instance.isSupported) {
+          WebSpeechService.instance.speak(text);
+          state = state.copyWith(clearError: true);
+        } else {
+          state = state.copyWith(error: 'Failed to play audio: $e');
+        }
+      } catch (fallbackError) {
+        state = state.copyWith(error: 'Failed to play audio: $e');
+      }
     }
   }
 
   /// Stops any currently playing TTS audio.
   void stopAudio() {
+    _audioPlayer.stop();
     WebSpeechService.instance.stop();
+  }
+}
+
+class MyCustomSource extends StreamAudioSource {
+  final List<int> bytes;
+  MyCustomSource(this.bytes);
+
+  @override
+  Future<StreamAudioResponse> request([int? start, int? end]) async {
+    start ??= 0;
+    end ??= bytes.length;
+    return StreamAudioResponse(
+      sourceLength: bytes.length,
+      contentLength: end - start,
+      offset: start,
+      stream: Stream.value(bytes.sublist(start, end)),
+      contentType: 'audio/wav',
+    );
   }
 }

@@ -35,6 +35,7 @@ class Config:
     redis_url: str
     auth_enabled: bool
     cors_origins: str
+    gpt_sovits_base_url: str
 
     @classmethod
     def from_env(cls) -> "Config":
@@ -66,6 +67,7 @@ class Config:
             redis_url=os.environ.get("REDIS_URL", "redis://localhost:6379/0"),
             auth_enabled=os.environ.get("AUTH_ENABLED", "true").lower() == "true",
             cors_origins=os.environ.get("CORS_ORIGINS", "*"),
+            gpt_sovits_base_url=os.environ.get("GPT_SOVITS_BASE_URL", "http://localhost:9880"),
         )
 
     def get_llm_client_args(self, model_name: Optional[str] = None) -> dict:
