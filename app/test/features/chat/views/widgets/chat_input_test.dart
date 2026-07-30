@@ -16,7 +16,7 @@ void main() {
       expect(find.byType(TextField), findsOneWidget);
       expect(find.byIcon(Icons.arrow_upward), findsOneWidget);
       expect(find.byIcon(Icons.attach_file), findsOneWidget);
-      expect(find.byIcon(Icons.tune_outlined), findsOneWidget);
+      expect(find.byIcon(Icons.tune), findsOneWidget);
       expect(find.byIcon(Icons.mic_none_outlined), findsOneWidget);
       expect(find.byIcon(Icons.error_outline), findsNothing);
     });
@@ -30,6 +30,7 @@ void main() {
       )));
 
       await tester.enterText(find.byType(TextField), 'Hello Veraxi');
+      await tester.pump(); // wait for setState(_hasText = true)
       await tester.tap(find.byIcon(Icons.arrow_upward));
       await tester.pump();
 
@@ -47,7 +48,8 @@ void main() {
       )));
 
       await tester.enterText(find.byType(TextField), 'submitted via enter');
-      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pump();
+      await tester.testTextInput.receiveAction(TextInputAction.send);
       await tester.pump();
 
       expect(sentText, 'submitted via enter');
@@ -62,6 +64,7 @@ void main() {
       )));
 
       await tester.enterText(find.byType(TextField), '   ');
+      await tester.pump();
       await tester.tap(find.byIcon(Icons.arrow_upward));
       await tester.pump();
 
@@ -97,7 +100,7 @@ void main() {
         onSend: (_) {},
       )));
 
-      expect(find.byType(TextField), findsNothing);
+      expect(find.byType(TextField), findsOneWidget);
       expect(find.byIcon(Icons.error_outline), findsOneWidget);
       expect(
         find.text('Network error: Unable to connect to the server.'),
