@@ -100,15 +100,14 @@ class ChatState {
 final chatViewModelProvider =
     StateNotifierProvider<ChatViewModel, ChatState>((ref) {
   final repo = ref.watch(chatRepositoryProvider);
-  return ChatViewModel(repo, ref);
+  return ChatViewModel(repo);
 });
 
 class ChatViewModel extends StateNotifier<ChatState> {
   final ChatRepository _repository;
-  final Ref _ref;
   final AudioPlayer _audioPlayer = AudioPlayer();
 
-  ChatViewModel(this._repository, this._ref) : super(ChatState()) {
+  ChatViewModel(this._repository) : super(ChatState()) {
     loadThreads();
     _audioPlayer.playerStateStream.listen((playerState) {
       if (playerState.processingState == ProcessingState.completed) {
@@ -406,14 +405,17 @@ class ChatViewModel extends StateNotifier<ChatState> {
   }
 }
 
+// ignore: experimental_member_use
 class BytesAudioSource extends StreamAudioSource {
   final List<int> bytes;
   BytesAudioSource(this.bytes);
 
   @override
+  // ignore: experimental_member_use
   Future<StreamAudioResponse> request([int? start, int? end]) async {
     start ??= 0;
     end ??= bytes.length;
+    // ignore: experimental_member_use
     return StreamAudioResponse(
       sourceLength: bytes.length,
       contentLength: end - start,

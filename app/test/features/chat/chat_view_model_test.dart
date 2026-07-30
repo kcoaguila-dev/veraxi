@@ -20,9 +20,8 @@ void main() {
   setUp(() {
     TestWidgetsFlutterBinding.ensureInitialized();
     mockRepository = MockChatRepository();
-    final mockRef = MockRef();
     when(() => mockRepository.getThreads()).thenAnswer((_) async => []);
-    viewModel = ChatViewModel(mockRepository, mockRef);
+    viewModel = ChatViewModel(mockRepository);
   });
 
   Future<void> pumpEventQueue() => Future.delayed(Duration.zero);

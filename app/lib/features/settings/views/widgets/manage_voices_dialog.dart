@@ -444,7 +444,7 @@ class _VoiceEditorFormState extends State<_VoiceEditorForm> {
 
   Widget _buildDropdown(String label, String value, ValueChanged<String?> onChanged) {
     return DropdownButtonFormField<String>(
-      value: value,
+      initialValue: value,
       onChanged: onChanged,
       style: const TextStyle(color: Colors.white, fontSize: 13),
       dropdownColor: const Color(0xFF1E1E1E),

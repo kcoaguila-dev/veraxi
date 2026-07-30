@@ -194,8 +194,6 @@ class CodeElementBuilder extends MarkdownElementBuilder {
 }
 
 
-// Resolved at compile time via --dart-define=IS_SELF_HOSTED=true (set in Dockerfile)
-const bool _isSelfHosted = bool.fromEnvironment('IS_SELF_HOSTED', defaultValue: false);
 
 
 
@@ -629,48 +627,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     );
   }
 
-  Widget _buildDrawer(ChatState state, ChatViewModel viewModel, ThemeData theme, AppThemeExtension ext) {
-    return Drawer(
-      backgroundColor: theme.colorScheme.surface,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          DrawerHeader(
-            decoration: BoxDecoration(
-              border: Border(bottom: BorderSide(color: theme.colorScheme.onSurface.withValues(alpha: 0.1))),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                Icon(Icons.history, color: ext.primaryGradientStart, size: 32),
-                const SizedBox(height: 12),
-                Text('Chat History', style: theme.textTheme.titleLarge),
-              ],
-            ),
-          ),
-          Expanded(
-            child: ListView.builder(
-              itemCount: state.pastThreads.length,
-              itemBuilder: (context, index) {
-                final threadData = state.pastThreads[index];
-                final threadId = threadData['thread_id'] as String? ?? '';
-                final title = threadData['title'] as String? ?? (threadId.length > 8 ? threadId.substring(0, 8) + '...' : threadId);
-                return ListTile(
-                  leading: Icon(Icons.chat_bubble_outline, color: theme.colorScheme.onSurface.withValues(alpha: 0.5), size: 20),
-                  title: Text(title, style: theme.textTheme.bodyMedium),
-                  onTap: () {
-                    Navigator.pop(context); // Close drawer
-                    viewModel.selectThread(threadId);
-                  },
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
   Widget _buildChatMessage(ChatMessage msg, ThemeData theme, AppThemeExtension ext) {
     final isUser = msg.role == 'user';
