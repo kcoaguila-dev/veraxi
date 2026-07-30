@@ -20,18 +20,25 @@ class ApiClient {
   }) : client = client ?? http.Client();
 
   Map<String, String> getDefaultHeaders() {
-    final headers = <String, String>{};
+    final headers = <String, String>{
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0',
+    };
     if (tenantId != null) {
       headers['Authorization'] = 'Bearer $tenantId';
     }
     return headers;
   }
 
-  Future<dynamic> get(String path) async {
+  Future<dynamic> get(String path, {Map<String, String>? headers}) async {
     try {
+      final requestHeaders = getDefaultHeaders();
+      if (headers != null) requestHeaders.addAll(headers);
+
       final response = await client.get(
         Uri.parse('$baseUrl$path'),
-        headers: getDefaultHeaders(),
+        headers: requestHeaders,
       ).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
@@ -44,12 +51,14 @@ class ApiClient {
     }
   }
 
-  Future<dynamic> post(String path, {Map<String, dynamic>? body}) async {
+  Future<dynamic> post(String path, {Map<String, dynamic>? body, Map<String, String>? headers}) async {
     try {
-      final headers = getDefaultHeaders()..['Content-Type'] = 'application/json';
+      final requestHeaders = getDefaultHeaders()..['Content-Type'] = 'application/json';
+      if (headers != null) requestHeaders.addAll(headers);
+
       final response = await client.post(
         Uri.parse('$baseUrl$path'),
-        headers: headers,
+        headers: requestHeaders,
         body: body != null ? jsonEncode(body) : null,
       ).timeout(const Duration(seconds: 10));
 
@@ -63,12 +72,14 @@ class ApiClient {
     }
   }
 
-  Future<dynamic> put(String path, {Map<String, dynamic>? body}) async {
+  Future<dynamic> put(String path, {Map<String, dynamic>? body, Map<String, String>? headers}) async {
     try {
-      final headers = getDefaultHeaders()..['Content-Type'] = 'application/json';
+      final requestHeaders = getDefaultHeaders()..['Content-Type'] = 'application/json';
+      if (headers != null) requestHeaders.addAll(headers);
+
       final response = await client.put(
         Uri.parse('$baseUrl$path'),
-        headers: headers,
+        headers: requestHeaders,
         body: body != null ? jsonEncode(body) : null,
       ).timeout(const Duration(seconds: 10));
 

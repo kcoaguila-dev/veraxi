@@ -210,6 +210,19 @@ class ChatScreen extends ConsumerStatefulWidget {
 }
 
 class _ChatScreenState extends ConsumerState<ChatScreen> {
+  PopupMenuItem<String> _buildPopupMenuItem(String title, IconData icon, {bool isDestructive = false}) {
+    return PopupMenuItem<String>(
+      value: title,
+      child: Row(
+        children: [
+          Icon(icon, color: isDestructive ? Colors.red : const Color(0xFFB4B4B4), size: 16),
+          const SizedBox(width: 12),
+          Text(title, style: TextStyle(color: isDestructive ? Colors.red : const Color(0xFFE0E0E0), fontSize: 13)),
+        ],
+      ),
+    );
+  }
+
   final ScrollController _scrollController = ScrollController();
   final GlobalKey _modelSelectorKey = GlobalKey();
   bool _isModelSelectorOpen = false;
@@ -256,7 +269,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      drawer: _buildDrawer(state, viewModel, theme, ext),
+      drawer: null,
       body: Row(
         children: [
           // Inner Navigation Sidebar (Projects / Chats)
@@ -351,7 +364,92 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     Icon(Icons.edit_square, color: const Color(0xFFB4B4B4), size: 16),
                   ],
                 ),
-                const Spacer(),
+                const SizedBox(height: 12),
+                Expanded(
+                  child: state.pastThreads.isEmpty
+                      ? const Text('No threads found.', style: TextStyle(color: Colors.red, fontSize: 12))
+                      : ListView.builder(
+                          itemCount: state.pastThreads.length,
+                          itemBuilder: (context, index) {
+                            final threadData = state.pastThreads[index];
+                            final threadId = threadData['thread_id'] as String? ?? '';
+                            final title = threadData['title'] as String? ?? (threadId.length > 8 ? threadId.substring(0, 8) + '...' : threadId);
+                            final isSelected = state.threadId == threadId;
+                            bool isHovered = false;
+
+                            return StatefulBuilder(
+                              builder: (context, setState) {
+                                return MouseRegion(
+                                  onEnter: (_) => setState(() => isHovered = true),
+                                  onExit: (_) => setState(() => isHovered = false),
+                                  child: InkWell(
+                                    onTap: () {
+                                      viewModel.selectThread(threadId);
+                                    },
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        color: isSelected ? const Color(0xFF2A2A2A) : Colors.transparent,
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 8.0),
+                                      child: Row(
+                                        children: [
+                                          Expanded(
+                                            child: Text(
+                                              title,
+                                              style: TextStyle(
+                                                color: isSelected ? Colors.white : const Color(0xFFB4B4B4), 
+                                                fontSize: 13,
+                                                fontWeight: isSelected ? FontWeight.w500 : FontWeight.normal,
+                                              ),
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                          Visibility(
+                                            visible: isHovered || isSelected,
+                                            maintainSize: true,
+                                            maintainAnimation: true,
+                                            maintainState: true,
+                                            child: Theme(
+                                              data: Theme.of(context).copyWith(
+                                                hoverColor: Colors.transparent,
+                                                splashColor: Colors.transparent,
+                                                highlightColor: Colors.transparent,
+                                              ),
+                                              child: SizedBox(
+                                                width: 24,
+                                                height: 24,
+                                                child: PopupMenuButton<String>(
+                                                  icon: Icon(Icons.more_horiz, color: isSelected ? Colors.white : const Color(0xFFB4B4B4), size: 16),
+                                                  color: const Color(0xFF2A2A2A),
+                                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                                  padding: EdgeInsets.zero,
+                                                  itemBuilder: (context) => [
+                                                    _buildPopupMenuItem('Share', Icons.share),
+                                                    _buildPopupMenuItem('Pin', Icons.push_pin_outlined),
+                                                    _buildPopupMenuItem('Rename', Icons.edit_outlined),
+                                                    _buildPopupMenuItem('Duplicate', Icons.copy_outlined),
+                                                    _buildPopupMenuItem('Change project', Icons.folder_outlined),
+                                                    _buildPopupMenuItem('Archive', Icons.archive_outlined),
+                                                    _buildPopupMenuItem('Delete', Icons.delete_outline, isDestructive: true),
+                                                  ],
+                                                  onSelected: (value) {
+                                                    // TODO: Implement actions
+                                                  },
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              }
+                            );
+                          },
+                        ),
+                ),
               ],
             ),
           ),

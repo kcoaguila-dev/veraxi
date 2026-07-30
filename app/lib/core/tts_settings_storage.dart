@@ -15,4 +15,20 @@ class TTSSettingsStorage {
   Future<void> clearVoiceId() async {
     await _storage.delete(key: _voiceIdKey);
   }
+
+  Future<void> saveEngine(String engine) async {
+    await _storage.write(key: 'tts_engine', value: engine);
+  }
+
+  Future<String?> getEngine() async {
+    return await _storage.read(key: 'tts_engine');
+  }
+
+  Future<void> saveGptSovitsUrl(String url) async {
+    await _storage.write(key: 'tts_gpt_sovits_url', value: url);
+  }
+
+  Future<String?> getGptSovitsUrl() async {
+    return await _storage.read(key: 'tts_gpt_sovits_url');
+  }
 }
