@@ -173,8 +173,9 @@ class _ApiKeyDialogState extends State<ApiKeyDialog> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('${widget.providerName} Service Account Key', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500)),
-                      Text('(from ${widget.providerName} Cloud Platform)', style: const TextStyle(color: Color(0xFF878787), fontSize: 11)),
+                      Flexible(child: Text('${widget.providerName} Service Account Key', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500))),
+                      const SizedBox(width: 8),
+                      Flexible(child: Text('(from ${widget.providerName} Cloud Platform)', style: const TextStyle(color: Color(0xFF878787), fontSize: 11), textAlign: TextAlign.right)),
                     ],
                   ),
                   const SizedBox(height: 8),
@@ -201,8 +202,9 @@ class _ApiKeyDialogState extends State<ApiKeyDialog> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('${widget.providerName} API Key', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500)),
-                      const Text('[Gemini API]', style: TextStyle(color: Color(0xFF878787), fontSize: 11)),
+                      Flexible(child: Text('${widget.providerName} API Key', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500))),
+                      const SizedBox(width: 8),
+                      const Flexible(child: Text('[Gemini API]', style: TextStyle(color: Color(0xFF878787), fontSize: 11), textAlign: TextAlign.right)),
                     ],
                   ),
                   const SizedBox(height: 8),

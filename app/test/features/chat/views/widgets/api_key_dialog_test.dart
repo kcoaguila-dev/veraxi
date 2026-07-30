@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:veraxi_app/core/api_key_storage.dart';
 import 'package:veraxi_app/features/chat/views/widgets/api_key_dialog.dart';
 
 void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues({});
+    FlutterSecureStorage.setMockInitialValues({});
   });
 
   testWidgets('ApiKeyDialog saves key on Submit', (WidgetTester tester) async {
