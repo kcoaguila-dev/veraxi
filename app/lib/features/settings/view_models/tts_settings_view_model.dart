@@ -14,7 +14,7 @@ final ttsSettingsViewModelProvider =
 class TTSSettingsState {
   final bool isLoading;
   final String? error;
-  final List<Map<String, String>> voices;
+  final List<Map<String, dynamic>> voices;
   final String selectedVoiceId;
   final String selectedEngine;
   final String gptSovitsUrl;
@@ -32,7 +32,7 @@ class TTSSettingsState {
     bool? isLoading,
     String? error,
     bool clearError = false,
-    List<Map<String, String>>? voices,
+    List<Map<String, dynamic>>? voices,
     String? selectedVoiceId,
     String? selectedEngine,
     String? gptSovitsUrl,
@@ -103,5 +103,19 @@ class TTSSettingsViewModel extends StateNotifier<TTSSettingsState> {
     state = state.copyWith(gptSovitsUrl: url);
     // Reload voices when URL changes
     _init();
+  }
+
+  Future<void> saveVoices(List<Map<String, dynamic>> newVoices) async {
+    state = state.copyWith(isLoading: true, clearError: true);
+    try {
+      await _repository.saveVoices(newVoices);
+      await _init(); // Refresh voices after saving
+    } catch (e, st) {
+      await Sentry.captureException(e, stackTrace: st);
+      state = state.copyWith(
+        isLoading: false,
+        error: 'Failed to save voices: $e',
+      );
+    }
   }
 }
