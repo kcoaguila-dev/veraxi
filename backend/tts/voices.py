@@ -64,9 +64,35 @@ def save_voices(new_voices: list[dict]):
         VOICE_REGISTRY[v["id"]] = v
 
     json_path = os.path.join(os.path.dirname(__file__), "voices.json")
+    # Ensure the directory exists (though __file__ directory should exist)
+    os.makedirs(os.path.dirname(json_path), exist_ok=True)
     try:
         with open(json_path, "w", encoding="utf-8") as f:
             json.dump(VOICE_REGISTRY, f, indent=2, ensure_ascii=False)
     except Exception as e:
         logger.error(f"Failed to save voices.json: {e}")
+        raise
+
+def add_voice(voice_id: str, name: str, ref_audio_path: str, prompt_text: str, prompt_lang: str = "en", text_lang: str = "en"):
+    """Adds a single voice and saves the registry."""
+    global VOICE_REGISTRY
+    
+    if voice_id == "default_system":
+        return
+        
+    VOICE_REGISTRY[voice_id] = {
+        "id": voice_id,
+        "name": name,
+        "ref_audio_path": ref_audio_path,
+        "prompt_text": prompt_text,
+        "prompt_lang": prompt_lang,
+        "text_lang": text_lang,
+    }
+    
+    json_path = os.path.join(os.path.dirname(__file__), "voices.json")
+    try:
+        with open(json_path, "w", encoding="utf-8") as f:
+            json.dump(VOICE_REGISTRY, f, indent=2, ensure_ascii=False)
+    except Exception as e:
+        logger.error(f"Failed to save voices.json after adding voice: {e}")
         raise

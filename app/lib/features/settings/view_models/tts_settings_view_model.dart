@@ -118,4 +118,19 @@ class TTSSettingsViewModel extends StateNotifier<TTSSettingsState> {
       );
     }
   }
+
+  Future<void> uploadVoice(String name, String promptText, List<int> fileBytes, String fileName) async {
+    state = state.copyWith(isLoading: true, clearError: true);
+    try {
+      await _repository.uploadVoice(name, promptText, fileBytes, fileName);
+      await _init(); // Refresh voices after saving
+    } catch (e, st) {
+      await Sentry.captureException(e, stackTrace: st);
+      state = state.copyWith(
+        isLoading: false,
+        error: 'Failed to upload voice: $e',
+      );
+      rethrow;
+    }
+  }
 }

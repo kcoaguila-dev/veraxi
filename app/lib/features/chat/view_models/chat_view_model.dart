@@ -1,5 +1,4 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'dart:convert';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:veraxi_app/core/api_key_storage.dart';
