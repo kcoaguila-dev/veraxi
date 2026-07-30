@@ -275,11 +275,17 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
         voiceDisplay = 'No voices available';
         voiceOptions = ['No voices available'];
       } else {
-        voiceDisplay = ttsState.voices.firstWhere(
-                (v) => v['id'] == ttsState.selectedVoiceId,
-                orElse: () => ttsState.voices.first)['name'] ??
-            'Unknown';
-        voiceOptions = ttsState.voices.map((v) => v['name'].toString()).toList();
+        final customVoices = ttsState.voices.where((v) => v['id'] != 'default_system').toList();
+        if (customVoices.isEmpty) {
+          voiceDisplay = 'No voices available';
+          voiceOptions = ['No voices available'];
+        } else {
+          final selected = customVoices.firstWhere(
+                  (v) => v['id'] == ttsState.selectedVoiceId,
+                  orElse: () => customVoices.first);
+          voiceDisplay = selected['name'] ?? 'Unknown';
+          voiceOptions = customVoices.map((v) => v['name'].toString()).toList();
+        }
       }
     }
 

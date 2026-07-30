@@ -307,6 +307,8 @@ class _VoiceEditorFormState extends State<_VoiceEditorForm> {
   late TextEditingController _nameController;
   late TextEditingController _pathController;
   late TextEditingController _promptController;
+  late String _promptLang;
+  late String _textLang;
 
   @override
   void initState() {
@@ -314,6 +316,8 @@ class _VoiceEditorFormState extends State<_VoiceEditorForm> {
     _nameController = TextEditingController(text: widget.voice['name']);
     _pathController = TextEditingController(text: widget.voice['ref_audio_path']);
     _promptController = TextEditingController(text: widget.voice['prompt_text']);
+    _promptLang = widget.voice['prompt_lang'] ?? 'en';
+    _textLang = widget.voice['text_lang'] ?? 'en';
   }
 
   void _update() {
@@ -321,6 +325,8 @@ class _VoiceEditorFormState extends State<_VoiceEditorForm> {
     updated['name'] = _nameController.text;
     updated['ref_audio_path'] = _pathController.text;
     updated['prompt_text'] = _promptController.text;
+    updated['prompt_lang'] = _promptLang;
+    updated['text_lang'] = _textLang;
     widget.onChanged(updated);
   }
 
@@ -354,9 +360,10 @@ class _VoiceEditorFormState extends State<_VoiceEditorForm> {
           _buildTextField('Audio Path (e.g. voices/geralt.wav)', _pathController, _update),
           const SizedBox(height: 8),
           _buildTextField(
-            'Prompt Text',
+            'Reference Transcript',
             _promptController,
             _update,
+            hintText: 'Enter exactly what is spoken in the audio file',
             suffixIcon: IconButton(
               icon: const Icon(Icons.upload_file, color: Colors.grey),
               tooltip: 'Upload .txt file',
@@ -382,18 +389,38 @@ class _VoiceEditorFormState extends State<_VoiceEditorForm> {
               },
             ),
           ),
+          const SizedBox(height: 8),
+        Row(
+            children: [
+              Expanded(
+                child: _buildDropdown('Transcript Language', _promptLang, (val) {
+                  setState(() => _promptLang = val!);
+                  _update();
+                }),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _buildDropdown('Generated Speech Language', _textLang, (val) {
+                  setState(() => _textLang = val!);
+                  _update();
+                }),
+              ),
+            ],
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildTextField(String label, TextEditingController controller, VoidCallback onChanged, {Widget? suffixIcon}) {
+  Widget _buildTextField(String label, TextEditingController controller, VoidCallback onChanged, {Widget? suffixIcon, String? hintText}) {
     return TextField(
       controller: controller,
       onChanged: (_) => onChanged(),
       style: const TextStyle(color: Colors.white, fontSize: 13),
       decoration: InputDecoration(
         labelText: label,
+        hintText: hintText,
+        hintStyle: const TextStyle(color: Color(0xFF666666), fontSize: 13),
         labelStyle: const TextStyle(color: Colors.grey, fontSize: 12),
         isDense: true,
         filled: true,
@@ -412,6 +439,40 @@ class _VoiceEditorFormState extends State<_VoiceEditorForm> {
           borderSide: const BorderSide(color: Colors.grey),
         ),
       ),
+    );
+  }
+
+  Widget _buildDropdown(String label, String value, ValueChanged<String?> onChanged) {
+    return DropdownButtonFormField<String>(
+      value: value,
+      onChanged: onChanged,
+      style: const TextStyle(color: Colors.white, fontSize: 13),
+      dropdownColor: const Color(0xFF1E1E1E),
+      decoration: InputDecoration(
+        labelText: label,
+        labelStyle: const TextStyle(color: Colors.grey, fontSize: 12),
+        isDense: true,
+        filled: true,
+        fillColor: const Color(0xFF141414),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(6),
+          borderSide: const BorderSide(color: Color(0xFF333333)),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(6),
+          borderSide: const BorderSide(color: Color(0xFF333333)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(6),
+          borderSide: const BorderSide(color: Colors.grey),
+        ),
+      ),
+      items: const [
+        DropdownMenuItem(value: 'en', child: Text('English')),
+        DropdownMenuItem(value: 'ja', child: Text('Japanese')),
+        DropdownMenuItem(value: 'zh', child: Text('Chinese')),
+        DropdownMenuItem(value: 'auto', child: Text('Auto')),
+      ],
     );
   }
 }

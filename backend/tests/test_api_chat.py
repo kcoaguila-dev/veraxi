@@ -149,6 +149,16 @@ async def test_audio_endpoint_success():
         )
 
 @pytest.mark.asyncio
+async def test_audio_endpoint_unconfigured_voice():
+    # default_system voice has no ref_audio_path or prompt_text, so it should return 400
+    response = client.post(
+        "/api/chat/audio",
+        json={"text": "hello", "voice_id": "default_system"}
+    )
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Voice not configured for backend synthesis"
+
+@pytest.mark.asyncio
 async def test_edit_endpoint():
     # Because we don't have a real AsyncRedisSaver setup here, it will raise 500 or 404
     # Just asserting the route exists

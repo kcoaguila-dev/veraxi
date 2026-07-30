@@ -63,10 +63,20 @@ class TTSSettingsViewModel extends StateNotifier<TTSSettingsState> {
       final savedEngine = await _storage.getEngine() ?? 'Browser';
       final savedUrl = await _storage.getGptSovitsUrl() ?? 'http://localhost:9880';
       final voices = await _repository.getVoices(gptSovitsUrl: savedUrl);
+      
+      String activeVoiceId = savedVoiceId;
+      if (savedEngine == 'GPT-SoVITS' && activeVoiceId == 'default_system') {
+        final customVoices = voices.where((v) => v['id'] != 'default_system').toList();
+        if (customVoices.isNotEmpty) {
+          activeVoiceId = customVoices.first['id'] as String;
+          await _storage.saveVoiceId(activeVoiceId);
+        }
+      }
+
       state = state.copyWith(
         isLoading: false,
         voices: voices,
-        selectedVoiceId: savedVoiceId,
+        selectedVoiceId: activeVoiceId,
         selectedEngine: savedEngine,
         gptSovitsUrl: savedUrl,
       );
@@ -95,7 +105,23 @@ class TTSSettingsViewModel extends StateNotifier<TTSSettingsState> {
 
   Future<void> setEngine(String engine) async {
     await _storage.saveEngine(engine);
-    state = state.copyWith(selectedEngine: engine);
+    
+    String? newVoiceId;
+    if (engine == 'Browser') {
+      newVoiceId = 'default_system';
+    } else if (engine == 'GPT-SoVITS' && state.selectedVoiceId == 'default_system') {
+      final customVoices = state.voices.where((v) => v['id'] != 'default_system').toList();
+      if (customVoices.isNotEmpty) {
+        newVoiceId = customVoices.first['id'] as String?;
+      }
+    }
+
+    if (newVoiceId != null && newVoiceId != state.selectedVoiceId) {
+      await _storage.saveVoiceId(newVoiceId);
+      state = state.copyWith(selectedEngine: engine, selectedVoiceId: newVoiceId);
+    } else {
+      state = state.copyWith(selectedEngine: engine);
+    }
   }
 
   Future<void> setGptSovitsUrl(String url) async {

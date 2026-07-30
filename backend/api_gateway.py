@@ -407,11 +407,14 @@ async def chat_audio(request: AudioRequest, req: Request):
     from backend.tts.gpt_sovits_client import GPTSoVITSClient
 
     voice = get_voice(request.voice_id)
+    logger.info(f"chat_audio called with voice_id: {request.voice_id}")
     if not voice:
+        logger.error(f"Invalid voice ID: {request.voice_id}")
         raise HTTPException(status_code=400, detail="Invalid voice ID")
 
     if not voice.get("ref_audio_path") or not voice.get("prompt_text"):
         # Could be default system voice or unconfigured voice
+        logger.error(f"Voice not configured for backend synthesis. Voice data: {voice}")
         raise HTTPException(status_code=400, detail="Voice not configured for backend synthesis")
 
     gpt_sovits_url = req.headers.get("x-gpt-sovits-url")

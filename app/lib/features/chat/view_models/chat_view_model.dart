@@ -347,10 +347,24 @@ class ChatViewModel extends StateNotifier<ChatState> {
 
       final storage = TTSSettingsStorage();
       final engine = await storage.getEngine() ?? 'Browser';
-      final voiceId = await storage.getVoiceId() ?? 'default_system';
+      String voiceId = await storage.getVoiceId() ?? 'default_system';
       final gptSovitsUrl = await storage.getGptSovitsUrl() ?? 'http://localhost:9880';
 
       if (engine == 'GPT-SoVITS') {
+        if (voiceId == 'default_system') {
+          // Auto-fix corrupted state if user never opened settings menu
+          try {
+            final voices = await _repository.getVoices(gptSovitsUrl: gptSovitsUrl);
+            final customVoices = voices.where((v) => v['id'] != 'default_system').toList();
+            if (customVoices.isNotEmpty) {
+              voiceId = customVoices.first['id'] as String;
+              await storage.saveVoiceId(voiceId);
+            }
+          } catch (e) {
+            // Ignore fetch errors, let backend synthesis fail normally
+          }
+        }
+
         // Use custom backend synthesis
         final audioBytes = await _repository.getAudioBytes(text, voiceId, gptSovitsUrl: gptSovitsUrl);
         await _audioPlayer.setAudioSource(BytesAudioSource(audioBytes));
