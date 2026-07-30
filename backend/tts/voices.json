@@ -1,0 +1,18 @@
+{
+  "default_system": {
+    "id": "default_system",
+    "name": "Default (System)",
+    "ref_audio_path": null,
+    "prompt_text": null,
+    "prompt_lang": null,
+    "text_lang": null
+  },
+  "voice_3": {
+    "id": "voice_3",
+    "name": "Luiz",
+    "ref_audio_path": "/home/kazuo/src/ai/projects/GPT-SoVITS/voices/luiz2.mp3",
+    "prompt_text": "あんたなんて、豆腐の角に頭ぶつけて死んじゃえばいいのよ！",
+    "prompt_lang": "ja",
+    "text_lang": "auto"
+  }
+}
