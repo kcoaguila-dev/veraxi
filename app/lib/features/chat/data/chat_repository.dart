@@ -19,11 +19,11 @@ class ChatRepository {
   ChatRepository({required this.apiClient});
 
   Future<List<Map<String, String>>> getVoices({String? gptSovitsUrl}) async {
-    final headers = <String, String>{};
-    if (gptSovitsUrl != null) {
-      headers['X-GPT-SoVITS-Url'] = gptSovitsUrl;
+    String path = '/voices';
+    if (gptSovitsUrl != null && gptSovitsUrl.isNotEmpty) {
+      path += '?gpt_sovits_url=${Uri.encodeQueryComponent(gptSovitsUrl)}';
     }
-    final data = await apiClient.get('/voices', headers: headers);
+    final data = await apiClient.get(path);
     final List<dynamic> rawVoices = data['voices'] ?? [];
     return rawVoices.map((v) => Map<String, String>.from(v)).toList();
   }

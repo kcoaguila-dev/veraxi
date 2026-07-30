@@ -17,7 +17,7 @@ Interactive Swagger documentation is available at `http://<host>:8001/docs` when
 - **`GET /api/chat/threads`**: Retrieve a list of chat threads.
 - **`GET /api/chat/threads/{thread_id}`**: Retrieve a specific chat thread.
 - **`GET /health`**: Health check endpoint.
-- **`GET /api/voices`**: Retrieve available Text-to-Speech voices from the configured registry. Optionally ping a custom GPT-SoVITS URL via the `X-GPT-SoVITS-Url` header.
+- **`GET /api/voices`**: Retrieve available Text-to-Speech voices from the configured registry. Optionally ping a custom GPT-SoVITS URL via the `?gpt_sovits_url=` query parameter.
 - **`GET /sentry-debug`**: Endpoint for testing Sentry integration.
 - **`POST /api/admin/stripe-webhook`**: Handle Stripe webhooks.
 
