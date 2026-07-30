@@ -223,7 +223,7 @@ class _ChatInputState extends State<ChatInput> {
           const Spacer(),
           const Icon(Icons.settings_outlined, color: Color(0xFF6E6E6E), size: 16),
           const SizedBox(width: 8),
-          const Icon(Icons.push_pin, color: Colors.white, size: 16), // Filled pin for Web Search
+          const Icon(Icons.push_pin_outlined, color: Color(0xFF6E6E6E), size: 16),
         ],
       ),
     );
