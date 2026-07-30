@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
@@ -81,6 +82,29 @@ class _ManageVoicesDialogState extends ConsumerState<ManageVoicesDialog> {
                   labelStyle: const TextStyle(color: Colors.grey),
                   filled: true,
                   fillColor: const Color(0xFF141414),
+                  suffixIcon: IconButton(
+                    icon: const Icon(Icons.upload_file, color: Colors.grey),
+                    tooltip: 'Upload .txt file',
+                    onPressed: () async {
+                      final txtResult = await FilePicker.platform.pickFiles(
+                        type: FileType.custom,
+                        allowedExtensions: ['txt'],
+                        withData: true,
+                      );
+                      if (txtResult != null && txtResult.files.single.bytes != null) {
+                        try {
+                          final text = utf8.decode(txtResult.files.single.bytes!);
+                          promptController.text = text;
+                        } catch (e) {
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Failed to read text file: $e')),
+                            );
+                          }
+                        }
+                      }
+                    },
+                  ),
                 ),
               ),
             ],
@@ -329,13 +353,41 @@ class _VoiceEditorFormState extends State<_VoiceEditorForm> {
           const SizedBox(height: 8),
           _buildTextField('Audio Path (e.g. voices/geralt.wav)', _pathController, _update),
           const SizedBox(height: 8),
-          _buildTextField('Prompt Text', _promptController, _update),
+          _buildTextField(
+            'Prompt Text',
+            _promptController,
+            _update,
+            suffixIcon: IconButton(
+              icon: const Icon(Icons.upload_file, color: Colors.grey),
+              tooltip: 'Upload .txt file',
+              onPressed: () async {
+                final txtResult = await FilePicker.platform.pickFiles(
+                  type: FileType.custom,
+                  allowedExtensions: ['txt'],
+                  withData: true,
+                );
+                if (txtResult != null && txtResult.files.single.bytes != null) {
+                  try {
+                    final text = utf8.decode(txtResult.files.single.bytes!);
+                    _promptController.text = text;
+                    _update();
+                  } catch (e) {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Failed to read text file: $e')),
+                      );
+                    }
+                  }
+                }
+              },
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildTextField(String label, TextEditingController controller, VoidCallback onChanged) {
+  Widget _buildTextField(String label, TextEditingController controller, VoidCallback onChanged, {Widget? suffixIcon}) {
     return TextField(
       controller: controller,
       onChanged: (_) => onChanged(),
@@ -346,6 +398,7 @@ class _VoiceEditorFormState extends State<_VoiceEditorForm> {
         isDense: true,
         filled: true,
         fillColor: const Color(0xFF141414),
+        suffixIcon: suffixIcon,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(6),
           borderSide: const BorderSide(color: Color(0xFF333333)),
