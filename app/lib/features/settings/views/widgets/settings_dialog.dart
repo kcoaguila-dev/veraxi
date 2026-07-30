@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:veraxi_app/features/settings/view_models/tts_settings_view_model.dart';
+import 'manage_voices_dialog.dart';
 
 class SettingsDialog extends ConsumerStatefulWidget {
   const SettingsDialog({super.key});
@@ -278,7 +279,7 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
                 (v) => v['id'] == ttsState.selectedVoiceId,
                 orElse: () => ttsState.voices.first)['name'] ??
             'Unknown';
-        voiceOptions = ttsState.voices.map((v) => v['name']!).toList();
+        voiceOptions = ttsState.voices.map((v) => v['name'].toString()).toList();
       }
     }
 
@@ -314,6 +315,18 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
           },
         ),
         _buildDropdownRow('Playback speed', '1.0x'),
+        if (ttsState.selectedEngine == 'GPT-SoVITS')
+          _buildActionRow(
+            'Manage Voices',
+            'Add or configure GPT-SoVITS personas',
+            'Manage',
+            onTap: () {
+              showDialog(
+                context: context,
+                builder: (context) => const ManageVoicesDialog(),
+              );
+            },
+          ),
       ]),
       const SizedBox(height: 32),
       _buildSectionHeader('SPEECH TO TEXT'),
@@ -652,7 +665,7 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
   }
 
   Widget _buildActionRow(String title, String subtitle, String buttonText,
-      {bool isDestructive = false}) {
+      {bool isDestructive = false, VoidCallback? onTap}) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(
@@ -675,7 +688,7 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
             ),
           ),
           ElevatedButton(
-            onPressed: () {},
+            onPressed: onTap ?? () {},
             style: ElevatedButton.styleFrom(
               foregroundColor:
                   isDestructive ? Colors.white : const Color(0xFFECECEC),

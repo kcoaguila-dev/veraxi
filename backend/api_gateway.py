@@ -327,11 +327,14 @@ async def get_thread_history(thread_id: str, request: Request, tenant_id: str = 
 
 
 class VoiceListResponse(BaseModel):
-    voices: list[dict[str, str]]
+    voices: list[dict]
+
+class VoiceSaveRequest(BaseModel):
+    voices: list[dict]
 
 @app.get("/api/voices", response_model=VoiceListResponse)
 async def get_voices(gpt_sovits_url: str | None = None):
-    from backend.tts.voices import get_available_voices
+    from backend.tts.voices import get_all_voices
     from backend.tts.gpt_sovits_client import GPTSoVITSClient
 
     if gpt_sovits_url:
@@ -343,7 +346,18 @@ async def get_voices(gpt_sovits_url: str | None = None):
         finally:
             await client.close()
 
-    return {"voices": get_available_voices()}
+    return {"voices": get_all_voices()}
+
+@app.post("/api/voices", response_model=VoiceListResponse)
+async def save_voices(request: VoiceSaveRequest):
+    from backend.tts.voices import save_voices as save_voices_to_disk, get_all_voices
+    
+    try:
+        save_voices_to_disk(request.voices)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+        
+    return {"voices": get_all_voices()}
 
 class AudioRequest(BaseModel):
     text: str
