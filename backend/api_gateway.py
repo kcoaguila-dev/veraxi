@@ -330,11 +330,10 @@ class VoiceListResponse(BaseModel):
     voices: list[dict[str, str]]
 
 @app.get("/api/voices", response_model=VoiceListResponse)
-async def get_voices(req: Request):
+async def get_voices(gpt_sovits_url: str | None = None):
     from backend.tts.voices import get_available_voices
     from backend.tts.gpt_sovits_client import GPTSoVITSClient
 
-    gpt_sovits_url = req.headers.get("x-gpt-sovits-url")
     if gpt_sovits_url:
         client = GPTSoVITSClient(base_url=gpt_sovits_url)
         try:
