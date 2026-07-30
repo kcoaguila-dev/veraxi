@@ -1,5 +1,12 @@
 # backend/tts/voices.py
 
+import json
+import os
+import logging
+
+logger = logging.getLogger(__name__)
+
+# Default voices if voices.json is missing
 VOICE_REGISTRY = {
     "default_system": {
         "id": "default_system",
@@ -8,32 +15,23 @@ VOICE_REGISTRY = {
         "prompt_text": None,
         "prompt_lang": None,
         "text_lang": None,
-    },
-    "voice_1": {
-        "id": "voice_1",
-        "name": "Alex (English)",
-        "ref_audio_path": "alex_ref.wav",
-        "prompt_text": "This is a reference audio for Alex.",
-        "prompt_lang": "en",
-        "text_lang": "en",
-    },
-    "voice_2": {
-        "id": "voice_2",
-        "name": "Emma (English)",
-        "ref_audio_path": "emma_ref.wav",
-        "prompt_text": "This is a reference audio for Emma.",
-        "prompt_lang": "en",
-        "text_lang": "en",
-    },
-    "voice_3": {
-        "id": "voice_3",
-        "name": "Luiz",
-        "ref_audio_path": "voices/luiz2.mp3",
-        "prompt_text": "Type exactly what is being said in luiz2.mp3 here",
-        "prompt_lang": "en",
-        "text_lang": "en",
-    },
+    }
 }
+
+def load_voices():
+    """Loads the voice registry from voices.json if it exists."""
+    global VOICE_REGISTRY
+    json_path = os.path.join(os.path.dirname(__file__), "voices.json")
+    if os.path.exists(json_path):
+        try:
+            with open(json_path, "r", encoding="utf-8") as f:
+                loaded_voices = json.load(f)
+                VOICE_REGISTRY.update(loaded_voices)
+        except Exception as e:
+            logger.error(f"Failed to load voices.json: {e}")
+
+# Load voices at module initialization
+load_voices()
 
 def get_available_voices():
     """Returns a list of available voices (ID and name only)."""
