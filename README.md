@@ -81,8 +81,8 @@ Veraxi fully supports external, self-hosted **GPT-SoVITS** inference nodes to pr
 
 The architecture strictly decouples the **infrastructure** from the **end-user**:
 
-1. **Infrastructure Admins:** Configure the available personas/voices by creating or mounting a `backend/tts/voices.json` file. Each persona defines its relative reference audio path (`ref_audio_path`) and prompt metadata. No Python code changes are required.
-2. **End-Users:** Simply open the Veraxi app, navigate to **Settings -> TTS**, select **GPT-SoVITS**, and input the URL of the running inference node (e.g., a local IP or Ngrok tunnel). Veraxi handles the rest, populating the UI with the admin's configured personas.
+1. **Infrastructure:** Stand up a GPT-SoVITS inference node (e.g., via Ngrok or a local IP) and make sure your reference audio files are accessible to it.
+2. **End-Users:** Open the Veraxi app, navigate to **Settings -> Speech**, select **GPT-SoVITS**, and input the URL of your running inference node. You can then click **Manage Voices** directly in the UI to dynamically add, edit, or delete custom voice personas—complete with their relative audio paths and prompt metadata—without ever touching the backend code or config files!
 
 ## Using the Backend
 
