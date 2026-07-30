@@ -258,46 +258,61 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
 
   List<Widget> _buildSpeechTab() {
     final ttsState = ref.watch(ttsSettingsViewModelProvider);
-    final String voiceDisplay = ttsState.isLoading
-        ? 'Loading...'
-        : (ttsState.error != null
-            ? 'Error'
-            : (ttsState.voices.firstWhere(
-                    (v) => v['id'] == ttsState.selectedVoiceId,
-                    orElse: () => {'name': 'Default (System)'})['name'] ??
-                'Default (System)'));
+    final isBrowser = ttsState.selectedEngine == 'Browser';
+
+    String voiceDisplay;
+    List<String> voiceOptions;
+
+    if (isBrowser) {
+      voiceDisplay = 'Default (System)';
+      voiceOptions = ['Default (System)'];
+    } else {
+      if (ttsState.isLoading) {
+        voiceDisplay = 'Loading...';
+        voiceOptions = ['Loading...'];
+      } else if (ttsState.error != null || ttsState.voices.isEmpty || (ttsState.voices.length == 1 && ttsState.voices.first['id'] == 'default_system')) {
+        voiceDisplay = 'No voices available';
+        voiceOptions = ['No voices available'];
+      } else {
+        voiceDisplay = ttsState.voices.firstWhere(
+                (v) => v['id'] == ttsState.selectedVoiceId,
+                orElse: () => ttsState.voices.first)['name'] ??
+            'Unknown';
+        voiceOptions = ttsState.voices.map((v) => v['name']!).toList();
+      }
+    }
+
+    final urlController = TextEditingController(text: ttsState.gptSovitsUrl);
 
     return [
       _buildSectionHeader('TEXT TO SPEECH'),
       _buildSettingsGroup([
-        _buildDropdownRow('Voice', voiceDisplay, onTap: () {
-          if (ttsState.isLoading ||
-              ttsState.error != null ||
-              ttsState.voices.isEmpty) return;
-
-          showCupertinoModalPopup(
-            context: context,
-            builder: (BuildContext context) => CupertinoActionSheet(
-              title: const Text('Select Voice'),
-              actions: ttsState.voices.map((v) {
-                return CupertinoActionSheetAction(
-                  onPressed: () {
-                    ref
-                        .read(ttsSettingsViewModelProvider.notifier)
-                        .setVoice(v['id']!);
-                    Navigator.pop(context);
-                  },
-                  child: Text(v['name'] ?? ''),
-                );
-              }).toList(),
-              cancelButton: CupertinoActionSheetAction(
-                isDestructiveAction: true,
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Cancel'),
-              ),
-            ),
-          );
-        }),
+        _buildRealDropdownRow(
+          'Engine',
+          ttsState.selectedEngine,
+          ['Browser', 'GPT-SoVITS'],
+          (value) {
+            ref.read(ttsSettingsViewModelProvider.notifier).setEngine(value);
+          },
+        ),
+        if (!isBrowser)
+          _buildTextFieldRow(
+            'API Base URL',
+            urlController,
+            onSubmitted: (value) {
+              ref.read(ttsSettingsViewModelProvider.notifier).setGptSovitsUrl(value);
+            },
+          ),
+        _buildRealDropdownRow(
+          'Voice',
+          voiceDisplay,
+          voiceOptions,
+          (value) {
+            if (isBrowser || value == 'Loading...' || value == 'No voices available') return;
+            final voiceId = ttsState.voices.firstWhere((v) => v['name'] == value)['id']!;
+            ref.read(ttsSettingsViewModelProvider.notifier).setVoice(voiceId);
+          },
+        ),
         _buildDropdownRow('Playback speed', '1.0x'),
       ]),
       const SizedBox(height: 32),
@@ -468,6 +483,57 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
     );
   }
 
+  Widget _buildRealDropdownRow(String label, String value, List<String> items, Function(String) onSelected) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label,
+              style: const TextStyle(color: Color(0xFFECECEC), fontSize: 13)),
+          Theme(
+            data: Theme.of(context).copyWith(
+              hoverColor: Colors.transparent,
+              splashColor: Colors.transparent,
+              highlightColor: Colors.transparent,
+            ),
+            child: PopupMenuButton<String>(
+              color: const Color(0xFF2A2A2A),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              position: PopupMenuPosition.under,
+              onSelected: onSelected,
+              itemBuilder: (context) => items.map((item) => PopupMenuItem<String>(
+                value: item,
+                height: 40,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(item, style: const TextStyle(color: Colors.white, fontSize: 13)),
+                    if (item == value) const Icon(Icons.check, color: Colors.white, size: 16),
+                  ],
+                ),
+              )).toList(),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF2A2A2A),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Row(
+                  children: [
+                    Text(value, style: const TextStyle(color: Colors.white, fontSize: 13)),
+                    const SizedBox(width: 8),
+                    const Icon(Icons.keyboard_arrow_down, color: Color(0xFF878787), size: 16),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildTextButtonRow(String label, String value) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -487,6 +553,82 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildTextFieldRow(String label, TextEditingController controller, {Function(String)? onSubmitted}) {
+    return StatefulBuilder(
+      builder: (context, setState) {
+        bool isSaved = false;
+
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Row(
+            children: [
+              Expanded(
+                flex: 2,
+                child: Text(label, style: const TextStyle(color: Color(0xFFECECEC), fontSize: 13)),
+              ),
+              Expanded(
+                flex: 3,
+                child: SizedBox(
+                  height: 36,
+                  child: TextField(
+                    controller: controller,
+                    style: const TextStyle(color: Colors.white, fontSize: 13),
+                    decoration: InputDecoration(
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+                      filled: true,
+                      fillColor: const Color(0xFF2A2A2A),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(6),
+                        borderSide: BorderSide.none,
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(6),
+                        borderSide: BorderSide.none,
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(6),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                    onSubmitted: (value) {
+                      if (onSubmitted != null) {
+                        onSubmitted(value);
+                        setState(() => isSaved = true);
+                        Future.delayed(const Duration(seconds: 2), () {
+                          if (mounted) setState(() => isSaved = false);
+                        });
+                      }
+                    },
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              ElevatedButton(
+                onPressed: () {
+                  if (onSubmitted != null) {
+                    onSubmitted(controller.text);
+                    setState(() => isSaved = true);
+                    Future.delayed(const Duration(seconds: 2), () {
+                      if (mounted) setState(() => isSaved = false);
+                    });
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: isSaved ? const Color(0xFF10A37F) : const Color(0xFF2F2F2F),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  minimumSize: const Size(0, 36),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                ),
+                child: Text(isSaved ? 'Saved' : 'Apply'),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 

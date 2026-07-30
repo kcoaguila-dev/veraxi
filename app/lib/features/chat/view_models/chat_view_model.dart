@@ -2,11 +2,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'dart:convert';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:just_audio/just_audio.dart';
-import 'package:veraxi_app/core/network/api_client.dart';
 import 'package:veraxi_app/core/api_key_storage.dart';
+import 'package:veraxi_app/core/tts_settings_storage.dart';
 import 'package:veraxi_app/core/web_speech_service.dart';
 import 'package:veraxi_app/features/chat/data/chat_repository.dart';
-import 'package:veraxi_app/features/settings/view_models/tts_settings_view_model.dart';
 
 class ChatMessage {
   final String? id;
@@ -98,11 +97,6 @@ class ChatState {
     );
   }
 }
-
-final chatRepositoryProvider = Provider<ChatRepository>((ref) {
-  final apiClient = ref.watch(apiClientProvider);
-  return ChatRepository(apiClient: apiClient);
-});
 
 final chatViewModelProvider =
     StateNotifierProvider<ChatViewModel, ChatState>((ref) {
@@ -352,30 +346,18 @@ class ChatViewModel extends StateNotifier<ChatState> {
 
       state = state.copyWith(currentlyPlayingMessageId: messageId);
 
-      final ttsState = _ref.read(ttsSettingsViewModelProvider);
-      final voiceId = ttsState.selectedVoiceId;
+      final storage = TTSSettingsStorage();
+      final engine = await storage.getEngine() ?? 'Browser';
+      final voiceId = await storage.getVoiceId() ?? 'default_system';
+      final gptSovitsUrl = await storage.getGptSovitsUrl() ?? 'http://localhost:9880';
 
-      if (voiceId != 'default_system') {
+      if (engine == 'GPT-SoVITS') {
         // Use custom backend synthesis
-        final apiClient = _ref.read(apiClientProvider);
-        final uri = Uri.parse('${apiClient.baseUrl}/chat/audio');
-        final headers = apiClient.getDefaultHeaders()
-          ..['Content-Type'] = 'application/json';
-        final body = jsonEncode({'text': text, 'voice_id': voiceId});
-
-        final response =
-            await apiClient.client.post(uri, headers: headers, body: body);
-
-        if (response.statusCode == 200) {
-          final audioBytes = response.bodyBytes;
-          await _audioPlayer.setAudioSource(BytesAudioSource(audioBytes));
-          await _audioPlayer.play();
-          state = state.copyWith(clearError: true);
-          return;
-        } else {
-          // If backend synthesis fails, log and fallback
-          throw Exception('Backend synthesis failed: ${response.statusCode}');
-        }
+        final audioBytes = await _repository.getAudioBytes(text, voiceId, gptSovitsUrl: gptSovitsUrl);
+        await _audioPlayer.setAudioSource(BytesAudioSource(audioBytes));
+        await _audioPlayer.play();
+        state = state.copyWith(clearError: true);
+        return;
       }
 
       // Fallback to Web Speech API

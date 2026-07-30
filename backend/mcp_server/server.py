@@ -2,7 +2,11 @@ import asyncio
 import sentry_sdk
 import json
 from mcp.server import Server
-from mcp.types import Tool, TextContent, Resource, Prompt, PromptMessage
+from mcp.types import (
+    Tool, TextContent, Resource, Prompt, PromptMessage,
+    ListResourcesResult, ReadResourceResult, TextResourceContents,
+    ListPromptsResult, GetPromptResult, ListToolsResult, CallToolResult
+)
 from backend.mcp_server.tools.search_vectors import search_vectors
 from backend.mcp_server.tools.query_graph import query_graph
 from backend.mcp_server.tools.insert_graph import insert_graph_nodes
@@ -19,12 +23,10 @@ from backend.mcp_server.context import tenant_context
 from backend.prompts import INGEST_KNOWLEDGE_PROMPT, CRAG_ORCHESTRATOR_PROMPT
 from backend.config import get_config
 
-mcp_server = Server("veraxi_mcp")
 
-@mcp_server.list_resources()
-async def handle_list_resources() -> list[Resource]:
+async def handle_list_resources(ctx, params) -> ListResourcesResult:
     """List available resources."""
-    return [
+    return ListResourcesResult(resources=[
         Resource(
             uri="veraxi://schema",
             name="Database Schema",
@@ -37,25 +39,24 @@ async def handle_list_resources() -> list[Resource]:
             description="Live counts of nodes, vectors, and relationships for the current tenant.",
             mimeType="application/json",
         )
-    ]
+    ])
 
-@mcp_server.read_resource()
-async def handle_read_resource(uri: str) -> str:
+async def handle_read_resource(ctx, params) -> ReadResourceResult:
     """Read a specific resource."""
+    uri = params.uri
     tenant_id = tenant_context.get()
     
     if uri == "veraxi://schema":
         results = get_graph_schema()
-        return json.dumps(results)
+        return ReadResourceResult(contents=[TextResourceContents(uri=uri, mimeType="application/json", text=json.dumps(results))])
     elif uri == "veraxi://stats":
-        return json.dumps(get_database_stats(tenant_id=tenant_id))
+        return ReadResourceResult(contents=[TextResourceContents(uri=uri, mimeType="application/json", text=json.dumps(get_database_stats(tenant_id=tenant_id)))])
     else:
         raise ValueError(f"Resource not found: {uri}")
 
-@mcp_server.list_prompts()
-async def handle_list_prompts() -> list[Prompt]:
+async def handle_list_prompts(ctx, params) -> ListPromptsResult:
     """List available prompts."""
-    return [
+    return ListPromptsResult(prompts=[
         Prompt(
             name="ingest_knowledge",
             description="Provides strict instructions to the Host AI on how to read source material and construct GraphRAG structures.",
@@ -66,26 +67,36 @@ async def handle_list_prompts() -> list[Prompt]:
             description="Instructs the Host AI to act as a Corrective Retrieval Augmented Generation orchestrator, combining internal database retrieval with live web search.",
             arguments=[]
         )
-    ]
+    ])
 
-@mcp_server.get_prompt()
-async def handle_get_prompt(name: str, arguments: dict | None) -> PromptMessage:
+async def handle_get_prompt(ctx, params) -> GetPromptResult:
     """Get a specific prompt."""
+    name = params.name
     if name == "ingest_knowledge":
-        return PromptMessage(
-            role="user",
-            content=TextContent(
-                type="text",
-                text=INGEST_KNOWLEDGE_PROMPT
-            )
+        return GetPromptResult(
+            description="",
+            messages=[
+                PromptMessage(
+                    role="user",
+                    content=TextContent(
+                        type="text",
+                        text=INGEST_KNOWLEDGE_PROMPT
+                    )
+                )
+            ]
         )
     elif name == "crag_orchestrator":
-        return PromptMessage(
-            role="user",
-            content=TextContent(
-                type="text",
-                text=CRAG_ORCHESTRATOR_PROMPT
-            )
+        return GetPromptResult(
+            description="",
+            messages=[
+                PromptMessage(
+                    role="user",
+                    content=TextContent(
+                        type="text",
+                        text=CRAG_ORCHESTRATOR_PROMPT
+                    )
+                )
+            ]
         )
     raise ValueError(f"Prompt not found: {name}")
 
@@ -420,6 +431,7 @@ def _handle_web_search(args: dict, tenant_id: str) -> list[TextContent]:
     from backend.mcp_server.tools.web_search import mcp_web_search
     results = mcp_web_search(args["query"], args.get("max_results", 3))
     return [TextContent(type="text", text=json.dumps(results))]
+
 def _handle_skills(args: dict, tenant_id: str) -> list[TextContent]:
     from backend.mcp_server.tools.skills import list_skills
     results = list_skills()
@@ -462,24 +474,32 @@ TOOL_HANDLERS = {
     "mcp_read_artifact": _handle_read_artifact,
 }
 
-@mcp_server.list_tools()
-async def handle_list_tools() -> list[Tool]:
+async def handle_list_tools(ctx, params) -> ListToolsResult:
     """List available tools."""
-    return REGISTERED_TOOLS
+    return ListToolsResult(tools=REGISTERED_TOOLS)
 
-@mcp_server.call_tool()
-async def handle_call_tool(name: str, arguments: dict | None) -> list[TextContent]:
+async def handle_call_tool(ctx, params) -> CallToolResult:
     """Handle tool execution requests dynamically via TOOL_HANDLERS registry."""
-    args = arguments or {}
+    name = params.name
+    args = params.arguments or {}
     tenant_id = tenant_context.get()
 
     handler = TOOL_HANDLERS.get(name)
     if not handler:
-        return [TextContent(type="text", text=f"Error executing tool {name}: Unknown tool")]
+        return CallToolResult(content=[TextContent(type="text", text=f"Error executing tool {name}: Unknown tool")])
 
     try:
-        return handler(args, tenant_id)
+        return CallToolResult(content=handler(args, tenant_id))
     except Exception as e:
         sentry_sdk.capture_exception(e)
-        return [TextContent(type="text", text=f"Error executing tool {name}: {str(e)}")]
+        return CallToolResult(content=[TextContent(type="text", text=f"Error executing tool {name}: {str(e)}")])
 
+mcp_server = Server(
+    "veraxi_mcp",
+    on_list_resources=handle_list_resources,
+    on_read_resource=handle_read_resource,
+    on_list_prompts=handle_list_prompts,
+    on_get_prompt=handle_get_prompt,
+    on_list_tools=handle_list_tools,
+    on_call_tool=handle_call_tool
+)

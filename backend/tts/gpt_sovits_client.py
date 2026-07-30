@@ -38,5 +38,18 @@ class GPTSoVITSClient:
             logger.error(f"Error calling GPT-SoVITS API: {e}")
             raise
 
+    async def check_connection(self):
+        """Pings the base URL to verify connection."""
+        try:
+            response = await self.client.get(f"{self.base_url}/tts")
+            if response.status_code >= 500:
+                raise Exception(f"Server error: {response.status_code}")
+            if response.status_code == 404 and "ngrok" in response.text.lower():
+                raise Exception("Ngrok tunnel not found")
+            return True
+        except Exception as e:
+            logger.error(f"GPT-SoVITS connection failed: {e}")
+            raise ConnectionError(f"Could not connect to GPT-SoVITS at {self.base_url}")
+
     async def close(self):
         await self.client.aclose()

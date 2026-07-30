@@ -16,12 +16,16 @@ class TTSSettingsState {
   final String? error;
   final List<Map<String, String>> voices;
   final String selectedVoiceId;
+  final String selectedEngine;
+  final String gptSovitsUrl;
 
   TTSSettingsState({
     this.isLoading = false,
     this.error,
     this.voices = const [],
     this.selectedVoiceId = 'default_system',
+    this.selectedEngine = 'Browser',
+    this.gptSovitsUrl = 'http://localhost:9880',
   });
 
   TTSSettingsState copyWith({
@@ -30,12 +34,16 @@ class TTSSettingsState {
     bool clearError = false,
     List<Map<String, String>>? voices,
     String? selectedVoiceId,
+    String? selectedEngine,
+    String? gptSovitsUrl,
   }) {
     return TTSSettingsState(
       isLoading: isLoading ?? this.isLoading,
       error: clearError ? null : (error ?? this.error),
       voices: voices ?? this.voices,
       selectedVoiceId: selectedVoiceId ?? this.selectedVoiceId,
+      selectedEngine: selectedEngine ?? this.selectedEngine,
+      gptSovitsUrl: gptSovitsUrl ?? this.gptSovitsUrl,
     );
   }
 }
@@ -52,11 +60,15 @@ class TTSSettingsViewModel extends StateNotifier<TTSSettingsState> {
     state = state.copyWith(isLoading: true, clearError: true);
     try {
       final savedVoiceId = await _storage.getVoiceId() ?? 'default_system';
-      final voices = await _repository.getVoices();
+      final savedEngine = await _storage.getEngine() ?? 'Browser';
+      final savedUrl = await _storage.getGptSovitsUrl() ?? 'http://localhost:9880';
+      final voices = await _repository.getVoices(gptSovitsUrl: savedUrl);
       state = state.copyWith(
         isLoading: false,
         voices: voices,
         selectedVoiceId: savedVoiceId,
+        selectedEngine: savedEngine,
+        gptSovitsUrl: savedUrl,
       );
     } catch (e, st) {
       await Sentry.captureException(e, stackTrace: st);
@@ -65,17 +77,31 @@ class TTSSettingsViewModel extends StateNotifier<TTSSettingsState> {
         {'id': 'default_system', 'name': 'Default (System)'}
       ];
       final savedVoiceId = await _storage.getVoiceId() ?? 'default_system';
+      final savedUrl = await _storage.getGptSovitsUrl() ?? 'http://localhost:9880';
       state = state.copyWith(
         isLoading: false,
         error: 'Failed to load voices: $e',
         voices: defaultVoices,
         selectedVoiceId: savedVoiceId,
+        gptSovitsUrl: savedUrl,
       );
     }
   }
 
   Future<void> setVoice(String voiceId) async {
-    state = state.copyWith(selectedVoiceId: voiceId);
     await _storage.saveVoiceId(voiceId);
+    state = state.copyWith(selectedVoiceId: voiceId);
+  }
+
+  Future<void> setEngine(String engine) async {
+    await _storage.saveEngine(engine);
+    state = state.copyWith(selectedEngine: engine);
+  }
+
+  Future<void> setGptSovitsUrl(String url) async {
+    await _storage.saveGptSovitsUrl(url);
+    state = state.copyWith(gptSovitsUrl: url);
+    // Reload voices when URL changes
+    _init();
   }
 }

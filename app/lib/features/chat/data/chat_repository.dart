@@ -3,23 +3,44 @@ import 'dart:async';
 import 'package:http/http.dart' as http;
 import 'package:sentry_flutter/sentry_flutter.dart';
 
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import 'package:veraxi_app/core/network/api_client.dart';
 import 'package:veraxi_app/core/api_key_storage.dart';
+
+final chatRepositoryProvider = Provider<ChatRepository>((ref) {
+  final apiClient = ref.watch(apiClientProvider);
+  return ChatRepository(apiClient: apiClient);
+});
 
 class ChatRepository {
   final ApiClient apiClient;
 
   ChatRepository({required this.apiClient});
 
-  Future<List<Map<String, String>>> getVoices() async {
-    final data = await apiClient.get('/voices');
+  Future<List<Map<String, String>>> getVoices({String? gptSovitsUrl}) async {
+    final headers = <String, String>{};
+    if (gptSovitsUrl != null) {
+      headers['X-GPT-SoVITS-Url'] = gptSovitsUrl;
+    }
+    final data = await apiClient.get('/voices', headers: headers);
     final List<dynamic> rawVoices = data['voices'] ?? [];
     return rawVoices.map((v) => Map<String, String>.from(v)).toList();
   }
 
   Future<List<Map<String, dynamic>>> getThreads() async {
-    final data = await apiClient.get('/chat/threads');
-    return List<Map<String, dynamic>>.from(data['threads'] ?? []);
+    final url = '/chat/threads?_=' + DateTime.now().millisecondsSinceEpoch.toString();
+    print("DEBUG_GET_THREADS_URL: \$url");
+    try {
+      final data = await apiClient.get(url);
+      print("DEBUG_GET_THREADS_DATA: \$data");
+      final threads = List<Map<String, dynamic>>.from(data['threads'] ?? []);
+      print("DEBUG_GET_THREADS_COUNT: \${threads.length}");
+      return threads;
+    } catch (e) {
+      print("DEBUG_GET_THREADS_ERROR: \$e");
+      rethrow;
+    }
   }
 
   Future<List<Map<String, dynamic>>> getThreadHistory(String threadId) async {
@@ -94,5 +115,24 @@ class ChatRepository {
 
   Future<void> regenerateResponse(String threadId) async {
     await apiClient.post('/chat/threads/$threadId/regenerate', body: {});
+  }
+
+  Future<List<int>> getAudioBytes(String text, String voiceId, {String? gptSovitsUrl}) async {
+    final uri = Uri.parse('${apiClient.baseUrl}/chat/audio');
+    final headers = apiClient.getDefaultHeaders()
+      ..['Content-Type'] = 'application/json';
+    if (gptSovitsUrl != null) {
+      headers['X-GPT-SoVITS-Url'] = gptSovitsUrl;
+    }
+    final body = jsonEncode({'text': text, 'voice_id': voiceId});
+
+    final response =
+        await apiClient.client.post(uri, headers: headers, body: body);
+
+    if (response.statusCode == 200) {
+      return response.bodyBytes;
+    } else {
+      throw Exception('Backend synthesis failed: ${response.statusCode}');
+    }
   }
 }

@@ -1,4 +1,5 @@
 // ignore: avoid_web_libraries_in_flutter
+// ignore_for_file: deprecated_member_use
 import 'dart:html' as html;
 
 /// Real web implementation of WebSpeechService using the browser's native

@@ -180,6 +180,9 @@ async def chat_endpoint(request: Request, chat_request: ChatRequest, tenant_id: 
         if chat_request.stream:
             async def event_generator():
                 try:
+                    # Inject a metadata event so the client knows the thread_id
+                    yield f"data: {json.dumps({'event': 'metadata', 'data': {'thread_id': thread_id}})}\n\n"
+                    
                     async for event in stream_answer_question(
                         chat_request.question, 
                         tenant_id=tenant_id,
@@ -254,6 +257,7 @@ def _extract_messages_from_state(raw_messages: list, feedback_dict: dict = None)
 
 @app.get("/api/chat/threads")
 async def list_threads(request: Request, tenant_id: str = Depends(get_tenant_id)):
+    logger.info(f"LIST THREADS CALLED FOR TENANT: {tenant_id}")
     """
     Returns a list of all thread IDs belonging to the tenant.
     """
@@ -326,8 +330,20 @@ class VoiceListResponse(BaseModel):
     voices: list[dict[str, str]]
 
 @app.get("/api/voices", response_model=VoiceListResponse)
-async def get_voices():
+async def get_voices(req: Request):
     from backend.tts.voices import get_available_voices
+    from backend.tts.gpt_sovits_client import GPTSoVITSClient
+
+    gpt_sovits_url = req.headers.get("x-gpt-sovits-url")
+    if gpt_sovits_url:
+        client = GPTSoVITSClient(base_url=gpt_sovits_url)
+        try:
+            await client.check_connection()
+        except Exception:
+            raise HTTPException(status_code=503, detail="GPT-SoVITS instance unreachable")
+        finally:
+            await client.close()
+
     return {"voices": get_available_voices()}
 
 class AudioRequest(BaseModel):
@@ -335,7 +351,7 @@ class AudioRequest(BaseModel):
     voice_id: str
 
 @app.post("/api/chat/audio")
-async def chat_audio(request: AudioRequest):
+async def chat_audio(request: AudioRequest, req: Request):
     from backend.tts.voices import get_voice
     from backend.tts.gpt_sovits_client import GPTSoVITSClient
 
@@ -347,7 +363,8 @@ async def chat_audio(request: AudioRequest):
         # Could be default system voice or unconfigured voice
         raise HTTPException(status_code=400, detail="Voice not configured for backend synthesis")
 
-    client = GPTSoVITSClient()
+    gpt_sovits_url = req.headers.get("x-gpt-sovits-url")
+    client = GPTSoVITSClient(base_url=gpt_sovits_url)
     try:
         audio_bytes = await client.synthesize(
             text=request.text,
