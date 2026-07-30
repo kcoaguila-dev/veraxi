@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:veraxi_app/features/settings/view_models/tts_settings_view_model.dart';
 
 class ManageVoicesDialog extends ConsumerStatefulWidget {
@@ -32,6 +33,102 @@ class _ManageVoicesDialogState extends ConsumerState<ManageVoicesDialog> {
         'text_lang': 'en',
       });
     });
+  }
+
+  Future<void> _uploadVoice() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.audio,
+      withData: true,
+    );
+
+    if (result != null && result.files.single.bytes != null) {
+      final file = result.files.single;
+      final fileName = file.name;
+      final bytes = file.bytes!;
+
+      if (!mounted) return;
+
+      // Show dialog to get Name and Prompt
+      final nameController = TextEditingController();
+      final promptController = TextEditingController();
+
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: const Color(0xFF1E1E1E),
+          title: const Text('Configure New Voice', style: TextStyle(color: Colors.white)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('Selected: $fileName', style: const TextStyle(color: Colors.grey)),
+              const SizedBox(height: 16),
+              TextField(
+                controller: nameController,
+                style: const TextStyle(color: Colors.white),
+                decoration: InputDecoration(
+                  labelText: 'Voice Name',
+                  labelStyle: const TextStyle(color: Colors.grey),
+                  filled: true,
+                  fillColor: const Color(0xFF141414),
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: promptController,
+                style: const TextStyle(color: Colors.white),
+                decoration: InputDecoration(
+                  labelText: 'Prompt Text (what is spoken in the audio)',
+                  labelStyle: const TextStyle(color: Colors.grey),
+                  filled: true,
+                  fillColor: const Color(0xFF141414),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.white, foregroundColor: Colors.black),
+              child: const Text('Upload'),
+            ),
+          ],
+        ),
+      );
+
+      if (confirmed == true && mounted) {
+        setState(() => _isSaving = true);
+        try {
+          await ref.read(ttsSettingsViewModelProvider.notifier).uploadVoice(
+            nameController.text,
+            promptController.text,
+            bytes.toList(),
+            fileName,
+          );
+          if (mounted) {
+            // Refresh voices
+            final currentState = ref.read(ttsSettingsViewModelProvider);
+            setState(() {
+              _voices = currentState.voices.map((v) => Map<String, dynamic>.from(v)).toList();
+            });
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Voice uploaded successfully!')),
+            );
+          }
+        } catch (e) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Failed to upload: $e')),
+            );
+          }
+        } finally {
+          if (mounted) setState(() => _isSaving = false);
+        }
+      }
+    }
   }
 
   void _removeVoice(int index) {
@@ -124,14 +221,28 @@ class _ManageVoicesDialogState extends ConsumerState<ManageVoicesDialog> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                TextButton.icon(
-                  onPressed: _addVoice,
-                  icon: const Icon(Icons.add, color: Colors.white, size: 18),
-                  label: const Text('Add Voice', style: TextStyle(color: Colors.white)),
-                  style: TextButton.styleFrom(
-                    backgroundColor: const Color(0xFF2A2A2A),
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  ),
+                Row(
+                  children: [
+                    TextButton.icon(
+                      onPressed: _addVoice,
+                      icon: const Icon(Icons.add, color: Colors.white, size: 18),
+                      label: const Text('Manual Entry', style: TextStyle(color: Colors.white)),
+                      style: TextButton.styleFrom(
+                        backgroundColor: const Color(0xFF2A2A2A),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    TextButton.icon(
+                      onPressed: _uploadVoice,
+                      icon: const Icon(Icons.upload_file, color: Colors.white, size: 18),
+                      label: const Text('Upload Audio', style: TextStyle(color: Colors.white)),
+                      style: TextButton.styleFrom(
+                        backgroundColor: const Color(0xFF10A37F),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      ),
+                    ),
+                  ],
                 ),
                 ElevatedButton(
                   onPressed: _isSaving ? null : _saveVoices,

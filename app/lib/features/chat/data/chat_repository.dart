@@ -32,6 +32,31 @@ class ChatRepository {
     await apiClient.post('/voices', body: {'voices': voices});
   }
 
+  Future<void> uploadVoice(String name, String promptText, List<int> fileBytes, String fileName) async {
+    final uri = Uri.parse('${apiClient.baseUrl}/voices/upload');
+    final request = http.MultipartRequest('POST', uri);
+    
+    final headers = apiClient.getDefaultHeaders();
+    request.headers.addAll(headers);
+    
+    request.fields['name'] = name;
+    request.fields['prompt_text'] = promptText;
+    
+    final multipartFile = http.MultipartFile.fromBytes(
+      'file',
+      fileBytes,
+      filename: fileName,
+    );
+    request.files.add(multipartFile);
+    
+    final streamedResponse = await apiClient.client.send(request);
+    final response = await http.Response.fromStream(streamedResponse);
+    
+    if (response.statusCode != 200) {
+      throw Exception('Failed to upload voice: ${response.statusCode} - ${response.body}');
+    }
+  }
+
   Future<List<Map<String, dynamic>>> getThreads() async {
     final url = '/chat/threads?_=' + DateTime.now().millisecondsSinceEpoch.toString();
     print("DEBUG_GET_THREADS_URL: \$url");

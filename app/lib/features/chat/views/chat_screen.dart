@@ -1,15 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:veraxi_app/features/chat/view_models/chat_view_model.dart';
 import 'package:veraxi_app/features/chat/views/widgets/chat_input.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
 import 'package:veraxi_app/features/chat/views/widgets/api_key_dialog.dart';
-import 'package:veraxi_app/features/settings/views/widgets/settings_dialog.dart';
 
 import 'package:flutter/services.dart';
 import 'package:markdown/markdown.dart' as md;
@@ -1104,7 +1101,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     );
   }
 
-  Widget _buildSubModelRow(String name, {bool isSelected = false, bool isPinned = false}) {
+  Widget _buildSubModelRow(String name, {bool isSelected = false}) {
     final isHovered = _hoveredModel == name;
     final actuallyPinned = _pinnedModels.contains(name);
     return MouseRegion(

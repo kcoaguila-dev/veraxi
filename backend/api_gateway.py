@@ -359,6 +359,44 @@ async def save_voices(request: VoiceSaveRequest):
         
     return {"voices": get_all_voices()}
 
+from fastapi import Form
+import shutil
+
+@app.post("/api/voices/upload", response_model=VoiceListResponse)
+async def upload_voice(
+    name: str = Form(...),
+    prompt_text: str = Form(...),
+    file: UploadFile = File(...)
+):
+    from backend.tts.voices import add_voice, get_all_voices
+    
+    try:
+        # Save file to backend/tts/voices/
+        voices_dir = os.path.join(os.path.dirname(__file__), "tts", "voices")
+        os.makedirs(voices_dir, exist_ok=True)
+        
+        # Use original filename or generate a safe one
+        safe_filename = file.filename.replace(" ", "_")
+        file_path = os.path.join(voices_dir, safe_filename)
+        
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+            
+        voice_id = safe_filename.rsplit(".", 1)[0].lower()
+        ref_audio_path = f"voices/{safe_filename}"
+        
+        add_voice(
+            voice_id=voice_id,
+            name=name,
+            ref_audio_path=ref_audio_path,
+            prompt_text=prompt_text
+        )
+        
+        return {"voices": get_all_voices()}
+    except Exception as e:
+        logger.error(f"Error uploading voice: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 class AudioRequest(BaseModel):
     text: str
     voice_id: str
