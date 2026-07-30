@@ -25,6 +25,14 @@ VOICE_REGISTRY = {
         "prompt_lang": "en",
         "text_lang": "en",
     },
+    "voice_3": {
+        "id": "voice_3",
+        "name": "Luiz",
+        "ref_audio_path": "voices/luiz2.mp3",
+        "prompt_text": "Type exactly what is being said in luiz2.mp3 here",
+        "prompt_lang": "en",
+        "text_lang": "en",
+    },
 }
 
 def get_available_voices():
