@@ -8,9 +8,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Custom TTS Voices**: Configured a custom GPT-SoVITS TTS voice persona ("Luiz") with reference audio in `backend/tts/voices.json`.
+- **Frontend TTS Auto-Recovery**: Added state recovery in the Flutter chat UI (`chat_view_model.dart` and `tts_settings_view_model.dart`) to silently intercept and correct corrupted `default_system` voice IDs when using custom GPT-SoVITS endpoints.
 - **Architectural Linting**: Configured `import_lint` in `app/analysis_options.yaml` to strictly enforce clean architecture boundaries (views -> view_models -> data) in the Flutter frontend.
 - **Backend Import Boundaries**: Updated `.importlinter` contracts to explicitly prevent the `ingestion` module from calling into the `retrieval` module.
 - **Sentry Telemetry Audit**: Automated the injection of `sentry_sdk.capture_exception(e)` across all backend exception handlers to ensure zero swallowed errors.
+
+### Fixed
+- **TTS Backend Resilience**: Hardened the `/api/chat/audio` API endpoint to explicitly validate against unconfigured voices and return proper `400 Bad Request` errors.
+- **Scratch Files Cleanup**: Purged untracked Python test scripts (`test_audio.py`, `test_redis.py`) and miscellaneous TTS scratch files from the repository root.
 
 ### Changed
 - **Storage Client Factories**: Replaced 15+ redundant instances of `Neo4jStorageClient` and `QdrantStorageClient` initialization with a unified DRY `from_config()` factory pattern.
