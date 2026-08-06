@@ -1,12 +1,18 @@
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class ApiKeyStorage {
-  static const String _geminiKey = 'gemini_api_key';
-  static const String _geminiKeyExpires = 'gemini_api_key_expires';
   final _storage = const FlutterSecureStorage();
 
-  Future<void> saveGeminiKey(String key, {String? expiresIn}) async {
-    await _storage.write(key: _geminiKey, value: key);
+  String _getKeyName(String provider) {
+    return '${provider.toLowerCase()}_api_key';
+  }
+  
+  String _getExpiresName(String provider) {
+    return '${provider.toLowerCase()}_api_key_expires';
+  }
+
+  Future<void> saveKey(String provider, String key, {String? expiresIn}) async {
+    await _storage.write(key: _getKeyName(provider), value: key);
     
     if (expiresIn != null && expiresIn != 'never') {
       DateTime? expireDate;
@@ -24,30 +30,30 @@ class ApiKeyStorage {
         expireDate = DateTime.now().add(const Duration(days: 30));
       }
       if (expireDate != null) {
-        await _storage.write(key: _geminiKeyExpires, value: expireDate.toIso8601String());
+        await _storage.write(key: _getExpiresName(provider), value: expireDate.toIso8601String());
       } else {
-        await _storage.delete(key: _geminiKeyExpires);
+        await _storage.delete(key: _getExpiresName(provider));
       }
     } else {
-      await _storage.delete(key: _geminiKeyExpires);
+      await _storage.delete(key: _getExpiresName(provider));
     }
   }
 
-  Future<String?> getGeminiKey() async {
-    if (await isGeminiKeyExpired()) return null;
-    return await _storage.read(key: _geminiKey);
+  Future<String?> getKey(String provider) async {
+    if (await isKeyExpired(provider)) return null;
+    return await _storage.read(key: _getKeyName(provider));
   }
 
-  Future<bool> isGeminiKeyExpired() async {
-    final expireStr = await _storage.read(key: _geminiKeyExpires);
+  Future<bool> isKeyExpired(String provider) async {
+    final expireStr = await _storage.read(key: _getExpiresName(provider));
     if (expireStr == null) return false;
     final expireDate = DateTime.tryParse(expireStr);
     if (expireDate == null) return false;
     return DateTime.now().isAfter(expireDate);
   }
 
-  Future<String?> getGeminiKeyExpirationDate() async {
-    final expireStr = await _storage.read(key: _geminiKeyExpires);
+  Future<String?> getKeyExpirationDate(String provider) async {
+    final expireStr = await _storage.read(key: _getExpiresName(provider));
     if (expireStr == null) return null;
     final expireDate = DateTime.tryParse(expireStr);
     if (expireDate == null) return null;
@@ -62,8 +68,8 @@ class ApiKeyStorage {
     return '$month/$day/$year, $hour:$min:$sec $ampm';
   }
 
-  Future<void> clearGeminiKey() async {
-    await _storage.delete(key: _geminiKey);
-    await _storage.delete(key: _geminiKeyExpires);
+  Future<void> clearKey(String provider) async {
+    await _storage.delete(key: _getKeyName(provider));
+    await _storage.delete(key: _getExpiresName(provider));
   }
 }

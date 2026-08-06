@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:veraxi_app/features/settings/view_models/tts_settings_view_model.dart';
+import 'package:veraxi_app/features/chat/view_models/chat_view_model.dart';
 import 'manage_voices_dialog.dart';
 
 class SettingsDialog extends ConsumerStatefulWidget {
@@ -350,7 +351,8 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
             'Export data', 'Download a copy of your data', 'Export'),
         _buildActionRow('Delete all chats',
             'Permanently remove all conversations', 'Delete',
-            isDestructive: true),
+            isDestructive: true,
+            onTap: () => _showDeleteAllChatsConfirmation(context)),
       ]),
       const SizedBox(height: 32),
       _buildSectionHeader('TELEMETRY'),
@@ -358,6 +360,31 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
         _buildToggleRow('Share anonymous usage data', false),
       ]),
     ];
+  }
+
+  void _showDeleteAllChatsConfirmation(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1E1E1E),
+        title: const Text('Delete all chats', style: TextStyle(color: Colors.white)),
+        content: const Text('Are you sure you want to permanently delete all conversations? This action cannot be undone.', style: TextStyle(color: Color(0xFF878787))),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Cancel', style: TextStyle(color: Colors.white)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFD32F2F)),
+            onPressed: () {
+              ref.read(chatViewModelProvider.notifier).deleteAllChats();
+              Navigator.of(ctx).pop();
+            },
+            child: const Text('Delete', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
   }
 
   List<Widget> _buildAccountTab() {

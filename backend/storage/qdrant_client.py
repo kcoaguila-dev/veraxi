@@ -2,7 +2,7 @@ import uuid
 from typing import List, Dict, Any, Optional
 
 from qdrant_client import QdrantClient
-from qdrant_client.models import PointStruct, Distance, VectorParams
+from qdrant_client.models import PointStruct, Distance, VectorParams, SparseVectorParams, Modifier, SparseVector
 
 
 class QdrantStorageClient:
@@ -28,32 +28,57 @@ class QdrantStorageClient:
         elif distance_metric.upper() == "MANHATTAN":
             d_enum = Distance.MANHATTAN
             
+        try:
+            collection_info = self.client.get_collection(collection_name)
+            if not collection_info.config.params.sparse_vectors:
+                self.client.delete_collection(collection_name)
+        except Exception:
+            pass
+
         if not self.client.collection_exists(collection_name):
             self.client.create_collection(
                 collection_name=collection_name,
                 vectors_config=VectorParams(size=vector_size, distance=d_enum),
+                sparse_vectors_config={
+                    "text-sparse": SparseVectorParams(
+                        modifier=Modifier.IDF
+                    )
+                }
             )
 
     def insert_points(
         self,
         collection_name: str,
         vectors: List[List[float]],
+        sparse_vectors: List[dict] = None,
         payloads: List[Dict[str, Any]] = None,
         tenant_id: str = "default",
     ) -> List[str]:
         """Insert vectors and payloads, returning their generated UUIDs."""
         if payloads is None:
             payloads = [{} for _ in vectors]
+        if sparse_vectors is None:
+            sparse_vectors = [{"indices": [], "values": []} for _ in vectors]
 
         for payload in payloads:
             payload["tenant_id"] = tenant_id
 
         points = []
         point_ids = []
-        for vector, payload in zip(vectors, payloads):
+        for vector, sparse, payload in zip(vectors, sparse_vectors, payloads):
             point_id = str(uuid.uuid4())
             point_ids.append(point_id)
-            points.append(PointStruct(id=point_id, vector=vector, payload=payload))
+            
+            # Combine dense and sparse into a dictionary for Qdrant
+            qdrant_vector = {
+                "": vector,
+                "text-sparse": SparseVector(
+                    indices=sparse["indices"],
+                    values=sparse["values"]
+                )
+            }
+            
+            points.append(PointStruct(id=point_id, vector=qdrant_vector, payload=payload))
 
         self.client.upsert(collection_name=collection_name, points=points)
         return point_ids
@@ -70,14 +95,15 @@ class QdrantStorageClient:
         )
         return [{"id": p.id, "payload": p.payload, "vector": p.vector} for p in points]
 
-    def search(
+    def search_hybrid(
         self,
         collection_name: str,
         query_vector: List[float],
+        sparse_query_vector: dict,
         limit: int = 10,
         tenant_id: str = "default",
     ) -> List[Dict[str, Any]]:
-        """Search for similar vectors."""
+        """Search for similar vectors using Hybrid Search (Dense + Sparse with RRF)."""
         from qdrant_client.http import models
 
         query_filter = models.Filter(
@@ -88,17 +114,44 @@ class QdrantStorageClient:
             ]
         )
 
-        results = self.client.query_points(
-            collection_name=collection_name,
-            query=query_vector,
-            limit=limit,
-            query_filter=query_filter,
-            with_payload=True,
-        ).points
-        return [
-            {"id": hit.id, "score": hit.score, "payload": hit.payload}
-            for hit in results
-        ]
+        from qdrant_client.http.exceptions import UnexpectedResponse
+        
+        try:
+            results = self.client.query_points(
+                collection_name=collection_name,
+                prefetch=[
+                    models.Prefetch(
+                        query=models.SparseVector(
+                            indices=sparse_query_vector["indices"],
+                            values=sparse_query_vector["values"]
+                        ),
+                        using="text-sparse",
+                        filter=query_filter,
+                        limit=limit
+                    ),
+                    models.Prefetch(
+                        query=query_vector,
+                        using="",
+                        filter=query_filter,
+                        limit=limit
+                    )
+                ],
+                query=models.FusionQuery(fusion=models.Fusion.RRF),
+                limit=limit,
+                with_payload=True,
+            ).points
+        except UnexpectedResponse as e:
+            if "Not found: Collection" in str(e):
+                return []
+            raise e
+
+        # Convert to same output format
+        out = []
+        for p in results:
+            out.append({"id": p.id, "score": p.score, "payload": p.payload})
+        return out
+
+
 
     def delete_points(self, collection_name: str, point_ids: List[str]):
         """Delete points by their IDs."""

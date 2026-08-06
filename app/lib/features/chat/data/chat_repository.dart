@@ -77,9 +77,21 @@ class ChatRepository {
     return List<Map<String, dynamic>>.from(data['messages'] ?? []);
   }
 
+  String _getProviderFromModel(String? model) {
+    if (model == null || model.isEmpty) return 'unknown';
+    model = model.toLowerCase();
+    if (model.startsWith('gemini')) return 'google';
+    if (model.startsWith('gpt') || model.startsWith('o1') || model.startsWith('o3')) return 'openai';
+    if (model.startsWith('claude')) return 'anthropic';
+    if (model.startsWith('mistral')) return 'mistral';
+    if (model.startsWith('deepseek')) return 'deepseek';
+    if (model.startsWith('llama') || model.startsWith('qwen') || model.startsWith('allam') || model.startsWith('canopy') || model.startsWith('groq') || model.startsWith('meta')) return 'groq';
+    return 'unknown';
+  }
+
   /// Streams the chat response using Server-Sent Events (SSE)
   Stream<Map<String, dynamic>> streamChat(String question,
-      {String? threadId, bool isTemporary = false, String? model}) async* {
+      {String? threadId, bool isTemporary = false, String? model, bool calculateGrounding = true, Map<String, dynamic>? toolSettings}) async* {
     try {
       final uri = Uri.parse('${apiClient.baseUrl}/chat');
       final headers = apiClient.getDefaultHeaders()
@@ -87,16 +99,20 @@ class ChatRepository {
 
       final request = http.Request('POST', uri);
       request.headers.addAll(headers);
-      final apiKey = await ApiKeyStorage().getGeminiKey();
+      
+      final provider = _getProviderFromModel(model);
+      final apiKey = await ApiKeyStorage().getKey(provider);
 
       request.body = jsonEncode({
         'question': question,
         'thread_id': threadId,
         'stream': true,
         'is_temporary': isTemporary,
+        'calculate_grounding': calculateGrounding,
         if (apiKey != null && apiKey.isNotEmpty) 'api_key': apiKey,
         if (model != null && model.isNotEmpty && model != 'Select a model')
           'model': model,
+        if (toolSettings != null) 'tool_settings': toolSettings,
       });
 
       final response = await apiClient.client.send(request);
@@ -131,6 +147,15 @@ class ChatRepository {
     }
   }
 
+  Future<String> uploadAttachment(List<int> fileBytes, String fileName) async {
+    final response = await apiClient.postMultipart(
+      '/chat/upload_attachment',
+      fileBytes: fileBytes,
+      fileName: fileName,
+    );
+    return response['text'] ?? '';
+  }
+
   Future<void> submitFeedback(String messageId, int value) async {
     await apiClient
         .post('/chat/messages/$messageId/feedback', body: {'value': value});
@@ -163,5 +188,59 @@ class ChatRepository {
     } else {
       throw Exception('Backend synthesis failed: ${response.statusCode}');
     }
+  }
+
+  Future<void> renameThread(String threadId, String newTitle) async {
+    await apiClient.put('/chat/threads/$threadId/title', body: {'title': newTitle});
+  }
+
+  Future<void> togglePinThread(String threadId) async {
+    await apiClient.post('/chat/threads/$threadId/pin', body: {});
+  }
+
+  Future<void> toggleArchiveThread(String threadId) async {
+    await apiClient.post('/chat/threads/$threadId/archive', body: {});
+  }
+
+  Future<void> deleteThread(String threadId) async {
+    await apiClient.delete('/chat/threads/$threadId');
+  }
+
+  Future<void> deleteAllThreads() async {
+    await apiClient.delete('/chat/threads');
+  }
+
+  Future<String> duplicateThread(String threadId) async {
+    final response = await apiClient.post('/chat/threads/$threadId/duplicate', body: {});
+    return response['new_thread_id'] as String;
+  }
+
+  Future<String> shareThread(String threadId) async {
+    final response = await apiClient.post('/chat/threads/$threadId/share', body: {});
+    return response['share_id'] as String;
+  }
+
+  Future<void> assignThreadToProject(String threadId, String? projectId) async {
+    await apiClient.post('/chat/threads/$threadId/project', body: {
+      'project_id': projectId ?? '',
+    });
+  }
+
+  Future<List<Map<String, dynamic>>> getProjects() async {
+    final data = await apiClient.get('/projects');
+    return List<Map<String, dynamic>>.from(data['projects'] ?? []);
+  }
+
+  Future<Map<String, dynamic>> createProject(String name) async {
+    final data = await apiClient.post('/projects', body: {'name': name});
+    return data;
+  }
+
+  Future<void> renameProject(String projectId, String newName) async {
+    await apiClient.put('/projects/$projectId', body: {'name': newName});
+  }
+
+  Future<void> deleteProject(String projectId) async {
+    await apiClient.delete('/projects/$projectId');
   }
 }

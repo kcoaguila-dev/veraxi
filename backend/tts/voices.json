@@ -14,5 +14,21 @@
     "prompt_text": "あんたなんて、豆腐の角に頭ぶつけて死んじゃえばいいのよ！",
     "prompt_lang": "ja",
     "text_lang": "auto"
+  },
+  "voice_1785599277229": {
+    "id": "voice_1785599277229",
+    "name": "Kanna",
+    "ref_audio_path": "/home/kazuo/src/ai/projects/GPT-SoVITS/voices/kanna.mp3",
+    "prompt_text": "ようこそ、さいかわ。歓迎する。最高。崇めよ！",
+    "prompt_lang": "ja",
+    "text_lang": "auto"
+  },
+  "voice_1785601024838": {
+    "id": "voice_1785601024838",
+    "name": "Tsukiko",
+    "ref_audio_path": "/home/kazuo/src/ai/projects/GPT-SoVITS/voices/tsukiko.mp3",
+    "prompt_text": "もしもし、お巡りさんですか？ 近所のロリペドハイブリッド変態さんについて、情報提供をしたいのですが…",
+    "prompt_lang": "ja",
+    "text_lang": "auto"
   }
 }

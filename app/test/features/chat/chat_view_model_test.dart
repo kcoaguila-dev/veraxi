@@ -2,8 +2,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:veraxi_app/features/chat/data/chat_repository.dart';
 import 'package:veraxi_app/features/chat/view_models/chat_view_model.dart';
+
 
 class MockChatRepository extends Mock implements ChatRepository {}
 
@@ -15,6 +17,7 @@ void main() {
 
   setUpAll(() {
     FlutterSecureStorage.setMockInitialValues({});
+    SharedPreferences.setMockInitialValues({});
   });
 
   setUp(() {
@@ -40,7 +43,9 @@ void main() {
         mockRepository.streamChat(question,
             threadId: any(named: 'threadId'),
             model: 'test-model',
-            isTemporary: false)).thenAnswer((_) => Stream.fromIterable([
+            isTemporary: false,
+            calculateGrounding: any(named: 'calculateGrounding'),
+            toolSettings: any(named: 'toolSettings'))).thenAnswer((_) => Stream.fromIterable([
           {
             'event': 'on_chat_model_stream',
             'data': {
@@ -91,7 +96,9 @@ void main() {
         mockRepository.streamChat(question,
             threadId: any(named: 'threadId'),
             model: 'test-model',
-            isTemporary: false)).thenAnswer((_) => Stream.fromIterable([
+            isTemporary: false,
+            calculateGrounding: any(named: 'calculateGrounding'),
+            toolSettings: any(named: 'toolSettings'))).thenAnswer((_) => Stream.fromIterable([
           {'event': 'on_tool_start', 'name': 'query_graph'},
           {'event': 'on_tool_end', 'name': 'query_graph'},
           {
@@ -106,6 +113,47 @@ void main() {
 
     expect(viewModel.state.messages.length, 2);
     expect(viewModel.state.messages[1].text, 'Result found');
+  });
+
+  test('sendMessage extracts artifact during tool end if present', () async {
+    await pumpEventQueue();
+    const question = 'Search web';
+
+    when(() =>
+        mockRepository.streamChat(question,
+            threadId: any(named: 'threadId'),
+            model: 'test-model',
+            isTemporary: false,
+            calculateGrounding: any(named: 'calculateGrounding'),
+            toolSettings: any(named: 'toolSettings'))).thenAnswer((_) => Stream.fromIterable([
+          {
+            'event': 'on_tool_start',
+            'name': 'web_search',
+            'run_id': 'run123',
+            'data': {'input': {}}
+          },
+          {
+            'event': 'on_tool_end',
+            'name': 'web_search',
+            'run_id': 'run123',
+            'data': {
+              'output': 'some output string',
+              'artifact': [{'title': 'Art1'}]
+            }
+          },
+          {
+            'event': 'on_chat_model_stream',
+            'data': {
+              'chunk': {'content': 'Result found'}
+            }
+          },
+        ]));
+
+    await viewModel.sendMessage(question, model: 'test-model');
+
+    expect(viewModel.state.messages.length, 2);
+    expect(viewModel.state.messages[1].toolEvents.length, 1);
+    expect(viewModel.state.messages[1].toolEvents.first.result, [{'title': 'Art1'}]);
   });
 
   test('regenerateResponse calls repository and selectThread', () async {
@@ -169,5 +217,100 @@ void main() {
 
     viewModel.clearError();
     expect(viewModel.state.error, isNull);
+  });
+
+  test('toggleTelemetry flips showTelemetry and persists to SharedPreferences',
+      () async {
+    await pumpEventQueue();
+
+    // Default is false
+    expect(viewModel.state.showTelemetry, isFalse);
+
+    // Toggle ON
+    await viewModel.toggleTelemetry();
+    expect(viewModel.state.showTelemetry, isTrue);
+
+    // Verify persistence
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getBool('show_telemetry'), isTrue);
+
+    // Toggle OFF
+    await viewModel.toggleTelemetry();
+    expect(viewModel.state.showTelemetry, isFalse);
+    expect(prefs.getBool('show_telemetry'), isFalse);
+  });
+
+  test('selectProject sets active project and opens dashboard', () async {
+    await pumpEventQueue();
+    
+    viewModel.selectProject('proj-123', 'Secret Project X');
+    
+    expect(viewModel.state.activeProjectId, 'proj-123');
+    expect(viewModel.state.activeProjectName, 'Secret Project X');
+    expect(viewModel.state.showProjectDashboard, isTrue);
+    expect(viewModel.state.threadId, isNull);
+  });
+
+  test('startNewChatInProject hides dashboard and keeps project active', () async {
+    await pumpEventQueue();
+    
+    viewModel.selectProject('proj-123', 'Secret Project X');
+    viewModel.startNewChatInProject();
+    
+    expect(viewModel.state.activeProjectId, 'proj-123');
+    expect(viewModel.state.activeProjectName, 'Secret Project X');
+    expect(viewModel.state.showProjectDashboard, isFalse);
+    expect(viewModel.state.threadId, isNull);
+  });
+
+  test('exitProject clears active project and hides dashboard', () async {
+    await pumpEventQueue();
+    
+    viewModel.selectProject('proj-123', 'Secret Project X');
+    viewModel.exitProject();
+    
+    expect(viewModel.state.activeProjectId, isNull);
+    expect(viewModel.state.activeProjectName, isNull);
+    expect(viewModel.state.showProjectDashboard, isFalse);
+  });
+
+  test('sendMessage assigns new thread to active project', () async {
+    await pumpEventQueue();
+    
+    viewModel.selectProject('proj-123', 'Secret Project X');
+    viewModel.startNewChatInProject();
+    
+    const question = 'Hello?';
+    when(() => mockRepository.assignThreadToProject('new-thread-id', 'proj-123'))
+        .thenAnswer((_) async {});
+    when(() => mockRepository.getThreads()).thenAnswer((_) async => []);
+    when(() => mockRepository.getProjects()).thenAnswer((_) async => []);
+
+    when(() =>
+        mockRepository.streamChat(question,
+            threadId: null,
+            model: 'test-model',
+            isTemporary: false,
+            calculateGrounding: any(named: 'calculateGrounding'),
+            toolSettings: any(named: 'toolSettings'))).thenAnswer((_) => Stream.fromIterable([
+          {
+            'event': 'metadata',
+            'data': {
+              'thread_id': 'new-thread-id'
+            }
+          },
+          {
+            'event': 'on_chat_model_stream',
+            'run_id': 'new-thread-id',
+            'data': {
+              'chunk': {'content': 'Hi '}
+            }
+          },
+        ]));
+
+    await viewModel.sendMessage(question, model: 'test-model');
+    
+    // Check that assignThreadToProject was called because there was an active project
+    verify(() => mockRepository.assignThreadToProject('new-thread-id', 'proj-123')).called(1);
   });
 }

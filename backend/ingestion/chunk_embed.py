@@ -29,6 +29,13 @@ def get_embedding_model():
     return SentenceTransformer(config.embedding_model_name)
 
 
+@lru_cache(maxsize=1)
+def get_sparse_embedding_model():
+    """Load sparse model once and cache it"""
+    from fastembed import SparseTextEmbedding
+    return SparseTextEmbedding(model_name="prithivida/Splade_PP_en_v1")
+
+
 def embed_text(text: str) -> List[float]:
     """Embed text using local sentence-transformers model."""
     if not text:
@@ -40,7 +47,19 @@ def embed_text(text: str) -> List[float]:
     return embedding.tolist()
 
 
-def chunk_and_embed(text: str) -> List[Tuple[str, List[float]]]:
-    """Chunks text and returns list of (chunk_text, embedding_vector)."""
+def embed_text_sparse(text: str) -> dict:
+    """Embed text using local fastembed SPLADE model."""
+    if not text:
+        return {"indices": [], "values": []}
+    
+    model = get_sparse_embedding_model()
+    embeddings = list(model.embed([text]))
+    if embeddings and len(embeddings) > 0:
+        return {"indices": embeddings[0].indices.tolist(), "values": embeddings[0].values.tolist()}
+    return {"indices": [], "values": []}
+
+
+def chunk_and_embed(text: str) -> List[Tuple[str, List[float], dict]]:
+    """Chunks text and returns list of (chunk_text, dense_vector, sparse_vector)."""
     chunks = chunk_text(text)
-    return [(chunk, embed_text(chunk)) for chunk in chunks]
+    return [(chunk, embed_text(chunk), embed_text_sparse(chunk)) for chunk in chunks]

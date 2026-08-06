@@ -16,6 +16,15 @@ class MockRedis:
     async def sadd(self, key, value):
         return 1
 
+    async def hset(self, *args, **kwargs):
+        return 1
+
+    async def hgetall(self, *args, **kwargs):
+        return {}
+
+    async def hdel(self, *args, **kwargs):
+        return 1
+
 @pytest.fixture
 def override_redis(monkeypatch):
     monkeypatch.setattr(app.state, "redis", MockRedis(), raising=False)
@@ -24,7 +33,19 @@ def override_redis(monkeypatch):
 async def test_chat_endpoint_no_stream(override_redis):
     # Mock answer_question to return a static answer and context
     with patch('backend.api_gateway.answer_question', new_callable=AsyncMock) as mock_answer:
-        mock_answer.return_value = ("Hello from test", "Test Context")
+        mock_answer.return_value = (
+            "Hello from test",
+            "Test Context",
+            {
+                "grounding_score": 0.9,
+                "context_adherence": 0.9,
+                "retrieval_relevance": 1.0,
+                "confidence": 0.95,
+                "precision": 0.947,
+                "generation_seconds": 0.53,
+                "context_relevance": "yes",
+            },
+        )
         
         response = client.post(
             "/api/chat",
@@ -35,6 +56,9 @@ async def test_chat_endpoint_no_stream(override_redis):
         data = response.json()
         assert data["answer"] == "Hello from test"
         assert data["context"] == "Test Context"
+        assert data["metrics"]["grounding_score"] == 0.9
+        assert data["metrics"]["context_adherence"] == 0.9
+        assert data["metrics"]["retrieval_relevance"] == 1.0
         assert data["thread_id"] is not None
 
 @pytest.mark.asyncio
@@ -56,18 +80,32 @@ async def test_chat_endpoint_stream(override_redis):
         
         # Parse SSE
         lines = response.text.strip().split("\n\n")
-        assert len(lines) == 4 # 3 yielded + 1 [DONE]
+        assert len(lines) == 5 # thread_id metadata + 3 yielded + 1 [DONE]
+
+        assert lines[0].startswith('data: {"event": "metadata", "data": {"thread_id"')
         
-        assert lines[0] == 'data: {"type": "content", "content": "Hello "}'
-        assert lines[1] == 'data: {"type": "content", "content": "world"}'
-        assert lines[2] == 'data: {"type": "metadata", "content": "Metadata test"}'
-        assert lines[3] == 'data: [DONE]'
+        assert lines[1] == 'data: {"type": "content", "content": "Hello "}'
+        assert lines[2] == 'data: {"type": "content", "content": "world"}'
+        assert lines[3] == 'data: {"type": "metadata", "content": "Metadata test"}'
+        assert lines[4] == 'data: [DONE]'
 
 @pytest.mark.asyncio
 async def test_chat_endpoint_with_api_key_override(override_redis):
     # Mock answer_question to verify api_key_override is passed through
     with patch('backend.api_gateway.answer_question', new_callable=AsyncMock) as mock_answer:
-        mock_answer.return_value = ("API Key tested", "Context")
+        mock_answer.return_value = (
+            "API Key tested",
+            "Context",
+            {
+                "grounding_score": 0.8,
+                "context_adherence": 0.8,
+                "retrieval_relevance": 1.0,
+                "confidence": 0.9,
+                "precision": 0.889,
+                "generation_seconds": 0.21,
+                "context_relevance": "yes",
+            },
+        )
         
         response = client.post(
             "/api/chat",
@@ -176,3 +214,24 @@ async def test_chat_endpoint_no_model_selected(override_redis):
     )
     assert response.status_code == 400
     assert response.json()["detail"] == "No AI model selected"
+
+@pytest.mark.asyncio
+async def test_chat_endpoint_tool_events(override_redis):
+    # Mock stream_answer_question to yield tool events just like the modified backend does
+    async def mock_stream_events_with_tools(*args, **kwargs):
+        yield {"event": "on_tool_start", "name": "mcp_web_search", "run_id": "123", "data": {"input": {"query": "test"}}}
+        yield {"event": "on_tool_end", "name": "mcp_web_search", "run_id": "123", "data": {"output": "search results"}}
+
+    with patch('backend.api_gateway.stream_answer_question', side_effect=mock_stream_events_with_tools):
+        response = client.post(
+            "/api/chat",
+            json={"question": "search something", "stream": True, "model": "test-model"},
+        )
+        
+        assert response.status_code == 200
+        
+        lines = response.text.strip().split("\n\n")
+        # Metadata thread_id + 2 tool events + DONE = 4 lines
+        assert len(lines) == 4
+        assert lines[1] == 'data: {"event": "on_tool_start", "name": "mcp_web_search", "run_id": "123", "data": {"input": {"query": "test"}}}'
+        assert lines[2] == 'data: {"event": "on_tool_end", "name": "mcp_web_search", "run_id": "123", "data": {"output": "search results"}}'

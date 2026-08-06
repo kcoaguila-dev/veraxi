@@ -5,6 +5,7 @@ import 'package:veraxi_app/features/chat/view_models/chat_view_model.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:veraxi_app/features/chat/views/widgets/graph_artifact.dart';
 
+
 class ChatBubble extends StatelessWidget {
   final ChatMessage message;
 
@@ -66,19 +67,26 @@ class ChatBubble extends StatelessWidget {
       // Not a valid graph JSON, fall back to markdown
     }
 
-    return MarkdownBody(
-      data: text,
-      styleSheet: MarkdownStyleSheet(
-        p: TextStyle(color: theme.colorScheme.onSurface, fontSize: 16),
-        code: TextStyle(
-          backgroundColor: theme.colorScheme.surface,
-          fontFamily: 'monospace',
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+
+        MarkdownBody(
+          data: text,
+          styleSheet: MarkdownStyleSheet(
+            p: TextStyle(color: theme.colorScheme.onSurface, fontSize: 16),
+            code: TextStyle(
+              backgroundColor: theme.colorScheme.surface,
+              fontFamily: 'monospace',
+            ),
+            codeblockDecoration: BoxDecoration(
+              color: theme.colorScheme.surface,
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
         ),
-        codeblockDecoration: BoxDecoration(
-          color: theme.colorScheme.surface,
-          borderRadius: BorderRadius.circular(8),
-        ),
-      ),
+      ],
     );
   }
 }

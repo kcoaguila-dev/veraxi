@@ -1,6 +1,8 @@
+import 'dart:convert';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class WebSearchDialog extends StatefulWidget {
   const WebSearchDialog({super.key});
@@ -11,15 +13,77 @@ class WebSearchDialog extends StatefulWidget {
 
 class _WebSearchDialogState extends State<WebSearchDialog> {
   final TextEditingController _serperKeyController = TextEditingController();
+  final TextEditingController _searxngUrlController = TextEditingController();
+  final TextEditingController _searxngKeyController = TextEditingController();
   final TextEditingController _firecrawlUrlController = TextEditingController();
   final TextEditingController _firecrawlKeyController = TextEditingController();
 
   String _selectedProvider = 'Serper API';
   String _selectedScraper = 'Firecrawl API';
+  bool _webSearchEnabled = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSettings();
+  }
+
+  Future<void> _loadSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    final settingsJson = prefs.getString('tool_settings');
+    if (settingsJson != null) {
+      try {
+        final settings = jsonDecode(settingsJson) as Map<String, dynamic>;
+        final webSearch = settings['web_search'] as Map<String, dynamic>?;
+        if (webSearch != null) {
+          if (webSearch['enabled'] != null) _webSearchEnabled = webSearch['enabled'];
+          if (webSearch['provider'] != null) _selectedProvider = webSearch['provider'];
+          if (webSearch['scraper'] != null) _selectedScraper = webSearch['scraper'];
+          _serperKeyController.text = webSearch['serper_api_key'] ?? '';
+          _searxngUrlController.text = webSearch['searxng_url'] ?? '';
+          _searxngKeyController.text = webSearch['searxng_api_key'] ?? '';
+          _firecrawlUrlController.text = webSearch['firecrawl_url'] ?? '';
+          _firecrawlKeyController.text = webSearch['firecrawl_api_key'] ?? '';
+          if (mounted) setState(() {});
+        }
+      } catch (e) {
+        debugPrint('Failed to load tool settings: $e');
+      }
+    }
+  }
+
+  Future<void> _saveSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    final currentSettingsJson = prefs.getString('tool_settings');
+    Map<String, dynamic> settings = {};
+    if (currentSettingsJson != null) {
+      try {
+        settings = jsonDecode(currentSettingsJson) as Map<String, dynamic>;
+      } catch (_) {}
+    }
+    
+    settings['web_search'] = {
+      'enabled': _webSearchEnabled,
+      'provider': _selectedProvider,
+      'scraper': _selectedScraper,
+      'serper_api_key': _serperKeyController.text,
+      'searxng_url': _searxngUrlController.text,
+      'searxng_api_key': _searxngKeyController.text,
+      'firecrawl_url': _firecrawlUrlController.text,
+      'firecrawl_api_key': _firecrawlKeyController.text,
+    };
+    
+    await prefs.setString('tool_settings', jsonEncode(settings));
+    if (mounted) {
+      Navigator.of(context).pop();
+    }
+  }
 
   @override
   void dispose() {
     _serperKeyController.dispose();
+    _searxngUrlController.dispose();
+    _searxngKeyController.dispose();
     _firecrawlUrlController.dispose();
     _firecrawlKeyController.dispose();
     super.dispose();
@@ -61,6 +125,11 @@ class _WebSearchDialogState extends State<WebSearchDialog> {
                 ),
               ),
             ),
+            const SizedBox(height: 24),
+            
+            // Toggle removed in favor of direct click in the tools menu
+
+            
             const SizedBox(height: 24),
             
             // Search Provider
@@ -109,11 +178,17 @@ class _WebSearchDialogState extends State<WebSearchDialog> {
               ],
             ),
             const SizedBox(height: 12),
-            _ApiKeyInputField(controller: _serperKeyController, hintText: 'Enter API Key'),
-            const SizedBox(height: 8),
-            RichText(
-              text: _linkSpan('Get your Serper API key', url: 'https://serper.dev/api-keys'),
-            ),
+            if (_selectedProvider == 'SearXNG') ...[
+              _buildInputField(_searxngUrlController, 'SearXNG Instance URL'),
+              const SizedBox(height: 12),
+              _ApiKeyInputField(controller: _searxngKeyController, hintText: 'Enter SearXNG API Key (optional)'),
+            ] else ...[
+              _ApiKeyInputField(controller: _serperKeyController, hintText: 'Enter API Key'),
+              const SizedBox(height: 8),
+              RichText(
+                text: _linkSpan('Get your $_selectedProvider key', url: 'https://serper.dev/api-keys'),
+              ),
+            ],
             
             const SizedBox(height: 32),
             
@@ -189,7 +264,7 @@ class _WebSearchDialogState extends State<WebSearchDialog> {
                 ),
                 const SizedBox(width: 12),
                 TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
+                  onPressed: _saveSettings,
                   style: TextButton.styleFrom(
                     backgroundColor: const Color(0xFF10A37F), // ChatGPT Green
                     foregroundColor: Colors.white,

@@ -127,40 +127,45 @@ class ChatRequest(BaseModel):
     api_key: str | None = None
     # Optional per-request model — overrides LLM_MODEL_NAME in .env when provided
     model: str | None = None
+    # Optional tool settings override from UI
+    tool_settings: dict | None = None
 
 
 class ChatResponse(BaseModel):
     answer: str
     context: str | None = None
     grounding_score: float | None = None
+    metrics: dict[str, float | str | None] | None = None
     thread_id: str | None = None
 
 
 class IngestRequest(BaseModel):
     text: str
+    fast_extraction: bool = False
+    language: str = "en"
+    custom_stop_words: list[str] = []
 
 
-async def _generate_and_save_title(question: str, tenant_id: str, thread_id: str, redis):
+async def _generate_and_save_title(question: str, tenant_id: str, thread_id: str, redis, api_key_override: str | None = None, model_override: str | None = None):
     try:
-        from backend.mcp_server.llm_loop import answer_question
-        prompt = f"Summarize this conversation starter into a concise 3-5 word title: {question}"
-        answer, _ = await answer_question(
-            prompt, 
-            tenant_id=tenant_id, 
-            thread_id=f"title_gen_{uuid.uuid4().hex[:8]}", 
-            return_context=False, 
-            is_temporary=True,
-            model_override="gemini-3.5-flash"
+        from backend.mcp_server.llm_loop import generate_chat_title
+        title = await generate_chat_title(
+            question,
+            api_key_override=api_key_override,
+            model_override=model_override,
         )
-        title = answer.strip('"\'. \n')
+        if not title:
+            return None
         await redis.hset(f"tenant:{tenant_id}:thread_titles", thread_id, title)
+        return title
     except Exception as e:
         logger.error(f"Error generating title for thread {thread_id}: {e}")
+        return None
 
 @app.post("/api/chat", response_model=ChatResponse)
 @limiter.limit(config.rate_limit_chat)
 async def chat_endpoint(request: Request, chat_request: ChatRequest, tenant_id: str = Depends(get_tenant_id)):
-    logger.info(f"Received question: {chat_request.question} for tenant: {tenant_id}")
+    logger.info(f"Received question: {chat_request.question} for tenant: {tenant_id} | tool_settings: {chat_request.tool_settings}")
     if not chat_request.model:
         raise HTTPException(status_code=400, detail="No AI model selected")
         
@@ -169,13 +174,27 @@ async def chat_endpoint(request: Request, chat_request: ChatRequest, tenant_id: 
         # Use per-request key if provided, fall back to server-side LLM_API_KEY env var
         api_key_override = chat_request.api_key or None
         
+        title_task = None
         # Track thread_id for this tenant if not temporary
-        is_new_thread = False
         if not chat_request.is_temporary:
             added = await request.app.state.redis.sadd(f"tenant:{tenant_id}:threads", thread_id)
+            
+            import time
+            await request.app.state.redis.hset(f"tenant:{tenant_id}:thread_timestamps", thread_id, str(time.time()))
+            
             if added == 1:
-                is_new_thread = True
-                asyncio.create_task(_generate_and_save_title(chat_request.question, tenant_id, thread_id, request.app.state.redis))
+                # Immediately set a rudimentary title based on the user's query so the UI shows something
+                initial_title = chat_request.question[:40] + "..." if len(chat_request.question) > 40 else chat_request.question
+                await request.app.state.redis.hset(f"tenant:{tenant_id}:thread_titles", thread_id, initial_title)
+                
+                title_task = asyncio.create_task(_generate_and_save_title(
+                    chat_request.question, 
+                    tenant_id, 
+                    thread_id, 
+                    request.app.state.redis,
+                    api_key_override=api_key_override,
+                    model_override=chat_request.model
+                ))
         
         if chat_request.stream:
             async def event_generator():
@@ -190,6 +209,8 @@ async def chat_endpoint(request: Request, chat_request: ChatRequest, tenant_id: 
                         is_temporary=chat_request.is_temporary,
                         api_key_override=api_key_override,
                         model_override=chat_request.model,
+                        calculate_grounding=chat_request.calculate_grounding,
+                        tool_settings=chat_request.tool_settings,
                     ):
                         # Yield SSE formatted data
                         def custom_encoder(obj):
@@ -199,6 +220,16 @@ async def chat_endpoint(request: Request, chat_request: ChatRequest, tenant_id: 
                                 return obj.dict()
                             return str(obj)
                         yield f"data: {json.dumps(event, default=custom_encoder)}\n\n"
+                        
+                    if title_task:
+                        try:
+                            # Give it a bit of time to finish
+                            title = await asyncio.wait_for(title_task, timeout=10.0)
+                            if title:
+                                yield f"data: {json.dumps({'event': 'metadata', 'data': {'thread_title': title}})}\n\n"
+                        except Exception as e:
+                            logger.error(f"Error waiting for title task: {e}")
+                            
                     # Send a final 'done' event to signal stream completion
                     yield "data: [DONE]\n\n"
                 except Exception as e:
@@ -210,25 +241,24 @@ async def chat_endpoint(request: Request, chat_request: ChatRequest, tenant_id: 
             return StreamingResponse(event_generator(), media_type="text/event-stream")
         
         # In a high-throughput production environment, we run this asynchronously
-        answer, context = await answer_question(
+        answer, context, metrics = await answer_question(
             chat_request.question, 
             tenant_id=tenant_id, 
             thread_id=thread_id,
             return_context=True,
+            return_metrics=True,
             is_temporary=chat_request.is_temporary,
             api_key_override=api_key_override,
             model_override=chat_request.model,
+            calculate_grounding=chat_request.calculate_grounding,
+            tool_settings=chat_request.tool_settings,
         )
-        
-        score = None
-        if chat_request.calculate_grounding:
-            from backend.evaluation.grounding import evaluate_groundedness
-            score = evaluate_groundedness(answer, context)
             
         return ChatResponse(
             answer=answer, 
             context=context, 
-            grounding_score=score,
+            grounding_score=metrics.get("grounding_score") if metrics else None,
+            metrics=metrics or None,
             thread_id=thread_id
         )
     except Exception as e:
@@ -239,19 +269,46 @@ async def chat_endpoint(request: Request, chat_request: ChatRequest, tenant_id: 
 def _extract_messages_from_state(raw_messages: list, feedback_dict: dict = None) -> list:
     if feedback_dict is None:
         feedback_dict = {}
+        
+    tool_results = {}
+    for msg in raw_messages:
+        if getattr(msg, "type", "") == "tool" or msg.__class__.__name__ == "ToolMessage":
+            tool_results[msg.tool_call_id] = msg.content
+            
     messages_out = []
     for msg in raw_messages:
         msg_type = msg.__class__.__name__
         if msg_type in ["HumanMessage", "AIMessage"]:
+            # Filter out legacy system-injected messages that were saved as HumanMessages
+            if msg_type == "HumanMessage" and msg.content:
+                content_str = str(msg.content)
+                if content_str.startswith("Here is the context retrieved from the database:") or content_str.startswith("Web Search Fallback Context:"):
+                    continue
+                    
             msg_id = getattr(msg, "id", None)
             if not msg_id:
                 msg_id = getattr(msg, "additional_kwargs", {}).get("id") or str(id(msg))
+            metrics = getattr(msg, "additional_kwargs", {}).get("metrics")
+            
+            tool_events = []
+            if hasattr(msg, "tool_calls") and msg.tool_calls:
+                for tc in msg.tool_calls:
+                    tool_events.append({
+                        "id": tc.get("id", ""),
+                        "name": tc.get("name", "tool"),
+                        "args": tc.get("args", {}),
+                        "result": tool_results.get(tc.get("id"), ""),
+                        "isComplete": True
+                    })
+
             messages_out.append({
                 "id": str(msg_id),
                 "role": "user" if msg_type == "HumanMessage" else "assistant",
                 "content": msg.content,
                 "feedback": int(feedback_dict.get(str(msg_id), 0)),
-                "model_name": getattr(msg, "additional_kwargs", {}).get("model_name")
+                "model_name": getattr(msg, "additional_kwargs", {}).get("model_name"),
+                "metrics": metrics if isinstance(metrics, dict) else None,
+                "toolEvents": tool_events,
             })
     return messages_out
 
@@ -264,6 +321,10 @@ async def list_threads(request: Request, tenant_id: str = Depends(get_tenant_id)
     try:
         threads = await request.app.state.redis.smembers(f"tenant:{tenant_id}:threads")
         titles = await request.app.state.redis.hgetall(f"tenant:{tenant_id}:thread_titles")
+        pinned = await request.app.state.redis.smembers(f"tenant:{tenant_id}:pinned_threads")
+        archived = await request.app.state.redis.smembers(f"tenant:{tenant_id}:archived_threads")
+        projects = await request.app.state.redis.hgetall(f"tenant:{tenant_id}:thread_projects")
+        timestamps = await request.app.state.redis.hgetall(f"tenant:{tenant_id}:thread_timestamps")
         
         thread_list = []
         for t in threads:
@@ -271,7 +332,30 @@ async def list_threads(request: Request, tenant_id: str = Depends(get_tenant_id)
             title = titles.get(t, b"").decode("utf-8")
             if not title:
                 title = "New Chat"
-            thread_list.append({"thread_id": tid, "title": title})
+            is_pinned = t in pinned
+            is_archived = t in archived
+            project_id = projects.get(t, b"").decode("utf-8")
+            
+            # Use timestamp if available, otherwise 0 for older threads
+            try:
+                ts = float(timestamps.get(t, b"0").decode("utf-8"))
+            except ValueError:
+                ts = 0.0
+                
+            thread_list.append({
+                "thread_id": tid, 
+                "title": title,
+                "is_pinned": is_pinned,
+                "is_archived": is_archived,
+                "project_id": project_id if project_id else None,
+                "_timestamp": ts
+            })
+            
+        # Sort by timestamp descending (newest first)
+        thread_list.sort(key=lambda x: x["_timestamp"], reverse=True)
+        # Remove the internal timestamp field before returning to save bandwidth (or keep it if useful)
+        for t in thread_list:
+            del t["_timestamp"]
             
         return {"threads": thread_list}
     except Exception as e:
@@ -494,6 +578,184 @@ async def regenerate_response(thread_id: str, request: Request, tenant_id: str =
     # A full implementation requires deep LangGraph state manipulation.
     return {"status": "ok", "message": "Regenerate triggered (mock)"}
 
+class TitleRequest(BaseModel):
+    title: str
+
+@app.put("/api/chat/threads/{thread_id}/title")
+async def rename_thread(thread_id: str, payload: TitleRequest, request: Request, tenant_id: str = Depends(get_tenant_id)):
+    await request.app.state.redis.hset(f"tenant:{tenant_id}:thread_titles", thread_id, payload.title)
+    return {"status": "ok"}
+
+@app.post("/api/chat/threads/{thread_id}/pin")
+async def toggle_pin_thread(thread_id: str, request: Request, tenant_id: str = Depends(get_tenant_id)):
+    is_pinned = await request.app.state.redis.sismember(f"tenant:{tenant_id}:pinned_threads", thread_id)
+    if is_pinned:
+        await request.app.state.redis.srem(f"tenant:{tenant_id}:pinned_threads", thread_id)
+        return {"status": "unpinned"}
+    else:
+        await request.app.state.redis.sadd(f"tenant:{tenant_id}:pinned_threads", thread_id)
+        return {"status": "pinned"}
+
+@app.post("/api/chat/threads/{thread_id}/archive")
+async def toggle_archive_thread(thread_id: str, request: Request, tenant_id: str = Depends(get_tenant_id)):
+    is_archived = await request.app.state.redis.sismember(f"tenant:{tenant_id}:archived_threads", thread_id)
+    if is_archived:
+        await request.app.state.redis.srem(f"tenant:{tenant_id}:archived_threads", thread_id)
+        return {"status": "unarchived"}
+    else:
+        await request.app.state.redis.sadd(f"tenant:{tenant_id}:archived_threads", thread_id)
+        return {"status": "archived"}
+
+@app.delete("/api/chat/threads/{thread_id}")
+async def delete_thread(thread_id: str, request: Request, tenant_id: str = Depends(get_tenant_id)):
+    await request.app.state.redis.srem(f"tenant:{tenant_id}:threads", thread_id)
+    await request.app.state.redis.hdel(f"tenant:{tenant_id}:thread_titles", thread_id)
+    await request.app.state.redis.srem(f"tenant:{tenant_id}:pinned_threads", thread_id)
+    await request.app.state.redis.srem(f"tenant:{tenant_id}:archived_threads", thread_id)
+    await request.app.state.redis.hdel(f"tenant:{tenant_id}:thread_projects", thread_id)
+    return {"status": "deleted"}
+
+@app.delete("/api/chat/threads")
+async def delete_all_threads(request: Request, tenant_id: str = Depends(get_tenant_id)):
+    await request.app.state.redis.delete(f"tenant:{tenant_id}:threads")
+    await request.app.state.redis.delete(f"tenant:{tenant_id}:thread_titles")
+    await request.app.state.redis.delete(f"tenant:{tenant_id}:pinned_threads")
+    await request.app.state.redis.delete(f"tenant:{tenant_id}:archived_threads")
+    await request.app.state.redis.delete(f"tenant:{tenant_id}:thread_projects")
+    return {"status": "all_deleted"}
+
+@app.post("/api/chat/threads/{thread_id}/duplicate")
+async def duplicate_thread(thread_id: str, request: Request, tenant_id: str = Depends(get_tenant_id)):
+    new_thread_id = str(uuid.uuid4())
+    titles = await request.app.state.redis.hgetall(f"tenant:{tenant_id}:thread_titles")
+    old_title = titles.get(thread_id.encode(), b"").decode("utf-8")
+    new_title = f"{old_title} (Copy)" if old_title else "New Chat (Copy)"
+    await request.app.state.redis.hset(f"tenant:{tenant_id}:thread_titles", new_thread_id, new_title)
+    await request.app.state.redis.sadd(f"tenant:{tenant_id}:threads", new_thread_id)
+
+    try:
+        from langgraph.checkpoint.redis.aio import AsyncRedisSaver
+        config_obj = get_config()
+        old_config = {"configurable": {"thread_id": thread_id}}
+        new_config = {"configurable": {"thread_id": new_thread_id}}
+        
+        async with AsyncRedisSaver.from_conn_string(config_obj.redis_url) as memory:
+            state = await memory.aget_tuple(old_config)
+            if state:
+                raw_messages = state.checkpoint.get("channel_values", {}).get("messages", [])
+                if raw_messages:
+                    import copy
+                    copied_messages = copy.deepcopy(raw_messages)
+                    for msg in copied_messages:
+                        msg.id = str(uuid.uuid4())
+                        if hasattr(msg, "additional_kwargs") and "id" in msg.additional_kwargs:
+                            msg.additional_kwargs["id"] = msg.id
+                    await memory.aupdate_state(new_config, {"messages": copied_messages})
+    except Exception as e:
+        logger.error(f"Error duplicating LangGraph state: {e}")
+        
+    return {"status": "ok", "new_thread_id": new_thread_id}
+
+@app.post("/api/chat/threads/{thread_id}/share")
+async def share_thread(thread_id: str, request: Request, tenant_id: str = Depends(get_tenant_id)):
+    is_owner = await request.app.state.redis.sismember(f"tenant:{tenant_id}:threads", thread_id)
+    if not is_owner:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    try:
+        from langgraph.checkpoint.redis.aio import AsyncRedisSaver
+        config_obj = get_config()
+        config = {"configurable": {"thread_id": thread_id}}
+        async with AsyncRedisSaver.from_conn_string(config_obj.redis_url) as memory:
+            state = await memory.aget_tuple(config)
+            
+        messages_out = []
+        if state:
+            raw_messages = state.checkpoint.get("channel_values", {}).get("messages", [])
+            messages_out = _extract_messages_from_state(raw_messages)
+            
+        share_id = str(uuid.uuid4())
+        
+        titles = await request.app.state.redis.hgetall(f"tenant:{tenant_id}:thread_titles")
+        title = titles.get(thread_id.encode(), b"").decode("utf-8")
+        
+        share_data = {
+            "title": title or "Shared Chat",
+            "messages": messages_out
+        }
+        await request.app.state.redis.set(f"share:{share_id}", json.dumps(share_data))
+        await request.app.state.redis.expire(f"share:{share_id}", 30 * 24 * 60 * 60)
+        
+        return {"share_id": share_id}
+    except Exception as e:
+        logger.error(f"Error sharing thread: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/share/{share_id}")
+async def get_shared_thread(share_id: str, request: Request):
+    data = await request.app.state.redis.get(f"share:{share_id}")
+    if not data:
+        raise HTTPException(status_code=404, detail="Shared link not found or expired")
+    return json.loads(data)
+
+class ProjectCreateRequest(BaseModel):
+    name: str
+    
+class ProjectRenameRequest(BaseModel):
+    name: str
+    
+class ProjectAssignRequest(BaseModel):
+    project_id: str
+
+@app.get("/api/projects")
+async def list_projects(request: Request, tenant_id: str = Depends(get_tenant_id)):
+    projects_dict = await request.app.state.redis.hgetall(f"tenant:{tenant_id}:projects")
+    projects_list = []
+    for pid, pname in projects_dict.items():
+        projects_list.append({"id": pid.decode("utf-8"), "name": pname.decode("utf-8")})
+    return {"projects": projects_list}
+
+@app.post("/api/projects")
+async def create_project(payload: ProjectCreateRequest, request: Request, tenant_id: str = Depends(get_tenant_id)):
+    project_id = str(uuid.uuid4())
+    await request.app.state.redis.hset(f"tenant:{tenant_id}:projects", project_id, payload.name)
+    return {"id": project_id, "name": payload.name}
+
+@app.put("/api/projects/{project_id}")
+async def rename_project(project_id: str, payload: ProjectRenameRequest, request: Request, tenant_id: str = Depends(get_tenant_id)):
+    project_exists = await request.app.state.redis.hexists(f"tenant:{tenant_id}:projects", project_id)
+    if not project_exists:
+        raise HTTPException(status_code=404, detail="Project not found")
+    await request.app.state.redis.hset(f"tenant:{tenant_id}:projects", project_id, payload.name)
+    return {"status": "ok"}
+
+@app.delete("/api/projects/{project_id}")
+async def delete_project(project_id: str, request: Request, tenant_id: str = Depends(get_tenant_id)):
+    project_exists = await request.app.state.redis.hexists(f"tenant:{tenant_id}:projects", project_id)
+    if not project_exists:
+        raise HTTPException(status_code=404, detail="Project not found")
+        
+    await request.app.state.redis.hdel(f"tenant:{tenant_id}:projects", project_id)
+    
+    # Unassign threads that belonged to this project
+    thread_projects = await request.app.state.redis.hgetall(f"tenant:{tenant_id}:thread_projects")
+    for tid, pid in thread_projects.items():
+        if pid.decode("utf-8") == project_id:
+            await request.app.state.redis.hdel(f"tenant:{tenant_id}:thread_projects", tid.decode("utf-8"))
+            
+    return {"status": "ok"}
+
+@app.post("/api/chat/threads/{thread_id}/project")
+async def assign_project(thread_id: str, payload: ProjectAssignRequest, request: Request, tenant_id: str = Depends(get_tenant_id)):
+    if not payload.project_id:
+        await request.app.state.redis.hdel(f"tenant:{tenant_id}:thread_projects", thread_id)
+    else:
+        project_exists = await request.app.state.redis.hexists(f"tenant:{tenant_id}:projects", payload.project_id)
+        if not project_exists:
+            raise HTTPException(status_code=404, detail="Project not found")
+        await request.app.state.redis.hset(f"tenant:{tenant_id}:thread_projects", thread_id, payload.project_id)
+    return {"status": "ok"}
+
 @app.get("/health")
 async def health_check():
     return {"status": "ok"}
@@ -556,7 +818,14 @@ def get_stats(tenant_id: str = Depends(get_tenant_id)):
 @limiter.limit(config.rate_limit_ingest)
 async def ingest_data(request: Request, ingest_request: IngestRequest, tenant_id: str = Depends(get_tenant_id)):
     try:
-        job = await request.app.state.redis.enqueue_job("process_ingestion_task", ingest_request.text, tenant_id)
+        job = await request.app.state.redis.enqueue_job(
+            "process_ingestion_task", 
+            ingest_request.text, 
+            tenant_id, 
+            ingest_request.fast_extraction,
+            ingest_request.language,
+            ingest_request.custom_stop_words
+        )
         return {"status": "queued", "job_id": job.job_id}
     except Exception as e:
         sentry_sdk.capture_exception(e)
@@ -617,7 +886,12 @@ class UrlIngestRequest(BaseModel):
 @app.post("/api/admin/ingest/upload")
 @limiter.limit(config.rate_limit_ingest)
 async def ingest_upload(
-    request: Request, file: UploadFile = File(...), tenant_id: str = Depends(get_tenant_id)
+    request: Request, 
+    file: UploadFile = File(...), 
+    fast_extraction: bool = Form(False), 
+    language: str = Form("en"),
+    custom_stop_words: str = Form(""),
+    tenant_id: str = Depends(get_tenant_id)
 ):
     try:
         # Save uploaded file to temp file
@@ -656,7 +930,17 @@ async def ingest_upload(
         os.unlink(tmp_path)
 
         logger.info(f"Enqueueing {len(markdown_text)} bytes of markdown from {file.filename}")
-        job = await request.app.state.redis.enqueue_job("process_ingestion_task", markdown_text, tenant_id)
+        
+        parsed_stop_words = [w.strip() for w in custom_stop_words.split(",")] if custom_stop_words else []
+        
+        job = await request.app.state.redis.enqueue_job(
+            "process_ingestion_task", 
+            markdown_text, 
+            tenant_id, 
+            fast_extraction,
+            language,
+            parsed_stop_words
+        )
         return {"status": "queued", "job_id": job.job_id}
     except HTTPException:
         raise
@@ -665,6 +949,12 @@ async def ingest_upload(
         logger.error(f"Error during file ingestion: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+
+class UrlIngestRequest(BaseModel):
+    url: str
+    fast_extraction: bool = False
+    language: str = "en"
+    custom_stop_words: list[str] = []
 
 @app.post("/api/admin/ingest/url")
 @limiter.limit(config.rate_limit_ingest)
@@ -677,7 +967,14 @@ async def ingest_url(request: Request, url_request: UrlIngestRequest, tenant_id:
         markdown_text = result.document.export_to_markdown()
 
         logger.info(f"Enqueueing {len(markdown_text)} bytes of markdown from {url_request.url}")
-        job = await request.app.state.redis.enqueue_job("process_ingestion_task", markdown_text, tenant_id)
+        job = await request.app.state.redis.enqueue_job(
+            "process_ingestion_task", 
+            markdown_text, 
+            tenant_id, 
+            url_request.fast_extraction,
+            url_request.language,
+            url_request.custom_stop_words
+        )
         return {"status": "queued", "job_id": job.job_id}
     except Exception as e:
         sentry_sdk.capture_exception(e)
