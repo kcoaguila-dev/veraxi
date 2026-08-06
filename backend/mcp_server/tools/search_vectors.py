@@ -1,7 +1,7 @@
 from typing import List
 from backend.config import get_config
 from backend.storage.qdrant_client import QdrantStorageClient
-from backend.ingestion.chunk_embed import embed_text
+from backend.ingestion.chunk_embed import embed_text, embed_text_sparse
 from backend.retrieval.merge_rank import VectorHit
 
 
@@ -9,8 +9,8 @@ def search_vectors(
     query_text: str, limit: int = 10, tenant_id: str = "default"
 ) -> List[VectorHit]:
     """
-    Search Qdrant vectors using similarity search.
-    Embeds the query_text, performs a vector search, and returns VectorHit objects ready for merge_rank.
+    Search Qdrant vectors using Hybrid Search (Dense + Sparse).
+    Embeds the query_text, performs a hybrid search, and returns VectorHit objects ready for merge_rank.
     """
     config = get_config()
     qdrant_client = QdrantStorageClient.from_config(config)
@@ -19,11 +19,13 @@ def search_vectors(
 
     # Embed the query
     query_vector = embed_text(query_text)
+    sparse_query_vector = embed_text_sparse(query_text)
 
     # Perform search
-    results = qdrant_client.search(
+    results = qdrant_client.search_hybrid(
         collection_name=COLLECTION_NAME,
         query_vector=query_vector,
+        sparse_query_vector=sparse_query_vector,
         limit=limit,
         tenant_id=tenant_id,
     )

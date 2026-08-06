@@ -166,3 +166,114 @@ def extract_entities_and_relations(
         sentry_sdk.capture_exception(e)
         logger.error(f"Failed to extract entities/relations: {e}")
         return [], []
+
+
+def extract_entities_and_relations_fast(
+    text: str, schema: dict, language: str = "en", custom_stop_words: list = None
+) -> Tuple[List[Dict[str, Any]], List[Dict[str, str]]]:
+    """
+    Extract entities and relations using spaCy (FastGraphRAG NLP fallback) instead of an LLM.
+    This provides ~90/10 ratio extraction speeds, sacrificing deep reasoning for speed.
+    """
+    import spacy
+    import logging
+    
+    model_map = {
+        "en": "en_core_web_sm",
+        "es": "es_core_news_sm",
+        "fr": "fr_core_news_sm",
+        "de": "de_core_news_sm",
+    }
+    model_name = model_map.get(language, "en_core_web_sm")
+    
+    try:
+        nlp = spacy.load(model_name)
+    except OSError:
+        logging.info(f"Downloading spaCy model {model_name}...")
+        import spacy.cli
+        spacy.cli.download(model_name)
+        nlp = spacy.load(model_name)
+
+    # Add custom stop words
+    if custom_stop_words:
+        for word in custom_stop_words:
+            nlp.Defaults.stop_words.add(word.lower())
+
+    doc = nlp(text)
+    
+    entities = []
+    entity_name_to_type = {}
+    
+    # SpaCy to Schema Type Mapping
+    allowed_types = set(schema.get("entities", []))
+    spacy_to_schema = {
+        "PERSON": "Person",
+        "ORG": "Organization",
+        "GPE": "Location",
+        "LOC": "Location",
+        "FAC": "Location",
+        "DATE": "Date",
+        "EVENT": "Event",
+        "WORK_OF_ART": "Concept"
+    }
+
+    # Extract Entities
+    for ent in doc.ents:
+        # Check if the root of the entity is a stop word
+        if ent.root.is_stop or ent.text.lower() in nlp.Defaults.stop_words:
+            continue
+            
+        name = ent.text.strip()
+        if not name:
+            continue
+            
+        # Try to map to the dynamic schema, otherwise use the spaCy label
+        mapped_type = spacy_to_schema.get(ent.label_, ent.label_.capitalize())
+        
+        # If schema is strict, we should ideally coerce it. 
+        # For fast NLP, we coerce to a generic 'Entity' if it doesn't match the schema, 
+        # or just pass it through if it's close.
+        if allowed_types and mapped_type not in allowed_types:
+            # Fallback to the first allowed type, or generic "Entity"
+            mapped_type = list(allowed_types)[0] if allowed_types else "Entity"
+            
+        entities.append({
+            "type": mapped_type,
+            "name": name,
+            "properties": {}
+        })
+        entity_name_to_type[name] = mapped_type
+
+    # Extract Relationships based on sentence co-occurrence
+    relations = []
+    allowed_relations = schema.get("relations", {})
+    
+    for sent in doc.sents:
+        sent_ents = [ent.text.strip() for ent in sent.ents if ent.text.strip()]
+        # Remove duplicates
+        sent_ents = list(set(sent_ents))
+        
+        # Link every entity to every other entity in the same sentence
+        for i in range(len(sent_ents)):
+            for j in range(i + 1, len(sent_ents)):
+                from_ent = sent_ents[i]
+                to_ent = sent_ents[j]
+                
+                from_type = entity_name_to_type.get(from_ent)
+                to_type = entity_name_to_type.get(to_ent)
+                
+                # Check if there is a specific allowed relation for these types
+                rel_type = "RELATED_TO"
+                if from_type and to_type:
+                    valid_rels = allowed_relations.get(from_type, {}).get(to_type, [])
+                    if valid_rels:
+                        rel_type = valid_rels[0]
+                        
+                relations.append({
+                    "from_entity": from_ent,
+                    "to_entity": to_ent,
+                    "type": rel_type
+                })
+                
+    # We still run it through validate_extraction to normalize it
+    return validate_extraction(entities, relations, schema)

@@ -36,7 +36,7 @@ void main() {
     await tester.pumpAndSettle();
 
     // Verify it was saved to storage
-    final savedKey = await ApiKeyStorage().getGeminiKey();
+    final savedKey = await ApiKeyStorage().getKey('Gemini');
     expect(savedKey, 'dummy_gemini_key_123');
   });
 }

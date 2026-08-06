@@ -10,7 +10,7 @@ void main() {
         (tester) async {
       await tester.pumpWidget(wrap(ChatInput(
         isLoading: false,
-        onSend: (_) {},
+        onSend: (_, {attachments}) {},
       )));
 
       expect(find.byType(TextField), findsOneWidget);
@@ -26,7 +26,7 @@ void main() {
       String? sentText;
       await tester.pumpWidget(wrap(ChatInput(
         isLoading: false,
-        onSend: (text) => sentText = text,
+        onSend: (text, {attachments}) => sentText = text,
       )));
 
       await tester.enterText(find.byType(TextField), 'Hello Veraxi');
@@ -44,7 +44,7 @@ void main() {
       String? sentText;
       await tester.pumpWidget(wrap(ChatInput(
         isLoading: false,
-        onSend: (text) => sentText = text,
+        onSend: (text, {attachments}) => sentText = text,
       )));
 
       await tester.enterText(find.byType(TextField), 'submitted via enter');
@@ -60,7 +60,7 @@ void main() {
       var called = false;
       await tester.pumpWidget(wrap(ChatInput(
         isLoading: false,
-        onSend: (_) => called = true,
+        onSend: (_, {attachments}) => called = true,
       )));
 
       await tester.enterText(find.byType(TextField), '   ');
@@ -76,10 +76,10 @@ void main() {
       var called = false;
       await tester.pumpWidget(wrap(ChatInput(
         isLoading: true,
-        onSend: (_) => called = true,
+        onSend: (_, {attachments}) => called = true,
       )));
 
-      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      expect(find.byIcon(Icons.stop_rounded), findsOneWidget);
       expect(find.byIcon(Icons.arrow_upward), findsNothing);
 
       final textField = tester.widget<TextField>(find.byType(TextField));
@@ -97,7 +97,7 @@ void main() {
       await tester.pumpWidget(wrap(ChatInput(
         isLoading: false,
         errorText: 'Network error: Unable to connect to the server.',
-        onSend: (_) {},
+        onSend: (_, {attachments}) {},
       )));
 
       expect(find.byType(TextField), findsOneWidget);
@@ -114,7 +114,7 @@ void main() {
       await tester.pumpWidget(wrap(ChatInput(
         isLoading: false,
         errorText: 'Something went wrong',
-        onSend: (_) {},
+        onSend: (_, {attachments}) {},
         onDismissError: () => dismissed = true,
       )));
 

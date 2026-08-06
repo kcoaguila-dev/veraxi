@@ -36,6 +36,7 @@ class Config:
     auth_enabled: bool
     cors_origins: str
     gpt_sovits_base_url: str
+    code_interpreter_url: str
 
     @classmethod
     def from_env(cls) -> "Config":
@@ -48,7 +49,7 @@ class Config:
             qdrant_collection_name=os.environ.get("QDRANT_COLLECTION_NAME", "veraxi_docs"),
             llm_api_key=os.environ.get("LLM_API_KEY", ""),
             llm_base_url=os.environ.get("LLM_BASE_URL", ""),
-            llm_model_name=os.environ.get("LLM_MODEL_NAME", "gemini-3.5-flash-lite"),
+            llm_model_name=os.environ.get("LLM_MODEL_NAME", ""),
             embedding_api_key=os.environ.get("EMBEDDING_API_KEY", ""),
             embedding_model_name=os.environ.get(
                 "EMBEDDING_MODEL_NAME", "text-embedding-004"
@@ -68,6 +69,7 @@ class Config:
             auth_enabled=os.environ.get("AUTH_ENABLED", "true").lower() == "true",
             cors_origins=os.environ.get("CORS_ORIGINS", "*"),
             gpt_sovits_base_url=os.environ.get("GPT_SOVITS_BASE_URL", "http://localhost:9880"),
+            code_interpreter_url=os.environ.get("CODE_INTERPRETER_URL", "http://code_interpreter:8000/execute"),
         )
 
     def get_llm_client_args(self, model_name: Optional[str] = None) -> dict:
@@ -81,6 +83,15 @@ class Config:
             effective_model = model_name or self.llm_model_name
             if effective_model.startswith("gemini"):
                 args["base_url"] = "https://generativelanguage.googleapis.com/v1beta/openai/"
+            elif effective_model.startswith("gpt") or effective_model.startswith("o1") or effective_model.startswith("o3"):
+                pass  # Default to api.openai.com
+            elif effective_model.startswith("deepseek"):
+                args["base_url"] = "https://api.deepseek.com"
+            elif effective_model.startswith("mistral"):
+                args["base_url"] = "https://api.mistral.ai/v1"
+            elif not effective_model.startswith("claude"):
+                # Fallback to groq for llama, mixtral, qwen, etc.
+                args["base_url"] = "https://api.groq.com/openai/v1"
         return args
 
 def _require(key: str) -> str:

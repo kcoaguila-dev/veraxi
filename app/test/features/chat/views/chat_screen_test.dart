@@ -56,6 +56,27 @@ class MockChatViewModel extends StateNotifier<ChatState> implements ChatViewMode
   void toggleTemporaryChat() {}
 
   @override
+  Future<void> toggleTelemetry() async {}
+
+  @override
+  Future<void> renameProject(String projectId, String newName) async {}
+
+  @override
+  Future<void> deleteProject(String projectId) async {}
+
+  @override
+  void selectProject(String projectId, String projectName) {}
+
+  @override
+  void startNewChatInProject([String? projectId]) {}
+
+  @override
+  void exitProject() {}
+
+  @override
+  void openAllProjectsDashboard() {}
+
+  @override
   Future<void> selectThread(String threadId) async {}
   
   @override
@@ -71,11 +92,36 @@ class MockChatViewModel extends StateNotifier<ChatState> implements ChatViewMode
   Future<void> regenerateResponse() async {}
 
   @override
-  Future<void> sendMessage(String text, {String? model}) async {}
+  Future<void> sendMessage(String text, {List<dynamic>? attachments, String? model}) async {
+    return super.noSuchMethod(
+      Invocation.method(#sendMessage, [text], {#attachments: attachments, #model: model}),
+    );
+  }
 
   @override
   void stopAudio() {}
 
   @override
   Future<void> submitFeedback(String messageId, int value) async {}
+
+  @override
+  Future<void> renameThread(String threadId, String newTitle) async {}
+  @override
+  Future<void> togglePinThread(String threadId) async {}
+  @override
+  Future<void> toggleArchiveThread(String threadId) async {}
+  @override
+  Future<void> deleteThread(String threadId) async {}
+  @override
+  Future<void> deleteAllChats() async {}
+  @override
+  Future<String?> duplicateThread(String threadId) async => null;
+  @override
+  Future<String?> shareThread(String threadId) async => null;
+  @override
+  Future<void> assignThreadToProject(String threadId, String? projectId) async {}
+  @override
+  Future<List<Map<String, dynamic>>> getProjects() async => [];
+  @override
+  Future<Map<String, dynamic>?> createProject(String name) async => null;
 }

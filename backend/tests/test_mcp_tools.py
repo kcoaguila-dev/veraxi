@@ -10,7 +10,7 @@ from backend.retrieval.merge_rank import VectorHit, GraphHit
 def test_search_vectors_shape(mock_qdrant_class, mock_get_config):
     # Mock the search response
     mock_instance = mock_qdrant_class.from_config.return_value
-    mock_instance.search.return_value = [
+    mock_instance.search_hybrid.return_value = [
         {"id": "uuid-1", "score": 0.9, "payload": {"text": "chunk 1"}},
         {"id": "uuid-2", "score": 0.8, "payload": {"text": "chunk 2"}},
     ]
@@ -77,8 +77,12 @@ def test_extraction_validation_rejects_malformed():
         },  # Invalid relation type
     ]
 
+    schema = {
+        "entities": ["Person", "Organization"],
+        "relations": {"Person": {"Organization": ["WORKS_AT"]}}
+    }
     valid_ents, valid_rels = validate_extraction(
-        malformed_entities, malformed_relations
+        malformed_entities, malformed_relations, schema
     )
 
     # Only Alice should be valid
@@ -98,7 +102,11 @@ def test_extraction_validation_accepts_correct():
         {"from_entity": "Alice", "to_entity": "Veraxi Corp", "type": "WORKS_AT"}
     ]
 
-    valid_ents, valid_rels = validate_extraction(entities, relations)
+    schema = {
+        "entities": ["Person", "Organization"],
+        "relations": {"Person": {"Organization": ["WORKS_AT"]}}
+    }
+    valid_ents, valid_rels = validate_extraction(entities, relations, schema)
 
     assert len(valid_ents) == 2
     assert len(valid_rels) == 1
@@ -123,7 +131,11 @@ def test_extraction_validation_normalizes_nested_properties():
     ]
     relations = []
 
-    valid_ents, valid_rels = validate_extraction(entities, relations)
+    schema = {
+        "entities": ["Person", "Organization"],
+        "relations": {"Person": {"Organization": ["WORKS_AT"]}}
+    }
+    valid_ents, valid_rels = validate_extraction(entities, relations, schema)
 
     assert len(valid_ents) == 1
     props = valid_ents[0]["properties"]

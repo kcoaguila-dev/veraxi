@@ -3,14 +3,14 @@ from backend.config import get_config
 from backend.storage.qdrant_client import QdrantStorageClient
 from backend.storage.neo4j_client import Neo4jStorageClient
 from backend.ingestion.chunk_embed import chunk_and_embed
-from backend.ingestion.extract import extract_entities_and_relations
+from backend.ingestion.extract import extract_entities_and_relations, extract_entities_and_relations_fast
 from backend.ingestion.entity_resolution import resolve_entities
 from backend.ingestion.graph_write import write_to_graph, IngestionPayload
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 
 
-def run_ingestion(config, text: str, schema: dict, tenant_id: str = "default"):
+def run_ingestion(config, text: str, schema: dict, tenant_id: str = "default", fast_extraction: bool = False, language: str = "en", custom_stop_words: list = None):
     # 1. Initialize clients
     qdrant = QdrantStorageClient.from_config(config)
     neo4j = Neo4jStorageClient.from_config(config)
@@ -25,11 +25,12 @@ def run_ingestion(config, text: str, schema: dict, tenant_id: str = "default"):
     chunks_and_embeddings = chunk_and_embed(text)
 
     vectors = [item[1] for item in chunks_and_embeddings]
+    sparse_vectors = [item[2] for item in chunks_and_embeddings]
     payloads = [{"text": item[0]} for item in chunks_and_embeddings]
 
     # 3. Write to Qdrant
     qdrant_point_ids_list = qdrant.insert_points(
-        COLLECTION_NAME, vectors, payloads, tenant_id=tenant_id
+        COLLECTION_NAME, vectors, sparse_vectors, payloads, tenant_id=tenant_id
     )
     logging.info(f"Inserted {len(qdrant_point_ids_list)} points into Qdrant.")
 
@@ -39,7 +40,12 @@ def run_ingestion(config, text: str, schema: dict, tenant_id: str = "default"):
     }
 
     # 4. Extract entities and relations
-    entities, relations = extract_entities_and_relations(text, schema)
+    if fast_extraction:
+        logging.info(f"Using Fast Extraction (spaCy NLP) for entity extraction (Lang: {language}).")
+        entities, relations = extract_entities_and_relations_fast(text, schema, language, custom_stop_words or [])
+    else:
+        logging.info("Using Deep Extraction (LLM) for entity extraction.")
+        entities, relations = extract_entities_and_relations(text, schema)
 
     # Resolve entities to deduplicate and get alias mapping
     entities, alias_to_canonical = resolve_entities(entities)

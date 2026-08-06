@@ -22,6 +22,7 @@ dependencies = [
     "docling",
     "python-multipart",
     "sentence-transformers",
+    "fastembed",
     "torch",
     "PyJWT",
     "python-magic",
@@ -33,7 +34,9 @@ dependencies = [
     "langchain-openai",
     "arq",
     "redis",
-    "langgraph-checkpoint-redis"
+    "langgraph-checkpoint-redis",
+    "langchain-groq",
+    "spacy"
 ]
 
 [project.optional-dependencies]

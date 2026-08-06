@@ -29,10 +29,13 @@ class _ApiKeyDialogState extends State<ApiKeyDialog> {
     });
     
     // Load existing key
-    ApiKeyStorage().getGeminiKey().then((key) {
-      if (key != null && mounted) {
-        _apiKeyController.text = key;
-      }
+    // use post-frame callback if depending on widget
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ApiKeyStorage().getKey(widget.providerName.toLowerCase()).then((key) {
+        if (key != null && mounted) {
+          _apiKeyController.text = key;
+        }
+      });
     });
   }
 
@@ -169,34 +172,36 @@ class _ApiKeyDialogState extends State<ApiKeyDialog> {
                   
                   const SizedBox(height: 24),
                   
-                  // Field 1: Service Account Key
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Flexible(child: Text('${widget.providerName} Service Account Key', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500))),
-                      const SizedBox(width: 8),
-                      Flexible(child: Text('(from ${widget.providerName} Cloud Platform)', style: const TextStyle(color: Color(0xFF878787), fontSize: 11), textAlign: TextAlign.right)),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF2A2A2A),
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: const Color(0xFF3A3A3A)),
-                    ),
-                    child: const Row(
+                  if (widget.providerName.toLowerCase() == 'google') ...[
+                    // Field 1: Service Account Key
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Icon(Icons.note_add_outlined, color: Color(0xFF878787), size: 16),
-                        SizedBox(width: 8),
-                        Text('Import Service Account JSON Key.', style: TextStyle(color: Color(0xFF878787), fontSize: 13)),
+                        Flexible(child: Text('${widget.providerName} Service Account Key', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500))),
+                        const SizedBox(width: 8),
+                        Flexible(child: Text('(from ${widget.providerName} Cloud Platform)', style: const TextStyle(color: Color(0xFF878787), fontSize: 11), textAlign: TextAlign.right)),
                       ],
                     ),
-                  ),
-                  
-                  const SizedBox(height: 24),
+                    const SizedBox(height: 8),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF2A2A2A),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: const Color(0xFF3A3A3A)),
+                      ),
+                      child: const Row(
+                        children: [
+                          Icon(Icons.note_add_outlined, color: Color(0xFF878787), size: 16),
+                          SizedBox(width: 8),
+                          Text('Import Service Account JSON Key.', style: TextStyle(color: Color(0xFF878787), fontSize: 13)),
+                        ],
+                      ),
+                    ),
+                    
+                    const SizedBox(height: 24),
+                  ],
                   
                   // Field 2: API Key
                   Row(
@@ -204,7 +209,7 @@ class _ApiKeyDialogState extends State<ApiKeyDialog> {
                     children: [
                       Flexible(child: Text('${widget.providerName} API Key', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500))),
                       const SizedBox(width: 8),
-                      const Flexible(child: Text('[Gemini API]', style: TextStyle(color: Color(0xFF878787), fontSize: 11), textAlign: TextAlign.right)),
+                      Flexible(child: Text('[${widget.providerName} API]', style: const TextStyle(color: Color(0xFF878787), fontSize: 11), textAlign: TextAlign.right)),
                     ],
                   ),
                   const SizedBox(height: 8),
@@ -257,29 +262,51 @@ class _ApiKeyDialogState extends State<ApiKeyDialog> {
                   
                   const SizedBox(height: 24),
                   
-                  // Help Text
-                  RichText(
-                    text: TextSpan(
-                      style: const TextStyle(color: Color(0xFF878787), fontSize: 12, height: 1.5),
-                      children: [
-                        TextSpan(text: '${widget.providerName} Service Account Key: You need to '),
-                        _linkSpan('Enable Vertex AI', url: 'https://console.cloud.google.com/vertex-ai'),
-                        const TextSpan(text: ' API on Google Cloud, then '),
-                        _linkSpan('Create a Service Account', url: 'https://console.cloud.google.com/projectselector/iam-admin/serviceaccounts/create?walkthrough_id=iam--create-service-account#step_index=1'),
-                        const TextSpan(text: '. Make sure to click \'Create and Continue\' to give at least the \'Vertex AI User\' role. Lastly, create a JSON key to import here.'),
-                      ],
+                  if (widget.providerName.toLowerCase() == 'google') ...[
+                    // Help Text
+                    RichText(
+                      text: TextSpan(
+                        style: const TextStyle(color: Color(0xFF878787), fontSize: 12, height: 1.5),
+                        children: [
+                          TextSpan(text: '${widget.providerName} Service Account Key: You need to '),
+                          _linkSpan('Enable Vertex AI', url: 'https://console.cloud.google.com/vertex-ai'),
+                          const TextSpan(text: ' API on Google Cloud, then '),
+                          _linkSpan('Create a Service Account', url: 'https://console.cloud.google.com/projectselector/iam-admin/serviceaccounts/create?walkthrough_id=iam--create-service-account#step_index=1'),
+                          const TextSpan(text: '. Make sure to click \'Create and Continue\' to give at least the \'Vertex AI User\' role. Lastly, create a JSON key to import here.'),
+                        ],
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  RichText(
-                    text: TextSpan(
-                      style: const TextStyle(color: Color(0xFF878787), fontSize: 12, height: 1.5),
-                      children: [
-                        TextSpan(text: '${widget.providerName} API Key: To get your Generative Language API key (for Gemini), '),
-                        _linkSpan('Click Here', url: 'https://makersuite.google.com/app/apikey'),
-                      ],
+                    const SizedBox(height: 12),
+                    RichText(
+                      text: TextSpan(
+                        style: const TextStyle(color: Color(0xFF878787), fontSize: 12, height: 1.5),
+                        children: [
+                          TextSpan(text: '${widget.providerName} API Key: To get your Generative Language API key (for Gemini), '),
+                          _linkSpan('Click Here', url: 'https://makersuite.google.com/app/apikey'),
+                        ],
+                      ),
                     ),
-                  ),
+                  ] else if (widget.providerName.toLowerCase() == 'groq') ...[
+                    RichText(
+                      text: TextSpan(
+                        style: const TextStyle(color: Color(0xFF878787), fontSize: 12, height: 1.5),
+                        children: [
+                          TextSpan(text: 'To get your ${widget.providerName} API Key, '),
+                          _linkSpan('Click Here', url: 'https://console.groq.com/keys'),
+                          const TextSpan(text: ' and create a new API key.'),
+                        ],
+                      ),
+                    ),
+                  ] else ...[
+                    RichText(
+                      text: TextSpan(
+                        style: const TextStyle(color: Color(0xFF878787), fontSize: 12, height: 1.5),
+                        children: [
+                          TextSpan(text: 'Please enter your ${widget.providerName} API Key to use their models. Your key is stored securely in your browser and is only used to communicate with ${widget.providerName}.'),
+                        ],
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -294,7 +321,7 @@ class _ApiKeyDialogState extends State<ApiKeyDialog> {
                 children: [
                   TextButton(
                     onPressed: () async {
-                      await ApiKeyStorage().clearGeminiKey();
+                      await ApiKeyStorage().clearKey(widget.providerName.toLowerCase());
                       if (context.mounted) Navigator.of(context).pop();
                     },
                     style: TextButton.styleFrom(
@@ -308,7 +335,7 @@ class _ApiKeyDialogState extends State<ApiKeyDialog> {
                   const SizedBox(width: 12),
                   TextButton(
                     onPressed: () async {
-                      await ApiKeyStorage().saveGeminiKey(_apiKeyController.text, expiresIn: _expiresIn);
+                      await ApiKeyStorage().saveKey(widget.providerName.toLowerCase(), _apiKeyController.text, expiresIn: _expiresIn);
                       if (context.mounted) Navigator.of(context).pop();
                     },
                     style: TextButton.styleFrom(

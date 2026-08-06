@@ -1,4 +1,5 @@
 import asyncio
+import dataclasses
 import sentry_sdk
 import json
 from mcp.server import Server
@@ -343,7 +344,8 @@ def _handle_search_vectors(args: dict, tenant_id: str) -> list[TextContent]:
         limit=args.get("limit", config.default_search_limit),
         tenant_id=tenant_id
     )
-    return [TextContent(type="text", text=json.dumps(results))]
+    dict_results = [dataclasses.asdict(r) for r in results]
+    return [TextContent(type="text", text=json.dumps(dict_results))]
 
 def _handle_query_graph(args: dict, tenant_id: str) -> list[TextContent]:
     config = get_config()
@@ -429,7 +431,8 @@ def _handle_evaluate_grounding(args: dict, tenant_id: str) -> list[TextContent]:
 
 def _handle_web_search(args: dict, tenant_id: str) -> list[TextContent]:
     from backend.mcp_server.tools.web_search import mcp_web_search
-    results = mcp_web_search(args["query"], args.get("max_results", 3))
+    tool_settings = args.get("_tool_settings", {})
+    results = mcp_web_search(args["query"], args.get("max_results", 3), tool_settings=tool_settings)
     return [TextContent(type="text", text=json.dumps(results))]
 
 def _handle_skills(args: dict, tenant_id: str) -> list[TextContent]:

@@ -7,24 +7,38 @@ from backend.config import get_config
 
 logger = logging.getLogger(__name__)
 
-def mcp_web_search(query: str, max_results: int = 3) -> list[dict]:
+def mcp_web_search(query: str, language: str = "auto", max_results: int = 10, tool_settings: dict | None = None) -> list[dict]:
     """
     Performs a web search using the configured SearXNG instance.
+    Args:
+        query: The search string.
+        language: ISO 639-1 language code (e.g. 'en', 'es', 'ja') to filter results, or 'auto' to search across all languages.
     Returns a list of dictionaries containing 'title', 'url', and 'content'.
     """
     config = get_config()
     searxng_url = config.searxng_url
+
+    tool_settings = tool_settings or {}
+    web_settings = tool_settings.get("web_search") or {}
+    if web_settings.get("provider") == "SearXNG" and web_settings.get("searxng_url"):
+        searxng_url = web_settings.get("searxng_url")
 
     if not searxng_url:
         logger.error("SEARXNG_URL is not configured.")
         return []
 
     # Prepare query parameters
-    params = urllib.parse.urlencode({
+    params_dict = {
         'q': query,
         'format': 'json',
         'engines': 'google,bing,duckduckgo'
-    })
+    }
+    if language and language.lower() != "auto":
+        params_dict['language'] = language
+    else:
+        params_dict['language'] = 'all'
+
+    params = urllib.parse.urlencode(params_dict)
     
     url = f"{searxng_url}?{params}"
     results = []

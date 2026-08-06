@@ -92,4 +92,58 @@ class ApiClient {
       rethrow;
     }
   }
+
+  Future<dynamic> delete(String path, {Map<String, String>? headers}) async {
+    try {
+      final requestHeaders = getDefaultHeaders();
+      if (headers != null) requestHeaders.addAll(headers);
+
+      final response = await client.delete(
+        Uri.parse('$baseUrl$path'),
+        headers: requestHeaders,
+      ).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      }
+      throw Exception('Server error: ${response.statusCode}');
+    } catch (e, stackTrace) {
+      Sentry.captureException(e, stackTrace: stackTrace);
+      rethrow;
+    }
+  }
+
+  Future<dynamic> postMultipart(String path, {required List<int> fileBytes, required String fileName, String fileField = 'file', Map<String, String>? fields, Map<String, String>? headers}) async {
+    try {
+      final requestHeaders = getDefaultHeaders();
+      if (headers != null) requestHeaders.addAll(headers);
+
+      final uri = Uri.parse('$baseUrl$path');
+      final request = http.MultipartRequest('POST', uri);
+      request.headers.addAll(requestHeaders);
+
+      if (fields != null) {
+        request.fields.addAll(fields);
+      }
+
+      request.files.add(
+        http.MultipartFile.fromBytes(
+          fileField,
+          fileBytes,
+          filename: fileName,
+        ),
+      );
+
+      final streamedResponse = await client.send(request).timeout(const Duration(seconds: 30));
+      final response = await http.Response.fromStream(streamedResponse);
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      }
+      throw Exception('Server error: ${response.statusCode} - ${response.body}');
+    } catch (e, stackTrace) {
+      Sentry.captureException(e, stackTrace: stackTrace);
+      rethrow;
+    }
+  }
 }
