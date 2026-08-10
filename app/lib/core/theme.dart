@@ -33,10 +33,12 @@ class AppTheme {
           surfaceHighlight: surfaceHighlight,
         ),
       ],
-      textTheme: GoogleFonts.interTextTheme(ThemeData.dark().textTheme).copyWith(
+      textTheme:
+          GoogleFonts.interTextTheme(ThemeData.dark().textTheme).copyWith(
         bodyLarge: GoogleFonts.inter(color: textPrimary, fontSize: 16),
         bodyMedium: GoogleFonts.inter(color: textSecondary, fontSize: 14),
-        titleLarge: GoogleFonts.inter(color: textPrimary, fontSize: 20, fontWeight: FontWeight.bold),
+        titleLarge: GoogleFonts.inter(
+            color: textPrimary, fontSize: 20, fontWeight: FontWeight.bold),
       ),
       cardTheme: CardThemeData(
         color: surfaceHighlight,
@@ -62,7 +64,8 @@ class AppTheme {
           borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: Color(0xFF3B82F6), width: 2),
         ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       ),
     );
   }
@@ -86,15 +89,18 @@ class AppTheme {
       ),
       extensions: const <ThemeExtension<dynamic>>[
         AppThemeExtension(
-          primaryGradientStart: Color(0xFF818CF8), // Keep same primary gradient vibe
+          primaryGradientStart:
+              Color(0xFF818CF8), // Keep same primary gradient vibe
           primaryGradientEnd: Color(0xFF6366F1),
           surfaceHighlight: surfaceHighlight,
         ),
       ],
-      textTheme: GoogleFonts.interTextTheme(ThemeData.light().textTheme).copyWith(
+      textTheme:
+          GoogleFonts.interTextTheme(ThemeData.light().textTheme).copyWith(
         bodyLarge: GoogleFonts.inter(color: textPrimary, fontSize: 16),
         bodyMedium: GoogleFonts.inter(color: textSecondary, fontSize: 14),
-        titleLarge: GoogleFonts.inter(color: textPrimary, fontSize: 20, fontWeight: FontWeight.bold),
+        titleLarge: GoogleFonts.inter(
+            color: textPrimary, fontSize: 20, fontWeight: FontWeight.bold),
       ),
       cardTheme: CardThemeData(
         color: surface,
@@ -120,7 +126,8 @@ class AppTheme {
           borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: primary, width: 2),
         ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       ),
     );
   }

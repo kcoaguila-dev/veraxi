@@ -63,6 +63,9 @@ def patch_env(neo4j_container, qdrant_container, monkeypatch):
         monkeypatch.setenv("QDRANT_URL", qdrant_url)
         monkeypatch.setenv("QDRANT_API_KEY", "")
 
+    # Ensure REDIS_URL points to localhost for host-based pytest runs
+    monkeypatch.setenv("REDIS_URL", "redis://localhost:6379/0")
+
     # Needs a dummy key for Anthropic if not set, else config fails
     if not os.environ.get("LLM_API_KEY"):
         monkeypatch.setenv("LLM_API_KEY", "test-dummy-key")

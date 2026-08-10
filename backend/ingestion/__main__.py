@@ -66,7 +66,15 @@ def run_ingestion(config, text: str, schema: dict, tenant_id: str = "default", f
     )
 
     # 5. Write to Neo4j
-    entity_id_map = write_to_graph(neo4j, payload, tenant_id=tenant_id)
+    entity_id_map, qdrant_id_to_neo4j_ids = write_to_graph(neo4j, payload, tenant_id=tenant_id)
+    
+    # 6. Critical Link: Update Qdrant points with their corresponding Neo4j Node IDs
+    for q_id, n_ids in qdrant_id_to_neo4j_ids.items():
+        qdrant.client.set_payload(
+            collection_name=COLLECTION_NAME,
+            payload={"neo4j_node_ids": n_ids},
+            points=[q_id],
+        )
 
     logging.info(
         f"Ingestion complete. {len(entity_id_map)} Neo4j nodes, {len(qdrant_point_ids)} Qdrant points, linking verified."

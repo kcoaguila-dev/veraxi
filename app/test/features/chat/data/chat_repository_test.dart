@@ -33,4 +33,20 @@ void main() {
     expect(threads.length, 1);
     expect(threads.first['thread_id'], 'abc');
   });
+
+  test('getProviderModels parses json correctly', () async {
+    final mockResponse = jsonEncode({
+      "OpenAI": ["gpt-4-turbo", "gpt-3.5-turbo"],
+      "Anthropic": ["claude-3-5-sonnet-latest"]
+    });
+
+    when(() => mockHttpClient.get(any(), headers: any(named: 'headers')))
+        .thenAnswer((_) async => http.Response(mockResponse, 200));
+
+    final models = await repository.getProviderModels();
+    expect(models.length, 2);
+    expect(models['OpenAI']?.length, 2);
+    expect(models['OpenAI']?.first, 'gpt-4-turbo');
+    expect(models['Anthropic']?.first, 'claude-3-5-sonnet-latest');
+  });
 }

@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sentry_flutter/sentry_flutter.dart';
 
 class FileSearchDialog extends StatefulWidget {
   const FileSearchDialog({super.key});
@@ -41,11 +42,13 @@ class _FileSearchDialogState extends State<FileSearchDialog> {
     if (currentSettingsJson != null) {
       try {
         settings = jsonDecode(currentSettingsJson) as Map<String, dynamic>;
-      } catch (_) {}
+      } catch (e, st) {
+        Sentry.captureException(e, stackTrace: st);
+      }
     }
-    
+
     settings['file_search_enabled'] = _fileSearchEnabled;
-    
+
     await prefs.setString('tool_settings', jsonEncode(settings));
     if (mounted) {
       Navigator.of(context).pop();
@@ -89,7 +92,7 @@ class _FileSearchDialogState extends State<FileSearchDialog> {
               ),
             ),
             const SizedBox(height: 24),
-            
+
             // Toggle
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -98,9 +101,16 @@ class _FileSearchDialogState extends State<FileSearchDialog> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Search Internal Documents', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500)),
+                      Text('Search Internal Documents',
+                          style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500)),
                       SizedBox(height: 4),
-                      Text('Allow the AI to search your uploaded files and internal knowledge graph.', style: TextStyle(color: Color(0xFF878787), fontSize: 12)),
+                      Text(
+                          'Allow the AI to search your uploaded files and internal knowledge graph.',
+                          style: TextStyle(
+                              color: Color(0xFF878787), fontSize: 12)),
                     ],
                   ),
                 ),
@@ -115,9 +125,9 @@ class _FileSearchDialogState extends State<FileSearchDialog> {
                 ),
               ],
             ),
-            
+
             const SizedBox(height: 32),
-            
+
             // Actions
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
@@ -127,10 +137,14 @@ class _FileSearchDialogState extends State<FileSearchDialog> {
                   style: TextButton.styleFrom(
                     backgroundColor: const Color(0xFF2F2F2F),
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 10),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(6)),
                   ),
-                  child: const Text('Cancel', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                  child: const Text('Cancel',
+                      style:
+                          TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
                 ),
                 const SizedBox(width: 12),
                 TextButton(
@@ -138,10 +152,14 @@ class _FileSearchDialogState extends State<FileSearchDialog> {
                   style: TextButton.styleFrom(
                     backgroundColor: const Color(0xFF10A37F), // ChatGPT Green
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 10),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(6)),
                   ),
-                  child: const Text('Save', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                  child: const Text('Save',
+                      style:
+                          TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
                 ),
               ],
             ),

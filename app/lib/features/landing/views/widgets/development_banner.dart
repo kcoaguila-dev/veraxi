@@ -12,7 +12,8 @@ class DevelopmentBanner extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 10),
       decoration: BoxDecoration(
         color: theme.colorScheme.primary.withValues(alpha: 0.15),
-        border: Border(bottom: BorderSide(color: theme.colorScheme.primary, width: 1)),
+        border: Border(
+            bottom: BorderSide(color: theme.colorScheme.primary, width: 1)),
       ),
       child: Center(
         child: Text(

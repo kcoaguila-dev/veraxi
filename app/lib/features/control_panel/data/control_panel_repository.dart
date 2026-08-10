@@ -30,27 +30,45 @@ class ControlPanelRepository {
     return BackendStats.fromJson(data);
   }
 
-  Future<Map<String, dynamic>> triggerIngestion(String text, {bool fastExtraction = false, String language = 'en', String customStopWords = ''}) async {
+  Future<Map<String, dynamic>> triggerIngestion(String text,
+      {bool fastExtraction = false,
+      String language = 'en',
+      String customStopWords = ''}) async {
     final data = await apiClient.post('/api/admin/ingest', body: {
-      'text': text, 
+      'text': text,
       'fast_extraction': fastExtraction,
       'language': language,
-      'custom_stop_words': customStopWords.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList(),
+      'custom_stop_words': customStopWords
+          .split(',')
+          .map((e) => e.trim())
+          .where((e) => e.isNotEmpty)
+          .toList(),
     });
     return data as Map<String, dynamic>;
   }
 
-  Future<Map<String, dynamic>> ingestUrl(String url, {bool fastExtraction = false, String language = 'en', String customStopWords = ''}) async {
+  Future<Map<String, dynamic>> ingestUrl(String url,
+      {bool fastExtraction = false,
+      String language = 'en',
+      String customStopWords = ''}) async {
     final data = await apiClient.post('/api/admin/ingest/url', body: {
-      'url': url, 
+      'url': url,
       'fast_extraction': fastExtraction,
       'language': language,
-      'custom_stop_words': customStopWords.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList(),
+      'custom_stop_words': customStopWords
+          .split(',')
+          .map((e) => e.trim())
+          .where((e) => e.isNotEmpty)
+          .toList(),
     });
     return data as Map<String, dynamic>;
   }
 
-  Future<Map<String, dynamic>> ingestUpload(List<int> fileBytes, String fileName, {bool fastExtraction = false, String language = 'en', String customStopWords = ''}) async {
+  Future<Map<String, dynamic>> ingestUpload(
+      List<int> fileBytes, String fileName,
+      {bool fastExtraction = false,
+      String language = 'en',
+      String customStopWords = ''}) async {
     final data = await apiClient.postMultipart(
       '/api/admin/ingest/upload',
       fileBytes: fileBytes,

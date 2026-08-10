@@ -10,6 +10,8 @@ import 'package:go_router/go_router.dart';
 import 'package:veraxi_app/core/router.dart';
 import 'package:veraxi_app/core/widgets/profile_menu_button.dart';
 import 'package:veraxi_app/core/sidebar_provider.dart';
+import 'package:veraxi_app/core/widgets/veraxi_logo.dart';
+import 'package:veraxi_app/features/chat/view_models/chat_view_model.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -81,13 +83,7 @@ class _ScaffoldWithNavBarState extends ConsumerState<ScaffoldWithNavBar> {
   }
 
   Widget _buildVeraxiLogoIcon() {
-    return SizedBox(
-      width: 24,
-      height: 24,
-      child: CustomPaint(
-        painter: _VeraxiLogoPainter(color: const Color(0xFFB4B4B4)),
-      ),
-    );
+    return const VeraxiLogo();
   }
 
   void _onItemTapped(int index) {
@@ -146,7 +142,8 @@ class _ScaffoldWithNavBarState extends ConsumerState<ScaffoldWithNavBar> {
                         child: GestureDetector(
                           onTap: () {
                             if (!isSidebarOpen) {
-                              ref.read(sidebarStateProvider.notifier).state = true;
+                              ref.read(sidebarStateProvider.notifier).state =
+                                  true;
                               setState(() => _isLogoHovered = false);
                             }
                           },
@@ -158,7 +155,8 @@ class _ScaffoldWithNavBarState extends ConsumerState<ScaffoldWithNavBar> {
                                 duration: const Duration(milliseconds: 160),
                                 child: (_isLogoHovered && !isSidebarOpen)
                                     ? KeyedSubtree(
-                                        key: const ValueKey('sidebar-toggle-icon'),
+                                        key: const ValueKey(
+                                            'sidebar-toggle-icon'),
                                         child: _buildSidebarToggleIcon(),
                                       )
                                     : KeyedSubtree(
@@ -177,7 +175,11 @@ class _ScaffoldWithNavBarState extends ConsumerState<ScaffoldWithNavBar> {
                       _buildSidebarIcon(Icons.settings_outlined, 1,
                           widget.navigationShell.currentIndex),
                       const Spacer(),
-                      const ProfileMenuButton(),
+                      ProfileMenuButton(
+                        onDeleteAllChats: () => ref
+                            .read(chatViewModelProvider.notifier)
+                            .deleteAllChats(),
+                      ),
                       const SizedBox(height: 24),
                     ],
                   ),
@@ -211,36 +213,5 @@ class _ScaffoldWithNavBarState extends ConsumerState<ScaffoldWithNavBar> {
               onTap: _onItemTapped,
             ),
     );
-  }
-}
-
-class _VeraxiLogoPainter extends CustomPainter {
-  const _VeraxiLogoPainter({required this.color});
-
-  final Color color;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.9
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
-
-    final path = Path()
-      ..moveTo(size.width * 0.22, size.height * 0.28)
-      ..lineTo(size.width * 0.5, size.height * 0.78)
-      ..lineTo(size.width * 0.78, size.height * 0.28)
-      ..moveTo(size.width * 0.32, size.height * 0.28)
-      ..lineTo(size.width * 0.5, size.height * 0.62)
-      ..lineTo(size.width * 0.68, size.height * 0.28);
-
-    canvas.drawPath(path, paint);
-  }
-
-  @override
-  bool shouldRepaint(covariant _VeraxiLogoPainter oldDelegate) {
-    return oldDelegate.color != color;
   }
 }

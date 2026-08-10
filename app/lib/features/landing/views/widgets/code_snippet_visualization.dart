@@ -18,7 +18,8 @@ class CodeSnippetVisualization extends StatelessWidget {
           decoration: BoxDecoration(
             color: isDark ? const Color(0xFF1E1E1E) : const Color(0xFFF5F5F5),
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: theme.colorScheme.outline.withValues(alpha: 0.3)),
+            border: Border.all(
+                color: theme.colorScheme.outline.withValues(alpha: 0.3)),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: isDark ? 0.4 : 0.1),
@@ -31,9 +32,13 @@ class CodeSnippetVisualization extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 decoration: BoxDecoration(
-                  border: Border(bottom: BorderSide(color: theme.colorScheme.outline.withValues(alpha: 0.3))),
+                  border: Border(
+                      bottom: BorderSide(
+                          color: theme.colorScheme.outline
+                              .withValues(alpha: 0.3))),
                 ),
                 child: Row(
                   children: [
@@ -46,7 +51,8 @@ class CodeSnippetVisualization extends StatelessWidget {
                     Text(
                       'veraxi_agent.py',
                       style: GoogleFonts.firaCode(
-                        color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                        color:
+                            theme.colorScheme.onSurface.withValues(alpha: 0.6),
                         fontSize: 12,
                       ),
                     ),
@@ -60,30 +66,40 @@ class CodeSnippetVisualization extends StatelessWidget {
                     style: GoogleFonts.firaCode(
                       fontSize: 14,
                       height: 1.6,
-                      color: isDark ? const Color(0xFFD4D4D4) : const Color(0xFF333333),
+                      color: isDark
+                          ? const Color(0xFFD4D4D4)
+                          : const Color(0xFF333333),
                     ),
                     children: [
                       _buildToken('from ', theme.colorScheme.primary),
                       _buildToken('veraxi ', theme.colorScheme.onSurface),
                       _buildToken('import ', theme.colorScheme.primary),
-                      _buildToken('IntelligenceSubstrate\n\n', theme.colorScheme.secondary),
-                      _buildToken('# Initialize the sovereign brain\n', theme.colorScheme.onSurface.withValues(alpha: 0.5)),
+                      _buildToken('IntelligenceSubstrate\n\n',
+                          theme.colorScheme.secondary),
+                      _buildToken('# Initialize the sovereign brain\n',
+                          theme.colorScheme.onSurface.withValues(alpha: 0.5)),
                       _buildToken('brain ', theme.colorScheme.onSurface),
                       _buildToken('= ', theme.colorScheme.primary),
-                      _buildToken('IntelligenceSubstrate(\n', theme.colorScheme.secondary),
+                      _buildToken('IntelligenceSubstrate(\n',
+                          theme.colorScheme.secondary),
                       _buildToken('    graph_db=', theme.colorScheme.onSurface),
-                      _buildToken('"neo4j://localhost:7687"', theme.colorScheme.error),
+                      _buildToken(
+                          '"neo4j://localhost:7687"', theme.colorScheme.error),
                       _buildToken(',\n', theme.colorScheme.onSurface),
-                      _buildToken('    vector_db=', theme.colorScheme.onSurface),
-                      _buildToken('"http://localhost:6333"', theme.colorScheme.error),
+                      _buildToken(
+                          '    vector_db=', theme.colorScheme.onSurface),
+                      _buildToken(
+                          '"http://localhost:6333"', theme.colorScheme.error),
                       _buildToken('\n)\n\n', theme.colorScheme.onSurface),
-                      _buildToken('# Execute a GraphRAG unified query\n', theme.colorScheme.onSurface.withValues(alpha: 0.5)),
+                      _buildToken('# Execute a GraphRAG unified query\n',
+                          theme.colorScheme.onSurface.withValues(alpha: 0.5)),
                       _buildToken('result ', theme.colorScheme.onSurface),
                       _buildToken('= ', theme.colorScheme.primary),
                       _buildToken('brain.', theme.colorScheme.onSurface),
                       _buildToken('query(\n', theme.colorScheme.secondary),
                       _buildToken('    ', theme.colorScheme.onSurface),
-                      _buildToken('"How does the authentication flow work?"\n', theme.colorScheme.error),
+                      _buildToken('"How does the authentication flow work?"\n',
+                          theme.colorScheme.error),
                       _buildToken(')', theme.colorScheme.onSurface),
                     ],
                   ),

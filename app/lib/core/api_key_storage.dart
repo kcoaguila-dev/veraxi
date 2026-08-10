@@ -6,14 +6,14 @@ class ApiKeyStorage {
   String _getKeyName(String provider) {
     return '${provider.toLowerCase()}_api_key';
   }
-  
+
   String _getExpiresName(String provider) {
     return '${provider.toLowerCase()}_api_key_expires';
   }
 
   Future<void> saveKey(String provider, String key, {String? expiresIn}) async {
     await _storage.write(key: _getKeyName(provider), value: key);
-    
+
     if (expiresIn != null && expiresIn != 'never') {
       DateTime? expireDate;
       if (expiresIn == 'In 30 minutes') {
@@ -30,7 +30,9 @@ class ApiKeyStorage {
         expireDate = DateTime.now().add(const Duration(days: 30));
       }
       if (expireDate != null) {
-        await _storage.write(key: _getExpiresName(provider), value: expireDate.toIso8601String());
+        await _storage.write(
+            key: _getExpiresName(provider),
+            value: expireDate.toIso8601String());
       } else {
         await _storage.delete(key: _getExpiresName(provider));
       }
@@ -71,5 +73,13 @@ class ApiKeyStorage {
   Future<void> clearKey(String provider) async {
     await _storage.delete(key: _getKeyName(provider));
     await _storage.delete(key: _getExpiresName(provider));
+  }
+
+  Future<void> saveValue(String key, String value) async {
+    await _storage.write(key: key, value: value);
+  }
+
+  Future<String?> getValue(String key) async {
+    return await _storage.read(key: key);
   }
 }

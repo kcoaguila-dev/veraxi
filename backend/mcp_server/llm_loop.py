@@ -31,7 +31,9 @@ logger = logging.getLogger(__name__)
 
 # Per-async-task context variable that carries the caller's API key for the
 # duration of a single request — avoids mutating shared config.
+_request_model: ContextVar[str | None] = ContextVar("_request_model", default=None)
 _request_api_key: ContextVar[str | None] = ContextVar("_request_api_key", default=None)
+_request_base_url: ContextVar[str | None] = ContextVar("_request_base_url", default=None)
 _request_model: ContextVar[str | None] = ContextVar("_request_model", default=None)
 
 # We will initialize the connection dynamically or just keep a global pool
@@ -380,12 +382,19 @@ def _sanitize_thread_title(raw_title: str) -> str:
     return title
 
 
-def _create_chat_llm(model_name: str, api_key: str | None):
+def _create_chat_llm(model_name: str, api_key: str | None, base_url: str | None = None):
     """Build the configured chat LLM client for the active provider."""
     config = get_config()
+    
+    if config.is_enterprise:
+        api_key = None
+        base_url = None
+        
     llm_args = config.get_llm_client_args(model_name=model_name)
     if api_key:
         llm_args["api_key"] = api_key
+    if base_url:
+        llm_args["base_url"] = base_url
 
     base_url = llm_args.get("base_url", "")
     if "api.groq.com" in base_url:
@@ -410,13 +419,14 @@ def _create_chat_llm(model_name: str, api_key: str | None):
 async def generate_chat_title(
     question: str,
     api_key_override: str | None = None,
+    base_url_override: str | None = None,
     model_override: str | None = None,
 ) -> str:
     """Generate a short thread title via a direct LLM call (no agent graph)."""
     config = get_config()
     effective_model = model_override or config.llm_model_name
     effective_api_key = api_key_override or config.llm_api_key
-    llm = _create_chat_llm(effective_model, effective_api_key)
+    llm = _create_chat_llm(effective_model, effective_api_key, base_url_override)
     response = await llm.ainvoke([
         SystemMessage(content=TITLE_GENERATION_PROMPT),
         HumanMessage(content=question),
@@ -456,7 +466,8 @@ async def call_model(state: AgentState):
     # Prefer a per-request key (set by the caller via _request_api_key contextvar)
     # over the server-wide LLM_API_KEY so users can supply their own key via the UI.
     effective_api_key = _request_api_key.get() or config.llm_api_key
-    llm = _create_chat_llm(effective_model, effective_api_key)
+    effective_base_url = _request_base_url.get() or None
+    llm = _create_chat_llm(effective_model, effective_api_key, effective_base_url)
     
     # Check if artifacts are enabled to inject system prompt
     tool_settings = state.get("tool_settings") or {}
@@ -659,6 +670,12 @@ async def evaluate_context(state: AgentState):
     effective_model = _request_model.get() or config.llm_model_name
     llm_args = config.get_llm_client_args(model_name=effective_model)
     effective_api_key = _request_api_key.get() or config.llm_api_key
+    effective_base_url = _request_base_url.get() or None
+    
+    # We can just reuse _create_chat_llm if we want, or initialize directly.
+    # _create_chat_llm handles kwargs like api_key, base_url.
+    llm = _create_chat_llm(effective_model, effective_api_key, effective_base_url)
+    llm = llm.bind(tags=["crag_evaluator"])
     if effective_api_key:
         llm_args["api_key"] = effective_api_key
         
@@ -777,6 +794,7 @@ async def answer_question(
     return_metrics: bool = False,
     is_temporary: bool = False,
     api_key_override: str | None = None,
+    base_url_override: str | None = None,
     model_override: str | None = None,
     calculate_grounding: bool = False,
     tool_settings: dict | None = None,
@@ -787,6 +805,7 @@ async def answer_question(
     """
     # Set the per-request API key so call_model picks it up through the contextvar
     token_api = _request_api_key.set(api_key_override)
+    token_base_url = _request_base_url.set(base_url_override)
     token_model = _request_model.set(model_override)
     _apply_observability_settings(tool_settings)
     
@@ -819,6 +838,7 @@ async def answer_question(
     finally:
         # Always restore the contextvar regardless of success or failure
         _request_api_key.reset(token_api)
+        _request_base_url.reset(token_base_url)
         _request_model.reset(token_model)
     
     # The final message is the AIMessage containing the answer
@@ -840,12 +860,55 @@ async def answer_question(
 
 from typing import AsyncGenerator
 
+def _handle_chat_model_end(event: dict) -> list[dict]:
+    events = []
+    msg = event.get("data", {}).get("output")
+    if hasattr(msg, "tool_calls") and msg.tool_calls:
+        for tc in msg.tool_calls:
+            events.append({
+                "event": "on_tool_start",
+                "name": tc.get("name", "tool"),
+                "run_id": tc.get("id", ""),
+                "data": {"input": tc.get("args", {})}
+            })
+    return events
+
+
+def _handle_chain_end_tools(event: dict) -> list[dict]:
+    events = []
+    output = event.get("data", {}).get("output", {})
+    if isinstance(output, dict) and "messages" in output:
+        for m in output["messages"]:
+            if hasattr(m, "tool_call_id") and m.tool_call_id:
+                events.append({
+                    "event": "on_tool_end",
+                    "name": m.name or "tool",
+                    "run_id": m.tool_call_id,
+                    "data": {
+                        "output": m.content,
+                        "artifact": getattr(m, "artifact", None)
+                    }
+                })
+    return events
+
+
+def _handle_chain_end_langgraph(event: dict) -> list[dict]:
+    events = []
+    output_state = event.get("data", {}).get("output") or event.get("data", {}).get("chunk") or {}
+    if isinstance(output_state, dict):
+        metrics = _extract_metrics_from_state(output_state)
+        if metrics:
+            events.append({"event": "metadata", "data": {"metrics": metrics}})
+    return events
+
+
 async def stream_answer_question(
     question: str,
     tenant_id: str = "default",
     thread_id: str = "default",
     is_temporary: bool = False,
     api_key_override: str | None = None,
+    base_url_override: str | None = None,
     model_override: str | None = None,
     calculate_grounding: bool = False,
     tool_settings: dict | None = None,
@@ -855,6 +918,7 @@ async def stream_answer_question(
     """
     # Set the per-request API key so call_model picks it up through the contextvar
     token_api = _request_api_key.set(api_key_override)
+    token_base_url = _request_base_url.set(base_url_override)
     token_model = _request_model.set(model_override)
     _apply_observability_settings(tool_settings)
     try:
@@ -884,37 +948,16 @@ async def stream_answer_question(
                         continue
                     
                 if event["event"] == "on_chat_model_end":
-                    msg = event.get("data", {}).get("output")
-                    if hasattr(msg, "tool_calls") and msg.tool_calls:
-                        for tc in msg.tool_calls:
-                            yield {
-                                "event": "on_tool_start",
-                                "name": tc.get("name", "tool"),
-                                "run_id": tc.get("id", ""),
-                                "data": {"input": tc.get("args", {})}
-                            }
+                    for e in _handle_chat_model_end(event):
+                        yield e
 
                 if event["event"] == "on_chain_end" and event.get("name") in ["execute_tools", "tools"]:
-                    output = event.get("data", {}).get("output", {})
-                    if isinstance(output, dict) and "messages" in output:
-                        for m in output["messages"]:
-                            if hasattr(m, "tool_call_id") and m.tool_call_id:
-                                yield {
-                                    "event": "on_tool_end",
-                                    "name": m.name or "tool",
-                                    "run_id": m.tool_call_id,
-                                    "data": {
-                                        "output": m.content,
-                                        "artifact": getattr(m, "artifact", None)
-                                    }
-                                }
+                    for e in _handle_chain_end_tools(event):
+                        yield e
 
                 if event["event"] == "on_chain_end" and event.get("name") == "LangGraph":
-                    output_state = event.get("data", {}).get("output") or event.get("data", {}).get("chunk") or {}
-                    if isinstance(output_state, dict):
-                        metrics = _extract_metrics_from_state(output_state)
-                        if metrics:
-                            yield {"event": "metadata", "data": {"metrics": metrics}}
+                    for e in _handle_chain_end_langgraph(event):
+                        yield e
                 yield event
         
         if is_temporary:
@@ -928,4 +971,5 @@ async def stream_answer_question(
                     yield evt
     finally:
         _request_api_key.reset(token_api)
+        _request_base_url.reset(token_base_url)
         _request_model.reset(token_model)

@@ -46,10 +46,12 @@ class _CitationChipState extends State<CitationChip> {
           for (var item in items) {
             if (item is Map) {
               String itemUrl = '';
-              if (item.containsKey('sources') && (item['sources'] as List).isNotEmpty) {
+              if (item.containsKey('sources') &&
+                  (item['sources'] as List).isNotEmpty) {
                 itemUrl = item['sources'][0].toString();
               }
-              if (itemUrl.contains(widget.url) || widget.url.contains(itemUrl)) {
+              if (itemUrl.contains(widget.url) ||
+                  widget.url.contains(itemUrl)) {
                 _sourceData = Map<String, dynamic>.from(item);
                 break;
               }
@@ -118,7 +120,10 @@ class _CitationChipState extends State<CitationChip> {
               ),
               child: Text(
                 _displayText,
-                style: const TextStyle(fontSize: 11, color: Color(0xFFE0E0E0), fontWeight: FontWeight.w500),
+                style: const TextStyle(
+                    fontSize: 11,
+                    color: Color(0xFFE0E0E0),
+                    fontWeight: FontWeight.w500),
               ),
             ),
           ),
@@ -132,9 +137,12 @@ class _CitationChipState extends State<CitationChip> {
     String desc = widget.url;
 
     if (_sourceData != null) {
-      if (_sourceData!.containsKey('payload') && _sourceData!['payload'] is Map) {
+      if (_sourceData!.containsKey('payload') &&
+          _sourceData!['payload'] is Map) {
         final payload = _sourceData!['payload'] as Map;
-        title = payload['title']?.toString() ?? payload['text']?.toString() ?? title;
+        title = payload['title']?.toString() ??
+            payload['text']?.toString() ??
+            title;
         desc = payload['text']?.toString() ?? widget.url;
       }
     }
@@ -170,7 +178,10 @@ class _CitationChipState extends State<CitationChip> {
                 Expanded(
                   child: Text(
                     _displayText,
-                    style: const TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -180,7 +191,10 @@ class _CitationChipState extends State<CitationChip> {
             const SizedBox(height: 8),
             Text(
               title,
-              style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
+              style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),

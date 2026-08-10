@@ -4,7 +4,7 @@ import 'dart:convert';
 import 'package:veraxi_app/features/chat/view_models/chat_view_model.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:veraxi_app/features/chat/views/widgets/graph_artifact.dart';
-
+import 'package:sentry_flutter/sentry_flutter.dart';
 
 class ChatBubble extends StatelessWidget {
   final ChatMessage message;
@@ -23,10 +23,16 @@ class ChatBubble extends StatelessWidget {
         margin: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
         padding: const EdgeInsets.all(16.0),
         decoration: BoxDecoration(
-          color: message.isUser ? theme.colorScheme.primary : theme.colorScheme.surfaceContainerHighest,
+          color: message.isUser
+              ? theme.colorScheme.primary
+              : theme.colorScheme.surfaceContainerHighest,
           borderRadius: BorderRadius.circular(16).copyWith(
-            bottomRight: message.isUser ? const Radius.circular(0) : const Radius.circular(16),
-            bottomLeft: !message.isUser ? const Radius.circular(0) : const Radius.circular(16),
+            bottomRight: message.isUser
+                ? const Radius.circular(0)
+                : const Radius.circular(16),
+            bottomLeft: !message.isUser
+                ? const Radius.circular(0)
+                : const Radius.circular(16),
           ),
           border: message.isUser
               ? null
@@ -53,9 +59,13 @@ class ChatBubble extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(Icons.auto_graph, color: theme.colorScheme.primary, size: 18),
+                Icon(Icons.auto_graph,
+                    color: theme.colorScheme.primary, size: 18),
                 const SizedBox(width: 8),
-                Text('Graph Visualization Artifact', style: TextStyle(color: theme.colorScheme.primary, fontWeight: FontWeight.bold)),
+                Text('Graph Visualization Artifact',
+                    style: TextStyle(
+                        color: theme.colorScheme.primary,
+                        fontWeight: FontWeight.bold)),
               ],
             ),
             const SizedBox(height: 12),
@@ -63,15 +73,14 @@ class ChatBubble extends StatelessWidget {
           ],
         );
       }
-    } catch (_) {
+    } catch (e, st) {
+      Sentry.captureException(e, stackTrace: st);
       // Not a valid graph JSON, fall back to markdown
     }
-
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-
         MarkdownBody(
           data: text,
           styleSheet: MarkdownStyleSheet(

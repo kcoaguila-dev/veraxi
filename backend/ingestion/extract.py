@@ -249,31 +249,7 @@ def extract_entities_and_relations_fast(
     allowed_relations = schema.get("relations", {})
     
     for sent in doc.sents:
-        sent_ents = [ent.text.strip() for ent in sent.ents if ent.text.strip()]
-        # Remove duplicates
-        sent_ents = list(set(sent_ents))
-        
-        # Link every entity to every other entity in the same sentence
-        for i in range(len(sent_ents)):
-            for j in range(i + 1, len(sent_ents)):
-                from_ent = sent_ents[i]
-                to_ent = sent_ents[j]
-                
-                from_type = entity_name_to_type.get(from_ent)
-                to_type = entity_name_to_type.get(to_ent)
-                
-                # Check if there is a specific allowed relation for these types
-                rel_type = "RELATED_TO"
-                if from_type and to_type:
-                    valid_rels = allowed_relations.get(from_type, {}).get(to_type, [])
-                    if valid_rels:
-                        rel_type = valid_rels[0]
-                        
-                relations.append({
-                    "from_entity": from_ent,
-                    "to_entity": to_ent,
-                    "type": rel_type
-                })
+        relations.extend(_extract_relations_from_sentence(sent, entity_name_to_type, allowed_relations))
                 
     # We still run it through validate_extraction to normalize it
     return validate_extraction(entities, relations, schema)

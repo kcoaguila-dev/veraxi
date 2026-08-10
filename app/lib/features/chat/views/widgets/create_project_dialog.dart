@@ -6,7 +6,8 @@ class CreateProjectDialog extends ConsumerStatefulWidget {
   const CreateProjectDialog({super.key});
 
   @override
-  ConsumerState<CreateProjectDialog> createState() => _CreateProjectDialogState();
+  ConsumerState<CreateProjectDialog> createState() =>
+      _CreateProjectDialogState();
 }
 
 class _CreateProjectDialogState extends ConsumerState<CreateProjectDialog> {
@@ -69,7 +70,8 @@ class _CreateProjectDialogState extends ConsumerState<CreateProjectDialog> {
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.close, color: Colors.white70, size: 20),
+                  icon:
+                      const Icon(Icons.close, color: Colors.white70, size: 20),
                   onPressed: () => Navigator.of(context).pop(),
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
@@ -96,7 +98,8 @@ class _CreateProjectDialogState extends ConsumerState<CreateProjectDialog> {
                 hintStyle: const TextStyle(color: Color(0xFF555555)),
                 filled: true,
                 fillColor: const Color(0xFF131313),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
                   borderSide: const BorderSide(color: Color(0xFF333333)),
@@ -116,7 +119,8 @@ class _CreateProjectDialogState extends ConsumerState<CreateProjectDialog> {
                   onPressed: () => Navigator.of(context).pop(),
                   style: TextButton.styleFrom(
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 12),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
                       side: const BorderSide(color: Color(0xFF333333)),
@@ -130,7 +134,8 @@ class _CreateProjectDialogState extends ConsumerState<CreateProjectDialog> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF10A37F),
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 12),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
                     ),

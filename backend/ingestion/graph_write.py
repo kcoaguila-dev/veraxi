@@ -33,9 +33,10 @@ def write_to_graph(
 ) -> Dict[str, str]:
     """
     Write entities and relations to Neo4j, linking to Qdrant point IDs.
-    Returns a mapping from entity name to neo4j node ID.
+    Returns a tuple of (entity_name_to_node_id, qdrant_id_to_neo4j_ids).
     """
     entity_name_to_node_id = {}
+    qdrant_id_to_neo4j_ids = {}
 
     if not payload.qdrant_point_ids:
         raise ValueError("Must provide at least one qdrant_point_id to link nodes.")
@@ -53,6 +54,10 @@ def write_to_graph(
 
         node_id = neo4j_client.create_node(entity["type"], props)
         entity_name_to_node_id[entity["name"]] = node_id
+        
+        if qdrant_id not in qdrant_id_to_neo4j_ids:
+            qdrant_id_to_neo4j_ids[qdrant_id] = []
+        qdrant_id_to_neo4j_ids[qdrant_id].append(node_id)
 
     # Ensure every Qdrant point is stored in Neo4j (critical link requirement)
     if len(point_ids) > len(payload.entities):
@@ -67,4 +72,4 @@ def write_to_graph(
         if from_node_id and to_node_id:
             neo4j_client.create_relationship(from_node_id, to_node_id, relation["type"])
 
-    return entity_name_to_node_id
+    return entity_name_to_node_id, qdrant_id_to_neo4j_ids

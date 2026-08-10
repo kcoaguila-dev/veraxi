@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:veraxi_app/features/chat/view_models/chat_view_model.dart';
 import 'dart:convert';
+import 'package:sentry_flutter/sentry_flutter.dart';
 
 class SourcesButton extends StatelessWidget {
   final ChatMessage message;
   final VoidCallback onSourceClicked;
 
-  const SourcesButton({super.key, required this.message, required this.onSourceClicked});
+  const SourcesButton(
+      {super.key, required this.message, required this.onSourceClicked});
 
   @override
   Widget build(BuildContext context) {
@@ -15,14 +17,15 @@ class SourcesButton extends StatelessWidget {
 
     // Show up to 3 overlapping favicons
     final favicons = sources.take(3).map((s) {
-      String domain = '';
-      try {
-        if (s['url'] != null && s['url'].toString().isNotEmpty) {
-          final uri = Uri.parse(s['url']);
-          domain = uri.host.replaceFirst('www.', '');
+      final urlStr = s['url']?.toString() ?? '';
+      if (urlStr.isNotEmpty && urlStr != 'Internal Database') {
+        final uri = Uri.tryParse(urlStr.startsWith('http') ? urlStr : 'http://$urlStr');
+        final host = uri?.host.replaceFirst('www.', '') ?? '';
+        if (host.contains('.')) {
+          return host;
         }
-      } catch (_) {}
-      return domain;
+      }
+      return '';
     }).toList();
 
     return InkWell(
@@ -51,7 +54,8 @@ class SourcesButton extends StatelessWidget {
                       child: Container(
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          border: Border.all(color: const Color(0xFF1E1E1E), width: 1.5),
+                          border: Border.all(
+                              color: const Color(0xFF1E1E1E), width: 1.5),
                           color: const Color(0xFF2A2A2A),
                         ),
                         child: ClipOval(
@@ -60,9 +64,13 @@ class SourcesButton extends StatelessWidget {
                                   'https://www.google.com/s2/favicons?domain=${favicons[renderIndex]}&sz=64',
                                   width: 13,
                                   height: 13,
-                                  errorBuilder: (_, __, ___) => const Icon(Icons.language, size: 10, color: Color(0xFF878787)),
+                                  errorBuilder: (_, __, ___) => const Icon(
+                                      Icons.language,
+                                      size: 10,
+                                      color: Color(0xFF878787)),
                                 )
-                              : const Icon(Icons.language, size: 10, color: Color(0xFF878787)),
+                              : const Icon(Icons.language,
+                                  size: 10, color: Color(0xFF878787)),
                         ),
                       ),
                     );
@@ -89,90 +97,131 @@ class SourcesButton extends StatelessWidget {
     final Set<String> seenUrls = {};
 
     for (var event in message.toolEvents) {
-      if ((event.name.contains('web_search') || 
-           event.name.contains('merge_rank') ||
-           event.name.contains('search_vectors') ||
-           event.name.contains('query_graph')) && event.result != null) {
-        try {
-          List<dynamic> items = [];
-          if (event.result is String) {
-            final decoded = jsonDecode(event.result);
-            if (decoded is List) items = decoded;
-          } else if (event.result is List) {
-            items = event.result;
-          }
+      if (!_isSourceEvent(event)) continue;
 
-          for (var item in items) {
-            if (item is Map) {
-              String url = '';
-              String title = '';
-              
-              if (item.containsKey('sources') && (item['sources'] as List).isNotEmpty) {
-                url = item['sources'][0].toString();
-              } else if (item.containsKey('url')) {
-                 url = item['url'].toString();
-              } else if (item.containsKey('payload') && item['payload'] is Map) {
-                 final payload = item['payload'] as Map;
-                 if (payload.containsKey('url')) {
-                   url = payload['url'].toString();
-                 } else if (payload.containsKey('source')) {
-                   url = payload['source'].toString();
-                 }
-              }
+      final items = _parseEventResult(event.result);
+      for (var item in items) {
+        if (item is! Map) continue;
 
-              String rawMatchText = '';
-              if (item.containsKey('payload') && item['payload'] is Map) {
-                final payload = item['payload'] as Map;
-                title = payload['title']?.toString() ?? payload['text']?.toString() ?? '';
-                rawMatchText = payload['text']?.toString() ?? '';
-              } else if (item.containsKey('title')) {
-                 title = item['title'].toString();
-              }
+        final processedItem = _processSourceItem(item);
+        if (processedItem == null) continue;
 
-              if (title.length > 80) {
-                 title = title.substring(0, 80) + '...';
-              }
-
-              final uniqueKey = url.isNotEmpty ? url : title;
-              if (uniqueKey.isNotEmpty && !seenUrls.contains(uniqueKey)) {
-                seenUrls.add(uniqueKey);
-                sources.add({
-                  'title': title,
-                  'url': url,
-                  '_rawMatch': (rawMatchText + ' ' + title + ' ' + url).toLowerCase(),
-                });
-              }
-            }
-          }
-        } catch (_) {}
+        final uniqueKey = processedItem['url'].toString().isNotEmpty
+            ? processedItem['url']
+            : processedItem['title'];
+        if (uniqueKey.isNotEmpty && !seenUrls.contains(uniqueKey)) {
+          seenUrls.add(uniqueKey);
+          sources.add(processedItem);
+        }
       }
     }
 
-    // Filter out sources that are entirely unreferenced if the LLM used explicit text citations
-    final citationRegex = RegExp(r'\[([^\]]+)\]');
-    final citations = citationRegex.allMatches(message.content)
-        .map((m) => m.group(1)?.toLowerCase() ?? '')
-        .where((s) => s.isNotEmpty && s.length > 2)
-        .toList();
-
-    if (citations.isNotEmpty) {
-      sources.removeWhere((source) {
-        final rawMatch = source['_rawMatch'] as String? ?? '';
-        bool hasMatch = false;
-        for (var citation in citations) {
-          if (rawMatch.contains(citation)) {
-            hasMatch = true;
-            break;
-          }
-        }
-        return !hasMatch;
-      });
-    }
+    _filterUnreferencedSources(sources, message.content);
 
     for (var s in sources) {
       s.remove('_rawMatch');
     }
 
     return sources;
+  }
+
+  static bool _isSourceEvent(ToolEvent event) {
+    if (event.result == null) return false;
+    return event.name.contains('web_search') ||
+        event.name.contains('merge_rank') ||
+        event.name.contains('search_vectors') ||
+        event.name.contains('query_graph');
+  }
+
+  static List<dynamic> _parseEventResult(dynamic result) {
+    if (result is String) {
+      try {
+        final decoded = jsonDecode(result);
+        if (decoded is List) return decoded;
+      } catch (e, st) {
+        Sentry.captureException(e, stackTrace: st);
+        // Fallback to empty if json is invalid
+      }
+    } else if (result is List) {
+      return result;
+    }
+    return [];
+  }
+
+  static Map<String, dynamic>? _processSourceItem(Map item) {
+    final url = _extractUrl(item);
+    var title = _extractTitle(item);
+    final rawMatchText = _extractRawText(item);
+
+    if (title.length > 80) {
+      title = title.substring(0, 80) + '...';
+    }
+
+    if (title.isEmpty && url.isEmpty) return null;
+
+    return {
+      'title': title,
+      'url': url,
+      '_rawMatch': ('$rawMatchText $title $url').toLowerCase(),
+    };
+  }
+
+  static String _extractUrl(Map item) {
+    if (item.containsKey('sources') && (item['sources'] as List).isNotEmpty) {
+      return item['sources'][0].toString();
+    }
+    if (item.containsKey('url')) {
+      return item['url'].toString();
+    }
+    if (item.containsKey('link')) {
+      return item['link'].toString();
+    }
+    if (item.containsKey('payload') && item['payload'] is Map) {
+      final payload = item['payload'] as Map;
+      if (payload.containsKey('url')) return payload['url'].toString();
+      if (payload.containsKey('link')) return payload['link'].toString();
+      if (payload.containsKey('source')) return payload['source'].toString();
+    }
+    return '';
+  }
+
+  static String _extractTitle(Map item) {
+    if (item.containsKey('payload') && item['payload'] is Map) {
+      final payload = item['payload'] as Map;
+      return payload['title']?.toString() ?? payload['text']?.toString() ?? '';
+    }
+    if (item.containsKey('title')) {
+      return item['title'].toString();
+    }
+    return '';
+  }
+
+  static String _extractRawText(Map item) {
+    if (item.containsKey('payload') && item['payload'] is Map) {
+      final payload = item['payload'] as Map;
+      return payload['text']?.toString() ?? '';
+    }
+    return '';
+  }
+
+  static void _filterUnreferencedSources(
+      List<Map<String, dynamic>> sources, String content) {
+    final citationRegex = RegExp(r'\[([^\]]+)\]');
+    final citations = citationRegex
+        .allMatches(content)
+        .map((m) => m.group(1)?.toLowerCase() ?? '')
+        .where((s) => s.isNotEmpty && s.length > 2)
+        .toList();
+
+    if (citations.isEmpty) return;
+
+    sources.removeWhere((source) {
+      final rawMatch = source['_rawMatch'] as String? ?? '';
+      for (var citation in citations) {
+        if (rawMatch.contains(citation))
+          return false; // keep if any citation matches
+      }
+      return true; // remove if no citations match
+    });
   }
 }

@@ -32,8 +32,9 @@ class QdrantStorageClient:
             collection_info = self.client.get_collection(collection_name)
             if not collection_info.config.params.sparse_vectors:
                 self.client.delete_collection(collection_name)
-        except Exception:
-            pass
+        except Exception as e:
+            import sentry_sdk
+            sentry_sdk.capture_exception(e)
 
         if not self.client.collection_exists(collection_name):
             self.client.create_collection(

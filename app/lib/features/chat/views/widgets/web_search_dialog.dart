@@ -3,6 +3,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sentry_flutter/sentry_flutter.dart';
 
 class WebSearchDialog extends StatefulWidget {
   const WebSearchDialog({super.key});
@@ -36,9 +37,12 @@ class _WebSearchDialogState extends State<WebSearchDialog> {
         final settings = jsonDecode(settingsJson) as Map<String, dynamic>;
         final webSearch = settings['web_search'] as Map<String, dynamic>?;
         if (webSearch != null) {
-          if (webSearch['enabled'] != null) _webSearchEnabled = webSearch['enabled'];
-          if (webSearch['provider'] != null) _selectedProvider = webSearch['provider'];
-          if (webSearch['scraper'] != null) _selectedScraper = webSearch['scraper'];
+          if (webSearch['enabled'] != null)
+            _webSearchEnabled = webSearch['enabled'];
+          if (webSearch['provider'] != null)
+            _selectedProvider = webSearch['provider'];
+          if (webSearch['scraper'] != null)
+            _selectedScraper = webSearch['scraper'];
           _serperKeyController.text = webSearch['serper_api_key'] ?? '';
           _searxngUrlController.text = webSearch['searxng_url'] ?? '';
           _searxngKeyController.text = webSearch['searxng_api_key'] ?? '';
@@ -46,7 +50,8 @@ class _WebSearchDialogState extends State<WebSearchDialog> {
           _firecrawlKeyController.text = webSearch['firecrawl_api_key'] ?? '';
           if (mounted) setState(() {});
         }
-      } catch (e) {
+      } catch (e, st) {
+        Sentry.captureException(e, stackTrace: st);
         debugPrint('Failed to load tool settings: $e');
       }
     }
@@ -61,7 +66,7 @@ class _WebSearchDialogState extends State<WebSearchDialog> {
         settings = jsonDecode(currentSettingsJson) as Map<String, dynamic>;
       } catch (_) {}
     }
-    
+
     settings['web_search'] = {
       'enabled': _webSearchEnabled,
       'provider': _selectedProvider,
@@ -72,7 +77,7 @@ class _WebSearchDialogState extends State<WebSearchDialog> {
       'firecrawl_url': _firecrawlUrlController.text,
       'firecrawl_api_key': _firecrawlKeyController.text,
     };
-    
+
     await prefs.setString('tool_settings', jsonEncode(settings));
     if (mounted) {
       Navigator.of(context).pop();
@@ -126,41 +131,50 @@ class _WebSearchDialogState extends State<WebSearchDialog> {
               ),
             ),
             const SizedBox(height: 24),
-            
+
             // Toggle removed in favor of direct click in the tools menu
 
-            
             const SizedBox(height: 24),
-            
+
             // Search Provider
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('Search Provider', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500)),
+                const Text('Search Provider',
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500)),
                 PopupMenuButton<String>(
                   color: const Color(0xFF2F2F2F),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8)),
                   offset: const Offset(0, 30),
-                  onSelected: (value) => setState(() => _selectedProvider = value),
+                  onSelected: (value) =>
+                      setState(() => _selectedProvider = value),
                   itemBuilder: (context) => [
                     const PopupMenuItem(
                       value: 'Serper API',
                       height: 40,
-                      child: Text('Serper API', style: TextStyle(color: Colors.white, fontSize: 13)),
+                      child: Text('Serper API',
+                          style: TextStyle(color: Colors.white, fontSize: 13)),
                     ),
                     const PopupMenuItem(
                       value: 'SearXNG',
                       height: 40,
-                      child: Text('SearXNG', style: TextStyle(color: Colors.white, fontSize: 13)),
+                      child: Text('SearXNG',
+                          style: TextStyle(color: Colors.white, fontSize: 13)),
                     ),
                     const PopupMenuItem(
                       value: 'Tavily API',
                       height: 40,
-                      child: Text('Tavily API', style: TextStyle(color: Colors.white, fontSize: 13)),
+                      child: Text('Tavily API',
+                          style: TextStyle(color: Colors.white, fontSize: 13)),
                     ),
                   ],
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
                       color: const Color(0xFF2F2F2F),
                       borderRadius: BorderRadius.circular(4),
@@ -168,9 +182,12 @@ class _WebSearchDialogState extends State<WebSearchDialog> {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text(_selectedProvider, style: const TextStyle(color: Colors.white, fontSize: 12)),
+                        Text(_selectedProvider,
+                            style: const TextStyle(
+                                color: Colors.white, fontSize: 12)),
                         const SizedBox(width: 4),
-                        const Icon(Icons.keyboard_arrow_down, color: Colors.white, size: 14),
+                        const Icon(Icons.keyboard_arrow_down,
+                            color: Colors.white, size: 14),
                       ],
                     ),
                   ),
@@ -181,46 +198,60 @@ class _WebSearchDialogState extends State<WebSearchDialog> {
             if (_selectedProvider == 'SearXNG') ...[
               _buildInputField(_searxngUrlController, 'SearXNG Instance URL'),
               const SizedBox(height: 12),
-              _ApiKeyInputField(controller: _searxngKeyController, hintText: 'Enter SearXNG API Key (optional)'),
+              _ApiKeyInputField(
+                  controller: _searxngKeyController,
+                  hintText: 'Enter SearXNG API Key (optional)'),
             ] else ...[
-              _ApiKeyInputField(controller: _serperKeyController, hintText: 'Enter API Key'),
+              _ApiKeyInputField(
+                  controller: _serperKeyController, hintText: 'Enter API Key'),
               const SizedBox(height: 8),
               RichText(
-                text: _linkSpan('Get your $_selectedProvider key', url: 'https://serper.dev/api-keys'),
+                text: _linkSpan('Get your $_selectedProvider key',
+                    url: 'https://serper.dev/api-keys'),
               ),
             ],
-            
+
             const SizedBox(height: 32),
-            
+
             // Scraper
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('Scraper', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500)),
+                const Text('Scraper',
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500)),
                 PopupMenuButton<String>(
                   color: const Color(0xFF2F2F2F),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8)),
                   offset: const Offset(0, 30),
-                  onSelected: (value) => setState(() => _selectedScraper = value),
+                  onSelected: (value) =>
+                      setState(() => _selectedScraper = value),
                   itemBuilder: (context) => [
                     const PopupMenuItem(
                       value: 'Firecrawl API',
                       height: 40,
-                      child: Text('Firecrawl API', style: TextStyle(color: Colors.white, fontSize: 13)),
+                      child: Text('Firecrawl API',
+                          style: TextStyle(color: Colors.white, fontSize: 13)),
                     ),
                     const PopupMenuItem(
                       value: 'Serper Scrape API',
                       height: 40,
-                      child: Text('Serper Scrape API', style: TextStyle(color: Colors.white, fontSize: 13)),
+                      child: Text('Serper Scrape API',
+                          style: TextStyle(color: Colors.white, fontSize: 13)),
                     ),
                     const PopupMenuItem(
                       value: 'Tavily Extract API',
                       height: 40,
-                      child: Text('Tavily Extract API', style: TextStyle(color: Colors.white, fontSize: 13)),
+                      child: Text('Tavily Extract API',
+                          style: TextStyle(color: Colors.white, fontSize: 13)),
                     ),
                   ],
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
                       color: const Color(0xFF2F2F2F),
                       borderRadius: BorderRadius.circular(4),
@@ -228,9 +259,12 @@ class _WebSearchDialogState extends State<WebSearchDialog> {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text(_selectedScraper, style: const TextStyle(color: Colors.white, fontSize: 12)),
+                        Text(_selectedScraper,
+                            style: const TextStyle(
+                                color: Colors.white, fontSize: 12)),
                         const SizedBox(width: 4),
-                        const Icon(Icons.keyboard_arrow_down, color: Colors.white, size: 14),
+                        const Icon(Icons.keyboard_arrow_down,
+                            color: Colors.white, size: 14),
                       ],
                     ),
                   ),
@@ -238,16 +272,19 @@ class _WebSearchDialogState extends State<WebSearchDialog> {
               ],
             ),
             const SizedBox(height: 12),
-            _buildInputField(_firecrawlUrlController, 'Firecrawl API URL (optional)'),
+            _buildInputField(
+                _firecrawlUrlController, 'Firecrawl API URL (optional)'),
             const SizedBox(height: 12),
-            _ApiKeyInputField(controller: _firecrawlKeyController, hintText: 'Enter API Key'),
+            _ApiKeyInputField(
+                controller: _firecrawlKeyController, hintText: 'Enter API Key'),
             const SizedBox(height: 8),
             RichText(
-              text: _linkSpan('Get your Firecrawl API key', url: 'https://docs.firecrawl.dev/introduction#api-key'),
+              text: _linkSpan('Get your Firecrawl API key',
+                  url: 'https://docs.firecrawl.dev/introduction#api-key'),
             ),
-            
+
             const SizedBox(height: 32),
-            
+
             // Actions
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
@@ -257,10 +294,14 @@ class _WebSearchDialogState extends State<WebSearchDialog> {
                   style: TextButton.styleFrom(
                     backgroundColor: const Color(0xFF2F2F2F),
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 10),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(6)),
                   ),
-                  child: const Text('Cancel', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                  child: const Text('Cancel',
+                      style:
+                          TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
                 ),
                 const SizedBox(width: 12),
                 TextButton(
@@ -268,10 +309,14 @@ class _WebSearchDialogState extends State<WebSearchDialog> {
                   style: TextButton.styleFrom(
                     backgroundColor: const Color(0xFF10A37F), // ChatGPT Green
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 10),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(6)),
                   ),
-                  child: const Text('Save', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                  child: const Text('Save',
+                      style:
+                          TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
                 ),
               ],
             ),
@@ -300,7 +345,8 @@ class _WebSearchDialogState extends State<WebSearchDialog> {
           errorBorder: InputBorder.none,
           disabledBorder: InputBorder.none,
           filled: false,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         ),
       ),
     );
@@ -309,15 +355,19 @@ class _WebSearchDialogState extends State<WebSearchDialog> {
   TextSpan _linkSpan(String text, {String? url}) {
     return TextSpan(
       text: text,
-      style: const TextStyle(color: Color(0xFF3B82F6), decoration: TextDecoration.underline, fontSize: 11),
-      recognizer: TapGestureRecognizer()..onTap = () async {
-        if (url != null) {
-          final uri = Uri.parse(url);
-          if (await canLaunchUrl(uri)) {
-            await launchUrl(uri);
+      style: const TextStyle(
+          color: Color(0xFF3B82F6),
+          decoration: TextDecoration.underline,
+          fontSize: 11),
+      recognizer: TapGestureRecognizer()
+        ..onTap = () async {
+          if (url != null) {
+            final uri = Uri.parse(url);
+            if (await canLaunchUrl(uri)) {
+              await launchUrl(uri);
+            }
           }
-        }
-      },
+        },
     );
   }
 }
@@ -375,19 +425,23 @@ class _ApiKeyInputFieldState extends State<_ApiKeyInputField> {
           errorBorder: InputBorder.none,
           disabledBorder: InputBorder.none,
           filled: false,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           suffixIcon: _isFocused
               ? Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     IconButton(
                       icon: Icon(
-                        _obscureText ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                        _obscureText
+                            ? Icons.visibility_off_outlined
+                            : Icons.visibility_outlined,
                         color: const Color(0xFF878787),
                         size: 16,
                       ),
                       padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                      constraints:
+                          const BoxConstraints(minWidth: 28, minHeight: 28),
                       onPressed: () {
                         setState(() {
                           _obscureText = !_obscureText;

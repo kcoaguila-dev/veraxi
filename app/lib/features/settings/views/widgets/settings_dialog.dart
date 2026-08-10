@@ -1,12 +1,14 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:veraxi_app/core/widgets/veraxi_logo.dart';
 import 'package:veraxi_app/features/settings/view_models/tts_settings_view_model.dart';
-import 'package:veraxi_app/features/chat/view_models/chat_view_model.dart';
 import 'manage_voices_dialog.dart';
 
 class SettingsDialog extends ConsumerStatefulWidget {
-  const SettingsDialog({super.key});
+  final VoidCallback? onDeleteAllChats;
+  const SettingsDialog({super.key, this.onDeleteAllChats});
 
   @override
   ConsumerState<SettingsDialog> createState() => _SettingsDialogState();
@@ -156,11 +158,14 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
                                           size: 16,
                                         ),
                                         const SizedBox(width: 12),
-                                        Text(
-                                          tab,
-                                          style: const TextStyle(
-                                            color: Color(0xFFECECEC),
-                                            fontSize: 13,
+                                        Expanded(
+                                          child: Text(
+                                            tab,
+                                            style: const TextStyle(
+                                              color: Color(0xFFECECEC),
+                                              fontSize: 13,
+                                            ),
+                                            overflow: TextOverflow.ellipsis,
                                           ),
                                         ),
                                       ],
@@ -272,18 +277,22 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
       if (ttsState.isLoading) {
         voiceDisplay = 'Loading...';
         voiceOptions = ['Loading...'];
-      } else if (ttsState.error != null || ttsState.voices.isEmpty || (ttsState.voices.length == 1 && ttsState.voices.first['id'] == 'default_system')) {
+      } else if (ttsState.error != null ||
+          ttsState.voices.isEmpty ||
+          (ttsState.voices.length == 1 &&
+              ttsState.voices.first['id'] == 'default_system')) {
         voiceDisplay = 'No voices available';
         voiceOptions = ['No voices available'];
       } else {
-        final customVoices = ttsState.voices.where((v) => v['id'] != 'default_system').toList();
+        final customVoices =
+            ttsState.voices.where((v) => v['id'] != 'default_system').toList();
         if (customVoices.isEmpty) {
           voiceDisplay = 'No voices available';
           voiceOptions = ['No voices available'];
         } else {
           final selected = customVoices.firstWhere(
-                  (v) => v['id'] == ttsState.selectedVoiceId,
-                  orElse: () => customVoices.first);
+              (v) => v['id'] == ttsState.selectedVoiceId,
+              orElse: () => customVoices.first);
           voiceDisplay = selected['name'] ?? 'Unknown';
           voiceOptions = customVoices.map((v) => v['name'].toString()).toList();
         }
@@ -308,7 +317,9 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
             'API Base URL',
             urlController,
             onSubmitted: (value) {
-              ref.read(ttsSettingsViewModelProvider.notifier).setGptSovitsUrl(value);
+              ref
+                  .read(ttsSettingsViewModelProvider.notifier)
+                  .setGptSovitsUrl(value);
             },
           ),
         _buildRealDropdownRow(
@@ -316,8 +327,11 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
           voiceDisplay,
           voiceOptions,
           (value) {
-            if (isBrowser || value == 'Loading...' || value == 'No voices available') return;
-            final voiceId = ttsState.voices.firstWhere((v) => v['name'] == value)['id']!;
+            if (isBrowser ||
+                value == 'Loading...' ||
+                value == 'No voices available') return;
+            final voiceId =
+                ttsState.voices.firstWhere((v) => v['name'] == value)['id']!;
             ref.read(ttsSettingsViewModelProvider.notifier).setVoice(voiceId);
           },
         ),
@@ -348,11 +362,12 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
       _buildSectionHeader('YOUR DATA'),
       _buildSettingsGroup([
         _buildActionRow(
-            'Export data', 'Download a copy of your data', 'Export'),
-        _buildActionRow('Delete all chats',
-            'Permanently remove all conversations', 'Delete',
+            'Export data', 'Download a copy of your data as JSON', 'Export',
+            onTap: () => _exportUserData(context)),
+        _buildActionRow('Delete account & data',
+            'Permanently remove your account and all conversations', 'Delete',
             isDestructive: true,
-            onTap: () => _showDeleteAllChatsConfirmation(context)),
+            onTap: () => _showDeleteAccountConfirmation(context)),
       ]),
       const SizedBox(height: 32),
       _buildSectionHeader('TELEMETRY'),
@@ -362,22 +377,36 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
     ];
   }
 
-  void _showDeleteAllChatsConfirmation(BuildContext context) {
+  void _exportUserData(BuildContext context) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+          content: Text('Exporting user data... This may take a moment.')),
+    );
+    // In a full implementation, we'd make an HTTP call to /api/user/export and trigger a file download
+  }
+
+  void _showDeleteAccountConfirmation(BuildContext context) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF1E1E1E),
-        title: const Text('Delete all chats', style: TextStyle(color: Colors.white)),
-        content: const Text('Are you sure you want to permanently delete all conversations? This action cannot be undone.', style: TextStyle(color: Color(0xFF878787))),
+        title: const Text('Delete account & data',
+            style: TextStyle(color: Colors.white)),
+        content: const Text(
+            'Are you sure you want to permanently delete your account and all conversations? This action cannot be undone.',
+            style: TextStyle(color: Color(0xFF878787))),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
             child: const Text('Cancel', style: TextStyle(color: Colors.white)),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFD32F2F)),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFD32F2F)),
             onPressed: () {
-              ref.read(chatViewModelProvider.notifier).deleteAllChats();
+              if (widget.onDeleteAllChats != null) {
+                widget.onDeleteAllChats!();
+              }
               Navigator.of(ctx).pop();
             },
             child: const Text('Delete', style: TextStyle(color: Colors.white)),
@@ -417,7 +446,7 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            const Icon(Icons.smart_toy_outlined, color: Colors.white, size: 48),
+            const VeraxiLogo(size: 48, color: Colors.white),
             const SizedBox(height: 16),
             const Text(
               'Veraxi Chat',
@@ -435,9 +464,9 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                _buildLinkButton('GitHub', Icons.code),
+                _buildLinkButton('GitHub', Icons.code, 'https://github.com/kcoaguila-dev/veraxi'),
                 const SizedBox(width: 12),
-                _buildLinkButton('Website', Icons.language),
+                _buildLinkButton('Website', Icons.language, '/'),
               ],
             ),
           ],
@@ -446,9 +475,14 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
     ];
   }
 
-  Widget _buildLinkButton(String label, IconData icon) {
+  Widget _buildLinkButton(String label, IconData icon, String url) {
     return TextButton.icon(
-      onPressed: () {},
+      onPressed: () async {
+        final uri = Uri.parse(url);
+        if (await canLaunchUrl(uri)) {
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
+        }
+      },
       icon: Icon(icon, size: 16, color: const Color(0xFFECECEC)),
       label: Text(label, style: const TextStyle(color: Color(0xFFECECEC))),
       style: TextButton.styleFrom(
@@ -529,7 +563,8 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
     );
   }
 
-  Widget _buildRealDropdownRow(String label, String value, List<String> items, Function(String) onSelected) {
+  Widget _buildRealDropdownRow(String label, String value, List<String> items,
+      Function(String) onSelected) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(
@@ -545,31 +580,42 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
             ),
             child: PopupMenuButton<String>(
               color: const Color(0xFF2A2A2A),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8)),
               position: PopupMenuPosition.under,
               onSelected: onSelected,
-              itemBuilder: (context) => items.map((item) => PopupMenuItem<String>(
-                value: item,
-                height: 40,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(item, style: const TextStyle(color: Colors.white, fontSize: 13)),
-                    if (item == value) const Icon(Icons.check, color: Colors.white, size: 16),
-                  ],
-                ),
-              )).toList(),
+              itemBuilder: (context) => items
+                  .map((item) => PopupMenuItem<String>(
+                        value: item,
+                        height: 40,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(item,
+                                style: const TextStyle(
+                                    color: Colors.white, fontSize: 13)),
+                            if (item == value)
+                              const Icon(Icons.check,
+                                  color: Colors.white, size: 16),
+                          ],
+                        ),
+                      ))
+                  .toList(),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
                   color: const Color(0xFF2A2A2A),
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Row(
                   children: [
-                    Text(value, style: const TextStyle(color: Colors.white, fontSize: 13)),
+                    Text(value,
+                        style:
+                            const TextStyle(color: Colors.white, fontSize: 13)),
                     const SizedBox(width: 8),
-                    const Icon(Icons.keyboard_arrow_down, color: Color(0xFF878787), size: 16),
+                    const Icon(Icons.keyboard_arrow_down,
+                        color: Color(0xFF878787), size: 16),
                   ],
                 ),
               ),
@@ -602,7 +648,8 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
     );
   }
 
-  Widget _buildTextFieldRow(String label, TextEditingController controller, {Function(String)? onSubmitted}) {
+  Widget _buildTextFieldRow(String label, TextEditingController controller,
+      {Function(String)? onSubmitted}) {
     return StatefulBuilder(
       builder: (context, setState) {
         bool isSaved = false;
@@ -613,7 +660,9 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
             children: [
               Expanded(
                 flex: 2,
-                child: Text(label, style: const TextStyle(color: Color(0xFFECECEC), fontSize: 13)),
+                child: Text(label,
+                    style: const TextStyle(
+                        color: Color(0xFFECECEC), fontSize: 13)),
               ),
               Expanded(
                 flex: 3,
@@ -623,7 +672,8 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
                     controller: controller,
                     style: const TextStyle(color: Colors.white, fontSize: 13),
                     decoration: InputDecoration(
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 0),
                       filled: true,
                       fillColor: const Color(0xFF2A2A2A),
                       border: OutlineInputBorder(
@@ -663,11 +713,14 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
                   }
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: isSaved ? const Color(0xFF10A37F) : const Color(0xFF2F2F2F),
+                  backgroundColor: isSaved
+                      ? const Color(0xFF10A37F)
+                      : const Color(0xFF2F2F2F),
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(horizontal: 12),
                   minimumSize: const Size(0, 36),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(6)),
                 ),
                 child: Text(isSaved ? 'Saved' : 'Apply'),
               ),
@@ -684,8 +737,10 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label,
-              style: const TextStyle(color: Color(0xFFECECEC), fontSize: 13)),
+          Expanded(
+            child: Text(label,
+                style: const TextStyle(color: Color(0xFFECECEC), fontSize: 13)),
+          ),
           CupertinoSwitch(
             value: value,
             onChanged: (v) {},

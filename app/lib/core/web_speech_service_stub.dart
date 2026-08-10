@@ -1,4 +1,5 @@
 import 'package:flutter_tts/flutter_tts.dart';
+import 'package:sentry_flutter/sentry_flutter.dart';
 
 /// Native (non-web) implementation of WebSpeechService using flutter_tts.
 ///
@@ -57,7 +58,8 @@ class WebSpeechService {
       } else {
         await _tts.speak(text);
       }
-    } catch (_) {
+    } catch (e, st) {
+      Sentry.captureException(e, stackTrace: st);
       // Catches MissingPluginException in VM test environments — silent no-op.
       _isSpeaking = false;
     }
@@ -72,7 +74,9 @@ class WebSpeechService {
     try {
       await _tts.stop();
       _isSpeaking = false;
-    } catch (_) {}
+    } catch (e, st) {
+      Sentry.captureException(e, stackTrace: st);
+    }
   }
 
   /// Pauses speech synthesis (supported on iOS; no-op on other platforms).
@@ -83,7 +87,9 @@ class WebSpeechService {
   Future<void> _pauseAsync() async {
     try {
       await _tts.pause();
-    } catch (_) {}
+    } catch (e, st) {
+      Sentry.captureException(e, stackTrace: st);
+    }
   }
 
   /// Resumes paused speech synthesis.

@@ -1,6 +1,6 @@
 # Veraxi
 
-A sovereign intelligence platform that combines a knowledge graph (Neo4j) and vector search (Qdrant) to give an LLM (Gemini 2.5 Flash) autonomous, tool-based access to both relational and semantic context.
+A sovereign intelligence platform that combines a knowledge graph (Neo4j) and vector search (Qdrant) to give an LLM autonomous, tool-based access to both relational and semantic context. Supports Cloud APIs (OpenAI, Anthropic, Google, Groq, DeepSeek, Kimi) and Local AI models (Ollama, LM Studio).
 
 Veraxi utilizes Reciprocal Rank Fusion (RRF) to merge structured graph lookups and semantic vector similarities into a single, high-fidelity context window, allowing the LLM to deduce deep architectural and organizational realities with significantly reduced hallucination risk.
 
@@ -22,8 +22,9 @@ Features successfully implemented so far include:
 - A multi-tenant FastAPI engine featuring Stripe webhook integration and secure JWT authentication.
 - Tenant-Specific Dynamic Ontologies: A strict, user-defined graph schema enforced during ingestion, with LLM auto-generation for effortless setup.
 - Docling-powered multimodal ingestion and an SSE-based Model Context Protocol (MCP) transport layer with dynamic rate limiting.
-- A premium, modern, cross-platform Flutter client (UI currently being wired to the backend).
+- A premium, modern, cross-platform Flutter client featuring zero-config UI support for both Cloud APIs (OpenAI, Anthropic, Google, Groq, DeepSeek, Kimi) and Local AI providers (e.g. Ollama, LM Studio).
 - Corrective Retrieval Augmented Generation (CRAG) with web search fallback and LLM-as-a-judge grounding evaluation.
+- **Enterprise Isolation Mode:** Built-in SSRF protection and UI lockdown for corporate environments (via the `IS_ENTERPRISE` flag) where administrators dictate endpoints and end-users cannot alter model routing.
 
 See [docs/ROADMAP.md](docs/ROADMAP.md) for the historical evolution of the project.
 
@@ -41,7 +42,8 @@ See [docs/architecture.md](docs/architecture.md) for a deep dive into the depend
 
 **Yes!**
 - The databases (Neo4j and Qdrant) run entirely locally for free via Docker.
-- The intelligence engine uses the **Google Gemini API**, which currently offers a **very generous Free Tier** (up to 15 RPM for Gemini 2.5 Flash).
+- The intelligence engine connects dynamically to any OpenAI-compatible API, meaning you can run models entirely locally (via Ollama or LM Studio) for 100% free, private inference.
+- If you prefer cloud APIs, you can use the **Google Gemini API** or **Groq API**, which currently offer **very generous Free Tiers**.
 
 Anyone can clone this repo and run their own autonomous intelligence system on their local machine at absolutely no cost.
 
@@ -60,10 +62,10 @@ Anyone can clone this repo and run their own autonomous intelligence system on t
    *(This spins up local, ephemeral instances of Neo4j and Qdrant).*
 
 3. **Configure the environment:**
-   Copy the example config and add your **free** Gemini API key.
+   Copy the example config and add your preferred API keys.
    ```bash
    cp backend/.env.example backend/.env
-   # Edit backend/.env and add your GEMINI_API_KEY
+   # Edit backend/.env and add your LLM_API_KEY (e.g., OpenAI, Gemini, Groq, or Local)
    ```
 
 4. **Install Python dependencies:**
@@ -115,7 +117,15 @@ If you want to run the entire backend (Neo4j, Qdrant, and the Python MCP Intelli
 ```bash
 docker-compose up -d --build
 ```
-Once running, the Intelligence Engine is instantly available at `http://localhost:8000`!
+Once running, the Intelligence Engine is instantly available at `http://localhost:8000` and the Web UI at `http://localhost:80`!
+
+### 🏢 Enterprise Deployment Mode
+
+If deploying Veraxi for an entire company or school, you can activate Enterprise Mode by setting `IS_ENTERPRISE=true` in your `docker-compose.yml` environment.
+When active:
+- The UI automatically hides all AI provider configuration and API Key settings.
+- The backend strictly enforces the endpoints defined in the `.env` file, actively dropping any malicious URL overrides sent by clients (preventing SSRF).
+- Administrators configure models globally once, and all employees inherit them seamlessly.
 
 ### 4. Self-Hosted / Open-Source Desktop Clients
 If you are an open-source contributor and want to connect the official Claude Desktop app or Cursor directly to your local instance without routing through the Intelligence Engine, you can use the lightweight `stdio` runner.
@@ -155,3 +165,24 @@ See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 MIT — see [LICENSE](LICENSE).
+### Production Deployment
+
+To take Veraxi live on a real domain with SSL (HTTPS):
+
+1. **Install NGINX Ingress & Cert-Manager** in your cluster:
+   ```bash
+   helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
+   helm install nginx-ingress ingress-nginx/ingress-nginx
+   
+   helm repo add jetstack https://charts.jetstack.io
+   helm install cert-manager jetstack/cert-manager --set crds.enabled=true
+   ```
+
+2. **Configure your Domain:** 
+   Open `helm/veraxi/values.yaml` and replace `YOUR_DOMAIN_HERE.com` with your actual domain name under the `ingress:` block.
+
+3. **Deploy:**
+   ```bash
+   helm upgrade --install veraxi ./helm/veraxi
+   ```
+   *Cert-manager will automatically provision a Let's Encrypt SSL certificate for your domain.*
