@@ -103,7 +103,7 @@ class SourcesSidebar extends StatelessWidget {
                                 ClipRRect(
                                   borderRadius: BorderRadius.circular(4),
                                   child: Image.network(
-                                    'https://www.google.com/s2/favicons?domain=$domain&sz=64',
+                                    'https://icons.duckduckgo.com/ip3/$domain.ico',
                                     width: 16,
                                     height: 16,
                                     errorBuilder:

@@ -61,7 +61,7 @@ class SourcesButton extends StatelessWidget {
                         child: ClipOval(
                           child: favicons[renderIndex].isNotEmpty
                               ? Image.network(
-                                  'https://www.google.com/s2/favicons?domain=${favicons[renderIndex]}&sz=64',
+                                  'https://icons.duckduckgo.com/ip3/${favicons[renderIndex]}.ico',
                                   width: 13,
                                   height: 13,
                                   errorBuilder: (_, __, ___) => const Icon(
