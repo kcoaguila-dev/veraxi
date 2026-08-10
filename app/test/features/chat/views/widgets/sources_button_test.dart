@@ -83,8 +83,8 @@ void main() {
           isComplete: true,
           result: [
             _webHitArtifact(
-              url: 'https://www.weblio.jp/content/latest',
-              title: '英語「latest」の意味・読み方・表現 | Weblio英和辞書',
+              url: 'https://www.technews-daily.com/articles/ai-roundup',
+              title: 'AI Weekly Roundup: Top Stories',
             ),
           ],
         );
@@ -98,8 +98,8 @@ void main() {
         final sources = SourcesButton.extractSources(message);
         expect(sources.length, 1);
         // Must be the real URL, NOT "vector" or empty
-        expect(sources[0]['url'], 'https://www.weblio.jp/content/latest');
-        expect(sources[0]['title'], contains('Weblio'));
+        expect(sources[0]['url'], 'https://www.technews-daily.com/articles/ai-roundup');
+        expect(sources[0]['title'], contains('AI Weekly'));
       },
     );
 
