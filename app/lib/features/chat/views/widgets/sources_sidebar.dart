@@ -19,7 +19,8 @@ class SourcesSidebar extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
               child: Row(
                 children: [
-                  const Icon(Icons.menu_book_outlined, color: Colors.white, size: 20),
+                  const Icon(Icons.menu_book_outlined,
+                      color: Colors.white, size: 20),
                   const SizedBox(width: 12),
                   const Text(
                     'Sources',
@@ -31,7 +32,8 @@ class SourcesSidebar extends StatelessWidget {
                   ),
                   const Spacer(),
                   IconButton(
-                    icon: const Icon(Icons.close, color: Colors.white70, size: 20),
+                    icon: const Icon(Icons.close,
+                        color: Colors.white70, size: 20),
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                 ],
@@ -42,22 +44,25 @@ class SourcesSidebar extends StatelessWidget {
               child: ListView.separated(
                 padding: const EdgeInsets.all(20),
                 itemCount: sources.length,
-                separatorBuilder: (context, index) => const SizedBox(height: 16),
+                separatorBuilder: (context, index) =>
+                    const SizedBox(height: 16),
                 itemBuilder: (context, index) {
                   final source = sources[index];
                   String title = source['title'] ?? 'Web Source';
                   String url = source['url'] ?? '';
                   String domain = '';
+                  bool hasValidDomain = false;
                   try {
-                    if (url.isNotEmpty) {
-                      final uri = Uri.parse(url);
-                      domain = uri.host.replaceFirst('www.', '');
+                    if (url.isNotEmpty && url != 'Internal Database') {
+                      final uri = Uri.tryParse(url.startsWith('http') ? url : 'http://$url');
+                      domain = uri?.host.replaceFirst('www.', '') ?? '';
+                      if (domain.contains('.')) {
+                        hasValidDomain = true;
+                      }
                     }
                   } catch (_) {}
 
-                  if (domain.isEmpty) {
-                    domain = 'Internal Database';
-                  }
+                  String displayDomain = hasValidDomain ? domain : 'Internal Database';
 
                   return InkWell(
                     onTap: () {
@@ -94,23 +99,27 @@ class SourcesSidebar extends StatelessWidget {
                                 ),
                               ),
                               const SizedBox(width: 12),
-                              if (domain.isNotEmpty)
+                              if (hasValidDomain)
                                 ClipRRect(
                                   borderRadius: BorderRadius.circular(4),
                                   child: Image.network(
                                     'https://www.google.com/s2/favicons?domain=$domain&sz=64',
                                     width: 16,
                                     height: 16,
-                                    errorBuilder: (context, error, stackTrace) =>
-                                        const Icon(Icons.language, size: 16, color: Color(0xFF878787)),
+                                    errorBuilder:
+                                        (context, error, stackTrace) =>
+                                            const Icon(Icons.language,
+                                                size: 16,
+                                                color: Color(0xFF878787)),
                                   ),
                                 )
                               else
-                                const Icon(Icons.language, size: 16, color: Color(0xFF878787)),
+                                const Icon(Icons.language,
+                                    size: 16, color: Color(0xFF878787)),
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
-                                  domain,
+                                  displayDomain,
                                   style: const TextStyle(
                                     color: Color(0xFF878787),
                                     fontSize: 13,

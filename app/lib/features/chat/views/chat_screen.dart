@@ -26,7 +26,8 @@ import 'package:veraxi_app/core/sidebar_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
-final activeSourcesProvider = StateProvider<List<Map<String, dynamic>>>((ref) => []);
+final activeSourcesProvider =
+    StateProvider<List<Map<String, dynamic>>>((ref) => []);
 
 class CitationElementBuilder extends MarkdownElementBuilder {
   final ChatMessage message;
@@ -413,22 +414,26 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     );
   }
 
-  void _showRenameProjectDialog(BuildContext context, String projectId, String currentName, ChatViewModel viewModel) {
+  void _showRenameProjectDialog(BuildContext context, String projectId,
+      String currentName, ChatViewModel viewModel) {
     final controller = TextEditingController(text: currentName);
     showDialog(
       context: context,
       builder: (context) {
         return AlertDialog(
           backgroundColor: const Color(0xFF1E1E1E),
-          title: const Text('Rename Project', style: TextStyle(color: Colors.white)),
+          title: const Text('Rename Project',
+              style: TextStyle(color: Colors.white)),
           content: TextField(
             controller: controller,
             style: const TextStyle(color: Colors.white),
             decoration: const InputDecoration(
               hintText: 'Project Name',
               hintStyle: TextStyle(color: Colors.grey),
-              enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey)),
-              focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.white)),
+              enabledBorder: UnderlineInputBorder(
+                  borderSide: BorderSide(color: Colors.grey)),
+              focusedBorder: UnderlineInputBorder(
+                  borderSide: BorderSide(color: Colors.white)),
             ),
           ),
           actions: [
@@ -451,14 +456,18 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     );
   }
 
-  void _showDeleteProjectDialog(BuildContext context, String projectId, String projectName, ChatViewModel viewModel) {
+  void _showDeleteProjectDialog(BuildContext context, String projectId,
+      String projectName, ChatViewModel viewModel) {
     showDialog(
       context: context,
       builder: (context) {
         return AlertDialog(
           backgroundColor: const Color(0xFF1E1E1E),
-          title: const Text('Delete Project', style: TextStyle(color: Colors.white)),
-          content: Text('Are you sure you want to delete the project "$projectName"? This action cannot be undone.', style: const TextStyle(color: Colors.white)),
+          title: const Text('Delete Project',
+              style: TextStyle(color: Colors.white)),
+          content: Text(
+              'Are you sure you want to delete the project "$projectName"? This action cannot be undone.',
+              style: const TextStyle(color: Colors.white)),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
@@ -469,7 +478,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 viewModel.deleteProject(projectId);
                 Navigator.pop(context);
               },
-              child: const Text('Delete', style: TextStyle(color: Colors.redAccent)),
+              child: const Text('Delete',
+                  style: TextStyle(color: Colors.redAccent)),
             ),
           ],
         );
@@ -478,6 +488,915 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   }
 
   @override
+  Widget _buildSidebarContent(
+      BuildContext context,
+      dynamic state,
+      dynamic viewModel,
+      bool isSidebarOpen,
+      AppThemeExtension ext,
+      bool isMobile) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 250),
+      curve: Curves.easeInOut,
+      width: isSidebarOpen ? 260 : 0,
+      child: ClipRect(
+        child: Container(
+          width: 260,
+          color: const Color(0xFF171717),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                height: 24,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    const Text(
+                      'Veraxi',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    Tooltip(
+                      message: 'Close sidebar',
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(6),
+                          onTap: () {
+                            ref.read(sidebarStateProvider.notifier).state =
+                                false;
+                          },
+                          child: SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: Center(child: _buildSidebarToggleIcon()),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 18),
+              // Pinned Models (above Projects)
+              if (_pinnedModels.isNotEmpty) ...[
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: _pinnedModels.map((model) {
+                    final isActive = model == _selectedModel;
+                    return MouseRegion(
+                      onEnter: (_) =>
+                          setState(() => _hoveredModel = 'sidebar_$model'),
+                      onExit: (_) => setState(() {
+                        if (_hoveredModel == 'sidebar_$model')
+                          _hoveredModel = null;
+                      }),
+                      child: GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            _selectedModel = model;
+                            // Infer provider from model name
+                            if (model.startsWith('gemini'))
+                              _selectedProvider = 'Google';
+                            else if (model.startsWith('gpt'))
+                              _selectedProvider = 'OpenAI';
+                            else if (model.startsWith('claude'))
+                              _selectedProvider = 'Anthropic';
+                          });
+                          _saveSelectedModel(_selectedModel, _selectedProvider);
+                        },
+                        child: Container(
+                          height: 30,
+                          margin: const EdgeInsets.only(bottom: 2),
+                          padding: const EdgeInsets.symmetric(horizontal: 6),
+                          decoration: BoxDecoration(
+                            color: isActive
+                                ? const Color(0xFF2F2F2F)
+                                : Colors.transparent,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Row(
+                            children: [
+                              _providerDotFor(model),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  model,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                      fontSize: 12,
+                                      color: isActive
+                                          ? Colors.white
+                                          : const Color(0xFF878787)),
+                                ),
+                              ),
+                              if (_hoveredModel == 'sidebar_$model')
+                                GestureDetector(
+                                  onTap: () => setState(
+                                      () => _pinnedModels.remove(model)),
+                                  child: const Tooltip(
+                                    message: 'Unpin',
+                                    child: Icon(Icons.push_pin,
+                                        color: Color(0xFF878787), size: 12),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 12),
+              ],
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  InkWell(
+                    onTap: () => setState(
+                        () => _projectsListExpanded = !_projectsListExpanded),
+                    child: Row(
+                      children: [
+                        Text('Projects',
+                            style: TextStyle(
+                                color: const Color(0xFF878787),
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600)),
+                        const SizedBox(width: 4),
+                        Icon(
+                            _projectsListExpanded
+                                ? Icons.keyboard_arrow_down
+                                : Icons.keyboard_arrow_right,
+                            color: const Color(0xFF878787),
+                            size: 16),
+                      ],
+                    ),
+                  ),
+                  Row(
+                    children: [
+                      Tooltip(
+                        message: 'All Projects',
+                        child: InkWell(
+                          onTap: () => viewModel.openAllProjectsDashboard(),
+                          borderRadius: BorderRadius.circular(4),
+                          child: Padding(
+                            padding: const EdgeInsets.all(4.0),
+                            child: Icon(LucideIcons.folder,
+                                color: const Color(0xFFB4B4B4), size: 16),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Tooltip(
+                        message: 'New Project',
+                        child: InkWell(
+                          onTap: () {
+                            showDialog(
+                              context: context,
+                              builder: (context) => const CreateProjectDialog(),
+                            );
+                          },
+                          borderRadius: BorderRadius.circular(4),
+                          child: Padding(
+                            padding: const EdgeInsets.all(4.0),
+                            child: Icon(LucideIcons.folderPlus,
+                                color: const Color(0xFFB4B4B4), size: 16),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              if (state.projects.isNotEmpty && _projectsListExpanded)
+                Column(
+                  children: state.projects.map((project) {
+                    final projectId = project['id'] as String;
+                    final projectName = project['name'] as String;
+                    final isActive = state.activeProjectId == projectId;
+                    final isExpanded = _expandedProjects.contains(projectId);
+
+                    final projectThreads = state.pastThreads
+                        .where((t) =>
+                            t['project_id'] == projectId &&
+                            t['is_archived'] != true)
+                        .toList();
+
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        (() {
+                          bool isHovered = false;
+                          return StatefulBuilder(
+                            builder: (context, setHoverState) {
+                              return MouseRegion(
+                                onEnter: (_) =>
+                                    setHoverState(() => isHovered = true),
+                                onExit: (_) =>
+                                    setHoverState(() => isHovered = false),
+                                child: InkWell(
+                                  onTap: () {
+                                    setState(() {
+                                      if (isExpanded) {
+                                        _expandedProjects.remove(projectId);
+                                      } else {
+                                        _expandedProjects.add(projectId);
+                                      }
+                                    });
+                                  },
+                                  borderRadius: BorderRadius.circular(6),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 4, vertical: 8),
+                                    decoration: BoxDecoration(
+                                      color: (isActive || isHovered)
+                                          ? const Color(0xFF2A2A2A)
+                                          : Colors.transparent,
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Padding(
+                                          padding: const EdgeInsets.all(4.0),
+                                          child: Icon(
+                                            isExpanded
+                                                ? Icons.keyboard_arrow_down
+                                                : Icons.keyboard_arrow_right,
+                                            color: const Color(0xFF878787),
+                                            size: 16,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Icon(
+                                          LucideIcons.folder,
+                                          color: isActive
+                                              ? Colors.white
+                                              : const Color(0xFF878787),
+                                          size: 16,
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Text(
+                                            projectName,
+                                            style: TextStyle(
+                                              color: isActive
+                                                  ? Colors.white
+                                                  : const Color(0xFF878787),
+                                              fontSize: 13,
+                                              fontWeight: isActive
+                                                  ? FontWeight.w500
+                                                  : FontWeight.normal,
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                        Visibility(
+                                          visible: isHovered || isActive,
+                                          maintainSize: true,
+                                          maintainAnimation: true,
+                                          maintainState: true,
+                                          child: Row(
+                                            children: [
+                                              InkWell(
+                                                onTap: () => viewModel
+                                                    .startNewChatInProject(
+                                                        projectId),
+                                                borderRadius:
+                                                    BorderRadius.circular(4),
+                                                child: Padding(
+                                                  padding:
+                                                      const EdgeInsets.all(4.0),
+                                                  child: Icon(Icons.edit_square,
+                                                      color: const Color(
+                                                          0xFFB4B4B4),
+                                                      size: 14),
+                                                ),
+                                              ),
+                                              const SizedBox(width: 2),
+                                              Theme(
+                                                data:
+                                                    Theme.of(context).copyWith(
+                                                  hoverColor:
+                                                      Colors.transparent,
+                                                  splashColor:
+                                                      Colors.transparent,
+                                                  highlightColor:
+                                                      Colors.transparent,
+                                                ),
+                                                child: PopupMenuButton<String>(
+                                                  padding: EdgeInsets.zero,
+                                                  icon: const Icon(
+                                                      Icons.more_horiz,
+                                                      color: Color(0xFFB4B4B4),
+                                                      size: 14),
+                                                  color:
+                                                      const Color(0xFF2A2A2A),
+                                                  shape: RoundedRectangleBorder(
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                              8)),
+                                                  offset: const Offset(0, 30),
+                                                  onSelected: (value) {
+                                                    if (value == 'open') {
+                                                      viewModel.selectProject(
+                                                          projectId,
+                                                          projectName);
+                                                    } else if (value ==
+                                                        'rename') {
+                                                      _showRenameProjectDialog(
+                                                          context,
+                                                          projectId,
+                                                          projectName,
+                                                          viewModel);
+                                                    } else if (value ==
+                                                        'delete') {
+                                                      _showDeleteProjectDialog(
+                                                          context,
+                                                          projectId,
+                                                          projectName,
+                                                          viewModel);
+                                                    }
+                                                  },
+                                                  itemBuilder: (BuildContext
+                                                          context) =>
+                                                      <PopupMenuEntry<String>>[
+                                                    const PopupMenuItem<String>(
+                                                      value: 'open',
+                                                      height: 36,
+                                                      child: Row(
+                                                        children: [
+                                                          Icon(
+                                                              LucideIcons
+                                                                  .folder,
+                                                              color: Color(
+                                                                  0xFFB4B4B4),
+                                                              size: 14),
+                                                          SizedBox(width: 8),
+                                                          Text('Open project',
+                                                              style: TextStyle(
+                                                                  color: Color(
+                                                                      0xFFB4B4B4),
+                                                                  fontSize:
+                                                                      12)),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                    const PopupMenuItem<String>(
+                                                      value: 'rename',
+                                                      height: 36,
+                                                      child: Row(
+                                                        children: [
+                                                          Icon(
+                                                              Icons
+                                                                  .edit_outlined,
+                                                              color: Color(
+                                                                  0xFFB4B4B4),
+                                                              size: 14),
+                                                          SizedBox(width: 8),
+                                                          Text('Rename',
+                                                              style: TextStyle(
+                                                                  color: Color(
+                                                                      0xFFB4B4B4),
+                                                                  fontSize:
+                                                                      12)),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                    const PopupMenuItem<String>(
+                                                      value: 'delete',
+                                                      height: 36,
+                                                      child: Row(
+                                                        children: [
+                                                          Icon(
+                                                              Icons
+                                                                  .delete_outline,
+                                                              color: Colors
+                                                                  .redAccent,
+                                                              size: 14),
+                                                          SizedBox(width: 8),
+                                                          Text('Delete',
+                                                              style: TextStyle(
+                                                                  color: Colors
+                                                                      .redAccent,
+                                                                  fontSize:
+                                                                      12)),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                          );
+                        })(),
+                        if (isExpanded && projectThreads.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(
+                                left: 32.0, top: 4.0, bottom: 4.0),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: projectThreads.map((threadData) {
+                                final threadId =
+                                    threadData['thread_id'] as String? ?? '';
+                                final title = threadData['title'] as String? ??
+                                    (threadId.length > 8
+                                        ? threadId.substring(0, 8) + '...'
+                                        : threadId);
+                                final isThreadActive =
+                                    state.threadId == threadId;
+
+                                bool isHovered = false;
+                                return StatefulBuilder(
+                                    builder: (context, setHoverState) {
+                                  return MouseRegion(
+                                    onEnter: (_) =>
+                                        setHoverState(() => isHovered = true),
+                                    onExit: (_) =>
+                                        setHoverState(() => isHovered = false),
+                                    child: InkWell(
+                                      onTap: () =>
+                                          viewModel.selectThread(threadId),
+                                      borderRadius: BorderRadius.circular(6),
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 8, vertical: 6),
+                                        decoration: BoxDecoration(
+                                          color: isThreadActive
+                                              ? const Color(0xFF2A2A2A)
+                                              : Colors.transparent,
+                                          borderRadius:
+                                              BorderRadius.circular(6),
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            Expanded(
+                                              child: Text(
+                                                title,
+                                                style: TextStyle(
+                                                  color: isThreadActive
+                                                      ? Colors.white
+                                                      : const Color(0xFFB4B4B4),
+                                                  fontSize: 13,
+                                                  fontWeight: isThreadActive
+                                                      ? FontWeight.w500
+                                                      : FontWeight.normal,
+                                                ),
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                            Visibility(
+                                              visible:
+                                                  isHovered || isThreadActive,
+                                              maintainSize: true,
+                                              maintainAnimation: true,
+                                              maintainState: true,
+                                              child: Theme(
+                                                data:
+                                                    Theme.of(context).copyWith(
+                                                  hoverColor:
+                                                      Colors.transparent,
+                                                  splashColor:
+                                                      Colors.transparent,
+                                                  highlightColor:
+                                                      Colors.transparent,
+                                                ),
+                                                child: SizedBox(
+                                                  width: 24,
+                                                  height: 24,
+                                                  child:
+                                                      PopupMenuButton<String>(
+                                                    icon: Icon(Icons.more_horiz,
+                                                        color: isThreadActive
+                                                            ? Colors.white
+                                                            : const Color(
+                                                                0xFFB4B4B4),
+                                                        size: 16),
+                                                    color:
+                                                        const Color(0xFF2A2A2A),
+                                                    shape:
+                                                        RoundedRectangleBorder(
+                                                            borderRadius:
+                                                                BorderRadius
+                                                                    .circular(
+                                                                        8)),
+                                                    padding: EdgeInsets.zero,
+                                                    itemBuilder: (context) {
+                                                      final isPinned =
+                                                          threadData[
+                                                                  'is_pinned'] ==
+                                                              true;
+                                                      final isArchived =
+                                                          threadData[
+                                                                  'is_archived'] ==
+                                                              true;
+                                                      return [
+                                                        _buildPopupMenuItem(
+                                                            'Share',
+                                                            Icons.share),
+                                                        _buildPopupMenuItem(
+                                                            isPinned
+                                                                ? 'Unpin'
+                                                                : 'Pin',
+                                                            isPinned
+                                                                ? Icons.push_pin
+                                                                : Icons
+                                                                    .push_pin_outlined),
+                                                        _buildPopupMenuItem(
+                                                            'Rename',
+                                                            Icons
+                                                                .edit_outlined),
+                                                        _buildPopupMenuItem(
+                                                            'Duplicate',
+                                                            Icons
+                                                                .copy_outlined),
+                                                        _buildPopupMenuItem(
+                                                            'Change project',
+                                                            Icons
+                                                                .folder_outlined),
+                                                        _buildPopupMenuItem(
+                                                            isArchived
+                                                                ? 'Unarchive'
+                                                                : 'Archive',
+                                                            isArchived
+                                                                ? Icons
+                                                                    .unarchive
+                                                                : Icons
+                                                                    .archive_outlined),
+                                                        _buildPopupMenuItem(
+                                                            'Delete',
+                                                            Icons
+                                                                .delete_outline,
+                                                            isDestructive:
+                                                                true),
+                                                      ];
+                                                    },
+                                                    onSelected: (value) async {
+                                                      final viewModel = ref.read(
+                                                          chatViewModelProvider
+                                                              .notifier);
+                                                      if (value == 'Share') {
+                                                        _showShareDialog(
+                                                            context,
+                                                            viewModel,
+                                                            threadId);
+                                                      } else if (value ==
+                                                              'Pin' ||
+                                                          value == 'Unpin') {
+                                                        await viewModel
+                                                            .togglePinThread(
+                                                                threadId);
+                                                      } else if (value ==
+                                                          'Rename') {
+                                                        _showRenameDialog(
+                                                            context,
+                                                            viewModel,
+                                                            threadId,
+                                                            title);
+                                                      } else if (value ==
+                                                          'Duplicate') {
+                                                        await viewModel
+                                                            .duplicateThread(
+                                                                threadId);
+                                                      } else if (value ==
+                                                          'Change project') {
+                                                        _showChangeProjectDialog(
+                                                            context,
+                                                            viewModel,
+                                                            threadId);
+                                                      } else if (value ==
+                                                              'Archive' ||
+                                                          value ==
+                                                              'Unarchive') {
+                                                        await viewModel
+                                                            .toggleArchiveThread(
+                                                                threadId);
+                                                      } else if (value ==
+                                                          'Delete') {
+                                                        await viewModel
+                                                            .deleteThread(
+                                                                threadId);
+                                                      }
+                                                    },
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                });
+                              }).toList(),
+                            ),
+                          ),
+                      ],
+                    );
+                  }).toList(),
+                ),
+              const SizedBox(height: 24),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  InkWell(
+                    onTap: () =>
+                        setState(() => _chatsExpanded = !_chatsExpanded),
+                    child: Row(
+                      children: [
+                        Text('Chats',
+                            style: TextStyle(
+                                color: const Color(0xFF878787),
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600)),
+                        const SizedBox(width: 4),
+                        Icon(
+                            _chatsExpanded
+                                ? Icons.keyboard_arrow_down
+                                : Icons.keyboard_arrow_right,
+                            color: const Color(0xFF878787),
+                            size: 16),
+                      ],
+                    ),
+                  ),
+                  InkWell(
+                    onTap: () {
+                      viewModel.startNewChat();
+                    },
+                    borderRadius: BorderRadius.circular(4),
+                    child: Padding(
+                      padding: const EdgeInsets.all(4.0),
+                      child: Icon(Icons.edit_square,
+                          color: const Color(0xFFB4B4B4), size: 16),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              if (_chatsExpanded)
+                Expanded(
+                  child: Builder(
+                    builder: (context) {
+                      final timelineChats = state.pastThreads
+                          .where((t) => t['is_archived'] != true)
+                          .toList();
+                      if (timelineChats.isEmpty) {
+                        return const Text('No threads found.',
+                            style: TextStyle(color: Colors.red, fontSize: 12));
+                      }
+
+                      final now = DateTime.now();
+                      final today = DateTime(now.year, now.month, now.day);
+                      final yesterday = today.subtract(const Duration(days: 1));
+                      final lastWeek = today.subtract(const Duration(days: 7));
+
+                      final todayChats = <Map<String, dynamic>>[];
+                      final yesterdayChats = <Map<String, dynamic>>[];
+                      final lastWeekChats = <Map<String, dynamic>>[];
+                      final olderChats = <Map<String, dynamic>>[];
+
+                      for (final chat in timelineChats) {
+                        final tsRaw = chat['_timestamp'];
+                        final tsSec = tsRaw is num ? tsRaw.toDouble() : 0.0;
+                        final date = tsSec > 0
+                            ? DateTime.fromMillisecondsSinceEpoch(
+                                (tsSec * 1000).toInt())
+                            : DateTime.now();
+                        final justDate =
+                            DateTime(date.year, date.month, date.day);
+
+                        if (!justDate.isBefore(today)) {
+                          todayChats.add(chat);
+                        } else if (!justDate.isBefore(yesterday)) {
+                          yesterdayChats.add(chat);
+                        } else if (!justDate.isBefore(lastWeek)) {
+                          lastWeekChats.add(chat);
+                        } else {
+                          olderChats.add(chat);
+                        }
+                      }
+
+                      final flatItems = <dynamic>[];
+                      if (todayChats.isNotEmpty) {
+                        flatItems.add('Today');
+                        flatItems.addAll(todayChats);
+                      }
+                      if (yesterdayChats.isNotEmpty) {
+                        flatItems.add('Yesterday');
+                        flatItems.addAll(yesterdayChats);
+                      }
+                      if (lastWeekChats.isNotEmpty) {
+                        flatItems.add('Previous 7 days');
+                        flatItems.addAll(lastWeekChats);
+                      }
+                      if (olderChats.isNotEmpty) {
+                        flatItems.add('Older');
+                        flatItems.addAll(olderChats);
+                      }
+
+                      return ListView.builder(
+                        itemCount: flatItems.length,
+                        itemBuilder: (context, index) {
+                          final item = flatItems[index];
+                          if (item is String) {
+                            return Padding(
+                              padding: const EdgeInsets.only(
+                                  top: 16.0, bottom: 8.0, left: 8.0),
+                              child: Text(
+                                item,
+                                style: const TextStyle(
+                                  color: Color(0xFF676767),
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            );
+                          }
+
+                          final threadData = item as Map<String, dynamic>;
+                          final threadId =
+                              threadData['thread_id'] as String? ?? '';
+                          final title = threadData['title'] as String? ??
+                              (threadId.length > 8
+                                  ? threadId.substring(0, 8) + '...'
+                                  : threadId);
+                          final isSelected = state.threadId == threadId;
+                          bool isHovered = false;
+
+                          return StatefulBuilder(builder: (context, setState) {
+                            return MouseRegion(
+                              onEnter: (_) => setState(() => isHovered = true),
+                              onExit: (_) => setState(() => isHovered = false),
+                              child: InkWell(
+                                onTap: () {
+                                  viewModel.selectThread(threadId);
+                                },
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    color: isSelected
+                                        ? const Color(0xFF2A2A2A)
+                                        : Colors.transparent,
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  padding: const EdgeInsets.symmetric(
+                                      vertical: 8.0, horizontal: 8.0),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          title,
+                                          style: TextStyle(
+                                            color: isSelected
+                                                ? Colors.white
+                                                : const Color(0xFFB4B4B4),
+                                            fontSize: 13,
+                                            fontWeight: isSelected
+                                                ? FontWeight.w500
+                                                : FontWeight.normal,
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      Visibility(
+                                        visible: isHovered || isSelected,
+                                        maintainSize: true,
+                                        maintainAnimation: true,
+                                        maintainState: true,
+                                        child: Theme(
+                                          data: Theme.of(context).copyWith(
+                                            hoverColor: Colors.transparent,
+                                            splashColor: Colors.transparent,
+                                            highlightColor: Colors.transparent,
+                                          ),
+                                          child: SizedBox(
+                                            width: 24,
+                                            height: 24,
+                                            child: PopupMenuButton<String>(
+                                              icon: Icon(Icons.more_horiz,
+                                                  color: isSelected
+                                                      ? Colors.white
+                                                      : const Color(0xFFB4B4B4),
+                                                  size: 16),
+                                              color: const Color(0xFF2A2A2A),
+                                              shape: RoundedRectangleBorder(
+                                                  borderRadius:
+                                                      BorderRadius.circular(8)),
+                                              padding: EdgeInsets.zero,
+                                              itemBuilder: (context) {
+                                                final isPinned =
+                                                    threadData['is_pinned'] ==
+                                                        true;
+                                                final isArchived =
+                                                    threadData['is_archived'] ==
+                                                        true;
+                                                return [
+                                                  _buildPopupMenuItem(
+                                                      'Share', Icons.share),
+                                                  _buildPopupMenuItem(
+                                                      isPinned
+                                                          ? 'Unpin'
+                                                          : 'Pin',
+                                                      isPinned
+                                                          ? Icons.push_pin
+                                                          : Icons
+                                                              .push_pin_outlined),
+                                                  _buildPopupMenuItem('Rename',
+                                                      Icons.edit_outlined),
+                                                  _buildPopupMenuItem(
+                                                      'Duplicate',
+                                                      Icons.copy_outlined),
+                                                  _buildPopupMenuItem(
+                                                      'Change project',
+                                                      Icons.folder_outlined),
+                                                  _buildPopupMenuItem(
+                                                      isArchived
+                                                          ? 'Unarchive'
+                                                          : 'Archive',
+                                                      isArchived
+                                                          ? Icons.unarchive
+                                                          : Icons
+                                                              .archive_outlined),
+                                                  _buildPopupMenuItem('Delete',
+                                                      Icons.delete_outline,
+                                                      isDestructive: true),
+                                                ];
+                                              },
+                                              onSelected: (value) async {
+                                                final viewModel = ref.read(
+                                                    chatViewModelProvider
+                                                        .notifier);
+                                                if (value == 'Share') {
+                                                  _showShareDialog(context,
+                                                      viewModel, threadId);
+                                                } else if (value == 'Pin' ||
+                                                    value == 'Unpin') {
+                                                  await viewModel
+                                                      .togglePinThread(
+                                                          threadId);
+                                                } else if (value == 'Rename') {
+                                                  _showRenameDialog(
+                                                      context,
+                                                      viewModel,
+                                                      threadId,
+                                                      title);
+                                                } else if (value ==
+                                                    'Duplicate') {
+                                                  await viewModel
+                                                      .duplicateThread(
+                                                          threadId);
+                                                } else if (value ==
+                                                    'Change project') {
+                                                  _showChangeProjectDialog(
+                                                      context,
+                                                      viewModel,
+                                                      threadId);
+                                                } else if (value == 'Archive' ||
+                                                    value == 'Unarchive') {
+                                                  await viewModel
+                                                      .toggleArchiveThread(
+                                                          threadId);
+                                                } else if (value == 'Delete') {
+                                                  await viewModel
+                                                      .deleteThread(threadId);
+                                                }
+                                              },
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            );
+                          });
+                        },
+                      );
+                    },
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget build(BuildContext context) {
     final state = ref.watch(chatViewModelProvider);
     final isSidebarOpen = ref.watch(sidebarStateProvider);
@@ -495,1043 +1414,331 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     return Scaffold(
       key: _scaffoldKey, // Add a key to access the scaffold
       backgroundColor: theme.scaffoldBackgroundColor,
-      drawer: null,
+      drawer: Builder(builder: (context) {
+        final isMobile = MediaQuery.of(context).size.width < 800;
+        if (!isMobile) return const SizedBox.shrink();
+        final state = ref.watch(chatViewModelProvider);
+        final viewModel = ref.read(chatViewModelProvider.notifier);
+        final theme = Theme.of(context);
+        final ext = theme.extension<AppThemeExtension>()!;
+        return Drawer(
+          backgroundColor: const Color(0xFF171717),
+          child:
+              _buildSidebarContent(context, state, viewModel, true, ext, true),
+        );
+      }),
       endDrawer: Consumer(
         builder: (context, ref, child) {
           final sources = ref.watch(activeSourcesProvider);
           return SourcesSidebar(sources: sources);
         },
       ),
-      body: Row(
-        children: [
-          // Inner Navigation Sidebar (Projects / Chats)
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 250),
-            curve: Curves.easeInOut,
-            width: isSidebarOpen ? 260 : 0,
-            child: ClipRect(
-              child: Container(
-                width: 260,
-                color: const Color(0xFF171717),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    SizedBox(
-                      height: 24,
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        crossAxisAlignment: CrossAxisAlignment.center,
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final isMobile = constraints.maxWidth < 800;
+          return Row(
+            children: [
+              // Inner Navigation Sidebar (Projects / Chats)
+              isMobile
+                  ? const SizedBox.shrink()
+                  : _buildSidebarContent(
+                      context, state, viewModel, isSidebarOpen, ext, false),
+              // Main Chat Area
+              Expanded(
+                child: SafeArea(
+                  child: Stack(
+                    children: [
+                      // Main Content
+                      Column(
                         children: [
-                          const Text(
-                            'Veraxi',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          Tooltip(
-                            message: 'Close sidebar',
-                            child: Material(
-                              color: Colors.transparent,
-                              child: InkWell(
-                                borderRadius: BorderRadius.circular(6),
-                                onTap: () {
-                                  ref
-                                      .read(sidebarStateProvider.notifier)
-                                      .state = false;
-                                },
-                                child: SizedBox(
-                                  width: 24,
-                                  height: 24,
-                                  child:
-                                      Center(child: _buildSidebarToggleIcon()),
-                                ),
+                          if (isMobile)
+                            Container(
+                              height: 56,
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 16),
+                              decoration: const BoxDecoration(
+                                border: Border(
+                                    bottom:
+                                        BorderSide(color: Color(0xFF2A2A2A))),
+                              ),
+                              child: Row(
+                                children: [
+                                  IconButton(
+                                    icon: const Icon(Icons.menu,
+                                        color: Colors.white),
+                                    onPressed: () =>
+                                        Scaffold.of(context).openDrawer(),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  const Text('Veraxi',
+                                      style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w600)),
+                                ],
                               ),
                             ),
+                          Expanded(
+                            child: state.showAllProjectsDashboard
+                                ? const AllProjectsDashboardView()
+                                : state.showProjectDashboard
+                                    ? const ProjectDashboardView()
+                                    : state.isLoadingHistory
+                                        ? const Center(
+                                            child: SizedBox(
+                                              width: 24,
+                                              height: 24,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2.0,
+                                                valueColor:
+                                                    AlwaysStoppedAnimation<
+                                                            Color>(
+                                                        Color(0xFF878787)),
+                                              ),
+                                            ),
+                                          )
+                                        : state.messages.isEmpty
+                                            ? _buildEmptyState(
+                                                theme, ext, state, viewModel)
+                                            : ListView.builder(
+                                                controller: _scrollController,
+                                                padding: const EdgeInsets.only(
+                                                    left: 16,
+                                                    right: 16,
+                                                    top: 80,
+                                                    bottom: 120),
+                                                itemCount:
+                                                    state.messages.length,
+                                                itemBuilder: (context, index) {
+                                                  final msg =
+                                                      state.messages[index];
+                                                  return _buildChatMessage(
+                                                      msg, theme, ext,
+                                                      showTelemetry:
+                                                          state.showTelemetry);
+                                                },
+                                              ),
                           ),
                         ],
                       ),
-                    ),
-                    const SizedBox(height: 18),
-                    // Pinned Models (above Projects)
-                    if (_pinnedModels.isNotEmpty) ...[
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: _pinnedModels.map((model) {
-                          final isActive = model == _selectedModel;
-                          return MouseRegion(
-                            onEnter: (_) => setState(
-                                () => _hoveredModel = 'sidebar_$model'),
-                            onExit: (_) => setState(() {
-                              if (_hoveredModel == 'sidebar_$model')
+
+                      // Full-screen tap catcher to dismiss popup
+                      if (_isModelSelectorOpen)
+                        Positioned.fill(
+                          child: GestureDetector(
+                            onTap: () {
+                              setState(() {
+                                _isModelSelectorOpen = false;
+                                _hoveredProvider = null;
+                                _hoveredGearProvider = null;
+                                _searchQuery = '';
+                                _searchController.clear();
+                                _globalSearchQuery = '';
+                                _globalSearchController.clear();
                                 _hoveredModel = null;
-                            }),
-                            child: GestureDetector(
+                              });
+                            },
+                            child: Container(color: Colors.transparent),
+                          ),
+                        ),
+
+                      // Removed overlapping Positioned toggle icon
+
+                      // Top Bar: Model Selector (like LibreChat)
+                      Positioned(
+                        top: 12,
+                        left: 16,
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            GestureDetector(
+                              key: _modelSelectorKey,
                               onTap: () {
                                 setState(() {
-                                  _selectedModel = model;
-                                  // Infer provider from model name
-                                  if (model.startsWith('gemini'))
-                                    _selectedProvider = 'Google';
-                                  else if (model.startsWith('gpt'))
-                                    _selectedProvider = 'OpenAI';
-                                  else if (model.startsWith('claude'))
-                                    _selectedProvider = 'Anthropic';
+                                  _isModelSelectorOpen = !_isModelSelectorOpen;
+                                  if (_isModelSelectorOpen) {
+                                    _hoveredProvider = _selectedProvider;
+                                  } else {
+                                    _hoveredProvider = null;
+                                    _hoveredGearProvider = null;
+                                  }
                                 });
-                                _saveSelectedModel(
-                                    _selectedModel, _selectedProvider);
                               },
                               child: Container(
-                                height: 30,
-                                margin: const EdgeInsets.only(bottom: 2),
-                                padding:
-                                    const EdgeInsets.symmetric(horizontal: 6),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 6),
                                 decoration: BoxDecoration(
-                                  color: isActive
-                                      ? const Color(0xFF2F2F2F)
-                                      : Colors.transparent,
-                                  borderRadius: BorderRadius.circular(6),
+                                  color: const Color(0xFF1E1E1E),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
+                                      color: const Color(0xFF2A2A2A)),
                                 ),
                                 child: Row(
+                                  mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    _providerDotFor(model),
-                                    const SizedBox(width: 6),
-                                    Expanded(
-                                      child: Text(
-                                        model,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: TextStyle(
-                                            fontSize: 12,
-                                            color: isActive
-                                                ? Colors.white
-                                                : const Color(0xFF878787)),
-                                      ),
-                                    ),
-                                    if (_hoveredModel == 'sidebar_$model')
-                                      GestureDetector(
-                                        onTap: () => setState(
-                                            () => _pinnedModels.remove(model)),
-                                        child: const Tooltip(
-                                          message: 'Unpin',
-                                          child: Icon(Icons.push_pin,
-                                              color: Color(0xFF878787),
-                                              size: 12),
-                                        ),
-                                      ),
+                                    if (_selectedModel != 'Select a model') ...[
+                                      _providerDotFor(_selectedModel, size: 16),
+                                      const SizedBox(width: 8),
+                                    ],
+                                    Text(_selectedModel,
+                                        style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w500)),
+                                    const SizedBox(width: 4),
+                                    const Icon(Icons.keyboard_arrow_down,
+                                        size: 16, color: Colors.white),
                                   ],
                                 ),
                               ),
                             ),
-                          );
-                        }).toList(),
-                      ),
-                      const SizedBox(height: 12),
-                    ],
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        InkWell(
-                          onTap: () => setState(() => _projectsListExpanded = !_projectsListExpanded),
-                          child: Row(
-                            children: [
-                              Text('Projects',
-                                  style: TextStyle(
-                                      color: const Color(0xFF878787),
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600)),
-                              const SizedBox(width: 4),
-                              Icon(
-                                  _projectsListExpanded
-                                      ? Icons.keyboard_arrow_down
-                                      : Icons.keyboard_arrow_right,
-                                  color: const Color(0xFF878787),
-                                  size: 16),
-                            ],
-                          ),
-                        ),
-                        Row(
-                          children: [
+                            // Telemetry toggle — flush next to the model pill
+                            const SizedBox(width: 4),
                             Tooltip(
-                              message: 'All Projects',
+                              message: state.showTelemetry
+                                  ? 'Response Telemetry (On)'
+                                  : 'Show Response Telemetry',
                               child: InkWell(
-                                onTap: () => viewModel.openAllProjectsDashboard(),
-                                borderRadius: BorderRadius.circular(4),
+                                borderRadius: BorderRadius.circular(6),
+                                onTap: () => viewModel.toggleTelemetry(),
                                 child: Padding(
-                                  padding: const EdgeInsets.all(4.0),
-                                  child: Icon(LucideIcons.folder,
-                                      color: const Color(0xFFB4B4B4), size: 16),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Tooltip(
-                              message: 'New Project',
-                              child: InkWell(
-                                onTap: () {
-                                  showDialog(
-                                    context: context,
-                                    builder: (context) => const CreateProjectDialog(),
-                                  );
-                                },
-                                borderRadius: BorderRadius.circular(4),
-                                child: Padding(
-                                  padding: const EdgeInsets.all(4.0),
-                                  child: Icon(LucideIcons.folderPlus,
-                                      color: const Color(0xFFB4B4B4), size: 16),
+                                  padding: const EdgeInsets.all(6),
+                                  child: Icon(
+                                    state.showTelemetry
+                                        ? Icons.analytics
+                                        : Icons.analytics_outlined,
+                                    size: 18,
+                                    color: state.showTelemetry
+                                        ? ext.primaryGradientStart
+                                        : const Color(0xFF878787),
+                                  ),
                                 ),
                               ),
                             ),
                           ],
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    if (state.projects.isNotEmpty && _projectsListExpanded)
-                      Column(
-                        children: state.projects.map((project) {
-                          final projectId = project['id'] as String;
-                          final projectName = project['name'] as String;
-                          final isActive = state.activeProjectId == projectId;
-                          final isExpanded = _expandedProjects.contains(projectId);
-                          
-                          final projectThreads = state.pastThreads
-                              .where((t) => t['project_id'] == projectId)
-                              .toList();
-
-                          return Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              (() {
-                                bool isHovered = false;
-                                return StatefulBuilder(
-                                  builder: (context, setHoverState) {
-                                    return MouseRegion(
-                                      onEnter: (_) => setHoverState(() => isHovered = true),
-                                      onExit: (_) => setHoverState(() => isHovered = false),
-                                      child: InkWell(
-                                        onTap: () {
-                                          setState(() {
-                                            if (isExpanded) {
-                                              _expandedProjects.remove(projectId);
-                                            } else {
-                                              _expandedProjects.add(projectId);
-                                            }
-                                          });
-                                        },
-                                        borderRadius: BorderRadius.circular(6),
-                                      child: Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-                                        decoration: BoxDecoration(
-                                          color: (isActive || isHovered) ? const Color(0xFF2A2A2A) : Colors.transparent,
-                                          borderRadius: BorderRadius.circular(6),
-                                        ),
-                                        child: Row(
-                                          children: [
-                                            Padding(
-                                              padding: const EdgeInsets.all(4.0),
-                                              child: Icon(
-                                                isExpanded ? Icons.keyboard_arrow_down : Icons.keyboard_arrow_right,
-                                                color: const Color(0xFF878787),
-                                                size: 16,
-                                              ),
-                                            ),
-                                            const SizedBox(width: 4),
-                                            Icon(
-                                              LucideIcons.folder,
-                                              color: isActive ? Colors.white : const Color(0xFF878787),
-                                              size: 16,
-                                            ),
-                                            const SizedBox(width: 8),
-                                            Expanded(
-                                              child: Text(
-                                                projectName,
-                                                style: TextStyle(
-                                                  color: isActive ? Colors.white : const Color(0xFF878787),
-                                                  fontSize: 13,
-                                                  fontWeight: isActive ? FontWeight.w500 : FontWeight.normal,
-                                                ),
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                            ),
-                                            Visibility(
-                                              visible: isHovered || isActive,
-                                              maintainSize: true,
-                                              maintainAnimation: true,
-                                              maintainState: true,
-                                              child: Row(
-                                                children: [
-                                                  InkWell(
-                                                    onTap: () => viewModel.startNewChatInProject(projectId),
-                                                    borderRadius: BorderRadius.circular(4),
-                                                    child: Padding(
-                                                      padding: const EdgeInsets.all(4.0),
-                                                      child: Icon(Icons.edit_square, color: const Color(0xFFB4B4B4), size: 14),
-                                                    ),
-                                                  ),
-                                                  const SizedBox(width: 2),
-                                                  Theme(
-                                                    data: Theme.of(context).copyWith(
-                                                      hoverColor: Colors.transparent,
-                                                      splashColor: Colors.transparent,
-                                                      highlightColor: Colors.transparent,
-                                                    ),
-                                                    child: PopupMenuButton<String>(
-                                                      padding: EdgeInsets.zero,
-                                                      icon: const Icon(Icons.more_horiz, color: Color(0xFFB4B4B4), size: 14),
-                                                      color: const Color(0xFF2A2A2A),
-                                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                                      offset: const Offset(0, 30),
-                                                      onSelected: (value) {
-                                                        if (value == 'open') {
-                                                          viewModel.selectProject(projectId, projectName);
-                                                        } else if (value == 'rename') {
-                                                          _showRenameProjectDialog(context, projectId, projectName, viewModel);
-                                                        } else if (value == 'delete') {
-                                                          _showDeleteProjectDialog(context, projectId, projectName, viewModel);
-                                                        }
-                                                      },
-                                                      itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-                                                        const PopupMenuItem<String>(
-                                                          value: 'open',
-                                                          height: 36,
-                                                          child: Row(
-                                                            children: [
-                                                              Icon(LucideIcons.folder, color: Color(0xFFB4B4B4), size: 14),
-                                                              SizedBox(width: 8),
-                                                              Text('Open project', style: TextStyle(color: Color(0xFFB4B4B4), fontSize: 12)),
-                                                            ],
-                                                          ),
-                                                        ),
-                                                        const PopupMenuItem<String>(
-                                                          value: 'rename',
-                                                          height: 36,
-                                                          child: Row(
-                                                            children: [
-                                                              Icon(Icons.edit_outlined, color: Color(0xFFB4B4B4), size: 14),
-                                                              SizedBox(width: 8),
-                                                              Text('Rename', style: TextStyle(color: Color(0xFFB4B4B4), fontSize: 12)),
-                                                            ],
-                                                          ),
-                                                        ),
-                                                        const PopupMenuItem<String>(
-                                                          value: 'delete',
-                                                          height: 36,
-                                                          child: Row(
-                                                            children: [
-                                                              Icon(Icons.delete_outline, color: Colors.redAccent, size: 14),
-                                                              SizedBox(width: 8),
-                                                              Text('Delete', style: TextStyle(color: Colors.redAccent, fontSize: 12)),
-                                                            ],
-                                                          ),
-                                                        ),
-                                                      ],
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                  );
-                                },
-                              );
-                            })(),
-                              if (isExpanded && projectThreads.isNotEmpty)
-                                Padding(
-                                  padding: const EdgeInsets.only(left: 32.0, top: 4.0, bottom: 4.0),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: projectThreads.map((threadData) {
-                                      final threadId = threadData['thread_id'] as String? ?? '';
-                                      final title = threadData['title'] as String? ?? (threadId.length > 8 ? threadId.substring(0, 8) + '...' : threadId);
-                                      final isThreadActive = state.threadId == threadId;
-                                      
-                                      bool isHovered = false;
-                                      return StatefulBuilder(
-                                        builder: (context, setHoverState) {
-                                          return MouseRegion(
-                                            onEnter: (_) => setHoverState(() => isHovered = true),
-                                            onExit: (_) => setHoverState(() => isHovered = false),
-                                            child: InkWell(
-                                              onTap: () => viewModel.selectThread(threadId),
-                                              borderRadius: BorderRadius.circular(6),
-                                              child: Container(
-                                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                                                decoration: BoxDecoration(
-                                                  color: isThreadActive ? const Color(0xFF2A2A2A) : Colors.transparent,
-                                                  borderRadius: BorderRadius.circular(6),
-                                                ),
-                                                child: Row(
-                                                  children: [
-                                                    Expanded(
-                                                      child: Text(
-                                                        title,
-                                                        style: TextStyle(
-                                                          color: isThreadActive ? Colors.white : const Color(0xFFB4B4B4),
-                                                          fontSize: 13,
-                                                          fontWeight: isThreadActive ? FontWeight.w500 : FontWeight.normal,
-                                                        ),
-                                                        maxLines: 1,
-                                                        overflow: TextOverflow.ellipsis,
-                                                      ),
-                                                    ),
-                                                    Visibility(
-                                                      visible: isHovered || isThreadActive,
-                                                      maintainSize: true,
-                                                      maintainAnimation: true,
-                                                      maintainState: true,
-                                                      child: Theme(
-                                                        data: Theme.of(context).copyWith(
-                                                          hoverColor: Colors.transparent,
-                                                          splashColor: Colors.transparent,
-                                                          highlightColor: Colors.transparent,
-                                                        ),
-                                                        child: SizedBox(
-                                                          width: 24,
-                                                          height: 24,
-                                                          child: PopupMenuButton<String>(
-                                                            icon: Icon(
-                                                              Icons.more_horiz,
-                                                              color: isThreadActive ? Colors.white : const Color(0xFFB4B4B4),
-                                                              size: 16),
-                                                            color: const Color(0xFF2A2A2A),
-                                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                                            padding: EdgeInsets.zero,
-                                                            itemBuilder: (context) {
-                                                              final isPinned = threadData['is_pinned'] == true;
-                                                              final isArchived = threadData['is_archived'] == true;
-                                                              return [
-                                                                _buildPopupMenuItem('Share', Icons.share),
-                                                                _buildPopupMenuItem(isPinned ? 'Unpin' : 'Pin', isPinned ? Icons.push_pin : Icons.push_pin_outlined),
-                                                                _buildPopupMenuItem('Rename', Icons.edit_outlined),
-                                                                _buildPopupMenuItem('Duplicate', Icons.copy_outlined),
-                                                                _buildPopupMenuItem('Change project', Icons.folder_outlined),
-                                                                _buildPopupMenuItem(isArchived ? 'Unarchive' : 'Archive', isArchived ? Icons.unarchive : Icons.archive_outlined),
-                                                                _buildPopupMenuItem('Delete', Icons.delete_outline, isDestructive: true),
-                                                              ];
-                                                            },
-                                                            onSelected: (value) async {
-                                                              final viewModel = ref.read(chatViewModelProvider.notifier);
-                                                              if (value == 'Share') {
-                                                                _showShareDialog(context, viewModel, threadId);
-                                                              } else if (value == 'Pin' || value == 'Unpin') {
-                                                                await viewModel.togglePinThread(threadId);
-                                                              } else if (value == 'Rename') {
-                                                                _showRenameDialog(context, viewModel, threadId, title);
-                                                              } else if (value == 'Duplicate') {
-                                                                await viewModel.duplicateThread(threadId);
-                                                              } else if (value == 'Change project') {
-                                                                _showChangeProjectDialog(context, viewModel, threadId);
-                                                              } else if (value == 'Archive' || value == 'Unarchive') {
-                                                                await viewModel.toggleArchiveThread(threadId);
-                                                              } else if (value == 'Delete') {
-                                                                await viewModel.deleteThread(threadId);
-                                                              }
-                                                            },
-                                                          ),
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-                                            ),
-                                          );
-                                        }
-                                      );
-                                    }).toList(),
-                                  ),
-                                ),
-                            ],
-                          );
-                        }).toList(),
                       ),
-                    const SizedBox(height: 24),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        InkWell(
-                          onTap: () =>
-                              setState(() => _chatsExpanded = !_chatsExpanded),
-                          child: Row(
-                            children: [
-                              Text('Chats',
-                                  style: TextStyle(
-                                      color: const Color(0xFF878787),
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600)),
-                              const SizedBox(width: 4),
-                              Icon(
-                                  _chatsExpanded
-                                      ? Icons.keyboard_arrow_down
-                                      : Icons.keyboard_arrow_right,
-                                  color: const Color(0xFF878787),
-                                  size: 16),
-                            ],
+
+                      // Temporary Chat Toggle
+                      Positioned(
+                        top: 16,
+                        right: 16,
+                        child: Tooltip(
+                          message: state.isTemporary
+                              ? 'Temporary Chat (Enabled)'
+                              : 'Temporary Chat',
+                          child: IconButton(
+                            icon: Icon(
+                              Icons.data_usage,
+                              color: state.isTemporary
+                                  ? ext.primaryGradientStart
+                                  : const Color(0xFF878787),
+                              size: 20,
+                            ),
+                            onPressed: () => viewModel.toggleTemporaryChat(),
                           ),
                         ),
-                        InkWell(
-                          onTap: () {
-                            viewModel.startNewChat();
-                          },
-                          borderRadius: BorderRadius.circular(4),
-                          child: Padding(
-                            padding: const EdgeInsets.all(4.0),
-                            child: Icon(Icons.edit_square,
-                                color: const Color(0xFFB4B4B4), size: 16),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    if (_chatsExpanded)
-                      Expanded(
-                        child: Builder(
-                          builder: (context) {
-                            final timelineChats = state.pastThreads.toList();
-                            if (timelineChats.isEmpty) {
-                              return const Text('No threads found.',
-                                  style: TextStyle(color: Colors.red, fontSize: 12));
-                            }
-                            
-                            final now = DateTime.now();
-                            final today = DateTime(now.year, now.month, now.day);
-                            final yesterday = today.subtract(const Duration(days: 1));
-                            final lastWeek = today.subtract(const Duration(days: 7));
-                            
-                            final todayChats = <Map<String, dynamic>>[];
-                            final yesterdayChats = <Map<String, dynamic>>[];
-                            final lastWeekChats = <Map<String, dynamic>>[];
-                            final olderChats = <Map<String, dynamic>>[];
-                            
-                            for (final chat in timelineChats) {
-                              final tsRaw = chat['_timestamp'];
-                              final tsSec = tsRaw is num ? tsRaw.toDouble() : 0.0;
-                              final date = tsSec > 0 ? DateTime.fromMillisecondsSinceEpoch((tsSec * 1000).toInt()) : DateTime.now();
-                              final justDate = DateTime(date.year, date.month, date.day);
-                              
-                              if (!justDate.isBefore(today)) {
-                                todayChats.add(chat);
-                              } else if (!justDate.isBefore(yesterday)) {
-                                yesterdayChats.add(chat);
-                              } else if (!justDate.isBefore(lastWeek)) {
-                                lastWeekChats.add(chat);
-                              } else {
-                                olderChats.add(chat);
-                              }
-                            }
-                            
-                            final flatItems = <dynamic>[];
-                            if (todayChats.isNotEmpty) {
-                              flatItems.add('Today');
-                              flatItems.addAll(todayChats);
-                            }
-                            if (yesterdayChats.isNotEmpty) {
-                              flatItems.add('Yesterday');
-                              flatItems.addAll(yesterdayChats);
-                            }
-                            if (lastWeekChats.isNotEmpty) {
-                              flatItems.add('Previous 7 days');
-                              flatItems.addAll(lastWeekChats);
-                            }
-                            if (olderChats.isNotEmpty) {
-                              flatItems.add('Older');
-                              flatItems.addAll(olderChats);
-                            }
-                            
-                            return ListView.builder(
-                                itemCount: flatItems.length,
-                                itemBuilder: (context, index) {
-                                  final item = flatItems[index];
-                                  if (item is String) {
-                                    return Padding(
-                                      padding: const EdgeInsets.only(top: 16.0, bottom: 8.0, left: 8.0),
-                                      child: Text(
-                                        item,
-                                        style: const TextStyle(
-                                          color: Color(0xFF676767),
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    );
-                                  }
-                                  
-                                  final threadData = item as Map<String, dynamic>;
-                                  final threadId =
-                                      threadData['thread_id'] as String? ?? '';
-                                  final title =
-                                      threadData['title'] as String? ??
-                                          (threadId.length > 8
-                                              ? threadId.substring(0, 8) + '...'
-                                              : threadId);
-                                  final isSelected = state.threadId == threadId;
-                                  bool isHovered = false;
-
-                                  return StatefulBuilder(
-                                      builder: (context, setState) {
-                                    return MouseRegion(
-                                      onEnter: (_) =>
-                                          setState(() => isHovered = true),
-                                      onExit: (_) =>
-                                          setState(() => isHovered = false),
-                                      child: InkWell(
-                                        onTap: () {
-                                          viewModel.selectThread(threadId);
-                                        },
-                                        child: Container(
-                                          decoration: BoxDecoration(
-                                            color: isSelected
-                                                ? const Color(0xFF2A2A2A)
-                                                : Colors.transparent,
-                                            borderRadius:
-                                                BorderRadius.circular(8),
-                                          ),
-                                          padding: const EdgeInsets.symmetric(
-                                              vertical: 8.0, horizontal: 8.0),
-                                          child: Row(
-                                            children: [
-                                              Expanded(
-                                                child: Text(
-                                                  title,
-                                                  style: TextStyle(
-                                                    color: isSelected
-                                                        ? Colors.white
-                                                        : const Color(
-                                                            0xFFB4B4B4),
-                                                    fontSize: 13,
-                                                    fontWeight: isSelected
-                                                        ? FontWeight.w500
-                                                        : FontWeight.normal,
-                                                  ),
-                                                  overflow:
-                                                      TextOverflow.ellipsis,
-                                                ),
-                                              ),
-                                              Visibility(
-                                                visible:
-                                                    isHovered || isSelected,
-                                                maintainSize: true,
-                                                maintainAnimation: true,
-                                                maintainState: true,
-                                                child: Theme(
-                                                  data: Theme.of(context)
-                                                      .copyWith(
-                                                    hoverColor:
-                                                        Colors.transparent,
-                                                    splashColor:
-                                                        Colors.transparent,
-                                                    highlightColor:
-                                                        Colors.transparent,
-                                                  ),
-                                                  child: SizedBox(
-                                                    width: 24,
-                                                    height: 24,
-                                                    child:
-                                                        PopupMenuButton<String>(
-                                                      icon: Icon(
-                                                          Icons.more_horiz,
-                                                          color: isSelected
-                                                              ? Colors.white
-                                                              : const Color(
-                                                                  0xFFB4B4B4),
-                                                          size: 16),
-                                                      color: const Color(
-                                                          0xFF2A2A2A),
-                                                      shape:
-                                                          RoundedRectangleBorder(
-                                                              borderRadius:
-                                                                  BorderRadius
-                                                                      .circular(
-                                                                          8)),
-                                                      padding: EdgeInsets.zero,
-                                                      itemBuilder: (context) {
-                                                        final isPinned =
-                                                            threadData[
-                                                                    'is_pinned'] ==
-                                                                true;
-                                                        final isArchived =
-                                                            threadData[
-                                                                    'is_archived'] ==
-                                                                true;
-                                                        return [
-                                                          _buildPopupMenuItem(
-                                                              'Share',
-                                                              Icons.share),
-                                                          _buildPopupMenuItem(
-                                                              isPinned
-                                                                  ? 'Unpin'
-                                                                  : 'Pin',
-                                                              isPinned
-                                                                  ? Icons
-                                                                      .push_pin
-                                                                  : Icons
-                                                                      .push_pin_outlined),
-                                                          _buildPopupMenuItem(
-                                                              'Rename',
-                                                              Icons
-                                                                  .edit_outlined),
-                                                          _buildPopupMenuItem(
-                                                              'Duplicate',
-                                                              Icons
-                                                                  .copy_outlined),
-                                                          _buildPopupMenuItem(
-                                                              'Change project',
-                                                              Icons
-                                                                  .folder_outlined),
-                                                          _buildPopupMenuItem(
-                                                              isArchived
-                                                                  ? 'Unarchive'
-                                                                  : 'Archive',
-                                                              isArchived
-                                                                  ? Icons
-                                                                      .unarchive
-                                                                  : Icons
-                                                                      .archive_outlined),
-                                                          _buildPopupMenuItem(
-                                                              'Delete',
-                                                              Icons
-                                                                  .delete_outline,
-                                                              isDestructive:
-                                                                  true),
-                                                        ];
-                                                      },
-                                                      onSelected:
-                                                          (value) async {
-                                                        final viewModel = ref.read(
-                                                            chatViewModelProvider
-                                                                .notifier);
-                                                        if (value == 'Share') {
-                                                          _showShareDialog(
-                                                              context,
-                                                              viewModel,
-                                                              threadId);
-                                                        } else if (value ==
-                                                                'Pin' ||
-                                                            value == 'Unpin') {
-                                                          await viewModel
-                                                              .togglePinThread(
-                                                                  threadId);
-                                                        } else if (value ==
-                                                            'Rename') {
-                                                          _showRenameDialog(
-                                                              context,
-                                                              viewModel,
-                                                              threadId,
-                                                              title);
-                                                        } else if (value ==
-                                                            'Duplicate') {
-                                                          await viewModel
-                                                              .duplicateThread(
-                                                                  threadId);
-                                                        } else if (value ==
-                                                            'Change project') {
-                                                          _showChangeProjectDialog(
-                                                              context,
-                                                              viewModel,
-                                                              threadId);
-                                                        } else if (value ==
-                                                                'Archive' ||
-                                                            value ==
-                                                                'Unarchive') {
-                                                          await viewModel
-                                                              .toggleArchiveThread(
-                                                                  threadId);
-                                                        } else if (value ==
-                                                            'Delete') {
-                                                          await viewModel
-                                                              .deleteThread(
-                                                                  threadId);
-                                                        }
-                                                      },
-                                                    ),
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                    );
-                                  });
-                                },
-                              );
-                            },
-                          ),
                       ),
-                  ],
-                ),
-              ),
-            ),
-          ),
 
-          // Main Chat Area
-          Expanded(
-            child: SafeArea(
-              child: Stack(
-                children: [
-                  // Main Content
-                  Column(
-                    children: [
-                      Expanded(
-                        child: state.showAllProjectsDashboard
-                            ? const AllProjectsDashboardView()
-                            : state.showProjectDashboard
-                                ? const ProjectDashboardView()
-                            : state.isLoadingHistory
-                                ? const Center(
-                                    child: SizedBox(
-                                      width: 24,
-                                      height: 24,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2.0,
-                                        valueColor: AlwaysStoppedAnimation<Color>(
-                                            Color(0xFF878787)),
-                                      ),
-                                    ),
-                                  )
-                                : state.messages.isEmpty
-                                    ? _buildEmptyState(theme, ext, state, viewModel)
-                                : ListView.builder(
-                                    controller: _scrollController,
-                                    padding: const EdgeInsets.only(
-                                        left: 16,
-                                        right: 16,
-                                        top: 80,
-                                        bottom: 120),
-                                    itemCount: state.messages.length,
-                                    itemBuilder: (context, index) {
-                                      final msg = state.messages[index];
-                                      return _buildChatMessage(msg, theme, ext, showTelemetry: state.showTelemetry);
-                                    },
-                                  ),
-                      ),
-                    ],
-                  ),
-
-                  // Full-screen tap catcher to dismiss popup
-                  if (_isModelSelectorOpen)
-                    Positioned.fill(
-                      child: GestureDetector(
-                        onTap: () {
-                          setState(() {
-                            _isModelSelectorOpen = false;
-                            _hoveredProvider = null;
-                            _hoveredGearProvider = null;
-                            _searchQuery = '';
-                            _searchController.clear();
-                            _globalSearchQuery = '';
-                            _globalSearchController.clear();
-                            _hoveredModel = null;
-                          });
-                        },
-                        child: Container(color: Colors.transparent),
-                      ),
-                    ),
-
-                  // Removed overlapping Positioned toggle icon
-
-                  // Top Bar: Model Selector (like LibreChat)
-                  Positioned(
-                    top: 12,
-                    left: 16,
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        GestureDetector(
-                          key: _modelSelectorKey,
-                          onTap: () {
-                            setState(() {
-                              _isModelSelectorOpen = !_isModelSelectorOpen;
-                              if (_isModelSelectorOpen) {
-                                _hoveredProvider = _selectedProvider;
-                              } else {
-                                _hoveredProvider = null;
-                                _hoveredGearProvider = null;
-                              }
-                            });
-                          },
+                      // Solid background at bottom behind input
+                      if (state.messages.isNotEmpty)
+                        Positioned(
+                          bottom: 0,
+                          left: 0,
+                          right: 0,
+                          height: 140,
                           child: Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF1E1E1E),
-                              borderRadius: BorderRadius.circular(8),
-                              border:
-                                  Border.all(color: const Color(0xFF2A2A2A)),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                if (_selectedModel != 'Select a model') ...[
-                                  const Text('G',
-                                      style: TextStyle(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.white)),
-                                  const SizedBox(width: 6),
+                            color: theme.scaffoldBackgroundColor,
+                          ),
+                        ),
+
+                      // Floating scroll to bottom button
+                      if (_isScrolledUp && state.messages.isNotEmpty)
+                        Positioned(
+                          bottom: 120,
+                          right: 32,
+                          child: GestureDetector(
+                            onTap: () {
+                              _scrollToBottom();
+                            },
+                            child: Container(
+                              width: 32,
+                              height: 32,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF2A2A2A),
+                                shape: BoxShape.circle,
+                                border:
+                                    Border.all(color: const Color(0xFF3F3F3F)),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.2),
+                                    blurRadius: 4,
+                                    offset: const Offset(0, 2),
+                                  )
                                 ],
-                                Text(_selectedModel,
-                                    style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w500)),
-                                const SizedBox(width: 4),
-                                const Icon(Icons.keyboard_arrow_down,
-                                    size: 16, color: Colors.white),
-                              ],
+                              ),
+                              child: const Icon(Icons.arrow_downward,
+                                  color: Colors.white, size: 16),
                             ),
                           ),
                         ),
-                        // Telemetry toggle — flush next to the model pill
-                        const SizedBox(width: 4),
-                        Tooltip(
-                          message: state.showTelemetry
-                              ? 'Response Telemetry (On)'
-                              : 'Show Response Telemetry',
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(6),
-                            onTap: () => viewModel.toggleTelemetry(),
-                            child: Padding(
-                              padding: const EdgeInsets.all(6),
-                              child: Icon(
-                                state.showTelemetry
-                                    ? Icons.analytics
-                                    : Icons.analytics_outlined,
-                                size: 18,
-                                color: state.showTelemetry
-                                    ? ext.primaryGradientStart
-                                    : const Color(0xFF878787),
+
+                      // Floating Input Area at Bottom (only if messages exist)
+                      if (state.messages.isNotEmpty)
+                        Positioned(
+                          bottom: 40,
+                          left: 0,
+                          right: 0,
+                          child: Center(
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: 800),
+                              child: ChatInput(
+                                projectName: state.activeProjectName,
+                                isLoading: state.isLoading,
+                                onSend: (text, {attachments}) =>
+                                    viewModel.sendMessage(text,
+                                        model:
+                                            _selectedModel == 'Select a model'
+                                                ? null
+                                                : _selectedModel,
+                                        attachments: attachments),
+                                errorText: state.error,
+                                onDismissError: () => viewModel.clearError(),
                               ),
                             ),
                           ),
                         ),
-                      ],
-                    ),
-                  ),
 
-                  // Temporary Chat Toggle
-                  Positioned(
-                    top: 16,
-                    right: 16,
-                    child: Tooltip(
-                      message: state.isTemporary
-                          ? 'Temporary Chat (Enabled)'
-                          : 'Temporary Chat',
-                      child: IconButton(
-                        icon: Icon(
-                          Icons.data_usage,
-                          color: state.isTemporary
-                              ? ext.primaryGradientStart
-                              : const Color(0xFF878787),
-                          size: 20,
-                        ),
-                        onPressed: () => viewModel.toggleTemporaryChat(),
-                      ),
-                    ),
-                  ),
-
-                  // Solid background at bottom behind input
-                  if (state.messages.isNotEmpty)
-                    Positioned(
-                      bottom: 0,
-                      left: 0,
-                      right: 0,
-                      height: 140,
-                      child: Container(
-                        color: theme.scaffoldBackgroundColor,
-                      ),
-                    ),
-
-                  // Floating scroll to bottom button
-                  if (_isScrolledUp && state.messages.isNotEmpty)
-                    Positioned(
-                      bottom: 120,
-                      right: 32,
-                      child: GestureDetector(
-                        onTap: () {
-                          _scrollToBottom();
-                        },
-                        child: Container(
-                          width: 32,
-                          height: 32,
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF2A2A2A),
-                            shape: BoxShape.circle,
-                            border: Border.all(color: const Color(0xFF3F3F3F)),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.2),
-                                blurRadius: 4,
-                                offset: const Offset(0, 2),
-                              )
-                            ],
-                          ),
-                          child: const Icon(Icons.arrow_downward,
-                              color: Colors.white, size: 16),
-                        ),
-                      ),
-                    ),
-
-                  // Floating Input Area at Bottom (only if messages exist)
-                  if (state.messages.isNotEmpty)
-                    Positioned(
-                      bottom: 40,
-                      left: 0,
-                      right: 0,
-                      child: Center(
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 800),
-                          child: ChatInput(
-                            projectName: state.activeProjectName,
-                            isLoading: state.isLoading,
-                            onSend: (text, {attachments}) =>
-                                viewModel.sendMessage(text,
-                                    model: _selectedModel == 'Select a model'
-                                        ? null
-                                        : _selectedModel,
-                                    attachments: attachments),
-                            errorText: state.error,
-                            onDismissError: () => viewModel.clearError(),
+                      // Footer Legal Text
+                      Positioned(
+                        bottom: 12,
+                        left: 0,
+                        right: 0,
+                        child: Center(
+                          child: Text(
+                            'Veraxi v0.1.0 - Sovereign Intelligence. Privacy policy | Terms of service',
+                            style: TextStyle(
+                                color: const Color(0xFF878787), fontSize: 12),
                           ),
                         ),
                       ),
-                    ),
 
-                  // Footer Legal Text
-                  Positioned(
-                    bottom: 12,
-                    left: 0,
-                    right: 0,
-                    child: Center(
-                      child: Text(
-                        'Veraxi v0.1.0 - Sovereign Intelligence. Privacy policy | Terms of service',
-                        style: TextStyle(
-                            color: const Color(0xFF878787), fontSize: 12),
-                      ),
-                    ),
+                      // The actual popup menu - opens downward from the top bar button
+                      if (_isModelSelectorOpen)
+                        Positioned(
+                          top: 56,
+                          left: 16,
+                          child: _buildModelSelectorPopup(context)
+                              .animate()
+                              .fade(duration: 200.ms),
+                        ),
+                    ],
                   ),
-
-                  // The actual popup menu - opens downward from the top bar button
-                  if (_isModelSelectorOpen)
-                    Positioned(
-                      top: 56,
-                      left: 16,
-                      child: _buildModelSelectorPopup(context)
-                          .animate()
-                          .fade(duration: 200.ms),
-                    ),
-                ],
+                ),
               ),
-            ),
-          ),
-        ],
+            ],
+          );
+        },
       ),
     );
   }
@@ -1569,7 +1776,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   }
 
   Widget _buildChatMessage(
-      ChatMessage msg, ThemeData theme, AppThemeExtension ext, {bool showTelemetry = false}) {
+      ChatMessage msg, ThemeData theme, AppThemeExtension ext,
+      {bool showTelemetry = false}) {
     final isUser = msg.role == 'user';
     final name = isUser
         ? 'Local User'
@@ -1591,587 +1799,596 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             alignment: Alignment.center,
             decoration: BoxDecoration(color: Colors.transparent),
             child: msg.modelName != null && msg.modelName!.isNotEmpty
-                ? _providerDotFor(msg.modelName!)
+                ? _providerDotFor(msg.modelName!, size: 16)
                 : Icon(Icons.auto_awesome,
                     color: ext.primaryGradientStart, size: 20),
           );
 
     return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 800),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          avatar,
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(name,
-                    style: theme.textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w600, color: Colors.white)),
-                const SizedBox(height: 8),
-                if (isUser)
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        msg.content,
-                        style: theme.textTheme.bodyLarge?.copyWith(height: 1.5),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.only(top: 12),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Tooltip(
-                              message: 'Copy message',
-                              child: InkWell(
-                                onTap: () => Clipboard.setData(
-                                    ClipboardData(text: msg.content)),
-                                child: Icon(Icons.copy_outlined,
-                                    size: 16,
-                                    color: theme.colorScheme.onSurface
-                                        .withValues(alpha: 0.5)),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  )
-                else if (msg.isError)
-                  Container(
-                    margin: const EdgeInsets.only(top: 8),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF3F1515), // Dark red background
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                          color: const Color(0xFFB91C1C)), // Red border
-                    ),
-                    child: Row(
+        child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 800),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  avatar,
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Icon(Icons.refresh,
-                            color: Color(0xFFFCA5A5), size: 18),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            msg.content,
-                            style: const TextStyle(
-                                color: Color(0xFFFCA5A5),
-                                fontSize: 14), // Light red text
-                          ),
-                        ),
-                      ],
-                    ),
-                  )
-                else
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // 1. Thinking / Active Tool Indicator
-                      if (msg.isStreaming && msg.content.isEmpty)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 16),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
+                        Text(name,
+                            style: theme.textTheme.titleSmall?.copyWith(
+                                fontWeight: FontWeight.w600,
+                                color: Colors.white)),
+                        const SizedBox(height: 8),
+                        if (isUser)
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              SizedBox(
-                                width: 14,
-                                height: 14,
-                                child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: ext.primaryGradientStart),
-                              ),
-                              const SizedBox(width: 8),
                               Text(
-                                'Thinking...',
-                                style: theme.textTheme.bodyMedium?.copyWith(
-                                    color: ext.primaryGradientStart,
-                                    fontWeight: FontWeight.w500,
-                                    fontStyle: FontStyle.italic),
+                                msg.content,
+                                style: theme.textTheme.bodyLarge
+                                    ?.copyWith(height: 1.5),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.only(top: 12),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Tooltip(
+                                      message: 'Copy message',
+                                      child: InkWell(
+                                        onTap: () => Clipboard.setData(
+                                            ClipboardData(text: msg.content)),
+                                        child: Icon(Icons.copy_outlined,
+                                            size: 16,
+                                            color: theme.colorScheme.onSurface
+                                                .withValues(alpha: 0.5)),
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ],
                           )
-                              .animate(onPlay: (controller) => controller.repeat())
-                              .shimmer(duration: 1.seconds, color: Colors.white30),
-                        ),
-
-
-                        
-                      // 3. Completed Tool Events
-                      if (msg.toolEvents.isNotEmpty)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 16.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: msg.toolEvents.map((te) => AgenticToolLog(event: te)).toList(),
-                          ),
-                        ),
-
-                      if (msg.content.isNotEmpty)
-                        MarkdownBody(
-                          data: msg.content,
-                          builders: {
-                            'code': CodeElementBuilder(context),
-                            'a': CitationElementBuilder(message: msg),
-                          },
-                          styleSheet: MarkdownStyleSheet(
-                            p: theme.textTheme.bodyLarge?.copyWith(height: 1.5),
-                            code: GoogleFonts.firaCode(
-                                backgroundColor: Colors.transparent,
-                                color: ext.primaryGradientStart),
-                            codeblockPadding: EdgeInsets.zero,
-                            codeblockDecoration:
-                                const BoxDecoration(), // Handled by builder
-                          ),
-                        ),
-                      if (!msg.isStreaming &&
-                          !msg.isError &&
-                          msg.content.isNotEmpty)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 16),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Tooltip(
-                                message: 'Read aloud',
-                                child: InkWell(
-                                  borderRadius: BorderRadius.circular(4),
-                                  onTap: () => ref
-                                      .read(chatViewModelProvider.notifier)
-                                      .playAudio(msg.content,
-                                          messageId: msg.id ??
-                                              msg.hashCode.toString()),
-                                  child: Icon(
-                                      ref
-                                                  .watch(chatViewModelProvider)
-                                                  .currentlyPlayingMessageId ==
-                                              (msg.id ??
-                                                  msg.hashCode.toString())
-                                          ? Icons.stop_circle_outlined
-                                          : Icons.volume_up_outlined,
-                                      size: 16,
-                                      color: theme.colorScheme.onSurface
-                                          .withValues(alpha: 0.5)),
-                                ),
-                              ),
-                              const SizedBox(width: 16),
-                              InkWell(
-                                onTap: () => Clipboard.setData(
-                                    ClipboardData(text: msg.content)),
-                                child: Icon(Icons.copy_outlined,
-                                    size: 16,
-                                    color: theme.colorScheme.onSurface
-                                        .withValues(alpha: 0.5)),
-                              ),
-                              const SizedBox(width: 16),
-                              InkWell(
-                                onTap: () {
-                                  // In a real app, open an edit dialog here
-                                },
-                                child: Icon(Icons.edit_outlined,
-                                    size: 16,
-                                    color: theme.colorScheme.onSurface
-                                        .withValues(alpha: 0.5)),
-                              ),
-                              const SizedBox(width: 16),
-                              InkWell(
-                                onTap: () {
-                                  if (msg.id != null) {
-                                    ref
-                                        .read(chatViewModelProvider.notifier)
-                                        .submitFeedback(
-                                            msg.id!, msg.feedback == 1 ? 0 : 1);
-                                  }
-                                },
-                                child: Icon(
-                                    msg.feedback == 1
-                                        ? Icons.thumb_up
-                                        : Icons.thumb_up_outlined,
-                                    size: 16,
-                                    color: msg.feedback == 1
-                                        ? theme.colorScheme.primary
-                                        : theme.colorScheme.onSurface
-                                            .withValues(alpha: 0.5)),
-                              ),
-                              const SizedBox(width: 16),
-                              InkWell(
-                                onTap: () {
-                                  if (msg.id != null) {
-                                    ref
-                                        .read(chatViewModelProvider.notifier)
-                                        .submitFeedback(msg.id!,
-                                            msg.feedback == -1 ? 0 : -1);
-                                  }
-                                },
-                                child: Icon(
-                                    msg.feedback == -1
-                                        ? Icons.thumb_down
-                                        : Icons.thumb_down_outlined,
-                                    size: 16,
-                                    color: msg.feedback == -1
-                                        ? theme.colorScheme.error
-                                        : theme.colorScheme.onSurface
-                                            .withValues(alpha: 0.5)),
-                              ),
-                              const SizedBox(width: 16),
-                              InkWell(
-                                onTap: () => ref
-                                    .read(chatViewModelProvider.notifier)
-                                    .regenerateResponse(),
-                                child: Icon(Icons.refresh_outlined,
-                                    size: 16,
-                                    color: theme.colorScheme.onSurface
-                                        .withValues(alpha: 0.5)),
-                              ),
-                              if (msg.toolEvents.any((e) => (e.name.contains('web_search') || e.name.contains('merge_rank')) && e.result != null)) ...[
-                                const SizedBox(width: 16),
-                                SourcesButton(
-                                  message: msg,
-                                  onSourceClicked: () {
-                                    ref.read(activeSourcesProvider.notifier).state = SourcesButton.extractSources(msg);
-                                    _scaffoldKey.currentState?.openEndDrawer();
-                                  },
+                        else if (msg.isError)
+                          Container(
+                            margin: const EdgeInsets.only(top: 8),
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: const Color(
+                                  0xFF3F1515), // Dark red background
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                  color: const Color(0xFFB91C1C)), // Red border
+                            ),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Icon(Icons.refresh,
+                                    color: Color(0xFFFCA5A5), size: 18),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    msg.content,
+                                    style: const TextStyle(
+                                        color: Color(0xFFFCA5A5),
+                                        fontSize: 14), // Light red text
+                                  ),
                                 ),
                               ],
+                            ),
+                          )
+                        else
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // 1. Thinking / Active Tool Indicator
+                              if (msg.isStreaming && msg.content.isEmpty)
+                                Padding(
+                                  padding: const EdgeInsets.only(bottom: 16),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      SizedBox(
+                                        width: 14,
+                                        height: 14,
+                                        child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            color: ext.primaryGradientStart),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        'Thinking...',
+                                        style: theme.textTheme.bodyMedium
+                                            ?.copyWith(
+                                                color: ext.primaryGradientStart,
+                                                fontWeight: FontWeight.w500,
+                                                fontStyle: FontStyle.italic),
+                                      ),
+                                    ],
+                                  )
+                                      .animate(
+                                          onPlay: (controller) =>
+                                              controller.repeat())
+                                      .shimmer(
+                                          duration: 1.seconds,
+                                          color: Colors.white30),
+                                ),
+
+                              // 3. Completed Tool Events
+                              if (msg.toolEvents.isNotEmpty)
+                                Padding(
+                                  padding: const EdgeInsets.only(bottom: 16.0),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
+                                    children: msg.toolEvents
+                                        .map((te) => AgenticToolLog(event: te))
+                                        .toList(),
+                                  ),
+                                ),
+
+                              if (msg.content.isNotEmpty)
+                                MarkdownBody(
+                                  data: msg.content,
+                                  builders: {
+                                    'code': CodeElementBuilder(context),
+                                    'a': CitationElementBuilder(message: msg),
+                                  },
+                                  styleSheet: MarkdownStyleSheet(
+                                    p: theme.textTheme.bodyLarge
+                                        ?.copyWith(height: 1.5),
+                                    code: GoogleFonts.firaCode(
+                                        backgroundColor: Colors.transparent,
+                                        color: ext.primaryGradientStart),
+                                    codeblockPadding: EdgeInsets.zero,
+                                    codeblockDecoration:
+                                        const BoxDecoration(), // Handled by builder
+                                  ),
+                                ),
+                              if (!msg.isStreaming &&
+                                  !msg.isError &&
+                                  msg.content.isNotEmpty)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 16),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Tooltip(
+                                        message: 'Read aloud',
+                                        child: InkWell(
+                                          borderRadius:
+                                              BorderRadius.circular(4),
+                                          onTap: () => ref
+                                              .read(chatViewModelProvider
+                                                  .notifier)
+                                              .playAudio(msg.content,
+                                                  messageId: msg.id ??
+                                                      msg.hashCode.toString()),
+                                          child: Icon(
+                                              ref
+                                                          .watch(
+                                                              chatViewModelProvider)
+                                                          .currentlyPlayingMessageId ==
+                                                      (msg.id ??
+                                                          msg.hashCode
+                                                              .toString())
+                                                  ? Icons.stop_circle_outlined
+                                                  : Icons.volume_up_outlined,
+                                              size: 16,
+                                              color: theme.colorScheme.onSurface
+                                                  .withValues(alpha: 0.5)),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 16),
+                                      InkWell(
+                                        onTap: () => Clipboard.setData(
+                                            ClipboardData(text: msg.content)),
+                                        child: Icon(Icons.copy_outlined,
+                                            size: 16,
+                                            color: theme.colorScheme.onSurface
+                                                .withValues(alpha: 0.5)),
+                                      ),
+                                      const SizedBox(width: 16),
+                                      InkWell(
+                                        onTap: () {
+                                          // In a real app, open an edit dialog here
+                                        },
+                                        child: Icon(Icons.edit_outlined,
+                                            size: 16,
+                                            color: theme.colorScheme.onSurface
+                                                .withValues(alpha: 0.5)),
+                                      ),
+                                      const SizedBox(width: 16),
+                                      InkWell(
+                                        onTap: () {
+                                          if (msg.id != null) {
+                                            ref
+                                                .read(chatViewModelProvider
+                                                    .notifier)
+                                                .submitFeedback(msg.id!,
+                                                    msg.feedback == 1 ? 0 : 1);
+                                          }
+                                        },
+                                        child: Icon(
+                                            msg.feedback == 1
+                                                ? Icons.thumb_up
+                                                : Icons.thumb_up_outlined,
+                                            size: 16,
+                                            color: msg.feedback == 1
+                                                ? theme.colorScheme.primary
+                                                : theme.colorScheme.onSurface
+                                                    .withValues(alpha: 0.5)),
+                                      ),
+                                      const SizedBox(width: 16),
+                                      InkWell(
+                                        onTap: () {
+                                          if (msg.id != null) {
+                                            ref
+                                                .read(chatViewModelProvider
+                                                    .notifier)
+                                                .submitFeedback(
+                                                    msg.id!,
+                                                    msg.feedback == -1
+                                                        ? 0
+                                                        : -1);
+                                          }
+                                        },
+                                        child: Icon(
+                                            msg.feedback == -1
+                                                ? Icons.thumb_down
+                                                : Icons.thumb_down_outlined,
+                                            size: 16,
+                                            color: msg.feedback == -1
+                                                ? theme.colorScheme.error
+                                                : theme.colorScheme.onSurface
+                                                    .withValues(alpha: 0.5)),
+                                      ),
+                                      const SizedBox(width: 16),
+                                      InkWell(
+                                        onTap: () => ref
+                                            .read(
+                                                chatViewModelProvider.notifier)
+                                            .regenerateResponse(),
+                                        child: Icon(Icons.refresh_outlined,
+                                            size: 16,
+                                            color: theme.colorScheme.onSurface
+                                                .withValues(alpha: 0.5)),
+                                      ),
+                                      if (msg.toolEvents.any((e) =>
+                                          (e.name.contains('web_search') ||
+                                              e.name.contains('merge_rank')) &&
+                                          e.result != null)) ...[
+                                        const SizedBox(width: 16),
+                                        SourcesButton(
+                                          message: msg,
+                                          onSourceClicked: () {
+                                            ref
+                                                    .read(activeSourcesProvider
+                                                        .notifier)
+                                                    .state =
+                                                SourcesButton.extractSources(
+                                                    msg);
+                                            _scaffoldKey.currentState
+                                                ?.openEndDrawer();
+                                          },
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                ),
+                              if (!isUser &&
+                                  showTelemetry &&
+                                  msg.metrics != null &&
+                                  msg.metrics!.isNotEmpty)
+                                ChatMessageMetrics(metrics: msg.metrics!),
                             ],
                           ),
-                        ),
-                      if (!isUser &&
-                          showTelemetry &&
-                          msg.metrics != null &&
-                          msg.metrics!.isNotEmpty)
-                        ChatMessageMetrics(metrics: msg.metrics!),
-                    ],
+                      ],
+                    ),
                   ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    )));
+                ],
+              ),
+            )));
   }
 
-  /// All providers and their models for global search.
-  static const Map<String, List<String>> _allProviderModels = {
-    'Google': [
-      'gemini-3.6-flash',
-      'gemini-3.5-flash',
-      'gemini-3.5-flash-lite',
-      'gemini-3.1-pro-preview',
-      'gemini-3.1-pro-preview-customtools',
-      'gemini-3.1-flash-lite-preview',
-      'gemini-3-pro-preview',
-      'gemini-3-flash-preview',
-      'gemini-2.5-pro',
-      'gemini-2.5-flash',
-      'gemini-2.5-flash-lite'
-    ],
-    'OpenAI': ['gpt-4o', 'gpt-4-turbo', 'gpt-3.5-turbo'],
-    'Anthropic': [
-      'claude-3-opus-20240229',
-      'claude-3-sonnet-20240229',
-      'claude-3-haiku-20240307'
-    ],
-    'Mistral': ['mistral-large', 'mistral-medium', 'mistral-small'],
-    'DeepSeek': ['deepseek-chat', 'deepseek-coder'],
-    'Groq': [
-      'allam-2-7b',
-      'canopylabs/orpheus-arabic-saudi',
-      'canopylabs/orpheus-v1-english',
-      'groq/compound',
-      'groq/compound-mini',
-      'llama-3.1-8b-instant',
-      'llama-3.3-70b-versatile',
-      'meta-llama/llama-prompt-guard-2-22m',
-      'meta-llama/llama-prompt-guard-2-86m',
-      'openai/gpt-oss-120b',
-      'qwen/qwen3.6-27b',
-    ],
-  };
+  // Removed hardcoded _allProviderModels
 
   Widget _buildModelSelectorPopup(BuildContext context) {
     final isSearching = _globalSearchQuery.isNotEmpty;
+    final asyncModels = ref.watch(providerModelsProvider);
 
-    // Build flat search results grouped by provider
-    Widget buildSearchResults() {
-      final results = <Widget>[];
-      _allProviderModels.forEach((provider, models) {
-        final matched = models
-            .where((m) => m.toLowerCase().contains(_globalSearchQuery))
-            .toList();
-        if (matched.isEmpty) return;
-        // Provider header
-        results.add(
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
-            child: Row(
-              children: [
-                _providerCircle(provider),
-                const SizedBox(width: 8),
-                Text(provider,
-                    style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600)),
-              ],
-            ),
+    return asyncModels.when(
+      loading: () => const Material(
+        color: Colors.transparent,
+        child: SizedBox(
+          width: 360,
+          height: 100,
+          child: Center(
+            child: CircularProgressIndicator(color: Colors.white54),
           ),
-        );
-        for (final model in matched) {
-          results.add(
-              _buildSubModelRow(model, isSelected: model == _selectedModel));
-        }
-      });
-      if (results.isEmpty) {
-        results.add(const Padding(
-          padding: EdgeInsets.all(16),
-          child: Text('No models found',
-              style: TextStyle(color: Color(0xFF878787), fontSize: 13)),
-        ));
-      }
-      return ListView(
-          shrinkWrap: true,
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          children: results);
-    }
-
-    return Material(
-      color: Colors.transparent,
-      elevation: 24,
-      shadowColor: Colors.transparent,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 360,
-            constraints: const BoxConstraints(maxHeight: 650),
-            decoration: BoxDecoration(
-              color: const Color(0xFF171717),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFF2A2A2A)),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.5),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Global search field
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
-                  child: TextField(
-                    controller: _globalSearchController,
-                    style: const TextStyle(color: Colors.white, fontSize: 13),
-                    cursorColor: Colors.white,
-                    onChanged: (val) => setState(() {
-                      _globalSearchQuery = val.toLowerCase();
-                      if (val.isNotEmpty) _hoveredProvider = null;
-                    }),
-                    decoration: InputDecoration(
-                      hintText: 'Search models...',
-                      hintStyle: const TextStyle(
-                          color: Color(0xFF6E6E6E), fontSize: 13),
-                      prefixIcon: const Icon(Icons.search,
-                          color: Color(0xFF6E6E6E), size: 16),
-                      prefixIconConstraints:
-                          const BoxConstraints(minWidth: 36, minHeight: 36),
-                      filled: true,
-                      fillColor: const Color(0xFF1E1E1E),
-                      contentPadding: const EdgeInsets.symmetric(vertical: 8),
-                      border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide:
-                              const BorderSide(color: Color(0xFF2A2A2A))),
-                      enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide:
-                              const BorderSide(color: Color(0xFF2A2A2A))),
-                      focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide:
-                              const BorderSide(color: Color(0xFF3A3A3A))),
-                    ),
-                  ),
-                ),
-                // Content: flat search results OR provider list
-                Flexible(
-                  child: isSearching
-                      ? buildSearchResults()
-                      : ListView(
-                          shrinkWrap: true,
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 8),
-                          children: [
-                            _buildModelOptionRow(context, 'OpenAI',
-                                Colors.white, _selectedProvider == 'OpenAI'),
-                            _buildModelOptionRow(context, 'Google',
-                                Colors.white, _selectedProvider == 'Google'),
-                            _buildModelOptionRow(
-                                context,
-                                'Anthropic',
-                                const Color(0xFFE5C07B),
-                                _selectedProvider == 'Anthropic'),
-                            _buildModelOptionRow(context, '302AI', Colors.grey,
-                                _selectedProvider == '302AI'),
-                            _buildModelOptionRow(
-                                context,
-                                'APIpie',
-                                const Color(0xFF4CAF50),
-                                _selectedProvider == 'APIpie'),
-                            _buildModelOptionRow(
-                                context,
-                                'cohere',
-                                const Color(0xFF81C784),
-                                _selectedProvider == 'cohere'),
-                            _buildModelOptionRow(
-                                context,
-                                'DeepSeek',
-                                const Color(0xFF2196F3),
-                                _selectedProvider == 'DeepSeek'),
-                            _buildModelOptionRow(context, 'Fireworks',
-                                Colors.white, _selectedProvider == 'Fireworks'),
-                            _buildModelOptionRow(
-                                context,
-                                'Github Models',
-                                Colors.white,
-                                _selectedProvider == 'Github Models'),
-                            _buildModelOptionRow(context, 'glhf.chat',
-                                Colors.white, _selectedProvider == 'glhf.chat'),
-                            _buildModelOptionRow(
-                                context,
-                                'groq',
-                                const Color(0xFFF44336),
-                                _selectedProvider == 'groq'),
-                            _buildModelOptionRow(
-                                context,
-                                'HuggingFace',
-                                const Color(0xFFFFC107),
-                                _selectedProvider == 'HuggingFace'),
-                            _buildModelOptionRow(
-                                context,
-                                'Hyperbolic',
-                                const Color(0xFF673AB7),
-                                _selectedProvider == 'Hyperbolic'),
-                            _buildModelOptionRow(
-                                context,
-                                'Kluster',
-                                const Color(0xFF4CAF50),
-                                _selectedProvider == 'Kluster'),
-                            _buildModelOptionRow(
-                                context,
-                                'Mistral',
-                                const Color(0xFFFF9800),
-                                _selectedProvider == 'Mistral'),
-                          ],
-                        ),
-                ),
-              ],
-            ),
+        ),
+      ),
+      error: (err, stack) => Material(
+        color: Colors.transparent,
+        child: Container(
+          width: 360,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: const Color(0xFF171717),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFF2A2A2A)),
           ),
-          // Sub-panel: per-provider model list (only when not globally searching)
-          if (!isSearching && _hoveredProvider != null) ...[
-            const SizedBox(width: 4),
-            Container(
-              width: 320,
-              constraints: const BoxConstraints(maxHeight: 650),
-              decoration: BoxDecoration(
-                color: const Color(0xFF171717),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFF2A2A2A)),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.5),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
+          child: Text('Failed to load models: $err', style: const TextStyle(color: Colors.red)),
+        ),
+      ),
+      data: (allProviderModels) {
+        // Build flat search results grouped by provider
+        Widget buildSearchResults() {
+          final results = <Widget>[];
+          allProviderModels.forEach((provider, models) {
+            final matched = models
+                .where((m) => m.toLowerCase().contains(_globalSearchQuery))
+                .toList();
+            if (matched.isEmpty) return;
+            // Provider header
+            results.add(
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+                child: Row(
+                  children: [
+                    _providerCircle(provider),
+                    const SizedBox(width: 8),
+                    Text(provider,
+                        style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600)),
+                  ],
+                ),
               ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
-                    child: TextField(
-                      style: const TextStyle(color: Colors.white, fontSize: 13),
-                      cursorColor: Colors.white,
-                      controller: _searchController,
-                      onChanged: (val) =>
-                          setState(() => _searchQuery = val.toLowerCase()),
-                      decoration: InputDecoration(
-                        hintText: 'Search $_hoveredProvider models...',
-                        hintStyle: const TextStyle(
-                            color: Color(0xFF6E6E6E), fontSize: 13),
-                        prefixIcon: const Icon(Icons.search,
-                            color: Color(0xFF6E6E6E), size: 16),
-                        prefixIconConstraints:
-                            const BoxConstraints(minWidth: 36, minHeight: 36),
-                        filled: true,
-                        fillColor: const Color(0xFF1E1E1E),
-                        contentPadding: const EdgeInsets.symmetric(vertical: 8),
-                        border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide:
-                                const BorderSide(color: Color(0xFF2A2A2A))),
-                        enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide:
-                                const BorderSide(color: Color(0xFF2A2A2A))),
-                        focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide:
-                                const BorderSide(color: Color(0xFF3A3A3A))),
+            );
+            for (final model in matched) {
+              results.add(
+                  _buildSubModelRow(model, isSelected: model == _selectedModel));
+            }
+          });
+          if (results.isEmpty) {
+            results.add(const Padding(
+              padding: EdgeInsets.all(16),
+              child: Text('No models found',
+                  style: TextStyle(color: Color(0xFF878787), fontSize: 13)),
+            ));
+          }
+          return ListView(
+              shrinkWrap: true,
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              children: results);
+        }
+
+        return Material(
+          color: Colors.transparent,
+          elevation: 24,
+          shadowColor: Colors.transparent,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 360,
+                constraints: const BoxConstraints(maxHeight: 650),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF171717),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFF2A2A2A)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.5),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Global search field
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+                      child: TextField(
+                        controller: _globalSearchController,
+                        style: const TextStyle(color: Colors.white, fontSize: 13),
+                        cursorColor: Colors.white,
+                        onChanged: (val) => setState(() {
+                          _globalSearchQuery = val.toLowerCase();
+                          if (val.isNotEmpty) _hoveredProvider = null;
+                        }),
+                        decoration: InputDecoration(
+                          hintText: 'Search models...',
+                          hintStyle: const TextStyle(
+                              color: Color(0xFF6E6E6E), fontSize: 13),
+                          prefixIcon: const Icon(Icons.search,
+                              color: Color(0xFF6E6E6E), size: 16),
+                          prefixIconConstraints:
+                              const BoxConstraints(minWidth: 36, minHeight: 36),
+                          filled: true,
+                          fillColor: const Color(0xFF1E1E1E),
+                          contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                          border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide:
+                                  const BorderSide(color: Color(0xFF2A2A2A))),
+                          enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide:
+                                  const BorderSide(color: Color(0xFF2A2A2A))),
+                          focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide:
+                                  const BorderSide(color: Color(0xFF3A3A3A))),
+                        ),
                       ),
                     ),
-                  ),
-                  Flexible(
-                    child: ListView(
-                      shrinkWrap: true,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 4),
-                      children: _getModelsForProvider(_hoveredProvider!)
-                          .where((m) =>
-                              _searchQuery.isEmpty ||
-                              m.toLowerCase().contains(_searchQuery))
-                          .map((model) {
-                        final isSelected = model == _selectedModel;
-                        return _buildSubModelRow(model, isSelected: isSelected);
-                      }).toList(),
+                    // Content: flat search results OR provider list
+                    Flexible(
+                      child: isSearching
+                          ? buildSearchResults()
+                          : ListView(
+                              shrinkWrap: true,
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 8),
+                              children: allProviderModels.keys.map((provider) {
+                                return _buildModelOptionRow(
+                                    context,
+                                    provider,
+                                    Colors.white, // Colors could be dynamically looked up, but default to white
+                                    _selectedProvider == provider);
+                              }).toList(),
+                            ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-          ],
-        ],
-      ),
+              // Sub-panel: per-provider model list (only when not globally searching)
+              if (!isSearching && _hoveredProvider != null) ...[
+                const SizedBox(width: 4),
+                Container(
+                  width: 320,
+                  constraints: const BoxConstraints(maxHeight: 650),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF171717),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFF2A2A2A)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.5),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+                        child: TextField(
+                          style: const TextStyle(color: Colors.white, fontSize: 13),
+                          cursorColor: Colors.white,
+                          controller: _searchController,
+                          onChanged: (val) =>
+                              setState(() => _searchQuery = val.toLowerCase()),
+                          decoration: InputDecoration(
+                            hintText: 'Search $_hoveredProvider models...',
+                            hintStyle: const TextStyle(
+                                color: Color(0xFF6E6E6E), fontSize: 13),
+                            prefixIcon: const Icon(Icons.search,
+                                color: Color(0xFF6E6E6E), size: 16),
+                            prefixIconConstraints:
+                                const BoxConstraints(minWidth: 36, minHeight: 36),
+                            filled: true,
+                            fillColor: const Color(0xFF1E1E1E),
+                            contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                            border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide:
+                                    const BorderSide(color: Color(0xFF2A2A2A))),
+                            enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide:
+                                    const BorderSide(color: Color(0xFF2A2A2A))),
+                            focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide:
+                                    const BorderSide(color: Color(0xFF3A3A3A))),
+                          ),
+                        ),
+                      ),
+                      Flexible(
+                        child: ListView(
+                          shrinkWrap: true,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 4),
+                          children: (allProviderModels[_hoveredProvider!] ?? [])
+                              .where((m) =>
+                                  _searchQuery.isEmpty ||
+                                  m.toLowerCase().contains(_searchQuery))
+                              .map((model) {
+                            final isSelected = model == _selectedModel;
+                            return _buildSubModelRow(model, isSelected: isSelected);
+                          }).toList(),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          ),
+        );
+      },
     );
   }
 
   /// Small colored circle for a provider (used in search results header).
   Widget _providerCircle(String provider) {
+    String? assetPath;
+    final lower = provider.toLowerCase();
+    if (lower == 'google')
+      assetPath = 'assets/icons/google.svg';
+    else if (lower == 'openai')
+      assetPath = 'assets/icons/openai.svg';
+    else if (lower == 'anthropic')
+      assetPath = 'assets/icons/anthropic.svg';
+    else if (lower == 'deepseek')
+      assetPath = 'assets/icons/deepseek.svg';
+    else if (lower == 'groq')
+      assetPath = 'assets/icons/groq.svg';
+    else if (lower == 'mistral' || lower == 'mixtral')
+      assetPath = 'assets/icons/mistral.svg';
+    else if (lower == 'kimi')
+      assetPath = 'assets/icons/kimi.svg';
+    else if (lower == 'local') assetPath = 'assets/icons/local.svg';
+
     final colors = {
       'Google': Colors.white,
       'OpenAI': Colors.white,
-      'Anthropic': const Color(0xFFE5C07B),
+      'Anthropic': const Color(0xFFd97757), // matching LibreChat anthropic color closely
       'Mistral': const Color(0xFFFF9800),
       'DeepSeek': const Color(0xFF2196F3),
-      'groq': const Color(0xFFF44336),
+      'groq': const Color(0xFFf55036), // matching LibreChat groq red
       'HuggingFace': const Color(0xFFFFC107),
       'Hyperbolic': const Color(0xFF673AB7),
       'cohere': const Color(0xFF81C784),
+      'Kimi': Colors.white,
+      'Local': Colors.white,
     };
+
+    if (assetPath != null) {
+      // Find the key ignoring case
+      final colorKey = colors.keys.firstWhere(
+        (k) => k.toLowerCase() == lower, 
+        orElse: () => 'OpenAI'
+      );
+      final iconColor = colors[colorKey] ?? Colors.white;
+
+      return SizedBox(
+        width: 16,
+        height: 16,
+        child: Center(
+          child: SvgPicture.asset(
+            assetPath,
+            width: 16,
+            height: 16,
+            colorFilter: ColorFilter.mode(iconColor, BlendMode.srcIn),
+          ),
+        ),
+      );
+    }
+
     final color = colors[provider];
     if (color == null) return const SizedBox(width: 10);
     return Container(
@@ -2181,69 +2398,67 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     );
   }
 
-  List<String> _getModelsForProvider(String provider) {
-    switch (provider) {
-      case 'Google':
-        return [
-          'gemini-3.6-flash',
-          'gemini-3.5-flash',
-          'gemini-3.5-flash-lite',
-          'gemini-3.1-pro-preview',
-          'gemini-3.1-pro-preview-customtools',
-          'gemini-3.1-flash-lite-preview',
-          'gemini-3-pro-preview',
-          'gemini-3-flash-preview',
-          'gemini-2.5-pro',
-          'gemini-2.5-flash',
-          'gemini-2.5-flash-lite',
-        ];
-      case 'OpenAI':
-        return ['gpt-4o', 'gpt-4-turbo', 'gpt-3.5-turbo'];
-      case 'Anthropic':
-        return [
-          'claude-3-opus-20240229',
-          'claude-3-sonnet-20240229',
-          'claude-3-haiku-20240307'
-        ];
-      case 'groq':
-        return [
-          'allam-2-7b',
-          'canopylabs/orpheus-arabic-saudi',
-          'canopylabs/orpheus-v1-english',
-          'groq/compound',
-          'groq/compound-mini',
-          'llama-3.1-8b-instant',
-          'llama-3.3-70b-versatile',
-          'meta-llama/llama-prompt-guard-2-22m',
-          'meta-llama/llama-prompt-guard-2-86m',
-          'openai/gpt-oss-120b',
-          'qwen/qwen3.6-27b',
-        ];
-      default:
-        return ['model-a', 'model-b', 'model-c'];
-    }
-  }
+  // Removed hardcoded _getModelsForProvider
 
   /// Returns a small colored circle representing the AI provider,
   /// inferred from the model name. Returns empty SizedBox for unknown providers.
-  Widget _providerDotFor(String model) {
-    Color? color;
+  Widget _providerDotFor(String model, {double size = 14}) {
+    String? assetPath;
     if (model.startsWith('gemini')) {
-      color = Colors.white; // Google
+      assetPath = 'assets/icons/google.svg';
     } else if (model.startsWith('gpt') ||
         model.startsWith('o1') ||
         model.startsWith('o3')) {
-      color = Colors.white; // OpenAI
+      assetPath = 'assets/icons/openai.svg';
     } else if (model.startsWith('claude')) {
-      color = const Color(0xFFFF8C42); // Anthropic
-    } else if (model.startsWith('mistral') || model.startsWith('mixtral')) {
-      color = const Color(0xFFFF9800); // Mistral
+      assetPath = 'assets/icons/anthropic.svg';
     } else if (model.startsWith('deepseek')) {
-      color = const Color(0xFF2196F3); // DeepSeek
-    } else if (model.startsWith('groq') || model.contains('llama')) {
-      color = const Color(0xFFF44336); // Groq
+      assetPath = 'assets/icons/deepseek.svg';
+    } else if (model.startsWith('groq') ||
+        model.contains('llama') ||
+        model.startsWith('qwen') ||
+        model.startsWith('allam') ||
+        model.startsWith('meta')) {
+      assetPath = 'assets/icons/groq.svg';
+    } else if (model.startsWith('mistral') || model.startsWith('mixtral')) {
+      assetPath = 'assets/icons/mistral.svg';
     }
-    if (color == null) return const SizedBox(width: 8);
+
+    if (assetPath != null) {
+      final lowerModel = model.toLowerCase();
+      Color iconColor = Colors.white;
+      if (lowerModel.startsWith('claude')) {
+        iconColor = const Color(0xFFd97757);
+      } else if (lowerModel.startsWith('groq') ||
+          lowerModel.contains('llama') ||
+          lowerModel.startsWith('qwen') ||
+          lowerModel.startsWith('allam') ||
+          lowerModel.startsWith('meta')) {
+        iconColor = const Color(0xFFf55036);
+      } else if (lowerModel.startsWith('mistral') || lowerModel.startsWith('mixtral')) {
+        iconColor = const Color(0xFFFF9800);
+      }
+
+      return SizedBox(
+        width: size,
+        height: size,
+        child: Center(
+          child: SvgPicture.asset(
+            assetPath, 
+            width: size, 
+            height: size,
+            colorFilter: ColorFilter.mode(iconColor, BlendMode.srcIn),
+          ),
+        ),
+      );
+    }
+
+    Color? color;
+    if (model.startsWith('mistral') || model.startsWith('mixtral')) {
+      color = const Color(0xFFFF9800); // Mistral
+    }
+
+    if (color == null) return SizedBox(width: size);
     return Container(
       width: 8,
       height: 8,
@@ -2400,14 +2615,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               Row(
                 children: [
                   const SizedBox(width: 16),
-                  Container(
-                    width: 16,
-                    height: 16,
-                    decoration: BoxDecoration(
-                      color: circleColor,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
+                  _providerCircle(name),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
@@ -2635,4 +2843,3 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     );
   }
 }
-

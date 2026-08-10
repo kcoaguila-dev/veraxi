@@ -18,47 +18,36 @@ class ChatRepository {
 
   ChatRepository({required this.apiClient});
 
-  Future<List<Map<String, dynamic>>> getVoices({String? gptSovitsUrl}) async {
-    String path = '/voices';
-    if (gptSovitsUrl != null && gptSovitsUrl.isNotEmpty) {
-      path += '?gpt_sovits_url=${Uri.encodeQueryComponent(gptSovitsUrl)}';
+  Future<Map<String, dynamic>> getUIConfig() async {
+    final url =
+        '/config/ui?_=' + DateTime.now().millisecondsSinceEpoch.toString();
+    try {
+      final data = await apiClient.get(url);
+      return data;
+    } catch (e) {
+      print("DEBUG_GET_UI_CONFIG_ERROR: $e");
+      return {};
     }
-    final data = await apiClient.get(path);
-    final List<dynamic> rawVoices = data['voices'] ?? [];
-    return rawVoices.map((v) => Map<String, dynamic>.from(v)).toList();
   }
 
-  Future<void> saveVoices(List<Map<String, dynamic>> voices) async {
-    await apiClient.post('/voices', body: {'voices': voices});
-  }
-
-  Future<void> uploadVoice(String name, String promptText, List<int> fileBytes, String fileName) async {
-    final uri = Uri.parse('${apiClient.baseUrl}/voices/upload');
-    final request = http.MultipartRequest('POST', uri);
-    
-    final headers = apiClient.getDefaultHeaders();
-    request.headers.addAll(headers);
-    
-    request.fields['name'] = name;
-    request.fields['prompt_text'] = promptText;
-    
-    final multipartFile = http.MultipartFile.fromBytes(
-      'file',
-      fileBytes,
-      filename: fileName,
-    );
-    request.files.add(multipartFile);
-    
-    final streamedResponse = await apiClient.client.send(request);
-    final response = await http.Response.fromStream(streamedResponse);
-    
-    if (response.statusCode != 200) {
-      throw Exception('Failed to upload voice: ${response.statusCode} - ${response.body}');
+  Future<Map<String, List<String>>> getProviderModels() async {
+    final url = '/models?_=' + DateTime.now().millisecondsSinceEpoch.toString();
+    try {
+      final data = await apiClient.get(url);
+      Map<String, List<String>> result = {};
+      data.forEach((key, value) {
+        result[key] = List<String>.from(value);
+      });
+      return result;
+    } catch (e) {
+      print("DEBUG_GET_MODELS_ERROR: $e");
+      return {};
     }
   }
 
   Future<List<Map<String, dynamic>>> getThreads() async {
-    final url = '/chat/threads?_=' + DateTime.now().millisecondsSinceEpoch.toString();
+    final url =
+        '/chat/threads?_=' + DateTime.now().millisecondsSinceEpoch.toString();
     print("DEBUG_GET_THREADS_URL: \$url");
     try {
       final data = await apiClient.get(url);
@@ -81,17 +70,29 @@ class ChatRepository {
     if (model == null || model.isEmpty) return 'unknown';
     model = model.toLowerCase();
     if (model.startsWith('gemini')) return 'google';
-    if (model.startsWith('gpt') || model.startsWith('o1') || model.startsWith('o3')) return 'openai';
+    if (model.startsWith('gpt') ||
+        model.startsWith('o1') ||
+        model.startsWith('o3')) return 'openai';
     if (model.startsWith('claude')) return 'anthropic';
-    if (model.startsWith('mistral')) return 'mistral';
     if (model.startsWith('deepseek')) return 'deepseek';
-    if (model.startsWith('llama') || model.startsWith('qwen') || model.startsWith('allam') || model.startsWith('canopy') || model.startsWith('groq') || model.startsWith('meta')) return 'groq';
+    if (model.startsWith('moonshot')) return 'kimi';
+    if (model.startsWith('llama') ||
+        model.startsWith('qwen') ||
+        model.startsWith('allam') ||
+        model.startsWith('canopy') ||
+        model.startsWith('groq') ||
+        model.startsWith('meta')) return 'groq';
+    if (model == 'local-model') return 'local';
     return 'unknown';
   }
 
   /// Streams the chat response using Server-Sent Events (SSE)
   Stream<Map<String, dynamic>> streamChat(String question,
-      {String? threadId, bool isTemporary = false, String? model, bool calculateGrounding = true, Map<String, dynamic>? toolSettings}) async* {
+      {String? threadId,
+      bool isTemporary = false,
+      String? model,
+      bool calculateGrounding = true,
+      Map<String, dynamic>? toolSettings}) async* {
     try {
       final uri = Uri.parse('${apiClient.baseUrl}/chat');
       final headers = apiClient.getDefaultHeaders()
@@ -99,9 +100,20 @@ class ChatRepository {
 
       final request = http.Request('POST', uri);
       request.headers.addAll(headers);
-      
+
       final provider = _getProviderFromModel(model);
       final apiKey = await ApiKeyStorage().getKey(provider);
+      String? baseUrl;
+
+      if (provider == 'local') {
+        final customBaseUrl = await ApiKeyStorage().getValue('local_base_url');
+        final customModelName =
+            await ApiKeyStorage().getValue('local_model_name');
+        if (customBaseUrl != null && customBaseUrl.isNotEmpty)
+          baseUrl = customBaseUrl;
+        if (customModelName != null && customModelName.isNotEmpty)
+          model = customModelName;
+      }
 
       request.body = jsonEncode({
         'question': question,
@@ -110,7 +122,11 @@ class ChatRepository {
         'is_temporary': isTemporary,
         'calculate_grounding': calculateGrounding,
         if (apiKey != null && apiKey.isNotEmpty) 'api_key': apiKey,
-        if (model != null && model.isNotEmpty && model != 'Select a model')
+        if (baseUrl != null) 'base_url': baseUrl,
+        if (model != null &&
+            model.isNotEmpty &&
+            model != 'Select a model' &&
+            model != 'local-model')
           'model': model,
         if (toolSettings != null) 'tool_settings': toolSettings,
       });
@@ -171,27 +187,9 @@ class ChatRepository {
     await apiClient.post('/chat/threads/$threadId/regenerate', body: {});
   }
 
-  Future<List<int>> getAudioBytes(String text, String voiceId, {String? gptSovitsUrl}) async {
-    final uri = Uri.parse('${apiClient.baseUrl}/chat/audio');
-    final headers = apiClient.getDefaultHeaders()
-      ..['Content-Type'] = 'application/json';
-    if (gptSovitsUrl != null) {
-      headers['X-GPT-SoVITS-Url'] = gptSovitsUrl;
-    }
-    final body = jsonEncode({'text': text, 'voice_id': voiceId});
-
-    final response =
-        await apiClient.client.post(uri, headers: headers, body: body);
-
-    if (response.statusCode == 200) {
-      return response.bodyBytes;
-    } else {
-      throw Exception('Backend synthesis failed: ${response.statusCode}');
-    }
-  }
-
   Future<void> renameThread(String threadId, String newTitle) async {
-    await apiClient.put('/chat/threads/$threadId/title', body: {'title': newTitle});
+    await apiClient
+        .put('/chat/threads/$threadId/title', body: {'title': newTitle});
   }
 
   Future<void> togglePinThread(String threadId) async {
@@ -211,12 +209,14 @@ class ChatRepository {
   }
 
   Future<String> duplicateThread(String threadId) async {
-    final response = await apiClient.post('/chat/threads/$threadId/duplicate', body: {});
+    final response =
+        await apiClient.post('/chat/threads/$threadId/duplicate', body: {});
     return response['new_thread_id'] as String;
   }
 
   Future<String> shareThread(String threadId) async {
-    final response = await apiClient.post('/chat/threads/$threadId/share', body: {});
+    final response =
+        await apiClient.post('/chat/threads/$threadId/share', body: {});
     return response['share_id'] as String;
   }
 
@@ -242,5 +242,14 @@ class ChatRepository {
 
   Future<void> deleteProject(String projectId) async {
     await apiClient.delete('/projects/$projectId');
+  }
+
+  Future<List<Map<String, dynamic>>> getFiles() async {
+    final data = await apiClient.get('/chat/files');
+    return List<Map<String, dynamic>>.from(data['files'] ?? []);
+  }
+
+  Future<void> deleteFile(String fileId) async {
+    await apiClient.delete('/chat/files/$fileId');
   }
 }

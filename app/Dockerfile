@@ -14,9 +14,10 @@ COPY . .
 # Add build arg for self-hosted mode
 ARG IS_SELF_HOSTED=true
 ARG AUTH_ENABLED=true
+ARG IS_ENTERPRISE=false
 
 # Build the web application (outputs to /app/build/web)
-RUN flutter build web --release --dart-define=IS_SELF_HOSTED=true --dart-define=AUTH_ENABLED=false
+RUN flutter build web --release --dart-define=IS_SELF_HOSTED=$IS_SELF_HOSTED --dart-define=AUTH_ENABLED=$AUTH_ENABLED --dart-define=IS_ENTERPRISE=$IS_ENTERPRISE
 
 # Stage 2: Serve the app with Nginx
 FROM nginx:alpine

@@ -37,6 +37,10 @@ class Config:
     cors_origins: str
     gpt_sovits_base_url: str
     code_interpreter_url: str
+    is_enterprise: bool
+    help_faq_url: str
+    terms_of_service_url: str
+    privacy_policy_url: str
 
     @classmethod
     def from_env(cls) -> "Config":
@@ -70,6 +74,10 @@ class Config:
             cors_origins=os.environ.get("CORS_ORIGINS", "*"),
             gpt_sovits_base_url=os.environ.get("GPT_SOVITS_BASE_URL", "http://localhost:9880"),
             code_interpreter_url=os.environ.get("CODE_INTERPRETER_URL", "http://code_interpreter:8000/execute"),
+            is_enterprise=os.environ.get("IS_ENTERPRISE", "false").lower() == "true",
+            help_faq_url=os.environ.get("HELP_FAQ_URL", "https://veraxi.ai/help"),
+            terms_of_service_url=os.environ.get("TERMS_OF_SERVICE_URL", "https://veraxi.ai/terms"),
+            privacy_policy_url=os.environ.get("PRIVACY_POLICY_URL", "https://veraxi.ai/privacy"),
         )
 
     def get_llm_client_args(self, model_name: Optional[str] = None) -> dict:
@@ -87,6 +95,8 @@ class Config:
                 pass  # Default to api.openai.com
             elif effective_model.startswith("deepseek"):
                 args["base_url"] = "https://api.deepseek.com"
+            elif effective_model.startswith("moonshot"):
+                args["base_url"] = "https://api.moonshot.cn/v1"
             elif effective_model.startswith("mistral"):
                 args["base_url"] = "https://api.mistral.ai/v1"
             elif not effective_model.startswith("claude"):

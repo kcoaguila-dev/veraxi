@@ -6,6 +6,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 import 'web_search_dialog.dart';
+import 'package:sentry_flutter/sentry_flutter.dart';
 
 class ChatInput extends StatefulWidget {
   final bool isLoading;
@@ -36,7 +37,7 @@ class _ChatInputState extends State<ChatInput> {
   bool _runCodeEnabled = false;
   bool _artifactsEnabled = false;
   final List<PlatformFile> _attachedFiles = [];
-  
+
   final SpeechToText _speechToText = SpeechToText();
   bool _speechEnabled = false;
   bool _isListening = false;
@@ -106,7 +107,8 @@ class _ChatInputState extends State<ChatInput> {
           setState(() {
             _lastRecognizedWords = result.recognizedWords;
             _controller.text = _textBeforeListen + _lastRecognizedWords;
-            _controller.selection = TextSelection.fromPosition(TextPosition(offset: _controller.text.length));
+            _controller.selection = TextSelection.fromPosition(
+                TextPosition(offset: _controller.text.length));
           });
         },
       );
@@ -122,12 +124,13 @@ class _ChatInputState extends State<ChatInput> {
     if (settingsJson != null) {
       try {
         final settings = jsonDecode(settingsJson) as Map<String, dynamic>;
-        bool fileEnabled = settings.containsKey('file_search_enabled') 
-            ? settings['file_search_enabled'] as bool 
+        bool fileEnabled = settings.containsKey('file_search_enabled')
+            ? settings['file_search_enabled'] as bool
             : false;
-        
+
         bool webEnabled = false;
-        if (settings['web_search'] != null && settings['web_search']['enabled'] != null) {
+        if (settings['web_search'] != null &&
+            settings['web_search']['enabled'] != null) {
           webEnabled = settings['web_search']['enabled'] as bool;
         }
 
@@ -157,7 +160,7 @@ class _ChatInputState extends State<ChatInput> {
         settings = jsonDecode(currentSettingsJson) as Map<String, dynamic>;
       } catch (_) {}
     }
-    
+
     if (toolKey == 'file_search') {
       settings['file_search_enabled'] = !currentValue;
       setState(() => _fileSearchEnabled = !currentValue);
@@ -175,14 +178,15 @@ class _ChatInputState extends State<ChatInput> {
       settings['artifacts_enabled'] = !currentValue;
       setState(() => _artifactsEnabled = !currentValue);
     }
-    
+
     await prefs.setString('tool_settings', jsonEncode(settings));
   }
 
   void _handleSend() {
     final text = _controller.text;
     if (text.trim().isNotEmpty && !widget.isLoading) {
-      widget.onSend(text, attachments: _attachedFiles.isNotEmpty ? _attachedFiles : null);
+      widget.onSend(text,
+          attachments: _attachedFiles.isNotEmpty ? _attachedFiles : null);
       _controller.clear();
       setState(() {
         _attachedFiles.clear();
@@ -195,7 +199,19 @@ class _ChatInputState extends State<ChatInput> {
       FilePickerResult? result = await FilePicker.platform.pickFiles(
         allowMultiple: true,
         type: FileType.custom,
-        allowedExtensions: ['pdf', 'txt', 'md', 'csv', 'html', 'doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx'],
+        allowedExtensions: [
+          'pdf',
+          'txt',
+          'md',
+          'csv',
+          'html',
+          'doc',
+          'docx',
+          'ppt',
+          'pptx',
+          'xls',
+          'xlsx'
+        ],
         withData: true, // Need bytes to upload
       );
 
@@ -204,7 +220,8 @@ class _ChatInputState extends State<ChatInput> {
           _attachedFiles.addAll(result.files);
         });
       }
-    } catch (e) {
+    } catch (e, st) {
+      Sentry.captureException(e, stackTrace: st);
       // Handle error or cancellation
     }
   }
@@ -224,7 +241,8 @@ class _ChatInputState extends State<ChatInput> {
         if (widget.errorText != null)
           Container(
             margin: const EdgeInsets.only(bottom: 8.0, left: 16.0, right: 16.0),
-            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
             decoration: BoxDecoration(
               color: Colors.red.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
@@ -263,7 +281,8 @@ class _ChatInputState extends State<ChatInput> {
             children: [
               if (_attachedFiles.isNotEmpty)
                 Padding(
-                  padding: const EdgeInsets.only(bottom: 8.0, left: 12.0, right: 12.0),
+                  padding: const EdgeInsets.only(
+                      bottom: 8.0, left: 12.0, right: 12.0),
                   child: Wrap(
                     spacing: 8.0,
                     runSpacing: 4.0,
@@ -273,7 +292,8 @@ class _ChatInputState extends State<ChatInput> {
                       return Chip(
                         label: Text(
                           file.name,
-                          style: const TextStyle(color: Colors.white, fontSize: 12),
+                          style: const TextStyle(
+                              color: Colors.white, fontSize: 12),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -299,8 +319,11 @@ class _ChatInputState extends State<ChatInput> {
                     style: const TextStyle(color: Colors.white, fontSize: 16),
                     cursorColor: Colors.white,
                     decoration: InputDecoration(
-                      hintText: widget.projectName != null ? 'New chat in ${widget.projectName}' : 'Message Veraxi...',
-                      hintStyle: const TextStyle(color: Color(0xFF878787), fontSize: 16),
+                      hintText: widget.projectName != null
+                          ? 'New chat in ${widget.projectName}'
+                          : 'Message Veraxi...',
+                      hintStyle: const TextStyle(
+                          color: Color(0xFF878787), fontSize: 16),
                       border: InputBorder.none,
                       focusedBorder: InputBorder.none,
                       enabledBorder: InputBorder.none,
@@ -308,7 +331,8 @@ class _ChatInputState extends State<ChatInput> {
                       disabledBorder: InputBorder.none,
                       filled: false,
                       isDense: true,
-                      contentPadding: EdgeInsets.only(left: 4, right: 32, top: 12, bottom: 12),
+                      contentPadding: EdgeInsets.only(
+                          left: 4, right: 32, top: 12, bottom: 12),
                     ),
                     onSubmitted: (_) => _handleSend(),
                     enabled: !widget.isLoading,
@@ -319,7 +343,12 @@ class _ChatInputState extends State<ChatInput> {
                       top: 0,
                       right: 0,
                       child: IconButton(
-                        icon: Icon(_isExpanded ? Icons.close_fullscreen : Icons.open_in_full, size: 16, color: const Color(0xFF878787)),
+                        icon: Icon(
+                            _isExpanded
+                                ? Icons.close_fullscreen
+                                : Icons.open_in_full,
+                            size: 16,
+                            color: const Color(0xFF878787)),
                         onPressed: () {
                           setState(() {
                             _isExpanded = !_isExpanded;
@@ -344,24 +373,30 @@ class _ChatInputState extends State<ChatInput> {
                       highlightColor: Colors.transparent,
                     ),
                     child: PopupMenuButton<String>(
-                      icon: const Icon(Icons.attach_file, color: Color(0xFFB4B4B4), size: 20),
+                      icon: const Icon(Icons.attach_file,
+                          color: Color(0xFFB4B4B4), size: 20),
                       tooltip: 'Attach file',
                       color: const Color(0xFF2A2A2A),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8)),
                       position: PopupMenuPosition.over,
                       enabled: !widget.isLoading,
                       onSelected: (value) {
                         _pickFiles();
                       },
-                      itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+                      itemBuilder: (BuildContext context) =>
+                          <PopupMenuEntry<String>>[
                         const PopupMenuItem<String>(
                           value: 'provider',
                           height: 40,
                           child: Row(
                             children: [
-                              Icon(Icons.upload_file, color: Color(0xFFB4B4B4), size: 16),
+                              Icon(Icons.upload_file,
+                                  color: Color(0xFFB4B4B4), size: 16),
                               SizedBox(width: 8),
-                              Text('Upload to Provider', style: TextStyle(color: Color(0xFFB4B4B4), fontSize: 13)),
+                              Text('Upload to Provider',
+                                  style: TextStyle(
+                                      color: Color(0xFFB4B4B4), fontSize: 13)),
                             ],
                           ),
                         ),
@@ -370,9 +405,12 @@ class _ChatInputState extends State<ChatInput> {
                           height: 40,
                           child: Row(
                             children: [
-                              Icon(Icons.text_snippet, color: Color(0xFFB4B4B4), size: 16),
+                              Icon(Icons.text_snippet,
+                                  color: Color(0xFFB4B4B4), size: 16),
                               SizedBox(width: 8),
-                              Text('Upload as Text', style: TextStyle(color: Color(0xFFB4B4B4), fontSize: 13)),
+                              Text('Upload as Text',
+                                  style: TextStyle(
+                                      color: Color(0xFFB4B4B4), fontSize: 13)),
                             ],
                           ),
                         ),
@@ -380,7 +418,8 @@ class _ChatInputState extends State<ChatInput> {
                     ),
                   ),
                   PopupMenuButton<String>(
-                    icon: const Icon(Icons.tune, color: Color(0xFFB4B4B4), size: 20),
+                    icon: const Icon(Icons.tune,
+                        color: Color(0xFFB4B4B4), size: 20),
                     tooltip: 'Tools',
                     color: const Color(0xFF171717),
                     shape: RoundedRectangleBorder(
@@ -410,31 +449,58 @@ class _ChatInputState extends State<ChatInput> {
                       }
                     },
                     itemBuilder: (context) => [
-                      _buildToolItem('file_search', 'File Search', Icons.grid_view_outlined, isActive: _fileSearchEnabled),
+                      _buildToolItem('file_search', 'File Search',
+                          Icons.grid_view_outlined,
+                          isActive: _fileSearchEnabled),
                       _buildWebSearchItem(_webSearchEnabled),
                       _buildSkillsItem(_skillsEnabled),
-                      _buildToolItem('run_code', 'Run Code', Icons.terminal, isActive: _runCodeEnabled),
-                      _buildToolItem('artifacts', 'Artifacts >', Icons.auto_awesome, isActive: _artifactsEnabled),
+                      _buildToolItem('run_code', 'Run Code', Icons.terminal,
+                          isActive: _runCodeEnabled),
+                      _buildToolItem(
+                          'artifacts', 'Artifacts >', Icons.auto_awesome,
+                          isActive: _artifactsEnabled),
                     ],
                   ),
                   const SizedBox(width: 8),
-                  if (_fileSearchEnabled)
-                    _buildActiveToolChip('File Search', Icons.grid_view_outlined, () => _toggleTool('file_search', true)),
-                  if (_webSearchEnabled)
-                    _buildActiveToolChip('Web Search', Icons.language, () => _toggleTool('web_search', true)),
-                  if (_skillsEnabled)
-                    _buildActiveToolChip('Skills', Icons.extension_outlined, () => _toggleTool('skills', true)),
-                  if (_runCodeEnabled)
-                    _buildActiveToolChip('Run Code', Icons.terminal, () => _toggleTool('run_code', true)),
-                  if (_artifactsEnabled)
-                    _buildActiveToolChip('Artifacts', Icons.auto_awesome, () => _toggleTool('artifacts', true)),
-                  const Spacer(),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          if (_fileSearchEnabled)
+                            _buildActiveToolChip(
+                                'File Search',
+                                Icons.grid_view_outlined,
+                                () => _toggleTool('file_search', true)),
+                          if (_webSearchEnabled)
+                            _buildActiveToolChip('Web Search', Icons.language,
+                                () => _toggleTool('web_search', true)),
+                          if (_skillsEnabled)
+                            _buildActiveToolChip(
+                                'Skills',
+                                Icons.extension_outlined,
+                                () => _toggleTool('skills', true)),
+                          if (_runCodeEnabled)
+                            _buildActiveToolChip('Run Code', Icons.terminal,
+                                () => _toggleTool('run_code', true)),
+                          if (_artifactsEnabled)
+                            _buildActiveToolChip(
+                                'Artifacts',
+                                Icons.auto_awesome,
+                                () => _toggleTool('artifacts', true)),
+                        ],
+                      ),
+                    ),
+                  ),
                   IconButton(
                     padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+                    constraints:
+                        const BoxConstraints(minWidth: 40, minHeight: 40),
                     icon: Icon(
                       _isListening ? Icons.mic : Icons.mic_none_outlined,
-                      color: _isListening ? const Color(0xFFE53935) : const Color(0xFFB4B4B4),
+                      color: _isListening
+                          ? const Color(0xFFE53935)
+                          : const Color(0xFFB4B4B4),
                       size: 20,
                     ),
                     onPressed: widget.isLoading ? null : _toggleListening,
@@ -447,7 +513,9 @@ class _ChatInputState extends State<ChatInput> {
                       width: 32,
                       height: 32,
                       decoration: BoxDecoration(
-                        color: (widget.isLoading || _hasText) ? Colors.white : const Color(0xFF424242),
+                        color: (widget.isLoading || _hasText)
+                            ? Colors.white
+                            : const Color(0xFF424242),
                         shape: BoxShape.circle,
                       ),
                       child: Center(
@@ -459,7 +527,9 @@ class _ChatInputState extends State<ChatInput> {
                               )
                             : Icon(
                                 Icons.arrow_upward,
-                                color: _hasText ? Colors.black : const Color(0xFFB4B4B4),
+                                color: _hasText
+                                    ? Colors.black
+                                    : const Color(0xFFB4B4B4),
                                 size: 20,
                               ),
                       ),
@@ -475,7 +545,8 @@ class _ChatInputState extends State<ChatInput> {
     );
   }
 
-  PopupMenuItem<String> _buildToolItem(String value, String text, IconData icon, {bool isActive = false}) {
+  PopupMenuItem<String> _buildToolItem(String value, String text, IconData icon,
+      {bool isActive = false}) {
     return PopupMenuItem<String>(
       value: '${value}_toggle',
       height: 38,
@@ -485,11 +556,23 @@ class _ChatInputState extends State<ChatInput> {
         padding: const EdgeInsets.symmetric(horizontal: 16),
         child: Row(
           children: [
-            Icon(icon, color: isActive ? const Color(0xFF10A37F) : const Color(0xFFB4B4B4), size: 14),
+            Icon(icon,
+                color: isActive
+                    ? const Color(0xFF10A37F)
+                    : const Color(0xFFB4B4B4),
+                size: 14),
             const SizedBox(width: 12),
-            Text(text, style: const TextStyle(color: Color(0xFFE0E0E0), fontSize: 13, fontWeight: FontWeight.w400)),
+            Text(text,
+                style: const TextStyle(
+                    color: Color(0xFFE0E0E0),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w400)),
             const Spacer(),
-            Icon(isActive ? LucideIcons.pinOff : LucideIcons.pin, color: isActive ? const Color(0xFF10A37F) : const Color(0xFF6E6E6E), size: 14),
+            Icon(isActive ? LucideIcons.pinOff : LucideIcons.pin,
+                color: isActive
+                    ? const Color(0xFF10A37F)
+                    : const Color(0xFF6E6E6E),
+                size: 14),
           ],
         ),
       ),
@@ -506,16 +589,29 @@ class _ChatInputState extends State<ChatInput> {
         padding: const EdgeInsets.symmetric(horizontal: 16),
         child: Row(
           children: [
-            Icon(Icons.language, color: isActive ? const Color(0xFF10A37F) : const Color(0xFFB4B4B4), size: 14),
+            Icon(Icons.language,
+                color: isActive
+                    ? const Color(0xFF10A37F)
+                    : const Color(0xFFB4B4B4),
+                size: 14),
             const SizedBox(width: 12),
-            const Text('Web Search', style: TextStyle(color: Color(0xFFE0E0E0), fontSize: 13, fontWeight: FontWeight.w400)),
+            const Text('Web Search',
+                style: TextStyle(
+                    color: Color(0xFFE0E0E0),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w400)),
             const Spacer(),
             GestureDetector(
               onTap: () => Navigator.pop(context, 'web_search_config'),
-              child: const Icon(Icons.settings_outlined, color: Color(0xFF6E6E6E), size: 14),
+              child: const Icon(Icons.settings_outlined,
+                  color: Color(0xFF6E6E6E), size: 14),
             ),
             const SizedBox(width: 8),
-            Icon(isActive ? LucideIcons.pinOff : LucideIcons.pin, color: isActive ? const Color(0xFF10A37F) : const Color(0xFF6E6E6E), size: 14),
+            Icon(isActive ? LucideIcons.pinOff : LucideIcons.pin,
+                color: isActive
+                    ? const Color(0xFF10A37F)
+                    : const Color(0xFF6E6E6E),
+                size: 14),
           ],
         ),
       ),
@@ -532,16 +628,29 @@ class _ChatInputState extends State<ChatInput> {
         padding: const EdgeInsets.symmetric(horizontal: 16),
         child: Row(
           children: [
-            Icon(Icons.extension_outlined, color: isActive ? const Color(0xFF10A37F) : const Color(0xFFB4B4B4), size: 14),
+            Icon(Icons.extension_outlined,
+                color: isActive
+                    ? const Color(0xFF10A37F)
+                    : const Color(0xFFB4B4B4),
+                size: 14),
             const SizedBox(width: 12),
-            const Text('Skills', style: TextStyle(color: Color(0xFFE0E0E0), fontSize: 13, fontWeight: FontWeight.w400)),
+            const Text('Skills',
+                style: TextStyle(
+                    color: Color(0xFFE0E0E0),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w400)),
             const Spacer(),
             GestureDetector(
               onTap: () => Navigator.pop(context, 'skills_config'),
-              child: const Icon(Icons.settings_outlined, color: Color(0xFF6E6E6E), size: 14),
+              child: const Icon(Icons.settings_outlined,
+                  color: Color(0xFF6E6E6E), size: 14),
             ),
             const SizedBox(width: 8),
-            Icon(isActive ? LucideIcons.pinOff : LucideIcons.pin, color: isActive ? const Color(0xFF10A37F) : const Color(0xFF6E6E6E), size: 14),
+            Icon(isActive ? LucideIcons.pinOff : LucideIcons.pin,
+                color: isActive
+                    ? const Color(0xFF10A37F)
+                    : const Color(0xFF6E6E6E),
+                size: 14),
           ],
         ),
       ),
@@ -564,7 +673,11 @@ class _ChatInputState extends State<ChatInput> {
           children: [
             Icon(icon, color: const Color(0xFFB4B4B4), size: 12),
             const SizedBox(width: 6),
-            Text(label, style: const TextStyle(color: Color(0xFFE0E0E0), fontSize: 11, fontWeight: FontWeight.w500)),
+            Text(label,
+                style: const TextStyle(
+                    color: Color(0xFFE0E0E0),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500)),
           ],
         ),
       ),

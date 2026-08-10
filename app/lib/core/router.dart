@@ -8,19 +8,31 @@ import 'package:veraxi_app/features/docs/views/docs_screen.dart';
 import 'package:veraxi_app/features/landing/views/landing_screen.dart';
 import 'package:veraxi_app/main.dart';
 
-final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'root');
+final GlobalKey<NavigatorState> _rootNavigatorKey =
+    GlobalKey<NavigatorState>(debugLabel: 'root');
 
-const bool isAuthEnabled = false;
+const bool isAuthEnabled = bool.fromEnvironment('AUTH_ENABLED', defaultValue: true);
 
-const bool isSelfHosted = true;
+const bool isSelfHosted = bool.fromEnvironment('IS_SELF_HOSTED', defaultValue: true);
+
+bool? mockIsAuth;
 
 final goRouter = GoRouter(
   navigatorKey: _rootNavigatorKey,
   initialLocation: isSelfHosted ? '/login' : '/',
   redirect: (context, state) {
-    // Short-circuit auth check to prevent crashing if Supabase isn't initialized
-    final isAuth = !isAuthEnabled || Supabase.instance.client.auth.currentSession != null;
-    
+    bool isSessionValid = false;
+    try {
+      if (isAuthEnabled) {
+        isSessionValid = Supabase.instance.client.auth.currentSession != null;
+      }
+    } catch (e) {
+      // Supabase is not initialized yet
+      isSessionValid = false;
+    }
+
+    final isAuth = mockIsAuth ?? (!isAuthEnabled || isSessionValid);
+
     final isLoggingIn = state.matchedLocation == '/login';
     final isLanding = state.matchedLocation == '/';
     final isDocs = state.matchedLocation == '/docs';
@@ -43,18 +55,22 @@ final goRouter = GoRouter(
   routes: <RouteBase>[
     GoRoute(
       path: '/',
-      builder: (BuildContext context, GoRouterState state) => const LandingScreen(),
+      builder: (BuildContext context, GoRouterState state) =>
+          const LandingScreen(),
     ),
     GoRoute(
       path: '/docs',
-      builder: (BuildContext context, GoRouterState state) => const DocsScreen(),
+      builder: (BuildContext context, GoRouterState state) =>
+          const DocsScreen(),
     ),
     GoRoute(
       path: '/login',
-      builder: (BuildContext context, GoRouterState state) => const LoginScreen(),
+      builder: (BuildContext context, GoRouterState state) =>
+          const LoginScreen(),
     ),
     StatefulShellRoute.indexedStack(
-      builder: (BuildContext context, GoRouterState state, StatefulNavigationShell navigationShell) {
+      builder: (BuildContext context, GoRouterState state,
+          StatefulNavigationShell navigationShell) {
         return ScaffoldWithNavBar(navigationShell: navigationShell);
       },
       branches: <StatefulShellBranch>[
@@ -62,7 +78,8 @@ final goRouter = GoRouter(
           routes: <RouteBase>[
             GoRoute(
               path: '/chat',
-              builder: (BuildContext context, GoRouterState state) => const ChatScreen(),
+              builder: (BuildContext context, GoRouterState state) =>
+                  const ChatScreen(),
             ),
           ],
         ),
@@ -70,7 +87,8 @@ final goRouter = GoRouter(
           routes: <RouteBase>[
             GoRoute(
               path: '/admin',
-              builder: (BuildContext context, GoRouterState state) => const ControlPanelScreen(),
+              builder: (BuildContext context, GoRouterState state) =>
+                  const ControlPanelScreen(),
             ),
           ],
         ),

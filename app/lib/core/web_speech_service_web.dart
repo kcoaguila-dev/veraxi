@@ -1,6 +1,7 @@
 // ignore: avoid_web_libraries_in_flutter
 // ignore_for_file: deprecated_member_use
 import 'dart:html' as html;
+import 'package:sentry_flutter/sentry_flutter.dart';
 
 /// Real web implementation of WebSpeechService using the browser's native
 /// SpeechSynthesis API (dart:html). Only compiled on web targets.
@@ -14,7 +15,8 @@ class WebSpeechService {
   html.SpeechSynthesis? get _synth {
     try {
       return html.window.speechSynthesis;
-    } catch (_) {
+    } catch (e, st) {
+      Sentry.captureException(e, stackTrace: st);
       return null;
     }
   }
@@ -49,9 +51,9 @@ class WebSpeechService {
     selectedVoice ??= _findVoice(voices, 'Google');
     // Priority 3: Any en-US voice
     selectedVoice ??= voices.cast<html.SpeechSynthesisVoice?>().firstWhere(
-      (v) => v?.lang == 'en-US',
-      orElse: () => null,
-    );
+          (v) => v?.lang == 'en-US',
+          orElse: () => null,
+        );
 
     if (selectedVoice != null) {
       utterance.voice = selectedVoice;
@@ -82,9 +84,10 @@ class WebSpeechService {
     String namePrefix,
   ) {
     return voices.cast<html.SpeechSynthesisVoice?>().firstWhere(
-      (v) =>
-          v?.name?.toLowerCase().contains(namePrefix.toLowerCase()) ?? false,
-      orElse: () => null,
-    );
+          (v) =>
+              v?.name?.toLowerCase().contains(namePrefix.toLowerCase()) ??
+              false,
+          orElse: () => null,
+        );
   }
 }

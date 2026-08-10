@@ -7,12 +7,16 @@ import 'package:veraxi_app/features/chat/data/chat_repository.dart';
 import 'package:veraxi_app/features/chat/view_models/chat_view_model.dart';
 
 
+import 'package:veraxi_app/core/network/tts_repository.dart';
+
 class MockChatRepository extends Mock implements ChatRepository {}
+class MockTTSRepository extends Mock implements TTSRepository {}
 
 class MockRef extends Mock implements Ref {}
 
 void main() {
   late MockChatRepository mockRepository;
+  late MockTTSRepository mockTTSRepository;
   late ChatViewModel viewModel;
 
   setUpAll(() {
@@ -23,8 +27,9 @@ void main() {
   setUp(() {
     TestWidgetsFlutterBinding.ensureInitialized();
     mockRepository = MockChatRepository();
+    mockTTSRepository = MockTTSRepository();
     when(() => mockRepository.getThreads()).thenAnswer((_) async => []);
-    viewModel = ChatViewModel(mockRepository);
+    viewModel = ChatViewModel(mockRepository, mockTTSRepository);
   });
 
   Future<void> pumpEventQueue() => Future.delayed(Duration.zero);

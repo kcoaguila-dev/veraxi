@@ -18,6 +18,13 @@ class AuthRepository {
     await _supabase.auth.signInWithPassword(email: email, password: password);
   }
 
+  Future<void> signInWithOAuth(OAuthProvider provider) async {
+    await _supabase.auth.signInWithOAuth(
+      provider,
+      redirectTo: 'veraxi://login-callback',
+    );
+  }
+
   Future<void> signUpWithEmail(String email, String password) async {
     await _supabase.auth.signUp(email: email, password: password);
   }

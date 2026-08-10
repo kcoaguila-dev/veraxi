@@ -48,4 +48,5 @@ def run_test(mock_chat):
             
     asyncio.run(run_async_tests())
 
-run_test()
+if __name__ == "__main__":
+    run_test()

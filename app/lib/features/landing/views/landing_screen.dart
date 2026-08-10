@@ -3,7 +3,7 @@ import 'package:veraxi_app/features/landing/views/widgets/code_snippet_visualiza
 import 'package:veraxi_app/features/landing/views/widgets/development_banner.dart';
 import 'package:veraxi_app/features/landing/views/widgets/hero_section.dart';
 import 'package:veraxi_app/features/landing/views/widgets/features_section.dart';
-import 'package:veraxi_app/features/landing/views/widgets/nav_bar.dart';
+import 'package:veraxi_app/core/widgets/nav_bar.dart';
 
 class LandingScreen extends StatefulWidget {
   const LandingScreen({super.key});
@@ -28,7 +28,7 @@ class _LandingScreenState extends State<LandingScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    
+
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       body: SingleChildScrollView(

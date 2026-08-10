@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'dart:convert';
+import 'package:sentry_flutter/sentry_flutter.dart';
 
 class GraphArtifact extends StatefulWidget {
   final String jsonElements;
@@ -64,7 +65,8 @@ class _GraphArtifactState extends State<GraphArtifact> {
       // For local assets, we can load HTML string directly
       // Base URL is required for some assets, but we load everything via CDN
       await _controller.loadHtmlString(htmlString);
-    } catch (e) {
+    } catch (e, st) {
+      Sentry.captureException(e, stackTrace: st);
       setState(() {
         _error = "Failed to load graph artifact: \$e";
         _isLoading = false;
@@ -75,15 +77,18 @@ class _GraphArtifactState extends State<GraphArtifact> {
   void _injectGraphData() {
     if (!mounted) return;
     final theme = Theme.of(context);
-    
+
     // Safely encode the JSON string for injection
     final safeJson = jsonEncode(widget.jsonElements);
-    
+
     // Create a theme payload for the JS side
     final themePayload = jsonEncode({
-      'primary': '#${theme.colorScheme.primary.toARGB32().toRadixString(16).substring(2, 8)}',
-      'onSurface': '#${theme.colorScheme.onSurface.toARGB32().toRadixString(16).substring(2, 8)}',
-      'outline': '#${theme.colorScheme.outlineVariant.toARGB32().toRadixString(16).substring(2, 8)}',
+      'primary':
+          '#${theme.colorScheme.primary.toARGB32().toRadixString(16).substring(2, 8)}',
+      'onSurface':
+          '#${theme.colorScheme.onSurface.toARGB32().toRadixString(16).substring(2, 8)}',
+      'outline':
+          '#${theme.colorScheme.outlineVariant.toARGB32().toRadixString(16).substring(2, 8)}',
     });
 
     _controller.runJavaScript("renderGraph($safeJson, $themePayload);");
@@ -104,7 +109,9 @@ class _GraphArtifactState extends State<GraphArtifact> {
       child: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
-              ? Center(child: Text(_error!, style: const TextStyle(color: Colors.redAccent)))
+              ? Center(
+                  child: Text(_error!,
+                      style: const TextStyle(color: Colors.redAccent)))
               : WebViewWidget(controller: _controller),
     );
   }

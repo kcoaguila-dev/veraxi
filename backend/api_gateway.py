@@ -1,5 +1,7 @@
 from fastapi import FastAPI, HTTPException, Depends, UploadFile, File, Request
 from fastapi.middleware.cors import CORSMiddleware
+import httpx
+from backend.models_config import DEFAULT_PROVIDER_MODELS
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 from fastapi.responses import StreamingResponse
@@ -12,6 +14,7 @@ from backend.storage.qdrant_client import QdrantStorageClient
 from backend.storage.neo4j_client import Neo4jStorageClient
 from backend.mcp_server.server import mcp_server
 from backend.mcp_server.context import tenant_context
+from backend.security.moderation import moderate_text
 from mcp.server.sse import SseServerTransport
 import sentry_sdk
 import tempfile
@@ -30,12 +33,15 @@ from supabase import create_client, Client
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
 
+from sentry_sdk.integrations.fastapi import FastApiIntegration
+
 config = get_config()
 if config.sentry_dsn:
     sentry_sdk.init(
         dsn=config.sentry_dsn,
         traces_sample_rate=1.0,
         profiles_sample_rate=1.0,
+        integrations=[FastApiIntegration()],
     )
 
 # Configure the JWKS client to automatically download and cache public keys
@@ -68,7 +74,9 @@ def get_auth_token_key(request: Request) -> str:
         return auth[7:]
     return get_remote_address(request)
 
-limiter = Limiter(key_func=get_auth_token_key)
+import sys
+test_storage = "memory://" if "pytest" in sys.modules else config.redis_url
+limiter = Limiter(key_func=get_auth_token_key, storage_uri=test_storage)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
@@ -125,6 +133,8 @@ class ChatRequest(BaseModel):
     is_temporary: bool = False
     # Optional per-request API key — overrides LLM_API_KEY in .env when provided
     api_key: str | None = None
+    # Optional per-request base URL — overrides default LangChain URLs
+    base_url: str | None = None
     # Optional per-request model — overrides LLM_MODEL_NAME in .env when provided
     model: str | None = None
     # Optional tool settings override from UI
@@ -146,12 +156,12 @@ class IngestRequest(BaseModel):
     custom_stop_words: list[str] = []
 
 
-async def _generate_and_save_title(question: str, tenant_id: str, thread_id: str, redis, api_key_override: str | None = None, model_override: str | None = None):
+async def _generate_and_save_title(question: str, tenant_id: str, thread_id: str, redis, api_key_override: str | None = None, base_url_override: str | None = None, model_override: str | None = None):
     try:
-        from backend.mcp_server.llm_loop import generate_chat_title
         title = await generate_chat_title(
             question,
             api_key_override=api_key_override,
+            base_url_override=base_url_override,
             model_override=model_override,
         )
         if not title:
@@ -159,6 +169,7 @@ async def _generate_and_save_title(question: str, tenant_id: str, thread_id: str
         await redis.hset(f"tenant:{tenant_id}:thread_titles", thread_id, title)
         return title
     except Exception as e:
+        sentry_sdk.capture_exception(e)
         logger.error(f"Error generating title for thread {thread_id}: {e}")
         return None
 
@@ -169,10 +180,14 @@ async def chat_endpoint(request: Request, chat_request: ChatRequest, tenant_id: 
     if not chat_request.model:
         raise HTTPException(status_code=400, detail="No AI model selected")
         
+    # Content Moderation Intercept
+    api_key_override = chat_request.api_key or None
+    is_flagged = await moderate_text(chat_request.question, api_key=api_key_override)
+    if is_flagged:
+        raise HTTPException(status_code=400, detail="Message flagged by content moderation policy.")
+        
     try:
         thread_id = chat_request.thread_id or str(uuid.uuid4())
-        # Use per-request key if provided, fall back to server-side LLM_API_KEY env var
-        api_key_override = chat_request.api_key or None
         
         title_task = None
         # Track thread_id for this tenant if not temporary
@@ -193,6 +208,7 @@ async def chat_endpoint(request: Request, chat_request: ChatRequest, tenant_id: 
                     thread_id, 
                     request.app.state.redis,
                     api_key_override=api_key_override,
+                    base_url_override=chat_request.base_url,
                     model_override=chat_request.model
                 ))
         
@@ -208,6 +224,7 @@ async def chat_endpoint(request: Request, chat_request: ChatRequest, tenant_id: 
                         thread_id=thread_id,
                         is_temporary=chat_request.is_temporary,
                         api_key_override=api_key_override,
+                        base_url_override=chat_request.base_url,
                         model_override=chat_request.model,
                         calculate_grounding=chat_request.calculate_grounding,
                         tool_settings=chat_request.tool_settings,
@@ -233,8 +250,8 @@ async def chat_endpoint(request: Request, chat_request: ChatRequest, tenant_id: 
                     # Send a final 'done' event to signal stream completion
                     yield "data: [DONE]\n\n"
                 except Exception as e:
-                    import traceback
-                    traceback.print_exc()
+                    sentry_sdk.capture_exception(e)
+                    logger.error(f"Error in title generation task: {e}")
                     yield f"data: {json.dumps({'error': str(e)})}\n\n"
                     yield "data: [DONE]\n\n"
             
@@ -249,6 +266,7 @@ async def chat_endpoint(request: Request, chat_request: ChatRequest, tenant_id: 
             return_metrics=True,
             is_temporary=chat_request.is_temporary,
             api_key_override=api_key_override,
+            base_url_override=chat_request.base_url,
             model_override=chat_request.model,
             calculate_grounding=chat_request.calculate_grounding,
             tool_settings=chat_request.tool_settings,
@@ -266,6 +284,43 @@ async def chat_endpoint(request: Request, chat_request: ChatRequest, tenant_id: 
         logger.error(f"Error processing question: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+def _process_single_message(msg, tool_results, feedback_dict):
+    msg_type = msg.__class__.__name__
+    if msg_type not in ["HumanMessage", "AIMessage"]:
+        return None
+        
+    # Filter out legacy system-injected messages that were saved as HumanMessages
+    if msg_type == "HumanMessage" and msg.content:
+        content_str = str(msg.content)
+        if content_str.startswith("Here is the context retrieved from the database:") or content_str.startswith("Web Search Fallback Context:"):
+            return None
+            
+    msg_id = getattr(msg, "id", None)
+    if not msg_id:
+        msg_id = getattr(msg, "additional_kwargs", {}).get("id") or str(id(msg))
+    metrics = getattr(msg, "additional_kwargs", {}).get("metrics")
+    
+    tool_events = []
+    if hasattr(msg, "tool_calls") and msg.tool_calls:
+        for tc in msg.tool_calls:
+            tool_events.append({
+                "id": tc.get("id", ""),
+                "name": tc.get("name", "tool"),
+                "args": tc.get("args", {}),
+                "result": tool_results.get(tc.get("id"), ""),
+                "isComplete": True
+            })
+            
+    return {
+        "id": str(msg_id),
+        "role": "user" if msg_type == "HumanMessage" else "assistant",
+        "content": msg.content,
+        "feedback": int(feedback_dict.get(str(msg_id), 0)),
+        "model_name": getattr(msg, "additional_kwargs", {}).get("model_name"),
+        "metrics": metrics if isinstance(metrics, dict) else None,
+        "toolEvents": tool_events,
+    }
+
 def _extract_messages_from_state(raw_messages: list, feedback_dict: dict = None) -> list:
     if feedback_dict is None:
         feedback_dict = {}
@@ -277,39 +332,9 @@ def _extract_messages_from_state(raw_messages: list, feedback_dict: dict = None)
             
     messages_out = []
     for msg in raw_messages:
-        msg_type = msg.__class__.__name__
-        if msg_type in ["HumanMessage", "AIMessage"]:
-            # Filter out legacy system-injected messages that were saved as HumanMessages
-            if msg_type == "HumanMessage" and msg.content:
-                content_str = str(msg.content)
-                if content_str.startswith("Here is the context retrieved from the database:") or content_str.startswith("Web Search Fallback Context:"):
-                    continue
-                    
-            msg_id = getattr(msg, "id", None)
-            if not msg_id:
-                msg_id = getattr(msg, "additional_kwargs", {}).get("id") or str(id(msg))
-            metrics = getattr(msg, "additional_kwargs", {}).get("metrics")
-            
-            tool_events = []
-            if hasattr(msg, "tool_calls") and msg.tool_calls:
-                for tc in msg.tool_calls:
-                    tool_events.append({
-                        "id": tc.get("id", ""),
-                        "name": tc.get("name", "tool"),
-                        "args": tc.get("args", {}),
-                        "result": tool_results.get(tc.get("id"), ""),
-                        "isComplete": True
-                    })
-
-            messages_out.append({
-                "id": str(msg_id),
-                "role": "user" if msg_type == "HumanMessage" else "assistant",
-                "content": msg.content,
-                "feedback": int(feedback_dict.get(str(msg_id), 0)),
-                "model_name": getattr(msg, "additional_kwargs", {}).get("model_name"),
-                "metrics": metrics if isinstance(metrics, dict) else None,
-                "toolEvents": tool_events,
-            })
+        processed = _process_single_message(msg, tool_results, feedback_dict)
+        if processed:
+            messages_out.append(processed)
     return messages_out
 
 @app.get("/api/chat/threads")
@@ -396,8 +421,8 @@ async def get_thread_history(thread_id: str, request: Request, tenant_id: str = 
             for k, v in feedbacks_raw.items():
                 feedback_dict[k.decode("utf-8")] = int(v.decode("utf-8"))
         except Exception as e:
+            sentry_sdk.capture_exception(e)
             logger.error(f"Failed to fetch feedback: {e}")
-            pass
 
         messages_out = _extract_messages_from_state(raw_messages, feedback_dict)
                 
@@ -439,6 +464,7 @@ async def save_voices(request: VoiceSaveRequest):
     try:
         save_voices_to_disk(request.voices)
     except Exception as e:
+        sentry_sdk.capture_exception(e)
         raise HTTPException(status_code=500, detail=str(e))
         
     return {"voices": get_all_voices()}
@@ -478,6 +504,7 @@ async def upload_voice(
         
         return {"voices": get_all_voices()}
     except Exception as e:
+        sentry_sdk.capture_exception(e)
         logger.error(f"Error uploading voice: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -517,6 +544,7 @@ async def chat_audio(request: AudioRequest, req: Request):
             headers={"Content-Disposition": "attachment; filename=audio.wav"}
         )
     except Exception as e:
+        sentry_sdk.capture_exception(e)
         logger.error(f"Failed to synthesize audio: {e}")
         raise HTTPException(status_code=500, detail="Failed to synthesize audio")
     finally:
@@ -534,6 +562,7 @@ async def submit_feedback(message_id: str, payload: FeedbackRequest, request: Re
             await request.app.state.redis.hset(f"tenant:{tenant_id}:message_feedback", message_id, payload.value)
         return {"status": "ok"}
     except Exception as e:
+        sentry_sdk.capture_exception(e)
         logger.error(f"Error saving feedback: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -569,6 +598,7 @@ async def edit_message(message_id: str, payload: EditRequest, request: Request, 
                 
         return {"status": "ok"}
     except Exception as e:
+        sentry_sdk.capture_exception(e)
         logger.error(f"Error editing message: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -652,6 +682,7 @@ async def duplicate_thread(thread_id: str, request: Request, tenant_id: str = De
                             msg.additional_kwargs["id"] = msg.id
                     await memory.aupdate_state(new_config, {"messages": copied_messages})
     except Exception as e:
+        sentry_sdk.capture_exception(e)
         logger.error(f"Error duplicating LangGraph state: {e}")
         
     return {"status": "ok", "new_thread_id": new_thread_id}
@@ -688,6 +719,7 @@ async def share_thread(thread_id: str, request: Request, tenant_id: str = Depend
         
         return {"share_id": share_id}
     except Exception as e:
+        sentry_sdk.capture_exception(e)
         logger.error(f"Error sharing thread: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -697,6 +729,82 @@ async def get_shared_thread(share_id: str, request: Request):
     if not data:
         raise HTTPException(status_code=404, detail="Shared link not found or expired")
     return json.loads(data)
+@app.post("/api/chat/upload_attachment")
+async def upload_attachment(request: Request, file: UploadFile = File(...), tenant_id: str = Depends(get_tenant_id)):
+    try:
+        # Create uploads directory if not exists
+        os.makedirs("uploads", exist_ok=True)
+        file_id = str(uuid.uuid4())
+        _, file_extension = os.path.splitext(file.filename)
+        file_path = os.path.join("uploads", f"{file_id}{file_extension}")
+        
+        content = await file.read()
+        with open(file_path, "wb") as f:
+            f.write(content)
+            
+        file_size = len(content)
+        
+        # Metadata
+        import time
+        file_metadata = {
+            "id": file_id,
+            "filename": file.filename,
+            "size": file_size,
+            "date": int(time.time()),
+            "path": file_path
+        }
+        
+        await request.app.state.redis.hset(f"tenant:{tenant_id}:files", file_id, json.dumps(file_metadata))
+        
+        # Extract text for chat context
+        mime_type = magic.from_file(file_path, mime=True)
+        extracted_text = f"File {file.filename} uploaded."
+        
+        # For simplicity in chat attachments, we can try to extract text using Docling or just return simple text
+        if mime_type.startswith("text/") or mime_type in ["application/json", "application/csv"]:
+            try:
+                extracted_text = content.decode("utf-8")
+            except:
+                pass
+        else:
+            try:
+                converter = DocumentConverter()
+                result = converter.convert(file_path)
+                extracted_text = result.document.export_to_markdown()
+            except Exception as e:
+                logger.warning(f"Docling could not convert {file.filename}: {e}")
+        
+        return {"text": extracted_text, "file_id": file_id}
+    except Exception as e:
+        sentry_sdk.capture_exception(e)
+        logger.error(f"Error uploading attachment: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/chat/files")
+async def get_files(request: Request, tenant_id: str = Depends(get_tenant_id)):
+    try:
+        files_dict = await request.app.state.redis.hgetall(f"tenant:{tenant_id}:files")
+        files_list = []
+        for fid, fmeta in files_dict.items():
+            files_list.append(json.loads(fmeta.decode("utf-8")))
+        return {"files": files_list}
+    except Exception as e:
+        logger.error(f"Error getting files: {e}")
+        return {"files": []}
+
+@app.delete("/api/chat/files/{file_id}")
+async def delete_file(file_id: str, request: Request, tenant_id: str = Depends(get_tenant_id)):
+    try:
+        file_meta_raw = await request.app.state.redis.hget(f"tenant:{tenant_id}:files", file_id)
+        if file_meta_raw:
+            file_meta = json.loads(file_meta_raw.decode("utf-8"))
+            if "path" in file_meta and os.path.exists(file_meta["path"]):
+                os.remove(file_meta["path"])
+            await request.app.state.redis.hdel(f"tenant:{tenant_id}:files", file_id)
+        return {"success": True}
+    except Exception as e:
+        logger.error(f"Error deleting file: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 class ProjectCreateRequest(BaseModel):
     name: str
@@ -756,12 +864,83 @@ async def assign_project(thread_id: str, payload: ProjectAssignRequest, request:
         await request.app.state.redis.hset(f"tenant:{tenant_id}:thread_projects", thread_id, payload.project_id)
     return {"status": "ok"}
 
+@app.get("/api/config/ui")
+async def get_ui_config(request: Request):
+    """
+    Returns UI configuration URLs for the frontend.
+    """
+    config = get_config()
+    return {
+        "help_faq_url": config.help_faq_url,
+        "terms_of_service_url": config.terms_of_service_url,
+        "privacy_policy_url": config.privacy_policy_url,
+    }
+
 @app.get("/health")
 async def health_check():
     return {"status": "ok"}
 
 
+# Simple cache for models
+_models_cache = {}
+_models_cache_time = 0
 
+@app.get("/api/models")
+async def get_models():
+    """
+    Returns available models, dynamically fetching from providers when possible.
+    """
+    global _models_cache, _models_cache_time
+    import time
+    
+    # Cache for 5 minutes
+    if time.time() - _models_cache_time < 300 and _models_cache:
+        return _models_cache
+        
+    config = get_config()
+    models_dict = dict(DEFAULT_PROVIDER_MODELS)
+    
+    # Dynamically fetch from OpenAI if key is present
+    if config.llm_api_key and (not config.llm_base_url or "openai" in config.llm_base_url.lower()):
+        try:
+            async with httpx.AsyncClient() as client:
+                headers = {"Authorization": f"Bearer {config.llm_api_key}"}
+                # Check if there's an org set
+                if os.environ.get("OPENAI_ORGANIZATION"):
+                    headers["OpenAI-Organization"] = os.environ.get("OPENAI_ORGANIZATION")
+                
+                base_url = config.llm_base_url or "https://api.openai.com/v1"
+                base_url = base_url.rstrip("/")
+                
+                response = await client.get(f"{base_url}/models", headers=headers, timeout=5.0)
+                if response.status_code == 200:
+                    data = response.json()
+                    fetched_models = [m["id"] for m in data.get("data", [])]
+                    
+                    # Filter models exactly like LibreChat does
+                    import re
+                    # Keep text-davinci-003, gpt-*, o[digits], chat-latest
+                    regex = re.compile(r"(text-davinci-003|gpt-|o\d+|chat-latest)")
+                    exclude_regex = re.compile(r"audio|realtime")
+                    
+                    filtered = [m for m in fetched_models if regex.search(m) and not exclude_regex.search(m)]
+                    
+                    # Sort instruct models at the bottom
+                    instruct_models = [m for m in filtered if "instruct" in m]
+                    other_models = [m for m in filtered if "instruct" not in m]
+                    
+                    if other_models or instruct_models:
+                        # Merge the fetched models with our default models, removing duplicates while preserving order
+                        fetched_list = other_models + instruct_models
+                        combined = list(dict.fromkeys(models_dict["OpenAI"] + fetched_list))
+                        models_dict["OpenAI"] = combined
+        except Exception as e:
+            logging.warning(f"Failed to fetch dynamic OpenAI models: {e}")
+            
+    _models_cache = models_dict
+    _models_cache_time = time.time()
+    
+    return models_dict
 
 
 @app.get("/api/admin/stats")
@@ -877,6 +1056,7 @@ async def auto_generate_schema(data: AutoGenerateSchemaRequest):
         schema = json.loads(content)
         return schema
     except Exception as e:
+        sentry_sdk.capture_exception(e)
         raise HTTPException(status_code=500, detail=f"Failed to generate valid schema: {str(e)}")
 
 class UrlIngestRequest(BaseModel):
@@ -1058,3 +1238,98 @@ async def stripe_webhook(request: Request):
 
     return {"status": "success"}
 
+@app.get("/api/user/export")
+async def export_user_data(request: Request, tenant_id: str = Depends(get_tenant_id)):
+    """GDPR Compliance: Export all user data as JSON."""
+    try:
+        from langgraph.checkpoint.redis.aio import AsyncRedisSaver
+        
+        # Get thread list
+        threads = await request.app.state.redis.smembers(f"tenant:{tenant_id}:threads")
+        titles = await request.app.state.redis.hgetall(f"tenant:{tenant_id}:thread_titles")
+        
+        export_data = {
+            "tenant_id": tenant_id,
+            "export_date": __import__('datetime').datetime.now().isoformat(),
+            "threads": []
+        }
+        
+        async with AsyncRedisSaver.from_conn_string(get_config().redis_url) as memory:
+            for t in threads:
+                tid = t.decode("utf-8")
+                title = titles.get(t, b"").decode("utf-8")
+                
+                config_obj = {"configurable": {"thread_id": tid}}
+                state = await memory.aget_tuple(config_obj)
+                
+                messages = []
+                if state:
+                    raw_messages = state.checkpoint.get("channel_values", {}).get("messages", [])
+                    for m in raw_messages:
+                        messages.append({
+                            "type": m.__class__.__name__,
+                            "content": m.content
+                        })
+                        
+                export_data["threads"].append({
+                    "thread_id": tid,
+                    "title": title,
+                    "messages": messages
+                })
+                
+        return export_data
+    except Exception as e:
+        sentry_sdk.capture_exception(e)
+        raise HTTPException(status_code=500, detail="Failed to export data")
+
+
+@app.delete("/api/user/data")
+async def delete_user_data(request: Request, tenant_id: str = Depends(get_tenant_id)):
+    """GDPR Compliance: Delete all user data."""
+    try:
+        # 1. Delete from Neo4j
+        neo4j_client = Neo4jStorageClient()
+        try:
+            # Cypher to delete all nodes belonging to tenant
+            neo4j_client._driver.execute_query(
+                "MATCH (n) WHERE n.tenant_id = $tenant_id DETACH DELETE n",
+                {"tenant_id": tenant_id}
+            )
+        except Exception as e:
+            logger.error(f"Error deleting Neo4j data: {e}")
+            
+        # 2. Delete from Qdrant
+        qdrant_client = QdrantStorageClient()
+        try:
+            from qdrant_client.http import models as rest
+            qdrant_client.client.delete(
+                collection_name=qdrant_client.collection_name,
+                points_selector=rest.FilterSelector(
+                    filter=rest.Filter(
+                        must=[
+                            rest.FieldCondition(
+                                key="tenant_id",
+                                match=rest.MatchValue(value=tenant_id),
+                            )
+                        ]
+                    )
+                )
+            )
+        except Exception as e:
+            logger.error(f"Error deleting Qdrant data: {e}")
+            
+        # 3. Delete from Redis
+        # Delete threads from Redis (including langgraph checkpoints)
+        threads = await request.app.state.redis.smembers(f"tenant:{tenant_id}:threads")
+            
+        await request.app.state.redis.delete(f"tenant:{tenant_id}:threads")
+        await request.app.state.redis.delete(f"tenant:{tenant_id}:thread_titles")
+        await request.app.state.redis.delete(f"tenant:{tenant_id}:pinned_threads")
+        await request.app.state.redis.delete(f"tenant:{tenant_id}:archived_threads")
+        await request.app.state.redis.delete(f"tenant:{tenant_id}:thread_projects")
+        await request.app.state.redis.delete(f"tenant:{tenant_id}:thread_timestamps")
+        
+        return {"status": "success", "message": "All user data deleted"}
+    except Exception as e:
+        sentry_sdk.capture_exception(e)
+        raise HTTPException(status_code=500, detail="Failed to delete data")

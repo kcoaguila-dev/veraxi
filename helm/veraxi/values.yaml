@@ -1,0 +1,61 @@
+backend:
+  replicaCount: 1
+  image:
+    repository: veraxi-backend
+    pullPolicy: IfNotPresent
+    tag: "latest"
+  service:
+    type: ClusterIP
+    port: 8000
+  env:
+    ENVIRONMENT: "production"
+    NEO4J_URI: "bolt://neo4j:7687"
+    QDRANT_URL: "http://qdrant:6333"
+    REDIS_URL: "redis://redis:6379"
+
+web:
+  replicaCount: 1
+  image:
+    repository: veraxi-web
+    pullPolicy: IfNotPresent
+    tag: "latest"
+  service:
+    type: ClusterIP
+    port: 80
+
+neo4j:
+  image:
+    repository: neo4j
+    tag: "5.21.0-community"
+  service:
+    boltPort: 7687
+    httpPort: 7474
+
+qdrant:
+  image:
+    repository: qdrant/qdrant
+    tag: "v1.10.1"
+  service:
+    port: 6333
+
+redis:
+  image:
+    repository: redis
+    tag: "alpine"
+  service:
+    port: 6379
+
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+  hosts:
+    - host: "YOUR_DOMAIN_HERE.com"
+  tls:
+    - secretName: veraxi-tls
+      hosts:
+        - "YOUR_DOMAIN_HERE.com"

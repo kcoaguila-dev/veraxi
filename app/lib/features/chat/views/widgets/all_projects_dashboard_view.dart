@@ -96,7 +96,8 @@ class _AllProjectsDashboardViewState
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 16, vertical: 8),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF10A37F), // Green color matching LibreChat
+                              color: const Color(
+                                  0xFF10A37F), // Green color matching LibreChat
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: const Row(
@@ -148,8 +149,7 @@ class _AllProjectsDashboardViewState
                             hintStyle: TextStyle(
                                 color: Color(0xFF878787), fontSize: 15),
                             border: InputBorder.none,
-                            contentPadding:
-                                EdgeInsets.symmetric(vertical: 16),
+                            contentPadding: EdgeInsets.symmetric(vertical: 16),
                           ),
                         ),
                       ),
@@ -204,7 +204,7 @@ class _AllProjectsDashboardViewState
                             final project = displayedProjects[index];
                             final projectId = project['id'] as String;
                             final projectName = project['name'] as String;
-                            
+
                             // Calculate chats count for this project
                             final chatCount = state.pastThreads
                                 .where((t) => t['project_id'] == projectId)
@@ -261,10 +261,13 @@ class _ProjectCardState extends State<_ProjectCard> {
           duration: const Duration(milliseconds: 200),
           padding: const EdgeInsets.all(16.0),
           decoration: BoxDecoration(
-            color: _isHovered ? const Color(0xFF2A2A2A) : const Color(0xFF1E1E1E),
+            color:
+                _isHovered ? const Color(0xFF2A2A2A) : const Color(0xFF1E1E1E),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: _isHovered ? const Color(0xFF444444) : const Color(0xFF2A2A2A),
+              color: _isHovered
+                  ? const Color(0xFF444444)
+                  : const Color(0xFF2A2A2A),
             ),
           ),
           child: Column(

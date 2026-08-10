@@ -25,14 +25,18 @@ class AppThemeExtension extends ThemeExtension<AppThemeExtension> {
   }
 
   @override
-  ThemeExtension<AppThemeExtension> lerp(ThemeExtension<AppThemeExtension>? other, double t) {
+  ThemeExtension<AppThemeExtension> lerp(
+      ThemeExtension<AppThemeExtension>? other, double t) {
     if (other is! AppThemeExtension) {
       return this;
     }
     return AppThemeExtension(
-      primaryGradientStart: Color.lerp(primaryGradientStart, other.primaryGradientStart, t)!,
-      primaryGradientEnd: Color.lerp(primaryGradientEnd, other.primaryGradientEnd, t)!,
-      surfaceHighlight: Color.lerp(surfaceHighlight, other.surfaceHighlight, t)!,
+      primaryGradientStart:
+          Color.lerp(primaryGradientStart, other.primaryGradientStart, t)!,
+      primaryGradientEnd:
+          Color.lerp(primaryGradientEnd, other.primaryGradientEnd, t)!,
+      surfaceHighlight:
+          Color.lerp(surfaceHighlight, other.surfaceHighlight, t)!,
     );
   }
 }

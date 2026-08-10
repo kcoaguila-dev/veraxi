@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/control_panel_repository.dart';
+import 'package:sentry_flutter/sentry_flutter.dart';
 
 class ControlPanelState {
   final bool isIngesting;
@@ -14,7 +15,6 @@ class ControlPanelState {
     this.stats,
   });
 }
-
 
 final controlPanelViewModelProvider =
     StateNotifierProvider<ControlPanelViewModel, ControlPanelState>((ref) {
@@ -38,7 +38,8 @@ class ControlPanelViewModel extends StateNotifier<ControlPanelState> {
         error: null,
         successMessage: null,
       );
-    } catch (e) {
+    } catch (e, st) {
+      Sentry.captureException(e, stackTrace: st);
       state = ControlPanelState(
         isIngesting: state.isIngesting,
         stats: state.stats,
@@ -68,15 +69,109 @@ class ControlPanelViewModel extends StateNotifier<ControlPanelState> {
         isIngesting: false,
         stats: state.stats,
         error: null,
-        successMessage: 'Ingestion complete: ${nodes} nodes and ${vectors} vectors inserted.',
+        successMessage:
+            'Ingestion complete: ${nodes} nodes and ${vectors} vectors inserted.',
       );
-    } catch (e) {
+    } catch (e, st) {
+      Sentry.captureException(e, stackTrace: st);
       state = ControlPanelState(
         isIngesting: false,
         stats: state.stats,
         error: e.toString(),
         successMessage: state.successMessage,
       );
+    }
+  }
+
+  Future<void> ingestUpload(
+    List<int> fileBytes,
+    String fileName, {
+    bool fastExtraction = false,
+    String language = 'en',
+    String customStopWords = '',
+  }) async {
+    state = ControlPanelState(
+      isIngesting: true,
+      stats: state.stats,
+      error: null,
+      successMessage: null,
+    );
+
+    try {
+      final result = await repository.ingestUpload(
+        fileBytes,
+        fileName,
+        fastExtraction: fastExtraction,
+        language: language,
+        customStopWords: customStopWords,
+      );
+
+      await fetchStats();
+
+      final nodes = result['nodes_inserted'] ?? 0;
+      final vectors = result['vectors_inserted'] ?? 0;
+
+      state = ControlPanelState(
+        isIngesting: false,
+        stats: state.stats,
+        error: null,
+        successMessage:
+            'Ingestion complete: $nodes nodes and $vectors vectors inserted.',
+      );
+    } catch (e, st) {
+      Sentry.captureException(e, stackTrace: st);
+      state = ControlPanelState(
+        isIngesting: false,
+        stats: state.stats,
+        error: e.toString(),
+        successMessage: state.successMessage,
+      );
+      rethrow;
+    }
+  }
+
+  Future<void> ingestUrl(
+    String url, {
+    bool fastExtraction = false,
+    String language = 'en',
+    String customStopWords = '',
+  }) async {
+    state = ControlPanelState(
+      isIngesting: true,
+      stats: state.stats,
+      error: null,
+      successMessage: null,
+    );
+
+    try {
+      final result = await repository.ingestUrl(
+        url,
+        fastExtraction: fastExtraction,
+        language: language,
+        customStopWords: customStopWords,
+      );
+
+      await fetchStats();
+
+      final nodes = result['nodes_inserted'] ?? 0;
+      final vectors = result['vectors_inserted'] ?? 0;
+
+      state = ControlPanelState(
+        isIngesting: false,
+        stats: state.stats,
+        error: null,
+        successMessage:
+            'Ingestion complete: $nodes nodes and $vectors vectors inserted.',
+      );
+    } catch (e, st) {
+      Sentry.captureException(e, stackTrace: st);
+      state = ControlPanelState(
+        isIngesting: false,
+        stats: state.stats,
+        error: e.toString(),
+        successMessage: state.successMessage,
+      );
+      rethrow;
     }
   }
 }

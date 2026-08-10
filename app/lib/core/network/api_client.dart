@@ -14,7 +14,8 @@ class ApiClient {
   final String? tenantId;
 
   ApiClient({
-    this.baseUrl = const String.fromEnvironment('API_URL', defaultValue: '/api'),
+    this.baseUrl =
+        const String.fromEnvironment('API_URL', defaultValue: '/api'),
     http.Client? client,
     this.tenantId,
   }) : client = client ?? http.Client();
@@ -36,10 +37,12 @@ class ApiClient {
       final requestHeaders = getDefaultHeaders();
       if (headers != null) requestHeaders.addAll(headers);
 
-      final response = await client.get(
-        Uri.parse('$baseUrl$path'),
-        headers: requestHeaders,
-      ).timeout(const Duration(seconds: 10));
+      final response = await client
+          .get(
+            Uri.parse('$baseUrl$path'),
+            headers: requestHeaders,
+          )
+          .timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
@@ -51,16 +54,20 @@ class ApiClient {
     }
   }
 
-  Future<dynamic> post(String path, {Map<String, dynamic>? body, Map<String, String>? headers}) async {
+  Future<dynamic> post(String path,
+      {Map<String, dynamic>? body, Map<String, String>? headers}) async {
     try {
-      final requestHeaders = getDefaultHeaders()..['Content-Type'] = 'application/json';
+      final requestHeaders = getDefaultHeaders()
+        ..['Content-Type'] = 'application/json';
       if (headers != null) requestHeaders.addAll(headers);
 
-      final response = await client.post(
-        Uri.parse('$baseUrl$path'),
-        headers: requestHeaders,
-        body: body != null ? jsonEncode(body) : null,
-      ).timeout(const Duration(seconds: 10));
+      final response = await client
+          .post(
+            Uri.parse('$baseUrl$path'),
+            headers: requestHeaders,
+            body: body != null ? jsonEncode(body) : null,
+          )
+          .timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
@@ -72,16 +79,20 @@ class ApiClient {
     }
   }
 
-  Future<dynamic> put(String path, {Map<String, dynamic>? body, Map<String, String>? headers}) async {
+  Future<dynamic> put(String path,
+      {Map<String, dynamic>? body, Map<String, String>? headers}) async {
     try {
-      final requestHeaders = getDefaultHeaders()..['Content-Type'] = 'application/json';
+      final requestHeaders = getDefaultHeaders()
+        ..['Content-Type'] = 'application/json';
       if (headers != null) requestHeaders.addAll(headers);
 
-      final response = await client.put(
-        Uri.parse('$baseUrl$path'),
-        headers: requestHeaders,
-        body: body != null ? jsonEncode(body) : null,
-      ).timeout(const Duration(seconds: 10));
+      final response = await client
+          .put(
+            Uri.parse('$baseUrl$path'),
+            headers: requestHeaders,
+            body: body != null ? jsonEncode(body) : null,
+          )
+          .timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
@@ -98,10 +109,12 @@ class ApiClient {
       final requestHeaders = getDefaultHeaders();
       if (headers != null) requestHeaders.addAll(headers);
 
-      final response = await client.delete(
-        Uri.parse('$baseUrl$path'),
-        headers: requestHeaders,
-      ).timeout(const Duration(seconds: 10));
+      final response = await client
+          .delete(
+            Uri.parse('$baseUrl$path'),
+            headers: requestHeaders,
+          )
+          .timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
@@ -113,7 +126,12 @@ class ApiClient {
     }
   }
 
-  Future<dynamic> postMultipart(String path, {required List<int> fileBytes, required String fileName, String fileField = 'file', Map<String, String>? fields, Map<String, String>? headers}) async {
+  Future<dynamic> postMultipart(String path,
+      {required List<int> fileBytes,
+      required String fileName,
+      String fileField = 'file',
+      Map<String, String>? fields,
+      Map<String, String>? headers}) async {
     try {
       final requestHeaders = getDefaultHeaders();
       if (headers != null) requestHeaders.addAll(headers);
@@ -134,13 +152,15 @@ class ApiClient {
         ),
       );
 
-      final streamedResponse = await client.send(request).timeout(const Duration(seconds: 30));
+      final streamedResponse =
+          await client.send(request).timeout(const Duration(seconds: 30));
       final response = await http.Response.fromStream(streamedResponse);
 
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
       }
-      throw Exception('Server error: ${response.statusCode} - ${response.body}');
+      throw Exception(
+          'Server error: ${response.statusCode} - ${response.body}');
     } catch (e, stackTrace) {
       Sentry.captureException(e, stackTrace: stackTrace);
       rethrow;

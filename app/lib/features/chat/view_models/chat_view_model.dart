@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
@@ -6,6 +7,7 @@ import 'package:just_audio/just_audio.dart';
 import 'package:veraxi_app/core/api_key_storage.dart';
 import 'package:veraxi_app/core/tts_settings_storage.dart';
 import 'package:veraxi_app/core/web_speech_service.dart';
+import 'package:veraxi_app/core/network/tts_repository.dart';
 import 'package:veraxi_app/features/chat/data/chat_repository.dart';
 
 class ToolEvent {
@@ -156,11 +158,17 @@ class ChatState {
       isTemporary: isTemporary ?? this.isTemporary,
       showTelemetry: showTelemetry ?? this.showTelemetry,
       error: clearError ? null : (error ?? this.error),
-      currentlyPlayingMessageId: clearPlayingId ? null : (currentlyPlayingMessageId ?? this.currentlyPlayingMessageId),
-      activeProjectId: clearActiveProject ? null : (activeProjectId ?? this.activeProjectId),
-      activeProjectName: clearActiveProject ? null : (activeProjectName ?? this.activeProjectName),
+      currentlyPlayingMessageId: clearPlayingId
+          ? null
+          : (currentlyPlayingMessageId ?? this.currentlyPlayingMessageId),
+      activeProjectId:
+          clearActiveProject ? null : (activeProjectId ?? this.activeProjectId),
+      activeProjectName: clearActiveProject
+          ? null
+          : (activeProjectName ?? this.activeProjectName),
       showProjectDashboard: showProjectDashboard ?? this.showProjectDashboard,
-      showAllProjectsDashboard: showAllProjectsDashboard ?? this.showAllProjectsDashboard,
+      showAllProjectsDashboard:
+          showAllProjectsDashboard ?? this.showAllProjectsDashboard,
     );
   }
 }
@@ -168,15 +176,22 @@ class ChatState {
 final chatViewModelProvider =
     StateNotifierProvider<ChatViewModel, ChatState>((ref) {
   final repo = ref.watch(chatRepositoryProvider);
-  return ChatViewModel(repo);
+  final ttsRepo = ref.watch(ttsRepositoryProvider);
+  return ChatViewModel(repo, ttsRepo);
+});
+
+final providerModelsProvider = FutureProvider<Map<String, List<String>>>((ref) async {
+  final repo = ref.watch(chatRepositoryProvider);
+  return await repo.getProviderModels();
 });
 
 class ChatViewModel extends StateNotifier<ChatState> {
   final ChatRepository _repository;
+  final TTSRepository _ttsRepository;
   final AudioPlayer _audioPlayer = AudioPlayer();
   DateTime? _currentRequestStartTime;
 
-  ChatViewModel(this._repository) : super(ChatState()) {
+  ChatViewModel(this._repository, this._ttsRepository) : super(ChatState()) {
     _init();
     _audioPlayer.playerStateStream.listen((playerState) {
       if (playerState.processingState == ProcessingState.completed) {
@@ -211,43 +226,49 @@ class ChatViewModel extends StateNotifier<ChatState> {
       final threads = await _repository.getThreads();
       final projects = await _repository.getProjects();
       state = state.copyWith(pastThreads: threads, projects: projects);
-    } catch (e) {
-      // Non-fatal, just log
+    } catch (e, stack) {
+      Sentry.captureException(e, stackTrace: stack);
     }
   }
 
   Future<void> selectThread(String threadId) async {
-    state = state
-        .copyWith(isLoadingHistory: true, threadId: threadId, messages: [], showProjectDashboard: false, showAllProjectsDashboard: false);
+    state = state.copyWith(
+        isLoadingHistory: true,
+        threadId: threadId,
+        messages: [],
+        showProjectDashboard: false,
+        showAllProjectsDashboard: false);
     try {
       final history = await _repository.getThreadHistory(threadId);
-      final messages = history
-          .map((m) {
-            List<ToolEvent> toolEvents = [];
-            if (m['toolEvents'] != null) {
-              final evts = m['toolEvents'] as List;
-              toolEvents = evts.map((e) => ToolEvent(
-                id: e['id'] as String? ?? '',
-                name: e['name'] as String? ?? '',
-                args: e['args'] is Map ? Map<String, dynamic>.from(e['args'] as Map) : {},
-                result: e['result'],
-                isComplete: e['isComplete'] as bool? ?? true,
-              )).toList();
-            }
+      final messages = history.map((m) {
+        List<ToolEvent> toolEvents = [];
+        if (m['toolEvents'] != null) {
+          final evts = m['toolEvents'] as List;
+          toolEvents = evts
+              .map((e) => ToolEvent(
+                    id: e['id'] as String? ?? '',
+                    name: e['name'] as String? ?? '',
+                    args: e['args'] is Map
+                        ? Map<String, dynamic>.from(e['args'] as Map)
+                        : {},
+                    result: e['result'],
+                    isComplete: e['isComplete'] as bool? ?? true,
+                  ))
+              .toList();
+        }
 
-            return ChatMessage(
-                id: m['id'] as String?,
-                role: m['role'] as String,
-                content: m['content'] as String,
-                feedback: m['feedback'] as int? ?? 0,
-                modelName: m['model_name'] as String?,
-                toolEvents: toolEvents,
-                metrics: m['metrics'] is Map
-                    ? Map<String, dynamic>.from(m['metrics'] as Map)
-                    : null,
-            );
-          })
-          .toList();
+        return ChatMessage(
+          id: m['id'] as String?,
+          role: m['role'] as String,
+          content: m['content'] as String,
+          feedback: m['feedback'] as int? ?? 0,
+          modelName: m['model_name'] as String?,
+          toolEvents: toolEvents,
+          metrics: m['metrics'] is Map
+              ? Map<String, dynamic>.from(m['metrics'] as Map)
+              : null,
+        );
+      }).toList();
       state = state.copyWith(messages: messages, isLoadingHistory: false);
     } catch (e, st) {
       Sentry.captureException(e, stackTrace: st);
@@ -317,11 +338,14 @@ class ChatViewModel extends StateNotifier<ChatState> {
     }
   }
 
-  Future<void> sendMessage(String text, {String? model, List<dynamic>? attachments}) async {
-    if (text.trim().isEmpty && (attachments == null || attachments.isEmpty)) return;
+  Future<void> sendMessage(String text,
+      {String? model, List<dynamic>? attachments}) async {
+    if (text.trim().isEmpty && (attachments == null || attachments.isEmpty))
+      return;
 
     if (model == null || model == 'Select a model' || model.isEmpty) {
-      final userMsg = ChatMessage(role: 'user', content: text.isEmpty ? '[Attachment]' : text);
+      final userMsg = ChatMessage(
+          role: 'user', content: text.isEmpty ? '[Attachment]' : text);
       final errorMsg = ChatMessage(
         role: 'assistant',
         content:
@@ -336,11 +360,17 @@ class ChatViewModel extends StateNotifier<ChatState> {
       if (m == null || m.isEmpty) return 'unknown';
       m = m.toLowerCase();
       if (m.startsWith('gemini')) return 'google';
-      if (m.startsWith('gpt') || m.startsWith('o1') || m.startsWith('o3')) return 'openai';
+      if (m.startsWith('gpt') || m.startsWith('o1') || m.startsWith('o3'))
+        return 'openai';
       if (m.startsWith('claude')) return 'anthropic';
       if (m.startsWith('mistral')) return 'mistral';
       if (m.startsWith('deepseek')) return 'deepseek';
-      if (m.startsWith('llama') || m.startsWith('qwen') || m.startsWith('allam') || m.startsWith('canopy') || m.startsWith('groq') || m.startsWith('meta')) return 'groq';
+      if (m.startsWith('llama') ||
+          m.startsWith('qwen') ||
+          m.startsWith('allam') ||
+          m.startsWith('canopy') ||
+          m.startsWith('groq') ||
+          m.startsWith('meta')) return 'groq';
       return 'unknown';
     }
 
@@ -359,7 +389,11 @@ class ChatViewModel extends StateNotifier<ChatState> {
       return;
     }
 
-    final userMsgForUI = ChatMessage(role: 'user', content: text.isEmpty && attachments != null && attachments.isNotEmpty ? '[Sent ${attachments.length} attachment(s)]' : text);
+    final userMsgForUI = ChatMessage(
+        role: 'user',
+        content: text.isEmpty && attachments != null && attachments.isNotEmpty
+            ? '[Sent ${attachments.length} attachment(s)]'
+            : text);
     // Add user message and empty AI message, and set loading state
     state = state.copyWith(
       messages: [
@@ -374,7 +408,7 @@ class ChatViewModel extends StateNotifier<ChatState> {
 
     _currentRequestStartTime = DateTime.now();
     String queryText = text;
-    
+
     if (attachments != null && attachments.isNotEmpty) {
       try {
         final List<String> extractedTexts = [];
@@ -382,19 +416,22 @@ class ChatViewModel extends StateNotifier<ChatState> {
           final fileBytes = attachment.bytes as List<int>?;
           final fileName = attachment.name as String;
           if (fileBytes != null) {
-            final extracted = await _repository.uploadAttachment(fileBytes, fileName);
+            final extracted =
+                await _repository.uploadAttachment(fileBytes, fileName);
             if (extracted.isNotEmpty) {
               extractedTexts.add("--- Attachment: $fileName ---\n$extracted");
             }
           }
         }
-        
+
         if (extractedTexts.isNotEmpty) {
           final attachmentsStr = extractedTexts.join("\n\n");
           if (queryText.isEmpty) {
-            queryText = "Please analyze the following attached document(s):\n\n$attachmentsStr";
+            queryText =
+                "Please analyze the following attached document(s):\n\n$attachmentsStr";
           } else {
-            queryText = "Here are the attached document(s) for context:\n\n$attachmentsStr\n\nUser Query: $queryText";
+            queryText =
+                "Here are the attached document(s) for context:\n\n$attachmentsStr\n\nUser Query: $queryText";
           }
         }
       } catch (e, st) {
@@ -415,15 +452,19 @@ class ChatViewModel extends StateNotifier<ChatState> {
       if (toolSettingsJson != null) {
         toolSettings = jsonDecode(toolSettingsJson) as Map<String, dynamic>;
       }
-    } catch (_) {}
+    } catch (e, st) {
+      Sentry.captureException(e, stackTrace: st);
+    }
 
     try {
-      await for (final event in _repository.streamChat(queryText,
-         threadId: state.threadId,
-         isTemporary: state.isTemporary,
-         model: model,
-         calculateGrounding: state.showTelemetry,
-         toolSettings: toolSettings,)) {
+      await for (final event in _repository.streamChat(
+        queryText,
+        threadId: state.threadId,
+        isTemporary: state.isTemporary,
+        model: model,
+        calculateGrounding: state.showTelemetry,
+        toolSettings: toolSettings,
+      )) {
         _handleStreamEvent(event);
       }
       state = state.copyWith(isLoading: false);
@@ -451,7 +492,8 @@ class ChatViewModel extends StateNotifier<ChatState> {
       return thread;
     }).toList();
 
-    final threadExists = updatedThreads.any((thread) => thread['thread_id'] == threadId);
+    final threadExists =
+        updatedThreads.any((thread) => thread['thread_id'] == threadId);
     state = state.copyWith(
       pastThreads: threadExists
           ? updatedThreads
@@ -465,7 +507,9 @@ class ChatViewModel extends StateNotifier<ChatState> {
   void _handleStreamEvent(Map<String, dynamic> event) {
     if (event.containsKey('error')) {
       _updateLastMessage(
-          content: "Error: ${event['error']}", isStreaming: false, isError: true);
+          content: "Error: ${event['error']}",
+          isStreaming: false,
+          isError: true);
       return;
     }
 
@@ -487,7 +531,8 @@ class ChatViewModel extends StateNotifier<ChatState> {
           shouldLoad = true;
         }
         if (data['metrics'] is Map) {
-          _updateLastMessage(metrics: Map<String, dynamic>.from(data['metrics'] as Map));
+          _updateLastMessage(
+              metrics: Map<String, dynamic>.from(data['metrics'] as Map));
         }
       }
       if (shouldLoad) {
@@ -502,24 +547,24 @@ class ChatViewModel extends StateNotifier<ChatState> {
         if (content != null && content is String) {
           final msgs = List<ChatMessage>.from(state.messages);
           final last = msgs.last;
-          
+
           // Remove the default 'Thinking...' if this is the first chunk of real text
           String newContent = last.content;
           if (newContent == 'Thinking...') {
             newContent = '';
           }
           newContent += content;
-          
-          msgs[msgs.length - 1] =
-              last.copyWith(content: newContent);
+
+          msgs[msgs.length - 1] = last.copyWith(content: newContent);
           state = state.copyWith(messages: msgs);
         }
       }
     } else if (type == 'on_tool_start') {
       final toolName = event['name'];
-      final runId = event['run_id'] ?? DateTime.now().millisecondsSinceEpoch.toString();
+      final runId =
+          event['run_id'] ?? DateTime.now().millisecondsSinceEpoch.toString();
       final args = event['data']?['input'] ?? {};
-      
+
       if (state.messages.isNotEmpty) {
         final last = state.messages.last;
         final newEvents = List<ToolEvent>.from(last.toolEvents);
@@ -529,7 +574,8 @@ class ChatViewModel extends StateNotifier<ChatState> {
           args: args is Map ? Map<String, dynamic>.from(args) : {},
           isComplete: false,
         ));
-        _updateLastMessage(activeTool: 'Calling $toolName...', toolEvents: newEvents);
+        _updateLastMessage(
+            activeTool: 'Calling $toolName...', toolEvents: newEvents);
       } else {
         _updateLastMessage(activeTool: 'Calling $toolName...');
       }
@@ -537,7 +583,7 @@ class ChatViewModel extends StateNotifier<ChatState> {
       final runId = event['run_id'];
       final output = event['data']?['output'];
       final artifact = event['data']?['artifact'];
-      
+
       if (state.messages.isNotEmpty && runId != null) {
         final last = state.messages.last;
         final newEvents = last.toolEvents.map((t) {
@@ -556,12 +602,16 @@ class ChatViewModel extends StateNotifier<ChatState> {
       if (_currentRequestStartTime != null && state.messages.isNotEmpty) {
         final lastMsg = state.messages.last;
         if (lastMsg.metrics != null) {
-           final elapsed = DateTime.now().difference(_currentRequestStartTime!).inMilliseconds / 1000.0;
-           updatedMetrics = Map<String, dynamic>.from(lastMsg.metrics!);
-           updatedMetrics['generation_seconds'] = elapsed;
+          final elapsed = DateTime.now()
+                  .difference(_currentRequestStartTime!)
+                  .inMilliseconds /
+              1000.0;
+          updatedMetrics = Map<String, dynamic>.from(lastMsg.metrics!);
+          updatedMetrics['generation_seconds'] = elapsed;
         }
       }
-      _updateLastMessage(isStreaming: false, activeTool: null, metrics: updatedMetrics);
+      _updateLastMessage(
+          isStreaming: false, activeTool: null, metrics: updatedMetrics);
       state = state.copyWith(isLoading: false);
       _currentRequestStartTime = null;
 
@@ -571,7 +621,12 @@ class ChatViewModel extends StateNotifier<ChatState> {
   }
 
   void _updateLastMessage(
-      {String? content, bool? isStreaming, String? activeTool, List<ToolEvent>? toolEvents, bool? isError, Map<String, dynamic>? metrics}) {
+      {String? content,
+      bool? isStreaming,
+      String? activeTool,
+      List<ToolEvent>? toolEvents,
+      bool? isError,
+      Map<String, dynamic>? metrics}) {
     if (state.messages.isEmpty) return;
     final msgs = List<ChatMessage>.from(state.messages);
     final last = msgs.last;
@@ -643,7 +698,8 @@ class ChatViewModel extends StateNotifier<ChatState> {
   /// Falls back to the browser's built-in Web Speech API otherwise.
   Future<void> playAudio(String text, {required String messageId}) async {
     try {
-      final wasPlayingSameMessage = state.currentlyPlayingMessageId == messageId;
+      final wasPlayingSameMessage =
+          state.currentlyPlayingMessageId == messageId;
 
       // Check if we are already playing something via just_audio
       if (_audioPlayer.playing) {
@@ -666,25 +722,29 @@ class ChatViewModel extends StateNotifier<ChatState> {
       final storage = TTSSettingsStorage();
       final engine = await storage.getEngine() ?? 'Browser';
       String voiceId = await storage.getVoiceId() ?? 'default_system';
-      final gptSovitsUrl = await storage.getGptSovitsUrl() ?? 'http://localhost:9880';
+      final gptSovitsUrl =
+          await storage.getGptSovitsUrl() ?? 'http://localhost:9880';
 
       if (engine == 'GPT-SoVITS') {
         if (voiceId == 'default_system') {
           // Auto-fix corrupted state if user never opened settings menu
           try {
-            final voices = await _repository.getVoices(gptSovitsUrl: gptSovitsUrl);
-            final customVoices = voices.where((v) => v['id'] != 'default_system').toList();
+            final voices =
+                await _ttsRepository.getVoices(gptSovitsUrl: gptSovitsUrl);
+            final customVoices =
+                voices.where((v) => v['id'] != 'default_system').toList();
             if (customVoices.isNotEmpty) {
               voiceId = customVoices.first['id'] as String;
               await storage.saveVoiceId(voiceId);
             }
-          } catch (e) {
-            // Ignore fetch errors, let backend synthesis fail normally
+          } catch (e, stack) {
+            Sentry.captureException(e, stackTrace: stack);
           }
         }
 
         // Use custom backend synthesis
-        final audioBytes = await _repository.getAudioBytes(text, voiceId, gptSovitsUrl: gptSovitsUrl);
+        final audioBytes = await _ttsRepository.getAudioBytes(text, voiceId,
+            gptSovitsUrl: gptSovitsUrl);
         await _audioPlayer.setAudioSource(BytesAudioSource(audioBytes));
         await _audioPlayer.play();
         state = state.copyWith(clearError: true);
@@ -776,7 +836,6 @@ class ChatViewModel extends StateNotifier<ChatState> {
       state = state.copyWith(error: 'Failed to delete all chats: $e');
     }
   }
-
 
   Future<String?> duplicateThread(String threadId) async {
     try {

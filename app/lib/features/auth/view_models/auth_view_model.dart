@@ -6,7 +6,8 @@ final authStateProvider = StreamProvider<AuthState>((ref) {
   return ref.watch(authRepositoryProvider).authStateChanges;
 });
 
-final authViewModelProvider = StateNotifierProvider<AuthViewModel, AsyncValue<User?>>((ref) {
+final authViewModelProvider =
+    StateNotifierProvider<AuthViewModel, AsyncValue<User?>>((ref) {
   final repository = ref.watch(authRepositoryProvider);
   return AuthViewModel(repository);
 });
@@ -31,6 +32,15 @@ class AuthViewModel extends StateNotifier<AsyncValue<User?>> {
     state = const AsyncValue.loading();
     try {
       await _repository.signInWithEmail(email, password);
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+    }
+  }
+
+  Future<void> signInWithOAuth(OAuthProvider provider) async {
+    state = const AsyncValue.loading();
+    try {
+      await _repository.signInWithOAuth(provider);
     } catch (e, st) {
       state = AsyncValue.error(e, st);
     }

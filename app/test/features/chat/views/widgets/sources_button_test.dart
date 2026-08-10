@@ -16,7 +16,7 @@ void main() {
           'title': 'Test News 1',
         },
         {
-          'url': 'https://anotherexample.com/article',
+          'link': 'https://anotherexample.com/article',
           'title': 'Test Article 2',
         }
       ],

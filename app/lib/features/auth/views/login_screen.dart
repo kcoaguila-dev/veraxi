@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:veraxi_app/core/theme_provider.dart';
 import 'package:veraxi_app/features/auth/view_models/auth_view_model.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -22,7 +23,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   void _submit() async {
     final email = _emailController.text.trim();
     final password = _passwordController.text;
-    
+
     if (email.isEmpty || password.isEmpty) return;
 
     final authVm = ref.read(authViewModelProvider.notifier);
@@ -36,7 +37,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     if (authState.hasError && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(authState.error.toString(), style: const TextStyle(color: Colors.white)),
+          content: Text(authState.error.toString(),
+              style: const TextStyle(color: Colors.white)),
           backgroundColor: Theme.of(context).colorScheme.error,
         ),
       );
@@ -75,7 +77,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         actions: [
           IconButton(
             icon: Icon(
-              theme.brightness == Brightness.dark ? Icons.light_mode : Icons.dark_mode,
+              theme.brightness == Brightness.dark
+                  ? Icons.light_mode
+                  : Icons.dark_mode,
               color: theme.colorScheme.onSurface,
             ),
             onPressed: () {
@@ -102,8 +106,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           ),
           Center(
             child: Container(
-              width: 400,
-              padding: const EdgeInsets.all(40),
+              constraints: const BoxConstraints(maxWidth: 400),
+              margin: const EdgeInsets.symmetric(horizontal: 24),
+              padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
                 color: theme.colorScheme.surface.withValues(alpha: 0.5),
                 borderRadius: BorderRadius.circular(24),
@@ -123,7 +128,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.change_history, color: theme.colorScheme.primary, size: 48),
+                      Icon(Icons.change_history,
+                          color: theme.colorScheme.primary, size: 48),
                       const SizedBox(height: 24),
                       Text(
                         _isSignUp ? 'Create Account' : 'Welcome Back',
@@ -136,7 +142,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        _isSignUp ? 'Join Veraxi today.' : 'Sign in to access your agents.',
+                        _isSignUp
+                            ? 'Join Veraxi today.'
+                            : 'Sign in to access your agents.',
                         style: GoogleFonts.inter(
                           color: theme.colorScheme.onSurfaceVariant,
                           fontSize: 14,
@@ -148,7 +156,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         style: TextStyle(color: theme.colorScheme.onSurface),
                         decoration: InputDecoration(
                           hintText: 'Email Address',
-                          prefixIcon: Icon(Icons.email_outlined, color: theme.colorScheme.onSurfaceVariant),
+                          prefixIcon: Icon(Icons.email_outlined,
+                              color: theme.colorScheme.onSurfaceVariant),
                         ),
                       ),
                       const SizedBox(height: 16),
@@ -158,7 +167,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         style: TextStyle(color: theme.colorScheme.onSurface),
                         decoration: InputDecoration(
                           hintText: 'Password',
-                          prefixIcon: Icon(Icons.lock_outline, color: theme.colorScheme.onSurfaceVariant),
+                          prefixIcon: Icon(Icons.lock_outline,
+                              color: theme.colorScheme.onSurfaceVariant),
                         ),
                       ),
                       const SizedBox(height: 32),
@@ -170,18 +180,23 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             backgroundColor: theme.colorScheme.primary,
                             foregroundColor: theme.colorScheme.onPrimary,
                             padding: const EdgeInsets.symmetric(vertical: 20),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12)),
                             elevation: 0,
                           ),
                           child: authState.isLoading
                               ? SizedBox(
                                   width: 24,
                                   height: 24,
-                                  child: CircularProgressIndicator(color: theme.colorScheme.onPrimary, strokeWidth: 2),
+                                  child: CircularProgressIndicator(
+                                      color: theme.colorScheme.onPrimary,
+                                      strokeWidth: 2),
                                 )
                               : Text(
                                   _isSignUp ? 'Sign Up' : 'Sign In',
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16),
                                 ),
                         ),
                       ),
@@ -193,8 +208,71 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           });
                         },
                         child: Text(
-                          _isSignUp ? 'Already have an account? Sign in' : "Don't have an account? Sign up",
-                          style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
+                          _isSignUp
+                              ? 'Already have an account? Sign in'
+                              : "Don't have an account? Sign up",
+                          style: TextStyle(
+                              color: theme.colorScheme.onSurfaceVariant),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Expanded(
+                              child: Divider(
+                                  color: theme.colorScheme.outlineVariant)),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            child: Text('OR',
+                                style: TextStyle(
+                                    color: theme.colorScheme.onSurfaceVariant,
+                                    fontSize: 12)),
+                          ),
+                          Expanded(
+                              child: Divider(
+                                  color: theme.colorScheme.outlineVariant)),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: () {
+                            ref
+                                .read(authViewModelProvider.notifier)
+                                .signInWithOAuth(OAuthProvider.google);
+                          },
+                          icon: const Icon(Icons.g_mobiledata, size: 24),
+                          label: const Text('Continue with Google'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: theme.colorScheme.onSurface,
+                            side: BorderSide(
+                                color: theme.colorScheme.outlineVariant),
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12)),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: () {
+                            ref
+                                .read(authViewModelProvider.notifier)
+                                .signInWithOAuth(OAuthProvider.github);
+                          },
+                          icon: const Icon(Icons.code, size: 20),
+                          label: const Text('Continue with GitHub'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: theme.colorScheme.onSurface,
+                            side: BorderSide(
+                                color: theme.colorScheme.outlineVariant),
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12)),
+                          ),
                         ),
                       )
                     ],

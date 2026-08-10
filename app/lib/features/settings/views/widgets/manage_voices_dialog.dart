@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:veraxi_app/features/settings/view_models/tts_settings_view_model.dart';
+import 'package:sentry_flutter/sentry_flutter.dart';
 
 class ManageVoicesDialog extends ConsumerStatefulWidget {
   const ManageVoicesDialog({super.key});
@@ -20,7 +21,8 @@ class _ManageVoicesDialogState extends ConsumerState<ManageVoicesDialog> {
     super.initState();
     final currentState = ref.read(ttsSettingsViewModelProvider);
     // Deep copy to allow editing without affecting global state until save
-    _voices = currentState.voices.map((v) => Map<String, dynamic>.from(v)).toList();
+    _voices =
+        currentState.voices.map((v) => Map<String, dynamic>.from(v)).toList();
   }
 
   void _addVoice() {
@@ -57,11 +59,13 @@ class _ManageVoicesDialogState extends ConsumerState<ManageVoicesDialog> {
         context: context,
         builder: (ctx) => AlertDialog(
           backgroundColor: const Color(0xFF1E1E1E),
-          title: const Text('Configure New Voice', style: TextStyle(color: Colors.white)),
+          title: const Text('Configure New Voice',
+              style: TextStyle(color: Colors.white)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('Selected: $fileName', style: const TextStyle(color: Colors.grey)),
+              Text('Selected: $fileName',
+                  style: const TextStyle(color: Colors.grey)),
               const SizedBox(height: 16),
               TextField(
                 controller: nameController,
@@ -91,14 +95,19 @@ class _ManageVoicesDialogState extends ConsumerState<ManageVoicesDialog> {
                         allowedExtensions: ['txt'],
                         withData: true,
                       );
-                      if (txtResult != null && txtResult.files.single.bytes != null) {
+                      if (txtResult != null &&
+                          txtResult.files.single.bytes != null) {
                         try {
-                          final text = utf8.decode(txtResult.files.single.bytes!);
+                          final text =
+                              utf8.decode(txtResult.files.single.bytes!);
                           promptController.text = text;
-                        } catch (e) {
+                        } catch (e, st) {
+                          Sentry.captureException(e, stackTrace: st);
                           if (mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('Failed to read text file: $e')),
+                              SnackBar(
+                                  content:
+                                      Text('Failed to read text file: $e')),
                             );
                           }
                         }
@@ -116,7 +125,8 @@ class _ManageVoicesDialogState extends ConsumerState<ManageVoicesDialog> {
             ),
             ElevatedButton(
               onPressed: () => Navigator.pop(ctx, true),
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.white, foregroundColor: Colors.black),
+              style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.white, foregroundColor: Colors.black),
               child: const Text('Upload'),
             ),
           ],
@@ -127,22 +137,25 @@ class _ManageVoicesDialogState extends ConsumerState<ManageVoicesDialog> {
         setState(() => _isSaving = true);
         try {
           await ref.read(ttsSettingsViewModelProvider.notifier).uploadVoice(
-            nameController.text,
-            promptController.text,
-            bytes.toList(),
-            fileName,
-          );
+                nameController.text,
+                promptController.text,
+                bytes.toList(),
+                fileName,
+              );
           if (mounted) {
             // Refresh voices
             final currentState = ref.read(ttsSettingsViewModelProvider);
             setState(() {
-              _voices = currentState.voices.map((v) => Map<String, dynamic>.from(v)).toList();
+              _voices = currentState.voices
+                  .map((v) => Map<String, dynamic>.from(v))
+                  .toList();
             });
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('Voice uploaded successfully!')),
             );
           }
-        } catch (e) {
+        } catch (e, st) {
+          Sentry.captureException(e, stackTrace: st);
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(content: Text('Failed to upload: $e')),
@@ -218,16 +231,19 @@ class _ManageVoicesDialogState extends ConsumerState<ManageVoicesDialog> {
               child: ListView.separated(
                 shrinkWrap: true,
                 itemCount: _voices.length,
-                separatorBuilder: (context, index) => const Divider(color: Color(0xFF2A2A2A)),
+                separatorBuilder: (context, index) =>
+                    const Divider(color: Color(0xFF2A2A2A)),
                 itemBuilder: (context, index) {
                   final voice = _voices[index];
                   final isSystem = voice['id'] == 'default_system';
-                  
+
                   if (isSystem) {
                     return ListTile(
                       contentPadding: EdgeInsets.zero,
-                      title: Text(voice['name'] ?? 'System Default', style: const TextStyle(color: Colors.white)),
-                      subtitle: const Text('Cannot be edited or removed.', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                      title: Text(voice['name'] ?? 'System Default',
+                          style: const TextStyle(color: Colors.white)),
+                      subtitle: const Text('Cannot be edited or removed.',
+                          style: TextStyle(color: Colors.grey, fontSize: 12)),
                     );
                   }
 
@@ -249,21 +265,27 @@ class _ManageVoicesDialogState extends ConsumerState<ManageVoicesDialog> {
                   children: [
                     TextButton.icon(
                       onPressed: _addVoice,
-                      icon: const Icon(Icons.add, color: Colors.white, size: 18),
-                      label: const Text('Manual Entry', style: TextStyle(color: Colors.white)),
+                      icon:
+                          const Icon(Icons.add, color: Colors.white, size: 18),
+                      label: const Text('Manual Entry',
+                          style: TextStyle(color: Colors.white)),
                       style: TextButton.styleFrom(
                         backgroundColor: const Color(0xFF2A2A2A),
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 12),
                       ),
                     ),
                     const SizedBox(width: 8),
                     TextButton.icon(
                       onPressed: _uploadVoice,
-                      icon: const Icon(Icons.upload_file, color: Colors.white, size: 18),
-                      label: const Text('Upload Audio', style: TextStyle(color: Colors.white)),
+                      icon: const Icon(Icons.upload_file,
+                          color: Colors.white, size: 18),
+                      label: const Text('Upload Audio',
+                          style: TextStyle(color: Colors.white)),
                       style: TextButton.styleFrom(
                         backgroundColor: const Color(0xFF10A37F),
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 12),
                       ),
                     ),
                   ],
@@ -273,10 +295,14 @@ class _ManageVoicesDialogState extends ConsumerState<ManageVoicesDialog> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.white,
                     foregroundColor: Colors.black,
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 24, vertical: 12),
                   ),
-                  child: _isSaving 
-                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                  child: _isSaving
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2))
                       : const Text('Save Changes'),
                 ),
               ],
@@ -314,8 +340,10 @@ class _VoiceEditorFormState extends State<_VoiceEditorForm> {
   void initState() {
     super.initState();
     _nameController = TextEditingController(text: widget.voice['name']);
-    _pathController = TextEditingController(text: widget.voice['ref_audio_path']);
-    _promptController = TextEditingController(text: widget.voice['prompt_text']);
+    _pathController =
+        TextEditingController(text: widget.voice['ref_audio_path']);
+    _promptController =
+        TextEditingController(text: widget.voice['prompt_text']);
     _promptLang = widget.voice['prompt_lang'] ?? 'en';
     _textLang = widget.voice['text_lang'] ?? 'en';
   }
@@ -357,7 +385,8 @@ class _VoiceEditorFormState extends State<_VoiceEditorForm> {
             ],
           ),
           const SizedBox(height: 8),
-          _buildTextField('Audio Path (e.g. voices/geralt.wav)', _pathController, _update),
+          _buildTextField(
+              'Audio Path (e.g. voices/geralt.wav)', _pathController, _update),
           const SizedBox(height: 8),
           _buildTextField(
             'Reference Transcript',
@@ -378,7 +407,8 @@ class _VoiceEditorFormState extends State<_VoiceEditorForm> {
                     final text = utf8.decode(txtResult.files.single.bytes!);
                     _promptController.text = text;
                     _update();
-                  } catch (e) {
+                  } catch (e, st) {
+                    Sentry.captureException(e, stackTrace: st);
                     if (mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(content: Text('Failed to read text file: $e')),
@@ -390,17 +420,19 @@ class _VoiceEditorFormState extends State<_VoiceEditorForm> {
             ),
           ),
           const SizedBox(height: 8),
-        Row(
+          Row(
             children: [
               Expanded(
-                child: _buildDropdown('Transcript Language', _promptLang, (val) {
+                child:
+                    _buildDropdown('Transcript Language', _promptLang, (val) {
                   setState(() => _promptLang = val!);
                   _update();
                 }),
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: _buildDropdown('Generated Speech Language', _textLang, (val) {
+                child: _buildDropdown('Generated Speech Language', _textLang,
+                    (val) {
                   setState(() => _textLang = val!);
                   _update();
                 }),
@@ -412,7 +444,9 @@ class _VoiceEditorFormState extends State<_VoiceEditorForm> {
     );
   }
 
-  Widget _buildTextField(String label, TextEditingController controller, VoidCallback onChanged, {Widget? suffixIcon, String? hintText}) {
+  Widget _buildTextField(
+      String label, TextEditingController controller, VoidCallback onChanged,
+      {Widget? suffixIcon, String? hintText}) {
     return TextField(
       controller: controller,
       onChanged: (_) => onChanged(),
@@ -442,7 +476,8 @@ class _VoiceEditorFormState extends State<_VoiceEditorForm> {
     );
   }
 
-  Widget _buildDropdown(String label, String value, ValueChanged<String?> onChanged) {
+  Widget _buildDropdown(
+      String label, String value, ValueChanged<String?> onChanged) {
     return DropdownButtonFormField<String>(
       initialValue: value,
       onChanged: onChanged,

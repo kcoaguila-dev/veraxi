@@ -1,13 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
-import 'package:veraxi_app/core/network/api_client.dart';
-import 'package:veraxi_app/features/chat/data/chat_repository.dart';
+import 'package:veraxi_app/core/network/tts_repository.dart';
 import 'package:veraxi_app/core/tts_settings_storage.dart';
 
 final ttsSettingsViewModelProvider =
     StateNotifierProvider<TTSSettingsViewModel, TTSSettingsState>((ref) {
-  final apiClient = ref.watch(apiClientProvider);
-  final repository = ChatRepository(apiClient: apiClient);
+  final repository = ref.watch(ttsRepositoryProvider);
   return TTSSettingsViewModel(repository);
 });
 
@@ -49,7 +47,7 @@ class TTSSettingsState {
 }
 
 class TTSSettingsViewModel extends StateNotifier<TTSSettingsState> {
-  final ChatRepository _repository;
+  final TTSRepository _repository;
   final TTSSettingsStorage _storage = TTSSettingsStorage();
 
   TTSSettingsViewModel(this._repository) : super(TTSSettingsState()) {
@@ -61,12 +59,14 @@ class TTSSettingsViewModel extends StateNotifier<TTSSettingsState> {
     try {
       final savedVoiceId = await _storage.getVoiceId() ?? 'default_system';
       final savedEngine = await _storage.getEngine() ?? 'Browser';
-      final savedUrl = await _storage.getGptSovitsUrl() ?? 'http://localhost:9880';
+      final savedUrl =
+          await _storage.getGptSovitsUrl() ?? 'http://localhost:9880';
       final voices = await _repository.getVoices(gptSovitsUrl: savedUrl);
-      
+
       String activeVoiceId = savedVoiceId;
       if (savedEngine == 'GPT-SoVITS' && activeVoiceId == 'default_system') {
-        final customVoices = voices.where((v) => v['id'] != 'default_system').toList();
+        final customVoices =
+            voices.where((v) => v['id'] != 'default_system').toList();
         if (customVoices.isNotEmpty) {
           activeVoiceId = customVoices.first['id'] as String;
           await _storage.saveVoiceId(activeVoiceId);
@@ -87,7 +87,8 @@ class TTSSettingsViewModel extends StateNotifier<TTSSettingsState> {
         {'id': 'default_system', 'name': 'Default (System)'}
       ];
       final savedVoiceId = await _storage.getVoiceId() ?? 'default_system';
-      final savedUrl = await _storage.getGptSovitsUrl() ?? 'http://localhost:9880';
+      final savedUrl =
+          await _storage.getGptSovitsUrl() ?? 'http://localhost:9880';
       state = state.copyWith(
         isLoading: false,
         error: 'Failed to load voices: $e',
@@ -105,12 +106,14 @@ class TTSSettingsViewModel extends StateNotifier<TTSSettingsState> {
 
   Future<void> setEngine(String engine) async {
     await _storage.saveEngine(engine);
-    
+
     String? newVoiceId;
     if (engine == 'Browser') {
       newVoiceId = 'default_system';
-    } else if (engine == 'GPT-SoVITS' && state.selectedVoiceId == 'default_system') {
-      final customVoices = state.voices.where((v) => v['id'] != 'default_system').toList();
+    } else if (engine == 'GPT-SoVITS' &&
+        state.selectedVoiceId == 'default_system') {
+      final customVoices =
+          state.voices.where((v) => v['id'] != 'default_system').toList();
       if (customVoices.isNotEmpty) {
         newVoiceId = customVoices.first['id'] as String?;
       }
@@ -118,7 +121,8 @@ class TTSSettingsViewModel extends StateNotifier<TTSSettingsState> {
 
     if (newVoiceId != null && newVoiceId != state.selectedVoiceId) {
       await _storage.saveVoiceId(newVoiceId);
-      state = state.copyWith(selectedEngine: engine, selectedVoiceId: newVoiceId);
+      state =
+          state.copyWith(selectedEngine: engine, selectedVoiceId: newVoiceId);
     } else {
       state = state.copyWith(selectedEngine: engine);
     }
@@ -145,7 +149,8 @@ class TTSSettingsViewModel extends StateNotifier<TTSSettingsState> {
     }
   }
 
-  Future<void> uploadVoice(String name, String promptText, List<int> fileBytes, String fileName) async {
+  Future<void> uploadVoice(String name, String promptText, List<int> fileBytes,
+      String fileName) async {
     state = state.copyWith(isLoading: true, clearError: true);
     try {
       await _repository.uploadVoice(name, promptText, fileBytes, fileName);

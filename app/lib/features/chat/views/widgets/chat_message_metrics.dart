@@ -23,8 +23,8 @@ class _ChatMessageMetricsState extends State<ChatMessageMetrics> {
     final theme = Theme.of(context);
     final ext = theme.extension<AppThemeExtension>();
 
-    final contextAdherence =
-      _toDouble(widget.metrics['context_adherence'] ?? widget.metrics['grounding_score']);
+    final contextAdherence = _toDouble(widget.metrics['context_adherence'] ??
+        widget.metrics['grounding_score']);
     final confidence = _toDouble(widget.metrics['confidence']);
     final generationSeconds = _toDouble(widget.metrics['generation_seconds']);
 
@@ -75,7 +75,8 @@ class _ChatMessageMetricsState extends State<ChatMessageMetrics> {
                 _MetricTile(
                   label: 'Generation',
                   value: generationSeconds,
-                  accentColor: ext?.primaryGradientStart ?? const Color(0xFF22C55E),
+                  accentColor:
+                      ext?.primaryGradientStart ?? const Color(0xFF22C55E),
                   isDuration: true,
                 ),
               ],
@@ -86,7 +87,8 @@ class _ChatMessageMetricsState extends State<ChatMessageMetrics> {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(Icons.info_outline, size: 14, color: Color(0xFF8A8A8A)),
+                    const Icon(Icons.info_outline,
+                        size: 14, color: Color(0xFF8A8A8A)),
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
@@ -117,8 +119,6 @@ class _ChatMessageMetricsState extends State<ChatMessageMetrics> {
     return null;
   }
 }
-
-
 
 class _MetricTile extends StatelessWidget {
   final String label;
@@ -172,7 +172,8 @@ class _MetricTile extends StatelessWidget {
               ),
             )
           else
-            const SizedBox(height: 4), // Placeholder to keep tile height consistent
+            const SizedBox(
+                height: 4), // Placeholder to keep tile height consistent
           const SizedBox(height: 8),
           Text(
             _formatValue(),

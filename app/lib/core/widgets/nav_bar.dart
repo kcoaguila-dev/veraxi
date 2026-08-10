@@ -17,7 +17,10 @@ class NavBar extends ConsumerWidget {
       height: 80,
       decoration: BoxDecoration(
         color: theme.scaffoldBackgroundColor,
-        border: Border(bottom: BorderSide(color: theme.colorScheme.onSurface.withValues(alpha: 0.1), width: 1)),
+        border: Border(
+            bottom: BorderSide(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.1),
+                width: 1)),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 40),
       child: Row(
@@ -25,7 +28,8 @@ class NavBar extends ConsumerWidget {
         children: [
           Row(
             children: [
-              Icon(Icons.change_history, color: theme.colorScheme.primary, size: 28),
+              Icon(Icons.change_history,
+                  color: theme.colorScheme.primary, size: 28),
               const SizedBox(width: 8),
               Text(
                 'Veraxi',
@@ -57,21 +61,25 @@ class NavBar extends ConsumerWidget {
                 const SizedBox(width: 32),
                 _NavLink(
                   title: 'GitHub',
-                  onTap: () => _launchUrl('https://github.com/kcoaguila-dev/veraxi'),
+                  onTap: () =>
+                      _launchUrl('https://github.com/kcoaguila-dev/veraxi'),
                 ),
               ],
             ),
           Row(
             children: [
               IconButton(
-                icon: Icon(theme.brightness == Brightness.dark ? Icons.light_mode : Icons.dark_mode),
+                icon: Icon(theme.brightness == Brightness.dark
+                    ? Icons.light_mode
+                    : Icons.dark_mode),
                 color: theme.colorScheme.onSurface,
                 onPressed: () => ref.read(themeProvider.notifier).toggle(),
               ),
               const SizedBox(width: 16),
               TextButton(
                 onPressed: () => context.go('/login'),
-                style: TextButton.styleFrom(foregroundColor: theme.colorScheme.onSurface),
+                style: TextButton.styleFrom(
+                    foregroundColor: theme.colorScheme.onSurface),
                 child: const Text('Sign In'),
               ),
               const SizedBox(width: 16),
@@ -80,10 +88,13 @@ class NavBar extends ConsumerWidget {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: theme.colorScheme.onSurface,
                   foregroundColor: theme.scaffoldBackgroundColor,
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8)),
                 ),
-                child: const Text('Get Started', style: TextStyle(fontWeight: FontWeight.bold)),
+                child: const Text('Get Started',
+                    style: TextStyle(fontWeight: FontWeight.bold)),
               ),
             ],
           ),
