@@ -167,23 +167,34 @@ class SourcesButton extends StatelessWidget {
   }
 
   static String _extractUrl(Map item) {
-    if (item.containsKey('sources') && (item['sources'] as List).isNotEmpty) {
-      return item['sources'][0].toString();
-    }
-    if (item.containsKey('url')) {
+    // Priority 1: url directly on the item
+    if (item.containsKey('url') && item['url'].toString().isNotEmpty) {
       return item['url'].toString();
+    }
+    // Priority 2: url inside payload (where WebHit stores the real URL)
+    if (item.containsKey('payload') && item['payload'] is Map) {
+      final payload = item['payload'] as Map;
+      if (payload.containsKey('url') && payload['url'].toString().isNotEmpty) {
+        return payload['url'].toString();
+      }
+      if (payload.containsKey('link') && payload['link'].toString().isNotEmpty) {
+        return payload['link'].toString();
+      }
+      if (payload.containsKey('source') && payload['source'].toString().isNotEmpty) {
+        return payload['source'].toString();
+      }
+    }
+    // Priority 3: sources array — but only if it looks like a real URL (not "vector"/"graph")
+    if (item.containsKey('sources') && (item['sources'] as List).isNotEmpty) {
+      final s = item['sources'][0].toString();
+      if (s.startsWith('http')) return s;
     }
     if (item.containsKey('link')) {
       return item['link'].toString();
     }
-    if (item.containsKey('payload') && item['payload'] is Map) {
-      final payload = item['payload'] as Map;
-      if (payload.containsKey('url')) return payload['url'].toString();
-      if (payload.containsKey('link')) return payload['link'].toString();
-      if (payload.containsKey('source')) return payload['source'].toString();
-    }
     return '';
   }
+
 
   static String _extractTitle(Map item) {
     if (item.containsKey('payload') && item['payload'] is Map) {
