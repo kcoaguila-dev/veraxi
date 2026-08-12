@@ -21,6 +21,7 @@ def get_test_cases():
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("item", get_test_cases())
+@pytest.mark.skipif(os.environ.get("GEMINI_API_KEY", "test_gemini_key") == "test_gemini_key", reason="Needs real GEMINI_API_KEY")
 async def test_rag_pipeline(item, patch_env):
     """
     Evaluates the RAG pipeline using DeepEval's LLM-as-a-judge (Gemini).
