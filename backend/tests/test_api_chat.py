@@ -171,20 +171,30 @@ async def test_audio_endpoint_missing_voice_id():
 @pytest.mark.asyncio
 async def test_audio_endpoint_success():
     with patch("backend.tts.gpt_sovits_client.GPTSoVITSClient.synthesize", new_callable=AsyncMock) as mock_synthesize:
-        mock_synthesize.return_value = b"fake audio bytes"
-        response = client.post(
-            "/api/chat/audio",
-            json={"text": "hello world", "voice_id": "voice_1"}
-        )
-        assert response.status_code == 200
-        assert response.content == b"fake audio bytes"
-        mock_synthesize.assert_called_once_with(
-            text="hello world",
-            ref_audio_path="alex_ref.wav",
-            prompt_text="This is a reference audio for Alex.",
-            prompt_lang="en",
-            text_lang="en"
-        )
+        with patch("backend.tts.voices.get_voice") as mock_get_voice:
+            mock_synthesize.return_value = b"fake audio bytes"
+            mock_get_voice.return_value = {
+                "id": "voice_1",
+                "name": "Alex",
+                "ref_audio_path": "alex_ref.wav",
+                "prompt_text": "This is a reference audio for Alex.",
+                "prompt_lang": "en",
+                "text_lang": "en"
+            }
+            
+            response = client.post(
+                "/api/chat/audio",
+                json={"text": "hello world", "voice_id": "voice_1"}
+            )
+            assert response.status_code == 200
+            assert response.content == b"fake audio bytes"
+            mock_synthesize.assert_called_once_with(
+                text="hello world",
+                ref_audio_path="alex_ref.wav",
+                prompt_text="This is a reference audio for Alex.",
+                prompt_lang="en",
+                text_lang="en"
+            )
 
 @pytest.mark.asyncio
 async def test_audio_endpoint_unconfigured_voice():

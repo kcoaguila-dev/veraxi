@@ -1335,7 +1335,7 @@ async def export_user_data(request: Request, tenant_id: str = Depends(get_tenant
                     "title": title,
                     "messages": messages
                 })
-                return export_data
+        return export_data
     except Exception as e:
         sentry_sdk.capture_exception(e)
         raise HTTPException(status_code=500, detail="Failed to export data")

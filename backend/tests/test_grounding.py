@@ -49,6 +49,6 @@ def test_grounding_empty_context():
 
 
 def test_grounding_empty_response():
-    # Should short-circuit and return 1.0 (no false claims made)
+    # Should short-circuit and return None
     score = evaluate_groundedness("", "Context text")
-    assert score == 1.0
+    assert score is None
