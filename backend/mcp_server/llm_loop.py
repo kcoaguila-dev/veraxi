@@ -224,6 +224,7 @@ def _execute_single_tool(tool_name: str, tool_input: dict, tenant_id: str, tool_
                 self.id = str(uuid.uuid4())
                 self.payload = {
                     "text": res.get("content", ""),
+                    "snippet": res.get("snippet", ""),
                     "title": res.get("title", ""),
                     "url": res.get("url", "")
                 }

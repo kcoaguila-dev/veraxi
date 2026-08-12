@@ -66,6 +66,11 @@ class ChatRepository {
     return List<Map<String, dynamic>>.from(data['messages'] ?? []);
   }
 
+  Future<List<Map<String, dynamic>>> getSharedThreadHistory(String threadId) async {
+    final data = await apiClient.get('/shared/threads/$threadId');
+    return List<Map<String, dynamic>>.from(data['messages'] ?? []);
+  }
+
   String _getProviderFromModel(String? model) {
     if (model == null || model.isEmpty) return 'unknown';
     model = model.toLowerCase();

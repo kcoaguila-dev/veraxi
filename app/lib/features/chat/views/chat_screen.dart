@@ -44,8 +44,26 @@ class CitationElementBuilder extends MarkdownElementBuilder {
         url: href ?? '',
         message: message,
       );
+    } else if (element.tag == 'cite') {
+      return CitationChip(
+        text: element.textContent,
+        url: '', // the chip will resolve the URL from the message's tool events
+        message: message,
+      );
     }
     return null;
+  }
+}
+
+class CitationSyntax extends md.InlineSyntax {
+  CitationSyntax() : super(r'\[([^\]]+)\](?:\s*\(\s*(?:-\s*)?https?:\/\/[^\)]+\s*\))?\s*[.,;:]?');
+
+  @override
+  bool onMatch(md.InlineParser parser, Match match) {
+    final text = match[1]!;
+    final element = md.Element.text('cite', text);
+    parser.addNode(element);
+    return true;
   }
 }
 
@@ -1934,9 +1952,17 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                               if (msg.content.isNotEmpty)
                                 MarkdownBody(
                                   data: msg.content,
+                                  extensionSet: md.ExtensionSet(
+                                    md.ExtensionSet.gitHubFlavored.blockSyntaxes,
+                                    [
+                                      CitationSyntax(),
+                                      ...md.ExtensionSet.gitHubFlavored.inlineSyntaxes,
+                                    ],
+                                  ),
                                   builders: {
                                     'code': CodeElementBuilder(context),
                                     'a': CitationElementBuilder(message: msg),
+                                    'cite': CitationElementBuilder(message: msg),
                                   },
                                   styleSheet: MarkdownStyleSheet(
                                     p: theme.textTheme.bodyLarge
@@ -2740,7 +2766,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     if (!context.mounted) return;
 
     if (shareId != null) {
-      final url = 'http://localhost:3000/share/$shareId'; // Placeholder URL
+      // Use standard Dart web library for host if possible, or fallback to current host pattern
+      // For cross-platform support without dart:html, we can just use the current flutter web url base
+      // But since we can't easily access the base URL without router config, we'll hardcode it to the
+      // current app domain or localhost for now, but provide a copy button.
+      // Better: Use Uri.base from dart:core
+      final baseUrl = Uri.base.origin;
+      final url = '$baseUrl/#/share/$shareId';
+      
       showDialog(
         context: context,
         builder: (context) {
@@ -2753,11 +2786,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                    'Anyone with this link can view the shared snapshot.',
+                    'Anyone with this link can view the shared conversation.',
                     style: TextStyle(color: Color(0xFFB4B4B4), fontSize: 13)),
                 const SizedBox(height: 16),
                 Container(
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.only(left: 12, right: 4, top: 4, bottom: 4),
                   decoration: BoxDecoration(
                     color: const Color(0xFF2A2A2A),
                     borderRadius: BorderRadius.circular(8),
@@ -2771,6 +2804,19 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                               color: Colors.white, fontSize: 13),
                           overflow: TextOverflow.ellipsis,
                         ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.copy, size: 18, color: Color(0xFFB4B4B4)),
+                        onPressed: () {
+                          Clipboard.setData(ClipboardData(text: url));
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Link copied to clipboard', style: TextStyle(color: Colors.white)),
+                              backgroundColor: Color(0xFF4CAF50),
+                              behavior: SnackBarBehavior.floating,
+                            ),
+                          );
+                        },
                       ),
                     ],
                   ),

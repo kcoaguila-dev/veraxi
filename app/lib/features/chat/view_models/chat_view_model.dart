@@ -471,12 +471,28 @@ class ChatViewModel extends StateNotifier<ChatState> {
     } catch (e, st) {
       Sentry.captureException(e, stackTrace: st);
       final errorStr = e.toString();
+      
+      bool isNetworkError = errorStr.contains("SocketException") || 
+                            errorStr.contains("ClientException") || 
+                            errorStr.contains("Failed host lookup") || 
+                            errorStr.contains("Connection refused");
+                            
       String uiError = "Error: Unable to complete request.";
-      if (errorStr.contains("No AI model selected")) {
-        uiError =
-            "No AI model selected. Please select a model from the top left menu.";
+      if (isNetworkError) {
+        uiError = "Network connection lost. Please check your internet connection and try again.";
+      } else if (errorStr.contains("No AI model selected")) {
+        uiError = "No AI model selected. Please select a model from the top left menu.";
       }
-      _updateLastMessage(content: uiError, isStreaming: false, isError: true);
+
+      String finalContent = uiError;
+      if (state.messages.isNotEmpty) {
+        final currentContent = state.messages.last.content;
+        if (currentContent.isNotEmpty && !currentContent.endsWith(uiError) && !currentContent.endsWith("[$uiError]")) {
+          finalContent = "$currentContent\n\n[$uiError]";
+        }
+      }
+
+      _updateLastMessage(content: finalContent, isStreaming: false, isError: true);
       state = state.copyWith(isLoading: false);
     }
   }

@@ -36,7 +36,8 @@ dependencies = [
     "redis",
     "langgraph-checkpoint-redis",
     "langchain-groq",
-    "spacy"
+    "spacy",
+    "trafilatura>=2.0",
 ]
 
 [project.optional-dependencies]

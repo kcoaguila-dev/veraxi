@@ -93,6 +93,61 @@ void main() {
     verifyNever(() => mockRepository.streamChat(any()));
   });
 
+  test('sendMessage handles network disconnection mid-stream and preserves content', () async {
+    await pumpEventQueue();
+    const question = 'Tell me a story';
+
+    when(() =>
+        mockRepository.streamChat(question,
+            threadId: any(named: 'threadId'),
+            model: 'test-model',
+            isTemporary: false,
+            calculateGrounding: any(named: 'calculateGrounding'),
+            toolSettings: any(named: 'toolSettings'))).thenAnswer((_) async* {
+          yield {
+            'event': 'on_chat_model_stream',
+            'data': {
+              'chunk': {'content': 'Once upon '}
+            }
+          };
+          yield {
+            'event': 'on_chat_model_stream',
+            'data': {
+              'chunk': {'content': 'a time'}
+            }
+          };
+          throw Exception('SocketException: Connection refused');
+        });
+
+    await viewModel.sendMessage(question, model: 'test-model');
+
+    expect(viewModel.state.messages.length, 2);
+    expect(viewModel.state.messages[1].isError, isTrue);
+    expect(viewModel.state.messages[1].content, contains('Once upon a time'));
+    expect(viewModel.state.messages[1].content, contains('[Network connection lost. Please check your internet connection and try again.]'));
+  });
+
+  test('sendMessage handles network disconnection with no prior content', () async {
+    await pumpEventQueue();
+    const question = 'Tell me a story';
+
+    when(() =>
+        mockRepository.streamChat(question,
+            threadId: any(named: 'threadId'),
+            model: 'test-model',
+            isTemporary: false,
+            calculateGrounding: any(named: 'calculateGrounding'),
+            toolSettings: any(named: 'toolSettings'))).thenAnswer((_) async* {
+          throw Exception('SocketException: Connection refused');
+        });
+
+    await viewModel.sendMessage(question, model: 'test-model');
+
+    expect(viewModel.state.messages.length, 2);
+    expect(viewModel.state.messages[1].isError, isTrue);
+    expect(viewModel.state.messages[1].content, 'Network connection lost. Please check your internet connection and try again.');
+  });
+
   test('sendMessage handles tool calls during streaming', () async {
     await pumpEventQueue();
     const question = 'Search graph';

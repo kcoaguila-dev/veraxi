@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:veraxi_app/features/auth/views/login_screen.dart';
 import 'package:veraxi_app/features/chat/views/chat_screen.dart';
+import 'package:veraxi_app/features/chat/views/shared_chat_screen.dart';
 import 'package:veraxi_app/features/control_panel/views/control_panel_screen.dart';
 import 'package:veraxi_app/features/docs/views/docs_screen.dart';
 import 'package:veraxi_app/features/landing/views/landing_screen.dart';
@@ -36,13 +37,14 @@ final goRouter = GoRouter(
     final isLoggingIn = state.matchedLocation == '/login';
     final isLanding = state.matchedLocation == '/';
     final isDocs = state.matchedLocation == '/docs';
+    final isShared = state.matchedLocation.startsWith('/share');
 
     // If self-hosted and user tries to access landing page, force to login
     if (isSelfHosted && isLanding) {
       return '/login';
     }
 
-    if (!isAuth && !isLoggingIn && !isLanding && !isDocs) {
+    if (!isAuth && !isLoggingIn && !isLanding && !isDocs && !isShared) {
       return '/login';
     }
 
@@ -62,6 +64,13 @@ final goRouter = GoRouter(
       path: '/docs',
       builder: (BuildContext context, GoRouterState state) =>
           const DocsScreen(),
+    ),
+    GoRoute(
+      path: '/share/:shareId',
+      builder: (BuildContext context, GoRouterState state) {
+        final shareId = state.pathParameters['shareId']!;
+        return SharedChatScreen(shareId: shareId);
+      },
     ),
     GoRoute(
       path: '/login',
