@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Depends, UploadFile, File, Request
+from fastapi import FastAPI, HTTPException, Depends, UploadFile, File, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 import httpx
 from backend.models_config import DEFAULT_PROVIDER_MODELS
@@ -433,6 +433,65 @@ async def get_thread_history(thread_id: str, request: Request, tenant_id: str = 
         sentry_sdk.capture_exception(e)
         logger.error(f"Error fetching thread {thread_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/chat/threads/{thread_id}/share")
+async def share_thread(thread_id: str, request: Request, tenant_id: str = Depends(get_tenant_id)):
+    """
+    Marks a thread as public, allowing anyone with the link to view it.
+    """
+    try:
+        # Verify ownership
+        is_owner = await request.app.state.redis.sismember(f"tenant:{tenant_id}:threads", thread_id)
+        if not is_owner:
+            raise HTTPException(status_code=403, detail="Thread not found or access denied.")
+            
+        await request.app.state.redis.set(f"shared_thread:{thread_id}", "true")
+        return {"success": True, "share_id": thread_id}
+    except HTTPException:
+        raise
+    except Exception as e:
+        sentry_sdk.capture_exception(e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/shared/threads/{thread_id}")
+async def get_shared_thread_history(thread_id: str, request: Request):
+    """
+    Returns the message history for a public thread. No auth required.
+    """
+    try:
+        # Check if it is shared
+        is_shared = await request.app.state.redis.get(f"shared_thread:{thread_id}")
+        if not is_shared:
+            raise HTTPException(status_code=404, detail="Shared thread not found.")
+            
+        from langgraph.checkpoint.redis.aio import AsyncRedisSaver
+        
+        config_obj = get_config()
+        config = {"configurable": {"thread_id": thread_id}}
+        
+        async with AsyncRedisSaver.from_conn_string(config_obj.redis_url) as memory:
+            state = await memory.aget_tuple(config)
+            
+        if not state:
+            return {"messages": []}
+            
+        raw_messages = state.checkpoint.get("channel_values", {}).get("messages", [])
+        
+        # Don't show personal feedbacks to public users
+        feedback_dict = {}
+
+        messages_out = _extract_messages_from_state(raw_messages, feedback_dict)
+                
+        return {"messages": messages_out}
+    except HTTPException:
+        raise
+    except Exception as e:
+        sentry_sdk.capture_exception(e)
+        logger.error(f"Error fetching shared thread {thread_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 
 
 class VoiceListResponse(BaseModel):
@@ -1276,12 +1335,10 @@ async def export_user_data(request: Request, tenant_id: str = Depends(get_tenant
                     "title": title,
                     "messages": messages
                 })
-                
-        return export_data
+                return export_data
     except Exception as e:
         sentry_sdk.capture_exception(e)
         raise HTTPException(status_code=500, detail="Failed to export data")
-
 
 @app.delete("/api/user/data")
 async def delete_user_data(request: Request, tenant_id: str = Depends(get_tenant_id)):

@@ -552,8 +552,8 @@ class _ChatInputState extends State<ChatInput> {
       height: 38,
       padding: EdgeInsets.zero,
       child: Container(
-        width: 240,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
+        width: 155,
+        padding: const EdgeInsets.symmetric(horizontal: 10),
         child: Row(
           children: [
             Icon(icon,
@@ -561,13 +561,15 @@ class _ChatInputState extends State<ChatInput> {
                     ? const Color(0xFF10A37F)
                     : const Color(0xFFB4B4B4),
                 size: 14),
-            const SizedBox(width: 12),
-            Text(text,
-                style: const TextStyle(
-                    color: Color(0xFFE0E0E0),
-                    fontSize: 13,
-                    fontWeight: FontWeight.w400)),
-            const Spacer(),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(text,
+                  style: const TextStyle(
+                      color: Color(0xFFE0E0E0),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w400),
+                  overflow: TextOverflow.ellipsis),
+            ),
             Icon(isActive ? LucideIcons.pinOff : LucideIcons.pin,
                 color: isActive
                     ? const Color(0xFF10A37F)
@@ -585,8 +587,8 @@ class _ChatInputState extends State<ChatInput> {
       height: 38,
       padding: EdgeInsets.zero,
       child: Container(
-        width: 240,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
+        width: 155,
+        padding: const EdgeInsets.symmetric(horizontal: 10),
         child: Row(
           children: [
             Icon(Icons.language,
@@ -594,13 +596,15 @@ class _ChatInputState extends State<ChatInput> {
                     ? const Color(0xFF10A37F)
                     : const Color(0xFFB4B4B4),
                 size: 14),
-            const SizedBox(width: 12),
-            const Text('Web Search',
-                style: TextStyle(
-                    color: Color(0xFFE0E0E0),
-                    fontSize: 13,
-                    fontWeight: FontWeight.w400)),
-            const Spacer(),
+            const SizedBox(width: 8),
+            const Expanded(
+              child: Text('Web Search',
+                  style: TextStyle(
+                      color: Color(0xFFE0E0E0),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w400),
+                  overflow: TextOverflow.ellipsis),
+            ),
             GestureDetector(
               onTap: () => Navigator.pop(context, 'web_search_config'),
               child: const Icon(Icons.settings_outlined,
@@ -624,8 +628,8 @@ class _ChatInputState extends State<ChatInput> {
       height: 38,
       padding: EdgeInsets.zero,
       child: Container(
-        width: 240,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
+        width: 155,
+        padding: const EdgeInsets.symmetric(horizontal: 10),
         child: Row(
           children: [
             Icon(Icons.extension_outlined,
@@ -633,13 +637,15 @@ class _ChatInputState extends State<ChatInput> {
                     ? const Color(0xFF10A37F)
                     : const Color(0xFFB4B4B4),
                 size: 14),
-            const SizedBox(width: 12),
-            const Text('Skills',
-                style: TextStyle(
-                    color: Color(0xFFE0E0E0),
-                    fontSize: 13,
-                    fontWeight: FontWeight.w400)),
-            const Spacer(),
+            const SizedBox(width: 8),
+            const Expanded(
+              child: Text('Skills',
+                  style: TextStyle(
+                      color: Color(0xFFE0E0E0),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w400),
+                  overflow: TextOverflow.ellipsis),
+            ),
             GestureDetector(
               onTap: () => Navigator.pop(context, 'skills_config'),
               child: const Icon(Icons.settings_outlined,
