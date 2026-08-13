@@ -4,6 +4,11 @@ A sovereign intelligence platform that combines a knowledge graph (Neo4j) and ve
 
 Veraxi utilizes Reciprocal Rank Fusion (RRF) to merge structured graph lookups and semantic vector similarities into a single, high-fidelity context window, allowing the LLM to deduce deep architectural and organizational realities with significantly reduced hallucination risk.
 
+## 🌐 Live Demo
+Veraxi is currently deployed and live!
+- **Frontend (Flutter Web):** [https://veraxi.me](https://veraxi.me) (Hosted on GitHub Pages)
+- **Backend API (FastAPI):** `https://veraxi-backend-877632476404.us-east4.run.app` (Hosted on Google Cloud Run)
+
 ## Why Hybrid GraphRAG?
 
 Standard vector-based RAG excels at simple, local lookups but hallucinates heavily when asked "global" or multi-hop questions (e.g., connecting disparate entities across a large corpus). Veraxi solves this by explicitly mapping relationships as hard mathematical edges in a graph, while still preserving vector search for fuzzy concepts. 
@@ -15,8 +20,8 @@ According to recent enterprise benchmarks, moving from standard vector RAG to a 
 
 ## Status
 
-**Alpha / Work In Progress.**
-The Veraxi platform is currently in active development. While much of the foundational infrastructure is built, we are currently working on implementing the backend for the Chat UI to fully connect the frontend to the intelligence engine.
+**v1.0.0 (MVP Live)**
+The Veraxi platform MVP has been successfully completed and deployed to production. 
 
 Features successfully implemented so far include:
 - A multi-tenant FastAPI engine featuring Stripe webhook integration and secure JWT authentication.
