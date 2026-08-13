@@ -28,10 +28,11 @@ def test_system_prompt_citation_format():
 
 @pytest.mark.asyncio
 @patch("backend.mcp_server.llm_loop.get_tools", new_callable=AsyncMock)
-@patch("backend.mcp_server.llm_loop.ChatOpenAI")
-async def test_call_model_passes_language_system_prompt(mock_chat, mock_get_tools):
+@patch("backend.mcp_server.llm_loop._create_chat_llm")
+async def test_call_model_passes_language_system_prompt(mock_create_llm, mock_get_tools):
     mock_get_tools.return_value = []
-    mock_instance = mock_chat.return_value
+    mock_instance = AsyncMock()
+    mock_create_llm.return_value = mock_instance
     mock_instance.bind_tools.return_value = mock_instance
 
     captured_messages = []
