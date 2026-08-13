@@ -48,7 +48,7 @@ final goRouter = GoRouter(
       return '/login';
     }
 
-    if (isAuth && (isLoggingIn || isLanding)) {
+    if (isAuth && isLoggingIn) {
       return '/chat';
     }
 

@@ -9,7 +9,7 @@ import logging
 import json
 import uuid
 from backend.mcp_server.llm_loop import answer_question, stream_answer_question, generate_chat_title
-from backend.config import get_config
+from backend.config import get_config, Config
 from backend.storage.qdrant_client import QdrantStorageClient
 from backend.storage.neo4j_client import Neo4jStorageClient
 from backend.mcp_server.server import mcp_server
@@ -1052,10 +1052,32 @@ def get_stats(tenant_id: str = Depends(get_tenant_id)):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+def check_tenant_hard_cap(tenant_id: str, config: Config):
+    try:
+        neo4j = Neo4jStorageClient.from_config(config)
+        records = neo4j.execute_read(
+            "MATCH (n) WHERE n.tenant_id = $tenant_id RETURN count(n) AS count",
+            parameters={"tenant_id": tenant_id},
+        )
+        node_count = records[0]["count"] if records else 0
+        neo4j.close()
+        
+        if node_count >= config.max_tenant_nodes:
+            raise HTTPException(
+                status_code=403,
+                detail=f"You have reached your personal Free Tier quota of {config.max_tenant_nodes} knowledge nodes. Please delete some older documents to free up space, or upgrade to Premium."
+            )
+    except HTTPException:
+        raise
+    except Exception as e:
+        sentry_sdk.capture_exception(e)
+        logger.error(f"Failed to check hard cap: {e}")
+
 @app.post("/api/admin/ingest")
 @limiter.limit(config.rate_limit_ingest)
 async def ingest_data(request: Request, ingest_request: IngestRequest, tenant_id: str = Depends(get_tenant_id)):
     try:
+        check_tenant_hard_cap(tenant_id, get_config())
         job = await request.app.state.redis.enqueue_job(
             "process_ingestion_task", 
             ingest_request.text, 
@@ -1133,13 +1155,23 @@ async def ingest_upload(
     tenant_id: str = Depends(get_tenant_id)
 ):
     try:
-        # Save uploaded file to temp file
+        check_tenant_hard_cap(tenant_id, get_config())
+        # Save uploaded file to temp file (with 5MB hard limit)
+        MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB
+        size = 0
         _, file_extension = os.path.splitext(file.filename)
         with tempfile.NamedTemporaryFile(
             delete=False, suffix=file_extension
         ) as tmp_file:
-            content = await file.read()
-            tmp_file.write(content)
+            while chunk := await file.read(1024 * 1024):
+                size += len(chunk)
+                if size > MAX_FILE_SIZE:
+                    os.unlink(tmp_file.name)
+                    raise HTTPException(
+                        status_code=413,
+                        detail="File exceeds the 5MB free-tier limit. Please upload a smaller file."
+                    )
+                tmp_file.write(chunk)
             tmp_path = tmp_file.name
 
         # Magic Bytes Validation
@@ -1199,6 +1231,7 @@ class UrlIngestRequest(BaseModel):
 @limiter.limit(config.rate_limit_ingest)
 async def ingest_url(request: Request, url_request: UrlIngestRequest, tenant_id: str = Depends(get_tenant_id)):
     try:
+        check_tenant_hard_cap(tenant_id, get_config())
         config = get_config()
         logger.info(f"Converting URL {url_request.url} with Docling...")
         converter = DocumentConverter()
@@ -1375,10 +1408,21 @@ async def delete_user_data(request: Request, tenant_id: str = Depends(get_tenant
         except Exception as e:
             logger.error(f"Error deleting Qdrant data: {e}")
             
-        # 3. Delete from Redis
-        # Delete threads from Redis (including langgraph checkpoints)
+        # 3. Delete from Redis & Postgres (Chat History)
         threads = await request.app.state.redis.smembers(f"tenant:{tenant_id}:threads")
-            
+        
+        try:
+            import psycopg
+            async with await psycopg.AsyncConnection.connect(get_config().postgres_url) as conn:
+                for thread_id in threads:
+                    tid = thread_id.decode() if isinstance(thread_id, bytes) else thread_id
+                    await conn.execute("DELETE FROM checkpoints WHERE thread_id = %s", (tid,))
+                    await conn.execute("DELETE FROM checkpoint_writes WHERE thread_id = %s", (tid,))
+                    await conn.execute("DELETE FROM checkpoint_blobs WHERE thread_id = %s", (tid,))
+                await conn.commit()
+        except Exception as e:
+            logger.error(f"Error deleting Postgres chat history: {e}")
+
         await request.app.state.redis.delete(f"tenant:{tenant_id}:threads")
         await request.app.state.redis.delete(f"tenant:{tenant_id}:thread_titles")
         await request.app.state.redis.delete(f"tenant:{tenant_id}:pinned_threads")

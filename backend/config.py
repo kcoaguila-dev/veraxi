@@ -26,6 +26,7 @@ class Config:
     stripe_webhook_secret: str
     supabase_url: str
     supabase_service_key: str
+    postgres_url: str
     rate_limit_chat: str
     rate_limit_ingest: str
     rate_limit_sse: str
@@ -41,6 +42,7 @@ class Config:
     help_faq_url: str
     terms_of_service_url: str
     privacy_policy_url: str
+    max_tenant_nodes: int
 
     @classmethod
     def from_env(cls) -> "Config":
@@ -63,14 +65,16 @@ class Config:
             stripe_webhook_secret=os.environ.get("STRIPE_WEBHOOK_SECRET", ""),
             supabase_url=os.environ.get("SUPABASE_URL", ""),
             supabase_service_key=os.environ.get("SUPABASE_SERVICE_KEY", ""),
+            postgres_url=os.environ.get("POSTGRES_URL", "postgresql://postgres:postgres@localhost:5432/postgres"),
             rate_limit_chat=os.environ.get("RATE_LIMIT_CHAT", "100/day"),
             rate_limit_ingest=os.environ.get("RATE_LIMIT_INGEST", "50/day"),
             rate_limit_sse=os.environ.get("RATE_LIMIT_SSE", "10/minute"),
             default_search_limit=int(os.environ.get("DEFAULT_SEARCH_LIMIT", "10")),
             default_max_hops=int(os.environ.get("DEFAULT_MAX_HOPS", "2")),
-            searxng_url=os.environ.get("SEARXNG_URL", "http://localhost:8080/search"),
+            searxng_url=os.environ.get("SEARXNG_BASE_URL", "http://searxng:8080/"),
             redis_url=os.environ.get("REDIS_URL", "redis://localhost:6379/0"),
             auth_enabled=os.environ.get("AUTH_ENABLED", "true").lower() == "true",
+            max_tenant_nodes=int(os.environ.get("MAX_TENANT_NODES", "1000")),
             cors_origins=os.environ.get("CORS_ORIGINS", "*"),
             gpt_sovits_base_url=os.environ.get("GPT_SOVITS_BASE_URL", "http://localhost:9880"),
             code_interpreter_url=os.environ.get("CODE_INTERPRETER_URL", "http://code_interpreter:8000/execute"),
