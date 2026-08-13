@@ -5,6 +5,16 @@ from testcontainers.qdrant import QdrantContainer
 from unittest.mock import patch
 from backend.config import get_config
 
+# Set default dummy environment variables for pytest collection phase
+# to prevent get_config() from crashing when modules are imported globally.
+os.environ.setdefault("NEO4J_URI", "bolt://localhost:7687")
+os.environ.setdefault("NEO4J_USER", "neo4j")
+os.environ.setdefault("NEO4J_PASSWORD", "password")
+os.environ.setdefault("QDRANT_URL", "http://localhost:6333")
+os.environ.setdefault("LLM_API_KEY", "dummy-key")
+os.environ.setdefault("ANTHROPIC_API_KEY", "dummy-key")
+os.environ.setdefault("SUPABASE_URL", "http://localhost:8000")
+
 
 @pytest.fixture(scope="session")
 def neo4j_container():
