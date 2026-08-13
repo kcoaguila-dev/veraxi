@@ -14,7 +14,7 @@ from pydantic import BaseModel, Field
 from langchain_core.messages import BaseMessage, HumanMessage, ToolMessage, AIMessage, SystemMessage
 from langgraph.graph import StateGraph, START, END
 from langgraph.graph.message import add_messages
-from langgraph.checkpoint.redis.aio import AsyncRedisSaver
+from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 import redis.asyncio as redis_async
 from mcp.client.sse import sse_client
 from mcp.client.session import ClientSession
@@ -833,7 +833,8 @@ async def answer_question(
             final_state = await app.ainvoke(initial_state, config=config)
         else:
             # Run the graph asynchronously using context manager for memory
-            async with AsyncRedisSaver.from_conn_string(config_obj.redis_url) as memory:
+            async with AsyncPostgresSaver.from_conn_string(config_obj.postgres_url) as memory:
+                await memory.setup()
                 app = workflow.compile(checkpointer=memory)
                 final_state = await app.ainvoke(initial_state, config=config)
     finally:
@@ -966,7 +967,8 @@ async def stream_answer_question(
             async for evt in _process_stream(app.astream_events(initial_state, config=config, version="v2")):
                 yield evt
         else:
-            async with AsyncRedisSaver.from_conn_string(config_obj.redis_url) as memory:
+            async with AsyncPostgresSaver.from_conn_string(config_obj.postgres_url) as memory:
+                await memory.setup()
                 app = workflow.compile(checkpointer=memory)
                 async for evt in _process_stream(app.astream_events(initial_state, config=config, version="v2")):
                     yield evt

@@ -20,8 +20,8 @@ RUN python -m spacy download en_core_web_sm
 RUN useradd -m appuser && chown -R appuser:appuser /app
 USER appuser
 
-# Expose port
-EXPOSE 8000
+# Cloud Run ignores EXPOSE, but we keep it for local documentation
+EXPOSE 8080
 
-# Start server
-CMD ["uvicorn", "backend.api_gateway:app", "--host", "0.0.0.0", "--port", "8000"]
+# Start server (Reads $PORT from Cloud Run, defaults to 8000 locally)
+CMD ["sh", "-c", "uvicorn backend.api_gateway:app --host 0.0.0.0 --port ${PORT:-8000}"]

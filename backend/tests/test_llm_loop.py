@@ -13,6 +13,7 @@ def mock_config():
         mock_conf.llm_model_name = "test_model"
         mock_conf.llm_base_url = "http://test"
         mock_conf.redis_url = "redis://localhost:6379/0"
+        mock_conf.postgres_url = "postgresql://postgres:postgres@localhost:5432/postgres"
         mock_conf.searxng_url = "http://searxng"
         mock_get_config.return_value = mock_conf
         yield mock_conf
@@ -22,8 +23,21 @@ def mock_app():
     with patch("backend.mcp_server.llm_loop._app") as mock_a:
         yield mock_a
 
+@pytest.fixture
+def mock_postgres_saver():
+    with patch("backend.mcp_server.llm_loop.AsyncPostgresSaver") as mock_ps:
+        mock_saver_instance = AsyncMock()
+        mock_saver_instance.setup = AsyncMock()
+        
+        # Mock the async context manager returned by from_conn_string
+        mock_cm = AsyncMock()
+        mock_cm.__aenter__.return_value = mock_saver_instance
+        
+        mock_ps.from_conn_string.return_value = mock_cm
+        yield mock_ps
+
 @pytest.mark.asyncio
-async def test_answer_question_basic(mock_config, mock_app):
+async def test_answer_question_basic(mock_config, mock_app, mock_postgres_saver):
     # Setup mock workflow graph
     mock_workflow = AsyncMock()
     mock_workflow.ainvoke.return_value = {
@@ -46,7 +60,7 @@ async def test_answer_question_basic(mock_config, mock_app):
 
 
 @pytest.mark.asyncio
-async def test_stream_answer_question_basic(mock_config, mock_app):
+async def test_stream_answer_question_basic(mock_config, mock_app, mock_postgres_saver):
     # Mocking the async generator for astream_events
     async def mock_astream_events(*args, **kwargs):
         yield {
