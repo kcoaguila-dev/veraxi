@@ -40,7 +40,7 @@ See [docs/ROADMAP.md](docs/ROADMAP.md) for the historical evolution of the proje
 See [docs/architecture.md](docs/architecture.md) for a deep dive into the dependency flow and design rules.
 
 - **Storage:** Neo4j (Graph), Qdrant (Vectors), SQLite (UI Persistence)
-- **Intelligence:** OpenAI-compatible SDK (Model Agnostic / Any Cloud or Local LLM)
+- **Intelligence:** OpenAI-compatible SDK (Multiple Cloud Providers & Local LLMs)
 - **Backend Intelligence Engine:** FastAPI
 - **Frontend:** Flutter (Dart), Riverpod, flutter_secure_storage (libsecret)
 - **CI/CD:** Ephemeral Docker Environments (GCP Staging)
