@@ -8,7 +8,7 @@ from fastapi.responses import StreamingResponse
 import logging
 import json
 import uuid
-from backend.mcp_server.llm_loop import answer_question, stream_answer_question
+from backend.mcp_server.llm_loop import answer_question, stream_answer_question, generate_chat_title
 from backend.config import get_config
 from backend.storage.qdrant_client import QdrantStorageClient
 from backend.storage.neo4j_client import Neo4jStorageClient
