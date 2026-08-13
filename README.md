@@ -54,7 +54,7 @@ See [docs/architecture.md](docs/architecture.md) for a deep dive into the depend
 
 Anyone can clone this repo and run their own autonomous intelligence system on their local machine at absolutely no cost.
 
-## 🛠 Quickstart Setup
+## 🛠 Quickstart Setup (Local Development)
 
 1. **Clone and enter the repository:**
    ```bash
@@ -62,11 +62,11 @@ Anyone can clone this repo and run their own autonomous intelligence system on t
    cd veraxi
    ```
 
-2. **Start the databases:**
+2. **Start the databases & infrastructure:**
    ```bash
-   docker compose up -d
+   docker compose up -d neo4j qdrant redis searxng
    ```
-   *(This spins up local, ephemeral instances of Neo4j and Qdrant).*
+   *(This spins up local, ephemeral instances of Neo4j, Qdrant, Redis, and SearxNG without the backend, allowing you to run the Python server locally).*
 
 3. **Configure the environment:**
    Copy the example config and add your preferred API keys.
@@ -119,12 +119,12 @@ source backend/.venv/bin/activate
 python -m scripts.ask_veraxi "What is Veraxi?"
 ```
 
-### 3. Fully Automated Containerized Backend
-If you want to run the entire backend (Neo4j, Qdrant, and the Python MCP Intelligence Engine) without installing Python or dealing with virtual environments, you can run the entire stack with a single command:
+### 3. Fully Automated Containerized Stack
+If you want to run the entire stack (Neo4j, Qdrant, Redis, the Python FastAPI Engine, and the Flutter Web UI) without installing Python or dealing with virtual environments, you can run everything with a single command:
 ```bash
-docker-compose up -d --build
+docker compose up -d --build
 ```
-Once running, the Intelligence Engine is instantly available at `http://localhost:8000` and the Web UI at `http://localhost:80`!
+Once running, the Intelligence Engine API is available at `http://localhost:8000` and the Web UI at `http://localhost:80`!
 
 ### 🏢 Enterprise Deployment Mode
 
