@@ -37,7 +37,7 @@ dependencies = [
     "langgraph-checkpoint-redis",
     "langchain-groq",
     "spacy",
-    "trafilatura>=2.0",
+    "trafilatura>=2.2.0",
     "langgraph-checkpoint-postgres",
     "psycopg[binary]",
 ]
