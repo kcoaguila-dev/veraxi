@@ -6,7 +6,7 @@ Veraxi utilizes Reciprocal Rank Fusion (RRF) to merge structured graph lookups a
 
 ## 🌐 Live Demo
 Veraxi is currently deployed and live!
-- **Frontend (Flutter Web):** [https://kcoaguila-dev.github.io/](https://kcoaguila-dev.github.io/) (Hosted on GitHub Pages)
+- **Frontend (Flutter Web):** [https://veraxi.me](https://veraxi.me) (Hosted on GitHub Pages)
 - **Backend API (FastAPI):** `https://veraxi-backend-877632476404.us-east4.run.app` (Hosted on Google Cloud Run)
 
 ![Veraxi UI](docs/images/demo.png)
