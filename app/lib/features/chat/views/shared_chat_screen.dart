@@ -12,6 +12,7 @@ import 'package:veraxi_app/features/chat/data/chat_repository.dart';
 import 'package:veraxi_app/features/chat/views/widgets/sources_button.dart';
 import 'package:veraxi_app/features/chat/views/widgets/citation_chip.dart';
 import 'package:veraxi_app/features/chat/views/chat_screen.dart' show CitationSyntax, CitationElementBuilder;
+import 'package:veraxi_app/core/widgets/profile_menu_button.dart';
 import 'package:flutter/services.dart';
 
 /// Lightweight code block builder for the read-only shared chat view.
@@ -90,7 +91,7 @@ class _SharedChatScreenState extends ConsumerState<SharedChatScreen> {
 
   Widget _buildChatMessage(ChatMessage msg, ThemeData theme, AppThemeExtension ext) {
     final isUser = msg.role == 'user';
-    final name = isUser ? 'Local User' : (msg.modelName ?? 'AI Assistant');
+    final name = isUser ? resolveDisplayName() : (msg.modelName ?? 'AI Assistant');
     final avatar = isUser
         ? Container(
             width: 28,

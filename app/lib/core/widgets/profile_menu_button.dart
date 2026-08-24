@@ -10,8 +10,9 @@ import 'package:veraxi_app/features/settings/views/widgets/archived_chats_dialog
 import 'package:sentry_flutter/sentry_flutter.dart';
 
 // Resolved at compile time via --dart-define=IS_SELF_HOSTED=true
+// Defaults to true so local dev / self-hosted builds work without Supabase auth.
 const bool _isSelfHosted =
-    bool.fromEnvironment('IS_SELF_HOSTED', defaultValue: false);
+    bool.fromEnvironment('IS_SELF_HOSTED', defaultValue: true);
 
 /// Returns the display name for the current user.
 String resolveDisplayName() {

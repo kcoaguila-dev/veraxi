@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:veraxi_app/core/widgets/veraxi_logo.dart';
 import 'package:veraxi_app/features/settings/view_models/tts_settings_view_model.dart';
 import 'manage_voices_dialog.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class SettingsDialog extends ConsumerStatefulWidget {
   final VoidCallback? onDeleteAllChats;
@@ -417,11 +418,13 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
   }
 
   List<Widget> _buildAccountTab() {
+    final email = Supabase.instance.client.auth.currentUser?.email ?? 'Not signed in';
+
     return [
       _buildSectionHeader('PROFILE'),
       _buildSettingsGroup([
         _buildActionRow('Profile Picture', 'Update your avatar', 'Change'),
-        _buildActionRow('Email Address', 'hello@example.com', 'Update'),
+        _buildActionRow('Email Address', email, 'Update'),
       ]),
       const SizedBox(height: 32),
       _buildSectionHeader('DANGER ZONE', isDestructive: true),

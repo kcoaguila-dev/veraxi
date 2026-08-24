@@ -1798,7 +1798,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       {bool showTelemetry = false}) {
     final isUser = msg.role == 'user';
     final name = isUser
-        ? 'Local User'
+        ? resolveDisplayName()
         : (msg.modelName != null && msg.modelName!.isNotEmpty
             ? msg.modelName!
             : 'AI Assistant');
