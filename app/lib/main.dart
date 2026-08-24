@@ -6,6 +6,7 @@ import 'package:veraxi_app/core/theme_provider.dart';
 
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:veraxi_app/core/router.dart';
 import 'package:veraxi_app/core/widgets/profile_menu_button.dart';
@@ -15,6 +16,17 @@ import 'package:veraxi_app/features/chat/view_models/chat_view_model.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  await Supabase.initialize(
+    url: const String.fromEnvironment(
+      'SUPABASE_URL',
+      defaultValue: 'https://zjtqrwxyoswzlvtetjzi.supabase.co',
+    ),
+    anonKey: const String.fromEnvironment(
+      'SUPABASE_ANON_KEY',
+      defaultValue: 'sb_publishable_6j3NNIfgI5V209p9QGL-DA_GyEsz9jI',
+    ),
+  );
 
   await SentryFlutter.init(
     (options) {
