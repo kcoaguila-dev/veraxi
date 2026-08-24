@@ -117,15 +117,35 @@ def _decode_and_validate_jwt(token: str) -> str:
         raise HTTPException(status_code=401, detail="Invalid token: missing sub (user ID) claim")
     return tenant_id
 
+from backend.security.api_keys import generate_api_key, resolve_api_key
+
+# Lazy Supabase service-role client — used for API key lookups.
+# Initialized once at first use to avoid startup overhead.
+_supabase_client: "Client | None" = None
+
+def _get_supabase() -> "Client":
+    """Return a cached Supabase service-role client."""
+    global _supabase_client
+    if _supabase_client is None:
+        _supabase_client = create_client(config.supabase_url, config.supabase_service_key)
+    return _supabase_client
+
 def get_tenant_id(credentials: HTTPAuthorizationCredentials | None = Depends(security)) -> str:
     if not config.auth_enabled:
         return "local_personal_user"
-    
+
     if not credentials:
         logger.warning("No credentials provided in request headers (Authorization header missing or invalid)")
         raise HTTPException(status_code=401, detail="Not authenticated")
-        
-    return _decode_and_validate_jwt(credentials.credentials)
+
+    token = credentials.credentials
+
+    # Fast path: personal API key (vx- prefix). No JWT decode needed.
+    if token.startswith("vx-"):
+        return resolve_api_key(token, _get_supabase())
+
+    # Default path: Supabase JWT
+    return _decode_and_validate_jwt(token)
 
 
 class ChatRequest(BaseModel):
@@ -943,6 +963,88 @@ async def get_ui_config(request: Request):
 @app.get("/health")
 async def health_check():
     return {"status": "ok"}
+
+
+# ==========================================
+# Personal API Key Management
+# ==========================================
+
+class ApiKeyCreateRequest(BaseModel):
+    name: str
+    expires_at: str | None = None  # ISO-8601 string; None = permanent
+
+@app.get("/api/user/api-keys")
+async def list_api_keys(tenant_id: str = Depends(get_tenant_id)):
+    """List all API keys for the current tenant (names, prefixes, dates — never hashes)."""
+    try:
+        response = (
+            _get_supabase()
+            .table("api_keys")
+            .select("id, name, key_prefix, is_active, created_at, last_used_at, expires_at")
+            .eq("tenant_id", tenant_id)
+            .eq("is_active", True)
+            .order("created_at", desc=True)
+            .execute()
+        )
+        return {"api_keys": response.data or []}
+    except Exception as e:
+        sentry_sdk.capture_exception(e)
+        logger.error(f"Error listing API keys for tenant {tenant_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to list API keys")
+
+@app.post("/api/user/api-keys", status_code=201)
+async def create_api_key(payload: ApiKeyCreateRequest, tenant_id: str = Depends(get_tenant_id)):
+    """Generate a new personal API key. Returns the raw key ONCE — it cannot be retrieved again."""
+    raw_key, key_hash = generate_api_key()
+    key_prefix = raw_key[:10]  # e.g. "vx-a1b2c3d4"
+
+    insert_data = {
+        "tenant_id": tenant_id,
+        "name": payload.name,
+        "key_hash": key_hash,
+        "key_prefix": key_prefix,
+        "expires_at": payload.expires_at,
+    }
+
+    try:
+        response = _get_supabase().table("api_keys").insert(insert_data).execute()
+        key_id = response.data[0]["id"]
+        logger.info(f"New API key created for tenant {tenant_id}: {key_prefix}…")
+        return {
+            "id": key_id,
+            "name": payload.name,
+            "key": raw_key,      # shown once, not stored
+            "key_prefix": key_prefix,
+            "created_at": response.data[0]["created_at"],
+        }
+    except Exception as e:
+        sentry_sdk.capture_exception(e)
+        logger.error(f"Error creating API key for tenant {tenant_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to create API key")
+
+@app.delete("/api/user/api-keys/{key_id}")
+async def revoke_api_key(key_id: str, tenant_id: str = Depends(get_tenant_id)):
+    """Revoke (soft-delete) an API key. The key is immediately invalid."""
+    try:
+        # Ensure the key belongs to this tenant before revoking
+        result = (
+            _get_supabase()
+            .table("api_keys")
+            .update({"is_active": False})
+            .eq("id", key_id)
+            .eq("tenant_id", tenant_id)  # tenant isolation guard
+            .execute()
+        )
+        if not result.data:
+            raise HTTPException(status_code=404, detail="API key not found")
+        logger.info(f"API key {key_id} revoked for tenant {tenant_id}")
+        return {"status": "revoked"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        sentry_sdk.capture_exception(e)
+        logger.error(f"Error revoking API key {key_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to revoke API key")
 
 
 # Simple cache for models
