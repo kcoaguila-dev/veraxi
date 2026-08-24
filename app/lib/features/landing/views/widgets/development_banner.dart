@@ -17,7 +17,7 @@ class DevelopmentBanner extends StatelessWidget {
       ),
       child: Center(
         child: Text(
-          'DEVELOPMENT MODE: Sovereign Local Instance',
+          'STILL IN DEVELOPMENT',
           style: theme.textTheme.bodyMedium?.copyWith(
             fontWeight: FontWeight.w600,
             color: theme.colorScheme.onSurface,

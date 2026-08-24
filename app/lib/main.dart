@@ -35,7 +35,6 @@ Future<void> main() async {
       options.tracesSampleRate = 1.0;
     },
     appRunner: () {
-      print("HELLO_FROM_THE_NEW_VERAXI_BUILD_12345");
       runApp(
         const ProviderScope(
           child: VeraxiApp(),

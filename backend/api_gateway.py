@@ -97,12 +97,14 @@ def _get_jwt_payload(token: str) -> dict:
         return jwt.decode(
             token, 
             signing_key.key, 
-            algorithms=["RS256"],
+            algorithms=["RS256", "ES256", "HS256"],
             audience="authenticated"
         )
-    except jwt.ExpiredSignatureError:
+    except jwt.ExpiredSignatureError as e:
+        logger.warning(f"JWT Expired: {e}")
         raise HTTPException(status_code=401, detail="Token has expired")
-    except jwt.InvalidAudienceError:
+    except jwt.InvalidAudienceError as e:
+        logger.warning(f"JWT Invalid Audience: {e}")
         raise HTTPException(status_code=401, detail="Invalid audience. Expected 'authenticated'.")
     except jwt.InvalidTokenError as e:
         logger.warning(f"JWT Validation Error: {e}")
@@ -120,6 +122,7 @@ def get_tenant_id(credentials: HTTPAuthorizationCredentials | None = Depends(sec
         return "local_personal_user"
     
     if not credentials:
+        logger.warning("No credentials provided in request headers (Authorization header missing or invalid)")
         raise HTTPException(status_code=401, detail="Not authenticated")
         
     return _decode_and_validate_jwt(credentials.credentials)
@@ -400,12 +403,13 @@ async def get_thread_history(thread_id: str, request: Request, tenant_id: str = 
         if not is_owner:
             raise HTTPException(status_code=403, detail="Thread not found or access denied.")
             
-        from langgraph.checkpoint.redis.aio import AsyncRedisSaver
+        from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
         
         config_obj = get_config()
         config = {"configurable": {"thread_id": thread_id}}
         
-        async with AsyncRedisSaver.from_conn_string(config_obj.redis_url) as memory:
+        async with AsyncPostgresSaver.from_conn_string(config_obj.postgres_url) as memory:
+            await memory.setup()
             state = await memory.aget_tuple(config)
             
         if not state:
@@ -723,12 +727,13 @@ async def duplicate_thread(thread_id: str, request: Request, tenant_id: str = De
     await request.app.state.redis.sadd(f"tenant:{tenant_id}:threads", new_thread_id)
 
     try:
-        from langgraph.checkpoint.redis.aio import AsyncRedisSaver
+        from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
         config_obj = get_config()
         old_config = {"configurable": {"thread_id": thread_id}}
         new_config = {"configurable": {"thread_id": new_thread_id}}
         
-        async with AsyncRedisSaver.from_conn_string(config_obj.redis_url) as memory:
+        async with AsyncPostgresSaver.from_conn_string(config_obj.postgres_url) as memory:
+            await memory.setup()
             state = await memory.aget_tuple(old_config)
             if state:
                 raw_messages = state.checkpoint.get("channel_values", {}).get("messages", [])

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:sentry_flutter/sentry_flutter.dart';
 
@@ -25,7 +26,7 @@ class ChatRepository {
       final data = await apiClient.get(url);
       return data;
     } catch (e) {
-      print("DEBUG_GET_UI_CONFIG_ERROR: $e");
+      debugPrint('[ChatRepository] getUIConfig error: $e');
       return {};
     }
   }
@@ -40,7 +41,7 @@ class ChatRepository {
       });
       return result;
     } catch (e) {
-      print("DEBUG_GET_MODELS_ERROR: $e");
+      debugPrint('[ChatRepository] getProviderModels error: $e');
       return {};
     }
   }
@@ -48,15 +49,12 @@ class ChatRepository {
   Future<List<Map<String, dynamic>>> getThreads() async {
     final url =
         '/chat/threads?_=' + DateTime.now().millisecondsSinceEpoch.toString();
-    print("DEBUG_GET_THREADS_URL: \$url");
     try {
       final data = await apiClient.get(url);
-      print("DEBUG_GET_THREADS_DATA: \$data");
       final threads = List<Map<String, dynamic>>.from(data['threads'] ?? []);
-      print("DEBUG_GET_THREADS_COUNT: \${threads.length}");
       return threads;
     } catch (e) {
-      print("DEBUG_GET_THREADS_ERROR: \$e");
+      debugPrint('[ChatRepository] getThreads error: $e');
       rethrow;
     }
   }

@@ -7,6 +7,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:veraxi_app/core/theme_provider.dart';
 import 'package:veraxi_app/features/auth/view_models/auth_view_model.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:veraxi_app/core/widgets/veraxi_logo.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -40,6 +41,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           content: Text(authState.error.toString(),
               style: const TextStyle(color: Colors.white)),
           backgroundColor: Theme.of(context).colorScheme.error,
+        ),
+      );
+    } else if (mounted && _isSignUp && authState.value == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Please check your email to verify your account.',
+              style: TextStyle(color: Colors.white)),
+          backgroundColor: Theme.of(context).colorScheme.primary,
         ),
       );
     }
@@ -128,8 +137,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.change_history,
-                          color: theme.colorScheme.primary, size: 48),
+                      const VeraxiLogo(size: 48),
                       const SizedBox(height: 24),
                       Text(
                         _isSignUp ? 'Create Account' : 'Welcome Back',

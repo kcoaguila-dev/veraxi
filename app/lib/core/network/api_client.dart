@@ -2,10 +2,28 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
+/// Rebuilds whenever Supabase auth state changes (sign-in, sign-out, refresh).
+/// This ensures the ApiClient always has a fresh session token after login.
 final apiClientProvider = Provider<ApiClient>((ref) {
-  String? tenantId;
+  // Listen to auth state changes so this provider is invalidated on login/logout.
+  ref.listen(
+    // Supabase exposes its auth stream; we watch it so Riverpod knows to
+    // rebuild this provider (and anything that depends on it) when it fires.
+    _authStateChangesProvider,
+    (_, __) => ref.invalidateSelf(),
+  );
+
+  final session = Supabase.instance.client.auth.currentSession;
+  final tenantId = session?.accessToken;
   return ApiClient(tenantId: tenantId);
+});
+
+/// Internal provider for the Supabase auth state stream.
+/// Kept package-private (underscore prefix) — only consumed by [apiClientProvider].
+final _authStateChangesProvider = StreamProvider<AuthState>((ref) {
+  return Supabase.instance.client.auth.onAuthStateChange;
 });
 
 class ApiClient {
@@ -26,8 +44,19 @@ class ApiClient {
       'Pragma': 'no-cache',
       'Expires': '0',
     };
-    if (tenantId != null) {
-      headers['Authorization'] = 'Bearer $tenantId';
+    
+    String? token = tenantId;
+    try {
+      final session = Supabase.instance.client.auth.currentSession;
+      if (session != null) {
+        token = session.accessToken;
+      }
+    } catch (_) {
+      // Fallback to tenantId if Supabase is not initialized
+    }
+    
+    if (token != null) {
+      headers['Authorization'] = 'Bearer $token';
     }
     return headers;
   }
@@ -42,7 +71,7 @@ class ApiClient {
             Uri.parse('$baseUrl$path'),
             headers: requestHeaders,
           )
-          .timeout(const Duration(seconds: 10));
+          .timeout(const Duration(seconds: 30));
 
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
@@ -67,7 +96,7 @@ class ApiClient {
             headers: requestHeaders,
             body: body != null ? jsonEncode(body) : null,
           )
-          .timeout(const Duration(seconds: 10));
+          .timeout(const Duration(seconds: 30));
 
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
@@ -92,7 +121,7 @@ class ApiClient {
             headers: requestHeaders,
             body: body != null ? jsonEncode(body) : null,
           )
-          .timeout(const Duration(seconds: 10));
+          .timeout(const Duration(seconds: 30));
 
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
@@ -114,7 +143,7 @@ class ApiClient {
             Uri.parse('$baseUrl$path'),
             headers: requestHeaders,
           )
-          .timeout(const Duration(seconds: 10));
+          .timeout(const Duration(seconds: 30));
 
       if (response.statusCode == 200) {
         return jsonDecode(response.body);

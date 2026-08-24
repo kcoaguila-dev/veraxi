@@ -32,6 +32,7 @@ class AuthViewModel extends StateNotifier<AsyncValue<User?>> {
     state = const AsyncValue.loading();
     try {
       await _repository.signInWithEmail(email, password);
+      state = AsyncValue.data(_repository.currentUser);
     } catch (e, st) {
       state = AsyncValue.error(e, st);
     }
@@ -41,6 +42,7 @@ class AuthViewModel extends StateNotifier<AsyncValue<User?>> {
     state = const AsyncValue.loading();
     try {
       await _repository.signInWithOAuth(provider);
+      // state will be updated by auth listener
     } catch (e, st) {
       state = AsyncValue.error(e, st);
     }
@@ -50,6 +52,7 @@ class AuthViewModel extends StateNotifier<AsyncValue<User?>> {
     state = const AsyncValue.loading();
     try {
       await _repository.signUpWithEmail(email, password);
+      state = AsyncValue.data(_repository.currentUser);
     } catch (e, st) {
       state = AsyncValue.error(e, st);
     }
