@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:veraxi_app/core/widgets/veraxi_logo.dart';
 import 'package:veraxi_app/features/settings/view_models/tts_settings_view_model.dart';
 import 'manage_voices_dialog.dart';
+import 'api_keys_tab.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class SettingsDialog extends ConsumerStatefulWidget {
@@ -24,6 +25,7 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
     'Speech',
     'Data & Privacy',
     'Account',
+    'API Keys',
     'About',
   ];
 
@@ -33,6 +35,7 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
     'Speech': Icons.mic_none,
     'Data & Privacy': Icons.dataset_outlined,
     'Account': Icons.person_outline,
+    'API Keys': Icons.key_outlined,
     'About': Icons.info_outline,
   };
 
@@ -213,6 +216,8 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
         return _buildDataPrivacyTab();
       case 'Account':
         return _buildAccountTab();
+      case 'API Keys':
+        return [const ApiKeysTab()];
       case 'About':
         return _buildAboutTab();
       default:
