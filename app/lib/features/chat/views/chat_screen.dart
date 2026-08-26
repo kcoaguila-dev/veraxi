@@ -1174,8 +1174,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                           .where((t) => t['is_archived'] != true)
                           .toList();
                       if (timelineChats.isEmpty) {
-                        return const Text('No threads found.',
-                            style: TextStyle(color: Colors.red, fontSize: 12));
+                        return const Padding(
+                          padding: EdgeInsets.only(top: 8, left: 8),
+                          child: Text(
+                            'No chats yet',
+                            style: TextStyle(
+                              color: Color(0xFF4A4A4A),
+                              fontSize: 12,
+                            ),
+                          ),
+                        );
                       }
 
                       final now = DateTime.now();
