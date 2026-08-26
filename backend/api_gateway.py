@@ -1159,26 +1159,10 @@ def get_stats(tenant_id: str = Depends(get_tenant_id)):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-def check_tenant_hard_cap(tenant_id: str, config: Config):
-    try:
-        neo4j = Neo4jStorageClient.from_config(config)
-        records = neo4j.execute_read(
-            "MATCH (n) WHERE n.tenant_id = $tenant_id RETURN count(n) AS count",
-            parameters={"tenant_id": tenant_id},
-        )
-        node_count = records[0]["count"] if records else 0
-        neo4j.close()
-        
-        if node_count >= config.max_tenant_nodes:
-            raise HTTPException(
-                status_code=403,
-                detail=f"You have reached your personal Free Tier quota of {config.max_tenant_nodes} knowledge nodes. Please delete some older documents to free up space, or upgrade to Premium."
-            )
-    except HTTPException:
-        raise
-    except Exception as e:
-        sentry_sdk.capture_exception(e)
-        logger.error(f"Failed to check hard cap: {e}")
+# check_tenant_hard_cap lives in backend.storage.quota so both api_gateway
+# and mcp_server.server can import it without violating dependency direction.
+from backend.storage.quota import check_tenant_hard_cap
+
 
 @app.post("/api/admin/ingest")
 @limiter.limit(config.rate_limit_ingest)

@@ -23,6 +23,7 @@ from backend.mcp_server.tools.update_document import update_document_metadata
 from backend.mcp_server.context import tenant_context
 from backend.prompts import INGEST_KNOWLEDGE_PROMPT, CRAG_ORCHESTRATOR_PROMPT
 from backend.config import get_config
+from backend.storage.quota import check_tenant_hard_cap
 
 
 async def handle_list_resources(ctx, params) -> ListResourcesResult:
@@ -357,6 +358,11 @@ def _handle_query_graph(args: dict, tenant_id: str) -> list[TextContent]:
     return [TextContent(type="text", text=json.dumps(results))]
 
 def _handle_insert_graph_nodes(args: dict, tenant_id: str) -> list[TextContent]:
+    # Enforce the free-tier node cap on cloud deployments.
+    # Self-hosted (auth_enabled=False) runs without limits — it's the user's own infra.
+    config = get_config()
+    if config.auth_enabled:
+        check_tenant_hard_cap(tenant_id, config)
     results = insert_graph_nodes(
         nodes=args["nodes"],
         relations=args["relations"],
@@ -365,6 +371,10 @@ def _handle_insert_graph_nodes(args: dict, tenant_id: str) -> list[TextContent]:
     return [TextContent(type="text", text=json.dumps(results))]
 
 def _handle_insert_vectors(args: dict, tenant_id: str) -> list[TextContent]:
+    # Same guard: cloud users are capped, self-hosted users are not.
+    config = get_config()
+    if config.auth_enabled:
+        check_tenant_hard_cap(tenant_id, config)
     results = insert_vectors(
         texts=args["texts"],
         tenant_id=tenant_id
