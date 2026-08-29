@@ -1,4 +1,8 @@
 :80 {
+    log {
+        output stdout
+    }
+
     # Route all /api/* requests to the FastAPI backend
     reverse_proxy /api/* backend:8000
     

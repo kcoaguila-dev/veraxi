@@ -2,18 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:markdown/markdown.dart' as md;
-import 'package:flutter_highlighter/flutter_highlighter.dart';
-import 'package:flutter_highlighter/themes/atom-one-dark.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
 import 'package:veraxi_app/features/chat/view_models/chat_view_model.dart';
 import 'package:veraxi_app/features/chat/data/chat_repository.dart';
-import 'package:veraxi_app/features/chat/views/widgets/sources_button.dart';
-import 'package:veraxi_app/features/chat/views/widgets/citation_chip.dart';
 import 'package:veraxi_app/features/chat/views/chat_screen.dart' show CitationSyntax, CitationElementBuilder;
 import 'package:veraxi_app/core/widgets/profile_menu_button.dart';
-import 'package:flutter/services.dart';
 
 /// Lightweight code block builder for the read-only shared chat view.
 /// Does not require BuildContext unlike the full CodeElementBuilder in chat_screen.dart.
@@ -106,7 +100,7 @@ class _SharedChatScreenState extends ConsumerState<SharedChatScreen> {
             height: 28,
             alignment: Alignment.center,
             decoration: const BoxDecoration(color: Colors.transparent),
-            child: Icon(Icons.auto_awesome, color: ext?.primaryGradientStart ?? Colors.blueAccent, size: 20),
+            child: Icon(Icons.auto_awesome, color: ext.primaryGradientStart, size: 20),
           );
 
     return Center(

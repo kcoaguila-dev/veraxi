@@ -72,16 +72,21 @@ class _ChatInputState extends State<ChatInput> {
   }
 
   void _initSpeech() async {
-    _speechEnabled = await _speechToText.initialize(
-      onError: (error) => debugPrint('Error initializing STT: $error'),
-      onStatus: (status) {
-        if (status == 'notListening' || status == 'done') {
-          setState(() {
-            _isListening = false;
-          });
-        }
-      },
-    );
+    try {
+      _speechEnabled = await _speechToText.initialize(
+        onError: (error) => debugPrint('Error initializing STT: $error'),
+        onStatus: (status) {
+          if (status == 'notListening' || status == 'done') {
+            setState(() {
+              _isListening = false;
+            });
+          }
+        },
+      );
+    } catch (e) {
+      debugPrint('SpeechToText initialization failed: $e');
+      _speechEnabled = false;
+    }
     setState(() {});
   }
 

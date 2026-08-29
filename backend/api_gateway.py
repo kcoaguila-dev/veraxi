@@ -199,7 +199,7 @@ async def _generate_and_save_title(question: str, tenant_id: str, thread_id: str
 @app.post("/api/chat", response_model=ChatResponse)
 @limiter.limit(config.rate_limit_chat)
 async def chat_endpoint(request: Request, chat_request: ChatRequest, tenant_id: str = Depends(get_tenant_id)):
-    logger.info(f"Received question: {chat_request.question} for tenant: {tenant_id} | tool_settings: {chat_request.tool_settings}")
+    logger.warning(f"Received question: {chat_request.question} for tenant: {tenant_id} | tool_settings: {chat_request.tool_settings}")
     if not chat_request.model:
         raise HTTPException(status_code=400, detail="No AI model selected")
         
@@ -1397,6 +1397,11 @@ def _activate_tenant_subscription(tenant_id: str | None, config):
     except Exception as e:
         sentry_sdk.capture_exception(e)
         logger.error(f"Failed to update database for tenant {tenant_id}: {e}")
+
+@app.get("/api/test-log")
+async def test_log():
+    logger.warning("THIS IS A TEST LOG FROM API GATEWAY")
+    return {"status": "logged"}
 
 @app.post("/api/admin/stripe-webhook")
 async def stripe_webhook(request: Request):

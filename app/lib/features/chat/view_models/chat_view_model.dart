@@ -1,8 +1,9 @@
 import 'dart:convert';
+import 'dart:async';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:sentry_flutter/sentry_flutter.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:veraxi_app/core/api_key_storage.dart';
 import 'package:veraxi_app/core/tts_settings_storage.dart';
@@ -101,6 +102,7 @@ class ChatState {
   final List<Map<String, dynamic>> pastThreads;
   final List<Map<String, dynamic>> projects;
   final bool isLoadingHistory;
+  final bool isLoadingThreads;
   final bool isLoading;
   final bool isTemporary;
   final bool showTelemetry;
@@ -117,6 +119,7 @@ class ChatState {
     this.pastThreads = const [],
     this.projects = const [],
     this.isLoadingHistory = false,
+    this.isLoadingThreads = false,
     this.isLoading = false,
     this.isTemporary = false,
     this.showTelemetry = false,
@@ -135,6 +138,7 @@ class ChatState {
     List<Map<String, dynamic>>? pastThreads,
     List<Map<String, dynamic>>? projects,
     bool? isLoadingHistory,
+    bool? isLoadingThreads,
     bool? isLoading,
     bool? isTemporary,
     bool? showTelemetry,
@@ -154,6 +158,7 @@ class ChatState {
       pastThreads: pastThreads ?? this.pastThreads,
       projects: projects ?? this.projects,
       isLoadingHistory: isLoadingHistory ?? this.isLoadingHistory,
+      isLoadingThreads: isLoadingThreads ?? this.isLoadingThreads,
       isLoading: isLoading ?? this.isLoading,
       isTemporary: isTemporary ?? this.isTemporary,
       showTelemetry: showTelemetry ?? this.showTelemetry,
@@ -190,6 +195,7 @@ class ChatViewModel extends StateNotifier<ChatState> {
   final TTSRepository _ttsRepository;
   final AudioPlayer _audioPlayer = AudioPlayer();
   DateTime? _currentRequestStartTime;
+  StreamSubscription<AuthState>? _authSubscription;
 
   ChatViewModel(this._repository, this._ttsRepository) : super(ChatState()) {
     _init();
@@ -198,11 +204,28 @@ class ChatViewModel extends StateNotifier<ChatState> {
         state = state.copyWith(clearPlayingId: true);
       }
     });
+
+    // Listen to Auth State changes to reload threads if they failed initially 
+    // (e.g., due to an expired token on app startup that was just refreshed)
+    _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+      if (data.event == AuthChangeEvent.signedIn || 
+          data.event == AuthChangeEvent.tokenRefreshed ||
+          data.event == AuthChangeEvent.initialSession) {
+        if (state.pastThreads.isEmpty && !state.isLoadingThreads) {
+          loadThreads();
+        }
+      }
+    });
   }
 
   Future<void> _init() async {
     final prefs = await SharedPreferences.getInstance();
     final savedTelemetry = prefs.getBool('show_telemetry') ?? false;
+    
+    // Force clear old tool_settings to ensure everyone defaults to false
+    // for file_search_enabled. This avoids the stale 'true' state.
+    await prefs.remove('tool_settings');
+    
     state = state.copyWith(showTelemetry: savedTelemetry);
     await loadThreads();
   }
@@ -217,17 +240,20 @@ class ChatViewModel extends StateNotifier<ChatState> {
 
   @override
   void dispose() {
+    _authSubscription?.cancel();
     _audioPlayer.dispose();
     super.dispose();
   }
 
   Future<void> loadThreads() async {
+    state = state.copyWith(isLoadingThreads: true);
     try {
       final threads = await _repository.getThreads();
       final projects = await _repository.getProjects();
-      state = state.copyWith(pastThreads: threads, projects: projects);
+      state = state.copyWith(pastThreads: threads, projects: projects, isLoadingThreads: false);
     } catch (e, stack) {
       Sentry.captureException(e, stackTrace: stack);
+      state = state.copyWith(isLoadingThreads: false);
     }
   }
 
@@ -456,44 +482,64 @@ class ChatViewModel extends StateNotifier<ChatState> {
       Sentry.captureException(e, stackTrace: st);
     }
 
-    try {
-      await for (final event in _repository.streamChat(
-        queryText,
-        threadId: state.threadId,
-        isTemporary: state.isTemporary,
-        model: model,
-        calculateGrounding: state.showTelemetry,
-        toolSettings: toolSettings,
-      )) {
-        _handleStreamEvent(event);
-      }
-      state = state.copyWith(isLoading: false);
-    } catch (e, st) {
-      Sentry.captureException(e, stackTrace: st);
-      final errorStr = e.toString();
-      
-      bool isNetworkError = errorStr.contains("SocketException") || 
-                            errorStr.contains("ClientException") || 
-                            errorStr.contains("Failed host lookup") || 
-                            errorStr.contains("Connection refused");
-                            
-      String uiError = "Error: Unable to complete request.";
-      if (isNetworkError) {
-        uiError = "Network connection lost. Please check your internet connection and try again.";
-      } else if (errorStr.contains("No AI model selected")) {
-        uiError = "No AI model selected. Please select a model from the top left menu.";
-      }
+    int retries = 0;
+    const int maxRetries = 1;
+    bool success = false;
+    String currentQuery = queryText;
 
-      String finalContent = uiError;
-      if (state.messages.isNotEmpty) {
-        final currentContent = state.messages.last.content;
-        if (currentContent.isNotEmpty && !currentContent.endsWith(uiError) && !currentContent.endsWith("[$uiError]")) {
-          finalContent = "$currentContent\n\n[$uiError]";
+    while (!success && retries <= maxRetries) {
+      try {
+        await for (final event in _repository.streamChat(
+          currentQuery,
+          threadId: state.threadId,
+          isTemporary: state.isTemporary,
+          model: model,
+          calculateGrounding: state.showTelemetry,
+          toolSettings: toolSettings,
+        )) {
+          _handleStreamEvent(event);
         }
-      }
+        state = state.copyWith(isLoading: false);
+        success = true;
+      } catch (e, st) {
+        final errorStr = e.toString();
+        
+        bool isNetworkError = errorStr.contains("SocketException") || 
+                              errorStr.contains("ClientException") || 
+                              errorStr.contains("Failed host lookup") || 
+                              errorStr.contains("Connection refused") ||
+                              errorStr.contains("XMLHttpRequest error");
 
-      _updateLastMessage(content: finalContent, isStreaming: false, isError: true);
-      state = state.copyWith(isLoading: false);
+        if (isNetworkError && retries < maxRetries) {
+          retries++;
+          final partialResponse = state.messages.isNotEmpty ? state.messages.last.content : "";
+          if (partialResponse.isNotEmpty && partialResponse != "Thinking...") {
+            currentQuery = "System: The previous response was interrupted by a network drop. Please continue generating your response EXACTLY where you left off. Do not repeat what was already said. Here is what you generated so far:\n\n$partialResponse";
+          }
+          await Future.delayed(const Duration(seconds: 1));
+          continue;
+        }
+
+        Sentry.captureException(e, stackTrace: st);
+        String uiError = "Error: Unable to complete request.";
+        if (isNetworkError) {
+          uiError = "Network connection lost. Please check your internet connection and try again.";
+        } else if (errorStr.contains("No AI model selected")) {
+          uiError = "No AI model selected. Please select a model from the top left menu.";
+        }
+
+        String finalContent = uiError;
+        if (state.messages.isNotEmpty) {
+          final currentContent = state.messages.last.content;
+          if (currentContent.isNotEmpty && !currentContent.endsWith(uiError) && !currentContent.endsWith("[$uiError]")) {
+            finalContent = "$currentContent\n\n[$uiError]";
+          }
+        }
+
+        _updateLastMessage(content: finalContent, isStreaming: false, isError: true);
+        state = state.copyWith(isLoading: false);
+        break;
+      }
     }
   }
 

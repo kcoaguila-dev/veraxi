@@ -4,27 +4,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-/// Rebuilds whenever Supabase auth state changes (sign-in, sign-out, refresh).
-/// This ensures the ApiClient always has a fresh session token after login.
+/// Provides the ApiClient. It dynamically fetches the latest session token on 
+/// every request via [getDefaultHeaders], so we don't need to rebuild this provider 
+/// when auth state changes (which would destructively reset ViewModels).
 final apiClientProvider = Provider<ApiClient>((ref) {
-  // Listen to auth state changes so this provider is invalidated on login/logout.
-  ref.listen(
-    // Supabase exposes its auth stream; we watch it so Riverpod knows to
-    // rebuild this provider (and anything that depends on it) when it fires.
-    _authStateChangesProvider,
-    (_, __) => ref.invalidateSelf(),
-  );
-
   final session = Supabase.instance.client.auth.currentSession;
   final tenantId = session?.accessToken;
   return ApiClient(tenantId: tenantId);
 });
 
-/// Internal provider for the Supabase auth state stream.
-/// Kept package-private (underscore prefix) — only consumed by [apiClientProvider].
-final _authStateChangesProvider = StreamProvider<AuthState>((ref) {
-  return Supabase.instance.client.auth.onAuthStateChange;
-});
+
 
 class ApiClient {
   final String baseUrl;

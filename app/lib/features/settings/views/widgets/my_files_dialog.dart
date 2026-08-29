@@ -137,7 +137,7 @@ class _MyFilesDialogState extends ConsumerState<MyFilesDialog> {
                     side: BorderSide(
                         color: _selectedIds.isEmpty
                             ? const Color(0xFF2A2A2A)
-                            : const Color(0xFFEF4444).withOpacity(0.5)),
+                            : const Color(0xFFEF4444).withValues(alpha: 0.5)),
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(6)),
                     padding: const EdgeInsets.symmetric(
