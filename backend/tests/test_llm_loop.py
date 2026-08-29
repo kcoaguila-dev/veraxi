@@ -247,7 +247,7 @@ def test_execute_single_tool(mock_config):
     # Test web_search mock
     with patch("backend.mcp_server.tools.web_search.mcp_web_search") as mock_ws:
         mock_ws.return_value = [{"content": "result", "snippet": "snippet", "title": "title", "url": "url"}]
-        v_hits, g_hits = _execute_single_tool("web_search", {"query": "test"}, "test_tenant")
+        v_hits, g_hits = _execute_single_tool("web_search", {"query": "test"}, "test_tenant", tool_settings={"web_search": {"enabled": True}})
         assert len(v_hits) == 1
         assert v_hits[0].payload["text"] == "result"
 
