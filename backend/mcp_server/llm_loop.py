@@ -67,16 +67,16 @@ class AgentState(TypedDict):
 async def get_tools(tool_settings: dict = None) -> list:
     config = get_config()
     
-    # Default to enabled if settings are missing
-    file_search_enabled = True
-    web_search_enabled = True
+    # Default to disabled if settings are missing
+    file_search_enabled = False
+    web_search_enabled = False
     run_code_enabled = False
     skills_enabled = False
     
     mcp_servers = []
     
     if tool_settings:
-        file_search_enabled = tool_settings.get("file_search_enabled", True)
+        file_search_enabled = tool_settings.get("file_search_enabled", False)
         if "web_search" in tool_settings and "enabled" in tool_settings["web_search"]:
             web_search_enabled = tool_settings["web_search"]["enabled"]
         
@@ -208,13 +208,33 @@ async def get_tools(tool_settings: dict = None) -> list:
 
 def _execute_single_tool(tool_name: str, tool_input: dict, tenant_id: str, tool_settings: dict | None = None) -> Tuple[List[Any], List[Any]]:
     config = get_config()
+    settings = tool_settings or {}
+    
     if tool_name == "search_vectors":
+        if not settings.get("file_search_enabled", False):
+            class ErrorHit:
+                def __init__(self):
+                    self.id = "tool_err"
+                    self.payload = {"error": "Tool search_vectors is currently disabled by the user."}
+                    self.sources = ["System Error"]
+            return [ErrorHit()], []
         limit = int(tool_input.get("limit", config.default_search_limit))
         return search_vectors(tool_input["query_text"], limit=limit, tenant_id=tenant_id), []
     elif tool_name == "query_graph":
+        if not settings.get("file_search_enabled", False):
+            return [], []
         max_hops = int(tool_input.get("max_hops", config.default_max_hops))
         return [], query_graph(tool_input["entity_name"], max_hops=max_hops, tenant_id=tenant_id)
     elif tool_name == "web_search":
+        web_search = settings.get("web_search", {})
+        if not web_search.get("enabled", False):
+            class ErrorHit:
+                def __init__(self):
+                    self.id = "tool_err"
+                    self.payload = {"error": "Tool web_search is currently disabled by the user."}
+                    self.sources = ["System Error"]
+            return [ErrorHit()], []
+            
         from backend.mcp_server.tools.web_search import mcp_web_search
         results = mcp_web_search(tool_input["query"], tool_settings=tool_settings)
         
@@ -319,20 +339,6 @@ def _cosine_similarity(a: list[float], b: list[float]) -> float:
     return float(np.dot(va, vb) / (norm_a * norm_b))
 
 
-def _embed_context_for_metrics(state: dict) -> list[float] | None:
-    """Return an embedding of the retrieved context for retrieval-relevance scoring.
-
-    Returns None silently if embedding fails — missing metrics are shown as '--'
-    in the UI rather than crashing the response.
-    """
-    context_str = state.get("retrieved_context", "")
-    if not context_str or "No results found." in context_str:
-        return None
-    try:
-        from backend.ingestion.chunk_embed import embed_text as _embed_text
-        return _embed_text(context_str)
-    except Exception:
-        return None
 
 
 def _finalize_metrics(metrics: dict[str, Any]) -> dict[str, Any]:
@@ -523,7 +529,7 @@ async def call_model(state: AgentState):
         # Pass embeddings into metrics so _finalize_metrics can compute cosine retrieval_relevance.
         # These are popped inside _finalize_metrics and never sent to the frontend.
         "query_embedding": state.get("query_embedding"),
-        "context_embedding": _embed_context_for_metrics(state),
+        "context_embedding": state.get("context_embedding"),
     }
     if state.get("calculate_grounding"):
         from backend.evaluation.grounding import evaluate_groundedness
@@ -611,21 +617,24 @@ async def execute_tools(state: AgentState):
     if not context_str:
         context_str = "No results found."
 
-    # Compute context embedding now while we already have the retrieved text,
-    # so _finalize_metrics can later derive a cosine-similarity retrieval_relevance
-    # without an extra embed_text() call at response time.
-    from backend.ingestion.chunk_embed import embed_text as _embed_text
-    user_query = next(
-        (m.content for m in reversed(messages)
-         if getattr(m, "type", "") in ("human", "user") or m.__class__.__name__ == "HumanMessage"),
-        "",
-    )
-    try:
-        query_emb: list[float] | None = _embed_text(user_query) if user_query else None
-        context_emb: list[float] | None = _embed_text(context_str) if context_str and context_str != "No results found." else None
-    except Exception:
-        query_emb = None
-        context_emb = None
+    query_emb = None
+    context_emb = None
+    if state.get("calculate_grounding"):
+        # Compute context embedding now while we already have the retrieved text,
+        # so _finalize_metrics can later derive a cosine-similarity retrieval_relevance
+        # without an extra embed_text() call at response time.
+        from backend.ingestion.chunk_embed import embed_text as _embed_text
+        user_query = next(
+            (m.content for m in reversed(messages)
+             if getattr(m, "type", "") in ("human", "user") or m.__class__.__name__ == "HumanMessage"),
+            "",
+        )
+        try:
+            loop = asyncio.get_running_loop()
+            query_emb = await loop.run_in_executor(None, _embed_text, user_query) if user_query else None
+            context_emb = await loop.run_in_executor(None, _embed_text, context_str) if context_str and context_str != "No results found." else None
+        except Exception:
+            pass
 
     # We must satisfy LangChain's ToolMessage requirement by putting the results directly in it.
     # Since parallel_tool_calls=False, there should only be one tool call, but we handle multiple just in case.
@@ -642,6 +651,7 @@ async def execute_tools(state: AgentState):
         "messages": tool_messages,
         "retrieved_context": context_str,
         "query_embedding": query_emb,
+        "context_embedding": context_emb,
     }
 
 class GradeDocuments(BaseModel):

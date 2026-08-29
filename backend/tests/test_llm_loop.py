@@ -171,8 +171,9 @@ async def test_execute_tools():
 @pytest.mark.asyncio
 async def test_get_tools(mock_config):
     from backend.mcp_server.llm_loop import get_tools
-    tools = await get_tools()
+    tools = await get_tools({"file_search_enabled": True})
     assert len(tools) > 0
+    assert tools[0]["function"]["name"] == "search_vectors"
 
 @pytest.mark.asyncio
 async def test_call_model(mock_config):
@@ -234,13 +235,13 @@ def test_execute_single_tool(mock_config):
     # Test search_vectors mock
     with patch("backend.mcp_server.llm_loop.search_vectors") as mock_sv:
         mock_sv.return_value = [MagicMock()]
-        v_hits, g_hits = _execute_single_tool("search_vectors", {"query_text": "test", "limit": 5}, "test_tenant")
+        v_hits, g_hits = _execute_single_tool("search_vectors", {"query_text": "test", "limit": 5}, "test_tenant", tool_settings={"file_search_enabled": True})
         assert len(v_hits) == 1
         
     # Test query_graph mock
     with patch("backend.mcp_server.llm_loop.query_graph") as mock_qg:
         mock_qg.return_value = [MagicMock()]
-        v_hits, g_hits = _execute_single_tool("query_graph", {"entity_name": "test", "max_hops": 2}, "test_tenant")
+        v_hits, g_hits = _execute_single_tool("query_graph", {"entity_name": "test", "max_hops": 2}, "test_tenant", tool_settings={"file_search_enabled": True})
         assert len(g_hits) == 1
         
     # Test web_search mock
@@ -274,7 +275,7 @@ def test_handle_stream_events():
     assert events[0]["event"] == "metadata"
 
 def test_helpers():
-    from backend.mcp_server.llm_loop import _cosine_similarity, _build_context_string, _embed_context_for_metrics
+    from backend.mcp_server.llm_loop import _cosine_similarity, _build_context_string
     
     # Test _cosine_similarity
     assert _cosine_similarity([1, 0], [1, 0]) == 1.0

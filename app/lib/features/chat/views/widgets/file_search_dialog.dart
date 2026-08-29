@@ -11,7 +11,7 @@ class FileSearchDialog extends StatefulWidget {
 }
 
 class _FileSearchDialogState extends State<FileSearchDialog> {
-  bool _fileSearchEnabled = true;
+  bool _fileSearchEnabled = false;
 
   @override
   void initState() {

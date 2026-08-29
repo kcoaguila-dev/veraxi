@@ -16,7 +16,7 @@ import 'package:veraxi_app/features/chat/views/widgets/agentic_tool_log.dart';
 import 'package:veraxi_app/features/chat/views/widgets/sources_button.dart';
 import 'package:veraxi_app/features/chat/views/widgets/sources_sidebar.dart';
 import 'package:veraxi_app/features/chat/views/widgets/citation_chip.dart';
-
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:markdown/markdown.dart' as md;
 import 'package:flutter_highlighter/flutter_highlighter.dart';
@@ -505,7 +505,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     );
   }
 
-  @override
   Widget _buildSidebarContent(
       BuildContext context,
       dynamic state,
@@ -1170,6 +1169,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 Expanded(
                   child: Builder(
                     builder: (context) {
+                      if (state.isLoadingThreads) {
+                        return const Center(
+                          child: Padding(
+                            padding: EdgeInsets.only(top: 24.0),
+                            child: CupertinoActivityIndicator(radius: 10),
+                          ),
+                        );
+                      }
+
                       final timelineChats = state.pastThreads
                           .where((t) => t['is_archived'] != true)
                           .toList();
@@ -1523,7 +1531,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                                     left: 16,
                                                     right: 16,
                                                     top: 80,
-                                                    bottom: 120),
+                                                    bottom: 300),
                                                 itemCount:
                                                     state.messages.length,
                                                 itemBuilder: (context, index) {
@@ -1663,7 +1671,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                           bottom: 0,
                           left: 0,
                           right: 0,
-                          height: 140,
+                          height: 160,
                           child: Container(
                             color: theme.scaffoldBackgroundColor,
                           ),
