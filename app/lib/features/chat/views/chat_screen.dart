@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:veraxi_app/core/widgets/model_selector_popup.dart';
 import 'package:veraxi_app/features/chat/view_models/chat_view_model.dart';
 import 'package:veraxi_app/features/chat/views/widgets/chat_input.dart';
 import 'package:veraxi_app/features/chat/views/widgets/chat_message_metrics.dart';
@@ -1753,7 +1754,26 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                         Positioned(
                           top: 56,
                           left: 16,
-                          child: _buildModelSelectorPopup(context)
+                          child: ModelSelectorPopup(
+                            selectedModel: _selectedModel,
+                            pinnedModels: _pinnedModels,
+                            onModelSelected: (model) {
+                              setState(() {
+                                _selectedModel = model;
+                                _isModelSelectorOpen = false;
+                              });
+                              _saveSelectedModel(_selectedModel, _selectedProvider);
+                            },
+                            onModelPinned: (model) {
+                              setState(() => _pinnedModels.add(model));
+                            },
+                            onModelUnpinned: (model) {
+                              setState(() => _pinnedModels.remove(model));
+                            },
+                            onClose: () {
+                              setState(() => _isModelSelectorOpen = false);
+                            },
+                          ),
                               .animate()
                               .fade(duration: 200.ms),
                         ),
