@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -30,6 +32,8 @@ class _ModelSelectorPopupState extends ConsumerState<ModelSelectorPopup> {
   final TextEditingController _globalSearchController = TextEditingController();
   String _globalSearchQuery = '';
 
+  Timer? _hoverTimer;
+
   String? _hoveredProvider;
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
@@ -39,6 +43,7 @@ class _ModelSelectorPopupState extends ConsumerState<ModelSelectorPopup> {
 
   @override
   void dispose() {
+    _hoverTimer?.cancel();
     _globalSearchController.dispose();
     _searchController.dispose();
     super.dispose();
@@ -210,8 +215,16 @@ class _ModelSelectorPopupState extends ConsumerState<ModelSelectorPopup> {
     return MouseRegion(
       onEnter: (_) {
         if (_hoveredProvider != name) {
-          setState(() => _hoveredProvider = name);
+          _hoverTimer?.cancel();
+          _hoverTimer = Timer(const Duration(milliseconds: 150), () {
+            if (mounted) {
+              setState(() => _hoveredProvider = name);
+            }
+          });
         }
+      },
+      onExit: (_) {
+        _hoverTimer?.cancel();
       },
       child: InkWell(
         onTap: () {
