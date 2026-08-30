@@ -132624,7 +132624,7 @@ p=4
 m=n.qV()
 if(g!=null)J.u2(m,g)
 s=7
-return A.j(n.b.tS(0,A.c8("https://api.veraxi.me"+b,0,null),m).zD(0,B.fS),$async$dq)
+return A.j(n.b.tS(0,A.c8("https://api.veraxi.me/api"+b,0,null),m).zD(0,B.fS),$async$dq)
 case 7:l=d
 if(l.b===200){i=l
 i=B.S.fk(0,A.no(A.nj(i.e)).ci(0,i.w),null)
@@ -132658,7 +132658,7 @@ i=n.qV()
 i.l(0,"Content-Type","application/json")
 m=i
 if(e!=null)J.u2(m,e)
-h=A.c8("https://api.veraxi.me"+a,0,null)
+h=A.c8("https://api.veraxi.me/api"+a,0,null)
 g=B.S.jJ(b,null)
 s=7
 return A.j(n.b.Ez(h,g,m).zD(0,B.fS),$async$kB)
@@ -132695,7 +132695,7 @@ i=n.qV()
 i.l(0,"Content-Type","application/json")
 m=i
 if(e!=null)J.u2(m,e)
-h=A.c8("https://api.veraxi.me"+b,0,null)
+h=A.c8("https://api.veraxi.me/api"+b,0,null)
 g=B.S.jJ(c,null)
 s=7
 return A.j(n.b.Mi(0,h,g,m).zD(0,B.fS),$async$ED)
@@ -132731,7 +132731,7 @@ p=4
 m=n.qV()
 if(g!=null)J.u2(m,g)
 s=7
-return A.j(n.b.K5(0,A.c8("https://api.veraxi.me"+b,0,null),m).zD(0,B.fS),$async$m6)
+return A.j(n.b.K5(0,A.c8("https://api.veraxi.me/api"+b,0,null),m).zD(0,B.fS),$async$m6)
 case 7:l=d
 if(l.b===200){i=l
 i=B.S.fk(0,A.no(A.nj(i.e)).ci(0,i.w),null)
@@ -132765,7 +132765,7 @@ c=null
 p=4
 m=n.qV()
 if(c!=null)J.u2(m,c)
-l=A.c8("https://api.veraxi.me"+a,0,null)
+l=A.c8("https://api.veraxi.me/api"+a,0,null)
 k=A.br2("POST",l)
 k.r.D(0,m)
 if(a0!=null)k.x.D(0,a0)
@@ -132828,7 +132828,7 @@ return A.q($async$mF,r)},
 mC(a,b,c,d){return this.b3_(a,b,c,d)},
 b3_(a,b,c,d){var s=0,r=A.r(t.H),q=this,p,o,n,m,l
 var $async$mC=A.n(function(e,f){if(e===1)return A.o(f,r)
-for(;;)switch(s){case 0:n=A.br2("POST",A.c8("https://api.veraxi.me/voices/upload",0,null))
+for(;;)switch(s){case 0:n=A.br2("POST",A.c8("https://api.veraxi.me/api/voices/upload",0,null))
 m=q.a
 n.r.D(0,m.qV())
 p=n.x
@@ -132848,7 +132848,7 @@ return A.q($async$mC,r)},
 F0(a,b,c){return this.ajR(a,b,c)},
 ajR(a,b,c){var s=0,r=A.r(t.Cm),q,p=this,o,n,m,l,k
 var $async$F0=A.n(function(d,e){if(d===1)return A.o(e,r)
-for(;;)switch(s){case 0:m=A.c8("https://api.veraxi.me/chat/audio",0,null)
+for(;;)switch(s){case 0:m=A.c8("https://api.veraxi.me/api/chat/audio",0,null)
 l=p.a
 k=l.qV()
 k.l(0,"Content-Type","application/json")
@@ -133559,7 +133559,7 @@ break
 case 1:o.push(b6)
 s=p}for(;;)switch(s){case 0:b2=b2
 p=4
-l=A.c8("https://api.veraxi.me/chat",0,null)
+l=A.c8("https://api.veraxi.me/api/chat",0,null)
 a4=m.a
 a5=a4.qV()
 a5.l(0,"Content-Type","application/json")
