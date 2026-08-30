@@ -6,7 +6,6 @@ import 'package:file_picker/file_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:veraxi_app/core/widgets/model_selector_popup.dart';
 import 'package:veraxi_app/features/control_panel/view_models/control_panel_view_model.dart';
-import 'package:veraxi_app/features/chat/view_models/chat_view_model.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 
 class ControlPanelScreen extends ConsumerStatefulWidget {
