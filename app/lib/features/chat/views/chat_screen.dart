@@ -1546,12 +1546,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                             onTap: () {
                               setState(() {
                                 _isModelSelectorOpen = false;
-                                _hoveredProvider = null;
-                                _hoveredGearProvider = null;
-                                _searchQuery = '';
-                                _searchController.clear();
-                                _globalSearchQuery = '';
-                                _globalSearchController.clear();
                                 _hoveredModel = null;
                               });
                             },
@@ -1573,12 +1567,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                               onTap: () {
                                 setState(() {
                                   _isModelSelectorOpen = !_isModelSelectorOpen;
-                                  if (_isModelSelectorOpen) {
-                                    _hoveredProvider = _selectedProvider;
-                                  } else {
-                                    _hoveredProvider = null;
-                                    _hoveredGearProvider = null;
-                                  }
                                 });
                               },
                               child: Container(
