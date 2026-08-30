@@ -8,8 +8,6 @@ import 'package:veraxi_app/features/chat/view_models/chat_view_model.dart';
 import 'package:veraxi_app/features/chat/data/chat_repository.dart';
 import 'package:veraxi_app/features/chat/views/chat_screen.dart' show CitationSyntax, CitationElementBuilder;
 import 'package:veraxi_app/core/widgets/profile_menu_button.dart';
-
-/// Lightweight code block builder for the read-only shared chat view.
 /// Does not require BuildContext unlike the full CodeElementBuilder in chat_screen.dart.
 class _CodeBuilder extends MarkdownElementBuilder {
   @override

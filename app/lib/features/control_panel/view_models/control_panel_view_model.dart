@@ -89,6 +89,7 @@ class ControlPanelViewModel extends StateNotifier<ControlPanelState> {
     bool fastExtraction = false,
     String language = 'en',
     String customStopWords = '',
+    String model = 'gemini-2.5-flash-lite',
   }) async {
     state = ControlPanelState(
       isIngesting: true,
@@ -104,6 +105,7 @@ class ControlPanelViewModel extends StateNotifier<ControlPanelState> {
         fastExtraction: fastExtraction,
         language: language,
         customStopWords: customStopWords,
+        model: model,
       );
 
       await fetchStats();
@@ -135,6 +137,7 @@ class ControlPanelViewModel extends StateNotifier<ControlPanelState> {
     bool fastExtraction = false,
     String language = 'en',
     String customStopWords = '',
+    String model = 'gemini-2.5-flash-lite',
   }) async {
     state = ControlPanelState(
       isIngesting: true,
@@ -149,6 +152,7 @@ class ControlPanelViewModel extends StateNotifier<ControlPanelState> {
         fastExtraction: fastExtraction,
         language: language,
         customStopWords: customStopWords,
+        model: model,
       );
 
       await fetchStats();

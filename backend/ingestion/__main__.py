@@ -10,7 +10,7 @@ from backend.ingestion.graph_write import write_to_graph, IngestionPayload
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 
 
-def run_ingestion(config, text: str, schema: dict, tenant_id: str = "default", fast_extraction: bool = False, language: str = "en", custom_stop_words: list = None):
+def run_ingestion(config, text: str, schema: dict, tenant_id: str = "default", fast_extraction: bool = False, language: str = "en", custom_stop_words: list = None, model: str = None):
     # 1. Initialize clients
     qdrant = QdrantStorageClient.from_config(config)
     neo4j = Neo4jStorageClient.from_config(config)
@@ -45,7 +45,7 @@ def run_ingestion(config, text: str, schema: dict, tenant_id: str = "default", f
         entities, relations = extract_entities_and_relations_fast(text, schema, language, custom_stop_words or [])
     else:
         logging.info("Using Deep Extraction (LLM) for entity extraction.")
-        entities, relations = extract_entities_and_relations(text, schema)
+        entities, relations = extract_entities_and_relations(text, schema, model_name=model)
 
     # Resolve entities to deduplicate and get alias mapping
     entities, alias_to_canonical = resolve_entities(entities)

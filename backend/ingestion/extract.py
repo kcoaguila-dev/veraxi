@@ -133,7 +133,7 @@ def validate_extraction(
 
 
 def extract_entities_and_relations(
-    text: str, schema: dict
+    text: str, schema: dict, model_name: str = None
 ) -> Tuple[List[Dict[str, Any]], List[Dict[str, str]]]:
     """
     Extract entities and relations using OpenAI API constrained to a dynamic schema.
@@ -146,7 +146,7 @@ def extract_entities_and_relations(
 
     try:
         response = client.chat.completions.create(
-            model=config.llm_model_name,
+            model=model_name or config.llm_model_name,
             messages=[
                 {"role": "system", "content": get_extraction_prompt(schema)},
                 {"role": "user", "content": f"Text to analyze:\n{text}"}

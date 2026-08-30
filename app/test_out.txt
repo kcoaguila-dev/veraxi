@@ -1,0 +1,107 @@
+Resolving dependencies...
+Downloading packages...
+  app_links 7.0.0 (7.2.1 available)
+  app_links_platform_interface 2.0.2 (2.0.4 available)
+  code_assets 1.2.1 (2.0.0 available)
+  file_picker 3.0.4 (12.1.1 available)
+  flutter_markdown 0.7.7+1 (discontinued replaced by flutter_markdown_plus)
+  flutter_riverpod 2.6.1 (3.4.2 available)
+  go_router 17.4.0 (18.0.0 available)
+  gotrue 2.27.1 (2.27.2 available)
+  hooks 2.0.2 (2.2.0 available)
+  import_lint 0.1.6 (2.0.0 available)
+  intl 0.19.0 (0.20.3 available)
+  lucide_icons_flutter 3.1.15 (3.1.17 available)
+  matcher 0.12.18 (0.12.20 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.17.0 (1.19.0 available)
+  objective_c 9.5.0 (9.6.0 available)
+  record_use 0.6.0 (1.1.1 available)
+  riverpod 2.6.1 (3.4.2 available)
+  sentry 8.14.2 (9.28.0 available)
+  sentry_flutter 8.14.2 (9.28.0 available)
+  shared_preferences_android 2.4.23 (2.4.28 available)
+  shared_preferences_foundation 2.5.6 (2.5.7 available)
+  speech_to_text 6.6.2 (7.4.0 available)
+  sqflite 2.4.2+1 (2.4.3 available)
+  sqflite_android 2.4.2+3 (2.4.3 available)
+  sqflite_common 2.5.8 (2.5.11 available)
+  sqflite_darwin 2.4.2 (2.4.3+1 available)
+  sqflite_platform_interface 2.4.0 (2.4.1 available)
+  supabase 2.16.0 (2.16.1 available)
+  supabase_flutter 2.17.1 (2.17.2 available)
+  synchronized 3.4.0+1 (3.4.1+2 available)
+  test_api 0.7.9 (0.7.13 available)
+  url_launcher_android 6.3.30 (6.3.33 available)
+  url_launcher_ios 6.4.1 (6.4.2 available)
+  url_launcher_linux 3.2.2 (3.2.3 available)
+  url_launcher_macos 3.2.5 (3.2.6 available)
+  url_launcher_windows 3.1.5 (3.1.6 available)
+  vector_math 2.2.0 (2.4.2 available)
+  vm_service 15.2.0 (15.3.0 available)
+  webview_flutter_android 4.12.0 (4.14.1 available)
+  webview_flutter_wkwebview 3.25.1 (3.26.1 available)
+Got dependencies!
+1 package is discontinued.
+40 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading /home/ubuntu/src/ai/veraxi/app/integration_test/true_e2e_test.dart
+Building Linux application...                                   
+CMake Error at flutter/generated_plugins.cmake:19 (add_subdirectory):
+  add_subdirectory given source
+  "flutter/ephemeral/.plugin_symlinks/flutter_secure_storage_linux/linux"
+  which is not an existing directory.
+Call Stack (most recent call first):
+  CMakeLists.txt:75 (include)
+
+
+CMake Error at flutter/generated_plugins.cmake:19 (add_subdirectory):
+  add_subdirectory given source
+  "flutter/ephemeral/.plugin_symlinks/gtk/linux" which is not an existing
+  directory.
+Call Stack (most recent call first):
+  CMakeLists.txt:75 (include)
+
+
+CMake Error at flutter/generated_plugins.cmake:19 (add_subdirectory):
+  add_subdirectory given source
+  "flutter/ephemeral/.plugin_symlinks/sentry_flutter/linux" which is not an
+  existing directory.
+Call Stack (most recent call first):
+  CMakeLists.txt:75 (include)
+
+
+CMake Error at flutter/generated_plugins.cmake:19 (add_subdirectory):
+  add_subdirectory given source
+  "flutter/ephemeral/.plugin_symlinks/url_launcher_linux/linux" which is not
+  an existing directory.
+Call Stack (most recent call first):
+  CMakeLists.txt:75 (include)
+
+
+CMake Error at flutter/generated_plugins.cmake:26 (add_subdirectory):
+  add_subdirectory given source
+  "flutter/ephemeral/.plugin_symlinks/jni/linux" which is not an existing
+  directory.
+Call Stack (most recent call first):
+  CMakeLists.txt:75 (include)
+
+
+00:00 +0 -1: loading /home/ubuntu/src/ai/veraxi/app/integration_test/true_e2e_test.dart [E]
+  Failed to load "/home/ubuntu/src/ai/veraxi/app/integration_test/true_e2e_test.dart": Unable to generate build files
+  package:flutter_tools/src/base/common.dart 34:3                    throwToolExit
+  package:flutter_tools/src/linux/build_linux.dart 189:5             _runCmake
+  ===== asynchronous gap ===========================
+  package:flutter_tools/src/linux/build_linux.dart 89:5              buildLinux
+  ===== asynchronous gap ===========================
+  package:flutter_tools/src/linux/linux_device.dart 67:5             LinuxDevice.buildForDevice
+  ===== asynchronous gap ===========================
+  package:flutter_tools/src/desktop_device.dart 108:7                DesktopDevice.startApp
+  ===== asynchronous gap ===========================
+  package:flutter_tools/src/test/integration_test_device.dart 57:39  IntegrationTestTestDevice.start
+  ===== asynchronous gap ===========================
+  package:flutter_tools/src/test/flutter_platform.dart 680:51        FlutterPlatform._startTest.<fn>
+  ===== asynchronous gap ===========================
+  package:flutter_tools/src/base/async_guard.dart 108:24             asyncGuard.<fn>
+  
+00:00 +0 -1: Some tests failed.

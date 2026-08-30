@@ -1243,6 +1243,7 @@ async def ingest_upload(
     fast_extraction: bool = Form(False), 
     language: str = Form("en"),
     custom_stop_words: str = Form(""),
+    model: str = Form("gemini-2.5-flash-lite"),
     tenant_id: str = Depends(get_tenant_id)
 ):
     try:
@@ -1301,7 +1302,8 @@ async def ingest_upload(
             tenant_id, 
             fast_extraction,
             language,
-            parsed_stop_words
+            parsed_stop_words,
+            model
         )
         return {"status": "queued", "job_id": job.job_id}
     except HTTPException:
@@ -1317,6 +1319,7 @@ class UrlIngestRequest(BaseModel):
     fast_extraction: bool = False
     language: str = "en"
     custom_stop_words: list[str] = []
+    model: str = "gemini-2.5-flash-lite"
 
 @app.post("/api/admin/ingest/url")
 @limiter.limit(config.rate_limit_ingest)
@@ -1336,7 +1339,8 @@ async def ingest_url(request: Request, url_request: UrlIngestRequest, tenant_id:
             tenant_id, 
             url_request.fast_extraction,
             url_request.language,
-            url_request.custom_stop_words
+            url_request.custom_stop_words,
+            url_request.model
         )
         return {"status": "queued", "job_id": job.job_id}
     except Exception as e:

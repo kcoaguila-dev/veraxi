@@ -6,7 +6,7 @@ from backend.ingestion.__main__ import run_ingestion
 
 logger = logging.getLogger(__name__)
 
-async def process_ingestion_task(ctx, text: str, tenant_id: str, fast_extraction: bool = False, language: str = "en", custom_stop_words: list = None):
+async def process_ingestion_task(ctx, text: str, tenant_id: str, fast_extraction: bool = False, language: str = "en", custom_stop_words: list = None, model: str = "gemini-2.5-flash-lite"):
     """
     Background worker task to ingest a document.
     """
@@ -26,7 +26,7 @@ async def process_ingestion_task(ctx, text: str, tenant_id: str, fast_extraction
     
     # run_ingestion is currently synchronous, so we run it in a threadpool to avoid blocking the worker event loop
     loop = asyncio.get_running_loop()
-    result = await loop.run_in_executor(None, run_ingestion, config, text, schema, tenant_id, fast_extraction, language, custom_stop_words or [])
+    result = await loop.run_in_executor(None, run_ingestion, config, text, schema, tenant_id, fast_extraction, language, custom_stop_words or [], model)
     
     logger.info(f"Worker completed ingestion task for tenant {tenant_id}: {result}")
     return result

@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:veraxi_app/features/control_panel/view_models/control_panel_view_model.dart';
+import 'package:veraxi_app/features/chat/view_models/chat_view_model.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 
 class ControlPanelScreen extends ConsumerStatefulWidget {
@@ -29,6 +30,7 @@ class _ControlPanelScreenState extends ConsumerState<ControlPanelScreen> {
   // Ingestion Settings
   bool _fastExtractionEnabled = false;
   String _selectedLanguage = 'en';
+  String _selectedModel = 'gemini-2.5-flash-lite';
   final TextEditingController _customStopWordsController =
       TextEditingController();
 
@@ -681,6 +683,7 @@ cursorColor: Colors.white,
                       fileName,
                       fastExtraction: _fastExtractionEnabled,
                       language: _selectedLanguage,
+                      model: _selectedModel,
                       customStopWords: _customStopWordsController.text.trim(),
                     );
                     if (mounted)
@@ -767,6 +770,72 @@ cursorColor: Colors.white,
             ],
           ),
           const SizedBox(height: 32),
+          // AI Model Selection
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xFF171717),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFF333333)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Extraction Model',
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600)),
+                const SizedBox(height: 4),
+                const Text(
+                    'Select the AI model used for knowledge graph extraction.',
+                    style: TextStyle(
+                        color: Color(0xFFB4B4B4), fontSize: 12)),
+                const SizedBox(height: 16),
+                Consumer(builder: (context, ref, _) {
+                  final asyncModels = ref.watch(providerModelsProvider);
+                  return asyncModels.when(
+                    data: (modelsByProvider) {
+                      final allModels = modelsByProvider.values.expand((e) => e).toList();
+                      if (!allModels.contains(_selectedModel) && allModels.isNotEmpty) {
+                        _selectedModel = allModels.first;
+                      }
+                      return Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF1E1E1E),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: const Color(0xFF333333)),
+                        ),
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<String>(
+                            value: _selectedModel,
+                            isExpanded: true,
+                            dropdownColor: const Color(0xFF1E1E1E),
+                            style: const TextStyle(color: Colors.white),
+                            items: allModels.map((m) {
+                              return DropdownMenuItem(
+                                value: m,
+                                child: Text(m),
+                              );
+                            }).toList(),
+                            onChanged: (val) {
+                              if (val != null) {
+                                setState(() => _selectedModel = val);
+                              }
+                            },
+                          ),
+                        ),
+                      );
+                    },
+                    loading: () => const Center(child: CircularProgressIndicator()),
+                    error: (err, _) => Text('Error loading models: $err', style: const TextStyle(color: Colors.red)),
+                  );
+                }),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -1085,6 +1154,7 @@ cursorColor: Colors.white,
         url,
         fastExtraction: _fastExtractionEnabled,
         language: _selectedLanguage,
+        model: _selectedModel,
         customStopWords: _customStopWordsController.text.trim(),
       );
       _urlController.clear();

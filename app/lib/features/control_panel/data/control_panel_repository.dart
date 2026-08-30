@@ -33,11 +33,13 @@ class ControlPanelRepository {
   Future<Map<String, dynamic>> triggerIngestion(String text,
       {bool fastExtraction = false,
       String language = 'en',
-      String customStopWords = ''}) async {
+      String customStopWords = '',
+      String model = 'gemini-2.5-flash-lite'}) async {
     final data = await apiClient.post('/api/admin/ingest', body: {
       'text': text,
       'fast_extraction': fastExtraction,
       'language': language,
+      'model': model,
       'custom_stop_words': customStopWords
           .split(',')
           .map((e) => e.trim())
@@ -50,11 +52,13 @@ class ControlPanelRepository {
   Future<Map<String, dynamic>> ingestUrl(String url,
       {bool fastExtraction = false,
       String language = 'en',
-      String customStopWords = ''}) async {
+      String customStopWords = '',
+      String model = 'gemini-2.5-flash-lite'}) async {
     final data = await apiClient.post('/api/admin/ingest/url', body: {
       'url': url,
       'fast_extraction': fastExtraction,
       'language': language,
+      'model': model,
       'custom_stop_words': customStopWords
           .split(',')
           .map((e) => e.trim())
@@ -68,7 +72,8 @@ class ControlPanelRepository {
       List<int> fileBytes, String fileName,
       {bool fastExtraction = false,
       String language = 'en',
-      String customStopWords = ''}) async {
+      String customStopWords = '',
+      String model = 'gemini-2.5-flash-lite'}) async {
     final data = await apiClient.postMultipart(
       '/api/admin/ingest/upload',
       fileBytes: fileBytes,
@@ -76,6 +81,7 @@ class ControlPanelRepository {
       fields: {
         'fast_extraction': fastExtraction.toString(),
         'language': language,
+        'model': model,
         'custom_stop_words': customStopWords,
       },
     );
