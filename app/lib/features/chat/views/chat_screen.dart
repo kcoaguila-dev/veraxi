@@ -2139,6 +2139,70 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   // Removed hardcoded _allProviderModels
 
+  Widget _providerDotFor(String model, {double size = 14}) {
+    String? assetPath;
+    if (model.startsWith('gemini')) {
+      assetPath = 'assets/icons/google.svg';
+    } else if (model.startsWith('gpt') ||
+        model.startsWith('o1') ||
+        model.startsWith('o3')) {
+      assetPath = 'assets/icons/openai.svg';
+    } else if (model.startsWith('claude')) {
+      assetPath = 'assets/icons/anthropic.svg';
+    } else if (model.startsWith('deepseek')) {
+      assetPath = 'assets/icons/deepseek.svg';
+    } else if (model.startsWith('groq') ||
+        model.contains('llama') ||
+        model.startsWith('qwen') ||
+        model.startsWith('allam') ||
+        model.startsWith('meta')) {
+      assetPath = 'assets/icons/groq.svg';
+    } else if (model.startsWith('mistral') || model.startsWith('mixtral')) {
+      assetPath = 'assets/icons/mistral.svg';
+    }
+
+    if (assetPath != null) {
+      final lowerModel = model.toLowerCase();
+      Color iconColor = Colors.white;
+      if (lowerModel.startsWith('claude')) {
+        iconColor = const Color(0xFFd97757);
+      } else if (lowerModel.startsWith('groq') ||
+          lowerModel.contains('llama') ||
+          lowerModel.startsWith('qwen') ||
+          lowerModel.startsWith('allam') ||
+          lowerModel.startsWith('meta')) {
+        iconColor = const Color(0xFFf55036);
+      } else if (lowerModel.startsWith('mistral') || lowerModel.startsWith('mixtral')) {
+        iconColor = const Color(0xFFFF9800);
+      }
+
+      return SizedBox(
+        width: size,
+        height: size,
+        child: Center(
+          child: SvgPicture.asset(
+            assetPath, 
+            width: size, 
+            height: size,
+            colorFilter: ColorFilter.mode(iconColor, BlendMode.srcIn),
+          ),
+        ),
+      );
+    }
+
+    Color? color;
+    if (model.startsWith('mistral') || model.startsWith('mixtral')) {
+      color = const Color(0xFFFF9800); // Mistral
+    }
+
+    if (color == null) return SizedBox(width: size);
+    return Container(
+      width: 8,
+      height: 8,
+      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+    );
+  }
+
   void _showRenameDialog(BuildContext context, ChatViewModel viewModel,
       String threadId, String currentTitle) {
     final controller = TextEditingController(text: currentTitle);
@@ -2309,90 +2373,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           ],
         );
       },
-    );
-  }
-
-            height: 16,
-            colorFilter: ColorFilter.mode(iconColor, BlendMode.srcIn),
-          ),
-        ),
-      );
-    }
-
-    final color = colors[provider];
-    if (color == null) return const SizedBox(width: 10);
-    return Container(
-      width: 10,
-      height: 10,
-      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-    );
-  }
-
-  // Removed hardcoded _getModelsForProvider
-
-  /// Returns a small colored circle representing the AI provider,
-  /// inferred from the model name. Returns empty SizedBox for unknown providers.
-  Widget _providerDotFor(String model, {double size = 14}) {
-    String? assetPath;
-    if (model.startsWith('gemini')) {
-      assetPath = 'assets/icons/google.svg';
-    } else if (model.startsWith('gpt') ||
-        model.startsWith('o1') ||
-        model.startsWith('o3')) {
-      assetPath = 'assets/icons/openai.svg';
-    } else if (model.startsWith('claude')) {
-      assetPath = 'assets/icons/anthropic.svg';
-    } else if (model.startsWith('deepseek')) {
-      assetPath = 'assets/icons/deepseek.svg';
-    } else if (model.startsWith('groq') ||
-        model.contains('llama') ||
-        model.startsWith('qwen') ||
-        model.startsWith('allam') ||
-        model.startsWith('meta')) {
-      assetPath = 'assets/icons/groq.svg';
-    } else if (model.startsWith('mistral') || model.startsWith('mixtral')) {
-      assetPath = 'assets/icons/mistral.svg';
-    }
-
-    if (assetPath != null) {
-      final lowerModel = model.toLowerCase();
-      Color iconColor = Colors.white;
-      if (lowerModel.startsWith('claude')) {
-        iconColor = const Color(0xFFd97757);
-      } else if (lowerModel.startsWith('groq') ||
-          lowerModel.contains('llama') ||
-          lowerModel.startsWith('qwen') ||
-          lowerModel.startsWith('allam') ||
-          lowerModel.startsWith('meta')) {
-        iconColor = const Color(0xFFf55036);
-      } else if (lowerModel.startsWith('mistral') || lowerModel.startsWith('mixtral')) {
-        iconColor = const Color(0xFFFF9800);
-      }
-
-      return SizedBox(
-        width: size,
-        height: size,
-        child: Center(
-          child: SvgPicture.asset(
-            assetPath, 
-            width: size, 
-            height: size,
-            colorFilter: ColorFilter.mode(iconColor, BlendMode.srcIn),
-          ),
-        ),
-      );
-    }
-
-    Color? color;
-    if (model.startsWith('mistral') || model.startsWith('mixtral')) {
-      color = const Color(0xFFFF9800); // Mistral
-    }
-
-    if (color == null) return SizedBox(width: size);
-    return Container(
-      width: 8,
-      height: 8,
-      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
     );
   }
 }
