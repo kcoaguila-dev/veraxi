@@ -1569,13 +1569,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
                       // Removed overlapping Positioned toggle icon
 
-                      // Top Bar: Model Selector (like LibreChat / ChatGPT)
+                      // Top Bar: Model Selector (like LibreChat)
                       Positioned(
                         top: 12,
-                        left: 0,
-                        right: 0,
+                        left: 16,
                         child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
                           crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
                             GestureDetector(
@@ -1754,14 +1752,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       if (_isModelSelectorOpen)
                         Positioned(
                           top: 56,
-                          left: 0,
-                          right: 0,
-                          child: Align(
-                            alignment: Alignment.topCenter,
-                            child: _buildModelSelectorPopup(context)
-                                .animate()
-                                .fade(duration: 200.ms),
-                          ),
+                          left: 16,
+                          child: _buildModelSelectorPopup(context)
+                              .animate()
+                              .fade(duration: 200.ms),
                         ),
                     ],
                   ),
