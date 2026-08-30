@@ -1760,7 +1760,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                             alignment: Alignment.topCenter,
                             child: _buildModelSelectorPopup(context)
                                 .animate()
-                              .fade(duration: 200.ms),
+                                .fade(duration: 200.ms),
+                          ),
                         ),
                     ],
                   ),
