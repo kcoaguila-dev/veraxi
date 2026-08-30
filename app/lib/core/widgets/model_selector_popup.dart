@@ -35,8 +35,6 @@ class _ModelSelectorPopupState extends ConsumerState<ModelSelectorPopup> {
   Timer? _hoverTimer;
 
   String? _hoveredProvider;
-  final TextEditingController _searchController = TextEditingController();
-  String _searchQuery = '';
 
   String? _hoveredModel;
   String? _hoveredGearProvider;
@@ -45,7 +43,6 @@ class _ModelSelectorPopupState extends ConsumerState<ModelSelectorPopup> {
   void dispose() {
     _hoverTimer?.cancel();
     _globalSearchController.dispose();
-    _searchController.dispose();
     super.dispose();
   }
 
@@ -362,8 +359,9 @@ class _ModelSelectorPopupState extends ConsumerState<ModelSelectorPopup> {
         Widget buildSearchResults() {
           final results = <Widget>[];
           allProviderModels.forEach((provider, models) {
+            final providerMatches = provider.toLowerCase().contains(_globalSearchQuery);
             final matched = models
-                .where((m) => m.toLowerCase().contains(_globalSearchQuery))
+                .where((m) => providerMatches || m.toLowerCase().contains(_globalSearchQuery))
                 .toList();
             if (matched.isEmpty) return;
             // Provider header
@@ -513,49 +511,12 @@ class _ModelSelectorPopupState extends ConsumerState<ModelSelectorPopup> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
-                        child: TextField(
-                          style: const TextStyle(color: Colors.white, fontSize: 13),
-                          cursorColor: Colors.white,
-                          controller: _searchController,
-                          onChanged: (val) =>
-                              setState(() => _searchQuery = val.toLowerCase()),
-                          decoration: InputDecoration(
-                            hintText: 'Search $_hoveredProvider models...',
-                            hintStyle: const TextStyle(
-                                color: Color(0xFF6E6E6E), fontSize: 13),
-                            prefixIcon: const Icon(Icons.search,
-                                color: Color(0xFF6E6E6E), size: 16),
-                            prefixIconConstraints:
-                                const BoxConstraints(minWidth: 36, minHeight: 36),
-                            filled: true,
-                            fillColor: const Color(0xFF1E1E1E),
-                            contentPadding: const EdgeInsets.symmetric(vertical: 8),
-                            border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(8),
-                                borderSide:
-                                    const BorderSide(color: Color(0xFF2A2A2A))),
-                            enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(8),
-                                borderSide:
-                                    const BorderSide(color: Color(0xFF2A2A2A))),
-                            focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(8),
-                                borderSide:
-                                    const BorderSide(color: Color(0xFF3A3A3A))),
-                          ),
-                        ),
-                      ),
                       Flexible(
                         child: ListView(
                           shrinkWrap: true,
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 4),
+                              horizontal: 8, vertical: 8),
                           children: (allProviderModels[_hoveredProvider!] ?? [])
-                              .where((m) =>
-                                  _searchQuery.isEmpty ||
-                                  m.toLowerCase().contains(_searchQuery))
                               .map((model) {
                             final isSelected = model == widget.selectedModel;
                             return _buildSubModelRow(model, isSelected: isSelected);
