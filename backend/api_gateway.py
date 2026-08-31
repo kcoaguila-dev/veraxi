@@ -1248,8 +1248,8 @@ async def ingest_upload(
 ):
     try:
         check_tenant_hard_cap(tenant_id, get_config())
-        # Save uploaded file to temp file (with 5MB hard limit)
-        MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB
+        # Save uploaded file to temp file (with 50MB hard limit)
+        MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB
         size = 0
         _, file_extension = os.path.splitext(file.filename)
         with tempfile.NamedTemporaryFile(
@@ -1261,7 +1261,7 @@ async def ingest_upload(
                     os.unlink(tmp_file.name)
                     raise HTTPException(
                         status_code=413,
-                        detail="File exceeds the 5MB free-tier limit. Please upload a smaller file."
+                        detail="File exceeds the 50MB maximum upload limit. Please upload a smaller file."
                     )
                 tmp_file.write(chunk)
             tmp_path = tmp_file.name
