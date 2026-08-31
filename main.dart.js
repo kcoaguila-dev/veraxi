@@ -134747,7 +134747,7 @@ ab_(a){var s=null
 return this.Ck(a,s,s,s,s,s)},
 aNO(a,b,c){return this.Ck(a,null,null,b,c,null)},
 ayO(a){var s,r
-if(a==="search_vectors")return"Searching knowledge base"
+if(a==="search_vectors")return"Running hybrid search"
 if(a==="query_graph")return"Traversing knowledge graph"
 if(a==="web_search")return"Searching the web"
 if(a==="run_python_code")return"Running code"
