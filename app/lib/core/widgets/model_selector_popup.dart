@@ -32,6 +32,8 @@ class _ModelSelectorPopupState extends ConsumerState<ModelSelectorPopup> {
   final TextEditingController _globalSearchController = TextEditingController();
   String _globalSearchQuery = '';
 
+  String? _hoveredModel;
+
   @override
   void dispose() {
     _globalSearchController.dispose();
