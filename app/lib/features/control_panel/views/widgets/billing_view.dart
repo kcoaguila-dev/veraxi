@@ -111,7 +111,7 @@ class BillingView extends StatelessWidget {
 
   Widget _buildFeatureRow(String feature) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12.0),
+      padding: const EdgeInsets.only(bottom: 16.0),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
@@ -121,7 +121,7 @@ class BillingView extends StatelessWidget {
             feature,
             style: const TextStyle(
               color: Color(0xFFB4B4B4),
-              fontSize: 14,
+              fontSize: 15,
             ),
           ),
         ],
