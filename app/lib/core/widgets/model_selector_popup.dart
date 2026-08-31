@@ -32,16 +32,8 @@ class _ModelSelectorPopupState extends ConsumerState<ModelSelectorPopup> {
   final TextEditingController _globalSearchController = TextEditingController();
   String _globalSearchQuery = '';
 
-  Timer? _hoverTimer;
-
-  String? _hoveredProvider;
-
-  String? _hoveredModel;
-  String? _hoveredGearProvider;
-
   @override
   void dispose() {
-    _hoverTimer?.cancel();
     _globalSearchController.dispose();
     super.dispose();
   }
@@ -206,124 +198,7 @@ class _ModelSelectorPopupState extends ConsumerState<ModelSelectorPopup> {
     );
   }
 
-  Widget _buildModelOptionRow(
-      BuildContext context, String name, Color circleColor, bool isSelected) {
-    final isHovered = _hoveredProvider == name;
-    return MouseRegion(
-      onEnter: (_) {
-        if (_hoveredProvider != name) {
-          _hoverTimer?.cancel();
-          _hoverTimer = Timer(const Duration(milliseconds: 150), () {
-            if (mounted) {
-              setState(() => _hoveredProvider = name);
-            }
-          });
-        }
-      },
-      onExit: (_) {
-        _hoverTimer?.cancel();
-      },
-      child: InkWell(
-        onTap: () {
-          // You can collapse the selector here if you want
-        },
-        child: Container(
-          height: 36,
-          margin: const EdgeInsets.only(bottom: 2),
-          decoration: BoxDecoration(
-            color: isSelected || isHovered
-                ? const Color(0xFF2F2F2F)
-                : Colors.transparent,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Stack(
-            children: [
-              if (isSelected)
-                Positioned(
-                  left: 0,
-                  top: 8,
-                  child: Container(
-                    width: 3,
-                    height: 20,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(1.5),
-                    ),
-                  ),
-                ),
-              Row(
-                children: [
-                  const SizedBox(width: 16),
-                  _providerCircle(name),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      name,
-                      style: TextStyle(
-                        color:
-                            isSelected ? Colors.white : const Color(0xFFB4B4B4),
-                        fontSize: 13,
-                        fontWeight:
-                            isSelected ? FontWeight.w600 : FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                  GestureDetector(
-                    onTap: () {
-                      widget.onClose?.call();
-                      showDialog(
-                        context: context,
-                        builder: (context) => ApiKeyDialog(providerName: name),
-                      );
-                    },
-                    child: MouseRegion(
-                      onEnter: (_) =>
-                          setState(() => _hoveredGearProvider = name),
-                      onExit: (_) =>
-                          setState(() => _hoveredGearProvider = null),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.settings_outlined,
-                            color: isSelected
-                                ? Colors.white
-                                : const Color(0xFF6E6E6E),
-                            size: 16,
-                          ),
-                          if (_hoveredGearProvider == name) ...[
-                            const SizedBox(width: 6),
-                            const Text('Set API Key',
-                                style: TextStyle(
-                                    color: Colors.white, fontSize: 12)),
-                          ],
-                        ],
-                      ),
-                    ),
-                  ),
-                  if (isSelected) ...[
-                    const SizedBox(width: 8),
-                    const Icon(
-                      Icons.check_circle_outline,
-                      color: Colors.white,
-                      size: 16,
-                    ),
-                  ],
-                  const SizedBox(width: 8),
-                  Icon(
-                    Icons.chevron_right,
-                    color: isSelected ? Colors.white : const Color(0xFF6E6E6E),
-                    size: 16,
-                  ),
-                  const SizedBox(width: 8),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
+  // _buildModelOptionRow is removed as we no longer use the two-column layout.
 
   @override
   Widget build(BuildContext context) {
@@ -355,28 +230,54 @@ class _ModelSelectorPopupState extends ConsumerState<ModelSelectorPopup> {
         ),
       ),
       data: (allProviderModels) {
-        // Build flat search results grouped by provider
-        Widget buildSearchResults() {
+        // Build the unified list of models, grouped by provider.
+        Widget buildUnifiedList() {
           final results = <Widget>[];
           allProviderModels.forEach((provider, models) {
-            final providerMatches = provider.toLowerCase().contains(_globalSearchQuery);
-            final matched = models
-                .where((m) => providerMatches || m.toLowerCase().contains(_globalSearchQuery))
-                .toList();
+            List<String> matched = models;
+            if (isSearching) {
+              final providerMatches = provider.toLowerCase().contains(_globalSearchQuery);
+              matched = models
+                  .where((m) => providerMatches || m.toLowerCase().contains(_globalSearchQuery))
+                  .toList();
+            }
             if (matched.isEmpty) return;
+            
             // Provider header
             results.add(
               Padding(
-                padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+                padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
                 child: Row(
                   children: [
                     _providerCircle(provider),
                     const SizedBox(width: 8),
-                    Text(provider,
+                    Expanded(
+                      child: Text(
+                        provider,
                         style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600)),
+                          color: Colors.white,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: () {
+                        widget.onClose?.call();
+                        showDialog(
+                          context: context,
+                          builder: (context) => ApiKeyDialog(providerName: provider),
+                        );
+                      },
+                      child: Tooltip(
+                        message: 'Set API Key for $provider',
+                        child: const Icon(
+                          Icons.settings_outlined,
+                          color: Color(0xFF6E6E6E),
+                          size: 16,
+                        ),
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -386,6 +287,7 @@ class _ModelSelectorPopupState extends ConsumerState<ModelSelectorPopup> {
                   _buildSubModelRow(model, isSelected: model == widget.selectedModel));
             }
           });
+          
           if (results.isEmpty) {
             results.add(const Padding(
               padding: EdgeInsets.all(16),
@@ -393,141 +295,76 @@ class _ModelSelectorPopupState extends ConsumerState<ModelSelectorPopup> {
                   style: TextStyle(color: Color(0xFF878787), fontSize: 13)),
             ));
           }
+          
           return ListView(
               shrinkWrap: true,
-              padding: const EdgeInsets.symmetric(vertical: 8),
+              padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
               children: results);
         }
-
-        // Determine which provider is currently selected
-        String selectedProvider = '';
-        allProviderModels.forEach((provider, models) {
-          if (models.contains(widget.selectedModel)) {
-            selectedProvider = provider;
-          }
-        });
 
         return Material(
           color: Colors.transparent,
           elevation: 24,
           shadowColor: Colors.transparent,
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 360,
-                constraints: const BoxConstraints(maxHeight: 650),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF171717),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFF2A2A2A)),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.5),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Global search field
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
-                      child: TextField(
-                        controller: _globalSearchController,
-                        style: const TextStyle(color: Colors.white, fontSize: 13),
-                        cursorColor: Colors.white,
-                        onChanged: (val) => setState(() {
-                          _globalSearchQuery = val.toLowerCase();
-                          if (val.isNotEmpty) _hoveredProvider = null;
-                        }),
-                        decoration: InputDecoration(
-                          hintText: 'Search models...',
-                          hintStyle: const TextStyle(
-                              color: Color(0xFF6E6E6E), fontSize: 13),
-                          prefixIcon: const Icon(Icons.search,
-                              color: Color(0xFF6E6E6E), size: 16),
-                          prefixIconConstraints:
-                              const BoxConstraints(minWidth: 36, minHeight: 36),
-                          filled: true,
-                          fillColor: const Color(0xFF1E1E1E),
-                          contentPadding: const EdgeInsets.symmetric(vertical: 8),
-                          border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide:
-                                  const BorderSide(color: Color(0xFF2A2A2A))),
-                          enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide:
-                                  const BorderSide(color: Color(0xFF2A2A2A))),
-                          focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide:
-                                  const BorderSide(color: Color(0xFF3A3A3A))),
-                        ),
-                      ),
-                    ),
-                    // Content: flat search results OR provider list
-                    Flexible(
-                      child: isSearching
-                          ? buildSearchResults()
-                          : ListView(
-                              shrinkWrap: true,
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 8, vertical: 8),
-                              children: allProviderModels.keys.map((provider) {
-                                return _buildModelOptionRow(
-                                    context,
-                                    provider,
-                                    Colors.white,
-                                    selectedProvider == provider);
-                              }).toList(),
-                            ),
-                    ),
-                  ],
-                ),
-              ),
-              // Sub-panel: per-provider model list (only when not globally searching)
-              if (!isSearching && _hoveredProvider != null) ...[
-                const SizedBox(width: 4),
-                Container(
-                  width: 320,
-                  constraints: const BoxConstraints(maxHeight: 650),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF171717),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFF2A2A2A)),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.5),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Flexible(
-                        child: ListView(
-                          shrinkWrap: true,
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 8),
-                          children: (allProviderModels[_hoveredProvider!] ?? [])
-                              .map((model) {
-                            final isSelected = model == widget.selectedModel;
-                            return _buildSubModelRow(model, isSelected: isSelected);
-                          }).toList(),
-                        ),
-                      ),
-                    ],
-                  ),
+          child: Container(
+            width: 360,
+            constraints: const BoxConstraints(maxHeight: 650),
+            decoration: BoxDecoration(
+              color: const Color(0xFF171717),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFF2A2A2A)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.5),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
                 ),
               ],
-            ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Global search field
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+                  child: TextField(
+                    controller: _globalSearchController,
+                    style: const TextStyle(color: Colors.white, fontSize: 13),
+                    cursorColor: Colors.white,
+                    onChanged: (val) => setState(() {
+                      _globalSearchQuery = val.toLowerCase();
+                    }),
+                    decoration: InputDecoration(
+                      hintText: 'Search models...',
+                      hintStyle: const TextStyle(
+                          color: Color(0xFF6E6E6E), fontSize: 13),
+                      prefixIcon: const Icon(Icons.search,
+                          color: Color(0xFF6E6E6E), size: 16),
+                      prefixIconConstraints:
+                          const BoxConstraints(minWidth: 36, minHeight: 36),
+                      filled: true,
+                      fillColor: const Color(0xFF1E1E1E),
+                      contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide:
+                              const BorderSide(color: Color(0xFF2A2A2A))),
+                      enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide:
+                              const BorderSide(color: Color(0xFF2A2A2A))),
+                      focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide:
+                              const BorderSide(color: Color(0xFF3A3A3A))),
+                    ),
+                  ),
+                ),
+                Flexible(
+                  child: buildUnifiedList(),
+                ),
+              ],
+            ),
           ),
         );
       },
