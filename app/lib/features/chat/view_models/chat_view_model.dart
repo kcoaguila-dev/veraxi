@@ -716,7 +716,7 @@ class ChatViewModel extends StateNotifier<ChatState> {
   /// Maps internal tool names to user-friendly display labels.
   String _friendlyToolLabel(String toolName) {
     // Hybrid search uses both vectors and the knowledge graph via merge_rank.
-    if (toolName == 'search_vectors') return 'Searching knowledge base';
+    if (toolName == 'search_vectors') return 'Running hybrid search';
     if (toolName == 'query_graph') return 'Traversing knowledge graph';
     if (toolName == 'web_search') return 'Searching the web';
     if (toolName == 'run_python_code') return 'Running code';
