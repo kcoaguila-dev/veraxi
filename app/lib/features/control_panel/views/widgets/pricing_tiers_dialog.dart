@@ -172,6 +172,7 @@ class _PricingTiersDialogState extends State<PricingTiersDialog> {
             ),
           ],
         ),
+        ),
       ),
     );
   }
