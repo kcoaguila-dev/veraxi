@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:veraxi_app/core/network/api_client.dart';
 
-class CheckoutScreen extends StatefulWidget {
+class CheckoutScreen extends ConsumerStatefulWidget {
   const CheckoutScreen({Key? key}) : super(key: key);
 
   @override
-  State<CheckoutScreen> createState() => _CheckoutScreenState();
+  ConsumerState<CheckoutScreen> createState() => _CheckoutScreenState();
 }
 
-class _CheckoutScreenState extends State<CheckoutScreen> {
+class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   bool _isAnnual = false;
   bool _termsAccepted = false;
 
@@ -225,10 +228,34 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                 elevation: 0,
               ),
-              onPressed: _termsAccepted ? () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Stripe integration pending...')),
-                );
+              onPressed: _termsAccepted ? () async {
+                try {
+                  final apiClient = ref.read(apiClientProvider);
+                  final response = await apiClient.post(
+                    '/v1/payments/create-checkout-session',
+                    body: {'plan': _isAnnual ? 'annual' : 'monthly'},
+                  );
+                  
+                  final checkoutUrl = response['checkout_url'];
+                  if (checkoutUrl != null) {
+                    final uri = Uri.parse(checkoutUrl);
+                    if (await canLaunchUrl(uri)) {
+                      await launchUrl(uri, mode: LaunchMode.externalApplication);
+                    } else {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Could not launch payment portal.')),
+                        );
+                      }
+                    }
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Error creating checkout session: $e')),
+                    );
+                  }
+                }
               } : null,
               child: const Text('Subscribe', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
             ),
