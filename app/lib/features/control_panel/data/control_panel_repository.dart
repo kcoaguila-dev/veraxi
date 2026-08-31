@@ -26,7 +26,7 @@ class ControlPanelRepository {
   ControlPanelRepository({required this.apiClient});
 
   Future<BackendStats> fetchStats() async {
-    final data = await apiClient.get('/api/admin/stats');
+    final data = await apiClient.get('/admin/stats');
     return BackendStats.fromJson(data);
   }
 
@@ -35,7 +35,7 @@ class ControlPanelRepository {
       String language = 'en',
       String customStopWords = '',
       String model = 'gemini-2.5-flash-lite'}) async {
-    final data = await apiClient.post('/api/admin/ingest', body: {
+    final data = await apiClient.post('/admin/ingest', body: {
       'text': text,
       'fast_extraction': fastExtraction,
       'language': language,
@@ -54,7 +54,7 @@ class ControlPanelRepository {
       String language = 'en',
       String customStopWords = '',
       String model = 'gemini-2.5-flash-lite'}) async {
-    final data = await apiClient.post('/api/admin/ingest/url', body: {
+    final data = await apiClient.post('/admin/ingest/url', body: {
       'url': url,
       'fast_extraction': fastExtraction,
       'language': language,
@@ -75,7 +75,7 @@ class ControlPanelRepository {
       String customStopWords = '',
       String model = 'gemini-2.5-flash-lite'}) async {
     final data = await apiClient.postMultipart(
-      '/api/admin/ingest/upload',
+      '/admin/ingest/upload',
       fileBytes: fileBytes,
       fileName: fileName,
       fields: {
