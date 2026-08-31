@@ -302,34 +302,60 @@ class _ModelSelectorPopupState extends ConsumerState<ModelSelectorPopup> {
               children: results);
         }
 
-        return Material(
-          color: Colors.transparent,
-          elevation: 24,
-          shadowColor: Colors.transparent,
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.all(24),
           child: Container(
-            width: 360,
-            constraints: const BoxConstraints(maxHeight: 650),
+            width: 600,
+            constraints: const BoxConstraints(maxHeight: 700),
             decoration: BoxDecoration(
               color: const Color(0xFF171717),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(16),
               border: Border.all(color: const Color(0xFF2A2A2A)),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withValues(alpha: 0.5),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
+                  blurRadius: 16,
+                  offset: const Offset(0, 8),
                 ),
               ],
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
+                // Modal Header
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Select AI Model',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close, color: Color(0xFF878787), size: 20),
+                        onPressed: () {
+                          widget.onClose?.call();
+                          Navigator.of(context).pop();
+                        },
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        splashRadius: 20,
+                      ),
+                    ],
+                  ),
+                ),
                 // Global search field
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
                   child: TextField(
                     controller: _globalSearchController,
-                    style: const TextStyle(color: Colors.white, fontSize: 13),
+                    style: const TextStyle(color: Colors.white, fontSize: 14),
                     cursorColor: Colors.white,
                     onChanged: (val) => setState(() {
                       _globalSearchQuery = val.toLowerCase();
@@ -337,32 +363,36 @@ class _ModelSelectorPopupState extends ConsumerState<ModelSelectorPopup> {
                     decoration: InputDecoration(
                       hintText: 'Search models...',
                       hintStyle: const TextStyle(
-                          color: Color(0xFF6E6E6E), fontSize: 13),
+                          color: Color(0xFF6E6E6E), fontSize: 14),
                       prefixIcon: const Icon(Icons.search,
-                          color: Color(0xFF6E6E6E), size: 16),
+                          color: Color(0xFF6E6E6E), size: 18),
                       prefixIconConstraints:
-                          const BoxConstraints(minWidth: 36, minHeight: 36),
+                          const BoxConstraints(minWidth: 40, minHeight: 40),
                       filled: true,
                       fillColor: const Color(0xFF1E1E1E),
-                      contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                      contentPadding: const EdgeInsets.symmetric(vertical: 12),
                       border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(10),
                           borderSide:
                               const BorderSide(color: Color(0xFF2A2A2A))),
                       enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(10),
                           borderSide:
                               const BorderSide(color: Color(0xFF2A2A2A))),
                       focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(10),
                           borderSide:
                               const BorderSide(color: Color(0xFF3A3A3A))),
                     ),
                   ),
                 ),
                 Flexible(
-                  child: buildUnifiedList(),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: buildUnifiedList(),
+                  ),
                 ),
+                const SizedBox(height: 12),
               ],
             ),
           ),

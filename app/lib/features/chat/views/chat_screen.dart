@@ -346,7 +346,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   final ScrollController _scrollController = ScrollController();
   final GlobalKey _modelSelectorKey = GlobalKey();
-  bool _isModelSelectorOpen = false;
+
   String _selectedModel = 'Select a model';
   String? _selectedProvider;
   String? _hoveredModel;
@@ -1539,19 +1539,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                         ],
                       ),
 
-                      // Full-screen tap catcher to dismiss popup
-                      if (_isModelSelectorOpen)
-                        Positioned.fill(
-                          child: GestureDetector(
-                            onTap: () {
-                              setState(() {
-                                _isModelSelectorOpen = false;
-                                _hoveredModel = null;
-                              });
-                            },
-                            child: Container(color: Colors.transparent),
-                          ),
-                        ),
+
 
                       // Removed overlapping Positioned toggle icon
 
@@ -1565,9 +1553,25 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                             GestureDetector(
                               key: _modelSelectorKey,
                               onTap: () {
-                                setState(() {
-                                  _isModelSelectorOpen = !_isModelSelectorOpen;
-                                });
+                                showDialog(
+                                  context: context,
+                                  builder: (context) => ModelSelectorPopup(
+                                    selectedModel: _selectedModel,
+                                    pinnedModels: _pinnedModels.toList(),
+                                    onModelSelected: (model) {
+                                      setState(() {
+                                        _selectedModel = model;
+                                      });
+                                      _saveSelectedModel(_selectedModel, _selectedProvider);
+                                    },
+                                    onModelPinned: (model) {
+                                      setState(() => _pinnedModels.add(model));
+                                    },
+                                    onModelUnpinned: (model) {
+                                      setState(() => _pinnedModels.remove(model));
+                                    },
+                                  ),
+                                );
                               },
                               child: Container(
                                 padding: const EdgeInsets.symmetric(
@@ -1728,32 +1732,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                         ),
                       ),
 
-                      // The actual popup menu - opens downward from the top bar button
-                      if (_isModelSelectorOpen)
-                        Positioned(
-                          top: 56,
-                          left: 16,
-                          child: ModelSelectorPopup(
-                            selectedModel: _selectedModel,
-                            pinnedModels: _pinnedModels.toList(),
-                            onModelSelected: (model) {
-                              setState(() {
-                                _selectedModel = model;
-                                _isModelSelectorOpen = false;
-                              });
-                              _saveSelectedModel(_selectedModel, _selectedProvider);
-                            },
-                            onModelPinned: (model) {
-                              setState(() => _pinnedModels.add(model));
-                            },
-                            onModelUnpinned: (model) {
-                              setState(() => _pinnedModels.remove(model));
-                            },
-                            onClose: () {
-                              setState(() => _isModelSelectorOpen = false);
-                            },
-                          ).animate().fade(duration: 200.ms),
-                        ),
+
                     ],
                   ),
                 ),
