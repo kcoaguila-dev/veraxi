@@ -137102,7 +137102,7 @@ A.ux.prototype={
 ni(){var s=0,r=A.r(t.ie),q,p=this,o,n
 var $async$ni=A.n(function(a,b){if(a===1)return A.o(b,r)
 for(;;)switch(s){case 0:s=3
-return A.j(p.a.dq(0,"/api/admin/stats"),$async$ni)
+return A.j(p.a.dq(0,"/admin/stats"),$async$ni)
 case 3:o=b
 n=J.a9(o)
 n.i(o,"nodeCount")
@@ -137119,7 +137119,7 @@ for(;;)switch(s){case 0:o=new A.Q(A.b(b.split(","),t.s),new A.arh(),t.a4).mO(0,n
 o=A.Y(o,o.$ti.h("A.E"))
 n=t.a
 s=3
-return A.j(p.a.kB("/api/admin/ingest/url",A.t(["url",a,"fast_extraction",c,"language",d,"model",e,"custom_stop_words",o],t.N,t.z)),$async$oD)
+return A.j(p.a.kB("/admin/ingest/url",A.t(["url",a,"fast_extraction",c,"language",d,"model",e,"custom_stop_words",o],t.N,t.z)),$async$oD)
 case 3:q=n.a(g)
 s=1
 break
@@ -137131,7 +137131,7 @@ var $async$oC=A.n(function(g,h){if(g===1)return A.o(h,r)
 for(;;)switch(s){case 0:o=t.N
 n=t.a
 s=3
-return A.j(p.a.zh("/api/admin/ingest/upload",A.t(["fast_extraction",B.iz.j(d),"language",e,"model",f,"custom_stop_words",c],o,o),a,b),$async$oC)
+return A.j(p.a.zh("/admin/ingest/upload",A.t(["fast_extraction",B.iz.j(d),"language",e,"model",f,"custom_stop_words",c],o,o),a,b),$async$oC)
 case 3:q=n.a(h)
 s=1
 break
