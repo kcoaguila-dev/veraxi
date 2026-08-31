@@ -801,15 +801,12 @@ cursorColor: Colors.white,
                   onTap: () {
                     showDialog(
                       context: context,
-                      builder: (context) => Dialog(
-                        backgroundColor: Colors.transparent,
-                        child: ModelSelectorPopup(
-                          selectedModel: _selectedModel,
-                          onModelSelected: (model) {
-                            setState(() => _selectedModel = model);
-                          },
-                          onClose: () => Navigator.of(context).pop(),
-                        ),
+                      builder: (context) => ModelSelectorPopup(
+                        selectedModel: _selectedModel,
+                        onModelSelected: (model) {
+                          setState(() => _selectedModel = model);
+                        },
+                        onClose: () => Navigator.of(context).pop(),
                       ),
                     );
                   },
