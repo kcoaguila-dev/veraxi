@@ -199,7 +199,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 child: Checkbox(
                   value: _termsAccepted,
                   onChanged: (val) => setState(() => _termsAccepted = val ?? false),
-                  fillColor: MaterialStateProperty.resolveWith((states) => states.contains(MaterialState.selected) ? const Color(0xFF10A37F) : Colors.transparent),
+                  fillColor: WidgetStateProperty.resolveWith((states) => states.contains(WidgetState.selected) ? const Color(0xFF10A37F) : Colors.transparent),
                   side: const BorderSide(color: Color(0xFF878787)),
                 ),
               ),
