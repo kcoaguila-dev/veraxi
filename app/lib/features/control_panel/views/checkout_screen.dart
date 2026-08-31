@@ -325,7 +325,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         Text(label, style: const TextStyle(color: Color(0xFFB4B4B4), fontSize: 13, fontWeight: FontWeight.w500)),
         const SizedBox(height: 8),
         DropdownButtonFormField<String>(
-          value: initialValue,
+          initialValue: initialValue,
           dropdownColor: const Color(0xFF1E1E1E),
           style: const TextStyle(color: Colors.white, fontSize: 14),
           decoration: InputDecoration(
