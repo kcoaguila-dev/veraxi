@@ -18,7 +18,7 @@ class _PricingTiersDialogState extends State<PricingTiersDialog> {
       insetPadding: const EdgeInsets.all(24),
       child: Container(
         width: 800,
-        constraints: const BoxConstraints(maxHeight: 700),
+        constraints: const BoxConstraints(maxHeight: 850),
         padding: const EdgeInsets.all(40),
         decoration: BoxDecoration(
           color: const Color(0xFF131313),
@@ -32,10 +32,11 @@ class _PricingTiersDialogState extends State<PricingTiersDialog> {
             ),
           ],
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
             Align(
               alignment: Alignment.topRight,
               child: IconButton(
