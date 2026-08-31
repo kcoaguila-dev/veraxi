@@ -61,7 +61,7 @@ class Config:
                 "EMBEDDING_MODEL_NAME", "text-embedding-004"
             ),
             sentry_dsn=os.environ.get("SENTRY_DSN", ""),
-            stripe_api_key=os.environ.get("STRIPE_API_KEY", ""),
+            stripe_api_key=os.environ.get("STRIPE_SECRET_KEY", os.environ.get("STRIPE_API_KEY", "")),
             stripe_webhook_secret=os.environ.get("STRIPE_WEBHOOK_SECRET", ""),
             supabase_url=os.environ.get("SUPABASE_URL", ""),
             supabase_service_key=os.environ.get("SUPABASE_SERVICE_KEY", ""),

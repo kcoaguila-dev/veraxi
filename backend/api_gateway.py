@@ -196,6 +196,45 @@ async def _generate_and_save_title(question: str, tenant_id: str, thread_id: str
         logger.error(f"Error generating title for thread {thread_id}: {e}")
         return None
 
+class CheckoutSessionRequest(BaseModel):
+    plan: str
+
+@app.post("/api/v1/payments/create-checkout-session")
+async def create_checkout_session(request: CheckoutSessionRequest, tenant_id: str = Depends(get_tenant_id)):
+    if not config.stripe_api_key:
+        raise HTTPException(status_code=500, detail="Stripe is not configured on this server.")
+    
+    stripe.api_key = config.stripe_api_key
+    
+    try:
+        # In a real app, these would map to actual Stripe Price IDs created in the dashboard.
+        # For this implementation, we will use price_data for dynamic pricing creation.
+        unit_amount = 19000 if request.plan == 'annual' else 1900
+        plan_name = "Veraxi Pro Annual" if request.plan == 'annual' else "Veraxi Pro Monthly"
+        
+        session = stripe.checkout.Session.create(
+            payment_method_types=['card'],
+            line_items=[{
+                'price_data': {
+                    'currency': 'usd',
+                    'product_data': {
+                        'name': plan_name,
+                    },
+                    'unit_amount': unit_amount,
+                },
+                'quantity': 1,
+            }],
+            mode='payment',
+            success_url="https://veraxi.me/#/admin?success=true",
+            cancel_url="https://veraxi.me/#/admin?canceled=true",
+            client_reference_id=tenant_id,
+        )
+        return {"checkout_url": session.url}
+    except Exception as e:
+        sentry_sdk.capture_exception(e)
+        logger.error(f"Stripe error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.post("/api/chat", response_model=ChatResponse)
 @limiter.limit(config.rate_limit_chat)
 async def chat_endpoint(request: Request, chat_request: ChatRequest, tenant_id: str = Depends(get_tenant_id)):
