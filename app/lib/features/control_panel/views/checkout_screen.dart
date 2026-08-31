@@ -104,7 +104,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         const SizedBox(height: 16),
         _buildTextField('Full name'),
         const SizedBox(height: 16),
-        _buildTextField('Country or region', initialValue: 'United States'),
+        _buildDropdownField('Country or region', ['United States', 'Canada', 'United Kingdom', 'Japan', 'Germany', 'France', 'Australia'], 'United States'),
         const SizedBox(height: 16),
         _buildTextField('Postal code'),
         const SizedBox(height: 16),
@@ -313,6 +313,35 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDropdownField(String label, List<String> options, String initialValue) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: const TextStyle(color: Color(0xFFB4B4B4), fontSize: 13, fontWeight: FontWeight.w500)),
+        const SizedBox(height: 8),
+        DropdownButtonFormField<String>(
+          value: initialValue,
+          dropdownColor: const Color(0xFF1E1E1E),
+          style: const TextStyle(color: Colors.white, fontSize: 14),
+          decoration: InputDecoration(
+            filled: true,
+            fillColor: const Color(0xFF1E1E1E),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          ),
+          icon: const Icon(Icons.keyboard_arrow_down, color: Color(0xFF878787)),
+          items: options.map((String value) {
+            return DropdownMenuItem<String>(
+              value: value,
+              child: Text(value),
+            );
+          }).toList(),
+          onChanged: (String? newValue) {},
         ),
       ],
     );
