@@ -62,7 +62,7 @@ class BillingView extends StatelessWidget {
                             ),
                             SizedBox(height: 4),
                             Text(
-                              'Try Veraxi',
+                              'Local-First & BYOK',
                               style: TextStyle(
                                 color: Color(0xFF878787),
                                 fontSize: 14,
@@ -96,13 +96,11 @@ class BillingView extends StatelessWidget {
                 const SizedBox(height: 32),
                 
                 // Feature List
-                _buildFeatureRow('Chat on web, iOS, Android, and on your desktop'),
+                _buildFeatureRow('Bring your own LLM API Keys'),
+                _buildFeatureRow('Run your own local Neo4j & Qdrant'),
+                _buildFeatureRow('Basic chat, Web search, and iOS/Android'),
                 _buildFeatureRow('Generate code and visualize data'),
-                _buildFeatureRow('Ability to search the web'),
-                _buildFeatureRow('Memory across conversations'),
-                _buildFeatureRow('Create files and execute code'),
-                _buildFeatureRow('Integrate any context or tool through connectors with remote MCP'),
-                _buildFeatureRow('Extended thinking for complex work'),
+                _buildFeatureRow('5MB file upload limit'),
               ],
             ),
           ),
