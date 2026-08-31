@@ -11,9 +11,15 @@ Veraxi is currently deployed and live!
 
 ![Veraxi UI](docs/images/demo.png)
 
-## Why Hybrid GraphRAG?
+## Why Hybrid GraphRAG? (The Veraxi USP)
 
 Standard vector-based RAG excels at simple, local lookups but hallucinates heavily when asked "global" or multi-hop questions (e.g., connecting disparate entities across a large corpus). Veraxi solves this by explicitly mapping relationships as hard mathematical edges in a graph, while still preserving vector search for fuzzy concepts. 
+
+This hybrid architecture provides massive advantages for users, especially within a **Bring Your Own Key (BYOK)** model:
+
+1. **Deterministic Accuracy:** Graph traversal eliminates hallucinations. If the graph says node A connects to node B, it's a mathematical fact.
+2. **Cost-Efficiency at Scale:** Users don't need a massive, expensive 2-million token context window to answer complex questions. Veraxi queries the graph, pulls the exact nodes needed, and sends a tiny, highly-accurate prompt to the LLM. **Veraxi actually saves users money on their API bills by querying smarter, not larger.**
+3. **Enterprise Tech for Solo Users:** Setting up Neo4j, Qdrant, and Reciprocal Rank Fusion (RRF) takes weeks of senior data engineering time. Veraxi democratizes this infrastructure, providing an enterprise-grade pipeline out of the box.
 
 According to recent enterprise benchmarks, moving from standard vector RAG to a Hybrid GraphRAG architecture yields:
 - **~62% average reduction in hallucinations** across production deployments.

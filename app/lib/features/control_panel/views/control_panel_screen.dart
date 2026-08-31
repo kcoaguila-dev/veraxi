@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:veraxi_app/features/control_panel/views/widgets/api_keys_view.dart';
+import 'package:veraxi_app/features/control_panel/views/widgets/billing_view.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:veraxi_app/core/widgets/model_selector_popup.dart';
 import 'package:veraxi_app/features/control_panel/view_models/control_panel_view_model.dart';
@@ -404,17 +406,20 @@ cursorColor: Colors.white,
                 _buildMenuItem('MCP Integrations', Icons.hub_outlined,
                     _selectedIndex == 0, 0),
                 const SizedBox(height: 8),
-                _buildMenuItem('Data Pipeline', Icons.dataset_outlined,
+                _buildMenuItem('Knowledge Base', Icons.dataset_outlined,
                     _selectedIndex == 1, 1),
                 const SizedBox(height: 8),
+                _buildMenuItem('Billing', Icons.credit_card_outlined,
+                    _selectedIndex == 2, 2),
+                const SizedBox(height: 8),
                 _buildMenuItem(
-                    'API Keys', Icons.vpn_key_outlined, _selectedIndex == 2, 2),
+                    'API Keys', Icons.vpn_key_outlined, _selectedIndex == 3, 3),
                 const SizedBox(height: 8),
                 _buildMenuItem('Security & Logs', Icons.security_outlined,
-                    _selectedIndex == 3, 3),
+                    _selectedIndex == 4, 4),
                 const SizedBox(height: 8),
                 _buildMenuItem('Agent Skills', Icons.psychology_outlined,
-                    _selectedIndex == 4, 4),
+                    _selectedIndex == 5, 5),
               ],
             ),
           ),
@@ -431,10 +436,12 @@ cursorColor: Colors.white,
                         : _selectedIndex == 1
                             ? _buildDataPipeline(theme)
                             : _selectedIndex == 2
-                                ? _buildPlaceholder(theme)
+                                ? const BillingView()
                                 : _selectedIndex == 3
-                                    ? _buildSecurityLogs(theme)
-                                    : _buildAgentSkills(theme)),
+                                    ? const ApiKeysView()
+                                    : _selectedIndex == 4
+                                        ? _buildSecurityLogs(theme)
+                                        : _buildAgentSkills(theme)),
               ),
             ),
           ),
@@ -496,27 +503,18 @@ cursorColor: Colors.white,
     );
   }
 
-  Widget _buildPlaceholder(ThemeData theme) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 40),
-        child: Text('Under Construction',
-            style: theme.textTheme.headlineMedium
-                ?.copyWith(color: const Color(0xFF878787))),
-      ),
-    );
-  }
+
 
   Widget _buildDataPipeline(ThemeData theme) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Data Pipeline',
+        Text('Knowledge Base',
             style: theme.textTheme.headlineMedium
                 ?.copyWith(color: Colors.white, fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
         Text(
-          'Ingest new knowledge into the global RAG database.',
+          'Manage your custom knowledge base.',
           style: TextStyle(color: const Color(0xFFB4B4B4), fontSize: 14),
         ),
         const SizedBox(height: 32),
