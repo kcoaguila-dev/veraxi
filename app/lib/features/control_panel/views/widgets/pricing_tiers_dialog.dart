@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:veraxi_app/features/control_panel/views/checkout_screen.dart';
 
 class PricingTiersDialog extends StatelessWidget {
   const PricingTiersDialog({Key? key}) : super(key: key);
@@ -80,11 +81,12 @@ class PricingTiersDialog extends StatelessWidget {
             ),
             const SizedBox(height: 48),
             // Pricing Cards
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildPricingCard(
+            IntrinsicHeight(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _buildPricingCard(
                   context,
                   title: 'Free',
                   subtitle: 'Local-First & BYOK',
@@ -188,7 +190,10 @@ class PricingTiersDialog extends StatelessWidget {
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               ),
               onPressed: isPrimary ? () {
-                // Future checkout integration
+                Navigator.of(context).pop(); // Close dialog
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (context) => const CheckoutScreen()),
+                );
               } : null,
               child: Text(
                 buttonText,
