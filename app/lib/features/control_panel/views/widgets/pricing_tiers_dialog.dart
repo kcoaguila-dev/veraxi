@@ -1,8 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:veraxi_app/features/control_panel/views/checkout_screen.dart';
 
-class PricingTiersDialog extends StatelessWidget {
+class PricingTiersDialog extends StatefulWidget {
   const PricingTiersDialog({Key? key}) : super(key: key);
+
+  @override
+  State<PricingTiersDialog> createState() => _PricingTiersDialogState();
+}
+
+class _PricingTiersDialogState extends State<PricingTiersDialog> {
+  bool _isEnterprise = false;
 
   @override
   Widget build(BuildContext context) {
@@ -58,22 +65,32 @@ class PricingTiersDialog extends StatelessWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF2A2A2A),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Text(
-                      'Individual',
-                      style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500),
+                  GestureDetector(
+                    onTap: () => setState(() => _isEnterprise = false),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: !_isEnterprise ? const Color(0xFF2A2A2A) : Colors.transparent,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        'Individual',
+                        style: TextStyle(color: !_isEnterprise ? Colors.white : const Color(0xFF878787), fontSize: 13, fontWeight: FontWeight.w500),
+                      ),
                     ),
                   ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                    child: const Text(
-                      'Team and Enterprise',
-                      style: TextStyle(color: Color(0xFF878787), fontSize: 13),
+                  GestureDetector(
+                    onTap: () => setState(() => _isEnterprise = true),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: _isEnterprise ? const Color(0xFF2A2A2A) : Colors.transparent,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        'Team and Enterprise',
+                        style: TextStyle(color: _isEnterprise ? Colors.white : const Color(0xFF878787), fontSize: 13, fontWeight: FontWeight.w500),
+                      ),
                     ),
                   ),
                 ],
@@ -85,41 +102,72 @@ class PricingTiersDialog extends StatelessWidget {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
+                children: !_isEnterprise ? [
                   _buildPricingCard(
-                  context,
-                  title: 'Free',
-                  subtitle: 'Local-First & BYOK',
-                  price: '\$0',
-                  buttonText: 'Current Plan',
-                  isPrimary: false,
-                  features: [
-                    'Bring your own LLM API Keys',
-                    'Run your own local Neo4j & Qdrant',
-                    'Basic chat, Web search, and iOS/Android',
-                    'Generate code and visualize data',
-                    '5MB file upload limit',
-                  ],
-                ),
-                const SizedBox(width: 24),
-                _buildPricingCard(
-                  context,
-                  title: 'Pro',
-                  subtitle: 'Fully Cloud Hosted',
-                  price: '\$19',
-                  priceSubtext: 'USD / month',
-                  buttonText: 'Get Pro plan',
-                  isPrimary: true,
-                  features: [
-                    'We host the AI models & Databases',
-                    'Advanced Agentic Workflows & Cowork',
-                    '50MB file upload limit',
-                    '2GB Total Knowledge Base Storage',
-                    'Priority support and early access',
-                  ],
-                ),
-              ],
-            ),
+                    context,
+                    title: 'Free',
+                    subtitle: 'Local-First & BYOK',
+                    price: '\$0',
+                    buttonText: 'Current Plan',
+                    isPrimary: false,
+                    features: [
+                      'Bring your own LLM API Keys',
+                      'Run your own local Neo4j & Qdrant',
+                      'Basic chat, Web search, and iOS/Android',
+                      'Generate code and visualize data',
+                      '5MB file upload limit',
+                    ],
+                  ),
+                  const SizedBox(width: 24),
+                  _buildPricingCard(
+                    context,
+                    title: 'Pro',
+                    subtitle: 'Fully Cloud Hosted',
+                    price: '\$19',
+                    priceSubtext: 'USD / month',
+                    buttonText: 'Get Pro plan',
+                    isPrimary: true,
+                    features: [
+                      'We host the AI models & Databases',
+                      'Advanced Agentic Workflows & Cowork',
+                      '50MB file upload limit',
+                      '2GB Total Knowledge Base Storage',
+                      'Priority support and early access',
+                    ],
+                  ),
+                ] : [
+                  _buildPricingCard(
+                    context,
+                    title: 'Team',
+                    subtitle: 'Secure Collaborative Workspace',
+                    price: '\$25',
+                    priceSubtext: 'USD / user / mo',
+                    buttonText: 'Upgrade to Team',
+                    isPrimary: true,
+                    features: [
+                      'Everything in Pro',
+                      'Centralized Admin Console & Billing',
+                      'Collaborative Agent Workspaces',
+                      'Zero data retention for training',
+                    ],
+                  ),
+                  const SizedBox(width: 24),
+                  _buildPricingCard(
+                    context,
+                    title: 'Enterprise',
+                    subtitle: 'Large-Scale & Compliant',
+                    price: 'Custom',
+                    buttonText: 'Contact Sales',
+                    isPrimary: false,
+                    features: [
+                      'Everything in Team',
+                      'Single Sign-On (SAML/SSO)',
+                      'Dedicated Account Manager & SLA',
+                      'Custom data residency & compliance',
+                    ],
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -208,7 +256,7 @@ class PricingTiersDialog extends StatelessWidget {
           ),
           const SizedBox(height: 32),
           ...features.map((feature) => Padding(
-                padding: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.only(bottom: 16),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -219,8 +267,8 @@ class PricingTiersDialog extends StatelessWidget {
                         feature,
                         style: TextStyle(
                           color: feature.startsWith('Everything in') ? Colors.white : const Color(0xFFB4B4B4),
-                          fontSize: 13,
-                          height: 1.4,
+                          fontSize: 15,
+                          height: 1.5,
                           fontWeight: feature.startsWith('Everything in') ? FontWeight.w500 : FontWeight.normal,
                         ),
                       ),
