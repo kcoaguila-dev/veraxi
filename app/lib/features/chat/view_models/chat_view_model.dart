@@ -623,6 +623,7 @@ class ChatViewModel extends StateNotifier<ChatState> {
       }
     } else if (type == 'on_tool_start') {
       final toolName = event['name'];
+      final friendlyName = _friendlyToolLabel(toolName);
       final runId =
           event['run_id'] ?? DateTime.now().millisecondsSinceEpoch.toString();
       final args = event['data']?['input'] ?? {};
@@ -637,9 +638,9 @@ class ChatViewModel extends StateNotifier<ChatState> {
           isComplete: false,
         ));
         _updateLastMessage(
-            activeTool: 'Calling $toolName...', toolEvents: newEvents);
+            activeTool: '$friendlyName...', toolEvents: newEvents);
       } else {
-        _updateLastMessage(activeTool: 'Calling $toolName...');
+        _updateLastMessage(activeTool: '$friendlyName...');
       }
     } else if (type == 'on_tool_end') {
       final runId = event['run_id'];
@@ -710,6 +711,26 @@ class ChatViewModel extends StateNotifier<ChatState> {
 
   void clearError() {
     state = state.copyWith(clearError: true);
+  }
+
+  /// Maps internal tool names to user-friendly display labels.
+  String _friendlyToolLabel(String toolName) {
+    // Hybrid search uses both vectors and the knowledge graph via merge_rank.
+    if (toolName == 'search_vectors') return 'Searching knowledge base';
+    if (toolName == 'query_graph') return 'Traversing knowledge graph';
+    if (toolName == 'web_search') return 'Searching the web';
+    if (toolName == 'run_python_code') return 'Running code';
+    if (toolName == 'fetch_url') return 'Fetching URL';
+    if (toolName == 'get_current_time') return 'Checking time';
+    // Dynamic MCP tool: mcp__{server}__{tool}
+    if (toolName.startsWith('mcp__')) {
+      final parts = toolName.split('__');
+      if (parts.length >= 3) {
+        final serverName = parts[1].replaceAll('_', ' ');
+        return 'Using skill ($serverName)';
+      }
+    }
+    return 'Calling $toolName';
   }
 
   Future<void> submitFeedback(String messageId, int value) async {
