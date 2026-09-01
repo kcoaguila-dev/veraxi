@@ -19,6 +19,7 @@ def test_tenant():
 @pytest.fixture
 def neo4j_client(patch_env):
     config = get_config()
+    print(f"DEBUG IN FIXTURE: config.neo4j_uri={config.neo4j_uri}")
     client = Neo4jStorageClient.from_config(config)
     yield client
     client.close()

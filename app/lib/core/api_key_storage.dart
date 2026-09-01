@@ -82,4 +82,30 @@ class ApiKeyStorage {
   Future<String?> getValue(String key) async {
     return await _storage.read(key: key);
   }
+
+  // --- BYOD Database Getters & Setters ---
+  
+  Future<void> saveByodConfig({
+    required String neo4jUri,
+    required String neo4jUser,
+    required String neo4jPass,
+    required String qdrantUrl,
+    required String qdrantKey,
+  }) async {
+    await saveValue('byod_neo4j_uri', neo4jUri);
+    await saveValue('byod_neo4j_user', neo4jUser);
+    await saveValue('byod_neo4j_pass', neo4jPass);
+    await saveValue('byod_qdrant_url', qdrantUrl);
+    await saveValue('byod_qdrant_key', qdrantKey);
+  }
+
+  Future<Map<String, String>> getByodConfig() async {
+    return {
+      'neo4j_uri': await getValue('byod_neo4j_uri') ?? '',
+      'neo4j_user': await getValue('byod_neo4j_user') ?? '',
+      'neo4j_pass': await getValue('byod_neo4j_pass') ?? '',
+      'qdrant_url': await getValue('byod_qdrant_url') ?? '',
+      'qdrant_key': await getValue('byod_qdrant_key') ?? '',
+    };
+  }
 }

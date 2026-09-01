@@ -98,8 +98,8 @@ class ChatRepository {
       Map<String, dynamic>? toolSettings}) async* {
     try {
       final uri = Uri.parse('${apiClient.baseUrl}/chat');
-      final headers = apiClient.getDefaultHeaders()
-        ..['Content-Type'] = 'application/json';
+      final headers = await apiClient.getDefaultHeaders();
+      headers['Content-Type'] = 'application/json';
 
       final request = http.Request('POST', uri);
       request.headers.addAll(headers);
