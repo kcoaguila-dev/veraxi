@@ -1,6 +1,7 @@
-import os
-import httpx
 import logging
+import os
+
+import httpx
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +39,7 @@ async def moderate_text(text: str, api_key: str | None = None) -> bool:
                     logger.warning(f"Text flagged by moderation API. Categories: {results[0].get('categories')}")
                 return is_flagged
                 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         logger.error(f"Error calling moderation API: {e}")
         # Fail open
         return False

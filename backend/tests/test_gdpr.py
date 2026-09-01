@@ -1,7 +1,10 @@
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
 from fastapi.testclient import TestClient
-from unittest.mock import patch, AsyncMock, MagicMock
+
 from backend.api_gateway import app, get_tenant_id
+
 
 # Mock the dependency to return a static tenant ID
 def override_get_tenant_id():
@@ -56,11 +59,11 @@ async def test_delete_user_data(override_redis):
         
         # Verify Neo4j was called to delete tenant data
         mock_neo4j._driver.execute_query.assert_called_once()
-        args, kwargs = mock_neo4j._driver.execute_query.call_args
+        args, _kwargs = mock_neo4j._driver.execute_query.call_args
         assert "WHERE n.tenant_id = $tenant_id" in args[0]
         assert args[1]["tenant_id"] == "test_tenant_id"
         
         # Verify Qdrant was called to delete tenant data
         mock_qdrant.client.delete.assert_called_once()
-        qdrant_args, qdrant_kwargs = mock_qdrant.client.delete.call_args
+        _qdrant_args, qdrant_kwargs = mock_qdrant.client.delete.call_args
         assert qdrant_kwargs["collection_name"] == mock_qdrant.collection_name

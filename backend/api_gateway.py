@@ -1,35 +1,41 @@
-from fastapi import FastAPI, HTTPException, Depends, UploadFile, File, Request, Response
-from fastapi.middleware.cors import CORSMiddleware
-import httpx
-from backend.models_config import DEFAULT_PROVIDER_MODELS
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from pydantic import BaseModel
-from fastapi.responses import StreamingResponse
-import logging
-import json
-import uuid
-from backend.mcp_server.llm_loop import answer_question, stream_answer_question, generate_chat_title
-from backend.config import get_config, Config
-from backend.storage.qdrant_client import QdrantStorageClient
-from backend.storage.neo4j_client import Neo4jStorageClient
-from backend.mcp_server.server import mcp_server
-from backend.mcp_server.context import tenant_context
-from backend import context as byod_context
-from backend.security.moderation import moderate_text
-from mcp.server.sse import SseServerTransport
-import sentry_sdk
-import tempfile
-import os
-from docling.document_converter import DocumentConverter
-import jwt
-from jwt import PyJWKClient
-import magic
-from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.util import get_remote_address
-from slowapi.errors import RateLimitExceeded
-import stripe
 import asyncio
-from supabase import create_client, Client
+import json
+import logging
+import os
+import tempfile
+import uuid
+
+import httpx
+import jwt
+import magic
+import sentry_sdk
+import stripe
+from docling.document_converter import DocumentConverter
+from fastapi import Depends, FastAPI, File, HTTPException, Request, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from jwt import PyJWKClient
+from mcp.server.sse import SseServerTransport
+from pydantic import BaseModel
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
+from supabase import Client, create_client
+
+from backend import context as byod_context
+from backend.config import get_config
+from backend.mcp_server.context import tenant_context
+from backend.mcp_server.llm_loop import (
+    answer_question,
+    generate_chat_title,
+    stream_answer_question,
+)
+from backend.mcp_server.server import mcp_server
+from backend.models_config import DEFAULT_PROVIDER_MODELS
+from backend.security.moderation import moderate_text
+from backend.storage.neo4j_client import Neo4jStorageClient
+from backend.storage.qdrant_client import QdrantStorageClient
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
@@ -50,8 +56,10 @@ jwks_url = f"{config.supabase_url}/auth/v1/.well-known/jwks.json"
 jwks_client = PyJWKClient(jwks_url)
 
 from contextlib import asynccontextmanager
+
 from arq import create_pool
 from arq.connections import RedisSettings
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -76,6 +84,7 @@ def get_auth_token_key(request: Request) -> str:
     return get_remote_address(request)
 
 import sys
+
 test_storage = "memory://" if "pytest" in sys.modules else config.redis_url
 limiter = Limiter(key_func=get_auth_token_key, storage_uri=test_storage)
 app.state.limiter = limiter
@@ -143,7 +152,7 @@ def _get_supabase() -> "Client":
         _supabase_client = create_client(config.supabase_url, config.supabase_service_key)
     return _supabase_client
 
-def get_tenant_id(credentials: HTTPAuthorizationCredentials | None = Depends(security)) -> str:
+def get_tenant_id(credentials: HTTPAuthorizationCredentials | None = Depends(security)) -> str:  # noqa: B008
     if not config.auth_enabled:
         return "local_personal_user"
 
@@ -185,7 +194,7 @@ async def verify_infrastructure_access(request: Request, tenant_id: str = Depend
                 res = _get_supabase().table("users").select("is_subscribed").eq("id", tenant_id).execute()
                 if res.data and len(res.data) > 0:
                     return bool(res.data[0].get("is_subscribed", False))
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 logger.error(f"Failed to check subscription status: {e}")
             return False
             
@@ -245,7 +254,7 @@ async def _generate_and_save_title(question: str, tenant_id: str, thread_id: str
             return None
         await redis.hset(f"tenant:{tenant_id}:thread_titles", thread_id, title)
         return title
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         sentry_sdk.capture_exception(e)
         logger.error(f"Error generating title for thread {thread_id}: {e}")
         return None
@@ -284,7 +293,7 @@ async def create_checkout_session(request: CheckoutSessionRequest, tenant_id: st
             client_reference_id=tenant_id,
         )
         return {"checkout_url": session.url}
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         sentry_sdk.capture_exception(e)
         logger.error(f"Stripe error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -360,12 +369,12 @@ async def chat_endpoint(request: Request, chat_request: ChatRequest, tenant_id: 
                             title = await asyncio.wait_for(title_task, timeout=10.0)
                             if title:
                                 yield f"data: {json.dumps({'event': 'metadata', 'data': {'thread_title': title}})}\n\n"
-                        except Exception as e:
+                        except Exception as e:  # noqa: BLE001
                             logger.error(f"Error waiting for title task: {e}")
                             
                     # Send a final 'done' event to signal stream completion
                     yield "data: [DONE]\n\n"
-                except Exception as e:
+                except Exception as e:  # noqa: BLE001
                     sentry_sdk.capture_exception(e)
                     logger.error(f"Error in title generation task: {e}")
                     yield f"data: {json.dumps({'error': str(e)})}\n\n"
@@ -395,7 +404,7 @@ async def chat_endpoint(request: Request, chat_request: ChatRequest, tenant_id: 
             metrics=metrics or None,
             thread_id=thread_id
         )
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         sentry_sdk.capture_exception(e)
         logger.error(f"Error processing question: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -408,7 +417,7 @@ def _process_single_message(msg, tool_results, feedback_dict):
     # Filter out legacy system-injected messages that were saved as HumanMessages
     if msg_type == "HumanMessage" and msg.content:
         content_str = str(msg.content)
-        if content_str.startswith("Here is the context retrieved from the database:") or content_str.startswith("Web Search Fallback Context:"):
+        if content_str.startswith(("Here is the context retrieved from the database:", "Web Search Fallback Context:")):
             return None
             
     msg_id = getattr(msg, "id", None)
@@ -437,7 +446,7 @@ def _process_single_message(msg, tool_results, feedback_dict):
         "toolEvents": tool_events,
     }
 
-def _extract_messages_from_state(raw_messages: list, feedback_dict: dict = None) -> list:
+def _extract_messages_from_state(raw_messages: list, feedback_dict: dict | None = None) -> list:
     if feedback_dict is None:
         feedback_dict = {}
         
@@ -499,7 +508,7 @@ async def list_threads(request: Request, tenant_id: str = Depends(get_tenant_id)
             del t["_timestamp"]
             
         return {"threads": thread_list}
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         sentry_sdk.capture_exception(e)
         logger.error(f"Error listing threads: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -537,7 +546,7 @@ async def get_thread_history(thread_id: str, request: Request, tenant_id: str = 
             feedbacks_raw = await request.app.state.redis.hgetall(f"tenant:{tenant_id}:message_feedback")
             for k, v in feedbacks_raw.items():
                 feedback_dict[k.decode("utf-8")] = int(v.decode("utf-8"))
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             sentry_sdk.capture_exception(e)
             logger.error(f"Failed to fetch feedback: {e}")
 
@@ -546,7 +555,7 @@ async def get_thread_history(thread_id: str, request: Request, tenant_id: str = 
         return {"messages": messages_out}
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         sentry_sdk.capture_exception(e)
         logger.error(f"Error fetching thread {thread_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -567,7 +576,7 @@ async def share_thread(thread_id: str, request: Request, tenant_id: str = Depend
         return {"success": True, "share_id": thread_id}
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         sentry_sdk.capture_exception(e)
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -603,7 +612,7 @@ async def get_shared_thread_history(thread_id: str, request: Request):
         return {"messages": messages_out}
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         sentry_sdk.capture_exception(e)
         logger.error(f"Error fetching shared thread {thread_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -619,14 +628,14 @@ class VoiceSaveRequest(BaseModel):
 
 @app.get("/api/voices", response_model=VoiceListResponse)
 async def get_voices(gpt_sovits_url: str | None = None):
-    from backend.tts.voices import get_all_voices
     from backend.tts.gpt_sovits_client import GPTSoVITSClient
+    from backend.tts.voices import get_all_voices
 
     if gpt_sovits_url:
         client = GPTSoVITSClient(base_url=gpt_sovits_url)
         try:
             await client.check_connection()
-        except Exception:
+        except Exception:  # noqa: BLE001
             raise HTTPException(status_code=503, detail="GPT-SoVITS instance unreachable")
         finally:
             await client.close()
@@ -635,24 +644,27 @@ async def get_voices(gpt_sovits_url: str | None = None):
 
 @app.post("/api/voices", response_model=VoiceListResponse)
 async def save_voices(request: VoiceSaveRequest):
-    from backend.tts.voices import save_voices as save_voices_to_disk, get_all_voices
+    from backend.tts.voices import get_all_voices
+    from backend.tts.voices import save_voices as save_voices_to_disk
     
     try:
         save_voices_to_disk(request.voices)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         sentry_sdk.capture_exception(e)
         raise HTTPException(status_code=500, detail=str(e))
         
     return {"voices": get_all_voices()}
 
-from fastapi import Form
 import shutil
+
+from fastapi import Form
+
 
 @app.post("/api/voices/upload", response_model=VoiceListResponse)
 async def upload_voice(
     name: str = Form(...),
     prompt_text: str = Form(...),
-    file: UploadFile = File(...)
+    file: UploadFile = File(...)  # noqa: B008
 ):
     from backend.tts.voices import add_voice, get_all_voices
     
@@ -665,7 +677,7 @@ async def upload_voice(
         safe_filename = file.filename.replace(" ", "_")
         file_path = os.path.join(voices_dir, safe_filename)
         
-        with open(file_path, "wb") as buffer:
+        with open(file_path, "wb") as buffer:  # noqa: ASYNC230
             shutil.copyfileobj(file.file, buffer)
             
         voice_id = safe_filename.rsplit(".", 1)[0].lower()
@@ -679,7 +691,7 @@ async def upload_voice(
         )
         
         return {"voices": get_all_voices()}
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         sentry_sdk.capture_exception(e)
         logger.error(f"Error uploading voice: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -690,8 +702,8 @@ class AudioRequest(BaseModel):
 
 @app.post("/api/chat/audio")
 async def chat_audio(request: AudioRequest, req: Request):
-    from backend.tts.voices import get_voice
     from backend.tts.gpt_sovits_client import GPTSoVITSClient
+    from backend.tts.voices import get_voice
 
     voice = get_voice(request.voice_id)
     logger.info(f"chat_audio called with voice_id: {request.voice_id}")
@@ -719,7 +731,7 @@ async def chat_audio(request: AudioRequest, req: Request):
             media_type="audio/wav",
             headers={"Content-Disposition": "attachment; filename=audio.wav"}
         )
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         sentry_sdk.capture_exception(e)
         logger.error(f"Failed to synthesize audio: {e}")
         raise HTTPException(status_code=500, detail="Failed to synthesize audio")
@@ -737,7 +749,7 @@ async def submit_feedback(message_id: str, payload: FeedbackRequest, request: Re
         else:
             await request.app.state.redis.hset(f"tenant:{tenant_id}:message_feedback", message_id, payload.value)
         return {"status": "ok"}
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         sentry_sdk.capture_exception(e)
         logger.error(f"Error saving feedback: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -773,7 +785,7 @@ async def edit_message(message_id: str, payload: EditRequest, request: Request, 
                 await memory.aupdate_state(config, {"messages": [target_msg]})
                 
         return {"status": "ok"}
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         sentry_sdk.capture_exception(e)
         logger.error(f"Error editing message: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -858,14 +870,14 @@ async def duplicate_thread(thread_id: str, request: Request, tenant_id: str = De
                         if hasattr(msg, "additional_kwargs") and "id" in msg.additional_kwargs:
                             msg.additional_kwargs["id"] = msg.id
                     await memory.aupdate_state(new_config, {"messages": copied_messages})
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         sentry_sdk.capture_exception(e)
         logger.error(f"Error duplicating LangGraph state: {e}")
         
     return {"status": "ok", "new_thread_id": new_thread_id}
 
 @app.post("/api/chat/threads/{thread_id}/share")
-async def share_thread(thread_id: str, request: Request, tenant_id: str = Depends(get_tenant_id)):
+async def share_thread(thread_id: str, request: Request, tenant_id: str = Depends(get_tenant_id)):  # noqa: F811
     is_owner = await request.app.state.redis.sismember(f"tenant:{tenant_id}:threads", thread_id)
     if not is_owner:
         raise HTTPException(status_code=403, detail="Access denied")
@@ -895,7 +907,7 @@ async def share_thread(thread_id: str, request: Request, tenant_id: str = Depend
         await request.app.state.redis.expire(f"share:{share_id}", 30 * 24 * 60 * 60)
         
         return {"share_id": share_id}
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         sentry_sdk.capture_exception(e)
         logger.error(f"Error sharing thread: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -907,7 +919,7 @@ async def get_shared_thread(share_id: str, request: Request):
         raise HTTPException(status_code=404, detail="Shared link not found or expired")
     return json.loads(data)
 @app.post("/api/chat/upload_attachment")
-async def upload_attachment(request: Request, file: UploadFile = File(...), tenant_id: str = Depends(get_tenant_id)):
+async def upload_attachment(request: Request, file: UploadFile = File(...), tenant_id: str = Depends(get_tenant_id)):  # noqa: B008
     try:
         # Create uploads directory if not exists
         os.makedirs("uploads", exist_ok=True)
@@ -916,7 +928,7 @@ async def upload_attachment(request: Request, file: UploadFile = File(...), tena
         file_path = os.path.join("uploads", f"{file_id}{file_extension}")
         
         content = await file.read()
-        with open(file_path, "wb") as f:
+        with open(file_path, "wb") as f:  # noqa: ASYNC230
             f.write(content)
             
         file_size = len(content)
@@ -941,18 +953,18 @@ async def upload_attachment(request: Request, file: UploadFile = File(...), tena
         if mime_type.startswith("text/") or mime_type in ["application/json", "application/csv"]:
             try:
                 extracted_text = content.decode("utf-8")
-            except:
+            except:  # noqa: E722, S110
                 pass
         else:
             try:
                 converter = DocumentConverter()
                 result = converter.convert(file_path)
                 extracted_text = result.document.export_to_markdown()
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 logger.warning(f"Docling could not convert {file.filename}: {e}")
         
         return {"text": extracted_text, "file_id": file_id}
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         sentry_sdk.capture_exception(e)
         logger.error(f"Error uploading attachment: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -962,10 +974,10 @@ async def get_files(request: Request, tenant_id: str = Depends(get_tenant_id)):
     try:
         files_dict = await request.app.state.redis.hgetall(f"tenant:{tenant_id}:files")
         files_list = []
-        for fid, fmeta in files_dict.items():
+        for fmeta in files_dict.values():
             files_list.append(json.loads(fmeta.decode("utf-8")))
         return {"files": files_list}
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         logger.error(f"Error getting files: {e}")
         return {"files": []}
 
@@ -979,7 +991,7 @@ async def delete_file(file_id: str, request: Request, tenant_id: str = Depends(g
                 os.remove(file_meta["path"])
             await request.app.state.redis.hdel(f"tenant:{tenant_id}:files", file_id)
         return {"success": True}
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         logger.error(f"Error deleting file: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -1080,7 +1092,7 @@ async def list_api_keys(tenant_id: str = Depends(get_tenant_id)):
             .execute()
         )
         return {"api_keys": response.data or []}
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         sentry_sdk.capture_exception(e)
         logger.error(f"Error listing API keys for tenant {tenant_id}: {e}")
         raise HTTPException(status_code=500, detail="Failed to list API keys")
@@ -1110,7 +1122,7 @@ async def create_api_key(payload: ApiKeyCreateRequest, tenant_id: str = Depends(
             "key_prefix": key_prefix,
             "created_at": response.data[0]["created_at"],
         }
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         sentry_sdk.capture_exception(e)
         logger.error(f"Error creating API key for tenant {tenant_id}: {e}")
         raise HTTPException(status_code=500, detail="Failed to create API key")
@@ -1134,7 +1146,7 @@ async def revoke_api_key(key_id: str, tenant_id: str = Depends(get_tenant_id)):
         return {"status": "revoked"}
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         sentry_sdk.capture_exception(e)
         logger.error(f"Error revoking API key {key_id}: {e}")
         raise HTTPException(status_code=500, detail="Failed to revoke API key")
@@ -1193,8 +1205,8 @@ async def get_models():
                         fetched_list = other_models + instruct_models
                         combined = list(dict.fromkeys(models_dict["OpenAI"] + fetched_list))
                         models_dict["OpenAI"] = combined
-        except Exception as e:
-            logging.warning(f"Failed to fetch dynamic OpenAI models: {e}")
+        except Exception as e:  # noqa: BLE001
+            logging.warning(f"Failed to fetch dynamic OpenAI models: {e}")  # noqa: LOG015
             
     _models_cache = models_dict
     _models_cache_time = time.time()
@@ -1222,7 +1234,7 @@ def get_stats(tenant_id: str = Depends(verify_infrastructure_access)):
             )
             vector_count = qdrant_points.count
             stats["qdrant_points"] = vector_count
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             sentry_sdk.capture_exception(e)
             logger.warning(f"Failed to get qdrant stats: {e}")
             vector_count = 0
@@ -1234,7 +1246,7 @@ def get_stats(tenant_id: str = Depends(verify_infrastructure_access)):
                 parameters={"tenant_id": tenant_id},
             )
             node_count = records[0]["count"] if records else 0
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             sentry_sdk.capture_exception(e)
             logger.warning(f"Failed to get neo4j stats: {e}")
             node_count = 0
@@ -1246,7 +1258,7 @@ def get_stats(tenant_id: str = Depends(verify_infrastructure_access)):
             "vector_count": vector_count,
             "tenant_id": tenant_id,
         }
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         sentry_sdk.capture_exception(e)
         logger.error(f"Error getting stats: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -1271,7 +1283,7 @@ async def ingest_data(request: Request, ingest_request: IngestRequest, tenant_id
             ingest_request.custom_stop_words
         )
         return {"status": "queued", "job_id": job.job_id}
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         sentry_sdk.capture_exception(e)
         logger.error(f"Error during ingestion: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -1303,6 +1315,7 @@ class AutoGenerateSchemaRequest(BaseModel):
 async def auto_generate_schema(data: AutoGenerateSchemaRequest):
     config = get_config()
     from openai import AsyncOpenAI
+
     from backend.prompts import get_auto_ontology_prompt
     
     client = AsyncOpenAI(**config.get_llm_client_args())
@@ -1320,9 +1333,9 @@ async def auto_generate_schema(data: AutoGenerateSchemaRequest):
         content = response.choices[0].message.content
         schema = json.loads(content)
         return schema
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         sentry_sdk.capture_exception(e)
-        raise HTTPException(status_code=500, detail=f"Failed to generate valid schema: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to generate valid schema: {e!s}")
 
 class UrlIngestRequest(BaseModel):
     url: str
@@ -1332,7 +1345,7 @@ class UrlIngestRequest(BaseModel):
 @limiter.limit(config.rate_limit_ingest)
 async def ingest_upload(
     request: Request, 
-    file: UploadFile = File(...), 
+    file: UploadFile = File(...),  # noqa: B008
     fast_extraction: bool = Form(False), 
     language: str = Form("en"),
     custom_stop_words: str = Form(""),
@@ -1376,7 +1389,7 @@ async def ingest_upload(
                 detail="Invalid file type. Supported formats: PDF, Word, PowerPoint, Excel, HTML, Text, and Images (PNG/JPG)."
             )
 
-        config = get_config()
+        get_config()
         logger.info(f"Converting file {file.filename} with Docling...")
         converter = DocumentConverter()
         result = converter.convert(tmp_path)
@@ -1401,13 +1414,13 @@ async def ingest_upload(
         return {"status": "queued", "job_id": job.job_id}
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         sentry_sdk.capture_exception(e)
         logger.error(f"Error during file ingestion: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
-class UrlIngestRequest(BaseModel):
+class UrlIngestRequest(BaseModel):  # noqa: F811
     url: str
     fast_extraction: bool = False
     language: str = "en"
@@ -1419,7 +1432,7 @@ class UrlIngestRequest(BaseModel):
 async def ingest_url(request: Request, url_request: UrlIngestRequest, tenant_id: str = Depends(verify_infrastructure_access)):
     try:
         check_tenant_hard_cap(tenant_id, get_config())
-        config = get_config()
+        get_config()
         logger.info(f"Converting URL {url_request.url} with Docling...")
         converter = DocumentConverter()
         result = converter.convert(url_request.url)
@@ -1436,7 +1449,7 @@ async def ingest_url(request: Request, url_request: UrlIngestRequest, tenant_id:
             url_request.model
         )
         return {"status": "queued", "job_id": job.job_id}
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         sentry_sdk.capture_exception(e)
         logger.error(f"Error during URL ingestion: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -1498,7 +1511,7 @@ def _activate_tenant_subscription(tenant_id: str | None, config, redis):
             await redis.setex(f"tenant:{tenant_id}:subscription_status", 86400, "true")
         
         asyncio.create_task(_update_redis())
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         sentry_sdk.capture_exception(e)
         logger.error(f"Failed to update database for tenant {tenant_id}: {e}")
 
@@ -1569,7 +1582,7 @@ async def export_user_data(request: Request, tenant_id: str = Depends(get_tenant
                     "messages": messages
                 })
         return export_data
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         sentry_sdk.capture_exception(e)
         raise HTTPException(status_code=500, detail="Failed to export data")
 
@@ -1585,7 +1598,7 @@ async def delete_user_data(request: Request, tenant_id: str = Depends(get_tenant
                 "MATCH (n) WHERE n.tenant_id = $tenant_id DETACH DELETE n",
                 {"tenant_id": tenant_id}
             )
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             logger.error(f"Error deleting Neo4j data: {e}")
             
         # 2. Delete from Qdrant
@@ -1605,7 +1618,7 @@ async def delete_user_data(request: Request, tenant_id: str = Depends(get_tenant
                     )
                 )
             )
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             logger.error(f"Error deleting Qdrant data: {e}")
             
         # 3. Delete from Redis & Postgres (Chat History)
@@ -1620,7 +1633,7 @@ async def delete_user_data(request: Request, tenant_id: str = Depends(get_tenant
                     await conn.execute("DELETE FROM checkpoint_writes WHERE thread_id = %s", (tid,))
                     await conn.execute("DELETE FROM checkpoint_blobs WHERE thread_id = %s", (tid,))
                 await conn.commit()
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             logger.error(f"Error deleting Postgres chat history: {e}")
 
         await request.app.state.redis.delete(f"tenant:{tenant_id}:threads")
@@ -1631,6 +1644,6 @@ async def delete_user_data(request: Request, tenant_id: str = Depends(get_tenant
         await request.app.state.redis.delete(f"tenant:{tenant_id}:thread_timestamps")
         
         return {"status": "success", "message": "All user data deleted"}
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         sentry_sdk.capture_exception(e)
         raise HTTPException(status_code=500, detail="Failed to delete data")

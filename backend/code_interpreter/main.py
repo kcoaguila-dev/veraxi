@@ -1,8 +1,9 @@
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
+import os
 import subprocess
 import tempfile
-import os
+
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
 
 app = FastAPI()
 
@@ -25,7 +26,7 @@ async def execute_code(req: CodeExecutionRequest):
             f.write(req.code)
             temp_path = f.name
             
-        result = subprocess.run(
+        result = subprocess.run(  # noqa: ASYNC221, PLW1510
             ["python", temp_path],
             capture_output=True,
             text=True,
@@ -43,7 +44,7 @@ async def execute_code(req: CodeExecutionRequest):
             stderr=e.stderr.decode('utf-8') if e.stderr else f"Execution timed out after {req.timeout} seconds.",
             exit_code=-1
         )
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         if os.path.exists(temp_path):

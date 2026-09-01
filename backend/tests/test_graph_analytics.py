@@ -1,4 +1,5 @@
 from unittest.mock import MagicMock
+
 from backend.retrieval.graph_analytics import (
     get_community_detection,
     get_node_degree_centrality,
@@ -16,7 +17,7 @@ def test_get_community_detection_calls_client():
 
     # Assert query was executed
     mock_client.execute_read.assert_called_once()
-    args, kwargs = mock_client.execute_read.call_args
+    _args, kwargs = mock_client.execute_read.call_args
     assert "min_community_size" in kwargs["parameters"]
     assert kwargs["parameters"]["min_community_size"] == 1
 
@@ -37,7 +38,7 @@ def test_get_node_degree_centrality_calls_client():
 
     # Assert query was executed
     mock_client.execute_read.assert_called_once()
-    args, kwargs = mock_client.execute_read.call_args
+    _args, kwargs = mock_client.execute_read.call_args
     assert "limit" in kwargs["parameters"]
     assert kwargs["parameters"]["limit"] == 5
 

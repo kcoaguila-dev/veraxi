@@ -1,7 +1,8 @@
 import uuid
-from typing import Dict, Any, Optional, List
+from typing import Any
 
 from neo4j import GraphDatabase
+
 from backend import context as byod_context
 
 
@@ -25,7 +26,7 @@ class Neo4jStorageClient:
     def close(self):
         self.driver.close()
 
-    def create_node(self, label: str, properties: Dict[str, Any]) -> str:
+    def create_node(self, label: str, properties: dict[str, Any]) -> str:
         """Create a node with the given label and properties, returning its generated UUID."""
         node_id = str(uuid.uuid4())
         props = properties.copy()
@@ -54,7 +55,7 @@ class Neo4jStorageClient:
         from_id: str,
         to_id: str,
         rel_type: str,
-        properties: Optional[Dict[str, Any]] = None,
+        properties: dict[str, Any] | None = None,
     ):
         """Create a relationship between two nodes by their IDs."""
         if not rel_type.replace("_", "").isalnum():
@@ -72,8 +73,8 @@ class Neo4jStorageClient:
             session.run(query, from_id=from_id, to_id=to_id, props=props)
 
     def execute_read(
-        self, query: str, parameters: Optional[Dict[str, Any]] = None
-    ) -> List[Dict[str, Any]]:
+        self, query: str, parameters: dict[str, Any] | None = None
+    ) -> list[dict[str, Any]]:
         """Execute a read query with parameters."""
         with self.driver.session() as session:
             result = session.run(query, parameters or {})

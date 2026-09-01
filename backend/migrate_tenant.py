@@ -1,6 +1,9 @@
 import asyncio
-from backend.config import get_config
+
 import redis.asyncio as redis
+
+from backend.config import get_config
+
 
 async def migrate_tenant_data(old_tenant: str, new_tenant: str):
     config = get_config()
@@ -18,7 +21,7 @@ async def migrate_tenant_data(old_tenant: str, new_tenant: str):
         try:
             await client.rename(key_str, new_key_str)
             print(f"Migrated {key_str} to {new_key_str}")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             print(f"Error migrating {key_str}: {e}")
             
     # Threads are also stored under a global set? No, threads are tenant specific.

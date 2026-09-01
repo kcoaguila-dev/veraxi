@@ -1,9 +1,10 @@
-from typing import Dict, Any
+from typing import Any
+
 from backend.config import get_config
 from backend.storage.qdrant_client import QdrantStorageClient
-from qdrant_client.http import models
 
-def update_document_metadata(document_id: str, payload: Dict[str, Any], tenant_id: str = "default") -> str:
+
+def update_document_metadata(document_id: str, payload: dict[str, Any], tenant_id: str = "default") -> str:
     """
     Updates the payload (metadata) of an existing vector in Qdrant.
     """

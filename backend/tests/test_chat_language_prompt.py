@@ -1,6 +1,7 @@
+from unittest.mock import AsyncMock, patch
+
 import pytest
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
-from unittest.mock import AsyncMock, patch
 
 from backend.mcp_server.llm_loop import _prepend_system_messages, call_model
 from backend.prompts import CHAT_SYSTEM_PROMPT

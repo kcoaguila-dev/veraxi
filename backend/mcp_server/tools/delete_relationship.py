@@ -1,6 +1,7 @@
 from backend.config import get_config
 from backend.storage.neo4j_client import Neo4jStorageClient
 
+
 def delete_relationship(from_entity: str, to_entity: str, rel_type: str, tenant_id: str = "default") -> str:
     """
     Deletes a specific relationship between two entities in Neo4j without deleting the entities themselves.

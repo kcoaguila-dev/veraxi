@@ -1,18 +1,19 @@
-from typing import List, Dict, Any
 from dataclasses import dataclass
+from typing import Any
+
 from backend.storage.neo4j_client import Neo4jStorageClient
 
 
 @dataclass
 class IngestionPayload:
-    entities: List[Dict[str, Any]]
-    relations: List[Dict[str, str]]
-    qdrant_point_ids: Dict[str, str]
+    entities: list[dict[str, Any]]
+    relations: list[dict[str, str]]
+    qdrant_point_ids: dict[str, str]
 
 
 def _create_unlinked_chunks(
     neo4j_client: Neo4jStorageClient,
-    point_ids: List[str],
+    point_ids: list[str],
     start_idx: int,
     tenant_id: str,
 ):
@@ -30,7 +31,7 @@ def write_to_graph(
     neo4j_client: Neo4jStorageClient,
     payload: IngestionPayload,
     tenant_id: str = "default",
-) -> Dict[str, str]:
+) -> dict[str, str]:
     """
     Write entities and relations to Neo4j, linking to Qdrant point IDs.
     Returns a tuple of (entity_name_to_node_id, qdrant_id_to_neo4j_ids).

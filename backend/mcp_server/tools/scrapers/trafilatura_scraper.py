@@ -10,7 +10,8 @@ Best for: news sites, blogs, documentation pages (SSR content).
 from __future__ import annotations
 
 import logging
-from concurrent.futures import ThreadPoolExecutor, as_completed, TimeoutError as FuturesTimeoutError
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import TimeoutError as FuturesTimeoutError
 
 import sentry_sdk
 
@@ -25,7 +26,7 @@ def _fetch_one(url: str, timeout: float) -> tuple[str, str]:
     try:
         # Lazy import: trafilatura is an optional dependency.
         # If not installed the ImportError propagates and is caught by the caller.
-        import trafilatura  # noqa: PLC0415
+        import trafilatura
 
         html = trafilatura.fetch_url(url, no_ssl=False)
         if not html:
@@ -38,7 +39,7 @@ def _fetch_one(url: str, timeout: float) -> tuple[str, str]:
             no_fallback=False,
         )
         return url, (text or "").strip()
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001
         sentry_sdk.capture_exception(exc)
         logger.warning("Trafilatura failed for %s: %s", url, exc)
         return url, ""
@@ -78,7 +79,7 @@ class TrafilaturaScraper:
                         results[url] = content
                 except FuturesTimeoutError:
                     logger.warning("Trafilatura timed out for %s", future_to_url[future])
-                except Exception as exc:
+                except Exception as exc:  # noqa: BLE001
                     sentry_sdk.capture_exception(exc)
                     logger.warning("Trafilatura fetch_batch error: %s", exc)
 

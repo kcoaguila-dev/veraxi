@@ -4,7 +4,7 @@ Pure logic, fake data, no database connection - per AGENTS.md testing
 expectations, this covers every change to merge_rank.py.
 """
 
-from backend.retrieval.merge_rank import VectorHit, GraphHit, merge_rank, DEFAULT_RRF_K
+from backend.retrieval.merge_rank import DEFAULT_RRF_K, GraphHit, VectorHit, merge_rank
 
 
 def test_empty_inputs_return_empty_list():

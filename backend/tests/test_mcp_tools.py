@@ -1,8 +1,9 @@
 from unittest.mock import patch
-from backend.mcp_server.tools.search_vectors import search_vectors
-from backend.mcp_server.tools.query_graph import query_graph
+
 from backend.ingestion.extract import validate_extraction
-from backend.retrieval.merge_rank import VectorHit, GraphHit
+from backend.mcp_server.tools.query_graph import query_graph
+from backend.mcp_server.tools.search_vectors import search_vectors
+from backend.retrieval.merge_rank import GraphHit, VectorHit
 
 
 @patch("backend.mcp_server.tools.search_vectors.get_config")
@@ -135,7 +136,7 @@ def test_extraction_validation_normalizes_nested_properties():
         "entities": ["Person", "Organization"],
         "relations": {"Person": {"Organization": ["WORKS_AT"]}}
     }
-    valid_ents, valid_rels = validate_extraction(entities, relations, schema)
+    valid_ents, _valid_rels = validate_extraction(entities, relations, schema)
 
     assert len(valid_ents) == 1
     props = valid_ents[0]["properties"]
@@ -153,6 +154,7 @@ def test_extraction_validation_normalizes_nested_properties():
 
 from backend.mcp_server.tools.insert_graph import insert_graph_nodes
 from backend.mcp_server.tools.insert_vector import insert_vectors
+
 
 @patch("backend.mcp_server.tools.insert_graph.get_config")
 @patch("backend.mcp_server.tools.insert_graph.Neo4jStorageClient")

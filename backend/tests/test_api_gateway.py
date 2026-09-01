@@ -1,10 +1,10 @@
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
-import json
 from fastapi.testclient import TestClient
-from unittest.mock import patch, AsyncMock, MagicMock
-import asyncio
 
 from backend.api_gateway import app, get_tenant_id
+
 
 # Override the auth dependency for testing
 async def override_get_tenant_id():

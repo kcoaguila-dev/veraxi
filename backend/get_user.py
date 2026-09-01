@@ -1,6 +1,9 @@
 import asyncio
-from backend.config import get_config
+
 import redis.asyncio as redis
+
+from backend.config import get_config
+
 
 async def check():
     config = get_config()

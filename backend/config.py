@@ -2,7 +2,7 @@
 import os
 from dataclasses import dataclass
 from functools import lru_cache
-from typing import Optional
+
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -14,7 +14,7 @@ class Config:
     neo4j_user: str
     neo4j_password: str
     qdrant_url: str
-    qdrant_api_key: Optional[str]
+    qdrant_api_key: str | None
     qdrant_collection_name: str
     llm_api_key: str
     llm_base_url: str
@@ -84,7 +84,7 @@ class Config:
             privacy_policy_url=os.environ.get("PRIVACY_POLICY_URL", "https://veraxi.ai/privacy"),
         )
 
-    def get_llm_client_args(self, model_name: Optional[str] = None) -> dict:
+    def get_llm_client_args(self, model_name: str | None = None) -> dict:
         """Returns kwargs for initializing OpenAI-compatible clients."""
         args = {}
         if self.llm_api_key:
@@ -95,7 +95,7 @@ class Config:
             effective_model = model_name or self.llm_model_name
             if effective_model.startswith("gemini"):
                 args["base_url"] = "https://generativelanguage.googleapis.com/v1beta/openai/"
-            elif effective_model.startswith("gpt") or effective_model.startswith("o1") or effective_model.startswith("o3"):
+            elif effective_model.startswith(("gpt", "o1", "o3")):
                 pass  # Default to api.openai.com
             elif effective_model.startswith("deepseek"):
                 args["base_url"] = "https://api.deepseek.com"

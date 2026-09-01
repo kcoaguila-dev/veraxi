@@ -6,14 +6,13 @@ and the MCP server handler guards.
 
 No real Neo4j or Qdrant connection — all storage calls are mocked.
 """
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 from fastapi import HTTPException
 
-from backend.storage.quota import check_tenant_hard_cap
 from backend.config import Config
-
+from backend.storage.quota import check_tenant_hard_cap
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -47,7 +46,7 @@ class TestCheckTenantHardCap:
 
     def test_at_cap_raises_403(self):
         config = _make_config(max_nodes=1000)
-        with patch("backend.storage.quota.Neo4jStorageClient.from_config",
+        with patch("backend.storage.quota.Neo4jStorageClient.from_config",  # noqa: SIM117
                    return_value=_mock_neo4j(1000)):
             with pytest.raises(HTTPException) as exc_info:
                 check_tenant_hard_cap("tenant-1", config)
@@ -56,7 +55,7 @@ class TestCheckTenantHardCap:
 
     def test_over_cap_raises_403(self):
         config = _make_config(max_nodes=1000)
-        with patch("backend.storage.quota.Neo4jStorageClient.from_config",
+        with patch("backend.storage.quota.Neo4jStorageClient.from_config",  # noqa: SIM117
                    return_value=_mock_neo4j(1500)):
             with pytest.raises(HTTPException) as exc_info:
                 check_tenant_hard_cap("tenant-1", config)
@@ -64,7 +63,7 @@ class TestCheckTenantHardCap:
 
     def test_error_message_contains_node_limit(self):
         config = _make_config(max_nodes=500)
-        with patch("backend.storage.quota.Neo4jStorageClient.from_config",
+        with patch("backend.storage.quota.Neo4jStorageClient.from_config",  # noqa: SIM117
                    return_value=_mock_neo4j(600)):
             with pytest.raises(HTTPException) as exc_info:
                 check_tenant_hard_cap("tenant-1", config)

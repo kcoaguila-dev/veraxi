@@ -1,7 +1,10 @@
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
-from unittest.mock import patch, AsyncMock, MagicMock
+from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
+
 from backend.mcp_server.llm_loop import answer_question, stream_answer_question
-from langchain_core.messages import HumanMessage, AIMessage, ToolMessage
+
 
 @pytest.fixture
 def mock_config():
@@ -96,6 +99,7 @@ async def test_stream_answer_question_basic(mock_config, mock_app, mock_postgres
 
 from backend.mcp_server.llm_loop import route_evaluation, should_continue
 
+
 def test_route_evaluation():
     assert route_evaluation({"context_relevance": "yes"}) == "agent"
     assert route_evaluation({"context_relevance": "no"}) == "web_search"
@@ -114,8 +118,9 @@ def test_should_continue():
 
 @pytest.mark.asyncio
 async def test_evaluate_context(mock_config):
-    from backend.mcp_server.llm_loop import evaluate_context, GradeDocuments
     from langchain_core.messages import HumanMessage
+
+    from backend.mcp_server.llm_loop import GradeDocuments, evaluate_context
     
     # Test empty context
     res = await evaluate_context({"messages": [HumanMessage(content="Hello")], "retrieved_context": ""})
@@ -132,10 +137,12 @@ async def test_evaluate_context(mock_config):
 
 @pytest.mark.asyncio
 async def test_web_search_fallback(mock_config):
-    from backend.mcp_server.llm_loop import web_search_fallback
-    from langchain_core.messages import HumanMessage
-    import json
     import io
+    import json
+
+    from langchain_core.messages import HumanMessage
+
+    from backend.mcp_server.llm_loop import web_search_fallback
     
     mock_response = io.BytesIO(json.dumps({
         "results": [
@@ -150,8 +157,9 @@ async def test_web_search_fallback(mock_config):
         assert "retrieved_context" in res
 @pytest.mark.asyncio
 async def test_execute_tools():
-    from backend.mcp_server.llm_loop import execute_tools
     from langchain_core.messages import AIMessage
+
+    from backend.mcp_server.llm_loop import execute_tools
     
     # Mock tool call
     msg_with_tool = AIMessage(content="", tool_calls=[{"name": "test_tool", "args": {}, "id": "1"}])
@@ -177,8 +185,9 @@ async def test_get_tools(mock_config):
 
 @pytest.mark.asyncio
 async def test_call_model(mock_config):
+    from langchain_core.messages import AIMessage, HumanMessage
+
     from backend.mcp_server.llm_loop import call_model
-    from langchain_core.messages import HumanMessage, AIMessage
     
     msg = HumanMessage(content="Hello")
     
@@ -252,8 +261,13 @@ def test_execute_single_tool(mock_config):
         assert v_hits[0].payload["text"] == "result"
 
 def test_handle_stream_events():
-    from backend.mcp_server.llm_loop import _handle_chat_model_end, _handle_chain_end_tools, _handle_chain_end_langgraph
-    from langchain_core.messages import AIMessage, ToolMessage
+    from langchain_core.messages import AIMessage
+
+    from backend.mcp_server.llm_loop import (
+        _handle_chain_end_langgraph,
+        _handle_chain_end_tools,
+        _handle_chat_model_end,
+    )
     
     # Test _handle_chat_model_end
     msg = AIMessage(content="", tool_calls=[{"name": "test_tool", "args": {"arg": "val"}, "id": "1"}])
@@ -275,7 +289,7 @@ def test_handle_stream_events():
     assert events[0]["event"] == "metadata"
 
 def test_helpers():
-    from backend.mcp_server.llm_loop import _cosine_similarity, _build_context_string
+    from backend.mcp_server.llm_loop import _build_context_string, _cosine_similarity
     
     # Test _cosine_similarity
     assert _cosine_similarity([1, 0], [1, 0]) == 1.0
@@ -298,11 +312,15 @@ def test_helpers():
     assert "world" in res
 
 def test_simple_helpers():
-    from backend.mcp_server.llm_loop import _apply_observability_settings, _prepend_system_messages
-    from langchain_core.messages import HumanMessage, SystemMessage
-    
-    from unittest.mock import patch
     import os
+    from unittest.mock import patch
+
+    from langchain_core.messages import HumanMessage, SystemMessage
+
+    from backend.mcp_server.llm_loop import (
+        _apply_observability_settings,
+        _prepend_system_messages,
+    )
     
     # Test _apply_observability_settings
     with patch.dict(os.environ, {}):

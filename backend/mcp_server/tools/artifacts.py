@@ -1,5 +1,6 @@
 import os
 
+
 def list_artifacts(tenant_id: str) -> list[dict]:
     """
     Returns a list of available artifacts for the given tenant.

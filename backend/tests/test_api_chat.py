@@ -1,7 +1,10 @@
+from unittest.mock import AsyncMock, patch
+
 import pytest
 from fastapi.testclient import TestClient
-from unittest.mock import patch, AsyncMock
+
 from backend.api_gateway import app, get_tenant_id
+
 
 # Mock the dependency to return a static tenant ID
 def override_get_tenant_id():
@@ -170,7 +173,7 @@ async def test_audio_endpoint_missing_voice_id():
 
 @pytest.mark.asyncio
 async def test_audio_endpoint_success():
-    with patch("backend.tts.gpt_sovits_client.GPTSoVITSClient.synthesize", new_callable=AsyncMock) as mock_synthesize:
+    with patch("backend.tts.gpt_sovits_client.GPTSoVITSClient.synthesize", new_callable=AsyncMock) as mock_synthesize:  # noqa: SIM117
         with patch("backend.tts.voices.get_voice") as mock_get_voice:
             mock_synthesize.return_value = b"fake audio bytes"
             mock_get_voice.return_value = {

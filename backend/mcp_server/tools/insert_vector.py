@@ -1,12 +1,14 @@
-from typing import List, Dict, Any
-from backend.storage.qdrant_client import QdrantStorageClient
+from typing import Any
+
 from backend.config import get_config
 from backend.ingestion.chunk_embed import embed_text
+from backend.storage.qdrant_client import QdrantStorageClient
+
 
 def insert_vectors(
-    texts: List[str],
+    texts: list[str],
     tenant_id: str = "default"
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Generate embeddings for raw texts using local models and insert into Qdrant.
     Does not require a Gemini API key.

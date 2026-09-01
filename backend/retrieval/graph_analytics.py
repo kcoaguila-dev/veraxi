@@ -1,10 +1,11 @@
-from typing import List, Dict, Any
+from typing import Any
+
 from backend.storage.neo4j_client import Neo4jStorageClient
 
 
 def get_community_detection(
     neo4j_client: Neo4jStorageClient, min_community_size: int = 1, tenant_id: str = "default"
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """
     Uses the Neo4j Graph Data Science (GDS) Louvain algorithm to find densely connected components.
     Uses an anonymous Cypher projection to strictly isolate the graph to the given tenant_id.
@@ -30,7 +31,7 @@ def get_community_detection(
 
 def get_node_degree_centrality(
     neo4j_client: Neo4jStorageClient, limit: int = 10, tenant_id: str = "default"
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """
     Returns the nodes with the most relationships for a given tenant.
     """

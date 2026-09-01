@@ -1,6 +1,7 @@
 from backend.config import get_config
 from backend.storage.neo4j_client import Neo4jStorageClient
 
+
 def delete_entity(entity_name: str, tenant_id: str = "default") -> str:
     """
     Deletes an entity (node) and all its connected relationships from Neo4j.

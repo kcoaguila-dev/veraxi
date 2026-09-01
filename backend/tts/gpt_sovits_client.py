@@ -1,11 +1,13 @@
-import httpx
 import logging
+
+import httpx
+
 from backend.config import get_config
 
 logger = logging.getLogger(__name__)
 
 class GPTSoVITSClient:
-    def __init__(self, base_url: str = None):
+    def __init__(self, base_url: str | None = None):
         if not base_url:
             config = get_config()
             base_url = config.gpt_sovits_base_url
@@ -43,11 +45,11 @@ class GPTSoVITSClient:
         try:
             response = await self.client.get(f"{self.base_url}/tts")
             if response.status_code >= 500:
-                raise Exception(f"Server error: {response.status_code}")
+                raise Exception(f"Server error: {response.status_code}")  # noqa: TRY002
             if response.status_code == 404 and "ngrok" in response.text.lower():
-                raise Exception("Ngrok tunnel not found")
+                raise Exception("Ngrok tunnel not found")  # noqa: TRY002
             return True
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             logger.error(f"GPT-SoVITS connection failed: {e}")
             raise ConnectionError(f"Could not connect to GPT-SoVITS at {self.base_url}")
 

@@ -1,16 +1,20 @@
 import logging
+
 from backend.config import get_config
-from backend.storage.qdrant_client import QdrantStorageClient
-from backend.storage.neo4j_client import Neo4jStorageClient
 from backend.ingestion.chunk_embed import chunk_and_embed
-from backend.ingestion.extract import extract_entities_and_relations, extract_entities_and_relations_fast
 from backend.ingestion.entity_resolution import resolve_entities
-from backend.ingestion.graph_write import write_to_graph, IngestionPayload
+from backend.ingestion.extract import (
+    extract_entities_and_relations,
+    extract_entities_and_relations_fast,
+)
+from backend.ingestion.graph_write import IngestionPayload, write_to_graph
+from backend.storage.neo4j_client import Neo4jStorageClient
+from backend.storage.qdrant_client import QdrantStorageClient
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 
 
-def run_ingestion(config, text: str, schema: dict, tenant_id: str = "default", fast_extraction: bool = False, language: str = "en", custom_stop_words: list = None, model: str = None):
+def run_ingestion(config, text: str, schema: dict, tenant_id: str = "default", fast_extraction: bool = False, language: str = "en", custom_stop_words: list | None = None, model: str | None = None):
     # 1. Initialize clients
     qdrant = QdrantStorageClient.from_config(config)
     neo4j = Neo4jStorageClient.from_config(config)
@@ -19,7 +23,7 @@ def run_ingestion(config, text: str, schema: dict, tenant_id: str = "default", f
     COLLECTION_NAME = config.qdrant_collection_name
     qdrant.create_collection(COLLECTION_NAME)
 
-    logging.info(f"Starting ingestion for tenant: {tenant_id}...")
+    logging.info(f"Starting ingestion for tenant: {tenant_id}...")  # noqa: LOG015
 
     # 2. Chunk and embed
     chunks_and_embeddings = chunk_and_embed(text)
@@ -32,7 +36,7 @@ def run_ingestion(config, text: str, schema: dict, tenant_id: str = "default", f
     qdrant_point_ids_list = qdrant.insert_points(
         COLLECTION_NAME, vectors, sparse_vectors, payloads, tenant_id=tenant_id
     )
-    logging.info(f"Inserted {len(qdrant_point_ids_list)} points into Qdrant.")
+    logging.info(f"Inserted {len(qdrant_point_ids_list)} points into Qdrant.")  # noqa: LOG015
 
     # Create dict mapping to pass to graph step
     qdrant_point_ids = {
@@ -41,10 +45,10 @@ def run_ingestion(config, text: str, schema: dict, tenant_id: str = "default", f
 
     # 4. Extract entities and relations
     if fast_extraction:
-        logging.info(f"Using Fast Extraction (spaCy NLP) for entity extraction (Lang: {language}).")
+        logging.info(f"Using Fast Extraction (spaCy NLP) for entity extraction (Lang: {language}).")  # noqa: LOG015
         entities, relations = extract_entities_and_relations_fast(text, schema, language, custom_stop_words or [])
     else:
-        logging.info("Using Deep Extraction (LLM) for entity extraction.")
+        logging.info("Using Deep Extraction (LLM) for entity extraction.")  # noqa: LOG015
         entities, relations = extract_entities_and_relations(text, schema, model_name=model)
 
     # Resolve entities to deduplicate and get alias mapping
@@ -76,7 +80,7 @@ def run_ingestion(config, text: str, schema: dict, tenant_id: str = "default", f
             points=[q_id],
         )
 
-    logging.info(
+    logging.info(  # noqa: LOG015
         f"Ingestion complete. {len(entity_id_map)} Neo4j nodes, {len(qdrant_point_ids)} Qdrant points, linking verified."
     )
 

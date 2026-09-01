@@ -1,12 +1,14 @@
-from typing import List, Dict, Any
-from backend.storage.neo4j_client import Neo4jStorageClient
+from typing import Any
+
 from backend.config import get_config
+from backend.storage.neo4j_client import Neo4jStorageClient
+
 
 def insert_graph_nodes(
-    nodes: List[Dict[str, Any]],
-    relations: List[Dict[str, str]],
+    nodes: list[dict[str, Any]],
+    relations: list[dict[str, str]],
     tenant_id: str = "default"
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Insert raw graph nodes and relations into Neo4j without using an LLM API key.
     Nodes must have a 'type' (label) and 'name', plus any 'properties'.

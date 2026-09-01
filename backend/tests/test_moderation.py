@@ -1,9 +1,11 @@
-import pytest
-import httpx
-from unittest.mock import patch, MagicMock, AsyncMock
 import os
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import httpx
+import pytest
 
 from backend.security.moderation import moderate_text
+
 
 @pytest.mark.asyncio
 async def test_moderate_text_flagged():

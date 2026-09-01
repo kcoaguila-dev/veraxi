@@ -10,8 +10,6 @@ import sys
 import types
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -48,7 +46,9 @@ class TestBuildScraper:
 
     def test_trafilatura_returns_scraper(self):
         from backend.mcp_server.tools.scrapers import build_scraper
-        from backend.mcp_server.tools.scrapers.trafilatura_scraper import TrafilaturaScraper
+        from backend.mcp_server.tools.scrapers.trafilatura_scraper import (
+            TrafilaturaScraper,
+        )
         scraper = build_scraper({"scraper": "Trafilatura"})
         assert isinstance(scraper, TrafilaturaScraper)
 
@@ -180,7 +180,9 @@ class TestTrafilaturaScraper:
         fake_trafilatura.extract = MagicMock(return_value=_LONG_TEXT)
 
         with patch.dict(sys.modules, {"trafilatura": fake_trafilatura}):
-            from backend.mcp_server.tools.scrapers.trafilatura_scraper import TrafilaturaScraper
+            from backend.mcp_server.tools.scrapers.trafilatura_scraper import (
+                TrafilaturaScraper,
+            )
             scraper = TrafilaturaScraper()
             result = scraper.fetch_batch(["https://example.com"], timeout_per_url=5.0)
 
@@ -193,12 +195,16 @@ class TestTrafilaturaScraper:
         fake_trafilatura.extract = MagicMock(return_value="too short")
 
         with patch.dict(sys.modules, {"trafilatura": fake_trafilatura}):
-            from backend.mcp_server.tools.scrapers.trafilatura_scraper import TrafilaturaScraper
+            from backend.mcp_server.tools.scrapers.trafilatura_scraper import (
+                TrafilaturaScraper,
+            )
             scraper = TrafilaturaScraper()
             result = scraper.fetch_batch(["https://example.com"])
 
         assert result == {}
 
     def test_empty_url_list_returns_empty(self):
-        from backend.mcp_server.tools.scrapers.trafilatura_scraper import TrafilaturaScraper
+        from backend.mcp_server.tools.scrapers.trafilatura_scraper import (
+            TrafilaturaScraper,
+        )
         assert TrafilaturaScraper().fetch_batch([]) == {}

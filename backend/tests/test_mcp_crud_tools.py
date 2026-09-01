@@ -1,5 +1,9 @@
-import pytest
 import uuid
+
+import pytest
+from qdrant_client.http.models import PointStruct
+
+from backend.config import get_config
 from backend.mcp_server.tools.delete_entity import delete_entity
 from backend.mcp_server.tools.delete_relationship import delete_relationship
 from backend.mcp_server.tools.delete_vector import delete_vector
@@ -7,10 +11,9 @@ from backend.mcp_server.tools.get_schema import get_graph_schema
 from backend.mcp_server.tools.run_analytics import run_community_detection
 from backend.mcp_server.tools.update_document import update_document_metadata
 from backend.mcp_server.tools.update_entity import update_entity
-from backend.config import get_config
 from backend.storage.neo4j_client import Neo4jStorageClient
 from backend.storage.qdrant_client import QdrantStorageClient
-from qdrant_client.http.models import PointStruct
+
 
 @pytest.fixture
 def test_tenant():
@@ -127,6 +130,7 @@ def test_get_schema(neo4j_client, test_tenant):
 
 
 from unittest.mock import patch
+
 
 def test_run_analytics(neo4j_client, test_tenant):
     # Test the wrapper by mocking the actual implementation

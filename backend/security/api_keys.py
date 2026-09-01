@@ -77,7 +77,7 @@ def _lookup_hash(key_hash: str, supabase: Client) -> str:
             .single()
             .execute()
         )
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         # Supabase raises when no row is found
         logger.warning(f"API key lookup failed: {e}")
         raise HTTPException(status_code=401, detail="Invalid or revoked API key")
@@ -108,5 +108,5 @@ def _record_last_used(key_hash: str, supabase: Client) -> None:
         supabase.table("api_keys").update(
             {"last_used_at": datetime.now(timezone.utc).isoformat()}
         ).eq("key_hash", key_hash).execute()
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         logger.warning(f"Failed to update last_used_at for API key: {e}")

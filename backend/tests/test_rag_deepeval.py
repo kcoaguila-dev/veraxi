@@ -1,12 +1,18 @@
 import json
 import os
+
 import pytest
 from deepeval import assert_test
+from deepeval.metrics import (
+    AnswerRelevancyMetric,
+    ContextualPrecisionMetric,
+    FaithfulnessMetric,
+)
 from deepeval.test_case import LLMTestCase
-from deepeval.metrics import FaithfulnessMetric, ContextualPrecisionMetric, AnswerRelevancyMetric
 
 from backend.mcp_server.llm_loop import answer_question
 from backend.tests.custom_openai_eval import OpenAIDeepEvalModel
+
 
 def get_test_cases():
     """Load dataset and generate Pytest parameters."""

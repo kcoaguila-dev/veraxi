@@ -1,6 +1,7 @@
 from backend.config import get_config
 from backend.storage.qdrant_client import QdrantStorageClient
 
+
 def delete_vector(document_id: str, tenant_id: str = "default") -> str:
     """
     Deletes a specific vector chunk from Qdrant by its document ID.
