@@ -46,10 +46,7 @@ class ApiKeysRepository {
   Future<List<ApiKeyModel>> getApiKeys() async {
     final data = await apiClient.get('/user/api-keys');
     final list = data['api_keys'] as List<dynamic>? ?? [];
-    return list
-        .cast<Map<String, dynamic>>()
-        .map(ApiKeyModel.fromJson)
-        .toList();
+    return list.cast<Map<String, dynamic>>().map(ApiKeyModel.fromJson).toList();
   }
 
   /// Create a new API key with the given name.

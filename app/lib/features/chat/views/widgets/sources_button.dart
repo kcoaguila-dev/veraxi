@@ -19,7 +19,8 @@ class SourcesButton extends StatelessWidget {
     final favicons = sources.take(3).map((s) {
       final urlStr = s['url']?.toString() ?? '';
       if (urlStr.isNotEmpty && urlStr != 'Internal Database') {
-        final uri = Uri.tryParse(urlStr.startsWith('http') ? urlStr : 'http://$urlStr');
+        final uri =
+            Uri.tryParse(urlStr.startsWith('http') ? urlStr : 'http://$urlStr');
         final host = uri?.host.replaceFirst('www.', '') ?? '';
         if (host.contains('.')) {
           return host;
@@ -177,10 +178,12 @@ class SourcesButton extends StatelessWidget {
       if (payload.containsKey('url') && payload['url'].toString().isNotEmpty) {
         return payload['url'].toString();
       }
-      if (payload.containsKey('link') && payload['link'].toString().isNotEmpty) {
+      if (payload.containsKey('link') &&
+          payload['link'].toString().isNotEmpty) {
         return payload['link'].toString();
       }
-      if (payload.containsKey('source') && payload['source'].toString().isNotEmpty) {
+      if (payload.containsKey('source') &&
+          payload['source'].toString().isNotEmpty) {
         return payload['source'].toString();
       }
     }
@@ -194,7 +197,6 @@ class SourcesButton extends StatelessWidget {
     }
     return '';
   }
-
 
   static String _extractTitle(Map item) {
     if (item.containsKey('payload') && item['payload'] is Map) {

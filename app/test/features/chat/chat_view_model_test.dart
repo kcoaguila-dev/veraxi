@@ -6,10 +6,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:veraxi_app/features/chat/data/chat_repository.dart';
 import 'package:veraxi_app/features/chat/view_models/chat_view_model.dart';
 
-
 import 'package:veraxi_app/core/network/tts_repository.dart';
 
 class MockChatRepository extends Mock implements ChatRepository {}
+
 class MockTTSRepository extends Mock implements TTSRepository {}
 
 class MockRef extends Mock implements Ref {}
@@ -44,27 +44,27 @@ void main() {
     await pumpEventQueue();
     const question = 'Hello?';
 
-    when(() =>
-        mockRepository.streamChat(question,
+    when(() => mockRepository.streamChat(question,
             threadId: any(named: 'threadId'),
             model: 'test-model',
             isTemporary: false,
             calculateGrounding: any(named: 'calculateGrounding'),
-            toolSettings: any(named: 'toolSettings'))).thenAnswer((_) => Stream.fromIterable([
-          {
-            'event': 'on_chat_model_stream',
-            'data': {
-              'chunk': {'content': 'Hi '}
-            }
-          },
-          {
-            'event': 'on_chat_model_stream',
-            'data': {
-              'chunk': {'content': 'there!'}
-            }
-          },
-          {'event': 'on_chain_end', 'name': 'LangGraph'}
-        ]));
+            toolSettings: any(named: 'toolSettings')))
+        .thenAnswer((_) => Stream.fromIterable([
+              {
+                'event': 'on_chat_model_stream',
+                'data': {
+                  'chunk': {'content': 'Hi '}
+                }
+              },
+              {
+                'event': 'on_chat_model_stream',
+                'data': {
+                  'chunk': {'content': 'there!'}
+                }
+              },
+              {'event': 'on_chain_end', 'name': 'LangGraph'}
+            ]));
 
     final future = viewModel.sendMessage(question, model: 'test-model');
     await future;
@@ -93,81 +93,86 @@ void main() {
     verifyNever(() => mockRepository.streamChat(any()));
   });
 
-  test('sendMessage handles network disconnection mid-stream and preserves content', () async {
+  test(
+      'sendMessage handles network disconnection mid-stream and preserves content',
+      () async {
     await pumpEventQueue();
     const question = 'Tell me a story';
 
-    when(() =>
-        mockRepository.streamChat(question,
-            threadId: any(named: 'threadId'),
-            model: 'test-model',
-            isTemporary: false,
-            calculateGrounding: any(named: 'calculateGrounding'),
-            toolSettings: any(named: 'toolSettings'))).thenAnswer((_) async* {
-          yield {
-            'event': 'on_chat_model_stream',
-            'data': {
-              'chunk': {'content': 'Once upon '}
-            }
-          };
-          yield {
-            'event': 'on_chat_model_stream',
-            'data': {
-              'chunk': {'content': 'a time'}
-            }
-          };
-          throw Exception('SocketException: Connection refused');
-        });
+    when(() => mockRepository.streamChat(question,
+        threadId: any(named: 'threadId'),
+        model: 'test-model',
+        isTemporary: false,
+        calculateGrounding: any(named: 'calculateGrounding'),
+        toolSettings: any(named: 'toolSettings'))).thenAnswer((_) async* {
+      yield {
+        'event': 'on_chat_model_stream',
+        'data': {
+          'chunk': {'content': 'Once upon '}
+        }
+      };
+      yield {
+        'event': 'on_chat_model_stream',
+        'data': {
+          'chunk': {'content': 'a time'}
+        }
+      };
+      throw Exception('SocketException: Connection refused');
+    });
 
     await viewModel.sendMessage(question, model: 'test-model');
 
     expect(viewModel.state.messages.length, 2);
     expect(viewModel.state.messages[1].isError, isTrue);
     expect(viewModel.state.messages[1].content, contains('Once upon a time'));
-    expect(viewModel.state.messages[1].content, contains('[Network connection lost. Please check your internet connection and try again.]'));
+    expect(
+        viewModel.state.messages[1].content,
+        contains(
+            '[Network connection lost. Please check your internet connection and try again.]'));
   });
 
-  test('sendMessage handles network disconnection with no prior content', () async {
+  test('sendMessage handles network disconnection with no prior content',
+      () async {
     await pumpEventQueue();
     const question = 'Tell me a story';
 
-    when(() =>
-        mockRepository.streamChat(question,
-            threadId: any(named: 'threadId'),
-            model: 'test-model',
-            isTemporary: false,
-            calculateGrounding: any(named: 'calculateGrounding'),
-            toolSettings: any(named: 'toolSettings'))).thenAnswer((_) async* {
-          throw Exception('SocketException: Connection refused');
-        });
+    when(() => mockRepository.streamChat(question,
+        threadId: any(named: 'threadId'),
+        model: 'test-model',
+        isTemporary: false,
+        calculateGrounding: any(named: 'calculateGrounding'),
+        toolSettings: any(named: 'toolSettings'))).thenAnswer((_) async* {
+      throw Exception('SocketException: Connection refused');
+    });
 
     await viewModel.sendMessage(question, model: 'test-model');
 
     expect(viewModel.state.messages.length, 2);
     expect(viewModel.state.messages[1].isError, isTrue);
-    expect(viewModel.state.messages[1].content, 'Network connection lost. Please check your internet connection and try again.');
+    expect(viewModel.state.messages[1].content,
+        'Network connection lost. Please check your internet connection and try again.');
   });
 
   test('sendMessage handles tool calls during streaming', () async {
     await pumpEventQueue();
     const question = 'Search graph';
 
-    when(() =>
-        mockRepository.streamChat(question,
+    when(() => mockRepository.streamChat(question,
             threadId: any(named: 'threadId'),
             model: 'test-model',
             isTemporary: false,
             calculateGrounding: any(named: 'calculateGrounding'),
-            toolSettings: any(named: 'toolSettings'))).thenAnswer((_) => Stream.fromIterable([
-          {'event': 'on_tool_start', 'name': 'query_graph'},
-          {'event': 'on_tool_end', 'name': 'query_graph'},
-          {
-            'event': 'on_chat_model_stream',
-            'data': {
-              'chunk': {'content': 'Result found'}
-            }
-          },
-        ]));
+            toolSettings: any(named: 'toolSettings')))
+        .thenAnswer((_) => Stream.fromIterable([
+              {'event': 'on_tool_start', 'name': 'query_graph'},
+              {'event': 'on_tool_end', 'name': 'query_graph'},
+              {
+                'event': 'on_chat_model_stream',
+                'data': {
+                  'chunk': {'content': 'Result found'}
+                }
+              },
+            ]));
 
     await viewModel.sendMessage(question, model: 'test-model');
 
@@ -179,41 +184,45 @@ void main() {
     await pumpEventQueue();
     const question = 'Search web';
 
-    when(() =>
-        mockRepository.streamChat(question,
+    when(() => mockRepository.streamChat(question,
             threadId: any(named: 'threadId'),
             model: 'test-model',
             isTemporary: false,
             calculateGrounding: any(named: 'calculateGrounding'),
-            toolSettings: any(named: 'toolSettings'))).thenAnswer((_) => Stream.fromIterable([
-          {
-            'event': 'on_tool_start',
-            'name': 'web_search',
-            'run_id': 'run123',
-            'data': {'input': {}}
-          },
-          {
-            'event': 'on_tool_end',
-            'name': 'web_search',
-            'run_id': 'run123',
-            'data': {
-              'output': 'some output string',
-              'artifact': [{'title': 'Art1'}]
-            }
-          },
-          {
-            'event': 'on_chat_model_stream',
-            'data': {
-              'chunk': {'content': 'Result found'}
-            }
-          },
-        ]));
+            toolSettings: any(named: 'toolSettings')))
+        .thenAnswer((_) => Stream.fromIterable([
+              {
+                'event': 'on_tool_start',
+                'name': 'web_search',
+                'run_id': 'run123',
+                'data': {'input': {}}
+              },
+              {
+                'event': 'on_tool_end',
+                'name': 'web_search',
+                'run_id': 'run123',
+                'data': {
+                  'output': 'some output string',
+                  'artifact': [
+                    {'title': 'Art1'}
+                  ]
+                }
+              },
+              {
+                'event': 'on_chat_model_stream',
+                'data': {
+                  'chunk': {'content': 'Result found'}
+                }
+              },
+            ]));
 
     await viewModel.sendMessage(question, model: 'test-model');
 
     expect(viewModel.state.messages.length, 2);
     expect(viewModel.state.messages[1].toolEvents.length, 1);
-    expect(viewModel.state.messages[1].toolEvents.first.result, [{'title': 'Art1'}]);
+    expect(viewModel.state.messages[1].toolEvents.first.result, [
+      {'title': 'Art1'}
+    ]);
   });
 
   test('regenerateResponse calls repository and selectThread', () async {
@@ -233,7 +242,8 @@ void main() {
     verify(() => mockRepository.getThreadHistory('test-thread')).called(1);
   });
 
-  test('playAudio sets playing state and toggles off on same message', () async {
+  test('playAudio sets playing state and toggles off on same message',
+      () async {
     await pumpEventQueue();
 
     // Initial call on msg1
@@ -245,7 +255,8 @@ void main() {
     expect(viewModel.state.currentlyPlayingMessageId, isNull);
   });
 
-  test('playAudio switches to new message if another is currently playing', () async {
+  test('playAudio switches to new message if another is currently playing',
+      () async {
     await pumpEventQueue();
 
     // Play msg1
@@ -302,21 +313,22 @@ void main() {
 
   test('selectProject sets active project and opens dashboard', () async {
     await pumpEventQueue();
-    
+
     viewModel.selectProject('proj-123', 'Secret Project X');
-    
+
     expect(viewModel.state.activeProjectId, 'proj-123');
     expect(viewModel.state.activeProjectName, 'Secret Project X');
     expect(viewModel.state.showProjectDashboard, isTrue);
     expect(viewModel.state.threadId, isNull);
   });
 
-  test('startNewChatInProject hides dashboard and keeps project active', () async {
+  test('startNewChatInProject hides dashboard and keeps project active',
+      () async {
     await pumpEventQueue();
-    
+
     viewModel.selectProject('proj-123', 'Secret Project X');
     viewModel.startNewChatInProject();
-    
+
     expect(viewModel.state.activeProjectId, 'proj-123');
     expect(viewModel.state.activeProjectName, 'Secret Project X');
     expect(viewModel.state.showProjectDashboard, isFalse);
@@ -325,10 +337,10 @@ void main() {
 
   test('exitProject clears active project and hides dashboard', () async {
     await pumpEventQueue();
-    
+
     viewModel.selectProject('proj-123', 'Secret Project X');
     viewModel.exitProject();
-    
+
     expect(viewModel.state.activeProjectId, isNull);
     expect(viewModel.state.activeProjectName, isNull);
     expect(viewModel.state.showProjectDashboard, isFalse);
@@ -336,41 +348,42 @@ void main() {
 
   test('sendMessage assigns new thread to active project', () async {
     await pumpEventQueue();
-    
+
     viewModel.selectProject('proj-123', 'Secret Project X');
     viewModel.startNewChatInProject();
-    
+
     const question = 'Hello?';
-    when(() => mockRepository.assignThreadToProject('new-thread-id', 'proj-123'))
+    when(() =>
+            mockRepository.assignThreadToProject('new-thread-id', 'proj-123'))
         .thenAnswer((_) async {});
     when(() => mockRepository.getThreads()).thenAnswer((_) async => []);
     when(() => mockRepository.getProjects()).thenAnswer((_) async => []);
 
-    when(() =>
-        mockRepository.streamChat(question,
+    when(() => mockRepository.streamChat(question,
             threadId: null,
             model: 'test-model',
             isTemporary: false,
             calculateGrounding: any(named: 'calculateGrounding'),
-            toolSettings: any(named: 'toolSettings'))).thenAnswer((_) => Stream.fromIterable([
-          {
-            'event': 'metadata',
-            'data': {
-              'thread_id': 'new-thread-id'
-            }
-          },
-          {
-            'event': 'on_chat_model_stream',
-            'run_id': 'new-thread-id',
-            'data': {
-              'chunk': {'content': 'Hi '}
-            }
-          },
-        ]));
+            toolSettings: any(named: 'toolSettings')))
+        .thenAnswer((_) => Stream.fromIterable([
+              {
+                'event': 'metadata',
+                'data': {'thread_id': 'new-thread-id'}
+              },
+              {
+                'event': 'on_chat_model_stream',
+                'run_id': 'new-thread-id',
+                'data': {
+                  'chunk': {'content': 'Hi '}
+                }
+              },
+            ]));
 
     await viewModel.sendMessage(question, model: 'test-model');
-    
+
     // Check that assignThreadToProject was called because there was an active project
-    verify(() => mockRepository.assignThreadToProject('new-thread-id', 'proj-123')).called(1);
+    verify(() =>
+            mockRepository.assignThreadToProject('new-thread-id', 'proj-123'))
+        .called(1);
   });
 }

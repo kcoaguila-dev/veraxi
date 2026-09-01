@@ -3,7 +3,8 @@ import 'package:mocktail/mocktail.dart';
 import 'package:veraxi_app/features/control_panel/data/control_panel_repository.dart';
 import 'package:veraxi_app/features/control_panel/view_models/control_panel_view_model.dart';
 
-class MockControlPanelRepository extends Mock implements ControlPanelRepository {}
+class MockControlPanelRepository extends Mock
+    implements ControlPanelRepository {}
 
 void main() {
   late MockControlPanelRepository mockRepository;
@@ -11,7 +12,8 @@ void main() {
 
   setUp(() {
     mockRepository = MockControlPanelRepository();
-    when(() => mockRepository.fetchStats()).thenAnswer((_) async => BackendStats(nodeCount: 0, vectorCount: 0));
+    when(() => mockRepository.fetchStats())
+        .thenAnswer((_) async => BackendStats(nodeCount: 0, vectorCount: 0));
     viewModel = ControlPanelViewModel(mockRepository);
   });
 

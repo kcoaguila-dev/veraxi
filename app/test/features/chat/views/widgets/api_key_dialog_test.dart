@@ -14,7 +14,7 @@ void main() {
   testWidgets('ApiKeyDialog saves key on Submit', (WidgetTester tester) async {
     tester.view.physicalSize = const Size(1024, 768);
     tester.view.devicePixelRatio = 1.0;
-    
+
     await tester.pumpWidget(const MaterialApp(
       home: Scaffold(
         body: Center(child: ApiKeyDialog(providerName: 'Gemini')),

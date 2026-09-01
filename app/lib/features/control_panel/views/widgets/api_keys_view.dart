@@ -80,7 +80,8 @@ class _ApiKeysViewState extends State<ApiKeysView> {
           // --- Section A: Intelligence Providers ---
           const Text(
             'Intelligence Providers (BYOK)',
-            style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
+            style: TextStyle(
+                color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 8),
           const Text(
@@ -100,7 +101,8 @@ class _ApiKeysViewState extends State<ApiKeysView> {
           // --- Section B: Database Infrastructure ---
           const Text(
             'Database Infrastructure (BYOD)',
-            style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
+            style: TextStyle(
+                color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 8),
           const Text(
@@ -122,19 +124,31 @@ class _ApiKeysViewState extends State<ApiKeysView> {
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.share_outlined, color: Colors.blueAccent, size: 24),
+                    const Icon(Icons.share_outlined,
+                        color: Colors.blueAccent, size: 24),
                     const SizedBox(width: 12),
-                    const Text('Neo4j Knowledge Graph', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600)),
+                    const Text('Neo4j Knowledge Graph',
+                        style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600)),
                   ],
                 ),
                 const SizedBox(height: 24),
-                _buildTextInput('Neo4j URI', 'bolt://localhost:7687 or neo4j+s://...', controller: _neo4jUriController),
+                _buildTextInput(
+                    'Neo4j URI', 'bolt://localhost:7687 or neo4j+s://...',
+                    controller: _neo4jUriController),
                 const SizedBox(height: 16),
                 Row(
                   children: [
-                    Expanded(child: _buildTextInput('Username', 'neo4j', controller: _neo4jUserController)),
+                    Expanded(
+                        child: _buildTextInput('Username', 'neo4j',
+                            controller: _neo4jUserController)),
                     const SizedBox(width: 16),
-                    Expanded(child: _buildKeyInput('Password', '••••••••', 'neo4j_pass', controller: _neo4jPassController)),
+                    Expanded(
+                        child: _buildKeyInput(
+                            'Password', '••••••••', 'neo4j_pass',
+                            controller: _neo4jPassController)),
                   ],
                 ),
               ],
@@ -156,26 +170,36 @@ class _ApiKeysViewState extends State<ApiKeysView> {
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.scatter_plot_outlined, color: Colors.redAccent, size: 24),
+                    const Icon(Icons.scatter_plot_outlined,
+                        color: Colors.redAccent, size: 24),
                     const SizedBox(width: 12),
-                    const Text('Qdrant Vector Database', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600)),
+                    const Text('Qdrant Vector Database',
+                        style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600)),
                   ],
                 ),
                 const SizedBox(height: 24),
-                _buildTextInput('Qdrant REST URL', 'http://localhost:6333 or https://...', controller: _qdrantUrlController),
+                _buildTextInput(
+                    'Qdrant REST URL', 'http://localhost:6333 or https://...',
+                    controller: _qdrantUrlController),
                 const SizedBox(height: 16),
-                _buildKeyInput('Qdrant API Key (Optional)', 'Leave empty if running locally without auth', 'qdrant_key', controller: _qdrantKeyController),
+                _buildKeyInput('Qdrant API Key (Optional)',
+                    'Leave empty if running locally without auth', 'qdrant_key',
+                    controller: _qdrantKeyController),
               ],
             ),
           ),
-          
+
           const SizedBox(height: 48),
           Align(
             alignment: Alignment.centerRight,
             child: ElevatedButton(
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF10A37F),
-                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
               ),
               onPressed: () async {
                 await _apiKeyStorage.saveByodConfig(
@@ -187,11 +211,15 @@ class _ApiKeysViewState extends State<ApiKeysView> {
                 );
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Infrastructure settings saved locally.')),
+                    const SnackBar(
+                        content:
+                            Text('Infrastructure settings saved locally.')),
                   );
                 }
               },
-              child: const Text('Save Configuration', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+              child: const Text('Save Configuration',
+                  style: TextStyle(
+                      color: Colors.white, fontWeight: FontWeight.w600)),
             ),
           ),
         ],
@@ -199,11 +227,16 @@ class _ApiKeysViewState extends State<ApiKeysView> {
     );
   }
 
-  Widget _buildTextInput(String label, String hint, {TextEditingController? controller}) {
+  Widget _buildTextInput(String label, String hint,
+      {TextEditingController? controller}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(color: Color(0xFFB4B4B4), fontSize: 13, fontWeight: FontWeight.w500)),
+        Text(label,
+            style: const TextStyle(
+                color: Color(0xFFB4B4B4),
+                fontSize: 13,
+                fontWeight: FontWeight.w500)),
         const SizedBox(height: 8),
         TextField(
           controller: controller,
@@ -214,21 +247,29 @@ class _ApiKeysViewState extends State<ApiKeysView> {
             hintStyle: const TextStyle(color: Color(0xFF4A4A4A)),
             filled: true,
             fillColor: const Color(0xFF1E1E1E),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide.none),
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           ),
         ),
       ],
     );
   }
 
-  Widget _buildKeyInput(String label, String hint, String obscureKey, {TextEditingController? controller}) {
+  Widget _buildKeyInput(String label, String hint, String obscureKey,
+      {TextEditingController? controller}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: const TextStyle(color: Color(0xFFB4B4B4), fontSize: 13, fontWeight: FontWeight.w500)),
+          Text(label,
+              style: const TextStyle(
+                  color: Color(0xFFB4B4B4),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500)),
           const SizedBox(height: 8),
           TextField(
             controller: controller,
@@ -240,17 +281,23 @@ class _ApiKeysViewState extends State<ApiKeysView> {
               hintStyle: const TextStyle(color: Color(0xFF4A4A4A)),
               filled: true,
               fillColor: const Color(0xFF1E1E1E),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide.none),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               suffixIcon: IconButton(
                 icon: Icon(
-                  _obscuredFields[obscureKey] == true ? Icons.visibility_off : Icons.visibility,
+                  _obscuredFields[obscureKey] == true
+                      ? Icons.visibility_off
+                      : Icons.visibility,
                   color: const Color(0xFF878787),
                   size: 20,
                 ),
                 onPressed: () {
                   setState(() {
-                    _obscuredFields[obscureKey] = !(_obscuredFields[obscureKey] ?? true);
+                    _obscuredFields[obscureKey] =
+                        !(_obscuredFields[obscureKey] ?? true);
                   });
                 },
               ),

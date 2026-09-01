@@ -73,10 +73,8 @@ class _ModelSelectorPopupState extends ConsumerState<ModelSelectorPopup> {
     };
 
     if (assetPath != null) {
-      final colorKey = colors.keys.firstWhere(
-        (k) => k.toLowerCase() == lower, 
-        orElse: () => 'OpenAI'
-      );
+      final colorKey = colors.keys
+          .firstWhere((k) => k.toLowerCase() == lower, orElse: () => 'OpenAI');
       final iconColor = colors[colorKey] ?? Colors.white;
 
       return SizedBox(
@@ -226,7 +224,8 @@ class _ModelSelectorPopupState extends ConsumerState<ModelSelectorPopup> {
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: const Color(0xFF2A2A2A)),
           ),
-          child: Text('Failed to load models: $err', style: const TextStyle(color: Colors.red)),
+          child: Text('Failed to load models: $err',
+              style: const TextStyle(color: Colors.red)),
         ),
       ),
       data: (allProviderModels) {
@@ -236,13 +235,16 @@ class _ModelSelectorPopupState extends ConsumerState<ModelSelectorPopup> {
           allProviderModels.forEach((provider, models) {
             List<String> matched = models;
             if (isSearching) {
-              final providerMatches = provider.toLowerCase().contains(_globalSearchQuery);
+              final providerMatches =
+                  provider.toLowerCase().contains(_globalSearchQuery);
               matched = models
-                  .where((m) => providerMatches || m.toLowerCase().contains(_globalSearchQuery))
+                  .where((m) =>
+                      providerMatches ||
+                      m.toLowerCase().contains(_globalSearchQuery))
                   .toList();
             }
             if (matched.isEmpty) return;
-            
+
             // Provider header
             results.add(
               Padding(
@@ -266,7 +268,8 @@ class _ModelSelectorPopupState extends ConsumerState<ModelSelectorPopup> {
                         widget.onClose?.call();
                         showDialog(
                           context: context,
-                          builder: (context) => ApiKeyDialog(providerName: provider),
+                          builder: (context) =>
+                              ApiKeyDialog(providerName: provider),
                         );
                       },
                       child: Tooltip(
@@ -283,11 +286,11 @@ class _ModelSelectorPopupState extends ConsumerState<ModelSelectorPopup> {
               ),
             );
             for (final model in matched) {
-              results.add(
-                  _buildSubModelRow(model, isSelected: model == widget.selectedModel));
+              results.add(_buildSubModelRow(model,
+                  isSelected: model == widget.selectedModel));
             }
           });
-          
+
           if (results.isEmpty) {
             results.add(const Padding(
               padding: EdgeInsets.all(16),
@@ -295,7 +298,7 @@ class _ModelSelectorPopupState extends ConsumerState<ModelSelectorPopup> {
                   style: TextStyle(color: Color(0xFF878787), fontSize: 13)),
             ));
           }
-          
+
           return ListView(
               shrinkWrap: true,
               padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
@@ -338,7 +341,8 @@ class _ModelSelectorPopupState extends ConsumerState<ModelSelectorPopup> {
                         ),
                       ),
                       IconButton(
-                        icon: const Icon(Icons.close, color: Color(0xFF878787), size: 20),
+                        icon: const Icon(Icons.close,
+                            color: Color(0xFF878787), size: 20),
                         onPressed: () {
                           widget.onClose?.call();
                           Navigator.of(context).pop();

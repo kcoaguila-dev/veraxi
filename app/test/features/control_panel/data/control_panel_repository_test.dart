@@ -15,7 +15,8 @@ void main() {
   });
 
   test('fetchStats calls apiClient correctly', () async {
-    when(() => mockApiClient.get(any())).thenAnswer((_) async => {'nodeCount': 100, 'vectorCount': 200});
+    when(() => mockApiClient.get(any()))
+        .thenAnswer((_) async => {'nodeCount': 100, 'vectorCount': 200});
     final res = await repository.fetchStats();
     expect(res.nodeCount, 100);
     expect(res.vectorCount, 200);

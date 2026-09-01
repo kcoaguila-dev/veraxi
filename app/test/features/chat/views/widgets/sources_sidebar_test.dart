@@ -3,7 +3,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:veraxi_app/features/chat/views/widgets/sources_sidebar.dart';
 
 void main() {
-  testWidgets('SourcesSidebar renders list of sources with domains, titles, and DuckDuckGo favicons', (WidgetTester tester) async {
+  testWidgets(
+      'SourcesSidebar renders list of sources with domains, titles, and DuckDuckGo favicons',
+      (WidgetTester tester) async {
     final List<Map<String, dynamic>> testSources = [
       {
         'url': 'https://example.com/test-article',
@@ -40,21 +42,28 @@ void main() {
 
     // Verify that the CORS-friendly icon.horse API is being used for favicons
     final exampleImageFinder = find.byWidgetPredicate(
-      (widget) => widget is Image && 
-                  widget.image is NetworkImage && 
-                  (widget.image as NetworkImage).url == 'https://icon.horse/icon/example.com',
+      (widget) =>
+          widget is Image &&
+          widget.image is NetworkImage &&
+          (widget.image as NetworkImage).url ==
+              'https://icon.horse/icon/example.com',
     );
-    expect(exampleImageFinder, findsOneWidget, reason: 'Proxy favicon for example.com must be rendered');
+    expect(exampleImageFinder, findsOneWidget,
+        reason: 'Proxy favicon for example.com must be rendered');
 
     final anotherExampleImageFinder = find.byWidgetPredicate(
-      (widget) => widget is Image && 
-                  widget.image is NetworkImage && 
-                  (widget.image as NetworkImage).url == 'https://icon.horse/icon/anotherexample.com',
+      (widget) =>
+          widget is Image &&
+          widget.image is NetworkImage &&
+          (widget.image as NetworkImage).url ==
+              'https://icon.horse/icon/anotherexample.com',
     );
-    expect(anotherExampleImageFinder, findsOneWidget, reason: 'Proxy favicon for anotherexample.com must be rendered');
+    expect(anotherExampleImageFinder, findsOneWidget,
+        reason: 'Proxy favicon for anotherexample.com must be rendered');
   });
 
-  testWidgets('SourcesSidebar handles invalid or empty URLs gracefully', (WidgetTester tester) async {
+  testWidgets('SourcesSidebar handles invalid or empty URLs gracefully',
+      (WidgetTester tester) async {
     final List<Map<String, dynamic>> testSources = [
       {
         'url': '',

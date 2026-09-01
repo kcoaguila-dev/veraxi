@@ -6,7 +6,8 @@ import 'package:veraxi_app/features/auth/view_models/auth_view_model.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 // Mock AuthViewModel to capture interactions
-class MockAuthViewModel extends StateNotifier<AsyncValue<User?>> implements AuthViewModel {
+class MockAuthViewModel extends StateNotifier<AsyncValue<User?>>
+    implements AuthViewModel {
   MockAuthViewModel() : super(const AsyncData(null));
 
   bool googleCalled = false;
@@ -30,7 +31,8 @@ class MockAuthViewModel extends StateNotifier<AsyncValue<User?>> implements Auth
 }
 
 void main() {
-  testWidgets('LoginScreen OAuth buttons trigger AuthViewModel methods', (WidgetTester tester) async {
+  testWidgets('LoginScreen OAuth buttons trigger AuthViewModel methods',
+      (WidgetTester tester) async {
     tester.view.physicalSize = const Size(1920, 1080);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(() => tester.view.resetPhysicalSize());
@@ -58,8 +60,9 @@ void main() {
     await tester.ensureVisible(googleButton);
     await tester.tap(googleButton);
     await tester.pump();
-    
-    expect(mockAuthViewModel.googleCalled, isTrue, reason: "Google sign-in was not triggered");
+
+    expect(mockAuthViewModel.googleCalled, isTrue,
+        reason: "Google sign-in was not triggered");
 
     // Find and tap the GitHub button
     final githubButton = find.text('Continue with GitHub');
@@ -68,6 +71,7 @@ void main() {
     await tester.tap(githubButton);
     await tester.pump();
 
-    expect(mockAuthViewModel.githubCalled, isTrue, reason: "GitHub sign-in was not triggered");
+    expect(mockAuthViewModel.githubCalled, isTrue,
+        reason: "GitHub sign-in was not triggered");
   });
 }

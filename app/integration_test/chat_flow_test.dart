@@ -12,7 +12,9 @@ import 'package:veraxi_app/features/auth/data/auth_repository.dart';
 import 'package:veraxi_app/features/chat/data/chat_repository.dart';
 
 class MockAuthRepository extends Mock implements AuthRepository {}
+
 class MockChatRepository extends Mock implements ChatRepository {}
+
 class MockUser extends Mock implements User {}
 
 void main() {
@@ -29,22 +31,22 @@ void main() {
 
     when(() => mockAuthRepo.authStateChanges)
         .thenAnswer((_) => authStateController.stream);
-    
+
     when(() => mockAuthRepo.currentUser).thenReturn(null);
 
-    when(() => mockChatRepo.getThreads())
-        .thenAnswer((_) async => []);
+    when(() => mockChatRepo.getThreads()).thenAnswer((_) async => []);
 
     when(() => mockChatRepo.getThreadHistory(any()))
         .thenAnswer((_) async => []);
 
-    when(() => mockChatRepo.streamChat(any(), 
-        threadId: any(named: 'threadId'),
-        isTemporary: any(named: 'isTemporary'),
-        model: any(named: 'model'),
-        calculateGrounding: any(named: 'calculateGrounding'),
-        toolSettings: any(named: 'toolSettings'),
-    )).thenAnswer((invocation) async* {
+    when(() => mockChatRepo.streamChat(
+          any(),
+          threadId: any(named: 'threadId'),
+          isTemporary: any(named: 'isTemporary'),
+          model: any(named: 'model'),
+          calculateGrounding: any(named: 'calculateGrounding'),
+          toolSettings: any(named: 'toolSettings'),
+        )).thenAnswer((invocation) async* {
       yield {'type': 'content', 'content': 'Hello from Mock API!'};
       yield {'type': 'done'};
     });
@@ -54,7 +56,8 @@ void main() {
     authStateController.close();
   });
 
-  testWidgets('E2E Chat Flow: Login -> Chat -> Change Model', (WidgetTester tester) async {
+  testWidgets('E2E Chat Flow: Login -> Chat -> Change Model',
+      (WidgetTester tester) async {
     // 1. Bypass Supabase Initialization by setting mockIsAuth = false initially (unauthenticated)
     mockIsAuth = false;
 
@@ -76,13 +79,14 @@ void main() {
     expect(find.byType(TextField), findsNWidgets(2)); // Email and Password
 
     // Mock SignIn interaction
-    when(() => mockAuthRepo.signInWithEmail(any(), any())).thenAnswer((_) async {
+    when(() => mockAuthRepo.signInWithEmail(any(), any()))
+        .thenAnswer((_) async {
       // Simulate successful login by emitting an auth event and changing the mockAuth
       final mockUser = MockUser();
       when(() => mockUser.id).thenReturn('mock_user_123');
       when(() => mockUser.email).thenReturn('test@example.com');
       when(() => mockAuthRepo.currentUser).thenReturn(mockUser);
-      
+
       final mockSession = Session(
         accessToken: 'mock_access_token',
         expiresIn: 3600,
@@ -90,7 +94,7 @@ void main() {
         tokenType: 'bearer',
         user: mockUser,
       );
-      
+
       mockIsAuth = true; // Tell router to allow access
       authStateController.add(AuthState(AuthChangeEvent.signedIn, mockSession));
     });
@@ -98,10 +102,10 @@ void main() {
     // Enter credentials
     await tester.enterText(find.byType(TextField).first, 'test@example.com');
     await tester.enterText(find.byType(TextField).last, 'password123');
-    
+
     // Tap Sign In button
     await tester.tap(find.text('Sign In'));
-    
+
     // Allow the router redirect and animations to settle
     await tester.pumpAndSettle(const Duration(seconds: 2));
 

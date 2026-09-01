@@ -51,7 +51,8 @@ class _ApiKeysTabState extends ConsumerState<ApiKeysTab> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         title: const Text(
           'New API Key',
-          style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
+          style: TextStyle(
+              color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -75,7 +76,8 @@ class _ApiKeysTabState extends ConsumerState<ApiKeysTab> {
                   borderRadius: BorderRadius.circular(8),
                   borderSide: BorderSide.none,
                 ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               ),
             ),
           ],
@@ -83,11 +85,13 @@ class _ApiKeysTabState extends ConsumerState<ApiKeysTab> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancel', style: TextStyle(color: Color(0xFF878787))),
+            child: const Text('Cancel',
+                style: TextStyle(color: Color(0xFF878787))),
           ),
           FilledButton(
             onPressed: () => Navigator.of(ctx).pop(true),
-            style: FilledButton.styleFrom(backgroundColor: const Color(0xFF10B981)),
+            style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFF10B981)),
             child: const Text('Generate'),
           ),
         ],
@@ -119,7 +123,8 @@ class _ApiKeysTabState extends ConsumerState<ApiKeysTab> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         title: const Text(
           'Revoke API Key?',
-          style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
+          style: TextStyle(
+              color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
         ),
         content: Text(
           'Any MCP client using "$keyName" will immediately lose access. This cannot be undone.',
@@ -128,11 +133,13 @@ class _ApiKeysTabState extends ConsumerState<ApiKeysTab> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancel', style: TextStyle(color: Color(0xFF878787))),
+            child: const Text('Cancel',
+                style: TextStyle(color: Color(0xFF878787))),
           ),
           FilledButton(
             onPressed: () => Navigator.of(ctx).pop(true),
-            style: FilledButton.styleFrom(backgroundColor: const Color(0xFFEF4444)),
+            style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFFEF4444)),
             child: const Text('Revoke'),
           ),
         ],
@@ -197,7 +204,8 @@ class _ApiKeysTabState extends ConsumerState<ApiKeysTab> {
               label: const Text('New Key', style: TextStyle(fontSize: 13)),
               style: FilledButton.styleFrom(
                 backgroundColor: const Color(0xFF10B981),
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               ),
             ),
           ],
@@ -340,16 +348,19 @@ class _ApiKeyRow extends StatelessWidget {
                     const SizedBox(width: 10),
                     Text(
                       'Created ${_formatDate(apiKey.createdAt)}',
-                      style: const TextStyle(color: Color(0xFF555555), fontSize: 11),
+                      style: const TextStyle(
+                          color: Color(0xFF555555), fontSize: 11),
                     ),
                     if (apiKey.lastUsedAt != null) ...[
                       const Text(
                         ' · Last used ',
-                        style: TextStyle(color: Color(0xFF555555), fontSize: 11),
+                        style:
+                            TextStyle(color: Color(0xFF555555), fontSize: 11),
                       ),
                       Text(
                         _formatDate(apiKey.lastUsedAt!),
-                        style: const TextStyle(color: Color(0xFF555555), fontSize: 11),
+                        style: const TextStyle(
+                            color: Color(0xFF555555), fontSize: 11),
                       ),
                     ],
                   ],
@@ -393,7 +404,8 @@ class _RevealKeyDialog extends StatelessWidget {
           SizedBox(width: 8),
           Text(
             'Your New API Key',
-            style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
+            style: TextStyle(
+                color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
           ),
         ],
       ),
@@ -412,7 +424,8 @@ class _RevealKeyDialog extends StatelessWidget {
             decoration: BoxDecoration(
               color: const Color(0xFF0D1117),
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.4)),
+              border: Border.all(
+                  color: const Color(0xFF10B981).withValues(alpha: 0.4)),
             ),
             child: Row(
               children: [
@@ -450,11 +463,13 @@ class _RevealKeyDialog extends StatelessWidget {
             decoration: BoxDecoration(
               color: const Color(0xFF2D1B00),
               borderRadius: BorderRadius.circular(6),
-              border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.3)),
+              border: Border.all(
+                  color: const Color(0xFFF59E0B).withValues(alpha: 0.3)),
             ),
             child: const Row(
               children: [
-                Icon(Icons.warning_amber_outlined, color: Color(0xFFF59E0B), size: 16),
+                Icon(Icons.warning_amber_outlined,
+                    color: Color(0xFFF59E0B), size: 16),
                 SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -470,7 +485,8 @@ class _RevealKeyDialog extends StatelessWidget {
       actions: [
         FilledButton(
           onPressed: () => Navigator.of(context).pop(),
-          style: FilledButton.styleFrom(backgroundColor: const Color(0xFF10B981)),
+          style:
+              FilledButton.styleFrom(backgroundColor: const Color(0xFF10B981)),
           child: const Text('Done, I\'ve saved it'),
         ),
       ],

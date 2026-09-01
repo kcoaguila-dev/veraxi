@@ -152,7 +152,7 @@ class _ControlPanelScreenState extends ConsumerState<ControlPanelScreen> {
               TextField(
                 controller: nameController,
                 style: const TextStyle(color: Colors.white),
-cursorColor: Colors.white,
+                cursorColor: Colors.white,
                 decoration: const InputDecoration(
                   labelText: 'Server Name',
                   labelStyle: TextStyle(color: Colors.grey),
@@ -166,7 +166,7 @@ cursorColor: Colors.white,
               TextField(
                 controller: urlController,
                 style: const TextStyle(color: Colors.white),
-cursorColor: Colors.white,
+                cursorColor: Colors.white,
                 decoration: const InputDecoration(
                   labelText: 'SSE URL',
                   labelStyle: TextStyle(color: Colors.grey),
@@ -256,38 +256,44 @@ cursorColor: Colors.white,
                 TextField(
                   controller: nameController,
                   style: const TextStyle(color: Colors.white),
-cursorColor: Colors.white,
+                  cursorColor: Colors.white,
                   decoration: const InputDecoration(
                     labelText: 'Skill Name',
                     labelStyle: TextStyle(color: Colors.grey),
-                    enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey)),
-                    focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.white)),
+                    enabledBorder: UnderlineInputBorder(
+                        borderSide: BorderSide(color: Colors.grey)),
+                    focusedBorder: UnderlineInputBorder(
+                        borderSide: BorderSide(color: Colors.white)),
                   ),
                 ),
                 const SizedBox(height: 16),
                 TextField(
                   controller: descController,
                   style: const TextStyle(color: Colors.white),
-cursorColor: Colors.white,
+                  cursorColor: Colors.white,
                   decoration: const InputDecoration(
                     labelText: 'Description',
                     labelStyle: TextStyle(color: Colors.grey),
-                    enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey)),
-                    focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.white)),
+                    enabledBorder: UnderlineInputBorder(
+                        borderSide: BorderSide(color: Colors.grey)),
+                    focusedBorder: UnderlineInputBorder(
+                        borderSide: BorderSide(color: Colors.white)),
                   ),
                 ),
                 const SizedBox(height: 16),
                 TextField(
                   controller: instructionsController,
                   style: const TextStyle(color: Colors.white),
-cursorColor: Colors.white,
+                  cursorColor: Colors.white,
                   maxLines: 5,
                   decoration: const InputDecoration(
                     labelText: 'Instructions (Markdown)',
                     labelStyle: TextStyle(color: Colors.grey),
                     alignLabelWithHint: true,
-                    enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey)),
-                    focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.white)),
+                    enabledBorder: UnderlineInputBorder(
+                        borderSide: BorderSide(color: Colors.grey)),
+                    focusedBorder: UnderlineInputBorder(
+                        borderSide: BorderSide(color: Colors.white)),
                   ),
                 ),
               ],
@@ -415,7 +421,8 @@ cursorColor: Colors.white,
               child: Container(
                 width: 260,
                 color: const Color(0xFF171717),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -440,12 +447,15 @@ cursorColor: Colors.white,
                               child: InkWell(
                                 borderRadius: BorderRadius.circular(6),
                                 onTap: () {
-                                  ref.read(sidebarStateProvider.notifier).state = false;
+                                  ref
+                                      .read(sidebarStateProvider.notifier)
+                                      .state = false;
                                 },
                                 child: SizedBox(
                                   width: 24,
                                   height: 24,
-                                  child: Center(child: _buildSidebarToggleIcon()),
+                                  child:
+                                      Center(child: _buildSidebarToggleIcon()),
                                 ),
                               ),
                             ),
@@ -454,23 +464,23 @@ cursorColor: Colors.white,
                       ),
                     ),
                     const SizedBox(height: 18),
-                _buildMenuItem('MCP Integrations', Icons.hub_outlined,
-                    _selectedIndex == 0, 0),
-                const SizedBox(height: 8),
-                _buildMenuItem('Knowledge Base', Icons.dataset_outlined,
-                    _selectedIndex == 1, 1),
-                const SizedBox(height: 8),
-                _buildMenuItem('Billing', Icons.credit_card_outlined,
-                    _selectedIndex == 2, 2),
-                const SizedBox(height: 8),
-                _buildMenuItem(
-                    'API Keys', Icons.vpn_key_outlined, _selectedIndex == 3, 3),
-                const SizedBox(height: 8),
-                _buildMenuItem('Security & Logs', Icons.security_outlined,
-                    _selectedIndex == 4, 4),
-                const SizedBox(height: 8),
-                _buildMenuItem('Agent Skills', Icons.psychology_outlined,
-                    _selectedIndex == 5, 5),
+                    _buildMenuItem('MCP Integrations', Icons.hub_outlined,
+                        _selectedIndex == 0, 0),
+                    const SizedBox(height: 8),
+                    _buildMenuItem('Knowledge Base', Icons.dataset_outlined,
+                        _selectedIndex == 1, 1),
+                    const SizedBox(height: 8),
+                    _buildMenuItem('Billing', Icons.credit_card_outlined,
+                        _selectedIndex == 2, 2),
+                    const SizedBox(height: 8),
+                    _buildMenuItem('API Keys', Icons.vpn_key_outlined,
+                        _selectedIndex == 3, 3),
+                    const SizedBox(height: 8),
+                    _buildMenuItem('Security & Logs', Icons.security_outlined,
+                        _selectedIndex == 4, 4),
+                    const SizedBox(height: 8),
+                    _buildMenuItem('Agent Skills', Icons.psychology_outlined,
+                        _selectedIndex == 5, 5),
                   ],
                 ),
               ),
@@ -555,8 +565,6 @@ cursorColor: Colors.white,
       ),
     );
   }
-
-
 
   Widget _buildDataPipeline(ThemeData theme) {
     return Column(
@@ -789,7 +797,7 @@ cursorColor: Colors.white,
                 child: TextField(
                   controller: _urlController,
                   style: const TextStyle(color: Colors.white),
-cursorColor: Colors.white,
+                  cursorColor: Colors.white,
                   decoration: InputDecoration(
                     hintText: 'https://example.com/article',
                     hintStyle: const TextStyle(color: Color(0xFF878787)),
@@ -845,8 +853,7 @@ cursorColor: Colors.white,
                 const SizedBox(height: 4),
                 const Text(
                     'Select the AI model used for knowledge graph extraction.',
-                    style: TextStyle(
-                        color: Color(0xFFB4B4B4), fontSize: 12)),
+                    style: TextStyle(color: Color(0xFFB4B4B4), fontSize: 12)),
                 const SizedBox(height: 16),
                 InkWell(
                   onTap: () {
@@ -862,7 +869,8 @@ cursorColor: Colors.white,
                     );
                   },
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 12),
                     decoration: BoxDecoration(
                       color: const Color(0xFF1E1E1E),
                       borderRadius: BorderRadius.circular(8),
@@ -871,8 +879,10 @@ cursorColor: Colors.white,
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(_selectedModel, style: const TextStyle(color: Colors.white)),
-                        const Icon(Icons.arrow_drop_down, color: Colors.white54),
+                        Text(_selectedModel,
+                            style: const TextStyle(color: Colors.white)),
+                        const Icon(Icons.arrow_drop_down,
+                            color: Colors.white54),
                       ],
                     ),
                   ),
@@ -1003,7 +1013,7 @@ cursorColor: Colors.white,
                             TextField(
                               controller: _customStopWordsController,
                               style: const TextStyle(color: Colors.white),
-cursorColor: Colors.white,
+                              cursorColor: Colors.white,
                               decoration: InputDecoration(
                                 hintText: 'e.g. client, company, confidential',
                                 hintStyle:
@@ -1246,7 +1256,7 @@ cursorColor: Colors.white,
                     Expanded(
                       child: TextField(
                         style: const TextStyle(color: Colors.white),
-cursorColor: Colors.white,
+                        cursorColor: Colors.white,
                         decoration: const InputDecoration(
                           hintText: 'Search integrations...',
                           hintStyle: TextStyle(color: Color(0xFF878787)),
@@ -1405,7 +1415,7 @@ cursorColor: Colors.white,
                   controller: _langsmithKeyController,
                   obscureText: true,
                   style: const TextStyle(color: Colors.white),
-cursorColor: Colors.white,
+                  cursorColor: Colors.white,
                   onChanged: (_) => _saveSettings(),
                   decoration: const InputDecoration(
                     labelText: 'LangSmith API Key',

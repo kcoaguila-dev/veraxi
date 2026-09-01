@@ -185,7 +185,8 @@ final chatViewModelProvider =
   return ChatViewModel(repo, ttsRepo);
 });
 
-final providerModelsProvider = FutureProvider<Map<String, List<String>>>((ref) async {
+final providerModelsProvider =
+    FutureProvider<Map<String, List<String>>>((ref) async {
   final repo = ref.watch(chatRepositoryProvider);
   return await repo.getProviderModels();
 });
@@ -205,10 +206,11 @@ class ChatViewModel extends StateNotifier<ChatState> {
       }
     });
 
-    // Listen to Auth State changes to reload threads if they failed initially 
+    // Listen to Auth State changes to reload threads if they failed initially
     // (e.g., due to an expired token on app startup that was just refreshed)
-    _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen((data) {
-      if (data.event == AuthChangeEvent.signedIn || 
+    _authSubscription =
+        Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+      if (data.event == AuthChangeEvent.signedIn ||
           data.event == AuthChangeEvent.tokenRefreshed ||
           data.event == AuthChangeEvent.initialSession) {
         if (state.pastThreads.isEmpty && !state.isLoadingThreads) {
@@ -221,11 +223,11 @@ class ChatViewModel extends StateNotifier<ChatState> {
   Future<void> _init() async {
     final prefs = await SharedPreferences.getInstance();
     final savedTelemetry = prefs.getBool('show_telemetry') ?? false;
-    
+
     // Force clear old tool_settings to ensure everyone defaults to false
     // for file_search_enabled. This avoids the stale 'true' state.
     await prefs.remove('tool_settings');
-    
+
     state = state.copyWith(showTelemetry: savedTelemetry);
     await loadThreads();
   }
@@ -250,7 +252,8 @@ class ChatViewModel extends StateNotifier<ChatState> {
     try {
       final threads = await _repository.getThreads();
       final projects = await _repository.getProjects();
-      state = state.copyWith(pastThreads: threads, projects: projects, isLoadingThreads: false);
+      state = state.copyWith(
+          pastThreads: threads, projects: projects, isLoadingThreads: false);
     } catch (e, stack) {
       Sentry.captureException(e, stackTrace: stack);
       state = state.copyWith(isLoadingThreads: false);
@@ -503,18 +506,20 @@ class ChatViewModel extends StateNotifier<ChatState> {
         success = true;
       } catch (e, st) {
         final errorStr = e.toString();
-        
-        bool isNetworkError = errorStr.contains("SocketException") || 
-                              errorStr.contains("ClientException") || 
-                              errorStr.contains("Failed host lookup") || 
-                              errorStr.contains("Connection refused") ||
-                              errorStr.contains("XMLHttpRequest error");
+
+        bool isNetworkError = errorStr.contains("SocketException") ||
+            errorStr.contains("ClientException") ||
+            errorStr.contains("Failed host lookup") ||
+            errorStr.contains("Connection refused") ||
+            errorStr.contains("XMLHttpRequest error");
 
         if (isNetworkError && retries < maxRetries) {
           retries++;
-          final partialResponse = state.messages.isNotEmpty ? state.messages.last.content : "";
+          final partialResponse =
+              state.messages.isNotEmpty ? state.messages.last.content : "";
           if (partialResponse.isNotEmpty && partialResponse != "Thinking...") {
-            currentQuery = "System: The previous response was interrupted by a network drop. Please continue generating your response EXACTLY where you left off. Do not repeat what was already said. Here is what you generated so far:\n\n$partialResponse";
+            currentQuery =
+                "System: The previous response was interrupted by a network drop. Please continue generating your response EXACTLY where you left off. Do not repeat what was already said. Here is what you generated so far:\n\n$partialResponse";
           }
           await Future.delayed(const Duration(seconds: 1));
           continue;
@@ -523,20 +528,25 @@ class ChatViewModel extends StateNotifier<ChatState> {
         Sentry.captureException(e, stackTrace: st);
         String uiError = "Error: Unable to complete request.";
         if (isNetworkError) {
-          uiError = "Network connection lost. Please check your internet connection and try again.";
+          uiError =
+              "Network connection lost. Please check your internet connection and try again.";
         } else if (errorStr.contains("No AI model selected")) {
-          uiError = "No AI model selected. Please select a model from the top left menu.";
+          uiError =
+              "No AI model selected. Please select a model from the top left menu.";
         }
 
         String finalContent = uiError;
         if (state.messages.isNotEmpty) {
           final currentContent = state.messages.last.content;
-          if (currentContent.isNotEmpty && !currentContent.endsWith(uiError) && !currentContent.endsWith("[$uiError]")) {
+          if (currentContent.isNotEmpty &&
+              !currentContent.endsWith(uiError) &&
+              !currentContent.endsWith("[$uiError]")) {
             finalContent = "$currentContent\n\n[$uiError]";
           }
         }
 
-        _updateLastMessage(content: finalContent, isStreaming: false, isError: true);
+        _updateLastMessage(
+            content: finalContent, isStreaming: false, isError: true);
         state = state.copyWith(isLoading: false);
         break;
       }
