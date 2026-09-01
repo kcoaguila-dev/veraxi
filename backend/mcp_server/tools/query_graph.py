@@ -1,12 +1,12 @@
-from typing import List
+
 from backend.config import get_config
-from backend.storage.neo4j_client import Neo4jStorageClient
 from backend.retrieval.merge_rank import GraphHit
+from backend.storage.neo4j_client import Neo4jStorageClient
 
 
 def query_graph(
     entity_name: str, max_hops: int = 2, tenant_id: str = "default"
-) -> List[GraphHit]:
+) -> list[GraphHit]:
     """
     Perform a parameterized Cypher traversal from a starting entity out to max_hops.
     Returns results as GraphHit objects ready for merge_rank.

@@ -1,9 +1,10 @@
+import unittest.mock
+
 import pytest
-import asyncio
 from fastapi.testclient import TestClient
+
 from backend.api_gateway import app
 from backend.config import get_config
-import unittest.mock
 
 client = TestClient(app)
 
@@ -37,16 +38,15 @@ def test_oss_bypasses_byod_check(mock_oss_config, monkeypatch):
     # We must mock get_tenant_id because auth_enabled might try to check JWT
     # Actually if auth_enabled is False, get_tenant_id returns "local_personal_user"
     
-    with unittest.mock.patch("backend.api_gateway._get_supabase") as mock_supa:
-        # We also want to mock the DB clients so we don't actually hit the DB
-        with unittest.mock.patch("backend.api_gateway.QdrantStorageClient.from_config"):
-            with unittest.mock.patch("backend.api_gateway.Neo4jStorageClient.from_config"):
-                response = client.get("/api/admin/stats")
+    with unittest.mock.patch("backend.api_gateway._get_supabase"), \
+         unittest.mock.patch("backend.api_gateway.QdrantStorageClient.from_config"), \
+         unittest.mock.patch("backend.api_gateway.Neo4jStorageClient.from_config"):
+        response = client.get("/api/admin/stats")
                 
                 # Should pass the dependency and return 200 (or 500 if DB mock fails differently, but not 402)
-                # Let's mock the entire get_stats function body if needed, but returning a simple dict from DB mock works.
-                # The main thing is that it DOES NOT return 402 Payment Required.
-                assert response.status_code != 402
+        # Let's mock the entire get_stats function body if needed, but returning a simple dict from DB mock works.
+        # The main thing is that it DOES NOT return 402 Payment Required.
+        assert response.status_code != 402
 
 def test_enterprise_free_user_blocked(mock_enterprise_config, monkeypatch):
     # We need to mock get_tenant_id to just return a dummy id
@@ -89,11 +89,11 @@ def test_enterprise_paid_user_allowed(mock_enterprise_config, monkeypatch):
             
     app.state.redis = MockRedis()
     
-    with unittest.mock.patch("backend.api_gateway.QdrantStorageClient.from_config"):
-        with unittest.mock.patch("backend.api_gateway.Neo4jStorageClient.from_config"):
-            response = client.get("/api/admin/stats")
-            # Should bypass 402
-            assert response.status_code != 402
+    with unittest.mock.patch("backend.api_gateway.QdrantStorageClient.from_config"), \
+         unittest.mock.patch("backend.api_gateway.Neo4jStorageClient.from_config"):
+        response = client.get("/api/admin/stats")
+        # Should bypass 402
+        assert response.status_code != 402
             
     app.dependency_overrides.clear()
 
@@ -104,14 +104,14 @@ def test_enterprise_free_user_with_byod_headers_allowed(mock_enterprise_config, 
     
     app.dependency_overrides[backend.api_gateway.get_tenant_id] = override_tenant_id
     
-    with unittest.mock.patch("backend.api_gateway.QdrantStorageClient.from_config"):
-        with unittest.mock.patch("backend.api_gateway.Neo4jStorageClient.from_config"):
-            # Provide headers to simulate BYOD
-            response = client.get("/api/admin/stats", headers={
+    with unittest.mock.patch("backend.api_gateway.QdrantStorageClient.from_config"), \
+         unittest.mock.patch("backend.api_gateway.Neo4jStorageClient.from_config"):
+        # Provide headers to simulate BYOD
+        response = client.get("/api/admin/stats", headers={
                 "X-BYOD-NEO4J-URI": "bolt://test",
                 "X-BYOD-QDRANT-URL": "http://test"
             })
-            # Should bypass 402
-            assert response.status_code != 402
+        # Should bypass 402
+        assert response.status_code != 402
             
     app.dependency_overrides.clear()

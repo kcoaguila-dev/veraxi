@@ -1,8 +1,8 @@
-from typing import Dict, List, Any
 from backend.config import get_config
 from backend.storage.neo4j_client import Neo4jStorageClient
 
-def get_graph_schema() -> Dict[str, List[str]]:
+
+def get_graph_schema() -> dict[str, list[str]]:
     """
     Retrieves all unique Node Labels and Relationship Types currently in the Neo4j database.
     This helps the Host AI understand the existing schema before inserting new data.

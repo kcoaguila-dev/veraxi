@@ -1,7 +1,6 @@
-from typing import List, Tuple
 
 
-def chunk_text(text: str, chunk_size: int = 200, overlap: int = 50) -> List[str]:
+def chunk_text(text: str, chunk_size: int = 200, overlap: int = 50) -> list[str]:
     """Chunk text into segments of chunk_size with overlap."""
     if not text:
         return []
@@ -20,10 +19,12 @@ def chunk_text(text: str, chunk_size: int = 200, overlap: int = 50) -> List[str]
 
 from functools import lru_cache
 
+
 @lru_cache(maxsize=1)
 def get_embedding_model():
     """Load model once and cache it"""
     from sentence_transformers import SentenceTransformer
+
     from backend.config import get_config
     config = get_config()
     return SentenceTransformer(config.embedding_model_name)
@@ -36,7 +37,7 @@ def get_sparse_embedding_model():
     return SparseTextEmbedding(model_name="prithivida/Splade_PP_en_v1")
 
 
-def embed_text(text: str) -> List[float]:
+def embed_text(text: str) -> list[float]:
     """Embed text using local sentence-transformers model."""
     if not text:
         return [0.0] * 384
@@ -59,7 +60,7 @@ def embed_text_sparse(text: str) -> dict:
     return {"indices": [], "values": []}
 
 
-def chunk_and_embed(text: str) -> List[Tuple[str, List[float], dict]]:
+def chunk_and_embed(text: str) -> list[tuple[str, list[float], dict]]:
     """Chunks text and returns list of (chunk_text, dense_vector, sparse_vector)."""
     chunks = chunk_text(text)
     return [(chunk, embed_text(chunk), embed_text_sparse(chunk)) for chunk in chunks]

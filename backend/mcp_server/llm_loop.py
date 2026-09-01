@@ -1,30 +1,37 @@
-import os
-import logging
-import sentry_sdk
-import json
-import time
-import re
-from contextvars import ContextVar
-from typing import Tuple, List, Any, TypedDict, Annotated, Sequence
-from langchain_openai import ChatOpenAI
 import asyncio
-import urllib.request
+import json
+import logging
+import os
+import re
+import time
 import urllib.parse
-from pydantic import BaseModel, Field
-from langchain_core.messages import BaseMessage, HumanMessage, ToolMessage, AIMessage, SystemMessage
-from langgraph.graph import StateGraph, START, END
-from langgraph.graph.message import add_messages
+import urllib.request
+from collections.abc import Sequence
+from contextvars import ContextVar
+from typing import Annotated, Any, TypedDict
+
+import sentry_sdk
+from langchain_core.messages import (
+    AIMessage,
+    BaseMessage,
+    HumanMessage,
+    SystemMessage,
+    ToolMessage,
+)
+from langchain_openai import ChatOpenAI
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
-import redis.asyncio as redis_async
-from mcp.client.sse import sse_client
+from langgraph.graph import END, START, StateGraph
+from langgraph.graph.message import add_messages
 from mcp.client.session import ClientSession
+from mcp.client.sse import sse_client
+from pydantic import BaseModel, Field
 
 _MCP_TOOL_CACHE = {}  # Cache tool schemas to avoid frequent handshakes
 
 from backend.config import get_config
-from backend.prompts import CHAT_SYSTEM_PROMPT, TITLE_GENERATION_PROMPT
-from backend.mcp_server.tools.search_vectors import search_vectors
 from backend.mcp_server.tools.query_graph import query_graph
+from backend.mcp_server.tools.search_vectors import search_vectors
+from backend.prompts import CHAT_SYSTEM_PROMPT, TITLE_GENERATION_PROMPT
 from backend.retrieval.merge_rank import merge_rank
 
 logger = logging.getLogger(__name__)
@@ -64,7 +71,7 @@ class AgentState(TypedDict):
     calculate_grounding: bool
     tool_settings: dict | None
 
-async def get_tools(tool_settings: dict = None) -> list:
+async def get_tools(tool_settings: dict | None = None) -> list:
     config = get_config()
     
     # Default to disabled if settings are missing
@@ -185,7 +192,7 @@ async def get_tools(tool_settings: dict = None) -> list:
                 continue
             
             try:
-                async with sse_client(url) as (read, write):
+                async with sse_client(url) as (read, write):  # noqa: SIM117
                     async with ClientSession(read, write) as session:
                         await session.initialize()
                         tools_res = await session.list_tools()
@@ -201,12 +208,12 @@ async def get_tools(tool_settings: dict = None) -> list:
                             })
                         _MCP_TOOL_CACHE[url] = mapped_tools
                         all_tools.extend(mapped_tools)
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 logger.error(f"Failed to fetch tools from MCP server {url}: {e}")
         
     return all_tools
 
-def _execute_single_tool(tool_name: str, tool_input: dict, tenant_id: str, tool_settings: dict | None = None) -> Tuple[List[Any], List[Any]]:
+def _execute_single_tool(tool_name: str, tool_input: dict, tenant_id: str, tool_settings: dict | None = None) -> tuple[list[Any], list[Any]]:
     config = get_config()
     settings = tool_settings or {}
     
@@ -267,7 +274,7 @@ def _execute_single_tool(tool_name: str, tool_input: dict, tenant_id: str, tool_
                     self.payload = {"stdout": res.get("stdout", ""), "stderr": res.get("stderr", ""), "exit_code": res.get("exit_code")}
                     self.sources = ["Python Sandbox"]
             return [CodeHit(data)], []
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             class ErrorHit:
                 def __init__(self, err):
                     self.id = "code_err"
@@ -293,7 +300,7 @@ def _execute_single_tool(tool_name: str, tool_input: dict, tenant_id: str, tool_
                     self.payload = {"content": text[:2000]} # Truncate to save tokens
                     self.sources = [url]
             return [UrlHit(resp.text, tool_input["url"])], []
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             class UrlErrorHit:
                 def __init__(self, err, url):
                     self.id = "url_err"
@@ -303,7 +310,7 @@ def _execute_single_tool(tool_name: str, tool_input: dict, tenant_id: str, tool_
             
     return [], []
 
-def _build_context_string(merged_results: List[Any]) -> str:
+def _build_context_string(merged_results: list[Any]) -> str:
     """Build a formatted context string from fused results."""
     context_parts = []
     for i, res in enumerate(merged_results, 1):
@@ -468,7 +475,7 @@ async def call_model(state: AgentState):
     effective_model = _request_model.get() or config.llm_model_name
     
     # Inherit base args (including the gemini url injection if applicable)
-    llm_args = config.get_llm_client_args(model_name=effective_model)
+    config.get_llm_client_args(model_name=effective_model)
     
     # Prefer a per-request key (set by the caller via _request_api_key contextvar)
     # over the server-wide LLM_API_KEY so users can supply their own key via the UI.
@@ -509,7 +516,7 @@ async def call_model(state: AgentState):
         try:
             response = await llm_with_tools.ainvoke(modified_messages)
             break
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             import logging
             logging.getLogger(__name__).warning(f"Tool invocation crashed (Attempt {attempt + 1}/{MAX_RETRIES}) for {effective_model}: {e}")
             if attempt < MAX_RETRIES - 1:
@@ -517,7 +524,7 @@ async def call_model(state: AgentState):
                 modified_messages.append(AIMessage(content="[I attempted to use a tool but generated invalid syntax.]"))
                 modified_messages.append(HumanMessage(content=f"Your previous tool call failed with error: {e}. Please strictly follow the required JSON tool call format and try again."))
             else:
-                logging.getLogger(__name__).warning(f"Max retries reached. Falling back to llm without tools.")
+                logging.getLogger(__name__).warning("Max retries reached. Falling back to llm without tools.")
                 response = await llm.ainvoke(modified_messages)
                 break
         
@@ -546,7 +553,7 @@ async def call_model(state: AgentState):
     return {"messages": [response]}
 
 
-async def _execute_mcp_tool(tool_name: str, tool_input: dict, tool_settings: dict) -> Tuple[List[Any], List[Any]]:
+async def _execute_mcp_tool(tool_name: str, tool_input: dict, tool_settings: dict) -> tuple[list[Any], list[Any]]:
     # format is mcp__{server_name}__{actual_tool_name}
     parts = tool_name.split("__", 2)
     if len(parts) != 3:
@@ -560,7 +567,7 @@ async def _execute_mcp_tool(tool_name: str, tool_input: dict, tool_settings: dic
         return [], []
         
     try:
-        async with sse_client(url) as (read, write):
+        async with sse_client(url) as (read, write):  # noqa: SIM117
             async with ClientSession(read, write) as session:
                 await session.initialize()
                 result = await session.call_tool(actual_tool_name, tool_input)
@@ -572,7 +579,7 @@ async def _execute_mcp_tool(tool_name: str, tool_input: dict, tool_settings: dic
                         self.sources = [f"MCP Server ({server_name})"]
                         
                 return [McpHit(result)], []
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         logger.error(f"Failed to execute MCP tool {tool_name} on {url}: {e}")
         class McpErrorHit:
             def __init__(self, err):
@@ -596,7 +603,7 @@ async def execute_tools(state: AgentState):
     for tool_call in last_message.tool_calls:
         tool_name = tool_call["name"]
         tool_input = tool_call["args"]
-        tool_call_id = tool_call["id"]
+        tool_call["id"]
         
         logger.info(f"LangGraph Agent called tool: {tool_name} with args: {tool_input}")
         
@@ -633,7 +640,7 @@ async def execute_tools(state: AgentState):
             loop = asyncio.get_running_loop()
             query_emb = await loop.run_in_executor(None, _embed_text, user_query) if user_query else None
             context_emb = await loop.run_in_executor(None, _embed_text, context_str) if context_str and context_str != "No results found." else None
-        except Exception:
+        except Exception:  # noqa: BLE001, S110
             pass
 
     # We must satisfy LangChain's ToolMessage requirement by putting the results directly in it.
@@ -703,7 +710,7 @@ async def evaluate_context(state: AgentState):
     try:
         res = await structured_llm_grader.ainvoke(grade_prompt)
         score = res.binary_score
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         sentry_sdk.capture_exception(e)
         logger.error(f"CRAG Evaluation failed: {e}. Defaulting to 'no'.")
         score = "no"
@@ -763,7 +770,7 @@ async def web_search_fallback(state: AgentState):
             )
         )
         return {"messages": [grounding_message], "retrieved_context": context_str}
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         sentry_sdk.capture_exception(e)
         logger.error(f"CRAG Web Search failed: {e}")
         return {"messages": [HumanMessage(content="Web search fallback failed. Please provide your final answer based on your internal knowledge or admit lack of context.")]}
@@ -809,7 +816,7 @@ async def answer_question(
     model_override: str | None = None,
     calculate_grounding: bool = False,
     tool_settings: dict | None = None,
-) -> str | Tuple[str, str] | Tuple[str, str, dict]:
+) -> str | tuple[str, str] | tuple[str, str, dict]:
     """
     Executes the LangGraph state machine.
     Maintains conversation memory per thread_id, unless is_temporary is True.
@@ -870,7 +877,8 @@ async def answer_question(
     return final_answer
 
 
-from typing import AsyncGenerator
+from collections.abc import AsyncGenerator
+
 
 def _handle_chat_model_end(event: dict) -> list[dict]:
     events = []
@@ -953,7 +961,7 @@ async def stream_answer_question(
         
         async def _process_stream(stream):
             async for event in stream:
-                if "crag_evaluator" in event.get("tags", []):
+                if "crag_evaluator" in event.get("tags", []):  # noqa: SIM102
                     # We ignore stream events and end events for the internal CRAG evaluator
                     # so that it doesn't accidentally emit 'GradeDocuments' tool calls to the UI.
                     if event["event"] in ["on_chat_model_stream", "on_chat_model_end", "on_tool_start", "on_tool_end"]:

@@ -1,7 +1,8 @@
-import os
 import pytest
-from backend.ingestion.entity_resolution import resolve_entities
+
 from backend.config import get_config
+from backend.ingestion.entity_resolution import resolve_entities
+
 
 @pytest.fixture(autouse=True)
 def mock_env(monkeypatch):
@@ -33,7 +34,7 @@ def test_resolve_entities_deduplication():
         {"type": "Person", "name": "Alice"},
     ]
 
-    resolved, alias_mapping = resolve_entities(entities)
+    resolved, _alias_mapping = resolve_entities(entities)
 
     # We expect Veraxi, Veraxi Corp, and veraxi corporation to be merged into one
     orgs = [e for e in resolved if e["type"] == "Organization"]
@@ -62,7 +63,7 @@ def test_resolve_entities_no_duplicates():
         {"type": "Concept", "name": "AI"},
     ]
 
-    resolved, alias_mapping = resolve_entities(entities)
+    resolved, _alias_mapping = resolve_entities(entities)
 
     assert len(resolved) == 3, "Expected no entities to be merged"
 

@@ -1,8 +1,10 @@
-from typing import Dict, Any
+from typing import Any
+
 from backend.config import get_config
 from backend.storage.neo4j_client import Neo4jStorageClient
 
-def update_entity(entity_name: str, properties: Dict[str, Any], tenant_id: str = "default") -> str:
+
+def update_entity(entity_name: str, properties: dict[str, Any], tenant_id: str = "default") -> str:
     """
     Updates the properties of an existing entity in Neo4j.
     """

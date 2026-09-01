@@ -13,7 +13,8 @@ import json
 import logging
 import urllib.error
 import urllib.request
-from concurrent.futures import ThreadPoolExecutor, as_completed, TimeoutError as FuturesTimeoutError
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import TimeoutError as FuturesTimeoutError
 
 import sentry_sdk
 
@@ -47,7 +48,7 @@ def _fetch_one(url: str, base_url: str, api_key: str, timeout: float) -> tuple[s
     except urllib.error.HTTPError as exc:
         logger.warning("Firecrawl HTTP %s for %s", exc.code, url)
         return url, ""
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001
         sentry_sdk.capture_exception(exc)
         logger.warning("Firecrawl failed for %s: %s", url, exc)
         return url, ""
@@ -95,7 +96,7 @@ class FirecrawlScraper:
                         results[url] = content
                 except FuturesTimeoutError:
                     logger.warning("Firecrawl timed out for %s", future_to_url[future])
-                except Exception as exc:
+                except Exception as exc:  # noqa: BLE001
                     sentry_sdk.capture_exception(exc)
                     logger.warning("Firecrawl fetch_batch error: %s", exc)
 

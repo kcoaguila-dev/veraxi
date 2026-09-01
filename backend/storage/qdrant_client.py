@@ -1,13 +1,21 @@
 import uuid
-from typing import List, Dict, Any, Optional
+from typing import Any
 
 from qdrant_client import QdrantClient
-from qdrant_client.models import PointStruct, Distance, VectorParams, SparseVectorParams, Modifier, SparseVector
+from qdrant_client.models import (
+    Distance,
+    Modifier,
+    PointStruct,
+    SparseVector,
+    SparseVectorParams,
+    VectorParams,
+)
+
 from backend import context as byod_context
 
 
 class QdrantStorageClient:
-    def __init__(self, url: str, api_key: Optional[str] = None):
+    def __init__(self, url: str, api_key: str | None = None):
         if api_key:
             self.client = QdrantClient(url=url, api_key=api_key)
         else:
@@ -40,7 +48,7 @@ class QdrantStorageClient:
             collection_info = self.client.get_collection(collection_name)
             if not collection_info.config.params.sparse_vectors:
                 self.client.delete_collection(collection_name)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             import sentry_sdk
             sentry_sdk.capture_exception(e)
 
@@ -58,11 +66,11 @@ class QdrantStorageClient:
     def insert_points(
         self,
         collection_name: str,
-        vectors: List[List[float]],
-        sparse_vectors: List[dict] = None,
-        payloads: List[Dict[str, Any]] = None,
+        vectors: list[list[float]],
+        sparse_vectors: list[dict] | None = None,
+        payloads: list[dict[str, Any]] | None = None,
         tenant_id: str = "default",
-    ) -> List[str]:
+    ) -> list[str]:
         """Insert vectors and payloads, returning their generated UUIDs."""
         if payloads is None:
             payloads = [{} for _ in vectors]
@@ -93,8 +101,8 @@ class QdrantStorageClient:
         return point_ids
 
     def get_points(
-        self, collection_name: str, point_ids: List[str]
-    ) -> List[Dict[str, Any]]:
+        self, collection_name: str, point_ids: list[str]
+    ) -> list[dict[str, Any]]:
         """Get points by their IDs."""
         points = self.client.retrieve(
             collection_name=collection_name,
@@ -107,11 +115,11 @@ class QdrantStorageClient:
     def search_hybrid(
         self,
         collection_name: str,
-        query_vector: List[float],
+        query_vector: list[float],
         sparse_query_vector: dict,
         limit: int = 10,
         tenant_id: str = "default",
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Search for similar vectors using Hybrid Search (Dense + Sparse with RRF)."""
         from qdrant_client.http import models
 
@@ -152,7 +160,7 @@ class QdrantStorageClient:
         except UnexpectedResponse as e:
             if "Not found: Collection" in str(e):
                 return []
-            raise e
+            raise
 
         # Convert to same output format
         out = []
@@ -162,7 +170,7 @@ class QdrantStorageClient:
 
 
 
-    def delete_points(self, collection_name: str, point_ids: List[str]):
+    def delete_points(self, collection_name: str, point_ids: list[str]):
         """Delete points by their IDs."""
         from qdrant_client.http import models
         self.client.delete(

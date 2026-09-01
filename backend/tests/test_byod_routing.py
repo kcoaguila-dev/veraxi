@@ -1,10 +1,12 @@
 import pytest
 from fastapi.testclient import TestClient
+
+from backend import context as byod_context
 from backend.api_gateway import app
 from backend.config import Config
 from backend.storage.neo4j_client import Neo4jStorageClient
 from backend.storage.qdrant_client import QdrantStorageClient
-from backend import context as byod_context
+
 
 # Mock config for testing
 @pytest.fixture
@@ -44,7 +46,7 @@ def test_neo4j_client_uses_byod_context(mock_config):
         # We can patch GraphDatabase.driver.
         import unittest.mock
         with unittest.mock.patch("backend.storage.neo4j_client.GraphDatabase.driver") as mock_driver:
-            client = Neo4jStorageClient.from_config(mock_config)
+            Neo4jStorageClient.from_config(mock_config)
             
             # Assert it used BYOD credentials
             mock_driver.assert_called_once_with(
@@ -61,7 +63,7 @@ def test_neo4j_client_falls_back_to_config(mock_config):
     # Context vars are default (None)
     import unittest.mock
     with unittest.mock.patch("backend.storage.neo4j_client.GraphDatabase.driver") as mock_driver:
-        client = Neo4jStorageClient.from_config(mock_config)
+        Neo4jStorageClient.from_config(mock_config)
         
         # Assert it used config credentials
         mock_driver.assert_called_once_with(
@@ -78,7 +80,7 @@ def test_qdrant_client_uses_byod_context(mock_config):
     try:
         import unittest.mock
         with unittest.mock.patch("backend.storage.qdrant_client.QdrantClient") as mock_client:
-            client = QdrantStorageClient.from_config(mock_config)
+            QdrantStorageClient.from_config(mock_config)
             
             # Assert it used BYOD credentials
             mock_client.assert_called_once_with(
@@ -94,7 +96,7 @@ def test_qdrant_client_falls_back_to_config(mock_config):
     # Context vars are default (None)
     import unittest.mock
     with unittest.mock.patch("backend.storage.qdrant_client.QdrantClient") as mock_client:
-        client = QdrantStorageClient.from_config(mock_config)
+        QdrantStorageClient.from_config(mock_config)
         
         # Assert it used config credentials
         mock_client.assert_called_once_with(
@@ -113,7 +115,6 @@ def test_byod_middleware_extracts_headers():
     # We can patch a function inside the endpoint to check the contextvars.
     # But it's easier to just mock get_config and have Neo4jStorageClient trap the uri.
     
-    import unittest.mock
     from backend.api_gateway import byod_context
     
     # Create a small dummy route on the test app to inspect context vars

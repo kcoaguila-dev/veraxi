@@ -1,7 +1,9 @@
-from unittest.mock import patch, MagicMock
-from backend.mcp_server.tools.web_search import mcp_web_search
-import urllib.error
 import json
+import urllib.error
+from unittest.mock import MagicMock, patch
+
+from backend.mcp_server.tools.web_search import mcp_web_search
+
 
 @patch("backend.mcp_server.tools.web_search.get_config")
 @patch("backend.mcp_server.tools.web_search.urllib.request.urlopen")

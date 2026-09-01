@@ -1,6 +1,8 @@
-import pytest
-import httpx
 import json
+
+import httpx
+import pytest
+
 
 @pytest.mark.asyncio
 async def test_e2e_web_search_live_backend():

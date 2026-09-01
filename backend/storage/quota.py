@@ -74,6 +74,6 @@ def _enforce_cap(tenant_id: str, config: Config) -> None:
             )
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         sentry_sdk.capture_exception(e)
         logger.error(f"Failed to check hard cap for tenant {tenant_id}: {e}")

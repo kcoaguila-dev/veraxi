@@ -1,6 +1,7 @@
-import tempfile
-import subprocess
 import os
+import subprocess
+import tempfile
+
 
 def execute_python_code(code: str) -> dict:
     """
@@ -14,7 +15,7 @@ def execute_python_code(code: str) -> dict:
 
     try:
         # Execute the python script with a 10 second timeout
-        result = subprocess.run(
+        result = subprocess.run(  # noqa: PLW1510
             ['python', temp_path],
             capture_output=True,
             text=True,
@@ -31,10 +32,10 @@ def execute_python_code(code: str) -> dict:
             "stderr": f"Execution timed out after 10 seconds.\n{e.stderr.decode('utf-8') if e.stderr else ''}",
             "exit_code": 124
         }
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         return {
             "stdout": "",
-            "stderr": f"Failed to execute code: {str(e)}",
+            "stderr": f"Failed to execute code: {e!s}",
             "exit_code": 1
         }
     finally:

@@ -1,8 +1,8 @@
 # backend/tts/voices.py
 
 import json
-import os
 import logging
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -20,14 +20,13 @@ VOICE_REGISTRY = {
 
 def load_voices():
     """Loads the voice registry from voices.json if it exists."""
-    global VOICE_REGISTRY
     json_path = os.path.join(os.path.dirname(__file__), "voices.json")
     if os.path.exists(json_path):
         try:
             with open(json_path, "r", encoding="utf-8") as f:
                 loaded_voices = json.load(f)
                 VOICE_REGISTRY.update(loaded_voices)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             logger.error(f"Failed to load voices.json: {e}")
 
 # Load voices at module initialization
@@ -75,7 +74,7 @@ def save_voices(new_voices: list[dict]):
 
 def add_voice(voice_id: str, name: str, ref_audio_path: str, prompt_text: str, prompt_lang: str = "en", text_lang: str = "en"):
     """Adds a single voice and saves the registry."""
-    global VOICE_REGISTRY
+    global VOICE_REGISTRY  # noqa: PLW0602
     
     if voice_id == "default_system":
         return

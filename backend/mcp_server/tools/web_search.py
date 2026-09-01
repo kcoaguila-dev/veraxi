@@ -15,8 +15,8 @@ from __future__ import annotations
 
 import json
 import logging
-import urllib.request
 import urllib.parse
+import urllib.request
 
 import sentry_sdk
 
@@ -113,7 +113,7 @@ def _search_searxng(
                     "content": res.get("content", ""),
                     "snippet": res.get("content", ""),
                 })
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001
         sentry_sdk.capture_exception(exc)
         logger.error("SearXNG search failed: %s", exc)
         return []
@@ -142,7 +142,7 @@ def _enrich(results: list[dict], web_settings: dict) -> list[dict]:
 
     try:
         enriched = scraper.fetch_batch(urls_to_fetch, timeout_per_url=timeout_per_url)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001
         # Never let scraping failures break the search result entirely.
         sentry_sdk.capture_exception(exc)
         logger.error("Scraper fetch_batch raised unexpectedly: %s", exc)

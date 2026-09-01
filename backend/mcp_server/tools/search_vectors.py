@@ -1,13 +1,13 @@
-from typing import List
+
 from backend.config import get_config
-from backend.storage.qdrant_client import QdrantStorageClient
 from backend.ingestion.chunk_embed import embed_text, embed_text_sparse
 from backend.retrieval.merge_rank import VectorHit
+from backend.storage.qdrant_client import QdrantStorageClient
 
 
 def search_vectors(
     query_text: str, limit: int = 10, tenant_id: str = "default"
-) -> List[VectorHit]:
+) -> list[VectorHit]:
     """
     Search Qdrant vectors using Hybrid Search (Dense + Sparse).
     Embeds the query_text, performs a hybrid search, and returns VectorHit objects ready for merge_rank.

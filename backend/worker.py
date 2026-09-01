@@ -1,12 +1,14 @@
 import asyncio
 import logging
+
 from arq.connections import RedisSettings
+
 from backend.config import get_config
 from backend.ingestion.__main__ import run_ingestion
 
 logger = logging.getLogger(__name__)
 
-async def process_ingestion_task(ctx, text: str, tenant_id: str, fast_extraction: bool = False, language: str = "en", custom_stop_words: list = None, model: str = "gemini-2.5-flash-lite"):
+async def process_ingestion_task(ctx, text: str, tenant_id: str, fast_extraction: bool = False, language: str = "en", custom_stop_words: list | None = None, model: str = "gemini-2.5-flash-lite"):
     """
     Background worker task to ingest a document.
     """
@@ -34,7 +36,7 @@ async def process_ingestion_task(ctx, text: str, tenant_id: str, fast_extraction
 class WorkerSettings:
     config = get_config()
     redis_settings = RedisSettings.from_dsn(config.redis_url)
-    functions = [process_ingestion_task]
+    functions = [process_ingestion_task]  # noqa: RUF012
     
     # Optional: startup and shutdown logic
     async def on_startup(ctx):

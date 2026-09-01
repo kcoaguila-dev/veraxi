@@ -1,8 +1,10 @@
 import json
-import sentry_sdk
 import logging
-from typing import List, Dict, Any, Tuple
+from typing import Any
+
+import sentry_sdk
 from openai import OpenAI
+
 from backend.config import get_config
 from backend.prompts import get_extraction_prompt
 
@@ -19,8 +21,7 @@ def _clean_llm_json_output(output: str) -> str:
     elif output.startswith("```"):
         output = output[3:]
 
-    if output.endswith("```"):
-        output = output[:-3]
+    output = output.removesuffix("```")
 
     return output.strip()
 
@@ -34,8 +35,8 @@ def _is_valid_entity(ent_type: Any, name: Any, allowed_entities: list[str]) -> b
 
 
 def _validate_single_relation(
-    rel: Dict[str, str], entity_name_to_type: Dict[str, str], allowed_relations: dict
-) -> Dict[str, str] | None:
+    rel: dict[str, str], entity_name_to_type: dict[str, str], allowed_relations: dict
+) -> dict[str, str] | None:
     if not isinstance(rel, dict):
         return None
 
@@ -64,7 +65,7 @@ def _normalize_single_property(value: Any) -> Any | None:
         return value
     return None
 
-def _normalize_properties(props: Any) -> Dict[str, Any]:
+def _normalize_properties(props: Any) -> dict[str, Any]:
     """
     Normalize properties to Neo4j-safe values.
     Neo4j properties must be primitives or arrays of primitives - no nested maps.
@@ -82,8 +83,8 @@ def _normalize_properties(props: Any) -> Dict[str, Any]:
 
 
 def _validate_entities(
-    entities: List[Dict[str, Any]], allowed_entities: list[str]
-) -> Tuple[List[Dict[str, Any]], Dict[str, str]]:
+    entities: list[dict[str, Any]], allowed_entities: list[str]
+) -> tuple[list[dict[str, Any]], dict[str, str]]:
     valid_entities = []
     entity_name_to_type = {}
 
@@ -109,8 +110,8 @@ def _validate_entities(
 
 
 def _validate_relations(
-    relations: List[Dict[str, str]], entity_name_to_type: Dict[str, str], allowed_relations: dict
-) -> List[Dict[str, str]]:
+    relations: list[dict[str, str]], entity_name_to_type: dict[str, str], allowed_relations: dict
+) -> list[dict[str, str]]:
     valid_relations = []
     for rel in relations:
         valid_rel = _validate_single_relation(rel, entity_name_to_type, allowed_relations)
@@ -120,8 +121,8 @@ def _validate_relations(
 
 
 def validate_extraction(
-    entities: List[Dict[str, Any]], relations: List[Dict[str, str]], schema: dict
-) -> Tuple[List[Dict[str, Any]], List[Dict[str, str]]]:
+    entities: list[dict[str, Any]], relations: list[dict[str, str]], schema: dict
+) -> tuple[list[dict[str, Any]], list[dict[str, str]]]:
     """
     Pure-logic validation step that rejects/quarantines any LLM output that doesn't match the schema.
     """
@@ -133,8 +134,8 @@ def validate_extraction(
 
 
 def extract_entities_and_relations(
-    text: str, schema: dict, model_name: str = None
-) -> Tuple[List[Dict[str, Any]], List[Dict[str, str]]]:
+    text: str, schema: dict, model_name: str | None = None
+) -> tuple[list[dict[str, Any]], list[dict[str, str]]]:
     """
     Extract entities and relations using OpenAI API constrained to a dynamic schema.
     """
@@ -162,21 +163,22 @@ def extract_entities_and_relations(
         raw_relations = data.get("relations", [])
 
         return validate_extraction(raw_entities, raw_relations, schema)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         sentry_sdk.capture_exception(e)
         logger.error(f"Failed to extract entities/relations: {e}")
         return [], []
 
 
 def extract_entities_and_relations_fast(
-    text: str, schema: dict, language: str = "en", custom_stop_words: list = None
-) -> Tuple[List[Dict[str, Any]], List[Dict[str, str]]]:
+    text: str, schema: dict, language: str = "en", custom_stop_words: list | None = None
+) -> tuple[list[dict[str, Any]], list[dict[str, str]]]:
     """
     Extract entities and relations using spaCy (FastGraphRAG NLP fallback) instead of an LLM.
     This provides ~90/10 ratio extraction speeds, sacrificing deep reasoning for speed.
     """
-    import spacy
     import logging
+
+    import spacy
     
     model_map = {
         "en": "en_core_web_sm",
@@ -189,7 +191,7 @@ def extract_entities_and_relations_fast(
     try:
         nlp = spacy.load(model_name)
     except OSError:
-        logging.info(f"Downloading spaCy model {model_name}...")
+        logging.info(f"Downloading spaCy model {model_name}...")  # noqa: LOG015
         import spacy.cli
         spacy.cli.download(model_name)
         nlp = spacy.load(model_name)
@@ -235,7 +237,7 @@ def extract_entities_and_relations_fast(
         # or just pass it through if it's close.
         if allowed_types and mapped_type not in allowed_types:
             # Fallback to the first allowed type, or generic "Entity"
-            mapped_type = list(allowed_types)[0] if allowed_types else "Entity"
+            mapped_type = next(iter(allowed_types)) if allowed_types else "Entity"
             
         entities.append({
             "type": mapped_type,
@@ -249,7 +251,7 @@ def extract_entities_and_relations_fast(
     allowed_relations = schema.get("relations", {})
     
     for sent in doc.sents:
-        relations.extend(_extract_relations_from_sentence(sent, entity_name_to_type, allowed_relations))
+        relations.extend(_extract_relations_from_sentence(sent, entity_name_to_type, allowed_relations))  # noqa: F821
                 
     # We still run it through validate_extraction to normalize it
     return validate_extraction(entities, relations, schema)

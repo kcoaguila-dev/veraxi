@@ -14,7 +14,8 @@ from __future__ import annotations
 import logging
 import urllib.error
 import urllib.request
-from concurrent.futures import ThreadPoolExecutor, as_completed, TimeoutError as FuturesTimeoutError
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import TimeoutError as FuturesTimeoutError
 
 import sentry_sdk
 
@@ -44,7 +45,7 @@ def _fetch_one(url: str, api_key: str, timeout: float) -> tuple[str, str]:
     except urllib.error.HTTPError as exc:
         logger.warning("Jina Reader HTTP %s for %s", exc.code, url)
         return url, ""
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001
         sentry_sdk.capture_exception(exc)
         logger.warning("Jina Reader failed for %s: %s", url, exc)
         return url, ""
@@ -87,7 +88,7 @@ class JinaScraper:
                         results[url] = content
                 except FuturesTimeoutError:
                     logger.warning("Jina Reader timed out for %s", future_to_url[future])
-                except Exception as exc:
+                except Exception as exc:  # noqa: BLE001
                     sentry_sdk.capture_exception(exc)
                     logger.warning("Jina Reader fetch_batch error: %s", exc)
 

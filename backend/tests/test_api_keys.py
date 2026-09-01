@@ -11,12 +11,11 @@ import pytest
 from fastapi import HTTPException
 
 from backend.security.api_keys import (
+    _KEY_PREFIX,
+    _hash_key,
     generate_api_key,
     resolve_api_key,
-    _hash_key,
-    _KEY_PREFIX,
 )
-
 
 # ---------------------------------------------------------------------------
 # generate_api_key
@@ -92,7 +91,7 @@ class TestResolveApiKey:
             "tenant_id": "user-456",
             "expires_at": "2000-01-01T00:00:00+00:00",
         })
-        with patch("backend.security.api_keys._record_last_used"):
+        with patch("backend.security.api_keys._record_last_used"):  # noqa: SIM117
             with pytest.raises(HTTPException) as exc_info:
                 resolve_api_key(raw_key, supabase)
         assert exc_info.value.status_code == 401

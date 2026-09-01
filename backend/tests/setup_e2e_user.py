@@ -1,7 +1,8 @@
 import os
 import sys
+
 from dotenv import load_dotenv
-from supabase import create_client, Client
+from supabase import Client, create_client
 
 load_dotenv()
 
@@ -24,7 +25,7 @@ def setup_user():
         # Wait, admin API doesn't have list users easily without pagination.
         # We can just try to create the user with admin API.
         try:
-            res = supabase.auth.admin.create_user({
+            supabase.auth.admin.create_user({
                 "email": EMAIL,
                 "password": PASSWORD,
                 "email_confirm": True
@@ -44,8 +45,8 @@ def setup_user():
                 else:
                     print(f"Failed to find existing user {EMAIL} to update.")
             else:
-                raise e
-    except Exception as e:
+                raise
+    except Exception as e:  # noqa: BLE001
         print(f"Error setting up E2E user: {e}")
         sys.exit(1)
 

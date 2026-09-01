@@ -1,6 +1,9 @@
 import asyncio
+
 from mcp.server.stdio import stdio_server
+
 from backend.mcp_server.server import mcp_server
+
 
 async def main():
     """Run the MCP server via standard input/output for self-hosted desktop clients."""

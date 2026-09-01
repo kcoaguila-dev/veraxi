@@ -1,8 +1,9 @@
-from backend.config import get_config
-from backend.storage.qdrant_client import QdrantStorageClient
-from backend.storage.neo4j_client import Neo4jStorageClient
 import pytest
+
+from backend.config import get_config
 from backend.ingestion.__main__ import main as run_ingestion
+from backend.storage.neo4j_client import Neo4jStorageClient
+from backend.storage.qdrant_client import QdrantStorageClient
 
 
 def _verify_neo4j_nodes_have_qdrant_ids(nodes: list[dict]) -> set[str]:
@@ -53,7 +54,7 @@ def test_ingestion_linking(patch_env):
     # Clear Qdrant
     try:
         qdrant.client.delete_collection(COLLECTION_NAME)
-    except Exception:
+    except Exception:  # noqa: BLE001, S110
         pass
 
     # 0. Run the orchestrator

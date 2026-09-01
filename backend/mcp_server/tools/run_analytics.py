@@ -1,9 +1,11 @@
-from typing import Dict, Any, List
-from backend.config import get_config
-from backend.storage.neo4j_client import Neo4jStorageClient
-from backend.retrieval.graph_analytics import get_community_detection
+from typing import Any
 
-def run_community_detection(min_size: int = 2, tenant_id: str = "default") -> List[Dict[str, Any]]:
+from backend.config import get_config
+from backend.retrieval.graph_analytics import get_community_detection
+from backend.storage.neo4j_client import Neo4jStorageClient
+
+
+def run_community_detection(min_size: int = 2, tenant_id: str = "default") -> list[dict[str, Any]]:
     """
     Runs basic community detection algorithms on the knowledge graph
     to find clusters of interconnected information.

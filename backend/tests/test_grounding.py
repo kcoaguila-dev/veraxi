@@ -1,7 +1,10 @@
-from unittest.mock import patch, MagicMock
-from openai import OpenAIError
-from backend.evaluation.grounding import evaluate_groundedness
 import json
+from unittest.mock import MagicMock, patch
+
+from openai import OpenAIError
+
+from backend.evaluation.grounding import evaluate_groundedness
+
 
 @patch("backend.evaluation.grounding.get_config")
 @patch("backend.evaluation.grounding.OpenAI")

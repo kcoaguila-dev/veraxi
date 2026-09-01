@@ -1,6 +1,8 @@
 from deepeval.models.base_model import DeepEvalBaseLLM
-from openai import OpenAI, AsyncOpenAI
+from openai import AsyncOpenAI, OpenAI
+
 from backend.config import get_config
+
 
 class OpenAIDeepEvalModel(DeepEvalBaseLLM):
     """

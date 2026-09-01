@@ -1,8 +1,10 @@
+from unittest.mock import patch
+
+import httpx
 import pytest
 from fastapi.testclient import TestClient
-from unittest.mock import patch, AsyncMock
-import httpx
-from backend.api_gateway import app, DEFAULT_PROVIDER_MODELS
+
+from backend.api_gateway import DEFAULT_PROVIDER_MODELS, app
 
 client = TestClient(app)
 

@@ -1,28 +1,38 @@
-import asyncio
 import dataclasses
-import sentry_sdk
 import json
+
+import sentry_sdk
 from mcp.server import Server
 from mcp.types import (
-    Tool, TextContent, Resource, Prompt, PromptMessage,
-    ListResourcesResult, ReadResourceResult, TextResourceContents,
-    ListPromptsResult, GetPromptResult, ListToolsResult, CallToolResult
+    CallToolResult,
+    GetPromptResult,
+    ListPromptsResult,
+    ListResourcesResult,
+    ListToolsResult,
+    Prompt,
+    PromptMessage,
+    ReadResourceResult,
+    Resource,
+    TextContent,
+    TextResourceContents,
+    Tool,
 )
-from backend.mcp_server.tools.search_vectors import search_vectors
-from backend.mcp_server.tools.query_graph import query_graph
+
+from backend.config import get_config
+from backend.mcp_server.context import tenant_context
+from backend.mcp_server.tools.delete_entity import delete_entity
+from backend.mcp_server.tools.delete_relationship import delete_relationship
+from backend.mcp_server.tools.delete_vector import delete_vector
+from backend.mcp_server.tools.get_schema import get_graph_schema
+from backend.mcp_server.tools.get_stats import get_database_stats
 from backend.mcp_server.tools.insert_graph import insert_graph_nodes
 from backend.mcp_server.tools.insert_vector import insert_vectors
-from backend.mcp_server.tools.get_schema import get_graph_schema
-from backend.mcp_server.tools.delete_entity import delete_entity
-from backend.mcp_server.tools.delete_vector import delete_vector
-from backend.mcp_server.tools.update_entity import update_entity
-from backend.mcp_server.tools.get_stats import get_database_stats
+from backend.mcp_server.tools.query_graph import query_graph
 from backend.mcp_server.tools.run_analytics import run_community_detection
-from backend.mcp_server.tools.delete_relationship import delete_relationship
+from backend.mcp_server.tools.search_vectors import search_vectors
 from backend.mcp_server.tools.update_document import update_document_metadata
-from backend.mcp_server.context import tenant_context
-from backend.prompts import INGEST_KNOWLEDGE_PROMPT, CRAG_ORCHESTRATOR_PROMPT
-from backend.config import get_config
+from backend.mcp_server.tools.update_entity import update_entity
+from backend.prompts import CRAG_ORCHESTRATOR_PROMPT, INGEST_KNOWLEDGE_PROMPT
 from backend.storage.quota import check_tenant_hard_cap
 
 
@@ -382,8 +392,9 @@ def _handle_insert_vectors(args: dict, tenant_id: str) -> list[TextContent]:
     return [TextContent(type="text", text=json.dumps(results))]
 
 def _handle_merge_rank(args: dict, tenant_id: str) -> list[TextContent]:
-    from backend.retrieval.merge_rank import merge_rank
     import dataclasses
+
+    from backend.retrieval.merge_rank import merge_rank
     
     config = get_config()
     
@@ -503,9 +514,9 @@ async def handle_call_tool(ctx, params) -> CallToolResult:
 
     try:
         return CallToolResult(content=handler(args, tenant_id))
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         sentry_sdk.capture_exception(e)
-        return CallToolResult(content=[TextContent(type="text", text=f"Error executing tool {name}: {str(e)}")])
+        return CallToolResult(content=[TextContent(type="text", text=f"Error executing tool {name}: {e!s}")])
 
 mcp_server = Server(
     "veraxi_mcp",
