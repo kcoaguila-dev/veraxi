@@ -14,6 +14,7 @@ from backend.storage.qdrant_client import QdrantStorageClient
 from backend.storage.neo4j_client import Neo4jStorageClient
 from backend.mcp_server.server import mcp_server
 from backend.mcp_server.context import tenant_context
+from backend import context as byod_context
 from backend.security.moderation import moderate_text
 from mcp.server.sse import SseServerTransport
 import sentry_sdk
@@ -89,6 +90,18 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.middleware("http")
+async def byod_context_middleware(request: Request, call_next):
+    # Extract BYOD headers and set them in ContextVars for this request
+    byod_context.request_neo4j_uri.set(request.headers.get("x-byod-neo4j-uri"))
+    byod_context.request_neo4j_user.set(request.headers.get("x-byod-neo4j-user"))
+    byod_context.request_neo4j_pass.set(request.headers.get("x-byod-neo4j-pass"))
+    byod_context.request_qdrant_url.set(request.headers.get("x-byod-qdrant-url"))
+    byod_context.request_qdrant_key.set(request.headers.get("x-byod-qdrant-key"))
+    
+    response = await call_next(request)
+    return response
+
 security = HTTPBearer(auto_error=False)
 
 def _get_jwt_payload(token: str) -> dict:
@@ -146,6 +159,47 @@ def get_tenant_id(credentials: HTTPAuthorizationCredentials | None = Depends(sec
 
     # Default path: Supabase JWT
     return _decode_and_validate_jwt(token)
+
+
+async def verify_infrastructure_access(request: Request, tenant_id: str = Depends(get_tenant_id)) -> str:
+    if not config.is_enterprise or not config.auth_enabled:
+        return tenant_id
+        
+    # Check BYOD headers (must have both Neo4j and Qdrant)
+    uri = byod_context.request_neo4j_uri.get()
+    qdrant = byod_context.request_qdrant_url.get()
+    
+    if uri and qdrant:
+        return tenant_id
+        
+    # Check cache
+    cache_key = f"tenant:{tenant_id}:subscription_status"
+    cached = await request.app.state.redis.get(cache_key)
+    if cached is not None:
+        is_subscribed = cached.decode("utf-8") == "true"
+    else:
+        # Fetch and cache
+        import asyncio
+        def _fetch_sub():
+            try:
+                res = _get_supabase().table("users").select("is_subscribed").eq("id", tenant_id).execute()
+                if res.data and len(res.data) > 0:
+                    return bool(res.data[0].get("is_subscribed", False))
+            except Exception as e:
+                logger.error(f"Failed to check subscription status: {e}")
+            return False
+            
+        is_subscribed = await asyncio.to_thread(_fetch_sub)
+        await request.app.state.redis.setex(cache_key, 86400, "true" if is_subscribed else "false")
+        
+    if is_subscribed:
+        return tenant_id
+        
+    raise HTTPException(
+        status_code=402, 
+        detail="Payment Required: Free tier users must configure Bring Your Own Database (BYOD) infrastructure in Settings."
+    )
+
 
 
 class ChatRequest(BaseModel):
@@ -237,7 +291,7 @@ async def create_checkout_session(request: CheckoutSessionRequest, tenant_id: st
 
 @app.post("/api/chat", response_model=ChatResponse)
 @limiter.limit(config.rate_limit_chat)
-async def chat_endpoint(request: Request, chat_request: ChatRequest, tenant_id: str = Depends(get_tenant_id)):
+async def chat_endpoint(request: Request, chat_request: ChatRequest, tenant_id: str = Depends(verify_infrastructure_access)):
     logger.warning(f"Received question: {chat_request.question} for tenant: {tenant_id} | tool_settings: {chat_request.tool_settings}")
     if not chat_request.model:
         raise HTTPException(status_code=400, detail="No AI model selected")
@@ -1149,7 +1203,7 @@ async def get_models():
 
 
 @app.get("/api/admin/stats")
-def get_stats(tenant_id: str = Depends(get_tenant_id)):
+def get_stats(tenant_id: str = Depends(verify_infrastructure_access)):
     try:
         config = get_config()
         qdrant = QdrantStorageClient.from_config(config)
@@ -1205,7 +1259,7 @@ from backend.storage.quota import check_tenant_hard_cap
 
 @app.post("/api/admin/ingest")
 @limiter.limit(config.rate_limit_ingest)
-async def ingest_data(request: Request, ingest_request: IngestRequest, tenant_id: str = Depends(get_tenant_id)):
+async def ingest_data(request: Request, ingest_request: IngestRequest, tenant_id: str = Depends(verify_infrastructure_access)):
     try:
         check_tenant_hard_cap(tenant_id, get_config())
         job = await request.app.state.redis.enqueue_job(
@@ -1228,14 +1282,14 @@ class SchemaDefinition(BaseModel):
     relations: dict[str, dict[str, list[str]]]
 
 @app.get("/api/admin/schema")
-async def get_schema(request: Request, tenant_id: str = Depends(get_tenant_id)):
+async def get_schema(request: Request, tenant_id: str = Depends(verify_infrastructure_access)):
     schema = await request.app.state.redis.get(f"tenant:{tenant_id}:schema")
     if schema:
         return json.loads(schema)
     raise HTTPException(status_code=404, detail="No schema defined for this tenant.")
 
 @app.post("/api/admin/schema")
-async def set_schema(request: Request, schema: SchemaDefinition, tenant_id: str = Depends(get_tenant_id)):
+async def set_schema(request: Request, schema: SchemaDefinition, tenant_id: str = Depends(verify_infrastructure_access)):
     await request.app.state.redis.set(f"tenant:{tenant_id}:schema", schema.model_dump_json())
     return {"status": "success"}
 
@@ -1362,7 +1416,7 @@ class UrlIngestRequest(BaseModel):
 
 @app.post("/api/admin/ingest/url")
 @limiter.limit(config.rate_limit_ingest)
-async def ingest_url(request: Request, url_request: UrlIngestRequest, tenant_id: str = Depends(get_tenant_id)):
+async def ingest_url(request: Request, url_request: UrlIngestRequest, tenant_id: str = Depends(verify_infrastructure_access)):
     try:
         check_tenant_hard_cap(tenant_id, get_config())
         config = get_config()
@@ -1430,13 +1484,20 @@ def _verify_stripe_signature(payload: bytes, sig_header: str | None, webhook_sec
         logger.error("Invalid Stripe signature")
         raise HTTPException(status_code=400, detail="Invalid signature")
 
-def _activate_tenant_subscription(tenant_id: str | None, config):
+def _activate_tenant_subscription(tenant_id: str | None, config, redis):
     if not tenant_id:
         return
     try:
         supabase_client: Client = create_client(config.supabase_url, config.supabase_service_key)
         supabase_client.table("users").update({"is_subscribed": True}).eq("id", tenant_id).execute()
         logger.info(f"Database updated: user {tenant_id} is now subscribed.")
+        
+        # Invalidate/update Redis cache so they get immediate access
+        import asyncio
+        async def _update_redis():
+            await redis.setex(f"tenant:{tenant_id}:subscription_status", 86400, "true")
+        
+        asyncio.create_task(_update_redis())
     except Exception as e:
         sentry_sdk.capture_exception(e)
         logger.error(f"Failed to update database for tenant {tenant_id}: {e}")
@@ -1463,7 +1524,7 @@ async def stripe_webhook(request: Request):
         session = event['data']['object']
         tenant_id = session.get('client_reference_id')
         logger.info(f"💰 STRIPE PAYMENT RECEIVED for tenant: {tenant_id}! Activate their subscription.")
-        _activate_tenant_subscription(tenant_id, config)
+        _activate_tenant_subscription(tenant_id, config, request.app.state.redis)
     else:
         logger.info(f"Unhandled Stripe event type: {event['type']}")
 

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:veraxi_app/core/api_key_storage.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -27,7 +28,9 @@ class ApiClient {
     this.tenantId,
   }) : client = client ?? http.Client();
 
-  Map<String, String> getDefaultHeaders() {
+  final _apiKeyStorage = ApiKeyStorage();
+
+  Future<Map<String, String>> getDefaultHeaders() async {
     final headers = <String, String>{
       'Cache-Control': 'no-cache, no-store, must-revalidate',
       'Pragma': 'no-cache',
@@ -47,12 +50,20 @@ class ApiClient {
     if (token != null) {
       headers['Authorization'] = 'Bearer $token';
     }
+
+    final byod = await _apiKeyStorage.getByodConfig();
+    if (byod['neo4j_uri']!.isNotEmpty) headers['X-BYOD-Neo4j-URI'] = byod['neo4j_uri']!;
+    if (byod['neo4j_user']!.isNotEmpty) headers['X-BYOD-Neo4j-User'] = byod['neo4j_user']!;
+    if (byod['neo4j_pass']!.isNotEmpty) headers['X-BYOD-Neo4j-Pass'] = byod['neo4j_pass']!;
+    if (byod['qdrant_url']!.isNotEmpty) headers['X-BYOD-Qdrant-URL'] = byod['qdrant_url']!;
+    if (byod['qdrant_key']!.isNotEmpty) headers['X-BYOD-Qdrant-Key'] = byod['qdrant_key']!;
+
     return headers;
   }
 
   Future<dynamic> get(String path, {Map<String, String>? headers}) async {
     try {
-      final requestHeaders = getDefaultHeaders();
+      final requestHeaders = await getDefaultHeaders();
       if (headers != null) requestHeaders.addAll(headers);
 
       final response = await client
@@ -75,7 +86,7 @@ class ApiClient {
   Future<dynamic> post(String path,
       {Map<String, dynamic>? body, Map<String, String>? headers}) async {
     try {
-      final requestHeaders = getDefaultHeaders()
+      final requestHeaders = await getDefaultHeaders()
         ..['Content-Type'] = 'application/json';
       if (headers != null) requestHeaders.addAll(headers);
 
@@ -100,7 +111,7 @@ class ApiClient {
   Future<dynamic> put(String path,
       {Map<String, dynamic>? body, Map<String, String>? headers}) async {
     try {
-      final requestHeaders = getDefaultHeaders()
+      final requestHeaders = await getDefaultHeaders()
         ..['Content-Type'] = 'application/json';
       if (headers != null) requestHeaders.addAll(headers);
 
@@ -124,7 +135,7 @@ class ApiClient {
 
   Future<dynamic> delete(String path, {Map<String, String>? headers}) async {
     try {
-      final requestHeaders = getDefaultHeaders();
+      final requestHeaders = await getDefaultHeaders();
       if (headers != null) requestHeaders.addAll(headers);
 
       final response = await client
@@ -151,7 +162,7 @@ class ApiClient {
       Map<String, String>? fields,
       Map<String, String>? headers}) async {
     try {
-      final requestHeaders = getDefaultHeaders();
+      final requestHeaders = await getDefaultHeaders();
       if (headers != null) requestHeaders.addAll(headers);
 
       final uri = Uri.parse('$baseUrl$path');

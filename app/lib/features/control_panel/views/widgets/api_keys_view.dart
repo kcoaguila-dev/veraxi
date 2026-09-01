@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:veraxi_app/core/api_key_storage.dart';
 
 class ApiKeysView extends StatefulWidget {
   const ApiKeysView({Key? key}) : super(key: key);
@@ -8,6 +9,15 @@ class ApiKeysView extends StatefulWidget {
 }
 
 class _ApiKeysViewState extends State<ApiKeysView> {
+  final _apiKeyStorage = ApiKeyStorage();
+
+  // Controllers for BYOD
+  final _neo4jUriController = TextEditingController();
+  final _neo4jUserController = TextEditingController();
+  final _neo4jPassController = TextEditingController();
+  final _qdrantUrlController = TextEditingController();
+  final _qdrantKeyController = TextEditingController();
+
   // We'll manage local visibility state for passwords/keys here.
   final Map<String, bool> _obscuredFields = {
     'openai': true,
@@ -17,6 +27,33 @@ class _ApiKeysViewState extends State<ApiKeysView> {
     'neo4j_pass': true,
     'qdrant_key': true,
   };
+
+  @override
+  void initState() {
+    super.initState();
+    _loadByodSettings();
+  }
+
+  Future<void> _loadByodSettings() async {
+    final config = await _apiKeyStorage.getByodConfig();
+    setState(() {
+      _neo4jUriController.text = config['neo4j_uri'] ?? '';
+      _neo4jUserController.text = config['neo4j_user'] ?? '';
+      _neo4jPassController.text = config['neo4j_pass'] ?? '';
+      _qdrantUrlController.text = config['qdrant_url'] ?? '';
+      _qdrantKeyController.text = config['qdrant_key'] ?? '';
+    });
+  }
+
+  @override
+  void dispose() {
+    _neo4jUriController.dispose();
+    _neo4jUserController.dispose();
+    _neo4jPassController.dispose();
+    _qdrantUrlController.dispose();
+    _qdrantKeyController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -91,13 +128,13 @@ class _ApiKeysViewState extends State<ApiKeysView> {
                   ],
                 ),
                 const SizedBox(height: 24),
-                _buildTextInput('Neo4j URI', 'bolt://localhost:7687 or neo4j+s://...'),
+                _buildTextInput('Neo4j URI', 'bolt://localhost:7687 or neo4j+s://...', controller: _neo4jUriController),
                 const SizedBox(height: 16),
                 Row(
                   children: [
-                    Expanded(child: _buildTextInput('Username', 'neo4j')),
+                    Expanded(child: _buildTextInput('Username', 'neo4j', controller: _neo4jUserController)),
                     const SizedBox(width: 16),
-                    Expanded(child: _buildKeyInput('Password', '••••••••', 'neo4j_pass')),
+                    Expanded(child: _buildKeyInput('Password', '••••••••', 'neo4j_pass', controller: _neo4jPassController)),
                   ],
                 ),
               ],
@@ -125,9 +162,9 @@ class _ApiKeysViewState extends State<ApiKeysView> {
                   ],
                 ),
                 const SizedBox(height: 24),
-                _buildTextInput('Qdrant REST URL', 'http://localhost:6333 or https://...'),
+                _buildTextInput('Qdrant REST URL', 'http://localhost:6333 or https://...', controller: _qdrantUrlController),
                 const SizedBox(height: 16),
-                _buildKeyInput('Qdrant API Key (Optional)', 'Leave empty if running locally without auth', 'qdrant_key'),
+                _buildKeyInput('Qdrant API Key (Optional)', 'Leave empty if running locally without auth', 'qdrant_key', controller: _qdrantKeyController),
               ],
             ),
           ),
@@ -140,11 +177,19 @@ class _ApiKeysViewState extends State<ApiKeysView> {
                 backgroundColor: const Color(0xFF10A37F),
                 padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
               ),
-              onPressed: () {
-                // Future Save Logic
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Infrastructure settings saved locally.')),
+              onPressed: () async {
+                await _apiKeyStorage.saveByodConfig(
+                  neo4jUri: _neo4jUriController.text,
+                  neo4jUser: _neo4jUserController.text,
+                  neo4jPass: _neo4jPassController.text,
+                  qdrantUrl: _qdrantUrlController.text,
+                  qdrantKey: _qdrantKeyController.text,
                 );
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Infrastructure settings saved locally.')),
+                  );
+                }
               },
               child: const Text('Save Configuration', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
             ),
@@ -154,13 +199,14 @@ class _ApiKeysViewState extends State<ApiKeysView> {
     );
   }
 
-  Widget _buildTextInput(String label, String hint) {
+  Widget _buildTextInput(String label, String hint, {TextEditingController? controller}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(label, style: const TextStyle(color: Color(0xFFB4B4B4), fontSize: 13, fontWeight: FontWeight.w500)),
         const SizedBox(height: 8),
         TextField(
+          controller: controller,
           style: const TextStyle(color: Colors.white, fontSize: 14),
           cursorColor: Colors.white,
           decoration: InputDecoration(
@@ -176,7 +222,7 @@ class _ApiKeysViewState extends State<ApiKeysView> {
     );
   }
 
-  Widget _buildKeyInput(String label, String hint, String obscureKey) {
+  Widget _buildKeyInput(String label, String hint, String obscureKey, {TextEditingController? controller}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16.0),
       child: Column(
@@ -185,6 +231,7 @@ class _ApiKeysViewState extends State<ApiKeysView> {
           Text(label, style: const TextStyle(color: Color(0xFFB4B4B4), fontSize: 13, fontWeight: FontWeight.w500)),
           const SizedBox(height: 8),
           TextField(
+            controller: controller,
             obscureText: _obscuredFields[obscureKey] ?? true,
             style: const TextStyle(color: Colors.white, fontSize: 14),
             cursorColor: Colors.white,

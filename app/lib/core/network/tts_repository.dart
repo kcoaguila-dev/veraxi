@@ -32,7 +32,7 @@ class TTSRepository {
     final uri = Uri.parse('${apiClient.baseUrl}/voices/upload');
     final request = http.MultipartRequest('POST', uri);
 
-    final headers = apiClient.getDefaultHeaders();
+    final headers = await apiClient.getDefaultHeaders();
     request.headers.addAll(headers);
 
     request.fields['name'] = name;
@@ -57,8 +57,8 @@ class TTSRepository {
   Future<List<int>> getAudioBytes(String text, String voiceId,
       {String? gptSovitsUrl}) async {
     final uri = Uri.parse('${apiClient.baseUrl}/chat/audio');
-    final headers = apiClient.getDefaultHeaders()
-      ..['Content-Type'] = 'application/json';
+    final headers = await apiClient.getDefaultHeaders();
+    headers['Content-Type'] = 'application/json';
     if (gptSovitsUrl != null) {
       headers['X-GPT-SoVITS-Url'] = gptSovitsUrl;
     }

@@ -3,6 +3,7 @@ from typing import List, Dict, Any, Optional
 
 from qdrant_client import QdrantClient
 from qdrant_client.models import PointStruct, Distance, VectorParams, SparseVectorParams, Modifier, SparseVector
+from backend import context as byod_context
 
 
 class QdrantStorageClient:
@@ -14,7 +15,14 @@ class QdrantStorageClient:
 
     @classmethod
     def from_config(cls, config) -> "QdrantStorageClient":
-        return cls(url=config.qdrant_url, api_key=config.qdrant_api_key)
+        # Check if BYOD context variables are set (from request headers)
+        request_url = byod_context.request_qdrant_url.get()
+        request_key = byod_context.request_qdrant_key.get()
+
+        url = request_url if request_url else config.qdrant_url
+        api_key = request_key if request_key else config.qdrant_api_key
+
+        return cls(url=url, api_key=api_key)
 
     def create_collection(self, collection_name: str, vector_size: int = 384, distance_metric: str = "Cosine"):
         """Create a collection if it doesn't already exist."""

@@ -2,6 +2,7 @@ import uuid
 from typing import Dict, Any, Optional, List
 
 from neo4j import GraphDatabase
+from backend import context as byod_context
 
 
 class Neo4jStorageClient:
@@ -10,7 +11,16 @@ class Neo4jStorageClient:
 
     @classmethod
     def from_config(cls, config) -> "Neo4jStorageClient":
-        return cls(uri=config.neo4j_uri, user=config.neo4j_user, password=config.neo4j_password)
+        # Check if BYOD context variables are set (from request headers)
+        request_uri = byod_context.request_neo4j_uri.get()
+        request_user = byod_context.request_neo4j_user.get()
+        request_pass = byod_context.request_neo4j_pass.get()
+
+        uri = request_uri if request_uri else config.neo4j_uri
+        user = request_user if request_user else config.neo4j_user
+        password = request_pass if request_pass else config.neo4j_password
+
+        return cls(uri=uri, user=user, password=password)
 
     def close(self):
         self.driver.close()
