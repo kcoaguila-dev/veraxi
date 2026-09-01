@@ -1,6 +1,9 @@
 analyzer:
   plugins:
     - import_lint
+  errors:
+    analysis_options_deprecated_plugins: ignore
+    unrecognized_error_code: ignore
 
 import_lint:
   rules:
