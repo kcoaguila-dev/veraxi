@@ -225,107 +225,98 @@ class _CitationChipState extends State<CitationChip> {
     return Material(
       color: Colors.transparent,
       elevation: 12,
-      child: Container(
-        decoration: BoxDecoration(
-          color: const Color(0xFF1A1A1A),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xFF2E2E2E)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.6),
-              blurRadius: 20,
-              offset: const Offset(0, 8),
-            ),
-          ],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // ── Header: favicon + domain ──────────────────────────────
-            Padding(
-              padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
-              child: Row(
-                children: [
-                  if (_faviconUrl.isNotEmpty) ...[
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(3),
-                      child: Image.network(
-                        _faviconUrl,
-                        width: 16,
-                        height: 16,
-                        errorBuilder: (_, __, ___) => const Icon(
-                          Icons.language,
-                          size: 16,
-                          color: Colors.white54,
+      child: InkWell(
+        onTap: () {
+          if (_effectiveUrl.isNotEmpty) launchUrlString(_effectiveUrl);
+        },
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          width: 320,
+          decoration: BoxDecoration(
+            color: const Color(0xFF1E1E1E),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFF2E2E2E)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.6),
+                blurRadius: 20,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(12.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // ── Header: favicon + domain ──────────────────────────────
+                Row(
+                  children: [
+                    if (_faviconUrl.isNotEmpty) ...[
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(2),
+                        child: Image.network(
+                          _faviconUrl,
+                          width: 14,
+                          height: 14,
+                          errorBuilder: (_, __, ___) => const Icon(
+                            Icons.language,
+                            size: 14,
+                            color: Colors.white54,
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                  ],
-                  Expanded(
-                    child: Text(
-                      domain.isNotEmpty ? domain : _displayText,
-                      style: const TextStyle(
-                        color: Color(0xFF8B8B8B),
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
-                        letterSpacing: 0.2,
+                      const SizedBox(width: 6),
+                    ],
+                    Expanded(
+                      child: Text(
+                        domain.isNotEmpty ? domain : _displayText,
+                        style: const TextStyle(
+                          color: Color(0xFFA0A0A0),
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
                     ),
+                  ],
+                ),
+                
+                // ── Article title ─────────────────────────────────────────
+                if (title.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      color: Color(0xFFE8E8E8),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      height: 1.3,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  // External link icon
-                  if (_effectiveUrl.isNotEmpty)
-                    const Icon(
-                      Icons.open_in_new_rounded,
-                      size: 12,
-                      color: Color(0xFF555555),
-                    ),
                 ],
-              ),
+
+                // ── Snippet ───────────────────────────────────────────────
+                if (snippet.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    snippet,
+                    style: const TextStyle(
+                      color: Color(0xFF9A9A9A),
+                      fontSize: 12,
+                      height: 1.4,
+                    ),
+                    maxLines: 4,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ],
             ),
-
-            // ── Divider ───────────────────────────────────────────────
-            const Divider(height: 1, color: Color(0xFF2A2A2A)),
-
-            // ── Article title ─────────────────────────────────────────
-            if (title.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
-                child: Text(
-                  title,
-                  style: const TextStyle(
-                    color: Color(0xFFE8E8E8),
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    height: 1.4,
-                  ),
-                  maxLines: 3,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-
-            // ── Snippet ───────────────────────────────────────────────
-            if (snippet.isNotEmpty)
-              Padding(
-                padding:
-                    EdgeInsets.fromLTRB(14, title.isNotEmpty ? 8 : 10, 14, 14),
-                child: Text(
-                  snippet,
-                  style: const TextStyle(
-                    color: Color(0xFF9A9A9A),
-                    fontSize: 12,
-                    height: 1.55,
-                  ),
-                  maxLines: 5,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              )
-            else
-              const SizedBox(height: 14),
-          ],
+          ),
         ),
       ),
     );
@@ -345,17 +336,18 @@ class _CitationChipState extends State<CitationChip> {
   }
 
   String _resolveSnippet() {
-    if (_sourceData == null) return _effectiveUrl;
+    if (_sourceData == null) return '';
     // Direct content / description from SearXNG
-    final content = _sourceData!['content']?.toString() ?? '';
+    final content = _sourceData!['content']?.toString() ?? _sourceData!['snippet']?.toString() ?? _sourceData!['text']?.toString() ?? '';
     if (content.isNotEmpty) return content;
     // Fallback: nested payload text
     final payload = _sourceData!['payload'];
     if (payload is Map) {
       return payload['snippet']?.toString() ??
           payload['text']?.toString() ??
+          payload['content']?.toString() ??
           '';
     }
-    return _effectiveUrl;
+    return '';
   }
 }

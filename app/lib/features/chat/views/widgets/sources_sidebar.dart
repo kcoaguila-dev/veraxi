@@ -50,6 +50,7 @@ class SourcesSidebar extends StatelessWidget {
                   final source = sources[index];
                   String title = source['title'] ?? 'Web Source';
                   String url = source['url'] ?? '';
+                  String snippet = source['snippet'] ?? '';
                   String domain = '';
                   bool hasValidDomain = false;
                   try {
@@ -142,6 +143,19 @@ class SourcesSidebar extends StatelessWidget {
                               height: 1.4,
                             ),
                           ),
+                          if (snippet.isNotEmpty) ...[
+                            const SizedBox(height: 8),
+                            Text(
+                              snippet,
+                              maxLines: 4,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Color(0xFFB4B4B4),
+                                fontSize: 13,
+                                height: 1.4,
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     ),
