@@ -22,7 +22,8 @@ class _WebSearchDialogState extends State<WebSearchDialog> {
   final TextEditingController _firecrawlUrlController = TextEditingController();
   final TextEditingController _firecrawlKeyController = TextEditingController();
   final TextEditingController _jinaKeyController = TextEditingController();
-  final TextEditingController _serperScrapeKeyController = TextEditingController();
+  final TextEditingController _serperScrapeKeyController =
+      TextEditingController();
   final TextEditingController _tavilyKeyController = TextEditingController();
 
   String _selectedProvider = 'SearXNG';
@@ -44,17 +45,20 @@ class _WebSearchDialogState extends State<WebSearchDialog> {
         final webSearch = settings['web_search'] as Map<String, dynamic>?;
         if (webSearch != null) {
           _selectedProvider = webSearch['provider'] ?? _selectedProvider;
-          _selectedScraper  = webSearch['scraper']   ?? _selectedScraper;
-          _scraperMaxPages  = (webSearch['scraper_max_pages'] as num?)?.toDouble() ?? _scraperMaxPages;
+          _selectedScraper = webSearch['scraper'] ?? _selectedScraper;
+          _scraperMaxPages =
+              (webSearch['scraper_max_pages'] as num?)?.toDouble() ??
+                  _scraperMaxPages;
 
-          _serperKeyController.text       = webSearch['serper_api_key']     ?? '';
-          _searxngUrlController.text      = webSearch['searxng_url']         ?? '';
-          _searxngKeyController.text      = webSearch['searxng_api_key']     ?? '';
-          _firecrawlUrlController.text    = webSearch['firecrawl_url']       ?? '';
-          _firecrawlKeyController.text    = webSearch['firecrawl_api_key']   ?? '';
-          _jinaKeyController.text         = webSearch['jina_api_key']        ?? '';
-          _serperScrapeKeyController.text = webSearch['serper_scrape_key']   ?? '';
-          _tavilyKeyController.text       = webSearch['tavily_api_key']      ?? '';
+          _serperKeyController.text = webSearch['serper_api_key'] ?? '';
+          _searxngUrlController.text = webSearch['searxng_url'] ?? '';
+          _searxngKeyController.text = webSearch['searxng_api_key'] ?? '';
+          _firecrawlUrlController.text = webSearch['firecrawl_url'] ?? '';
+          _firecrawlKeyController.text = webSearch['firecrawl_api_key'] ?? '';
+          _jinaKeyController.text = webSearch['jina_api_key'] ?? '';
+          _serperScrapeKeyController.text =
+              webSearch['serper_scrape_key'] ?? '';
+          _tavilyKeyController.text = webSearch['tavily_api_key'] ?? '';
 
           if (mounted) setState(() {});
         }
@@ -75,23 +79,23 @@ class _WebSearchDialogState extends State<WebSearchDialog> {
       } catch (_) {}
     }
 
-    final bool isEnabled = settings['web_search'] is Map 
-        ? (settings['web_search']['enabled'] as bool? ?? true) 
+    final bool isEnabled = settings['web_search'] is Map
+        ? (settings['web_search']['enabled'] as bool? ?? true)
         : true;
 
     settings['web_search'] = {
-      'enabled':            isEnabled,
-      'provider':           _selectedProvider,
-      'scraper':            _selectedScraper,
-      'scraper_max_pages':  _scraperMaxPages.round(),
-      'serper_api_key':     _serperKeyController.text,
-      'searxng_url':        _searxngUrlController.text,
-      'searxng_api_key':    _searxngKeyController.text,
-      'firecrawl_url':      _firecrawlUrlController.text,
-      'firecrawl_api_key':  _firecrawlKeyController.text,
-      'jina_api_key':       _jinaKeyController.text,
-      'serper_scrape_key':  _serperScrapeKeyController.text,
-      'tavily_api_key':     _tavilyKeyController.text,
+      'enabled': isEnabled,
+      'provider': _selectedProvider,
+      'scraper': _selectedScraper,
+      'scraper_max_pages': _scraperMaxPages.round(),
+      'serper_api_key': _serperKeyController.text,
+      'searxng_url': _searxngUrlController.text,
+      'searxng_api_key': _searxngKeyController.text,
+      'firecrawl_url': _firecrawlUrlController.text,
+      'firecrawl_api_key': _firecrawlKeyController.text,
+      'jina_api_key': _jinaKeyController.text,
+      'serper_scrape_key': _serperScrapeKeyController.text,
+      'tavily_api_key': _tavilyKeyController.text,
     };
 
     await prefs.setString('tool_settings', jsonEncode(settings));
@@ -222,7 +226,8 @@ class _WebSearchDialogState extends State<WebSearchDialog> {
                       thumbColor: const Color(0xFF10A37F),
                       overlayColor: const Color(0x2210A37F),
                       trackHeight: 2,
-                      thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+                      thumbShape:
+                          const RoundSliderThumbShape(enabledThumbRadius: 6),
                     ),
                     child: Slider(
                       value: _scraperMaxPages,
@@ -249,11 +254,14 @@ class _WebSearchDialogState extends State<WebSearchDialog> {
                       style: TextButton.styleFrom(
                         backgroundColor: const Color(0xFF2F2F2F),
                         foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 10),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(6)),
                       ),
                       child: const Text('Cancel',
-                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                          style: TextStyle(
+                              fontSize: 13, fontWeight: FontWeight.w500)),
                     ),
                     const SizedBox(width: 12),
                     TextButton(
@@ -261,11 +269,14 @@ class _WebSearchDialogState extends State<WebSearchDialog> {
                       style: TextButton.styleFrom(
                         backgroundColor: const Color(0xFF10A37F),
                         foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 10),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(6)),
                       ),
                       child: const Text('Save',
-                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                          style: TextStyle(
+                              fontSize: 13, fontWeight: FontWeight.w500)),
                     ),
                   ],
                 ),
@@ -284,9 +295,13 @@ class _WebSearchDialogState extends State<WebSearchDialog> {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _InputField(controller: _searxngUrlController, hintText: 'SearXNG Instance URL'),
+          _InputField(
+              controller: _searxngUrlController,
+              hintText: 'SearXNG Instance URL'),
           const SizedBox(height: 8),
-          _ApiKeyField(controller: _searxngKeyController, hintText: 'API Key (optional)'),
+          _ApiKeyField(
+              controller: _searxngKeyController,
+              hintText: 'API Key (optional)'),
         ],
       );
     }
@@ -294,7 +309,8 @@ class _WebSearchDialogState extends State<WebSearchDialog> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _ApiKeyField(controller: _serperKeyController, hintText: 'Enter API Key'),
+        _ApiKeyField(
+            controller: _serperKeyController, hintText: 'Enter API Key'),
         const SizedBox(height: 6),
         RichText(
           text: _linkSpan(
@@ -321,7 +337,8 @@ class _WebSearchDialogState extends State<WebSearchDialog> {
       case 'Trafilatura (local)':
         return _InfoChip(
           icon: Icons.terminal_rounded,
-          text: 'Runs locally — no API key needed. Extracts text from HTML pages. '
+          text:
+              'Runs locally — no API key needed. Extracts text from HTML pages. '
               'Does not render JavaScript.',
         );
 
@@ -573,7 +590,8 @@ class _ApiKeyFieldState extends State<_ApiKeyField> {
   @override
   void initState() {
     super.initState();
-    _focusNode.addListener(() => setState(() => _isFocused = _focusNode.hasFocus));
+    _focusNode
+        .addListener(() => setState(() => _isFocused = _focusNode.hasFocus));
   }
 
   @override

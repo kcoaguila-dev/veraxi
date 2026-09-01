@@ -423,7 +423,8 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
   }
 
   List<Widget> _buildAccountTab() {
-    final email = Supabase.instance.client.auth.currentUser?.email ?? 'Not signed in';
+    final email =
+        Supabase.instance.client.auth.currentUser?.email ?? 'Not signed in';
 
     return [
       _buildSectionHeader('PROFILE'),
@@ -472,7 +473,8 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                _buildLinkButton('GitHub', Icons.code, 'https://github.com/kcoaguila-dev/veraxi'),
+                _buildLinkButton('GitHub', Icons.code,
+                    'https://github.com/kcoaguila-dev/veraxi'),
                 const SizedBox(width: 12),
                 _buildLinkButton('Website', Icons.language, '/'),
               ],

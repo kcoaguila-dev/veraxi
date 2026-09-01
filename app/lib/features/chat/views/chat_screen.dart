@@ -56,7 +56,9 @@ class CitationElementBuilder extends MarkdownElementBuilder {
 }
 
 class CitationSyntax extends md.InlineSyntax {
-  CitationSyntax() : super(r'\[([^\]]+)\](?:\s*\(\s*(?:-\s*)?https?:\/\/[^\)]+\s*\))?\s*[.,;:]?');
+  CitationSyntax()
+      : super(
+            r'\[([^\]]+)\](?:\s*\(\s*(?:-\s*)?https?:\/\/[^\)]+\s*\))?\s*[.,;:]?');
 
   @override
   bool onMatch(md.InlineParser parser, Match match) {
@@ -1539,8 +1541,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                         ],
                       ),
 
-
-
                       // Removed overlapping Positioned toggle icon
 
                       // Top Bar: Model Selector (like LibreChat)
@@ -1562,13 +1562,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                       setState(() {
                                         _selectedModel = model;
                                       });
-                                      _saveSelectedModel(_selectedModel, _selectedProvider);
+                                      _saveSelectedModel(
+                                          _selectedModel, _selectedProvider);
                                     },
                                     onModelPinned: (model) {
                                       setState(() => _pinnedModels.add(model));
                                     },
                                     onModelUnpinned: (model) {
-                                      setState(() => _pinnedModels.remove(model));
+                                      setState(
+                                          () => _pinnedModels.remove(model));
                                     },
                                   ),
                                 );
@@ -1731,8 +1733,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                           ),
                         ),
                       ),
-
-
                     ],
                   ),
                 ),
@@ -1936,16 +1936,19 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                 MarkdownBody(
                                   data: msg.content,
                                   extensionSet: md.ExtensionSet(
-                                    md.ExtensionSet.gitHubFlavored.blockSyntaxes,
+                                    md.ExtensionSet.gitHubFlavored
+                                        .blockSyntaxes,
                                     [
                                       CitationSyntax(),
-                                      ...md.ExtensionSet.gitHubFlavored.inlineSyntaxes,
+                                      ...md.ExtensionSet.gitHubFlavored
+                                          .inlineSyntaxes,
                                     ],
                                   ),
                                   builders: {
                                     'code': CodeElementBuilder(context),
                                     'a': CitationElementBuilder(message: msg),
-                                    'cite': CitationElementBuilder(message: msg),
+                                    'cite':
+                                        CitationElementBuilder(message: msg),
                                   },
                                   styleSheet: MarkdownStyleSheet(
                                     p: theme.textTheme.bodyLarge
@@ -2139,7 +2142,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           lowerModel.startsWith('allam') ||
           lowerModel.startsWith('meta')) {
         iconColor = const Color(0xFFf55036);
-      } else if (lowerModel.startsWith('mistral') || lowerModel.startsWith('mixtral')) {
+      } else if (lowerModel.startsWith('mistral') ||
+          lowerModel.startsWith('mixtral')) {
         iconColor = const Color(0xFFFF9800);
       }
 
@@ -2148,8 +2152,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         height: size,
         child: Center(
           child: SvgPicture.asset(
-            assetPath, 
-            width: size, 
+            assetPath,
+            width: size,
             height: size,
             colorFilter: ColorFilter.mode(iconColor, BlendMode.srcIn),
           ),
@@ -2227,7 +2231,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       // Better: Use Uri.base from dart:core
       final baseUrl = Uri.base.origin;
       final url = '$baseUrl/#/share/$shareId';
-      
+
       showDialog(
         context: context,
         builder: (context) {
@@ -2244,7 +2248,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     style: TextStyle(color: Color(0xFFB4B4B4), fontSize: 13)),
                 const SizedBox(height: 16),
                 Container(
-                  padding: const EdgeInsets.only(left: 12, right: 4, top: 4, bottom: 4),
+                  padding: const EdgeInsets.only(
+                      left: 12, right: 4, top: 4, bottom: 4),
                   decoration: BoxDecoration(
                     color: const Color(0xFF2A2A2A),
                     borderRadius: BorderRadius.circular(8),
@@ -2260,12 +2265,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                         ),
                       ),
                       IconButton(
-                        icon: const Icon(Icons.copy, size: 18, color: Color(0xFFB4B4B4)),
+                        icon: const Icon(Icons.copy,
+                            size: 18, color: Color(0xFFB4B4B4)),
                         onPressed: () {
                           Clipboard.setData(ClipboardData(text: url));
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
-                              content: Text('Link copied to clipboard', style: TextStyle(color: Colors.white)),
+                              content: Text('Link copied to clipboard',
+                                  style: TextStyle(color: Colors.white)),
                               backgroundColor: Color(0xFF4CAF50),
                               behavior: SnackBarBehavior.floating,
                             ),

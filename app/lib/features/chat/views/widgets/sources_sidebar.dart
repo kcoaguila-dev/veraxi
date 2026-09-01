@@ -54,7 +54,8 @@ class SourcesSidebar extends StatelessWidget {
                   bool hasValidDomain = false;
                   try {
                     if (url.isNotEmpty && url != 'Internal Database') {
-                      final uri = Uri.tryParse(url.startsWith('http') ? url : 'http://$url');
+                      final uri = Uri.tryParse(
+                          url.startsWith('http') ? url : 'http://$url');
                       domain = uri?.host.replaceFirst('www.', '') ?? '';
                       if (domain.contains('.')) {
                         hasValidDomain = true;
@@ -62,7 +63,8 @@ class SourcesSidebar extends StatelessWidget {
                     }
                   } catch (_) {}
 
-                  String displayDomain = hasValidDomain ? domain : 'Internal Database';
+                  String displayDomain =
+                      hasValidDomain ? domain : 'Internal Database';
 
                   return InkWell(
                     onTap: () {

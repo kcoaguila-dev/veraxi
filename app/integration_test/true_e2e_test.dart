@@ -20,11 +20,14 @@ void main() async {
   });
 
   await Supabase.initialize(
-    url: const String.fromEnvironment('SUPABASE_URL', defaultValue: 'https://zjtqrwxyoswzlvtetjzi.supabase.co'),
-    publishableKey: const String.fromEnvironment('SUPABASE_ANON_KEY', defaultValue: 'sb_publishable_6j3NNIfgI5V209p9QGL-DA_GyEsz9jI'),
+    url: const String.fromEnvironment('SUPABASE_URL',
+        defaultValue: 'https://zjtqrwxyoswzlvtetjzi.supabase.co'),
+    publishableKey: const String.fromEnvironment('SUPABASE_ANON_KEY',
+        defaultValue: 'sb_publishable_6j3NNIfgI5V209p9QGL-DA_GyEsz9jI'),
   );
 
-  testWidgets('True E2E Test: Login -> Send Message -> Verify History', (WidgetTester tester) async {
+  testWidgets('True E2E Test: Login -> Send Message -> Verify History',
+      (WidgetTester tester) async {
     // Start App normally, using real Riverpod providers (NO mocks!)
     await tester.pumpWidget(
       const ProviderScope(
@@ -39,7 +42,7 @@ void main() async {
     // 1. Wait for Login Screen
     // We expect "Welcome Back" to be visible
     expect(find.text('Welcome Back'), findsOneWidget);
-    
+
     // 2. Find fields and log in
     final emailField = find.byType(TextField).first;
     final passField = find.byType(TextField).last;
@@ -65,14 +68,14 @@ void main() async {
       matching: find.byType(TextField),
     );
     await tester.enterText(chatInput, 'Hello E2E Integration Test');
-    
+
     // Pump to allow the ChatInput controller listener to enable the send button
     await tester.pumpAndSettle();
 
     // Tap Send Button (Send icon)
     await tester.tap(find.byIcon(Icons.arrow_upward).first);
-    
-    // 5. Wait for the stream to finish. 
+
+    // 5. Wait for the stream to finish.
     // We loop pump because streams break pumpAndSettle if they take a while.
     for (int i = 0; i < 20; i++) {
       await tester.pump(const Duration(milliseconds: 500));
@@ -81,20 +84,20 @@ void main() async {
 
     // 6. Assert the message bubble appears for the User
     expect(find.text('Hello E2E Integration Test'), findsOneWidget);
-    
+
     // 7. Assert that a response from the AI also appeared
     // The backend AI should respond with markdown text.
     expect(find.byType(MarkdownBody), findsWidgets);
-    
+
     // 8. CRITICAL: Verify the thread appeared in the history sidebar!
     // The previous bug caused the history to be missing on startup.
     // We wait for the sidebar to refresh and ensure it's not empty.
     await tester.pumpAndSettle(const Duration(seconds: 2));
-    
+
     // The text 'Hello E2E Integration Test' might be truncated as the title.
     // Let's just check if there is text in the sidebar below 'Chats'.
     // If it fails here, it means the Auth race condition is back or threads aren't saving.
     final chatsText = find.text('Chats');
-    expect(chatsText, findsWidgets); 
+    expect(chatsText, findsWidgets);
   });
 }

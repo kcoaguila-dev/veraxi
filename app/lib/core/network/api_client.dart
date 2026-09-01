@@ -5,16 +5,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-/// Provides the ApiClient. It dynamically fetches the latest session token on 
-/// every request via [getDefaultHeaders], so we don't need to rebuild this provider 
+/// Provides the ApiClient. It dynamically fetches the latest session token on
+/// every request via [getDefaultHeaders], so we don't need to rebuild this provider
 /// when auth state changes (which would destructively reset ViewModels).
 final apiClientProvider = Provider<ApiClient>((ref) {
   final session = Supabase.instance.client.auth.currentSession;
   final tenantId = session?.accessToken;
   return ApiClient(tenantId: tenantId);
 });
-
-
 
 class ApiClient {
   final String baseUrl;
@@ -36,7 +34,7 @@ class ApiClient {
       'Pragma': 'no-cache',
       'Expires': '0',
     };
-    
+
     String? token = tenantId;
     try {
       final session = Supabase.instance.client.auth.currentSession;
@@ -46,17 +44,22 @@ class ApiClient {
     } catch (_) {
       // Fallback to tenantId if Supabase is not initialized
     }
-    
+
     if (token != null) {
       headers['Authorization'] = 'Bearer $token';
     }
 
     final byod = await _apiKeyStorage.getByodConfig();
-    if (byod['neo4j_uri']!.isNotEmpty) headers['X-BYOD-Neo4j-URI'] = byod['neo4j_uri']!;
-    if (byod['neo4j_user']!.isNotEmpty) headers['X-BYOD-Neo4j-User'] = byod['neo4j_user']!;
-    if (byod['neo4j_pass']!.isNotEmpty) headers['X-BYOD-Neo4j-Pass'] = byod['neo4j_pass']!;
-    if (byod['qdrant_url']!.isNotEmpty) headers['X-BYOD-Qdrant-URL'] = byod['qdrant_url']!;
-    if (byod['qdrant_key']!.isNotEmpty) headers['X-BYOD-Qdrant-Key'] = byod['qdrant_key']!;
+    if (byod['neo4j_uri']!.isNotEmpty)
+      headers['X-BYOD-Neo4j-URI'] = byod['neo4j_uri']!;
+    if (byod['neo4j_user']!.isNotEmpty)
+      headers['X-BYOD-Neo4j-User'] = byod['neo4j_user']!;
+    if (byod['neo4j_pass']!.isNotEmpty)
+      headers['X-BYOD-Neo4j-Pass'] = byod['neo4j_pass']!;
+    if (byod['qdrant_url']!.isNotEmpty)
+      headers['X-BYOD-Qdrant-URL'] = byod['qdrant_url']!;
+    if (byod['qdrant_key']!.isNotEmpty)
+      headers['X-BYOD-Qdrant-Key'] = byod['qdrant_key']!;
 
     return headers;
   }

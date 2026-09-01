@@ -12,9 +12,11 @@ import 'package:veraxi_app/main.dart';
 final GlobalKey<NavigatorState> _rootNavigatorKey =
     GlobalKey<NavigatorState>(debugLabel: 'root');
 
-const bool isAuthEnabled = bool.fromEnvironment('AUTH_ENABLED', defaultValue: true);
+const bool isAuthEnabled =
+    bool.fromEnvironment('AUTH_ENABLED', defaultValue: true);
 
-const bool isSelfHosted = bool.fromEnvironment('IS_SELF_HOSTED', defaultValue: true);
+const bool isSelfHosted =
+    bool.fromEnvironment('IS_SELF_HOSTED', defaultValue: true);
 
 bool? mockIsAuth;
 

@@ -6,8 +6,10 @@ import 'package:go_router/go_router.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
 import 'package:veraxi_app/features/chat/view_models/chat_view_model.dart';
 import 'package:veraxi_app/features/chat/data/chat_repository.dart';
-import 'package:veraxi_app/features/chat/views/chat_screen.dart' show CitationSyntax, CitationElementBuilder;
+import 'package:veraxi_app/features/chat/views/chat_screen.dart'
+    show CitationSyntax, CitationElementBuilder;
 import 'package:veraxi_app/core/widgets/profile_menu_button.dart';
+
 /// Does not require BuildContext unlike the full CodeElementBuilder in chat_screen.dart.
 class _CodeBuilder extends MarkdownElementBuilder {
   @override
@@ -81,9 +83,11 @@ class _SharedChatScreenState extends ConsumerState<SharedChatScreen> {
     }
   }
 
-  Widget _buildChatMessage(ChatMessage msg, ThemeData theme, AppThemeExtension ext) {
+  Widget _buildChatMessage(
+      ChatMessage msg, ThemeData theme, AppThemeExtension ext) {
     final isUser = msg.role == 'user';
-    final name = isUser ? resolveDisplayName() : (msg.modelName ?? 'AI Assistant');
+    final name =
+        isUser ? resolveDisplayName() : (msg.modelName ?? 'AI Assistant');
     final avatar = isUser
         ? Container(
             width: 28,
@@ -98,7 +102,8 @@ class _SharedChatScreenState extends ConsumerState<SharedChatScreen> {
             height: 28,
             alignment: Alignment.center,
             decoration: const BoxDecoration(color: Colors.transparent),
-            child: Icon(Icons.auto_awesome, color: ext.primaryGradientStart, size: 20),
+            child: Icon(Icons.auto_awesome,
+                color: ext.primaryGradientStart, size: 20),
           );
 
     return Center(
@@ -121,7 +126,9 @@ class _SharedChatScreenState extends ConsumerState<SharedChatScreen> {
                                 color: Colors.white)),
                         const SizedBox(height: 8),
                         if (isUser)
-                          Text(msg.content, style: theme.textTheme.bodyLarge?.copyWith(height: 1.5))
+                          Text(msg.content,
+                              style: theme.textTheme.bodyLarge
+                                  ?.copyWith(height: 1.5))
                         else
                           MarkdownBody(
                             data: msg.content,
@@ -130,7 +137,8 @@ class _SharedChatScreenState extends ConsumerState<SharedChatScreen> {
                               md.ExtensionSet.gitHubFlavored.blockSyntaxes,
                               [
                                 CitationSyntax(),
-                                ...md.ExtensionSet.gitHubFlavored.inlineSyntaxes,
+                                ...md
+                                    .ExtensionSet.gitHubFlavored.inlineSyntaxes,
                               ],
                             ),
                             builders: {
@@ -174,7 +182,8 @@ class _SharedChatScreenState extends ConsumerState<SharedChatScreen> {
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
         backgroundColor: const Color(0xFF1A1A1A),
-        title: const Text('Shared Conversation', style: TextStyle(fontSize: 14)),
+        title:
+            const Text('Shared Conversation', style: TextStyle(fontSize: 14)),
         centerTitle: true,
         leading: IconButton(
           icon: const Icon(Icons.home_outlined),
@@ -184,7 +193,9 @@ class _SharedChatScreenState extends ConsumerState<SharedChatScreen> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
-              ? Center(child: Text(_error!, style: const TextStyle(color: Colors.red)))
+              ? Center(
+                  child:
+                      Text(_error!, style: const TextStyle(color: Colors.red)))
               : ListView.builder(
                   padding: const EdgeInsets.only(bottom: 120),
                   itemCount: _messages.length,

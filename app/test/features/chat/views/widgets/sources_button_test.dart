@@ -98,7 +98,8 @@ void main() {
         final sources = SourcesButton.extractSources(message);
         expect(sources.length, 1);
         // Must be the real URL, NOT "vector" or empty
-        expect(sources[0]['url'], 'https://www.technews-daily.com/articles/ai-roundup');
+        expect(sources[0]['url'],
+            'https://www.technews-daily.com/articles/ai-roundup');
         expect(sources[0]['title'], contains('AI Weekly'));
       },
     );
@@ -267,7 +268,8 @@ void main() {
       expect(sources[0]['url'], 'https://fallback-from-sources.com/page');
     });
 
-    test('sources array with non-http value like "vector" is NOT used as URL', () {
+    test('sources array with non-http value like "vector" is NOT used as URL',
+        () {
       final toolEvent = ToolEvent(
         id: 'tool-8',
         name: 'search_vectors',
@@ -299,10 +301,8 @@ void main() {
         name: 'web_search',
         isComplete: true,
         result: [
-          _webHitArtifact(
-              url: 'https://example.com', title: 'Duplicate A'),
-          _webHitArtifact(
-              url: 'https://example.com', title: 'Duplicate B'),
+          _webHitArtifact(url: 'https://example.com', title: 'Duplicate A'),
+          _webHitArtifact(url: 'https://example.com', title: 'Duplicate B'),
         ],
       );
 
@@ -322,7 +322,10 @@ void main() {
         name: 'web_search',
         isComplete: true,
         result: [
-          {'payload': {}, 'sources': ['vector']}, // completely empty
+          {
+            'payload': {},
+            'sources': ['vector']
+          }, // completely empty
           _webHitArtifact(url: 'https://valid.com', title: 'Valid'),
         ],
       );
@@ -340,7 +343,8 @@ void main() {
   });
 
   group('SourcesButton widget rendering', () {
-    testWidgets('renders correct source count for web search results', (WidgetTester tester) async {
+    testWidgets('renders correct source count for web search results',
+        (WidgetTester tester) async {
       final toolEvent = ToolEvent(
         id: 'tool-widget-1',
         name: 'web_search',
@@ -404,7 +408,8 @@ void main() {
       expect(callbackFired, isTrue);
     });
 
-    testWidgets('renders nothing when no sources are found', (WidgetTester tester) async {
+    testWidgets('renders nothing when no sources are found',
+        (WidgetTester tester) async {
       final message = ChatMessage(
         role: 'assistant',
         content: 'A simple answer with no tool calls.',

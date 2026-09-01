@@ -6,7 +6,8 @@ import 'package:veraxi_app/features/chat/view_models/chat_view_model.dart';
 import 'package:veraxi_app/features/chat/views/chat_screen.dart';
 
 void main() {
-  testWidgets('ChatScreen shows past threads in desktop sidebar', (WidgetTester tester) async {
+  testWidgets('ChatScreen shows past threads in desktop sidebar',
+      (WidgetTester tester) async {
     // We will set a wide screen size to trigger desktop layout
     tester.view.physicalSize = const Size(1200, 800);
     tester.view.devicePixelRatio = 1.0;
@@ -23,7 +24,8 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          chatViewModelProvider.overrideWith((ref) => MockChatViewModel(mockState)),
+          chatViewModelProvider
+              .overrideWith((ref) => MockChatViewModel(mockState)),
         ],
         child: MaterialApp(
           theme: AppTheme.lightTheme,
@@ -43,7 +45,8 @@ void main() {
   });
 }
 
-class MockChatViewModel extends StateNotifier<ChatState> implements ChatViewModel {
+class MockChatViewModel extends StateNotifier<ChatState>
+    implements ChatViewModel {
   MockChatViewModel(ChatState state) : super(state);
 
   @override
@@ -78,7 +81,7 @@ class MockChatViewModel extends StateNotifier<ChatState> implements ChatViewMode
 
   @override
   Future<void> selectThread(String threadId) async {}
-  
+
   @override
   Future<void> editMessage(String messageId, String content) async {}
 
@@ -92,9 +95,11 @@ class MockChatViewModel extends StateNotifier<ChatState> implements ChatViewMode
   Future<void> regenerateResponse() async {}
 
   @override
-  Future<void> sendMessage(String text, {List<dynamic>? attachments, String? model}) async {
+  Future<void> sendMessage(String text,
+      {List<dynamic>? attachments, String? model}) async {
     return super.noSuchMethod(
-      Invocation.method(#sendMessage, [text], {#attachments: attachments, #model: model}),
+      Invocation.method(
+          #sendMessage, [text], {#attachments: attachments, #model: model}),
     );
   }
 
@@ -119,7 +124,8 @@ class MockChatViewModel extends StateNotifier<ChatState> implements ChatViewMode
   @override
   Future<String?> shareThread(String threadId) async => null;
   @override
-  Future<void> assignThreadToProject(String threadId, String? projectId) async {}
+  Future<void> assignThreadToProject(
+      String threadId, String? projectId) async {}
   @override
   Future<List<Map<String, dynamic>>> getProjects() async => [];
   @override

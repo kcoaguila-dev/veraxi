@@ -28,7 +28,7 @@ class BillingView extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 32),
-          
+
           // Current Plan Card
           Container(
             padding: const EdgeInsets.all(32),
@@ -47,7 +47,8 @@ class BillingView extends StatelessWidget {
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        const Icon(Icons.eco_outlined, color: Colors.white, size: 36),
+                        const Icon(Icons.eco_outlined,
+                            color: Colors.white, size: 36),
                         const SizedBox(width: 16),
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -77,8 +78,10 @@ class BillingView extends StatelessWidget {
                         backgroundColor: Colors.white,
                         foregroundColor: Colors.black,
                         elevation: 0,
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 20, vertical: 12),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8)),
                       ),
                       onPressed: () {
                         showDialog(
@@ -88,13 +91,14 @@ class BillingView extends StatelessWidget {
                       },
                       child: const Text(
                         'Upgrade plan',
-                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                        style: TextStyle(
+                            fontSize: 14, fontWeight: FontWeight.w600),
                       ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 32),
-                
+
                 // Feature List
                 _buildFeatureRow('Bring your own LLM API Keys'),
                 _buildFeatureRow('Run your own local Neo4j & Qdrant'),

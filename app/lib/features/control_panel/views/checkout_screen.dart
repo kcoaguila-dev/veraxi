@@ -25,14 +25,16 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
           icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: const Text('Upgrade', style: TextStyle(color: Colors.white, fontSize: 16)),
+        title: const Text('Upgrade',
+            style: TextStyle(color: Colors.white, fontSize: 16)),
         centerTitle: false,
       ),
       body: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 1000),
           child: ListView(
-            padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 40.0),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 24.0, vertical: 40.0),
             children: [
               LayoutBuilder(
                 builder: (context, constraints) {
@@ -69,10 +71,11 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       children: [
         const Text(
           'Configure your plan',
-          style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w600),
+          style: TextStyle(
+              color: Colors.white, fontSize: 24, fontWeight: FontWeight.w600),
         ),
         const SizedBox(height: 24),
-        
+
         // Plan Toggles
         Row(
           children: [
@@ -102,12 +105,24 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
 
         const Text(
           'Billing information',
-          style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
+          style: TextStyle(
+              color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
         ),
         const SizedBox(height: 16),
         _buildTextField('Full name'),
         const SizedBox(height: 16),
-        _buildDropdownField('Country or region', ['United States', 'Canada', 'United Kingdom', 'Japan', 'Germany', 'France', 'Australia'], 'United States'),
+        _buildDropdownField(
+            'Country or region',
+            [
+              'United States',
+              'Canada',
+              'United Kingdom',
+              'Japan',
+              'Germany',
+              'France',
+              'Australia'
+            ],
+            'United States'),
         const SizedBox(height: 16),
         _buildTextField('Postal code'),
         const SizedBox(height: 16),
@@ -116,14 +131,16 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
 
         const Text(
           'Payment method',
-          style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
+          style: TextStyle(
+              color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
         ),
         const SizedBox(height: 16),
         _buildTextField('Card number', hint: '1234 1234 1234 1234'),
         const SizedBox(height: 16),
         Row(
           children: [
-            Expanded(child: _buildTextField('Expiration date', hint: 'MM / YY')),
+            Expanded(
+                child: _buildTextField('Expiration date', hint: 'MM / YY')),
             const SizedBox(width: 16),
             Expanded(child: _buildTextField('Security code', hint: 'CVC')),
           ],
@@ -149,10 +166,15 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         children: [
           const Text(
             'Pro plan',
-            style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold, fontFamily: 'serif'), // Anthropic-style serif touch
+            style: TextStyle(
+                color: Colors.white,
+                fontSize: 28,
+                fontWeight: FontWeight.bold,
+                fontFamily: 'serif'), // Anthropic-style serif touch
           ),
           const SizedBox(height: 32),
-          _buildSummaryRow(_isAnnual ? 'Pro annual' : 'Pro monthly', '\$${subtotal.toStringAsFixed(2)}'),
+          _buildSummaryRow(_isAnnual ? 'Pro annual' : 'Pro monthly',
+              '\$${subtotal.toStringAsFixed(2)}'),
           const SizedBox(height: 12),
           _buildSummaryRow('Subtotal', '\$${subtotal.toStringAsFixed(2)}'),
           const SizedBox(height: 12),
@@ -163,12 +185,20 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Total due today', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600)),
-              Text('\$${total.toStringAsFixed(2)}', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600)),
+              const Text('Total due today',
+                  style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600)),
+              Text('\$${total.toStringAsFixed(2)}',
+                  style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600)),
             ],
           ),
           const SizedBox(height: 32),
-          
+
           // Disclaimer Box
           Container(
             padding: const EdgeInsets.all(16),
@@ -179,19 +209,21 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(Icons.info_outline, color: Color(0xFF878787), size: 18),
+                const Icon(Icons.info_outline,
+                    color: Color(0xFF878787), size: 18),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
                     'Your subscription will auto-renew on ${DateTime.now().add(_isAnnual ? const Duration(days: 365) : const Duration(days: 30)).toString().substring(0, 10)}. You will be charged \$${subtotal.toStringAsFixed(2)}/${_isAnnual ? "year" : "month"} + tax.',
-                    style: const TextStyle(color: Color(0xFFB4B4B4), fontSize: 13),
+                    style:
+                        const TextStyle(color: Color(0xFFB4B4B4), fontSize: 13),
                   ),
                 ),
               ],
             ),
           ),
           const SizedBox(height: 24),
-          
+
           // Terms Checkbox
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -201,8 +233,12 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                 height: 24,
                 child: Checkbox(
                   value: _termsAccepted,
-                  onChanged: (val) => setState(() => _termsAccepted = val ?? false),
-                  fillColor: WidgetStateProperty.resolveWith((states) => states.contains(WidgetState.selected) ? const Color(0xFF10A37F) : Colors.transparent),
+                  onChanged: (val) =>
+                      setState(() => _termsAccepted = val ?? false),
+                  fillColor: WidgetStateProperty.resolveWith((states) =>
+                      states.contains(WidgetState.selected)
+                          ? const Color(0xFF10A37F)
+                          : Colors.transparent),
                   side: const BorderSide(color: Color(0xFF878787)),
                 ),
               ),
@@ -216,48 +252,58 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
             ],
           ),
           const SizedBox(height: 32),
-          
+
           // Subscribe Button
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: _termsAccepted ? Colors.white : const Color(0xFF4A4A4A),
+                backgroundColor:
+                    _termsAccepted ? Colors.white : const Color(0xFF4A4A4A),
                 foregroundColor: Colors.black,
                 padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8)),
                 elevation: 0,
               ),
-              onPressed: _termsAccepted ? () async {
-                try {
-                  final apiClient = ref.read(apiClientProvider);
-                  final response = await apiClient.post(
-                    '/v1/payments/create-checkout-session',
-                    body: {'plan': _isAnnual ? 'annual' : 'monthly'},
-                  );
-                  
-                  final checkoutUrl = response['checkout_url'];
-                  if (checkoutUrl != null) {
-                    final uri = Uri.parse(checkoutUrl);
-                    if (await canLaunchUrl(uri)) {
-                      await launchUrl(uri, mode: LaunchMode.externalApplication);
-                    } else {
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Could not launch payment portal.')),
+              onPressed: _termsAccepted
+                  ? () async {
+                      try {
+                        final apiClient = ref.read(apiClientProvider);
+                        final response = await apiClient.post(
+                          '/v1/payments/create-checkout-session',
+                          body: {'plan': _isAnnual ? 'annual' : 'monthly'},
                         );
+
+                        final checkoutUrl = response['checkout_url'];
+                        if (checkoutUrl != null) {
+                          final uri = Uri.parse(checkoutUrl);
+                          if (await canLaunchUrl(uri)) {
+                            await launchUrl(uri,
+                                mode: LaunchMode.externalApplication);
+                          } else {
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                    content: Text(
+                                        'Could not launch payment portal.')),
+                              );
+                            }
+                          }
+                        }
+                      } catch (e) {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                                content: Text(
+                                    'Error creating checkout session: $e')),
+                          );
+                        }
                       }
                     }
-                  }
-                } catch (e) {
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Error creating checkout session: $e')),
-                    );
-                  }
-                }
-              } : null,
-              child: const Text('Subscribe', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                  : null,
+              child: const Text('Subscribe',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
             ),
           ),
         ],
@@ -269,8 +315,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label, style: const TextStyle(color: Color(0xFF878787), fontSize: 14)),
-        Text(amount, style: const TextStyle(color: Color(0xFF878787), fontSize: 14)),
+        Text(label,
+            style: const TextStyle(color: Color(0xFF878787), fontSize: 14)),
+        Text(amount,
+            style: const TextStyle(color: Color(0xFF878787), fontSize: 14)),
       ],
     );
   }
@@ -288,10 +336,13 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       child: Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF1A2235) : const Color(0xFF1E1E1E), // Subtle blue tint when selected
+          color: isSelected
+              ? const Color(0xFF1A2235)
+              : const Color(0xFF1E1E1E), // Subtle blue tint when selected
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isSelected ? const Color(0xFF3B82F6) : const Color(0xFF2A2A2A),
+            color:
+                isSelected ? const Color(0xFF3B82F6) : const Color(0xFF2A2A2A),
             width: 2,
           ),
         ),
@@ -302,20 +353,34 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Icon(
-                  isSelected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
-                  color: isSelected ? const Color(0xFF3B82F6) : const Color(0xFF878787),
+                  isSelected
+                      ? Icons.radio_button_checked
+                      : Icons.radio_button_unchecked,
+                  color: isSelected
+                      ? const Color(0xFF3B82F6)
+                      : const Color(0xFF878787),
                   size: 20,
                 ),
                 if (badge != null)
-                  Text(badge, style: const TextStyle(color: Color(0xFF3B82F6), fontSize: 12, fontWeight: FontWeight.w600)),
+                  Text(badge,
+                      style: const TextStyle(
+                          color: Color(0xFF3B82F6),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600)),
               ],
             ),
             const SizedBox(height: 16),
-            Text(title, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w500)),
+            Text(title,
+                style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500)),
             const SizedBox(height: 8),
-            Text(price, style: const TextStyle(color: Color(0xFFB4B4B4), fontSize: 14)),
+            Text(price,
+                style: const TextStyle(color: Color(0xFFB4B4B4), fontSize: 14)),
             const SizedBox(height: 4),
-            Text(subtitle, style: const TextStyle(color: Color(0xFF878787), fontSize: 13)),
+            Text(subtitle,
+                style: const TextStyle(color: Color(0xFF878787), fontSize: 13)),
           ],
         ),
       ),
@@ -326,7 +391,11 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(color: Color(0xFFB4B4B4), fontSize: 13, fontWeight: FontWeight.w500)),
+        Text(label,
+            style: const TextStyle(
+                color: Color(0xFFB4B4B4),
+                fontSize: 13,
+                fontWeight: FontWeight.w500)),
         const SizedBox(height: 8),
         TextFormField(
           initialValue: initialValue,
@@ -337,19 +406,27 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
             hintStyle: const TextStyle(color: Color(0xFF4A4A4A)),
             filled: true,
             fillColor: const Color(0xFF1E1E1E),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide.none),
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           ),
         ),
       ],
     );
   }
 
-  Widget _buildDropdownField(String label, List<String> options, String initialValue) {
+  Widget _buildDropdownField(
+      String label, List<String> options, String initialValue) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(color: Color(0xFFB4B4B4), fontSize: 13, fontWeight: FontWeight.w500)),
+        Text(label,
+            style: const TextStyle(
+                color: Color(0xFFB4B4B4),
+                fontSize: 13,
+                fontWeight: FontWeight.w500)),
         const SizedBox(height: 8),
         DropdownButtonFormField<String>(
           initialValue: initialValue,
@@ -358,8 +435,11 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
           decoration: InputDecoration(
             filled: true,
             fillColor: const Color(0xFF1E1E1E),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide.none),
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           ),
           icon: const Icon(Icons.keyboard_arrow_down, color: Color(0xFF878787)),
           items: options.map((String value) {

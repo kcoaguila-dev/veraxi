@@ -25,7 +25,7 @@ class _CitationChipState extends State<CitationChip> {
 
   Map<String, dynamic>? _sourceData;
   late String _effectiveUrl;
-  
+
   bool _isHoveringChip = false;
   bool _isHoveringCard = false;
 
@@ -310,7 +310,8 @@ class _CitationChipState extends State<CitationChip> {
             // ── Snippet ───────────────────────────────────────────────
             if (snippet.isNotEmpty)
               Padding(
-                padding: EdgeInsets.fromLTRB(14, title.isNotEmpty ? 8 : 10, 14, 14),
+                padding:
+                    EdgeInsets.fromLTRB(14, title.isNotEmpty ? 8 : 10, 14, 14),
                 child: Text(
                   snippet,
                   style: const TextStyle(
@@ -351,7 +352,9 @@ class _CitationChipState extends State<CitationChip> {
     // Fallback: nested payload text
     final payload = _sourceData!['payload'];
     if (payload is Map) {
-      return payload['snippet']?.toString() ?? payload['text']?.toString() ?? '';
+      return payload['snippet']?.toString() ??
+          payload['text']?.toString() ??
+          '';
     }
     return _effectiveUrl;
   }

@@ -22,7 +22,8 @@ class ApiKeysState {
   }) {
     return ApiKeysState(
       keys: keys ?? this.keys,
-      newlyCreatedKey: clearNewKey ? null : (newlyCreatedKey ?? this.newlyCreatedKey),
+      newlyCreatedKey:
+          clearNewKey ? null : (newlyCreatedKey ?? this.newlyCreatedKey),
     );
   }
 }

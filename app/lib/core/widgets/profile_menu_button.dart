@@ -88,7 +88,8 @@ class _ProfileMenuButtonState extends ConsumerState<ProfileMenuButton> {
           EdgeInsets.symmetric(horizontal: 16, vertical: 12)),
       foregroundColor: const WidgetStatePropertyAll(Color(0xFFECECEC)),
       textStyle: const WidgetStatePropertyAll(TextStyle(fontSize: 14)),
-      overlayColor: WidgetStatePropertyAll(Colors.white.withValues(alpha: 0.05)),
+      overlayColor:
+          WidgetStatePropertyAll(Colors.white.withValues(alpha: 0.05)),
     );
 
     return MenuAnchor(
