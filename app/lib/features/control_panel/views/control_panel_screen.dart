@@ -473,7 +473,7 @@ class _ControlPanelScreenState extends ConsumerState<ControlPanelScreen> {
                     _buildMenuItem('Billing', Icons.credit_card_outlined,
                         _selectedIndex == 2, 2),
                     const SizedBox(height: 8),
-                    _buildMenuItem('API Keys', Icons.vpn_key_outlined,
+                    _buildMenuItem('Infrastructure', Icons.dns_outlined,
                         _selectedIndex == 3, 3),
                     const SizedBox(height: 8),
                     _buildMenuItem('Security & Logs', Icons.security_outlined,
