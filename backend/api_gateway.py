@@ -634,8 +634,8 @@ async def get_voices(gpt_sovits_url: str | None = None):
         client = GPTSoVITSClient(base_url=gpt_sovits_url)
         try:
             await client.check_connection()
-        except Exception:  # noqa: BLE001
-            raise HTTPException(status_code=503, detail="GPT-SoVITS instance unreachable")
+        except Exception as e:  # noqa: BLE001
+            raise HTTPException(status_code=503, detail=f"GPT-SoVITS instance unreachable: {str(e)}")
         finally:
             await client.close()
 
