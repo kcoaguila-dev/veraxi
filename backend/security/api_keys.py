@@ -11,6 +11,7 @@ Rules:
 import hashlib
 import logging
 import secrets
+from datetime import UTC
 
 from fastapi import HTTPException
 from supabase import Client
@@ -95,18 +96,18 @@ def _check_expiry(expires_at: str | None) -> None:
     if not expires_at:
         return  # permanent key
 
-    from datetime import datetime, timezone
-    expiry = datetime.fromisoformat(expires_at.replace("Z", "+00:00"))
-    if datetime.now(timezone.utc) > expiry:
+    from datetime import datetime
+    expiry = datetime.fromisoformat(expires_at)
+    if datetime.now(UTC) > expiry:
         raise HTTPException(status_code=401, detail="API key has expired")
 
 
 def _record_last_used(key_hash: str, supabase: Client) -> None:
     """Fire-and-forget update of last_used_at. Failures are logged, not raised."""
     try:
-        from datetime import datetime, timezone
+        from datetime import datetime
         supabase.table("api_keys").update(
-            {"last_used_at": datetime.now(timezone.utc).isoformat()}
+            {"last_used_at": datetime.now(UTC).isoformat()}
         ).eq("key_hash", key_hash).execute()
     except Exception as e:  # noqa: BLE001
         logger.warning(f"Failed to update last_used_at for API key: {e}")

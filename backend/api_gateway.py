@@ -10,19 +10,6 @@ import jwt
 import magic
 import sentry_sdk
 import stripe
-from docling.document_converter import DocumentConverter
-from fastapi import Depends, FastAPI, File, HTTPException, Request, UploadFile
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from jwt import PyJWKClient
-from mcp.server.sse import SseServerTransport
-from pydantic import BaseModel
-from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.errors import RateLimitExceeded
-from slowapi.util import get_remote_address
-from supabase import Client, create_client
-
 from backend import context as byod_context
 from backend.config import get_config
 from backend.mcp_server.context import tenant_context
@@ -36,6 +23,18 @@ from backend.models_config import DEFAULT_PROVIDER_MODELS
 from backend.security.moderation import moderate_text
 from backend.storage.neo4j_client import Neo4jStorageClient
 from backend.storage.qdrant_client import QdrantStorageClient
+from docling.document_converter import DocumentConverter
+from fastapi import Depends, FastAPI, File, HTTPException, Request, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from jwt import PyJWKClient
+from mcp.server.sse import SseServerTransport
+from pydantic import BaseModel
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
+from supabase import Client, create_client
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
@@ -743,8 +742,9 @@ async def chat_audio(request: AudioRequest, req: Request):
             cache_dir = os.path.join(os.path.dirname(__file__), "tts", "cache")
             os.makedirs(cache_dir, exist_ok=True)
             cached_file_path = os.path.join(cache_dir, f"{request.message_id}.wav")
-            with open(cached_file_path, "wb") as f:
-                f.write(audio_bytes)
+            import asyncio
+            from pathlib import Path
+            await asyncio.to_thread(Path(cached_file_path).write_bytes, audio_bytes)
             return FileResponse(cached_file_path, media_type="audio/wav", filename="audio.wav")
             
         return StreamingResponse(
@@ -755,7 +755,7 @@ async def chat_audio(request: AudioRequest, req: Request):
     except Exception as e:  # noqa: BLE001
         sentry_sdk.capture_exception(e)
         logger.error(f"Failed to synthesize audio: {e}")
-        raise HTTPException(status_code=500, detail="Failed to synthesize audio")
+        raise HTTPException(status_code=500, detail=f"Failed to synthesize audio: {e!s}")
     finally:
         await client.close()
 
@@ -1335,9 +1335,8 @@ class AutoGenerateSchemaRequest(BaseModel):
 @app.post("/api/admin/schema/auto-generate")
 async def auto_generate_schema(data: AutoGenerateSchemaRequest):
     config = get_config()
-    from openai import AsyncOpenAI
-
     from backend.prompts import get_auto_ontology_prompt
+    from openai import AsyncOpenAI
     
     client = AsyncOpenAI(**config.get_llm_client_args())
     try:
