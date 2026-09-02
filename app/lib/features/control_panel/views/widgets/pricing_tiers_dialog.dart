@@ -133,7 +133,7 @@ class _PricingTiersDialogState extends State<PricingTiersDialog> {
                               'Run your own local Neo4j & Qdrant',
                               'Basic chat, Web search, and iOS/Android',
                               'Generate code and visualize data',
-                              '5MB file upload limit',
+                              '50MB file upload limit',
                             ],
                           ),
                           const SizedBox(width: 24),
