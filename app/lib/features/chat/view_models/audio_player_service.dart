@@ -1,11 +1,11 @@
-import "package:flutter/foundation.dart";
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:veraxi_app/core/network/tts_repository.dart';
 import 'package:veraxi_app/core/tts_settings_storage.dart';
-
+import 'package:veraxi_app/features/chat/view_models/chat_view_model.dart';
 class AudioPlayerState {
   final bool isPlaying;
   final Duration position;
@@ -90,6 +90,10 @@ class AudioPlayerService extends StateNotifier<AudioPlayerState> {
       return;
     }
 
+    if (state.playingMessageId != messageId && state.isPlaying) {
+      await _player.stop();
+    }
+
     state = state.copyWith(
         playingMessageId: messageId,
         playingText: text,
@@ -159,5 +163,16 @@ final audioPlayerServiceProvider =
     StateNotifierProvider<AudioPlayerService, AudioPlayerState>((ref) {
   final ttsRepo = ref.watch(ttsRepositoryProvider);
   final ttsSettings = TTSSettingsStorage();
-  return AudioPlayerService(ttsRepo, ttsSettings);
+  final service = AudioPlayerService(ttsRepo, ttsSettings);
+
+  ref.listen<String?>(
+    chatViewModelProvider.select((state) => state.threadId),
+    (previous, next) {
+      if (previous != next) {
+        service.closePlayer();
+      }
+    },
+  );
+
+  return service;
 });
