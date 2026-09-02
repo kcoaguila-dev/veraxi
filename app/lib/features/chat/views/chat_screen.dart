@@ -1543,8 +1543,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                         ],
                       ),
 
-                      // Removed overlapping Positioned toggle icon
-
                       // Top Bar Background to prevent text overlap
                       Positioned(
                         top: 0,
@@ -1567,13 +1565,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                         ),
                       ),
                       
-                      const Positioned(
-                        top: 60,
-                        left: 0,
-                        right: 0,
-                        child: GlobalAudioPlayer(),
-                      ),
-
                       // Top Bar: Model Selector (like LibreChat)
                       Positioned(
                         top: 12,
@@ -2117,6 +2108,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                     ],
                                   ),
                                 ),
+                              if (ref.watch(audioPlayerServiceProvider).playingMessageId == (msg.id ?? msg.hashCode.toString()))
+                                GlobalAudioPlayer(messageId: msg.id ?? msg.hashCode.toString()),
                               if (!isUser &&
                                   showTelemetry &&
                                   msg.metrics != null &&
