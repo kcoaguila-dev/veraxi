@@ -208,16 +208,20 @@ class ChatViewModel extends StateNotifier<ChatState> {
 
     // Listen to Auth State changes to reload threads if they failed initially
     // (e.g., due to an expired token on app startup that was just refreshed)
-    _authSubscription =
-        Supabase.instance.client.auth.onAuthStateChange.listen((data) {
-      if (data.event == AuthChangeEvent.signedIn ||
-          data.event == AuthChangeEvent.tokenRefreshed ||
-          data.event == AuthChangeEvent.initialSession) {
-        if (state.pastThreads.isEmpty && !state.isLoadingThreads) {
-          loadThreads();
+    try {
+      _authSubscription =
+          Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+        if (data.event == AuthChangeEvent.signedIn ||
+            data.event == AuthChangeEvent.tokenRefreshed ||
+            data.event == AuthChangeEvent.initialSession) {
+          if (state.pastThreads.isEmpty && !state.isLoadingThreads) {
+            loadThreads();
+          }
         }
-      }
-    });
+      });
+    } catch (_) {
+      // Ignore in test environments where Supabase is not initialized
+    }
   }
 
   Future<void> _init() async {
