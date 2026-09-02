@@ -138998,7 +138998,7 @@ s.l(0,r,q===!1)},
 $S:0}
 A.Zv.prototype={
 I(a){var s=this,r=null,q=A.a8(16),p=A.c0(B.H,B.n,1),o=t.p
-return A.q_(A.aQ(A.b([B.ajx,B.af,B.akg,B.bh,A.au(r,A.aQ(A.b([A.an(A.b([A.an(A.b([B.Z3,B.aJ,A.aQ(B.a1E,B.w,B.h,B.i)],o),B.k,B.h,B.i,0,r),A.jZ(B.alY,new A.apH(a),A.it(r,r,B.j,r,r,r,0,r,r,B.t,r,r,B.VE,r,new A.bO(A.a8(8),B.p),r,r,r,r,r))],o),B.w,B.a9,B.i,0,r),B.bh,s.B_("Bring your own LLM API Keys"),s.B_("Run your own local Neo4j & Qdrant"),s.B_("Basic chat, Web search, and iOS/Android"),s.B_("Generate code and visualize data"),s.B_("5MB file upload limit")],o),B.w,B.h,B.i),B.l,r,r,new A.aw(B.cL,r,p,q,r,r,B.r),r,r,r,B.ec,r,r,r)],o),B.w,B.h,B.i),r,B.ec,B.a1)},
+return A.q_(A.aQ(A.b([B.ajx,B.af,B.akg,B.bh,A.au(r,A.aQ(A.b([A.an(A.b([A.an(A.b([B.Z3,B.aJ,A.aQ(B.a1E,B.w,B.h,B.i)],o),B.k,B.h,B.i,0,r),A.jZ(B.alY,new A.apH(a),A.it(r,r,B.j,r,r,r,0,r,r,B.t,r,r,B.VE,r,new A.bO(A.a8(8),B.p),r,r,r,r,r))],o),B.w,B.a9,B.i,0,r),B.bh,s.B_("Bring your own LLM API Keys"),s.B_("Run your own local Neo4j & Qdrant"),s.B_("Basic chat, Web search, and iOS/Android"),s.B_("Generate code and visualize data"),s.B_("50MB file upload limit")],o),B.w,B.h,B.i),B.l,r,r,new A.aw(B.cL,r,p,q,r,r,B.r),r,r,r,B.ec,r,r,r)],o),B.w,B.h,B.i),r,B.ec,B.a1)},
 B_(a){var s=null
 return new A.aT(B.iA,A.an(A.b([B.wx,B.aI,A.ac(a,s,s,s,B.afr,s,s)],t.p),B.k,B.h,B.i,0,s),s)}}
 A.apH.prototype={
@@ -139010,15 +139010,15 @@ $S:997}
 A.zW.prototype={
 a7(){return new A.agk()}}
 A.agk.prototype={
-I(a){var s,r,q=this,p=null,o=A.a8(24),n=A.c0(B.H,B.n,1),m=A.b([new A.cd(0,B.ab,B.t.c8(0.6),B.CV,32)],t.V),l=A.dr(p,p,p,p,p,B.ZM,p,p,new A.b7W(a),p,p,20,p,p),k=A.a8(12),j=A.c0(B.H,B.n,1),i=!q.d,h=i?B.H:B.u,g=A.a8(8)
-h=A.ec(p,A.au(p,A.ac("Individual",p,p,p,A.cb(p,p,i?B.j:B.O,p,p,p,p,p,p,p,p,13,p,p,B.T,p,p,!0,p,p,p,p,p,p,p,p),p,p),B.l,p,p,new A.aw(h,p,p,g,p,p,B.r),p,p,p,B.vp,p,p,p),B.y,!1,p,p,p,p,p,p,p,p,p,p,p,p,p,p,new A.b7X(q),p,p,p,p,p,p)
-i=q.d
-g=i?B.H:B.u
+I(a){var s,r,q=this,p=null,o="50MB file upload limit",n=A.a8(24),m=A.c0(B.H,B.n,1),l=A.b([new A.cd(0,B.ab,B.t.c8(0.6),B.CV,32)],t.V),k=A.dr(p,p,p,p,p,B.ZM,p,p,new A.b7W(a),p,p,20,p,p),j=A.a8(12),i=A.c0(B.H,B.n,1),h=!q.d,g=h?B.H:B.u,f=A.a8(8)
+g=A.ec(p,A.au(p,A.ac("Individual",p,p,p,A.cb(p,p,h?B.j:B.O,p,p,p,p,p,p,p,p,13,p,p,B.T,p,p,!0,p,p,p,p,p,p,p,p),p,p),B.l,p,p,new A.aw(g,p,p,f,p,p,B.r),p,p,p,B.vp,p,p,p),B.y,!1,p,p,p,p,p,p,p,p,p,p,p,p,p,p,new A.b7X(q),p,p,p,p,p,p)
+h=q.d
+f=h?B.H:B.u
 s=A.a8(8)
 r=t.p
-k=A.au(p,A.an(A.b([h,A.ec(p,A.au(p,A.ac("Team and Enterprise",p,p,p,A.cb(p,p,i?B.j:B.O,p,p,p,p,p,p,p,p,13,p,p,B.T,p,p,!0,p,p,p,p,p,p,p,p),p,p),B.l,p,p,new A.aw(g,p,p,s,p,p,B.r),p,p,p,B.vp,p,p,p),B.y,!1,p,p,p,p,p,p,p,p,p,p,p,p,p,p,new A.b7Y(q),p,p,p,p,p,p)],r),B.k,B.h,B.Y,0,p),B.l,p,p,new A.aw(B.a4,p,j,k,p,p,B.r),p,p,p,B.ha,p,p,p)
-j=t.s
-return A.r4(p,B.u,A.au(p,A.q_(A.aQ(A.b([new A.ex(B.Kf,p,p,l,p),B.ajY,B.aA,k,B.de,new A.Mz(A.an(!q.d?A.b([q.a2x(a,"Current Plan",A.b(["Bring your own LLM API Keys","Run your own local Neo4j & Qdrant","Basic chat, Web search, and iOS/Android","Generate code and visualize data","5MB file upload limit"],j),!1,"$0","Local-First & BYOK","Free"),B.qO,q.P7(a,"Get Pro plan",A.b(["We host the AI models & Databases","Advanced Agentic Workflows & Cowork","50MB file upload limit","2GB Total Knowledge Base Storage","Priority support and early access"],j),!0,"$19","USD / month","Fully Cloud Hosted","Pro")],r):A.b([q.P7(a,"Upgrade to Team",A.b(["Everything in Pro","Centralized Admin Console & Billing","Collaborative Agent Workspaces","Zero data retention for training"],j),!0,"$25","USD / user / mo","Secure Collaborative Workspace","Team"),B.qO,q.a2x(a,"Contact Sales",A.b(["Everything in Team","Single Sign-On (SAML/SSO)","Dedicated Account Manager & SLA","Custom data residency & compliance"],j),!1,"Custom","Large-Scale & Compliant","Enterprise")],r),B.bj,B.hr,B.i,0,p),p)],r),B.k,B.h,B.Y),p,p,B.a1),B.l,p,B.Me,new A.aw(B.cL,p,n,o,m,p,B.r),p,p,p,B.vv,p,p,800),p,p,p,B.bf,B.dW,p,p,p)},
+j=A.au(p,A.an(A.b([g,A.ec(p,A.au(p,A.ac("Team and Enterprise",p,p,p,A.cb(p,p,h?B.j:B.O,p,p,p,p,p,p,p,p,13,p,p,B.T,p,p,!0,p,p,p,p,p,p,p,p),p,p),B.l,p,p,new A.aw(f,p,p,s,p,p,B.r),p,p,p,B.vp,p,p,p),B.y,!1,p,p,p,p,p,p,p,p,p,p,p,p,p,p,new A.b7Y(q),p,p,p,p,p,p)],r),B.k,B.h,B.Y,0,p),B.l,p,p,new A.aw(B.a4,p,i,j,p,p,B.r),p,p,p,B.ha,p,p,p)
+i=t.s
+return A.r4(p,B.u,A.au(p,A.q_(A.aQ(A.b([new A.ex(B.Kf,p,p,k,p),B.ajY,B.aA,j,B.de,new A.Mz(A.an(!q.d?A.b([q.a2x(a,"Current Plan",A.b(["Bring your own LLM API Keys","Run your own local Neo4j & Qdrant","Basic chat, Web search, and iOS/Android","Generate code and visualize data",o],i),!1,"$0","Local-First & BYOK","Free"),B.qO,q.P7(a,"Get Pro plan",A.b(["We host the AI models & Databases","Advanced Agentic Workflows & Cowork",o,"2GB Total Knowledge Base Storage","Priority support and early access"],i),!0,"$19","USD / month","Fully Cloud Hosted","Pro")],r):A.b([q.P7(a,"Upgrade to Team",A.b(["Everything in Pro","Centralized Admin Console & Billing","Collaborative Agent Workspaces","Zero data retention for training"],i),!0,"$25","USD / user / mo","Secure Collaborative Workspace","Team"),B.qO,q.a2x(a,"Contact Sales",A.b(["Everything in Team","Single Sign-On (SAML/SSO)","Dedicated Account Manager & SLA","Custom data residency & compliance"],i),!1,"Custom","Large-Scale & Compliant","Enterprise")],r),B.bj,B.hr,B.i,0,p),p)],r),B.k,B.h,B.Y),p,p,B.a1),B.l,p,B.Me,new A.aw(B.cL,p,m,n,l,p,B.r),p,p,p,B.vv,p,p,800),p,p,p,B.bf,B.dW,p,p,p)},
 P7(a,b,c,d,e,f,g,h){var s,r,q=null,p=A.a8(20),o=A.c0(B.H,B.n,1),n=A.ci(d?B.iK:B.Xi,B.j,q,28),m=A.ac(h,q,q,q,B.mi,q,q),l=A.ac(g,q,q,q,B.e_,q,q),k=t.p,j=A.b([A.ac(e,q,q,q,B.ahL,q,q)],k)
 if(f!=null)B.b.D(j,A.b([B.P,new A.aT(B.of,A.ac(f,q,q,q,B.cg,q,q),q)],k))
 j=A.an(j,B.h2,B.h,B.i,0,q)
