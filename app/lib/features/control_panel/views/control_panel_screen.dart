@@ -412,8 +412,10 @@ class _ControlPanelScreenState extends ConsumerState<ControlPanelScreen> {
     final theme = Theme.of(context);
     final isSidebarOpen = ref.watch(sidebarStateProvider);
 
-    ref.listen<ControlPanelState>(controlPanelViewModelProvider, (previous, next) {
-      if (previous?.successMessage != next.successMessage && next.successMessage != null) {
+    ref.listen<ControlPanelState>(controlPanelViewModelProvider,
+        (previous, next) {
+      if (previous?.successMessage != next.successMessage &&
+          next.successMessage != null) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(next.successMessage!),
@@ -709,22 +711,24 @@ class _ControlPanelScreenState extends ConsumerState<ControlPanelScreen> {
   Widget _buildSchemaCard(ThemeData theme) {
     final state = ref.watch(controlPanelViewModelProvider);
     final viewModel = ref.read(controlPanelViewModelProvider.notifier);
-    
+
     // Update controller if schema changes from backend
     if (state.schema != null && _schemaJsonController.text.isEmpty) {
-      _schemaJsonController.text = const JsonEncoder.withIndent('  ').convert(state.schema);
+      _schemaJsonController.text =
+          const JsonEncoder.withIndent('  ').convert(state.schema);
     } else if (state.schema != null) {
       // Check if it differs to allow formatting updates without infinite loops
       try {
         final currentTextMap = jsonDecode(_schemaJsonController.text);
         if (jsonEncode(currentTextMap) != jsonEncode(state.schema)) {
-           _schemaJsonController.text = const JsonEncoder.withIndent('  ').convert(state.schema);
+          _schemaJsonController.text =
+              const JsonEncoder.withIndent('  ').convert(state.schema);
         }
       } catch (e) {
         // ignore
       }
     }
-    
+
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -754,14 +758,16 @@ class _ControlPanelScreenState extends ConsumerState<ControlPanelScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text('Auto-Generate from Sample',
-                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.w500)),
+                        style: TextStyle(
+                            color: Colors.white, fontWeight: FontWeight.w500)),
                     const SizedBox(height: 8),
                     TextField(
                       controller: _schemaSampleTextController,
                       maxLines: 7,
                       style: const TextStyle(color: Colors.white, fontSize: 14),
                       decoration: InputDecoration(
-                        hintText: 'Paste a sample of your text here (e.g., an abstract or executive summary). The AI will auto-generate an appropriate schema.',
+                        hintText:
+                            'Paste a sample of your text here (e.g., an abstract or executive summary). The AI will auto-generate an appropriate schema.',
                         hintStyle: const TextStyle(color: Colors.white38),
                         filled: true,
                         fillColor: const Color(0xFF1E1E1E),
@@ -773,14 +779,22 @@ class _ControlPanelScreenState extends ConsumerState<ControlPanelScreen> {
                     ),
                     const SizedBox(height: 12),
                     ElevatedButton.icon(
-                      onPressed: state.isIngesting ? null : () {
-                        if (_schemaSampleTextController.text.trim().isNotEmpty) {
-                          viewModel.autoGenerateSchema(_schemaSampleTextController.text.trim());
-                        }
-                      },
-                      icon: state.isIngesting 
-                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                        : const Icon(Icons.auto_awesome, size: 18),
+                      onPressed: state.isIngesting
+                          ? null
+                          : () {
+                              if (_schemaSampleTextController.text
+                                  .trim()
+                                  .isNotEmpty) {
+                                viewModel.autoGenerateSchema(
+                                    _schemaSampleTextController.text.trim());
+                              }
+                            },
+                      icon: state.isIngesting
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2))
+                          : const Icon(Icons.auto_awesome, size: 18),
                       label: const Text('Auto-Generate'),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.purple.shade600,
@@ -797,12 +811,16 @@ class _ControlPanelScreenState extends ConsumerState<ControlPanelScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text('Schema JSON',
-                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.w500)),
+                        style: TextStyle(
+                            color: Colors.white, fontWeight: FontWeight.w500)),
                     const SizedBox(height: 8),
                     TextField(
                       controller: _schemaJsonController,
                       maxLines: 7,
-                      style: const TextStyle(color: Colors.greenAccent, fontSize: 13, fontFamily: 'monospace'),
+                      style: const TextStyle(
+                          color: Colors.greenAccent,
+                          fontSize: 13,
+                          fontFamily: 'monospace'),
                       decoration: InputDecoration(
                         filled: true,
                         fillColor: const Color(0xFF1E1E1E),
@@ -814,14 +832,20 @@ class _ControlPanelScreenState extends ConsumerState<ControlPanelScreen> {
                     ),
                     const SizedBox(height: 12),
                     ElevatedButton.icon(
-                      onPressed: state.isIngesting ? null : () {
-                        try {
-                           final Map<String, dynamic> schema = jsonDecode(_schemaJsonController.text);
-                           viewModel.saveSchema(schema);
-                        } catch (e) {
-                           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Invalid JSON'), backgroundColor: Colors.red));
-                        }
-                      },
+                      onPressed: state.isIngesting
+                          ? null
+                          : () {
+                              try {
+                                final Map<String, dynamic> schema =
+                                    jsonDecode(_schemaJsonController.text);
+                                viewModel.saveSchema(schema);
+                              } catch (e) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                        content: Text('Invalid JSON'),
+                                        backgroundColor: Colors.red));
+                              }
+                            },
                       icon: const Icon(Icons.save, size: 18),
                       label: const Text('Save Schema'),
                       style: ElevatedButton.styleFrom(

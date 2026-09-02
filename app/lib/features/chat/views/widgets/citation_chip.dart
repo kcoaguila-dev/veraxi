@@ -283,7 +283,7 @@ class _CitationChipState extends State<CitationChip> {
                     ),
                   ],
                 ),
-                
+
                 // ── Article title ─────────────────────────────────────────
                 if (title.isNotEmpty) ...[
                   const SizedBox(height: 8),
@@ -338,7 +338,10 @@ class _CitationChipState extends State<CitationChip> {
   String _resolveSnippet() {
     if (_sourceData == null) return '';
     // Direct content / description from SearXNG
-    final content = _sourceData!['content']?.toString() ?? _sourceData!['snippet']?.toString() ?? _sourceData!['text']?.toString() ?? '';
+    final content = _sourceData!['content']?.toString() ??
+        _sourceData!['snippet']?.toString() ??
+        _sourceData!['text']?.toString() ??
+        '';
     if (content.isNotEmpty) return content;
     // Fallback: nested payload text
     final payload = _sourceData!['payload'];

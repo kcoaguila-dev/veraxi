@@ -6,6 +6,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:veraxi_app/core/network/tts_repository.dart';
 import 'package:veraxi_app/core/tts_settings_storage.dart';
 import 'package:veraxi_app/features/chat/view_models/chat_view_model.dart';
+
 class AudioPlayerState {
   final bool isPlaying;
   final Duration position;
@@ -123,7 +124,7 @@ class AudioPlayerService extends StateNotifier<AudioPlayerState> {
         await file.writeAsBytes(bytes);
         await _player.setFilePath(file.path);
       }
-      
+
       await _player.setSpeed(state.speed);
       await _player.play();
 

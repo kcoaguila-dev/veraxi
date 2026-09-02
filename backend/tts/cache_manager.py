@@ -1,6 +1,6 @@
+import logging
 import os
 import time
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -35,5 +35,5 @@ def cleanup_audio_cache(cache_dir: str, max_files: int = 100, max_age_hours: int
                 os.remove(filepath)
                 logger.debug(f"Deleted cached audio (capacity limit): {os.path.basename(filepath)}")
                 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         logger.error(f"Error cleaning up audio cache: {e}")
