@@ -76,7 +76,7 @@ class TTSRepository {
     if (response.statusCode == 200) {
       return response.bodyBytes;
     } else {
-      throw Exception('Backend synthesis failed: ${response.statusCode}');
+      throw Exception('Backend synthesis failed: ${response.statusCode} - ${response.body}');
     }
   }
 }
