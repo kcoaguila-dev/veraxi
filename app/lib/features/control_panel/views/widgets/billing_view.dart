@@ -104,7 +104,7 @@ class BillingView extends StatelessWidget {
                 _buildFeatureRow('Run your own local Neo4j & Qdrant'),
                 _buildFeatureRow('Basic chat, Web search, and iOS/Android'),
                 _buildFeatureRow('Generate code and visualize data'),
-                _buildFeatureRow('5MB file upload limit'),
+                _buildFeatureRow('50MB file upload limit'),
               ],
             ),
           ),
