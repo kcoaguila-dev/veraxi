@@ -1,7 +1,6 @@
 import logging
 
 import httpx
-
 from backend.config import get_config
 
 logger = logging.getLogger(__name__)
@@ -12,7 +11,7 @@ class GPTSoVITSClient:
             config = get_config()
             base_url = config.gpt_sovits_base_url
         self.base_url = base_url.rstrip("/")
-        self.client = httpx.AsyncClient(timeout=60.0)
+        self.client = httpx.AsyncClient(timeout=300.0)
 
     async def synthesize(self, text: str, ref_audio_path: str, prompt_text: str, prompt_lang: str = "en", text_lang: str = "en"):
         """
