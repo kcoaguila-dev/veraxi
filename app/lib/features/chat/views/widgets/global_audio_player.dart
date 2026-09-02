@@ -3,9 +3,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:veraxi_app/features/chat/view_models/audio_player_service.dart';
 
-class GlobalAudioPlayer extends ConsumerWidget {
+class GlobalAudioPlayer extends ConsumerStatefulWidget {
   final String messageId;
   const GlobalAudioPlayer({Key? key, required this.messageId}) : super(key: key);
+
+  @override
+  ConsumerState<GlobalAudioPlayer> createState() => _GlobalAudioPlayerState();
+}
+
+class _GlobalAudioPlayerState extends ConsumerState<GlobalAudioPlayer> {
+  double? _dragValue;
 
   String _formatDuration(Duration d) {
     String twoDigits(int n) => n.toString().padLeft(2, '0');
@@ -15,14 +22,19 @@ class GlobalAudioPlayer extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final audioState = ref.watch(audioPlayerServiceProvider);
     final audioService = ref.read(audioPlayerServiceProvider.notifier);
     final theme = Theme.of(context);
 
-    if (audioState.playingMessageId != messageId) {
+    if (audioState.playingMessageId != widget.messageId) {
       return const SizedBox.shrink();
     }
+
+    final position = _dragValue ?? audioState.position.inMilliseconds.toDouble();
+    final duration = audioState.duration.inMilliseconds.toDouble();
+    final maxPos = duration > 0 ? duration : 1.0;
+    final displayPos = position.clamp(0.0, maxPos);
 
     return Container(
       margin: const EdgeInsets.only(top: 12),
@@ -83,7 +95,7 @@ class GlobalAudioPlayer extends ConsumerWidget {
           ),
           const SizedBox(width: 8),
           Text(
-            _formatDuration(audioState.position),
+            _formatDuration(Duration(milliseconds: displayPos.toInt())),
             style: theme.textTheme.bodySmall?.copyWith(fontFeatures: const [FontFeature.tabularFigures()]),
           ),
           Expanded(
@@ -94,13 +106,19 @@ class GlobalAudioPlayer extends ConsumerWidget {
                 overlayShape: const RoundSliderOverlayShape(overlayRadius: 14.0),
               ),
               child: Slider(
-                value: audioState.position.inMilliseconds.toDouble(),
+                value: displayPos,
                 min: 0.0,
-                max: audioState.duration.inMilliseconds.toDouble() > 0 
-                  ? audioState.duration.inMilliseconds.toDouble() 
-                  : 1.0,
+                max: maxPos,
                 onChanged: (value) {
+                  setState(() {
+                    _dragValue = value;
+                  });
+                },
+                onChangeEnd: (value) {
                   audioService.seek(Duration(milliseconds: value.toInt()));
+                  setState(() {
+                    _dragValue = null;
+                  });
                 },
               ),
             ),
@@ -110,8 +128,8 @@ class GlobalAudioPlayer extends ConsumerWidget {
             style: theme.textTheme.bodySmall?.copyWith(fontFeatures: const [FontFeature.tabularFigures()]),
           ),
           const SizedBox(width: 8),
-          InkWell(
-            onTap: () {
+          TextButton(
+            onPressed: () {
               final currentSpeed = audioState.speed;
               final nextSpeed = currentSpeed >= 2.0
                   ? 1.0
@@ -122,14 +140,15 @@ class GlobalAudioPlayer extends ConsumerWidget {
                           : 1.25;
               audioService.setSpeed(nextSpeed);
             },
-            borderRadius: BorderRadius.circular(4),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-              child: Text(
-                '${audioState.speed}x',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
+            style: TextButton.styleFrom(
+              minimumSize: const Size(44, 36),
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+            ),
+            child: Text(
+              '${audioState.speed}x',
+              style: theme.textTheme.bodySmall?.copyWith(
+                fontWeight: FontWeight.w600,
               ),
             ),
           ),

@@ -114,8 +114,8 @@ class AudioPlayerService extends StateNotifier<AudioPlayerState> {
       );
 
       if (kIsWeb) {
-        final uri = Uri.dataFromBytes(bytes, mimeType: 'audio/wav');
-        await _player.setAudioSource(AudioSource.uri(uri));
+        final url = '${_ttsRepository.apiClient.baseUrl}/chat/audio/$messageId';
+        await _player.setUrl(url);
       } else {
         // Save to temp file
         final tempDir = await getTemporaryDirectory();

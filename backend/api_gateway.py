@@ -700,6 +700,15 @@ class AudioRequest(BaseModel):
     voice_id: str
     message_id: str | None = None
 
+@app.get("/api/chat/audio/{message_id}")
+async def get_audio(message_id: str):
+    from fastapi.responses import FileResponse
+    cache_dir = os.path.join(os.path.dirname(__file__), "tts", "cache")
+    cached_file_path = os.path.join(cache_dir, f"{message_id}.wav")
+    if os.path.exists(cached_file_path):
+        return FileResponse(cached_file_path, media_type="audio/wav", filename="audio.wav")
+    raise HTTPException(status_code=404, detail="Audio not found")
+
 @app.post("/api/chat/audio")
 async def chat_audio(request: AudioRequest, req: Request):
     from backend.tts.gpt_sovits_client import GPTSoVITSClient
