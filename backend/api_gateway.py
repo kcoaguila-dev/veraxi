@@ -58,6 +58,7 @@ from contextlib import asynccontextmanager
 
 from arq import create_pool
 from arq.connections import RedisSettings
+from arq.jobs import Job, JobStatus
 
 
 @asynccontextmanager
@@ -1487,6 +1488,30 @@ async def ingest_url(request: Request, url_request: UrlIngestRequest, tenant_id:
         sentry_sdk.capture_exception(e)
         logger.error(f"Error during URL ingestion: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/admin/ingest/status/{job_id}")
+async def get_ingest_status(request: Request, job_id: str, tenant_id: str = Depends(verify_infrastructure_access)):
+    redis = request.app.state.redis
+    job = Job(job_id, redis)
+    status = await job.status()
+    
+    if status == JobStatus.not_found:
+        raise HTTPException(status_code=404, detail="Job not found")
+        
+    result_data = None
+    if status == JobStatus.complete:
+        info = await job.result_info()
+        if info and not info.success:
+            return {"status": "error", "error": str(info.result)}
+        if info and info.success:
+            result_data = info.result
+            if isinstance(result_data, dict) and result_data.get("status") == "error":
+                return {"status": "error", "error": result_data.get("message", "Unknown error")}
+            
+    return {
+        "status": status.value if hasattr(status, 'value') else str(status),
+        "result": result_data
+    }
 
 # ==========================================
 # MCP SSE Transport Layer

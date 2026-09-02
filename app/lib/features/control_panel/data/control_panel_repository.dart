@@ -87,4 +87,30 @@ class ControlPanelRepository {
     );
     return data as Map<String, dynamic>;
   }
+
+  Future<Map<String, dynamic>> getIngestStatus(String jobId) async {
+    final data = await apiClient.get('/admin/ingest/status/$jobId');
+    return data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>?> getSchema() async {
+    try {
+      final data = await apiClient.get('/admin/schema');
+      return data as Map<String, dynamic>;
+    } catch (e) {
+      if (e.toString().contains('404')) return null;
+      rethrow;
+    }
+  }
+
+  Future<void> setSchema(Map<String, dynamic> schema) async {
+    await apiClient.post('/admin/schema', body: schema);
+  }
+
+  Future<Map<String, dynamic>> autoGenerateSchema(String text) async {
+    final data = await apiClient.post('/admin/schema/auto-generate', body: {
+      'text': text,
+    });
+    return data as Map<String, dynamic>;
+  }
 }
