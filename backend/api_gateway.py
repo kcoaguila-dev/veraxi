@@ -699,11 +699,22 @@ async def upload_voice(
 class AudioRequest(BaseModel):
     text: str
     voice_id: str
+    message_id: str | None = None
 
 @app.post("/api/chat/audio")
 async def chat_audio(request: AudioRequest, req: Request):
     from backend.tts.gpt_sovits_client import GPTSoVITSClient
     from backend.tts.voices import get_voice
+    from fastapi.responses import FileResponse
+
+    # 1. Check Cache first
+    if request.message_id:
+        cache_dir = os.path.join(os.path.dirname(__file__), "tts", "cache")
+        os.makedirs(cache_dir, exist_ok=True)
+        cached_file_path = os.path.join(cache_dir, f"{request.message_id}.wav")
+        if os.path.exists(cached_file_path):
+            logger.info(f"Returning cached audio for message {request.message_id}")
+            return FileResponse(cached_file_path, media_type="audio/wav", filename="audio.wav")
 
     voice = get_voice(request.voice_id)
     logger.info(f"chat_audio called with voice_id: {request.voice_id}")
@@ -726,6 +737,16 @@ async def chat_audio(request: AudioRequest, req: Request):
             prompt_lang=voice.get("prompt_lang", "en"),
             text_lang=voice.get("text_lang", "en")
         )
+
+        # 2. Save to Cache
+        if request.message_id:
+            cache_dir = os.path.join(os.path.dirname(__file__), "tts", "cache")
+            os.makedirs(cache_dir, exist_ok=True)
+            cached_file_path = os.path.join(cache_dir, f"{request.message_id}.wav")
+            with open(cached_file_path, "wb") as f:
+                f.write(audio_bytes)
+            return FileResponse(cached_file_path, media_type="audio/wav", filename="audio.wav")
+            
         return StreamingResponse(
             iter([audio_bytes]),
             media_type="audio/wav",
