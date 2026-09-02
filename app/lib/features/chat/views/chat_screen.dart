@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:veraxi_app/features/chat/views/widgets/global_audio_player.dart';
+import 'package:veraxi_app/features/chat/view_models/audio_player_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -1543,6 +1545,35 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
                       // Removed overlapping Positioned toggle icon
 
+                      // Top Bar Background to prevent text overlap
+                      Positioned(
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        height: 60,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [
+                                theme.scaffoldBackgroundColor,
+                                theme.scaffoldBackgroundColor.withValues(alpha: 0.9),
+                                theme.scaffoldBackgroundColor.withValues(alpha: 0.0),
+                              ],
+                              stops: const [0.6, 0.9, 1.0],
+                            ),
+                          ),
+                        ),
+                      ),
+                      
+                      const Positioned(
+                        top: 60,
+                        left: 0,
+                        right: 0,
+                        child: GlobalAudioPlayer(),
+                      ),
+
                       // Top Bar: Model Selector (like LibreChat)
                       Positioned(
                         top: 12,
@@ -1974,21 +2005,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                         child: InkWell(
                                           borderRadius:
                                               BorderRadius.circular(4),
-                                          onTap: () => ref
-                                              .read(chatViewModelProvider
-                                                  .notifier)
-                                              .playAudio(msg.content,
-                                                  messageId: msg.id ??
-                                                      msg.hashCode.toString()),
+                                          onTap: () {
+                                            final msgId = msg.id ?? msg.hashCode.toString();
+                                            ref.read(audioPlayerServiceProvider.notifier)
+                                               .playMessage(msgId, msg.content);
+                                          },
                                           child: Icon(
-                                              ref
-                                                          .watch(
-                                                              chatViewModelProvider)
-                                                          .currentlyPlayingMessageId ==
-                                                      (msg.id ??
-                                                          msg.hashCode
-                                                              .toString())
-                                                  ? Icons.stop_circle_outlined
+                                              ref.watch(audioPlayerServiceProvider).playingMessageId ==
+                                                      (msg.id ?? msg.hashCode.toString()) && ref.watch(audioPlayerServiceProvider).isPlaying
+                                                  ? Icons.pause_circle_outline
                                                   : Icons.volume_up_outlined,
                                               size: 16,
                                               color: theme.colorScheme.onSurface

@@ -55,14 +55,20 @@ class TTSRepository {
   }
 
   Future<List<int>> getAudioBytes(String text, String voiceId,
-      {String? gptSovitsUrl}) async {
+      {String? gptSovitsUrl, String? messageId}) async {
     final uri = Uri.parse('${apiClient.baseUrl}/chat/audio');
     final headers = await apiClient.getDefaultHeaders();
     headers['Content-Type'] = 'application/json';
     if (gptSovitsUrl != null) {
       headers['X-GPT-SoVITS-Url'] = gptSovitsUrl;
     }
-    final body = jsonEncode({'text': text, 'voice_id': voiceId});
+    
+    final payload = {'text': text, 'voice_id': voiceId};
+    if (messageId != null) {
+      payload['message_id'] = messageId;
+    }
+    
+    final body = jsonEncode(payload);
 
     final response =
         await apiClient.client.post(uri, headers: headers, body: body);
