@@ -1556,15 +1556,17 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                               end: Alignment.bottomCenter,
                               colors: [
                                 theme.scaffoldBackgroundColor,
-                                theme.scaffoldBackgroundColor.withValues(alpha: 0.9),
-                                theme.scaffoldBackgroundColor.withValues(alpha: 0.0),
+                                theme.scaffoldBackgroundColor
+                                    .withValues(alpha: 0.9),
+                                theme.scaffoldBackgroundColor
+                                    .withValues(alpha: 0.0),
                               ],
                               stops: const [0.6, 0.9, 1.0],
                             ),
                           ),
                         ),
                       ),
-                      
+
                       // Top Bar: Model Selector (like LibreChat)
                       Positioned(
                         top: 12,
@@ -1997,13 +1999,26 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                           borderRadius:
                                               BorderRadius.circular(4),
                                           onTap: () {
-                                            final msgId = msg.id ?? msg.hashCode.toString();
-                                            ref.read(audioPlayerServiceProvider.notifier)
-                                               .playMessage(msgId, msg.content);
+                                            final msgId = msg.id ??
+                                                msg.hashCode.toString();
+                                            ref
+                                                .read(audioPlayerServiceProvider
+                                                    .notifier)
+                                                .playMessage(
+                                                    msgId, msg.content);
                                           },
                                           child: Icon(
-                                              ref.watch(audioPlayerServiceProvider).playingMessageId ==
-                                                      (msg.id ?? msg.hashCode.toString()) && ref.watch(audioPlayerServiceProvider).isPlaying
+                                              ref
+                                                              .watch(
+                                                                  audioPlayerServiceProvider)
+                                                              .playingMessageId ==
+                                                          (msg.id ??
+                                                              msg.hashCode
+                                                                  .toString()) &&
+                                                      ref
+                                                          .watch(
+                                                              audioPlayerServiceProvider)
+                                                          .isPlaying
                                                   ? Icons.pause_circle_outline
                                                   : Icons.volume_up_outlined,
                                               size: 16,
@@ -2108,8 +2123,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                     ],
                                   ),
                                 ),
-                              if (ref.watch(audioPlayerServiceProvider).playingMessageId == (msg.id ?? msg.hashCode.toString()))
-                                GlobalAudioPlayer(messageId: msg.id ?? msg.hashCode.toString()),
+                              if (ref
+                                      .watch(audioPlayerServiceProvider)
+                                      .playingMessageId ==
+                                  (msg.id ?? msg.hashCode.toString()))
+                                GlobalAudioPlayer(
+                                    messageId:
+                                        msg.id ?? msg.hashCode.toString()),
                               if (!isUser &&
                                   showTelemetry &&
                                   msg.metrics != null &&

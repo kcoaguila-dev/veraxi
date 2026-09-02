@@ -213,9 +213,15 @@ class SourcesButton extends StatelessWidget {
   static String _extractRawText(Map item) {
     if (item.containsKey('payload') && item['payload'] is Map) {
       final payload = item['payload'] as Map;
-      return payload['text']?.toString() ?? payload['snippet']?.toString() ?? payload['content']?.toString() ?? '';
+      return payload['text']?.toString() ??
+          payload['snippet']?.toString() ??
+          payload['content']?.toString() ??
+          '';
     }
-    return item['text']?.toString() ?? item['snippet']?.toString() ?? item['content']?.toString() ?? '';
+    return item['text']?.toString() ??
+        item['snippet']?.toString() ??
+        item['content']?.toString() ??
+        '';
   }
 
   static void _filterUnreferencedSources(

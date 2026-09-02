@@ -62,12 +62,12 @@ class TTSRepository {
     if (gptSovitsUrl != null) {
       headers['X-GPT-SoVITS-Url'] = gptSovitsUrl;
     }
-    
+
     final payload = {'text': text, 'voice_id': voiceId};
     if (messageId != null) {
       payload['message_id'] = messageId;
     }
-    
+
     final body = jsonEncode(payload);
 
     final response =
@@ -76,7 +76,8 @@ class TTSRepository {
     if (response.statusCode == 200) {
       return response.bodyBytes;
     } else {
-      throw Exception('Backend synthesis failed: ${response.statusCode} - ${response.body}');
+      throw Exception(
+          'Backend synthesis failed: ${response.statusCode} - ${response.body}');
     }
   }
 }

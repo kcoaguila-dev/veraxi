@@ -286,7 +286,7 @@ def _execute_single_tool(tool_name: str, tool_input: dict, tenant_id: str, tool_
         class TimeHit:
             def __init__(self):
                 self.id = "time"
-                self.payload = {"current_utc_time": datetime.datetime.now(datetime.timezone.utc).isoformat()}
+                self.payload = {"current_utc_time": datetime.datetime.now(datetime.UTC).isoformat()}
                 self.sources = ["System Clock"]
         return [TimeHit()], []
     elif tool_name == "fetch_url":

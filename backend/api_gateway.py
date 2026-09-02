@@ -10,6 +10,19 @@ import jwt
 import magic
 import sentry_sdk
 import stripe
+from docling.document_converter import DocumentConverter
+from fastapi import Depends, FastAPI, File, HTTPException, Request, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from jwt import PyJWKClient
+from mcp.server.sse import SseServerTransport
+from pydantic import BaseModel
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
+from supabase import Client, create_client
+
 from backend import context as byod_context
 from backend.config import get_config
 from backend.mcp_server.context import tenant_context
@@ -23,18 +36,6 @@ from backend.models_config import DEFAULT_PROVIDER_MODELS
 from backend.security.moderation import moderate_text
 from backend.storage.neo4j_client import Neo4jStorageClient
 from backend.storage.qdrant_client import QdrantStorageClient
-from docling.document_converter import DocumentConverter
-from fastapi import Depends, FastAPI, File, HTTPException, Request, UploadFile
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from jwt import PyJWKClient
-from mcp.server.sse import SseServerTransport
-from pydantic import BaseModel
-from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.errors import RateLimitExceeded
-from slowapi.util import get_remote_address
-from supabase import Client, create_client
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
@@ -636,7 +637,7 @@ async def get_voices(gpt_sovits_url: str | None = None):
         try:
             await client.check_connection()
         except Exception as e:  # noqa: BLE001
-            raise HTTPException(status_code=503, detail=f"GPT-SoVITS instance unreachable: {str(e)}")
+            raise HTTPException(status_code=503, detail=f"GPT-SoVITS instance unreachable: {e!s}")
         finally:
             await client.close()
 
@@ -712,9 +713,10 @@ async def get_audio(message_id: str):
 
 @app.post("/api/chat/audio")
 async def chat_audio(request: AudioRequest, req: Request):
+    from fastapi.responses import FileResponse
+
     from backend.tts.gpt_sovits_client import GPTSoVITSClient
     from backend.tts.voices import get_voice
-    from fastapi.responses import FileResponse
 
     # 1. Check Cache first
     if request.message_id:
@@ -1350,8 +1352,9 @@ class AutoGenerateSchemaRequest(BaseModel):
 @app.post("/api/admin/schema/auto-generate")
 async def auto_generate_schema(data: AutoGenerateSchemaRequest):
     config = get_config()
-    from backend.prompts import get_auto_ontology_prompt
     from openai import AsyncOpenAI
+
+    from backend.prompts import get_auto_ontology_prompt
     
     client = AsyncOpenAI(**config.get_llm_client_args())
     try:
