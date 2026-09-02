@@ -1,3 +1,4 @@
+import "package:flutter/foundation.dart";
 import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio/just_audio.dart';
@@ -108,12 +109,17 @@ class AudioPlayerService extends StateNotifier<AudioPlayerState> {
         messageId: messageId,
       );
 
-      // Save to temp file
-      final tempDir = await getTemporaryDirectory();
-      final file = File('${tempDir.path}/$messageId.wav');
-      await file.writeAsBytes(bytes);
-
-      await _player.setFilePath(file.path);
+      if (kIsWeb) {
+        final uri = Uri.dataFromBytes(bytes, mimeType: 'audio/wav');
+        await _player.setAudioSource(AudioSource.uri(uri));
+      } else {
+        // Save to temp file
+        final tempDir = await getTemporaryDirectory();
+        final file = File('${tempDir.path}/$messageId.wav');
+        await file.writeAsBytes(bytes);
+        await _player.setFilePath(file.path);
+      }
+      
       await _player.setSpeed(state.speed);
       await _player.play();
 
