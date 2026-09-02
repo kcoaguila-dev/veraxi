@@ -754,6 +754,11 @@ async def chat_audio(request: AudioRequest, req: Request):
             import asyncio
             from pathlib import Path
             await asyncio.to_thread(Path(cached_file_path).write_bytes, audio_bytes)
+            
+            # 3. Cleanup old cache
+            from backend.tts.cache_manager import cleanup_audio_cache
+            cleanup_audio_cache(cache_dir, max_files=100, max_age_hours=24)
+
             return FileResponse(cached_file_path, media_type="audio/wav", filename="audio.wav")
             
         return StreamingResponse(
