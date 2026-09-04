@@ -374,6 +374,19 @@ REGISTERED_TOOLS = [
             "required": ["job_id"],
         },
     ),
+    Tool(
+        name="mcp_dynamic_web_graph",
+        description="Dynamic Web Search GraphRAG - searches the web and returns a structured Knowledge Graph of entities and relations instead of raw text snippets, allowing for high-accuracy multi-hop reasoning over live data.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "query": {"type": "string"},
+                "language": {"type": "string", "default": "en"},
+                "max_results": {"type": "integer", "default": 5}
+            },
+            "required": ["query"]
+        }
+    ),
 ]
 
 def _handle_search_vectors(args: dict, tenant_id: str) -> list[TextContent]:
@@ -484,6 +497,12 @@ def _handle_web_search(args: dict, tenant_id: str) -> list[TextContent]:
     results = mcp_web_search(args["query"], args.get("max_results", 3), tool_settings=tool_settings)
     return [TextContent(type="text", text=json.dumps(results))]
 
+def _handle_dynamic_web_graph(args: dict, tenant_id: str) -> list[TextContent]:
+    from backend.mcp_server.tools.dynamic_web_graph import mcp_dynamic_web_graph
+    tool_settings = args.get("_tool_settings", {})
+    results = mcp_dynamic_web_graph(args["query"], args.get("language", "en"), args.get("max_results", 5), tool_settings=tool_settings)
+    return [TextContent(type="text", text=json.dumps(results))]
+
 def _handle_skills(args: dict, tenant_id: str) -> list[TextContent]:
     from backend.mcp_server.tools.skills import list_skills
     results = list_skills()
@@ -534,6 +553,7 @@ TOOL_HANDLERS = {
     "mcp_update_document_metadata": _handle_update_document_metadata,
     "mcp_evaluate_grounding": _handle_evaluate_grounding,
     "mcp_web_search": _handle_web_search,
+    "mcp_dynamic_web_graph": _handle_dynamic_web_graph,
     "mcp_skills": _handle_skills,
     "mcp_run_code": _handle_run_code,
     "mcp_list_artifacts": _handle_list_artifacts,
