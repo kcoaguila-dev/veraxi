@@ -1388,6 +1388,8 @@ async def ingest_upload(
     language: str = Form("en"),
     custom_stop_words: str = Form(""),
     model: str = Form("gemini-2.5-flash-lite"),
+    chunk_size: int = Form(200),
+    chunk_overlap: int = Form(50),
     tenant_id: str = Depends(get_tenant_id)
 ):
     try:
@@ -1447,7 +1449,9 @@ async def ingest_upload(
             fast_extraction,
             language,
             parsed_stop_words,
-            model
+            model,
+            chunk_size,
+            chunk_overlap
         )
         return {"status": "queued", "job_id": job.job_id}
     except HTTPException:
@@ -1464,6 +1468,8 @@ class UrlIngestRequest(BaseModel):  # noqa: F811
     language: str = "en"
     custom_stop_words: list[str] = []
     model: str = "gemini-2.5-flash-lite"
+    chunk_size: int = 200
+    chunk_overlap: int = 50
 
 @app.post("/api/admin/ingest/url")
 @limiter.limit(config.rate_limit_ingest)
@@ -1484,7 +1490,9 @@ async def ingest_url(request: Request, url_request: UrlIngestRequest, tenant_id:
             url_request.fast_extraction,
             url_request.language,
             url_request.custom_stop_words,
-            url_request.model
+            url_request.model,
+            url_request.chunk_size,
+            url_request.chunk_overlap
         )
         return {"status": "queued", "job_id": job.job_id}
     except Exception as e:  # noqa: BLE001

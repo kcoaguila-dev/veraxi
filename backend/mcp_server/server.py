@@ -32,6 +32,7 @@ from backend.mcp_server.tools.run_analytics import run_community_detection
 from backend.mcp_server.tools.search_vectors import search_vectors
 from backend.mcp_server.tools.update_document import update_document_metadata
 from backend.mcp_server.tools.update_entity import update_entity
+from backend.mcp_server.tools.ingest_document import mcp_ingest_document, mcp_get_ingest_status
 from backend.prompts import CRAG_ORCHESTRATOR_PROMPT, INGEST_KNOWLEDGE_PROMPT
 from backend.storage.quota import check_tenant_hard_cap
 
@@ -346,6 +347,33 @@ REGISTERED_TOOLS = [
             "required": ["artifact_name"],
         },
     ),
+    Tool(
+        name="mcp_ingest_document",
+        description="Submits a document or URL to Veraxi's native ingestion pipeline (OCR -> Graph extraction -> Insertion).",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "file_path": {"type": "string", "description": "Absolute path to a local document file."},
+                "url": {"type": "string", "description": "URL to scrape and ingest instead of a local file."},
+                "fast_extraction": {"type": "boolean", "default": False},
+                "language": {"type": "string", "default": "en"},
+                "chunk_size": {"type": "integer", "default": 200},
+                "chunk_overlap": {"type": "integer", "default": 50},
+                "wait_for_completion": {"type": "boolean", "default": False, "description": "If true, the tool will block and poll internally until ingestion is complete."}
+            },
+        },
+    ),
+    Tool(
+        name="mcp_get_ingest_status",
+        description="Polls the status of an active ingestion job.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "job_id": {"type": "string", "description": "The job ID returned from mcp_ingest_document."}
+            },
+            "required": ["job_id"],
+        },
+    ),
 ]
 
 def _handle_search_vectors(args: dict, tenant_id: str) -> list[TextContent]:
@@ -476,6 +504,20 @@ def _handle_read_artifact(args: dict, tenant_id: str) -> list[TextContent]:
     result = read_artifact(tenant_id, args["artifact_name"])
     return [TextContent(type="text", text=result)]
 
+def _handle_ingest_document(args: dict, tenant_id: str) -> list[TextContent]:
+    result = mcp_ingest_document(
+        tenant_id=tenant_id,
+        file_path=args.get("file_path"),
+        url=args.get("url"),
+        fast_extraction=args.get("fast_extraction", False),
+        language=args.get("language", "en")
+    )
+    return [TextContent(type="text", text=json.dumps(result))]
+
+def _handle_get_ingest_status(args: dict, tenant_id: str) -> list[TextContent]:
+    result = mcp_get_ingest_status(tenant_id=tenant_id, job_id=args["job_id"])
+    return [TextContent(type="text", text=json.dumps(result))]
+
 TOOL_HANDLERS = {
     "mcp_search_vectors": _handle_search_vectors,
     "mcp_query_graph": _handle_query_graph,
@@ -496,6 +538,8 @@ TOOL_HANDLERS = {
     "mcp_run_code": _handle_run_code,
     "mcp_list_artifacts": _handle_list_artifacts,
     "mcp_read_artifact": _handle_read_artifact,
+    "mcp_ingest_document": _handle_ingest_document,
+    "mcp_get_ingest_status": _handle_get_ingest_status,
 }
 
 async def handle_list_tools(ctx, params) -> ListToolsResult:

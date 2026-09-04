@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:veraxi_app/core/api_key_storage.dart';
 
 class ApiKeysView extends StatefulWidget {
@@ -193,6 +194,24 @@ class _ApiKeysViewState extends State<ApiKeysView> {
           ),
 
           const SizedBox(height: 48),
+          const Divider(color: Color(0xFF2A2A2A)),
+          const SizedBox(height: 48),
+
+          // --- Section C: Model Context Protocol (BYOS) ---
+          const Text(
+            'Model Context Protocol (BYOS)',
+            style: TextStyle(
+                color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Bring Your Own Subscription (BYOS) allows you to bypass cloud API costs by using your existing local AI subscriptions (e.g., Claude Desktop, Cursor) to act as the extraction engine.',
+            style: TextStyle(color: Color(0xFF878787), fontSize: 13),
+          ),
+          const SizedBox(height: 32),
+          _buildMcpConfigCard(),
+
+          const SizedBox(height: 48),
           Align(
             alignment: Alignment.centerRight,
             child: ElevatedButton(
@@ -307,4 +326,86 @@ class _ApiKeysViewState extends State<ApiKeysView> {
       ),
     );
   }
+
+  Widget _buildMcpConfigCard() {
+    const configString = '''{
+  "mcpServers": {
+    "veraxi": {
+      "command": "uv",
+      "args": ["run", "backend/mcp_server.py"]
+    }
+  }
+}''';
+
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: const Color(0xFF131313),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFF2A2A2A)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.hub_outlined, color: Colors.purpleAccent, size: 24),
+              const SizedBox(width: 12),
+              const Text('Connect your AI Assistant',
+                  style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600)),
+            ],
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            'Copy the configuration below and paste it into your Claude Desktop configuration (claude_desktop_config.json) or your Cursor MCP settings.',
+            style: TextStyle(color: Color(0xFFB4B4B4), fontSize: 14),
+          ),
+          const SizedBox(height: 24),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xFF1E1E1E),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: const Color(0xFF333333)),
+            ),
+            child: Stack(
+              children: [
+                const SizedBox(
+                  width: double.infinity,
+                  child: Text(
+                    configString,
+                    style: TextStyle(
+                      color: Colors.greenAccent,
+                      fontSize: 13,
+                      fontFamily: 'monospace',
+                    ),
+                  ),
+                ),
+                Positioned(
+                  top: -8,
+                  right: -8,
+                  child: IconButton(
+                    icon: const Icon(Icons.copy, color: Color(0xFF878787), size: 18),
+                    onPressed: () {
+                      Clipboard.setData(const ClipboardData(text: configString));
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Copied to clipboard!')),
+                        );
+                      }
+                    },
+                    tooltip: 'Copy to Clipboard',
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
+

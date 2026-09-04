@@ -62,6 +62,12 @@ class QdrantStorageClient:
                     )
                 }
             )
+            from qdrant_client.http import models
+            self.client.create_payload_index(
+                collection_name=collection_name,
+                field_name="tenant_id",
+                field_schema=models.PayloadSchemaType.KEYWORD
+            )
 
     def insert_points(
         self,

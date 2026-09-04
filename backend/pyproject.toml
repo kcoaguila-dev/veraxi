@@ -48,4 +48,5 @@ dev = [
     "import-linter",
     "testcontainers[neo4j,qdrant]",
     "deepeval",
+    "datasets",
 ]

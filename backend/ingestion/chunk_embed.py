@@ -60,7 +60,7 @@ def embed_text_sparse(text: str) -> dict:
     return {"indices": [], "values": []}
 
 
-def chunk_and_embed(text: str) -> list[tuple[str, list[float], dict]]:
+def chunk_and_embed(text: str, chunk_size: int = 200, chunk_overlap: int = 50) -> list[tuple[str, list[float], dict]]:
     """Chunks text and returns list of (chunk_text, dense_vector, sparse_vector)."""
-    chunks = chunk_text(text)
+    chunks = chunk_text(text, chunk_size=chunk_size, overlap=chunk_overlap)
     return [(chunk, embed_text(chunk), embed_text_sparse(chunk)) for chunk in chunks]

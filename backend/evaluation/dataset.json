@@ -1,17 +1,42 @@
 [
-  {
-    "query": "Who developed GraphRAG?",
-    "expected_answer": "GraphRAG was developed by Microsoft Research.",
-    "tenant_id": "default"
-  },
-  {
-    "query": "What is Qdrant?",
-    "expected_answer": "Qdrant is a high-performance vector database optimized for nearest-neighbor search.",
-    "tenant_id": "default"
-  },
-  {
-    "query": "How are relationships created in Neo4j?",
-    "expected_answer": "Relationships in Neo4j connect nodes and must have a direction and a type, typically created using the Cypher MERGE or CREATE commands.",
-    "tenant_id": "default"
-  }
+    {
+        "query": "What is the most common type of skin cancer?",
+        "expected_answer": "Basal cell carcinoma (BCC) is the most common type of skin cancer."
+    },
+    {
+        "query": "From which cell type does basal cell carcinoma arise?",
+        "expected_answer": "Basal cell carcinoma arises from basal cells in the lower part of the epidermis."
+    },
+    {
+        "query": "Which anatomical locations are most commonly affected by basal cell carcinoma?",
+        "expected_answer": "BCC most commonly develops in sun-exposed areas such as the face, head, and neck."
+    },
+    {
+        "query": "What is the primary risk factor for basal cell carcinoma?",
+        "expected_answer": "UV radiation exposure is a primary risk factor for BCC."
+    },
+    {
+        "query": "How does fair skin affect the risk of developing BCC?",
+        "expected_answer": "Fair skin increases the risk of BCC."
+    },
+    {
+        "query": "Does older age influence the risk of basal cell carcinoma?",
+        "expected_answer": "Older age is associated with higher risk of BCC."
+    },
+    {
+        "query": "How does family history impact the risk of basal cell carcinoma?",
+        "expected_answer": "Family history of skin cancer increases risk of BCC."
+    },
+    {
+        "query": "Is immune suppression a risk factor for BCC?",
+        "expected_answer": "Immune suppression is a risk factor for BCC."
+    },
+    {
+        "query": "What are common symptoms of basal cell carcinoma?",
+        "expected_answer": "BCC presents as flat, pale or yellow areas, red patches, shiny bumps, open sores, or brown/black bumps with rolled borders."
+    },
+    {
+        "query": "Which diagnostic methods are used for BCC?",
+        "expected_answer": "Diagnosis of BCC involves medical and family history, physical exam, skin exam, biopsy, and sometimes imaging."
+    }
 ]

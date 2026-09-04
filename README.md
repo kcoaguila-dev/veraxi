@@ -11,21 +11,46 @@ Veraxi is currently deployed and live!
 
 ![Veraxi UI](docs/images/demo.png)
 
-## Why Hybrid GraphRAG? (The Veraxi USP)
+## Why Hybrid GraphRAG? (Architectural Tradeoffs)
 
-Standard vector-based RAG excels at simple, local lookups but hallucinates heavily when asked "global" or multi-hop questions (e.g., connecting disparate entities across a large corpus). Veraxi solves this by explicitly mapping relationships as hard mathematical edges in a graph, while still preserving vector search for fuzzy concepts. 
+Choosing to deploy Veraxi means accepting a fundamental tradeoff: **increased upfront ingestion complexity** in exchange for **deterministic multi-hop reasoning**. 
 
-This hybrid architecture provides massive advantages for users, especially within a **Bring Your Own Key (BYOK)** model:
+Standard Vector RAG is excellent for broad semantic search but suffers from the "Similarity Trap": it retrieves chunks based on mathematical closeness, which often fails when answers require synthesizing facts across non-adjacent documents (multi-hop queries).
 
-1. **Deterministic Accuracy:** Graph traversal eliminates hallucinations. If the graph says node A connects to node B, it's a mathematical fact.
-2. **Cost-Efficiency at Scale:** Users don't need a massive, expensive 2-million token context window to answer complex questions. Veraxi queries the graph, pulls the exact nodes needed, and sends a tiny, highly-accurate prompt to the LLM. **Veraxi actually saves users money on their API bills by querying smarter, not larger.**
-3. **Enterprise Tech for Solo Users:** Setting up Neo4j, Qdrant, and Reciprocal Rank Fusion (RRF) takes weeks of senior data engineering time. Veraxi democratizes this infrastructure, providing an enterprise-grade pipeline out of the box.
+### The Multi-Hop Problem
 
-According to recent enterprise benchmarks, moving from standard vector RAG to a Hybrid GraphRAG architecture yields:
-- **~62% average reduction in hallucinations** across production deployments.
-- **Nearly 30% absolute accuracy improvements** on complex queries (e.g., jumping from 50% to 80% accuracy in industry benchmarks).
-- **Global Sensemaking:** The ability to run Graph Data Science community detection to summarize macroscopic themes across thousands of documents without relying solely on limited LLM context windows.
+Consider a scenario where information is fragmented:
+1. *"The startup Acme Corp was founded by John Smith in 2010."*
+2. *"Jane Doe is the CEO of GlobalTech, which acquired Acme Corp in 2015."*
 
+If a user asks: **"Who is the CEO of the company that acquired the startup founded by John Smith?"**
+
+- **Standard Vector RAG** relies on semantic overlap. It may rank a distractor chunk containing keywords like "CEO," "acquired," and "startup" higher than the actual truth, failing to connect the fragmented facts and leading to hallucination.
+- **Hybrid GraphRAG** addresses this by explicitly mapping the entities: `John Smith` → `[FOUNDED]` → `Acme Corp` → `[ACQUIRED_BY]` → `GlobalTech` → `[HAS_CEO]` → `Jane Doe`. By traversing hard mathematical edges, it bypasses semantic ambiguity, pulling the exact isolated documents needed to answer the query.
+
+### Realities and Limitations
+
+While Hybrid GraphRAG dramatically reduces hallucinations for complex queries, it is not a silver bullet. A senior engineering evaluation of Veraxi must account for the following realities:
+
+1. **Extraction Bottlenecks:** Graph traversal is only as good as the data ingested. If the LLM extraction pipeline fails to identify an entity or relationship, the graph will have broken links.
+2. **Schema Rigidity & Maintenance:** Unlike Vector RAG, where you blindly dump text into an index, GraphRAG requires defining and maintaining a consistent ontology (Node Labels and Edge Types). As data evolves, the graph requires active curation.
+3. **High Upfront Compute Cost:** Extracting nodes and edges from unstructured text requires heavy LLM usage during ingestion. (To mitigate this, Veraxi supports a **Bring Your Own Subscription (BYOS)** model via the Model Context Protocol (MCP), allowing clients to offload extraction costs to existing AI assistants).
+When configured correctly, the Hybrid approach (merging Graph traversal with Vector semantic search via Reciprocal Rank Fusion) yields significant, mathematically verifiable improvements. According to independent industry benchmarks:
+- **Microsoft Research** demonstrated that GraphRAG significantly outperforms standard RAG on global, corpus-spanning queries by explicitly tracking entity networks ([*From Local to Global: A Graph RAG Approach to Query-Focused Summarization*](https://arxiv.org/abs/2404.16130)).
+- The **UK National Innovation Centre for Data (NICD)** found that integrating GraphRAG made AI agents **80% more "truthful"** (reducing hallucinations) and enabled them to answer more than twice as many complex queries compared to standard vector-only RAG pipelines.
+
+### Enterprise Architectural Validation & The Open-Source Gap
+While the theoretical benefits of GraphRAG are well-documented, the open-source ecosystem is currently flooded with fragmented Python scripts or expensive cloud platforms. There is a distinct lack of out-of-the-box, full-stack GraphRAG applications that are ready for immediate production use.
+
+Veraxi fills this gap by strictly implementing **Neo4j's official Hybrid Retrieval architecture**. Neo4j's official engineering guidelines dictate that the most robust RAG pipelines run multi-modal retrieval (Semantic Vector Search + Structural Graph Traversal) in parallel, and merge the incompatible scoring outputs using the **Reciprocal Rank Fusion (RRF)** formula. Veraxi provides this enterprise-grade pipeline as a deployable product, not just a proof of concept.
+
+## Who is this for? (Use Cases)
+
+Because Veraxi provides enterprise-grade data structures at zero API cost (via BYOS), it is the perfect tool for:
+
+1. **Educators & Content Creators:** Feed Veraxi hundreds of research papers, articles, or transcripts to synthesize complex topics. By relying on explicitly defined graph edges rather than pure semantic guessing, you can drastically reduce hallucinations and generate highly accurate, long-form scripts and deep-dives for social media or YouTube.
+2. **Researchers & Analysts:** Standard RAG fails when analyzing legal contracts, medical journals, or financial reports because it loses track of entities. Veraxi's graph allows you to ask complex questions like *"Which companies in this corpus are exposed to supply chain risk X?"* and get deterministic answers.
+3. **Independent Developers & Consultants:** Build and evaluate state-of-the-art Hybrid GraphRAG systems for your clients without spending thousands of dollars on expensive enterprise AI platform subscriptions.
 ## Status
 
 **v1.0.0 (MVP Live)**
