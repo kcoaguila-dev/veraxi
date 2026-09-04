@@ -1,13 +1,14 @@
-import json
 import logging
+
 from dotenv import load_dotenv
+
 load_dotenv('backend/.env')
 
-import logging
 from openai import OpenAI
+
 from backend.config import get_config
-from backend.mcp_server.tools.search_vectors import search_vectors
 from backend.mcp_server.tools.evaluate_grounding import mcp_evaluate_grounding
+from backend.mcp_server.tools.search_vectors import search_vectors
 from backend.retrieval.merge_rank import merge_rank
 
 logging.basicConfig(level=logging.ERROR, format="%(levelname)s: %(message)s")
@@ -26,8 +27,8 @@ def generate_answer(query: str, context: str) -> str:
             temperature=0.0
         )
         return response.choices[0].message.content
-    except Exception as e:
-        return f"[Answer Generation Skipped: Missing LLM_API_KEY ({str(e)})]"
+    except Exception as e:  # noqa: BLE001
+        return f"[Answer Generation Skipped: Missing LLM_API_KEY ({e!s})]"
 
 def run_benchmark():
     tenant_id = "default"
@@ -36,7 +37,7 @@ def run_benchmark():
     query = "How do routers facilitate communication between different LAN topologies and the wider Internet?"
     
     print("="*50)
-    print(f"BENCHMARKING RAG PIPELINES")
+    print("BENCHMARKING RAG PIPELINES")
     print(f"Query: {query}")
     print("="*50)
     

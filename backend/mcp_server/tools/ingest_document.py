@@ -1,11 +1,13 @@
-import httpx
 import os
-from typing import Dict, Any, Optional
+from typing import Any
+
+import httpx
+
 
 def mcp_ingest_document(
     tenant_id: str,
-    file_path: Optional[str] = None,
-    url: Optional[str] = None,
+    file_path: str | None = None,
+    url: str | None = None,
     fast_extraction: bool = False,
     language: str = "en",
     model: str = "gemini-2.5-flash-lite",
@@ -13,7 +15,7 @@ def mcp_ingest_document(
     chunk_size: int = 200,
     chunk_overlap: int = 50,
     wait_for_completion: bool = False
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Submits a document or URL to Veraxi's native ingestion pipeline.
     
@@ -95,11 +97,11 @@ def mcp_ingest_document(
         return result
     except httpx.HTTPError as e:
         response_text = e.response.text if getattr(e, 'response', None) else None
-        return {"error": f"HTTP Error during ingestion: {str(e)}", "details": response_text}
-    except Exception as e:
-        return {"error": f"Unexpected error: {str(e)}"}
+        return {"error": f"HTTP Error during ingestion: {e!s}", "details": response_text}
+    except Exception as e:  # noqa: BLE001
+        return {"error": f"Unexpected error: {e!s}"}
 
-def mcp_get_ingest_status(tenant_id: str, job_id: str) -> Dict[str, Any]:
+def mcp_get_ingest_status(tenant_id: str, job_id: str) -> dict[str, Any]:
     """
     Polls the status of an active ingestion job.
     """
@@ -114,6 +116,6 @@ def mcp_get_ingest_status(tenant_id: str, job_id: str) -> Dict[str, Any]:
             response.raise_for_status()
             return response.json()
     except httpx.HTTPError as e:
-        return {"error": f"HTTP Error checking status: {str(e)}"}
-    except Exception as e:
-        return {"error": f"Unexpected error: {str(e)}"}
+        return {"error": f"HTTP Error checking status: {e!s}"}
+    except Exception as e:  # noqa: BLE001
+        return {"error": f"Unexpected error: {e!s}"}
