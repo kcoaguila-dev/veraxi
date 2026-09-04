@@ -39,6 +39,14 @@ When configured correctly, the Hybrid approach (merging Graph traversal with Vec
 - **Microsoft Research** demonstrated that GraphRAG significantly outperforms standard RAG on global, corpus-spanning queries by explicitly tracking entity networks ([*From Local to Global: A Graph RAG Approach to Query-Focused Summarization*](https://arxiv.org/abs/2404.16130)).
 - The **UK National Innovation Centre for Data (NICD)** found that integrating GraphRAG made AI agents **80% more "truthful"** (reducing hallucinations) and enabled them to answer more than twice as many complex queries compared to standard vector-only RAG pipelines.
 
+### Web GraphRAG (Ephemeral extraction)
+For live web searches, standard RAG dumps raw text snippets into the LLM context, which quickly causes hallucinations due to the "lost-in-the-middle" effect. To solve this, Veraxi performs **In-Context GraphRAG**:
+1. It uses your preferred search provider (e.g., SearXNG or Tavily).
+2. It scrapes the full pages and dynamically extracts a Knowledge Graph in-memory using an agnostic NLP/LLM pipeline (defaults to `spaCy` + `Gemini Flash`, but any OpenAI-compatible endpoint works).
+3. It passes this perfectly structured JSON graph to the Host LLM. 
+
+**Zero Data Pollution:** Unlike user-ingested documents, these web graphs are strictly **ephemeral**. They are processed in-memory for the duration of the query and immediately discarded. This ensures your permanent Neo4j database is never polluted with untrusted or random web data without your explicit permission, aligning with how leading enterprise search engines (like Glean and Perplexity) separate internal enterprise truth from live web retrieval.
+
 ### Enterprise Architectural Validation & The Open-Source Gap
 While the theoretical benefits of GraphRAG are well-documented, the open-source ecosystem is currently flooded with fragmented Python scripts or expensive cloud platforms. There is a distinct lack of out-of-the-box, full-stack GraphRAG applications that are ready for immediate production use.
 
