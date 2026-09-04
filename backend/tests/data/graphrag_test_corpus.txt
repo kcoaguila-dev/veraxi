@@ -1,13 +1,51 @@
-# The Evolution of Retrieval-Augmented Generation and Graph Databases
+BCC presents as open sores.
 
-In recent years, the landscape of Artificial Intelligence has been drastically altered by the introduction of Large Language Models (LLMs). While LLMs like GPT-4 and Claude have shown remarkable fluency, they suffer from a fatal flaw: hallucination. To combat this, researchers introduced Retrieval-Augmented Generation (RAG). Traditional RAG relies heavily on dense vector embeddings. Text is chunked, embedded using models like text-embedding-ada-002, and stored in high-dimensional vector spaces. 
+BCC presents as flat, pale areas.
 
-When it comes to vector storage, the industry has seen a massive proliferation of specialized databases. Pinecone, Milvus, and Weaviate are popular choices, but for applications requiring extreme throughput, the landscape shifts. Qdrant is a high-performance vector database optimized for nearest-neighbor search. It is written in Rust, which gives it a significant edge in memory safety and concurrent processing over older C++ or Python-based solutions. Many enterprise systems now default to Qdrant for their semantic retrieval layers.
+Older age is associated with a higher risk of BCC.
 
-However, traditional vector-based RAG has limitations. It struggles with multi-hop reasoning. If a user asks, "Who is the CEO of the company that acquired the startup founded by John?", vector search often fails because the relationships are not explicitly clustered in semantic space. 
+Diagnosis of BCC may involve imaging.
 
-This limitation led to the development of knowledge graph-based approaches. To store the knowledge graph, Veraxi relies on Neo4j. Relationships in Neo4j connect nodes and must have a direction and a type, typically created using the Cypher MERGE or CREATE commands. For instance, `(u:User)-[:PURCHASED]->(p:Product)` clearly defines a directional transaction. Cypher's pattern-matching syntax makes traversing these multi-hop relationships computationally trivial compared to relational SQL joins.
+BCC presents as bumps with rolled borders.
 
-The true breakthrough came when researchers realized they could combine the semantic fuzziness of vector databases with the strict, topological reasoning of graph databases. This paradigm is known as GraphRAG. GraphRAG was developed by Microsoft Research. It fundamentally alters the retrieval step by using an LLM to pre-process the entire document corpus, extracting entities and relationships to build a global knowledge graph before the user ever asks a question.
+Common sun-exposed areas for BCC include the neck.
 
-By leveraging Reciprocal Rank Fusion (RRF), systems can query both the Qdrant vector space and the Neo4j graph space simultaneously. The results are mathematically fused, providing the LLM with a context window that contains both exact semantic matches and broader topological summaries. This effectively solves the "Needle in a Haystack" problem that plagues standard RAG architectures.
+Common sun-exposed areas for BCC include the head.
+
+Family history of skin cancer increases the risk of BCC.
+
+BCC presents as shiny bumps.
+
+Diagnosis of BCC involves a physical exam.
+
+Immune suppression is a risk factor for BCC.
+
+BCC presents as black bumps.
+
+Basal cell carcinoma arises from basal cells.
+
+BCC presents as red patches.
+
+Diagnosis of BCC involves a skin exam.
+
+BCC presents as yellow areas.
+
+Basal cells are located in the lower part of the epidermis.
+
+BCC presents as brown bumps.
+
+Diagnosis of BCC involves a biopsy.
+
+Common sun-exposed areas for BCC include the face.
+
+Diagnosis of BCC involves family history.
+
+UV radiation exposure is a primary risk factor for BCC.
+
+Fair skin increases the risk of BCC.
+
+Basal cell carcinoma (BCC) is the most common type of skin cancer.
+
+BCC most commonly develops in sun-exposed areas.
+
+Diagnosis of BCC involves medical history.

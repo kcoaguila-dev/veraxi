@@ -14,7 +14,7 @@ from backend.storage.qdrant_client import QdrantStorageClient
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 
 
-def run_ingestion(config, text: str, schema: dict, tenant_id: str = "default", fast_extraction: bool = False, language: str = "en", custom_stop_words: list | None = None, model: str | None = None):
+def run_ingestion(config, text: str, schema: dict, tenant_id: str = "default", fast_extraction: bool = False, language: str = "en", custom_stop_words: list | None = None, model: str | None = None, chunk_size: int = 200, chunk_overlap: int = 50):
     # 1. Initialize clients
     qdrant = QdrantStorageClient.from_config(config)
     neo4j = Neo4jStorageClient.from_config(config)
@@ -26,7 +26,7 @@ def run_ingestion(config, text: str, schema: dict, tenant_id: str = "default", f
     logging.info(f"Starting ingestion for tenant: {tenant_id}...")  # noqa: LOG015
 
     # 2. Chunk and embed
-    chunks_and_embeddings = chunk_and_embed(text)
+    chunks_and_embeddings = chunk_and_embed(text, chunk_size=chunk_size, chunk_overlap=chunk_overlap)
 
     vectors = [item[1] for item in chunks_and_embeddings]
     sparse_vectors = [item[2] for item in chunks_and_embeddings]

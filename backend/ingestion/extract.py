@@ -165,8 +165,35 @@ def extract_entities_and_relations(
         return validate_extraction(raw_entities, raw_relations, schema)
     except Exception as e:  # noqa: BLE001
         sentry_sdk.capture_exception(e)
-        logger.error(f"Failed to extract entities/relations: {e}")
         return [], []
+
+
+def _extract_relations_from_sentence(sent, entity_name_to_type, allowed_relations):
+    """
+    Naively extract relations from a sentence based on entity co-occurrence.
+    """
+    relations = []
+    ents_in_sent = [ent.text.strip() for ent in sent.ents if ent.text.strip() in entity_name_to_type]
+    
+    if len(ents_in_sent) >= 2:
+        for i in range(len(ents_in_sent)):
+            for j in range(i + 1, len(ents_in_sent)):
+                e1 = ents_in_sent[i]
+                e2 = ents_in_sent[j]
+                if e1 == e2: continue
+                
+                t1 = entity_name_to_type.get(e1)
+                t2 = entity_name_to_type.get(e2)
+                
+                allowed_t1_t2 = allowed_relations.get(t1, {}).get(t2, [])
+                if allowed_t1_t2:
+                    relations.append({"from_entity": e1, "to_entity": e2, "type": allowed_t1_t2[0]})
+                
+                allowed_t2_t1 = allowed_relations.get(t2, {}).get(t1, [])
+                if allowed_t2_t1:
+                    relations.append({"from_entity": e2, "to_entity": e1, "type": allowed_t2_t1[0]})
+                    
+    return relations
 
 
 def extract_entities_and_relations_fast(

@@ -40,3 +40,4 @@ infra/.terraform/
 *.tfstate
 *.tfstate.*
 \n# Local TTS Data\nbackend/tts/voices.json\nbackend/tts/voices/\n
+.deepeval/
