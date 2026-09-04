@@ -1,19 +1,23 @@
 import json
 import logging
+
 from dotenv import load_dotenv
+
 load_dotenv('backend/.env')
 
-from openai import OpenAI
-from backend.config import get_config
-from backend.mcp_server.tools.search_vectors import search_vectors
-from backend.mcp_server.tools.query_graph import query_graph
-from backend.retrieval.merge_rank import merge_rank, VectorHit, GraphHit
 import statistics
+
+from deepeval.metrics import GEval
 
 # Import DeepEval components
 from deepeval.models import DeepEvalBaseLLM
-from deepeval.metrics import GEval
 from deepeval.test_case import LLMTestCase, LLMTestCaseParams
+from openai import OpenAI
+
+from backend.config import get_config
+from backend.mcp_server.tools.query_graph import query_graph
+from backend.mcp_server.tools.search_vectors import search_vectors
+from backend.retrieval.merge_rank import GraphHit, VectorHit, merge_rank
 
 logging.basicConfig(level=logging.ERROR, format="%(levelname)s: %(message)s")
 
@@ -36,8 +40,8 @@ class GeminiDeepEvalLLM(DeepEvalBaseLLM):
                 temperature=0.0
             )
             return response.choices[0].message.content
-        except Exception as e:
-            return f"[DeepEval Generation Failed: {str(e)}]"
+        except Exception as e:  # noqa: BLE001
+            return f"[DeepEval Generation Failed: {e!s}]"
 
     async def a_generate(self, prompt: str) -> str:
         return self.generate(prompt)
@@ -59,8 +63,8 @@ def generate_answer(query: str, context: str) -> str:
             temperature=0.0
         )
         return response.choices[0].message.content
-    except Exception as e:
-        return f"[Answer Generation Skipped: Missing/Exhausted API KEY ({str(e)})]"
+    except Exception as e:  # noqa: BLE001
+        return f"[Answer Generation Skipped: Missing/Exhausted API KEY ({e!s})]"
 
 def run_benchmark():
     tenant_id = "hotpotqa_mcp"
@@ -108,7 +112,7 @@ def run_benchmark():
             )
             correctness_metric.measure(v_test_case)
             v_score = correctness_metric.score
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             print(f"Evaluation Failed: {e}")
             v_score = 0.0
             
@@ -139,7 +143,7 @@ def run_benchmark():
             )
             correctness_metric.measure(h_test_case)
             h_score = correctness_metric.score
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             print(f"Evaluation Failed: {e}")
             h_score = 0.0
             
