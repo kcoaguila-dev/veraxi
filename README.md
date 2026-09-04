@@ -42,8 +42,8 @@ When configured correctly, the Hybrid approach (merging Graph traversal with Vec
 ### Web GraphRAG (Ephemeral extraction)
 For live web searches, standard RAG dumps raw text snippets into the LLM context, which quickly causes hallucinations due to the "lost-in-the-middle" effect. To solve this, Veraxi performs **In-Context GraphRAG**:
 1. It uses your preferred search provider (e.g., SearXNG or Tavily).
-2. It scrapes the full pages and dynamically extracts a Knowledge Graph in-memory using an agnostic NLP/LLM pipeline (defaults to `spaCy` + `Gemini Flash`, but any OpenAI-compatible endpoint works).
-3. It passes this perfectly structured JSON graph to the Host LLM. 
+2. It scrapes the full pages and dynamically extracts a Knowledge Graph in-memory using a lightning-fast, zero-inference-cost NLP pipeline (powered by `spaCy`).
+3. It passes this perfectly structured JSON graph back to the Host AI (the model you are currently chatting with) to perform the actual reasoning. 
 
 **Zero Data Pollution:** Unlike user-ingested documents, these web graphs are strictly **ephemeral**. They are processed in-memory for the duration of the query and immediately discarded. This ensures your permanent Neo4j database is never polluted with untrusted or random web data without your explicit permission, aligning with how leading enterprise search engines (like Glean and Perplexity) separate internal enterprise truth from live web retrieval.
 
