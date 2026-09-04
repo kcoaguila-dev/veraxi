@@ -13,14 +13,10 @@ Do not use numbers (like [1]) or markdown hyperlinks.
 """
 from __future__ import annotations
 
-import json
 import logging
-import urllib.parse
-import urllib.request
 
 import sentry_sdk
 
-from backend.config import get_config
 from backend.mcp_server.tools.scrapers import build_scraper
 from backend.mcp_server.tools.search_providers import get_search_provider
 

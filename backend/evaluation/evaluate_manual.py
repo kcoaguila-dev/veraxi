@@ -1,8 +1,8 @@
 import os
-import json
+
+from dotenv import load_dotenv
 from neo4j import GraphDatabase
 from qdrant_client import QdrantClient
-from dotenv import load_dotenv
 
 load_dotenv()
 

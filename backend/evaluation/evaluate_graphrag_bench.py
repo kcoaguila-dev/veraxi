@@ -1,4 +1,3 @@
-import json
 
 # Manually mimicking the Vector vs Pure Graph vs Hybrid GraphRAG retrieval
 # Based on the exact corpus generated from GraphRAG-Bench
@@ -36,7 +35,7 @@ corpus = [
 
 print("=== GRAPHRAG-BENCH (MEDICAL) EVALUATION ===")
 print(f"Query: {query}")
-print(f"Expected Answer: BCC presents as flat, pale or yellow areas, red patches, shiny bumps, open sores, or brown/black bumps with rolled borders.\n")
+print("Expected Answer: BCC presents as flat, pale or yellow areas, red patches, shiny bumps, open sores, or brown/black bumps with rolled borders.\n")
 
 print("1. [PURE VECTOR RAG RETRIEVAL]")
 print("Limit: Top 3 chunks (Standard for Vector DBs to avoid context window explosion)")

@@ -1,4 +1,5 @@
 from datasets import load_dataset
+
 dataset = load_dataset("google/frames-benchmark", split="test", streaming=True)
 sample = next(iter(dataset))
 print("KEYS:", sample.keys())

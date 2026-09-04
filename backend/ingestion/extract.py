@@ -278,7 +278,7 @@ def extract_entities_and_relations_fast(
     allowed_relations = schema.get("relations", {})
     
     for sent in doc.sents:
-        relations.extend(_extract_relations_from_sentence(sent, entity_name_to_type, allowed_relations))  # noqa: F821
+        relations.extend(_extract_relations_from_sentence(sent, entity_name_to_type, allowed_relations))
                 
     # We still run it through validate_extraction to normalize it
     return validate_extraction(entities, relations, schema)
