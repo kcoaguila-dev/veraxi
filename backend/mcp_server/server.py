@@ -25,6 +25,10 @@ from backend.mcp_server.tools.delete_relationship import delete_relationship
 from backend.mcp_server.tools.delete_vector import delete_vector
 from backend.mcp_server.tools.get_schema import get_graph_schema
 from backend.mcp_server.tools.get_stats import get_database_stats
+from backend.mcp_server.tools.ingest_document import (
+    mcp_get_ingest_status,
+    mcp_ingest_document,
+)
 from backend.mcp_server.tools.insert_graph import insert_graph_nodes
 from backend.mcp_server.tools.insert_vector import insert_vectors
 from backend.mcp_server.tools.query_graph import query_graph
@@ -32,7 +36,6 @@ from backend.mcp_server.tools.run_analytics import run_community_detection
 from backend.mcp_server.tools.search_vectors import search_vectors
 from backend.mcp_server.tools.update_document import update_document_metadata
 from backend.mcp_server.tools.update_entity import update_entity
-from backend.mcp_server.tools.ingest_document import mcp_ingest_document, mcp_get_ingest_status
 from backend.prompts import CRAG_ORCHESTRATOR_PROMPT, INGEST_KNOWLEDGE_PROMPT
 from backend.storage.quota import check_tenant_hard_cap
 

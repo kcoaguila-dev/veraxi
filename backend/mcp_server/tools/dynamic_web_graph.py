@@ -15,9 +15,9 @@ from __future__ import annotations
 import logging
 from concurrent.futures import ThreadPoolExecutor
 
-from backend.mcp_server.tools.web_search import _enrich
-from backend.mcp_server.tools.search_providers import get_search_provider
 from backend.ingestion.extract import extract_entities_and_relations_fast
+from backend.mcp_server.tools.search_providers import get_search_provider
+from backend.mcp_server.tools.web_search import _enrich
 
 logger = logging.getLogger(__name__)
 

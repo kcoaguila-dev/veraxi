@@ -1,12 +1,14 @@
 import json
 import os
 import random
+
 from datasets import load_dataset
 
 CORPUS_PATH = os.path.join(os.path.dirname(__file__), "..", "tests", "data", "graphrag_test_corpus.txt")
 DATASET_PATH = os.path.join(os.path.dirname(__file__), "dataset.json")
 
 import argparse
+
 
 def generate_multihop():
     print("Loading MultiHop-RAG dataset from Hugging Face...")

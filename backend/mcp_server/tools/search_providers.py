@@ -24,7 +24,6 @@ class SearchProvider(ABC):
     @abstractmethod
     def search(self, query: str, language: str, max_results: int, web_settings: dict) -> list[dict]:
         """Execute search and return standardized results."""
-        pass
 
 
 class SearXNGProvider(SearchProvider):
