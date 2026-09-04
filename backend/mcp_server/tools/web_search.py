@@ -22,6 +22,7 @@ import sentry_sdk
 
 from backend.config import get_config
 from backend.mcp_server.tools.scrapers import build_scraper
+from backend.mcp_server.tools.search_providers import get_search_provider
 
 logger = logging.getLogger(__name__)
 
@@ -55,70 +56,16 @@ def mcp_web_search(
     tool_settings = tool_settings or {}
     web_settings = tool_settings.get("web_search") or {}
 
-    searxng_results = _search_searxng(query, language, max_results, web_settings)
-    if not searxng_results:
+    provider = get_search_provider(web_settings)
+    search_results = provider.search(query, language, max_results, web_settings)
+    
+    if not search_results:
         return []
 
-    return _enrich(searxng_results, web_settings)
+    return _enrich(search_results, web_settings)
 
 
 # ── private helpers ────────────────────────────────────────────────────────────
-
-def _search_searxng(
-    query: str,
-    language: str,
-    max_results: int,
-    web_settings: dict,
-) -> list[dict]:
-    """Query SearXNG and return raw results (title, url, content)."""
-    config = get_config()
-    searxng_url = config.searxng_url
-
-    # Allow user to override with their own SearXNG instance
-    if web_settings.get("provider") == "SearXNG" and web_settings.get("searxng_url"):
-        searxng_url = web_settings["searxng_url"]
-
-    if not searxng_url:
-        logger.error("SEARXNG_URL is not configured.")
-        return []
-
-    params_dict: dict[str, str] = {
-        "q": query,
-        "format": "json",
-        "engines": "google,bing,duckduckgo",
-    }
-    if language and language.lower() not in ("auto", "all"):
-        params_dict["language"] = language
-    else:
-        params_dict["language"] = "all"
-
-    url = f"{searxng_url}?{urllib.parse.urlencode(params_dict)}"
-    results: list[dict] = []
-
-    try:
-        req = urllib.request.Request(
-            url, headers={"User-Agent": "Veraxi/1.0 (MCP Agent)"}
-        )
-        with urllib.request.urlopen(req, timeout=10) as response:
-            if response.status != 200:
-                logger.error("SearXNG returned status %s", response.status)
-                return []
-            data = json.loads(response.read().decode("utf-8"))
-            for i, res in enumerate(data.get("results", [])):
-                if i >= max_results:
-                    break
-                results.append({
-                    "title": res.get("title", ""),
-                    "url": res.get("url", ""),
-                    "content": res.get("content", ""),
-                    "snippet": res.get("content", ""),
-                })
-    except Exception as exc:  # noqa: BLE001
-        sentry_sdk.capture_exception(exc)
-        logger.error("SearXNG search failed: %s", exc)
-        return []
-
-    return results
 
 
 def _enrich(results: list[dict], web_settings: dict) -> list[dict]:

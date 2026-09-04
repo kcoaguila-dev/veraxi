@@ -15,7 +15,8 @@ from __future__ import annotations
 import logging
 from concurrent.futures import ThreadPoolExecutor
 
-from backend.mcp_server.tools.web_search import _search_searxng, _enrich
+from backend.mcp_server.tools.web_search import _enrich
+from backend.mcp_server.tools.search_providers import get_search_provider
 from backend.ingestion.extract import extract_entities_and_relations_fast
 
 logger = logging.getLogger(__name__)
@@ -101,7 +102,8 @@ def mcp_dynamic_web_graph(
     
     # 1. Search Web
     logger.info(f"Dynamic Graph Search for query: {query}")
-    raw_results = _search_searxng(query, language, max_results, web_settings)
+    provider = get_search_provider(web_settings)
+    raw_results = provider.search(query, language, max_results, web_settings)
     if not raw_results:
         return {"graph": {"entities": [], "relations": []}, "sources": []}
 
