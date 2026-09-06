@@ -20,6 +20,6 @@ void main() {
     final res = await repository.fetchStats();
     expect(res.nodeCount, 100);
     expect(res.vectorCount, 200);
-    verify(() => mockApiClient.get('/api/admin/stats')).called(1);
+    verify(() => mockApiClient.get('/admin/stats')).called(1);
   });
 }
