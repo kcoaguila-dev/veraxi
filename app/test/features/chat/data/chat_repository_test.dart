@@ -4,15 +4,18 @@ import 'package:http/http.dart' as http;
 import 'package:veraxi_app/core/network/api_client.dart';
 import 'package:veraxi_app/features/chat/data/chat_repository.dart';
 import 'dart:convert';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class MockHttpClient extends Mock implements http.Client {}
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
   late MockHttpClient mockHttpClient;
   late ApiClient apiClient;
   late ChatRepository repository;
 
   setUp(() {
+    FlutterSecureStorage.setMockInitialValues({});
     mockHttpClient = MockHttpClient();
     apiClient = ApiClient(client: mockHttpClient, baseUrl: 'http://test.com');
     repository = ChatRepository(apiClient: apiClient);
