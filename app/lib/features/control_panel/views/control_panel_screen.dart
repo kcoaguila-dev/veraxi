@@ -13,7 +13,6 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:veraxi_app/core/sidebar_provider.dart';
 import 'widgets/schema_visual_builder.dart';
 
-
 class ControlPanelScreen extends ConsumerStatefulWidget {
   const ControlPanelScreen({super.key});
 
@@ -711,8 +710,6 @@ class _ControlPanelScreenState extends ConsumerState<ControlPanelScreen> {
   Widget _buildSchemaCard(ThemeData theme) {
     final state = ref.watch(controlPanelViewModelProvider);
     final viewModel = ref.read(controlPanelViewModelProvider.notifier);
-
-
 
     return Container(
       padding: const EdgeInsets.all(24),
