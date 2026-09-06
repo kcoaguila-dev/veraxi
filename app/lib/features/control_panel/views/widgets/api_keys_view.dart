@@ -349,7 +349,8 @@ class _ApiKeysViewState extends State<ApiKeysView> {
         children: [
           Row(
             children: [
-              const Icon(Icons.hub_outlined, color: Colors.purpleAccent, size: 24),
+              const Icon(Icons.hub_outlined,
+                  color: Colors.purpleAccent, size: 24),
               const SizedBox(width: 12),
               const Text('Connect your AI Assistant',
                   style: TextStyle(
@@ -388,9 +389,11 @@ class _ApiKeysViewState extends State<ApiKeysView> {
                   top: -8,
                   right: -8,
                   child: IconButton(
-                    icon: const Icon(Icons.copy, color: Color(0xFF878787), size: 18),
+                    icon: const Icon(Icons.copy,
+                        color: Color(0xFF878787), size: 18),
                     onPressed: () {
-                      Clipboard.setData(const ClipboardData(text: configString));
+                      Clipboard.setData(
+                          const ClipboardData(text: configString));
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(content: Text('Copied to clipboard!')),
@@ -408,4 +411,3 @@ class _ApiKeysViewState extends State<ApiKeysView> {
     );
   }
 }
-
