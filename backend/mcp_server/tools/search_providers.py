@@ -14,7 +14,6 @@ import urllib.request
 from abc import ABC, abstractmethod
 
 import sentry_sdk
-
 from backend.config import get_config
 
 logger = logging.getLogger(__name__)

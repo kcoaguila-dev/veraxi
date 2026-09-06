@@ -33,6 +33,7 @@ class _ChatInputState extends State<ChatInput> {
   bool _hasText = false;
   bool _fileSearchEnabled = false;
   bool _webSearchEnabled = false;
+  bool _highAccuracyEnabled = false;
   bool _skillsEnabled = false;
   bool _runCodeEnabled = false;
   bool _artifactsEnabled = false;
@@ -134,9 +135,14 @@ class _ChatInputState extends State<ChatInput> {
             : false;
 
         bool webEnabled = false;
-        if (settings['web_search'] != null &&
-            settings['web_search']['enabled'] != null) {
-          webEnabled = settings['web_search']['enabled'] as bool;
+        bool highAccuracyEnabled = false;
+        if (settings['web_search'] != null) {
+          if (settings['web_search']['enabled'] != null) {
+            webEnabled = settings['web_search']['enabled'] as bool;
+          }
+          if (settings['web_search']['high_accuracy'] != null) {
+            highAccuracyEnabled = settings['web_search']['high_accuracy'] as bool;
+          }
         }
 
         bool skillsEnabled = settings['skills_enabled'] as bool? ?? false;
@@ -147,6 +153,7 @@ class _ChatInputState extends State<ChatInput> {
           setState(() {
             _fileSearchEnabled = fileEnabled;
             _webSearchEnabled = webEnabled;
+            _highAccuracyEnabled = highAccuracyEnabled;
             _skillsEnabled = skillsEnabled;
             _runCodeEnabled = runCodeEnabled;
             _artifactsEnabled = artifactsEnabled;
@@ -173,6 +180,10 @@ class _ChatInputState extends State<ChatInput> {
       settings['web_search'] = settings['web_search'] ?? {};
       settings['web_search']['enabled'] = !currentValue;
       setState(() => _webSearchEnabled = !currentValue);
+    } else if (toolKey == 'high_accuracy') {
+      settings['web_search'] = settings['web_search'] ?? {};
+      settings['web_search']['high_accuracy'] = !currentValue;
+      setState(() => _highAccuracyEnabled = !currentValue);
     } else if (toolKey == 'skills') {
       settings['skills_enabled'] = !currentValue;
       setState(() => _skillsEnabled = !currentValue);
@@ -477,9 +488,19 @@ class _ChatInputState extends State<ChatInput> {
                                 'File Search',
                                 Icons.grid_view_outlined,
                                 () => _toggleTool('file_search', true)),
-                          if (_webSearchEnabled)
+                          if (_webSearchEnabled) ...[
                             _buildActiveToolChip('Web Search', Icons.language,
                                 () => _toggleTool('web_search', true)),
+                            _buildActiveToolChip(
+                                'High-Accuracy',
+                                _highAccuracyEnabled
+                                    ? Icons.verified
+                                    : Icons.verified_outlined,
+                                () => _toggleTool(
+                                    'high_accuracy', _highAccuracyEnabled),
+                                isActive: _highAccuracyEnabled,
+                                isToggle: true),
+                          ],
                           if (_skillsEnabled)
                             _buildActiveToolChip(
                                 'Skills',
@@ -668,25 +689,37 @@ class _ChatInputState extends State<ChatInput> {
     );
   }
 
-  Widget _buildActiveToolChip(String label, IconData icon, VoidCallback onTap) {
+  Widget _buildActiveToolChip(String label, IconData icon, VoidCallback onTap,
+      {bool isActive = true, bool isToggle = false}) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
         margin: const EdgeInsets.only(right: 8),
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
-          color: const Color(0xFF2A2A2A),
+          color: (isToggle && isActive)
+              ? const Color(0xFF10A37F).withValues(alpha: 0.1)
+              : const Color(0xFF2A2A2A),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xFF3A3A3A)),
+          border: Border.all(
+              color: (isToggle && isActive)
+                  ? const Color(0xFF10A37F).withValues(alpha: 0.3)
+                  : const Color(0xFF3A3A3A)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, color: const Color(0xFFB4B4B4), size: 12),
+            Icon(icon,
+                color: (isToggle && isActive)
+                    ? const Color(0xFF10A37F)
+                    : const Color(0xFFB4B4B4),
+                size: 12),
             const SizedBox(width: 6),
             Text(label,
-                style: const TextStyle(
-                    color: Color(0xFFE0E0E0),
+                style: TextStyle(
+                    color: (isToggle && isActive)
+                        ? const Color(0xFF10A37F)
+                        : const Color(0xFFE0E0E0),
                     fontSize: 11,
                     fontWeight: FontWeight.w500)),
           ],

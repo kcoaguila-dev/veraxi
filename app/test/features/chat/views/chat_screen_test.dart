@@ -92,6 +92,9 @@ class MockChatViewModel extends StateNotifier<ChatState>
   Future<void> playAudio(String text, {required String messageId}) async {}
 
   @override
+  Future<void> saveToMemory(String content, {String? model}) async {}
+
+  @override
   Future<void> regenerateResponse() async {}
 
   @override

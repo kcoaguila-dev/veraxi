@@ -1,5 +1,4 @@
 import pytest
-
 from backend.config import get_config
 from backend.ingestion.__main__ import main as run_ingestion
 from backend.storage.neo4j_client import Neo4jStorageClient

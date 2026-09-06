@@ -2,22 +2,6 @@ import dataclasses
 import json
 
 import sentry_sdk
-from mcp.server import Server
-from mcp.types import (
-    CallToolResult,
-    GetPromptResult,
-    ListPromptsResult,
-    ListResourcesResult,
-    ListToolsResult,
-    Prompt,
-    PromptMessage,
-    ReadResourceResult,
-    Resource,
-    TextContent,
-    TextResourceContents,
-    Tool,
-)
-
 from backend.config import get_config
 from backend.mcp_server.context import tenant_context
 from backend.mcp_server.tools.delete_entity import delete_entity
@@ -38,6 +22,21 @@ from backend.mcp_server.tools.update_document import update_document_metadata
 from backend.mcp_server.tools.update_entity import update_entity
 from backend.prompts import CRAG_ORCHESTRATOR_PROMPT, INGEST_KNOWLEDGE_PROMPT
 from backend.storage.quota import check_tenant_hard_cap
+from mcp.server import Server
+from mcp.types import (
+    CallToolResult,
+    GetPromptResult,
+    ListPromptsResult,
+    ListResourcesResult,
+    ListToolsResult,
+    Prompt,
+    PromptMessage,
+    ReadResourceResult,
+    Resource,
+    TextContent,
+    TextResourceContents,
+    Tool,
+)
 
 
 async def handle_list_resources(ctx, params) -> ListResourcesResult:
@@ -390,6 +389,23 @@ REGISTERED_TOOLS = [
             "required": ["query"]
         }
     ),
+    Tool(
+        name="mcp_deep_research",
+        description="Performs deep web research. Searches the internet, dynamically ingests the top results into your Hybrid RAG database, and returns mathematically ranked facts. Use this for complex research where standard web search lacks depth or relational accuracy. If you already have URLs to research, provide them in the 'urls' array.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "query": {"type": "string"},
+                "max_results": {"type": "integer", "default": 3},
+                "urls": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Optional list of pre-searched URLs to ingest and research over. If provided, skips the internal web search phase."
+                }
+            },
+            "required": ["query"]
+        }
+    ),
 ]
 
 def _handle_search_vectors(args: dict, tenant_id: str) -> list[TextContent]:
@@ -506,6 +522,18 @@ def _handle_dynamic_web_graph(args: dict, tenant_id: str) -> list[TextContent]:
     results = mcp_dynamic_web_graph(args["query"], args.get("language", "en"), args.get("max_results", 5), tool_settings=tool_settings)
     return [TextContent(type="text", text=json.dumps(results))]
 
+def _handle_deep_research(args: dict, tenant_id: str) -> list[TextContent]:
+    from backend.mcp_server.tools.deep_research import mcp_deep_research
+    tool_settings = args.get("_tool_settings", {})
+    results = mcp_deep_research(
+        query=args["query"], 
+        tenant_id=tenant_id, 
+        max_results=args.get("max_results", 3), 
+        urls=args.get("urls"),
+        tool_settings=tool_settings
+    )
+    return [TextContent(type="text", text=json.dumps(results))]
+
 def _handle_skills(args: dict, tenant_id: str) -> list[TextContent]:
     from backend.mcp_server.tools.skills import list_skills
     results = list_skills()
@@ -563,6 +591,7 @@ TOOL_HANDLERS = {
     "mcp_read_artifact": _handle_read_artifact,
     "mcp_ingest_document": _handle_ingest_document,
     "mcp_get_ingest_status": _handle_get_ingest_status,
+    "mcp_deep_research": _handle_deep_research,
 }
 
 async def handle_list_tools(ctx, params) -> ListToolsResult:

@@ -3,10 +3,9 @@ import logging
 from typing import Any
 
 import sentry_sdk
-from openai import OpenAI
-
 from backend.config import get_config
 from backend.prompts import get_extraction_prompt
+from openai import OpenAI
 
 logger = logging.getLogger(__name__)
 

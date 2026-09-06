@@ -7,17 +7,16 @@ load_dotenv('backend/.env')
 
 import statistics
 
+from backend.config import get_config
+from backend.mcp_server.tools.query_graph import query_graph
+from backend.mcp_server.tools.search_vectors import search_vectors
+from backend.retrieval.merge_rank import GraphHit, VectorHit, merge_rank
 from deepeval.metrics import GEval
 
 # Import DeepEval components
 from deepeval.models import DeepEvalBaseLLM
 from deepeval.test_case import LLMTestCase, LLMTestCaseParams
 from openai import OpenAI
-
-from backend.config import get_config
-from backend.mcp_server.tools.query_graph import query_graph
-from backend.mcp_server.tools.search_vectors import search_vectors
-from backend.retrieval.merge_rank import GraphHit, VectorHit, merge_rank
 
 logging.basicConfig(level=logging.ERROR, format="%(levelname)s: %(message)s")
 

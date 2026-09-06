@@ -789,6 +789,15 @@ class ChatViewModel extends StateNotifier<ChatState> {
     }
   }
 
+  Future<void> saveToMemory(String content, {String? model}) async {
+    try {
+      await _repository.saveToMemory(content, model: model);
+    } catch (e, st) {
+      Sentry.captureException(e, stackTrace: st);
+      state = state.copyWith(error: 'Failed to save memory: $e');
+    }
+  }
+
   /// Speaks [text] aloud.
   ///
   /// Uses GPT-SoVITS via backend if a custom voice is selected.

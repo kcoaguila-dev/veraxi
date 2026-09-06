@@ -242,22 +242,41 @@ def _execute_single_tool(tool_name: str, tool_input: dict, tenant_id: str, tool_
                     self.sources = ["System Error"]
             return [ErrorHit()], []
             
-        from backend.mcp_server.tools.web_search import mcp_web_search
-        results = mcp_web_search(tool_input["query"], tool_settings=tool_settings)
-        
         import uuid
-        class WebHit:
-            def __init__(self, res):
-                self.id = str(uuid.uuid4())
-                self.payload = {
-                    "text": res.get("content", ""),
-                    "snippet": res.get("snippet", ""),
-                    "title": res.get("title", ""),
-                    "url": res.get("url", "")
-                }
-                self.sources = [res.get("url", "web")]
-                
-        return [WebHit(r) for r in results], []
+        
+        if web_search.get("high_accuracy", False):
+            from backend.mcp_server.tools.deep_research import mcp_deep_research
+            dr_results = mcp_deep_research(tool_input["query"], tenant_id=tenant_id, tool_settings=tool_settings)
+            
+            class DeepHit:
+                def __init__(self, res):
+                    self.id = res.get("id", str(uuid.uuid4()))
+                    self.payload = {
+                        "text": res.get("text", ""),
+                        "title": "Verified Entity Context",
+                        "url": res.get("sources", [""])[0] if res.get("sources") else ""
+                    }
+                    self.sources = res.get("sources", [""])
+            
+            # Map FusedResult dicts to DeepHit objects
+            hits = dr_results.get("results", [])
+            return [DeepHit(r) for r in hits], []
+        else:
+            from backend.mcp_server.tools.web_search import mcp_web_search
+            results = mcp_web_search(tool_input["query"], tool_settings=tool_settings)
+            
+            class WebHit:
+                def __init__(self, res):
+                    self.id = str(uuid.uuid4())
+                    self.payload = {
+                        "text": res.get("content", ""),
+                        "snippet": res.get("snippet", ""),
+                        "title": res.get("title", ""),
+                        "url": res.get("url", "")
+                    }
+                    self.sources = [res.get("url", "web")]
+                    
+            return [WebHit(r) for r in results], []
     elif tool_name == "run_python_code":
         import requests
         try:

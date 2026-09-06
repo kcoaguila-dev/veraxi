@@ -8,14 +8,13 @@ import hashlib
 from unittest.mock import MagicMock, patch
 
 import pytest
-from fastapi import HTTPException
-
 from backend.security.api_keys import (
     _KEY_PREFIX,
     _hash_key,
     generate_api_key,
     resolve_api_key,
 )
+from fastapi import HTTPException
 
 # ---------------------------------------------------------------------------
 # generate_api_key

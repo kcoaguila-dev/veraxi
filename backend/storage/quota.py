@@ -15,10 +15,9 @@ when auth is disabled — matching the behaviour of rivals like LibreChat.
 import logging
 
 import sentry_sdk
-from fastapi import HTTPException
-
 from backend.config import Config, get_config
 from backend.storage.neo4j_client import Neo4jStorageClient
+from fastapi import HTTPException
 
 logger = logging.getLogger(__name__)
 

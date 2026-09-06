@@ -1,9 +1,8 @@
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from fastapi.testclient import TestClient
-
 from backend.api_gateway import app, get_tenant_id
+from fastapi.testclient import TestClient
 
 
 # Override the auth dependency for testing
@@ -127,6 +126,63 @@ def test_chat_threads_endpoint(client, mock_redis):
     
     response = client.get("/api/chat/threads")
     assert response.status_code == 200
-    # Will return 2 threads, ordered by timestamp
     assert len(response.json()["threads"]) == 2
 
+@patch("backend.api_gateway._ensure_schema_exists")
+@patch("backend.api_gateway.check_tenant_hard_cap")
+def test_ingest_memory(mock_check_cap, mock_ensure_schema, client, mock_redis):
+    mock_redis.enqueue_job.return_value = MagicMock(job_id="test_job_id")
+    
+    response = client.post(
+        "/api/memory/ingest",
+        json={
+            "content": "I like to code in Python",
+            "model": "gpt-4o"
+        }
+    )
+    
+    assert response.status_code == 200
+    assert response.json()["status"] == "queued"
+    assert response.json()["job_id"] == "test_job_id"
+    
+    # Verify the background job was queued with the correct preamble
+    mock_redis.enqueue_job.assert_called_once()
+    args = mock_redis.enqueue_job.call_args[0]
+    assert args[0] == "process_ingestion_task"
+    assert "The following is a verified long-term memory fact" in args[1]
+    assert "I like to code in Python" in args[1]
+    assert args[2] == "test_tenant_id"
+    assert args[6] == "gpt-4o"
+
+@pytest.mark.asyncio
+async def test_ensure_schema_exists_missing():
+    from backend.api_gateway import _ensure_schema_exists
+    
+    mock_redis = AsyncMock()
+    mock_redis.get.return_value = None # Schema missing
+    
+    with patch("openai.AsyncOpenAI") as mock_openai:
+        mock_client = AsyncMock()
+        mock_response = MagicMock()
+        mock_response.choices = [MagicMock(message=MagicMock(content='{"entities": [], "relations": {}}'))]
+        mock_client.chat.completions.create.return_value = mock_response
+        mock_openai.return_value = mock_client
+        
+        await _ensure_schema_exists(mock_redis, "test_tenant", "Sample document text")
+        
+        mock_client.chat.completions.create.assert_called_once()
+        mock_redis.set.assert_called_once_with("tenant:test_tenant:schema", '{"entities": [], "relations": {}}')
+
+@pytest.mark.asyncio
+async def test_ensure_schema_exists_present():
+    from backend.api_gateway import _ensure_schema_exists
+    
+    mock_redis = AsyncMock()
+    mock_redis.get.return_value = '{"entities": ["Person"]}' # Schema exists
+    
+    with patch("openai.AsyncOpenAI") as mock_openai:
+        await _ensure_schema_exists(mock_redis, "test_tenant", "Sample document text")
+        
+        # OpenAI should not be called if schema exists
+        mock_openai.assert_not_called()
+        mock_redis.set.assert_not_called()

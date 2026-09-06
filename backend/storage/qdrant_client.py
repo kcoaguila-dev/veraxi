@@ -1,6 +1,7 @@
 import uuid
 from typing import Any
 
+from backend import context as byod_context
 from qdrant_client import QdrantClient
 from qdrant_client.models import (
     Distance,
@@ -10,8 +11,6 @@ from qdrant_client.models import (
     SparseVectorParams,
     VectorParams,
 )
-
-from backend import context as byod_context
 
 
 class QdrantStorageClient:
@@ -182,6 +181,23 @@ class QdrantStorageClient:
         self.client.delete(
             collection_name=collection_name,
             points_selector=models.PointIdsList(points=point_ids)
+        )
+
+    def delete_tenant(self, collection_name: str, tenant_id: str):
+        """Delete all points belonging to a specific tenant."""
+        from qdrant_client.http import models
+        self.client.delete(
+            collection_name=collection_name,
+            points_selector=models.FilterSelector(
+                filter=models.Filter(
+                    must=[
+                        models.FieldCondition(
+                            key="tenant_id",
+                            match=models.MatchValue(value=tenant_id)
+                        )
+                    ]
+                )
+            )
         )
 
     def count(self, collection_name: str, tenant_id: str = "default") -> int:

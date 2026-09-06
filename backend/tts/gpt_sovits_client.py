@@ -1,7 +1,6 @@
 import logging
 
 import httpx
-
 from backend.config import get_config
 
 logger = logging.getLogger(__name__)
