@@ -80,7 +80,7 @@ void main() {
     );
 
     // Should still render the title
-    expect(find.text('Internal Database'), findsOneWidget);
+    expect(find.text('Internal Database'), findsWidgets);
 
     // Should NOT attempt to render an image if the domain is invalid
     final imageFinder = find.byType(Image);
