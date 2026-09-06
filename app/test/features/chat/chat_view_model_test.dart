@@ -99,7 +99,7 @@ void main() {
     await pumpEventQueue();
     const question = 'Tell me a story';
 
-    when(() => mockRepository.streamChat(question,
+    when(() => mockRepository.streamChat(any(),
         threadId: any(named: 'threadId'),
         model: 'test-model',
         isTemporary: false,
@@ -136,7 +136,7 @@ void main() {
     await pumpEventQueue();
     const question = 'Tell me a story';
 
-    when(() => mockRepository.streamChat(question,
+    when(() => mockRepository.streamChat(any(),
         threadId: any(named: 'threadId'),
         model: 'test-model',
         isTemporary: false,
