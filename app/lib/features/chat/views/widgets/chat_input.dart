@@ -463,6 +463,8 @@ class _ChatInputState extends State<ChatInput> {
                         _toggleTool('run_code', _runCodeEnabled);
                       } else if (value == 'artifacts_toggle') {
                         _toggleTool('artifacts', _artifactsEnabled);
+                      } else if (value == 'high_accuracy_toggle') {
+                        _toggleTool('high_accuracy', _highAccuracyEnabled);
                       }
                     },
                     itemBuilder: (context) => [
@@ -470,6 +472,7 @@ class _ChatInputState extends State<ChatInput> {
                           Icons.grid_view_outlined,
                           isActive: _fileSearchEnabled),
                       _buildWebSearchItem(_webSearchEnabled),
+                      if (_webSearchEnabled) _buildHighAccuracyMenuItem(),
                       _buildSkillsItem(_skillsEnabled),
                       _buildToolItem('run_code', 'Run Code', Icons.terminal,
                           isActive: _runCodeEnabled),
@@ -489,11 +492,9 @@ class _ChatInputState extends State<ChatInput> {
                                 'File Search',
                                 Icons.grid_view_outlined,
                                 () => _toggleTool('file_search', true)),
-                          if (_webSearchEnabled) ...[
+                          if (_webSearchEnabled)
                             _buildActiveToolChip('Web Search', Icons.language,
                                 () => _toggleTool('web_search', true)),
-                            _buildHighAccuracyToggle(),
-                          ],
                           if (_skillsEnabled)
                             _buildActiveToolChip(
                                 'Skills',
@@ -682,37 +683,42 @@ class _ChatInputState extends State<ChatInput> {
     );
   }
 
-  Widget _buildHighAccuracyToggle() {
-    return Container(
-      margin: const EdgeInsets.only(right: 8),
-      padding: const EdgeInsets.only(left: 8, right: 0),
-      decoration: BoxDecoration(
-        color: const Color(0xFF2A2A2A),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFF3A3A3A)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Text('High-Accuracy',
-              style: TextStyle(
-                  color: Color(0xFFE0E0E0),
-                  fontSize: 11,
-                  fontWeight: FontWeight.w500)),
-          const SizedBox(width: 2),
-          Transform.scale(
-            scale: 0.55,
-            child: Switch(
-              value: _highAccuracyEnabled,
-              onChanged: (value) => _toggleTool('high_accuracy', !value),
-              activeThumbColor: const Color(0xFF10A37F),
-              activeTrackColor: const Color(0xFF10A37F).withValues(alpha: 0.3),
-              inactiveThumbColor: const Color(0xFFB4B4B4),
-              inactiveTrackColor: const Color(0xFF3A3A3A),
-              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+  PopupMenuItem<String> _buildHighAccuracyMenuItem() {
+    return PopupMenuItem<String>(
+      value: 'high_accuracy_toggle',
+      height: 38,
+      padding: EdgeInsets.zero,
+      child: Container(
+        width: 155,
+        padding: const EdgeInsets.only(left: 32, right: 10),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text('High-Accuracy',
+                style: TextStyle(
+                    color: Color(0xFFE0E0E0),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w400)),
+            SizedBox(
+              height: 20,
+              width: 32,
+              child: Transform.scale(
+                scale: 0.6,
+                child: Switch(
+                  value: _highAccuracyEnabled,
+                  activeThumbColor: const Color(0xFF10A37F),
+                  activeTrackColor:
+                      const Color(0xFF10A37F).withValues(alpha: 0.3),
+                  inactiveThumbColor: const Color(0xFFB4B4B4),
+                  inactiveTrackColor: const Color(0xFF2A2A2A),
+                  onChanged: (val) {
+                    Navigator.pop(context, 'high_accuracy_toggle');
+                  },
+                ),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
