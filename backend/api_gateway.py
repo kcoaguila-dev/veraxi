@@ -10,19 +10,6 @@ import jwt
 import magic
 import sentry_sdk
 import stripe
-from docling.document_converter import DocumentConverter
-from fastapi import Depends, FastAPI, File, HTTPException, Request, UploadFile
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from jwt import PyJWKClient
-from mcp.server.sse import SseServerTransport
-from pydantic import BaseModel
-from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.errors import RateLimitExceeded
-from slowapi.util import get_remote_address
-from supabase import Client, create_client
-
 from backend import context as byod_context
 from backend.config import get_config
 from backend.mcp_server.context import tenant_context
@@ -36,6 +23,18 @@ from backend.models_config import DEFAULT_PROVIDER_MODELS
 from backend.security.moderation import moderate_text
 from backend.storage.neo4j_client import Neo4jStorageClient
 from backend.storage.qdrant_client import QdrantStorageClient
+from docling.document_converter import DocumentConverter
+from fastapi import Depends, FastAPI, File, HTTPException, Request, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from jwt import PyJWKClient
+from mcp.server.sse import SseServerTransport
+from pydantic import BaseModel
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
+from supabase import Client, create_client
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
@@ -153,8 +152,15 @@ def _get_supabase() -> "Client":
         _supabase_client = create_client(config.supabase_url, config.supabase_service_key)
     return _supabase_client
 
-def get_tenant_id(credentials: HTTPAuthorizationCredentials | None = Depends(security)) -> str:  # noqa: B008
+def get_tenant_id(
+    request: Request,
+    credentials: HTTPAuthorizationCredentials | None = Depends(security)
+) -> str:
     if not config.auth_enabled:
+        # In local mode, allow explicit header override for ephemeral tenants
+        header_tenant = request.headers.get("x-tenant-id")
+        if header_tenant:
+            return header_tenant
         return "local_personal_user"
 
     if not credentials:
@@ -713,10 +719,9 @@ async def get_audio(message_id: str):
 
 @app.post("/api/chat/audio")
 async def chat_audio(request: AudioRequest, req: Request):
-    from fastapi.responses import FileResponse
-
     from backend.tts.gpt_sovits_client import GPTSoVITSClient
     from backend.tts.voices import get_voice
+    from fastapi.responses import FileResponse
 
     # 1. Check Cache first
     if request.message_id:
@@ -1307,11 +1312,42 @@ def get_stats(tenant_id: str = Depends(verify_infrastructure_access)):
 from backend.storage.quota import check_tenant_hard_cap
 
 
+async def _ensure_schema_exists(redis, tenant_id: str, sample_text: str):
+    schema_json = await redis.get(f"tenant:{tenant_id}:schema")
+    if schema_json:
+        return
+        
+    logger.info(f"No schema found for tenant {tenant_id}. Auto-generating from ingested content...")
+    config = get_config()
+    from backend.prompts import get_auto_ontology_prompt
+    from openai import AsyncOpenAI
+    
+    client = AsyncOpenAI(**config.get_llm_client_args())
+    try:
+        prompt = get_auto_ontology_prompt(6, 10)
+        snippet = sample_text[:3000]
+        
+        response = await client.chat.completions.create(
+            model=config.llm_model_name,
+            messages=[
+                {"role": "system", "content": prompt},
+                {"role": "user", "content": f"Generate a schema for the following text:\n\n{snippet}"}
+            ],
+            response_format={"type": "json_object"},
+            temperature=0.3
+        )
+        content = response.choices[0].message.content
+        await redis.set(f"tenant:{tenant_id}:schema", content)
+        logger.info(f"Auto-generated and saved schema for tenant {tenant_id}.")
+    except Exception as e:  # noqa: BLE001  # noqa: BLE001
+        logger.error(f"Failed to auto-generate schema: {e}")
+
 @app.post("/api/admin/ingest")
 @limiter.limit(config.rate_limit_ingest)
 async def ingest_data(request: Request, ingest_request: IngestRequest, tenant_id: str = Depends(verify_infrastructure_access)):
     try:
         check_tenant_hard_cap(tenant_id, get_config())
+        await _ensure_schema_exists(request.app.state.redis, tenant_id, ingest_request.text)
         job = await request.app.state.redis.enqueue_job(
             "process_ingestion_task", 
             ingest_request.text, 
@@ -1326,6 +1362,38 @@ async def ingest_data(request: Request, ingest_request: IngestRequest, tenant_id
         logger.error(f"Error during ingestion: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+
+class MemoryIngestRequest(BaseModel):
+    content: str
+    model: str | None = None
+    api_key: str | None = None
+    base_url: str | None = None
+
+@app.post("/api/memory/ingest")
+@limiter.limit(config.rate_limit_ingest)
+async def ingest_memory(request: Request, memory_request: MemoryIngestRequest, tenant_id: str = Depends(verify_infrastructure_access)):
+    try:
+        check_tenant_hard_cap(tenant_id, get_config())
+        
+        content_with_tag = f"The following is a verified long-term memory fact to be saved about the user:\n{memory_request.content}"
+        await _ensure_schema_exists(request.app.state.redis, tenant_id, content_with_tag)
+        
+        model_name = memory_request.model or "gemini-2.5-flash-lite"
+        
+        job = await request.app.state.redis.enqueue_job(
+            "process_ingestion_task", 
+            content_with_tag, 
+            tenant_id, 
+            False, # fast_extraction
+            "en",
+            None, # custom_stop_words
+            model_name
+        )
+        return {"status": "queued", "job_id": job.job_id}
+    except Exception as e:  # noqa: BLE001
+        sentry_sdk.capture_exception(e)
+        logger.error(f"Error during memory ingestion: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 class SchemaDefinition(BaseModel):
     entities: list[str]
@@ -1352,9 +1420,8 @@ class AutoGenerateSchemaRequest(BaseModel):
 @app.post("/api/admin/schema/auto-generate")
 async def auto_generate_schema(data: AutoGenerateSchemaRequest):
     config = get_config()
-    from openai import AsyncOpenAI
-
     from backend.prompts import get_auto_ontology_prompt
+    from openai import AsyncOpenAI
     
     client = AsyncOpenAI(**config.get_llm_client_args())
     try:
@@ -1442,6 +1509,8 @@ async def ingest_upload(
         
         parsed_stop_words = [w.strip() for w in custom_stop_words.split(",")] if custom_stop_words else []
         
+        await _ensure_schema_exists(request.app.state.redis, tenant_id, markdown_text)
+        
         job = await request.app.state.redis.enqueue_job(
             "process_ingestion_task", 
             markdown_text, 
@@ -1483,6 +1552,9 @@ async def ingest_url(request: Request, url_request: UrlIngestRequest, tenant_id:
         markdown_text = result.document.export_to_markdown()
 
         logger.info(f"Enqueueing {len(markdown_text)} bytes of markdown from {url_request.url}")
+        
+        await _ensure_schema_exists(request.app.state.redis, tenant_id, markdown_text)
+        
         job = await request.app.state.redis.enqueue_job(
             "process_ingestion_task", 
             markdown_text, 

@@ -2101,6 +2101,27 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                             color: theme.colorScheme.onSurface
                                                 .withValues(alpha: 0.5)),
                                       ),
+                                      const SizedBox(width: 16),
+                                      Tooltip(
+                                        message: 'Save to Memory',
+                                        child: InkWell(
+                                          onTap: () {
+                                            ref.read(chatViewModelProvider.notifier).saveToMemory(msg.content, model: msg.modelName ?? _selectedModel);
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              const SnackBar(
+                                                content: Text('Saved to Memory', style: TextStyle(color: Colors.white)),
+                                                backgroundColor: Color(0xFF4CAF50),
+                                                behavior: SnackBarBehavior.floating,
+                                                duration: Duration(seconds: 2),
+                                              ),
+                                            );
+                                          },
+                                          child: Icon(Icons.psychology_outlined,
+                                              size: 18,
+                                              color: theme.colorScheme.onSurface
+                                                  .withValues(alpha: 0.5)),
+                                        ),
+                                      ),
                                       if (msg.toolEvents.any((e) =>
                                           (e.name.contains('web_search') ||
                                               e.name.contains('merge_rank')) &&

@@ -9,10 +9,9 @@ No real Neo4j or Qdrant connection — all storage calls are mocked.
 from unittest.mock import MagicMock, patch
 
 import pytest
-from fastapi import HTTPException
-
 from backend.config import Config
 from backend.storage.quota import check_tenant_hard_cap
+from fastapi import HTTPException
 
 # ---------------------------------------------------------------------------
 # Helpers

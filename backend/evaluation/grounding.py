@@ -4,9 +4,8 @@ import os
 from functools import lru_cache
 
 import sentry_sdk
-from openai import OpenAI
-
 from backend.config import get_config
+from openai import OpenAI
 
 logger = logging.getLogger(__name__)
 

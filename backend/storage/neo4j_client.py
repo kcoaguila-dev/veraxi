@@ -1,9 +1,8 @@
 import uuid
 from typing import Any
 
-from neo4j import GraphDatabase
-
 from backend import context as byod_context
+from neo4j import GraphDatabase
 
 
 class Neo4jStorageClient:
@@ -79,3 +78,10 @@ class Neo4jStorageClient:
         with self.driver.session() as session:
             result = session.run(query, parameters or {})
             return [record.data() for record in result]
+
+    def execute_write(
+        self, query: str, parameters: dict[str, Any] | None = None
+    ) -> None:
+        """Execute a write query with parameters."""
+        with self.driver.session() as session:
+            session.run(query, parameters or {})
