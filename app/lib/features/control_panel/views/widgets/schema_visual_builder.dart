@@ -20,11 +20,11 @@ class SchemaVisualBuilder extends StatefulWidget {
 class _SchemaVisualBuilderState extends State<SchemaVisualBuilder> {
   bool _advancedMode = false;
   late TextEditingController _jsonController;
-  
+
   List<String> _entities = [];
   // list of map for relations: [{'source': 'A', 'type': 'rel', 'target': 'B'}]
   List<Map<String, String>> _relations = [];
-  
+
   final TextEditingController _newEntityController = TextEditingController();
 
   @override
@@ -63,7 +63,7 @@ class _SchemaVisualBuilderState extends State<SchemaVisualBuilder> {
 
       final relsMap = schema['relations'] as Map<String, dynamic>? ?? {};
       _relations = [];
-      
+
       relsMap.forEach((sourceEnt, targetMap) {
         if (targetMap is Map<String, dynamic>) {
           targetMap.forEach((targetEnt, typesList) {
@@ -79,12 +79,12 @@ class _SchemaVisualBuilderState extends State<SchemaVisualBuilder> {
           });
         }
       });
-      
+
       _jsonController.text = const JsonEncoder.withIndent('  ').convert(schema);
     } catch (e) {
       // If parsing fails, just leave current state or clear
     }
-    
+
     if (mounted) setState(() {});
   }
 
@@ -94,7 +94,7 @@ class _SchemaVisualBuilderState extends State<SchemaVisualBuilder> {
       final src = r['source']!;
       final tgt = r['target']!;
       final type = r['type']!;
-      
+
       if (!relationsMap.containsKey(src)) {
         relationsMap[src] = {};
       }
@@ -105,7 +105,7 @@ class _SchemaVisualBuilderState extends State<SchemaVisualBuilder> {
         relationsMap[src]![tgt]!.add(type);
       }
     }
-    
+
     return {
       'entities': _entities,
       'relations': relationsMap,
@@ -141,12 +141,13 @@ class _SchemaVisualBuilderState extends State<SchemaVisualBuilder> {
       });
     }
   }
-  
+
   void _removeEntity(String entity) {
     setState(() {
       _entities.remove(entity);
       // Remove all relations involving this entity
-      _relations.removeWhere((r) => r['source'] == entity || r['target'] == entity);
+      _relations
+          .removeWhere((r) => r['source'] == entity || r['target'] == entity);
       _syncVisualToJson();
     });
   }
@@ -232,10 +233,9 @@ class _SchemaVisualBuilderState extends State<SchemaVisualBuilder> {
                       final schema = jsonDecode(_jsonController.text);
                       widget.onSave(schema);
                     } catch (e) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                              content: Text('Invalid JSON'),
-                              backgroundColor: Colors.red));
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                          content: Text('Invalid JSON'),
+                          backgroundColor: Colors.red));
                     }
                   } else {
                     widget.onSave(_buildSchemaFromVisual());
@@ -259,9 +259,7 @@ class _SchemaVisualBuilderState extends State<SchemaVisualBuilder> {
         controller: _jsonController,
         maxLines: 15,
         style: const TextStyle(
-            color: Colors.greenAccent,
-            fontSize: 13,
-            fontFamily: 'monospace'),
+            color: Colors.greenAccent, fontSize: 13, fontFamily: 'monospace'),
         decoration: const InputDecoration(
           border: InputBorder.none,
           isDense: true,
@@ -276,20 +274,23 @@ class _SchemaVisualBuilderState extends State<SchemaVisualBuilder> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Entities', style: TextStyle(color: Colors.white70, fontWeight: FontWeight.bold)),
+          const Text('Entities',
+              style: TextStyle(
+                  color: Colors.white70, fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
           Wrap(
             spacing: 8,
             runSpacing: 8,
             children: [
               ..._entities.map((e) => Chip(
-                label: Text(e, style: const TextStyle(fontSize: 12)),
-                backgroundColor: const Color(0xFF333333),
-                deleteIcon: const Icon(Icons.close, size: 14),
-                onDeleted: () => _removeEntity(e),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                side: BorderSide.none,
-              )),
+                    label: Text(e, style: const TextStyle(fontSize: 12)),
+                    backgroundColor: const Color(0xFF333333),
+                    deleteIcon: const Icon(Icons.close, size: 14),
+                    onDeleted: () => _removeEntity(e),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16)),
+                    side: BorderSide.none,
+                  )),
               SizedBox(
                 width: 150,
                 height: 32,
@@ -298,11 +299,15 @@ class _SchemaVisualBuilderState extends State<SchemaVisualBuilder> {
                   style: const TextStyle(color: Colors.white, fontSize: 13),
                   decoration: InputDecoration(
                     hintText: 'Add entity...',
-                    hintStyle: const TextStyle(color: Colors.white38, fontSize: 13),
+                    hintStyle:
+                        const TextStyle(color: Colors.white38, fontSize: 13),
                     filled: true,
                     fillColor: const Color(0xFF2A2A2A),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+                    contentPadding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: BorderSide.none),
                   ),
                   onSubmitted: (_) => _addEntity(),
                 ),
@@ -310,10 +315,13 @@ class _SchemaVisualBuilderState extends State<SchemaVisualBuilder> {
             ],
           ),
           const SizedBox(height: 24),
-          const Text('Relationships', style: TextStyle(color: Colors.white70, fontWeight: FontWeight.bold)),
+          const Text('Relationships',
+              style: TextStyle(
+                  color: Colors.white70, fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
           if (_relations.isEmpty)
-            const Text('No relationships defined.', style: TextStyle(color: Colors.white38, fontSize: 13)),
+            const Text('No relationships defined.',
+                style: TextStyle(color: Colors.white38, fontSize: 13)),
           ListView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
@@ -326,7 +334,8 @@ class _SchemaVisualBuilderState extends State<SchemaVisualBuilder> {
                   children: [
                     Expanded(
                       flex: 3,
-                      child: _buildEntityDropdown(rel['source']!, (val) => _updateRelation(index, 'source', val!)),
+                      child: _buildEntityDropdown(rel['source']!,
+                          (val) => _updateRelation(index, 'source', val!)),
                     ),
                     const SizedBox(width: 8),
                     Expanded(
@@ -335,24 +344,31 @@ class _SchemaVisualBuilderState extends State<SchemaVisualBuilder> {
                         height: 36,
                         child: TextFormField(
                           initialValue: rel['type'],
-                          style: const TextStyle(color: Colors.white, fontSize: 13),
+                          style: const TextStyle(
+                              color: Colors.white, fontSize: 13),
                           decoration: InputDecoration(
                             filled: true,
                             fillColor: const Color(0xFF2A2A2A),
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: BorderSide.none),
+                            contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 0),
+                            border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(4),
+                                borderSide: BorderSide.none),
                           ),
-                          onChanged: (val) => _updateRelation(index, 'type', val),
+                          onChanged: (val) =>
+                              _updateRelation(index, 'type', val),
                         ),
                       ),
                     ),
                     const SizedBox(width: 8),
                     Expanded(
                       flex: 3,
-                      child: _buildEntityDropdown(rel['target']!, (val) => _updateRelation(index, 'target', val!)),
+                      child: _buildEntityDropdown(rel['target']!,
+                          (val) => _updateRelation(index, 'target', val!)),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.remove_circle_outline, color: Colors.redAccent, size: 20),
+                      icon: const Icon(Icons.remove_circle_outline,
+                          color: Colors.redAccent, size: 20),
                       onPressed: () => _removeRelation(index),
                     ),
                   ],
@@ -376,8 +392,10 @@ class _SchemaVisualBuilderState extends State<SchemaVisualBuilder> {
 
   Widget _buildEntityDropdown(String value, ValueChanged<String?> onChanged) {
     // If somehow the entity was removed but relation still has it, fallback
-    final validValue = _entities.contains(value) ? value : (_entities.isNotEmpty ? _entities.first : null);
-    
+    final validValue = _entities.contains(value)
+        ? value
+        : (_entities.isNotEmpty ? _entities.first : null);
+
     return Container(
       height: 36,
       padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -391,7 +409,9 @@ class _SchemaVisualBuilderState extends State<SchemaVisualBuilder> {
           dropdownColor: const Color(0xFF2A2A2A),
           style: const TextStyle(color: Colors.white, fontSize: 13),
           isExpanded: true,
-          items: _entities.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+          items: _entities
+              .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+              .toList(),
           onChanged: onChanged,
         ),
       ),
