@@ -491,15 +491,7 @@ class _ChatInputState extends State<ChatInput> {
                           if (_webSearchEnabled) ...[
                             _buildActiveToolChip('Web Search', Icons.language,
                                 () => _toggleTool('web_search', true)),
-                            _buildActiveToolChip(
-                                'High-Accuracy',
-                                _highAccuracyEnabled
-                                    ? Icons.verified
-                                    : Icons.verified_outlined,
-                                () => _toggleTool(
-                                    'high_accuracy', _highAccuracyEnabled),
-                                isActive: _highAccuracyEnabled,
-                                isToggle: true),
+                            _buildHighAccuracyToggle(),
                           ],
                           if (_skillsEnabled)
                             _buildActiveToolChip(
@@ -685,6 +677,41 @@ class _ChatInputState extends State<ChatInput> {
                 size: 14),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildHighAccuracyToggle() {
+    return Container(
+      margin: const EdgeInsets.only(right: 8),
+      padding: const EdgeInsets.only(left: 8, right: 0),
+      decoration: BoxDecoration(
+        color: const Color(0xFF2A2A2A),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFF3A3A3A)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text('High-Accuracy',
+              style: TextStyle(
+                  color: Color(0xFFE0E0E0),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500)),
+          const SizedBox(width: 2),
+          Transform.scale(
+            scale: 0.55,
+            child: Switch(
+              value: _highAccuracyEnabled,
+              onChanged: (value) => _toggleTool('high_accuracy', !value),
+              activeThumbColor: const Color(0xFF10A37F),
+              activeTrackColor: const Color(0xFF10A37F).withValues(alpha: 0.3),
+              inactiveThumbColor: const Color(0xFFB4B4B4),
+              inactiveTrackColor: const Color(0xFF3A3A3A),
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+          ),
+        ],
       ),
     );
   }
