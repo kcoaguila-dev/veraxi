@@ -6,7 +6,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:veraxi_app/core/widgets/model_selector_popup.dart';
+import 'package:veraxi_app/core/widgets/model_selector_menu.dart';
+
 import 'package:veraxi_app/features/chat/view_models/chat_view_model.dart';
 import 'package:veraxi_app/features/chat/views/widgets/chat_input.dart';
 import 'package:veraxi_app/features/chat/views/widgets/chat_message_metrics.dart';
@@ -349,7 +350,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   }
 
   final ScrollController _scrollController = ScrollController();
-  final GlobalKey _modelSelectorKey = GlobalKey();
 
   String _selectedModel = 'Select a model';
   String? _selectedProvider;
@@ -1574,30 +1574,21 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
-                            GestureDetector(
-                              key: _modelSelectorKey,
-                              onTap: () {
-                                showDialog(
-                                  context: context,
-                                  builder: (context) => ModelSelectorPopup(
-                                    selectedModel: _selectedModel,
-                                    pinnedModels: _pinnedModels.toList(),
-                                    onModelSelected: (model) {
-                                      setState(() {
-                                        _selectedModel = model;
-                                      });
-                                      _saveSelectedModel(
-                                          _selectedModel, _selectedProvider);
-                                    },
-                                    onModelPinned: (model) {
-                                      setState(() => _pinnedModels.add(model));
-                                    },
-                                    onModelUnpinned: (model) {
-                                      setState(
-                                          () => _pinnedModels.remove(model));
-                                    },
-                                  ),
-                                );
+                            ModelSelectorMenu(
+                              selectedModel: _selectedModel,
+                              pinnedModels: _pinnedModels.toList(),
+                              onModelSelected: (model) {
+                                setState(() {
+                                  _selectedModel = model;
+                                });
+                                _saveSelectedModel(
+                                    _selectedModel, _selectedProvider);
+                              },
+                              onModelPinned: (model) {
+                                setState(() => _pinnedModels.add(model));
+                              },
+                              onModelUnpinned: (model) {
+                                setState(() => _pinnedModels.remove(model));
                               },
                               child: Container(
                                 padding: const EdgeInsets.symmetric(
