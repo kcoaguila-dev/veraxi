@@ -31,12 +31,17 @@ class ChatInput extends StatefulWidget {
 class _ChatInputState extends State<ChatInput> {
   final TextEditingController _controller = TextEditingController();
   bool _hasText = false;
-  bool _fileSearchEnabled = false;
-  bool _webSearchEnabled = false;
-  bool _highAccuracyEnabled = false;
-  bool _skillsEnabled = false;
-  bool _runCodeEnabled = false;
-  bool _artifactsEnabled = false;
+  bool _fileSearchPinned = false;
+  bool _fileSearchActive = false;
+  bool _webSearchPinned = false;
+  bool _webSearchActive = false;
+  bool _highAccuracyEnabled = false; // High-accuracy is a global toggle
+  bool _skillsPinned = false;
+  bool _skillsActive = false;
+  bool _runCodePinned = false;
+  bool _runCodeActive = false;
+  bool _artifactsPinned = false;
+  bool _artifactsActive = false;
   final List<PlatformFile> _attachedFiles = [];
 
   final SpeechToText _speechToText = SpeechToText();
@@ -152,19 +157,38 @@ class _ChatInputState extends State<ChatInput> {
 
         if (mounted) {
           setState(() {
-            _fileSearchEnabled = fileEnabled;
-            _webSearchEnabled = webEnabled;
+            _fileSearchPinned = fileEnabled;
+            _fileSearchActive = fileEnabled;
+            _webSearchPinned = webEnabled;
+            _webSearchActive = webEnabled;
             _highAccuracyEnabled = highAccuracyEnabled;
-            _skillsEnabled = skillsEnabled;
-            _runCodeEnabled = runCodeEnabled;
-            _artifactsEnabled = artifactsEnabled;
+            _skillsPinned = skillsEnabled;
+            _skillsActive = skillsEnabled;
+            _runCodePinned = runCodeEnabled;
+            _runCodeActive = runCodeEnabled;
+            _artifactsPinned = artifactsEnabled;
+            _artifactsActive = artifactsEnabled;
           });
         }
       } catch (_) {}
     }
   }
 
-  Future<void> _toggleTool(String toolKey, bool currentValue) async {
+  void _toggleActive(String toolKey, bool currentActive) {
+    setState(() {
+      if (toolKey == 'file_search')
+        _fileSearchActive = !currentActive;
+      else if (toolKey == 'web_search')
+        _webSearchActive = !currentActive;
+      else if (toolKey == 'skills')
+        _skillsActive = !currentActive;
+      else if (toolKey == 'run_code')
+        _runCodeActive = !currentActive;
+      else if (toolKey == 'artifacts') _artifactsActive = !currentActive;
+    });
+  }
+
+  Future<void> _togglePin(String toolKey, bool currentPinned) async {
     final prefs = await SharedPreferences.getInstance();
     final currentSettingsJson = prefs.getString('tool_settings');
     Map<String, dynamic> settings = {};
@@ -174,28 +198,56 @@ class _ChatInputState extends State<ChatInput> {
       } catch (_) {}
     }
 
+    bool newPinned = !currentPinned;
+
     if (toolKey == 'file_search') {
-      settings['file_search_enabled'] = !currentValue;
-      setState(() => _fileSearchEnabled = !currentValue);
+      settings['file_search_enabled'] = newPinned;
+      setState(() {
+        _fileSearchPinned = newPinned;
+        _fileSearchActive = newPinned;
+      });
     } else if (toolKey == 'web_search') {
       settings['web_search'] = settings['web_search'] ?? {};
-      settings['web_search']['enabled'] = !currentValue;
-      setState(() => _webSearchEnabled = !currentValue);
-    } else if (toolKey == 'high_accuracy') {
-      settings['web_search'] = settings['web_search'] ?? {};
-      settings['web_search']['high_accuracy'] = !currentValue;
-      setState(() => _highAccuracyEnabled = !currentValue);
+      settings['web_search']['enabled'] = newPinned;
+      setState(() {
+        _webSearchPinned = newPinned;
+        _webSearchActive = newPinned;
+      });
     } else if (toolKey == 'skills') {
-      settings['skills_enabled'] = !currentValue;
-      setState(() => _skillsEnabled = !currentValue);
+      settings['skills_enabled'] = newPinned;
+      setState(() {
+        _skillsPinned = newPinned;
+        _skillsActive = newPinned;
+      });
     } else if (toolKey == 'run_code') {
-      settings['run_code_enabled'] = !currentValue;
-      setState(() => _runCodeEnabled = !currentValue);
+      settings['run_code_enabled'] = newPinned;
+      setState(() {
+        _runCodePinned = newPinned;
+        _runCodeActive = newPinned;
+      });
     } else if (toolKey == 'artifacts') {
-      settings['artifacts_enabled'] = !currentValue;
-      setState(() => _artifactsEnabled = !currentValue);
+      settings['artifacts_enabled'] = newPinned;
+      setState(() {
+        _artifactsPinned = newPinned;
+        _artifactsActive = newPinned;
+      });
     }
 
+    await prefs.setString('tool_settings', jsonEncode(settings));
+  }
+
+  Future<void> _toggleHighAccuracy(bool currentValue) async {
+    final prefs = await SharedPreferences.getInstance();
+    final currentSettingsJson = prefs.getString('tool_settings');
+    Map<String, dynamic> settings = {};
+    if (currentSettingsJson != null) {
+      try {
+        settings = jsonDecode(currentSettingsJson) as Map<String, dynamic>;
+      } catch (_) {}
+    }
+    settings['web_search'] = settings['web_search'] ?? {};
+    settings['web_search']['high_accuracy'] = !currentValue;
+    setState(() => _highAccuracyEnabled = !currentValue);
     await prefs.setString('tool_settings', jsonEncode(settings));
   }
 
@@ -207,6 +259,11 @@ class _ChatInputState extends State<ChatInput> {
       _controller.clear();
       setState(() {
         _attachedFiles.clear();
+        if (!_fileSearchPinned) _fileSearchActive = false;
+        if (!_webSearchPinned) _webSearchActive = false;
+        if (!_skillsPinned) _skillsActive = false;
+        if (!_runCodePinned) _runCodeActive = false;
+        if (!_artifactsPinned) _artifactsActive = false;
       });
     }
   }
@@ -434,51 +491,47 @@ class _ChatInputState extends State<ChatInput> {
                       ],
                     ),
                   ),
-                  PopupMenuButton<String>(
-                    icon: const Icon(Icons.tune,
-                        color: Color(0xFFB4B4B4), size: 20),
-                    tooltip: 'Tools',
-                    color: const Color(0xFF171717),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      side: const BorderSide(color: Color(0xFF2A2A2A)),
+                  MenuAnchor(
+                    style: MenuStyle(
+                      backgroundColor:
+                          const WidgetStatePropertyAll(Color(0xFF171717)),
+                      shape: WidgetStatePropertyAll(RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        side: const BorderSide(color: Color(0xFF2A2A2A)),
+                      )),
+                      padding: const WidgetStatePropertyAll(
+                          EdgeInsets.symmetric(vertical: 8)),
                     ),
-                    position: PopupMenuPosition.under,
-                    onSelected: (value) async {
-                      if (value == 'web_search_config') {
-                        await showDialog(
-                          context: context,
-                          builder: (context) => const WebSearchDialog(),
-                        );
-                        _loadToolSettings();
-                      } else if (value == 'skills_config') {
-                        context.go('/admin');
-                      } else if (value == 'web_search_toggle') {
-                        _toggleTool('web_search', _webSearchEnabled);
-                      } else if (value == 'file_search_toggle') {
-                        _toggleTool('file_search', _fileSearchEnabled);
-                      } else if (value == 'skills_toggle') {
-                        _toggleTool('skills', _skillsEnabled);
-                      } else if (value == 'run_code_toggle') {
-                        _toggleTool('run_code', _runCodeEnabled);
-                      } else if (value == 'artifacts_toggle') {
-                        _toggleTool('artifacts', _artifactsEnabled);
-                      } else if (value == 'high_accuracy_toggle') {
-                        _toggleTool('high_accuracy', _highAccuracyEnabled);
-                      }
+                    builder: (context, controller, child) {
+                      return IconButton(
+                        icon: const Icon(Icons.tune,
+                            color: Color(0xFFB4B4B4), size: 20),
+                        tooltip: 'Tools',
+                        onPressed: () {
+                          if (controller.isOpen) {
+                            controller.close();
+                          } else {
+                            controller.open();
+                          }
+                        },
+                      );
                     },
-                    itemBuilder: (context) => [
+                    menuChildren: [
                       _buildToolItem('file_search', 'File Search',
                           Icons.grid_view_outlined,
-                          isActive: _fileSearchEnabled),
-                      _buildWebSearchItem(_webSearchEnabled),
-                      if (_webSearchEnabled) _buildHighAccuracyMenuItem(),
-                      _buildSkillsItem(_skillsEnabled),
+                          isActive: _fileSearchActive,
+                          isPinned: _fileSearchPinned),
+                      _buildWebSearchItem(
+                          isActive: _webSearchActive,
+                          isPinned: _webSearchPinned),
+                      _buildSkillsItem(
+                          isActive: _skillsActive, isPinned: _skillsPinned),
                       _buildToolItem('run_code', 'Run Code', Icons.terminal,
-                          isActive: _runCodeEnabled),
+                          isActive: _runCodeActive, isPinned: _runCodePinned),
                       _buildToolItem(
                           'artifacts', 'Artifacts >', Icons.auto_awesome,
-                          isActive: _artifactsEnabled),
+                          isActive: _artifactsActive,
+                          isPinned: _artifactsPinned),
                     ],
                   ),
                   const SizedBox(width: 8),
@@ -487,27 +540,27 @@ class _ChatInputState extends State<ChatInput> {
                       scrollDirection: Axis.horizontal,
                       child: Row(
                         children: [
-                          if (_fileSearchEnabled)
+                          if (_fileSearchActive)
                             _buildActiveToolChip(
                                 'File Search',
                                 Icons.grid_view_outlined,
-                                () => _toggleTool('file_search', true)),
-                          if (_webSearchEnabled)
+                                () => _toggleActive('file_search', true)),
+                          if (_webSearchActive)
                             _buildActiveToolChip('Web Search', Icons.language,
-                                () => _toggleTool('web_search', true)),
-                          if (_skillsEnabled)
+                                () => _toggleActive('web_search', true)),
+                          if (_skillsActive)
                             _buildActiveToolChip(
                                 'Skills',
                                 Icons.extension_outlined,
-                                () => _toggleTool('skills', true)),
-                          if (_runCodeEnabled)
+                                () => _toggleActive('skills', true)),
+                          if (_runCodeActive)
                             _buildActiveToolChip('Run Code', Icons.terminal,
-                                () => _toggleTool('run_code', true)),
-                          if (_artifactsEnabled)
+                                () => _toggleActive('run_code', true)),
+                          if (_artifactsActive)
                             _buildActiveToolChip(
                                 'Artifacts',
                                 Icons.auto_awesome,
-                                () => _toggleTool('artifacts', true)),
+                                () => _toggleActive('artifacts', true)),
                         ],
                       ),
                     ),
@@ -565,15 +618,17 @@ class _ChatInputState extends State<ChatInput> {
     );
   }
 
-  PopupMenuItem<String> _buildToolItem(String value, String text, IconData icon,
-      {bool isActive = false}) {
-    return PopupMenuItem<String>(
-      value: '${value}_toggle',
-      height: 38,
-      padding: EdgeInsets.zero,
+  Widget _buildToolItem(String value, String text, IconData icon,
+      {bool isActive = false, bool isPinned = false}) {
+    return MenuItemButton(
+      style: const ButtonStyle(
+          padding:
+              WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 10))),
+      onPressed: () => _toggleActive(value, isActive),
       child: Container(
         width: 155,
-        padding: const EdgeInsets.symmetric(horizontal: 10),
+        height: 38,
+        padding: EdgeInsets.zero,
         child: Row(
           children: [
             Icon(icon,
@@ -590,25 +645,77 @@ class _ChatInputState extends State<ChatInput> {
                       fontWeight: FontWeight.w400),
                   overflow: TextOverflow.ellipsis),
             ),
-            Icon(isActive ? LucideIcons.pinOff : LucideIcons.pin,
-                color: isActive
-                    ? const Color(0xFF10A37F)
-                    : const Color(0xFF6E6E6E),
-                size: 14),
+            GestureDetector(
+              onTap: () => _togglePin(value, isPinned),
+              child: Padding(
+                padding: const EdgeInsets.all(4.0),
+                child: Icon(isPinned ? LucideIcons.pinOff : LucideIcons.pin,
+                    color: isPinned
+                        ? const Color(0xFF10A37F)
+                        : const Color(0xFF6E6E6E),
+                    size: 14),
+              ),
+            ),
           ],
         ),
       ),
     );
   }
 
-  PopupMenuItem<String> _buildWebSearchItem(bool isActive) {
-    return PopupMenuItem<String>(
-      value: 'web_search_toggle',
-      height: 38,
-      padding: EdgeInsets.zero,
+  Widget _buildWebSearchItem({bool isActive = false, bool isPinned = false}) {
+    return SubmenuButton(
+      style: const ButtonStyle(
+          padding:
+              WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 10))),
+      menuStyle: MenuStyle(
+        backgroundColor: const WidgetStatePropertyAll(Color(0xFF171717)),
+        shape: WidgetStatePropertyAll(RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: const BorderSide(color: Color(0xFF2A2A2A)),
+        )),
+      ),
+      menuChildren: [
+        MenuItemButton(
+          style: const ButtonStyle(
+              padding: WidgetStatePropertyAll(EdgeInsets.zero)),
+          onPressed: () {
+            _toggleHighAccuracy(_highAccuracyEnabled);
+          },
+          child: Container(
+            width: 165,
+            padding:
+                const EdgeInsets.only(left: 14, right: 10, top: 4, bottom: 4),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('High-Accuracy',
+                    style: TextStyle(
+                        color: Color(0xFFE0E0E0),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w400)),
+                Transform.scale(
+                  scale: 0.6,
+                  child: Switch(
+                    value: _highAccuracyEnabled,
+                    activeThumbColor: const Color(0xFF10A37F),
+                    activeTrackColor:
+                        const Color(0xFF10A37F).withValues(alpha: 0.3),
+                    inactiveThumbColor: const Color(0xFFB4B4B4),
+                    inactiveTrackColor: const Color(0xFF2A2A2A),
+                    onChanged: (val) {
+                      _toggleHighAccuracy(!val);
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
       child: Container(
         width: 155,
-        padding: const EdgeInsets.symmetric(horizontal: 10),
+        height: 38,
+        padding: EdgeInsets.zero,
         child: Row(
           children: [
             Icon(Icons.language,
@@ -626,30 +733,48 @@ class _ChatInputState extends State<ChatInput> {
                   overflow: TextOverflow.ellipsis),
             ),
             GestureDetector(
-              onTap: () => Navigator.pop(context, 'web_search_config'),
-              child: const Icon(Icons.settings_outlined,
-                  color: Color(0xFF6E6E6E), size: 14),
+              onTap: () async {
+                Navigator.of(context).popUntil((route) => route.isFirst);
+                await showDialog(
+                  context: context,
+                  builder: (context) => const WebSearchDialog(),
+                );
+                _loadToolSettings();
+              },
+              child: const Padding(
+                padding: EdgeInsets.all(4.0),
+                child: Icon(Icons.settings_outlined,
+                    color: Color(0xFF6E6E6E), size: 14),
+              ),
             ),
-            const SizedBox(width: 8),
-            Icon(isActive ? LucideIcons.pinOff : LucideIcons.pin,
-                color: isActive
-                    ? const Color(0xFF10A37F)
-                    : const Color(0xFF6E6E6E),
-                size: 14),
+            const SizedBox(width: 4),
+            GestureDetector(
+              onTap: () => _togglePin('web_search', isPinned),
+              child: Padding(
+                padding: const EdgeInsets.all(4.0),
+                child: Icon(isPinned ? LucideIcons.pinOff : LucideIcons.pin,
+                    color: isPinned
+                        ? const Color(0xFF10A37F)
+                        : const Color(0xFF6E6E6E),
+                    size: 14),
+              ),
+            ),
           ],
         ),
       ),
     );
   }
 
-  PopupMenuItem<String> _buildSkillsItem(bool isActive) {
-    return PopupMenuItem<String>(
-      value: 'skills_toggle',
-      height: 38,
-      padding: EdgeInsets.zero,
+  Widget _buildSkillsItem({bool isActive = false, bool isPinned = false}) {
+    return MenuItemButton(
+      style: const ButtonStyle(
+          padding:
+              WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 10))),
+      onPressed: () => _toggleActive('skills', isActive),
       child: Container(
         width: 155,
-        padding: const EdgeInsets.symmetric(horizontal: 10),
+        height: 38,
+        padding: EdgeInsets.zero,
         child: Row(
           children: [
             Icon(Icons.extension_outlined,
@@ -667,54 +792,26 @@ class _ChatInputState extends State<ChatInput> {
                   overflow: TextOverflow.ellipsis),
             ),
             GestureDetector(
-              onTap: () => Navigator.pop(context, 'skills_config'),
-              child: const Icon(Icons.settings_outlined,
-                  color: Color(0xFF6E6E6E), size: 14),
+              onTap: () {
+                Navigator.of(context).popUntil((route) => route.isFirst);
+                context.go('/admin');
+              },
+              child: const Padding(
+                padding: EdgeInsets.all(4.0),
+                child: Icon(Icons.settings_outlined,
+                    color: Color(0xFF6E6E6E), size: 14),
+              ),
             ),
-            const SizedBox(width: 8),
-            Icon(isActive ? LucideIcons.pinOff : LucideIcons.pin,
-                color: isActive
-                    ? const Color(0xFF10A37F)
-                    : const Color(0xFF6E6E6E),
-                size: 14),
-          ],
-        ),
-      ),
-    );
-  }
-
-  PopupMenuItem<String> _buildHighAccuracyMenuItem() {
-    return PopupMenuItem<String>(
-      value: 'high_accuracy_toggle',
-      height: 38,
-      padding: EdgeInsets.zero,
-      child: Container(
-        width: 155,
-        padding: const EdgeInsets.only(left: 32, right: 10),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text('High-Accuracy',
-                style: TextStyle(
-                    color: Color(0xFFE0E0E0),
-                    fontSize: 12,
-                    fontWeight: FontWeight.w400)),
-            SizedBox(
-              height: 20,
-              width: 32,
-              child: Transform.scale(
-                scale: 0.6,
-                child: Switch(
-                  value: _highAccuracyEnabled,
-                  activeThumbColor: const Color(0xFF10A37F),
-                  activeTrackColor:
-                      const Color(0xFF10A37F).withValues(alpha: 0.3),
-                  inactiveThumbColor: const Color(0xFFB4B4B4),
-                  inactiveTrackColor: const Color(0xFF2A2A2A),
-                  onChanged: (val) {
-                    Navigator.pop(context, 'high_accuracy_toggle');
-                  },
-                ),
+            const SizedBox(width: 4),
+            GestureDetector(
+              onTap: () => _togglePin('skills', isPinned),
+              child: Padding(
+                padding: const EdgeInsets.all(4.0),
+                child: Icon(isPinned ? LucideIcons.pinOff : LucideIcons.pin,
+                    color: isPinned
+                        ? const Color(0xFF10A37F)
+                        : const Color(0xFF6E6E6E),
+                    size: 14),
               ),
             ),
           ],

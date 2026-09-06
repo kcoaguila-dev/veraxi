@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:veraxi_app/features/chat/views/widgets/chat_input.dart';
 
 void main() {
@@ -122,6 +124,74 @@ void main() {
       await tester.pump();
 
       expect(dismissed, isTrue);
+    });
+
+    group('Tools Pinning and Active State', () {
+      setUp(() {
+        SharedPreferences.setMockInitialValues({});
+      });
+
+      testWidgets('Sending a message clears unpinned active tools',
+          (tester) async {
+        await tester.pumpWidget(wrap(ChatInput(
+          isLoading: false,
+          onSend: (text, {attachments}) {},
+        )));
+
+        await tester.pumpAndSettle();
+
+        // Open tools menu
+        await tester.tap(find.byIcon(Icons.tune));
+        await tester.pumpAndSettle();
+
+        // Tap File Search to make it active
+        await tester.tap(find.text('File Search'));
+        await tester.pumpAndSettle();
+
+        // Verify chip is visible
+        expect(find.text('File Search'), findsWidgets);
+
+        // Enter text and send
+        await tester.enterText(find.byType(TextField), 'Test message');
+        await tester.pump();
+        await tester.tap(find.byIcon(Icons.arrow_upward));
+        await tester.pumpAndSettle();
+
+        // Verify chip is gone (since it was not pinned)
+        expect(find.text('File Search'), findsNothing);
+      });
+
+      testWidgets(
+          'Pinning a tool saves it and keeps it active after sending a message',
+          (tester) async {
+        await tester.pumpWidget(wrap(ChatInput(
+          isLoading: false,
+          onSend: (text, {attachments}) {},
+        )));
+
+        await tester.pumpAndSettle();
+
+        // Open tools menu
+        await tester.tap(find.byIcon(Icons.tune));
+        await tester.pumpAndSettle();
+
+        // Tap the pin icon for Web Search (which is push_pin outline initially)
+        final pinIcons = find.byIcon(LucideIcons.pin);
+        expect(
+            pinIcons, findsWidgets); // Multiple pins, we can tap the first one
+        await tester.tap(pinIcons.first);
+        await tester.pumpAndSettle();
+
+        // Enter text and send
+        await tester.enterText(find.byType(TextField), 'Test message 2');
+        await tester.pump();
+        await tester.tap(find.byIcon(Icons.arrow_upward));
+        await tester.pumpAndSettle();
+
+        // Verify chip is STILL visible because it was pinned
+        expect(find.text('File Search'),
+            findsWidgets); // First pin is file_search usually
+      });
     });
   });
 }
