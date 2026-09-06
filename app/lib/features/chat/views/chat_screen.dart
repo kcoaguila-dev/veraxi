@@ -2106,12 +2106,22 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                         message: 'Save to Memory',
                                         child: InkWell(
                                           onTap: () {
-                                            ref.read(chatViewModelProvider.notifier).saveToMemory(msg.content, model: msg.modelName ?? _selectedModel);
-                                            ScaffoldMessenger.of(context).showSnackBar(
+                                            ref
+                                                .read(chatViewModelProvider
+                                                    .notifier)
+                                                .saveToMemory(msg.content,
+                                                    model: msg.modelName ??
+                                                        _selectedModel);
+                                            ScaffoldMessenger.of(context)
+                                                .showSnackBar(
                                               const SnackBar(
-                                                content: Text('Saved to Memory', style: TextStyle(color: Colors.white)),
-                                                backgroundColor: Color(0xFF4CAF50),
-                                                behavior: SnackBarBehavior.floating,
+                                                content: Text('Saved to Memory',
+                                                    style: TextStyle(
+                                                        color: Colors.white)),
+                                                backgroundColor:
+                                                    Color(0xFF4CAF50),
+                                                behavior:
+                                                    SnackBarBehavior.floating,
                                                 duration: Duration(seconds: 2),
                                               ),
                                             );

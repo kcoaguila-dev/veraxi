@@ -388,13 +388,12 @@ void main() {
 
   test('saveToMemory correctly delegates to repository', () async {
     await pumpEventQueue();
-    when(() => mockRepository.saveToMemory(
-        'Some fact',
-        model: 'test-model'))
+    when(() => mockRepository.saveToMemory('Some fact', model: 'test-model'))
         .thenAnswer((_) async {});
-    
+
     await viewModel.saveToMemory('Some fact', model: 'test-model');
-    
-    verify(() => mockRepository.saveToMemory('Some fact', model: 'test-model')).called(1);
+
+    verify(() => mockRepository.saveToMemory('Some fact', model: 'test-model'))
+        .called(1);
   });
 }

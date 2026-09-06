@@ -259,16 +259,16 @@ class ChatRepository {
 
   Future<void> saveToMemory(String content, {String? model}) async {
     final body = <String, dynamic>{'content': content};
-    
+
     if (model != null && model.isNotEmpty && model != 'Select a model') {
       final provider = _getProviderFromModel(model);
       final apiKey = await ApiKeyStorage().getKey(provider);
-      
+
       body['model'] = model;
       if (apiKey != null && apiKey.isNotEmpty) {
         body['api_key'] = apiKey;
       }
-      
+
       if (provider == 'local') {
         final customBaseUrl = await ApiKeyStorage().getValue('local_base_url');
         if (customBaseUrl != null && customBaseUrl.isNotEmpty) {
@@ -276,7 +276,7 @@ class ChatRepository {
         }
       }
     }
-    
+
     await apiClient.post('/memory/ingest', body: body);
   }
 }

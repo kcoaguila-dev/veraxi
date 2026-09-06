@@ -141,7 +141,8 @@ class _ChatInputState extends State<ChatInput> {
             webEnabled = settings['web_search']['enabled'] as bool;
           }
           if (settings['web_search']['high_accuracy'] != null) {
-            highAccuracyEnabled = settings['web_search']['high_accuracy'] as bool;
+            highAccuracyEnabled =
+                settings['web_search']['high_accuracy'] as bool;
           }
         }
 
