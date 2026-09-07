@@ -239,7 +239,8 @@ class _ModelSelectorMenuState extends ConsumerState<ModelSelectorMenu> {
                 CompositedTransformFollower(
                   link: _layerLink,
                   showWhenUnlinked: false,
-                  offset: const Offset(0, 48), // Adjust this to sit below the button
+                  offset: const Offset(
+                      0, 48), // Adjust this to sit below the button
                   child: Material(
                     color: Colors.transparent,
                     child: Container(
@@ -291,8 +292,8 @@ class _ModelSelectorMenuState extends ConsumerState<ModelSelectorMenu> {
                                   ),
                                 const Padding(
                                   padding: EdgeInsets.symmetric(vertical: 4),
-                                  child:
-                                      Divider(color: Color(0xFF2A2A2A), height: 1),
+                                  child: Divider(
+                                      color: Color(0xFF2A2A2A), height: 1),
                                 ),
                               ],
                               const Padding(
@@ -304,7 +305,8 @@ class _ModelSelectorMenuState extends ConsumerState<ModelSelectorMenu> {
                                         fontSize: 11,
                                         fontWeight: FontWeight.w600)),
                               ),
-                              for (final providerEntry in allProviderModels.entries)
+                              for (final providerEntry
+                                  in allProviderModels.entries)
                                 Builder(builder: (itemContext) {
                                   final isHovered =
                                       _hoveredProvider == providerEntry.key;
@@ -337,8 +339,8 @@ class _ModelSelectorMenuState extends ConsumerState<ModelSelectorMenu> {
                         loading: () => const Padding(
                           padding: EdgeInsets.all(24),
                           child: Center(
-                              child:
-                                  CircularProgressIndicator(color: Colors.white54)),
+                              child: CircularProgressIndicator(
+                                  color: Colors.white54)),
                         ),
                         error: (e, s) => Padding(
                           padding: const EdgeInsets.all(16),
