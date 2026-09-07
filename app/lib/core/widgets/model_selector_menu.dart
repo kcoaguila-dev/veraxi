@@ -501,6 +501,7 @@ class _HoverableProviderRow extends StatefulWidget {
 
 class _HoverableProviderRowState extends State<_HoverableProviderRow> {
   bool _isLocalHover = false;
+  bool _isSettingsHovered = false;
   final LayerLink _layerLink = LayerLink();
 
   Widget _providerCircle(String provider) {
@@ -600,17 +601,41 @@ class _HoverableProviderRowState extends State<_HoverableProviderRow> {
                     ),
                   ),
                 ),
-                GestureDetector(
-                  onTap: widget.onSettingsTap,
-                  behavior: HitTestBehavior.opaque,
-                  child: Padding(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
-                    child: Icon(Icons.settings_outlined,
-                        size: 15,
-                        color: active
-                            ? const Color(0xFFB4B4B4)
-                            : Colors.transparent),
+                MouseRegion(
+                  onEnter: (_) => setState(() => _isSettingsHovered = true),
+                  onExit: (_) => setState(() => _isSettingsHovered = false),
+                  child: GestureDetector(
+                    onTap: widget.onSettingsTap,
+                    behavior: HitTestBehavior.opaque,
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 150),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: _isSettingsHovered
+                            ? const Color(0xFF444444)
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.settings_outlined,
+                              size: 15,
+                              color: active
+                                  ? (_isSettingsHovered
+                                      ? Colors.white
+                                      : const Color(0xFFB4B4B4))
+                                  : Colors.transparent),
+                          if (_isSettingsHovered) ...[
+                            const SizedBox(width: 4),
+                            const Text('Set API Key',
+                                style: TextStyle(
+                                    color: Colors.white, fontSize: 11)),
+                          ]
+                        ],
+                      ),
+                    ),
                   ),
                 ),
                 Icon(Icons.chevron_right,
