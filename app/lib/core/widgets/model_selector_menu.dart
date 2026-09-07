@@ -68,6 +68,7 @@ class _ModelSelectorMenuState extends ConsumerState<ModelSelectorMenu> {
     if (!_isOpen) return;
     _closeSubMenu();
     _overlayEntry?.remove();
+    _overlayEntry?.dispose();
     _overlayEntry = null;
     setState(() {
       _isOpen = false;
@@ -77,6 +78,7 @@ class _ModelSelectorMenuState extends ConsumerState<ModelSelectorMenu> {
 
   void _closeSubMenu() {
     _subMenuOverlayEntry?.remove();
+    _subMenuOverlayEntry?.dispose();
     _subMenuOverlayEntry = null;
   }
 

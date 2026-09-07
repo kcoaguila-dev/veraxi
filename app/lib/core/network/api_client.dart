@@ -9,8 +9,11 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 /// every request via [getDefaultHeaders], so we don't need to rebuild this provider
 /// when auth state changes (which would destructively reset ViewModels).
 final apiClientProvider = Provider<ApiClient>((ref) {
-  final session = Supabase.instance.client.auth.currentSession;
-  final tenantId = session?.accessToken;
+  String? tenantId;
+  try {
+    final session = Supabase.instance.client.auth.currentSession;
+    tenantId = session?.accessToken;
+  } catch (_) {}
   return ApiClient(tenantId: tenantId);
 });
 
