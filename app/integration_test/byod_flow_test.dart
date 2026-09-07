@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
@@ -6,6 +7,17 @@ import 'package:veraxi_app/features/control_panel/views/widgets/api_keys_view.da
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+
+  // Mock SpeechToText platform channel to prevent MissingPluginException on Linux
+  TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+      .setMockMethodCallHandler(
+          const MethodChannel('plugin.csdcorp.com/speech_to_text'),
+          (MethodCall methodCall) async {
+    if (methodCall.method == 'initialize') {
+      return true;
+    }
+    return null;
+  });
 
   testWidgets('E2E BYOD Flow: Save Infrastructure Settings',
       (WidgetTester tester) async {
