@@ -221,134 +221,137 @@ class _ModelSelectorMenuState extends ConsumerState<ModelSelectorMenu> {
   OverlayEntry _createOverlayEntry() {
     return OverlayEntry(
       builder: (context) {
-        final asyncModels = ref.watch(providerModelsProvider);
+        return Consumer(
+          builder: (context, ref, child) {
+            final asyncModels = ref.watch(providerModelsProvider);
 
-        return Stack(
-          children: [
-            // Full screen transparent detector to close the menu
-            Positioned.fill(
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: _closeMenu,
-                onPanStart: (_) => _closeMenu(),
-                child: Container(color: Colors.transparent),
-              ),
-            ),
-            CompositedTransformFollower(
-              link: _layerLink,
-              showWhenUnlinked: false,
-              offset:
-                  const Offset(0, 48), // Adjust this to sit below the button
-              child: Material(
-                color: Colors.transparent,
-                child: Container(
-                  width: 240,
-                  constraints: const BoxConstraints(maxHeight: 500),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF171717),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFF333333)),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.5),
-                        blurRadius: 16,
-                        offset: const Offset(0, 8),
-                      ),
-                    ],
+            return Stack(
+              children: [
+                // Full screen transparent detector to close the menu
+                Positioned.fill(
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: _closeMenu,
+                    onPanStart: (_) => _closeMenu(),
+                    child: Container(color: Colors.transparent),
                   ),
-                  child: asyncModels.when(
-                    data: (allProviderModels) {
-                      return ListView(
-                        key: _providerListKey,
-                        shrinkWrap: true,
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 4, vertical: 8),
-                        children: [
-                          if (widget.pinnedModels.isNotEmpty) ...[
-                            const Padding(
-                              padding: EdgeInsets.symmetric(
-                                  horizontal: 12, vertical: 4),
-                              child: Text('Pinned',
-                                  style: TextStyle(
-                                      color: Color(0xFF6E6E6E),
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w600)),
-                            ),
-                            for (final pinned in widget.pinnedModels)
-                              _HoverableModelRow(
-                                model: pinned,
-                                isSelected: widget.selectedModel == pinned,
-                                isPinned: true,
-                                onTap: () {
-                                  widget.onModelSelected(pinned);
-                                  _closeMenu();
-                                },
-                                onPinToggle: () {
-                                  widget.onModelUnpinned?.call(pinned);
-                                  _overlayEntry?.markNeedsBuild();
-                                },
-                              ),
-                            const Padding(
-                              padding: EdgeInsets.symmetric(vertical: 4),
-                              child:
-                                  Divider(color: Color(0xFF2A2A2A), height: 1),
-                            ),
-                          ],
-                          const Padding(
-                            padding: EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 4),
-                            child: Text('Providers',
-                                style: TextStyle(
-                                    color: Color(0xFF6E6E6E),
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600)),
+                ),
+                CompositedTransformFollower(
+                  link: _layerLink,
+                  showWhenUnlinked: false,
+                  offset: const Offset(0, 48), // Adjust this to sit below the button
+                  child: Material(
+                    color: Colors.transparent,
+                    child: Container(
+                      width: 240,
+                      constraints: const BoxConstraints(maxHeight: 500),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF171717),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xFF333333)),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.5),
+                            blurRadius: 16,
+                            offset: const Offset(0, 8),
                           ),
-                          for (final providerEntry in allProviderModels.entries)
-                            Builder(builder: (itemContext) {
-                              final isHovered =
-                                  _hoveredProvider == providerEntry.key;
-                              return _HoverableProviderRow(
-                                provider: providerEntry.key,
-                                isHovered: isHovered,
-                                onEnter: () {
-                                  _openSubMenu(providerEntry.key,
-                                      providerEntry.value, itemContext);
-                                  _overlayEntry?.markNeedsBuild();
-                                },
-                                onTap: () {
-                                  _openSubMenu(providerEntry.key,
-                                      providerEntry.value, itemContext);
-                                  _overlayEntry?.markNeedsBuild();
-                                },
-                                onSettingsTap: () {
-                                  _closeMenu();
-                                  showDialog(
-                                    context: context,
-                                    builder: (context) => ApiKeyDialog(
-                                        providerName: providerEntry.key),
-                                  );
-                                },
-                              );
-                            })
                         ],
-                      );
-                    },
-                    loading: () => const Padding(
-                      padding: EdgeInsets.all(24),
-                      child: Center(
-                          child:
-                              CircularProgressIndicator(color: Colors.white54)),
-                    ),
-                    error: (e, s) => Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Text('Error: $e',
-                          style: const TextStyle(color: Colors.red)),
+                      ),
+                      child: asyncModels.when(
+                        data: (allProviderModels) {
+                          return ListView(
+                            key: _providerListKey,
+                            shrinkWrap: true,
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 4, vertical: 8),
+                            children: [
+                              if (widget.pinnedModels.isNotEmpty) ...[
+                                const Padding(
+                                  padding: EdgeInsets.symmetric(
+                                      horizontal: 12, vertical: 4),
+                                  child: Text('Pinned',
+                                      style: TextStyle(
+                                          color: Color(0xFF6E6E6E),
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w600)),
+                                ),
+                                for (final pinned in widget.pinnedModels)
+                                  _HoverableModelRow(
+                                    model: pinned,
+                                    isSelected: widget.selectedModel == pinned,
+                                    isPinned: true,
+                                    onTap: () {
+                                      widget.onModelSelected(pinned);
+                                      _closeMenu();
+                                    },
+                                    onPinToggle: () {
+                                      widget.onModelUnpinned?.call(pinned);
+                                      _overlayEntry?.markNeedsBuild();
+                                    },
+                                  ),
+                                const Padding(
+                                  padding: EdgeInsets.symmetric(vertical: 4),
+                                  child:
+                                      Divider(color: Color(0xFF2A2A2A), height: 1),
+                                ),
+                              ],
+                              const Padding(
+                                padding: EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 4),
+                                child: Text('Providers',
+                                    style: TextStyle(
+                                        color: Color(0xFF6E6E6E),
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w600)),
+                              ),
+                              for (final providerEntry in allProviderModels.entries)
+                                Builder(builder: (itemContext) {
+                                  final isHovered =
+                                      _hoveredProvider == providerEntry.key;
+                                  return _HoverableProviderRow(
+                                    provider: providerEntry.key,
+                                    isHovered: isHovered,
+                                    onEnter: () {
+                                      _openSubMenu(providerEntry.key,
+                                          providerEntry.value, itemContext);
+                                      _overlayEntry?.markNeedsBuild();
+                                    },
+                                    onTap: () {
+                                      _openSubMenu(providerEntry.key,
+                                          providerEntry.value, itemContext);
+                                      _overlayEntry?.markNeedsBuild();
+                                    },
+                                    onSettingsTap: () {
+                                      _closeMenu();
+                                      showDialog(
+                                        context: context,
+                                        builder: (context) => ApiKeyDialog(
+                                            providerName: providerEntry.key),
+                                      );
+                                    },
+                                  );
+                                })
+                            ],
+                          );
+                        },
+                        loading: () => const Padding(
+                          padding: EdgeInsets.all(24),
+                          child: Center(
+                              child:
+                                  CircularProgressIndicator(color: Colors.white54)),
+                        ),
+                        error: (e, s) => Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Text('Error: $e',
+                              style: const TextStyle(color: Colors.red)),
+                        ),
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ),
-          ],
+              ],
+            );
+          },
         );
       },
     );
