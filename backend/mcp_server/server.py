@@ -403,7 +403,35 @@ REGISTERED_TOOLS = [
                     "description": "Optional list of pre-searched URLs to ingest and research over. If provided, skips the internal web search phase."
                 }
             },
-            "required": ["query"]
+        }
+    ),
+    Tool(
+        name="mcp_export_timeline",
+        description="Export a structured list of clips/dialogue into a universal video editing timeline format (OpenTimelineIO, FCPXML, or YMM4 CSV).",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "clips": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "start_time": {"type": "number"},
+                            "duration": {"type": "number"},
+                            "character": {"type": "string"},
+                            "dialogue": {"type": "string"},
+                            "audio_path": {"type": "string"}
+                        }
+                    }
+                },
+                "format": {
+                    "type": "string",
+                    "enum": ["otio", "fcpxml", "ymm4_csv"],
+                    "default": "otio"
+                },
+                "output_name": {"type": "string", "default": "veraxi_timeline"}
+            },
+            "required": ["clips"]
         }
     ),
 ]
@@ -568,6 +596,16 @@ def _handle_get_ingest_status(args: dict, tenant_id: str) -> list[TextContent]:
     result = mcp_get_ingest_status(tenant_id=tenant_id, job_id=args["job_id"])
     return [TextContent(type="text", text=json.dumps(result))]
 
+def _handle_export_timeline(args: dict, tenant_id: str) -> list[TextContent]:
+    from backend.mcp_server.tools.export_timeline import mcp_veraxi_mcp_export_timeline
+    
+    filepath = mcp_veraxi_mcp_export_timeline(
+        clips=args.get("clips", []),
+        format=args.get("format", "otio"),
+        output_name=args.get("output_name", "veraxi_timeline")
+    )
+    return [TextContent(type="text", text=filepath)]
+
 TOOL_HANDLERS = {
     "mcp_search_vectors": _handle_search_vectors,
     "mcp_query_graph": _handle_query_graph,
@@ -592,6 +630,7 @@ TOOL_HANDLERS = {
     "mcp_ingest_document": _handle_ingest_document,
     "mcp_get_ingest_status": _handle_get_ingest_status,
     "mcp_deep_research": _handle_deep_research,
+    "mcp_export_timeline": _handle_export_timeline,
 }
 
 async def handle_list_tools(ctx, params) -> ListToolsResult:
