@@ -69,9 +69,24 @@ void main() {
           toolSettings: any(named: 'toolSettings'),
         )).thenAnswer((_) {
       return Stream.fromIterable([
-        {'event': 'on_chat_model_stream', 'data': {'chunk': {'content': 'Hello '}}},
-        {'event': 'on_chat_model_stream', 'data': {'chunk': {'content': 'from Mock '}}},
-        {'event': 'on_chat_model_stream', 'data': {'chunk': {'content': 'API!'}}},
+        {
+          'event': 'on_chat_model_stream',
+          'data': {
+            'chunk': {'content': 'Hello '}
+          }
+        },
+        {
+          'event': 'on_chat_model_stream',
+          'data': {
+            'chunk': {'content': 'from Mock '}
+          }
+        },
+        {
+          'event': 'on_chat_model_stream',
+          'data': {
+            'chunk': {'content': 'API!'}
+          }
+        },
         {'event': 'on_chain_end', 'data': {}}
       ]);
     });
