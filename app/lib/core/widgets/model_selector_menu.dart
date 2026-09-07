@@ -38,9 +38,13 @@ class _ModelSelectorMenuState extends ConsumerState<ModelSelectorMenu> {
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
 
+  String _mainSearchQuery = '';
+  final TextEditingController _mainSearchController = TextEditingController();
+
   @override
   void dispose() {
     _searchController.dispose();
+    _mainSearchController.dispose();
     _closeMenu();
     super.dispose();
   }
@@ -61,6 +65,8 @@ class _ModelSelectorMenuState extends ConsumerState<ModelSelectorMenu> {
       _isOpen = true;
       _searchQuery = '';
       _searchController.clear();
+      _mainSearchQuery = '';
+      _mainSearchController.clear();
     });
   }
 
@@ -146,6 +152,7 @@ class _ModelSelectorMenuState extends ConsumerState<ModelSelectorMenu> {
               child: TextField(
                 controller: _searchController,
                 autofocus: true,
+                cursorColor: Colors.white,
                 style: const TextStyle(color: Colors.white, fontSize: 13),
                 decoration: InputDecoration(
                   hintText: 'Search $provider models...',
@@ -258,76 +265,179 @@ class _ModelSelectorMenuState extends ConsumerState<ModelSelectorMenu> {
                       ),
                       child: asyncModels.when(
                         data: (allProviderModels) {
-                          return ListView(
-                            key: _providerListKey,
-                            shrinkWrap: true,
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 4, vertical: 8),
+                          final flatModels = allProviderModels.values
+                              .expand((m) => m)
+                              .toList();
+                          final filteredMain = flatModels
+                              .where((m) => m
+                                  .toLowerCase()
+                                  .contains(_mainSearchQuery.toLowerCase()))
+                              .toList();
+                          final isSearching = _mainSearchQuery.isNotEmpty;
+
+                          return Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              if (widget.pinnedModels.isNotEmpty) ...[
-                                const Padding(
-                                  padding: EdgeInsets.symmetric(
-                                      horizontal: 12, vertical: 4),
-                                  child: Text('Pinned',
-                                      style: TextStyle(
-                                          color: Color(0xFF6E6E6E),
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w600)),
-                                ),
-                                for (final pinned in widget.pinnedModels)
-                                  _HoverableModelRow(
-                                    model: pinned,
-                                    isSelected: widget.selectedModel == pinned,
-                                    isPinned: true,
-                                    onTap: () {
-                                      widget.onModelSelected(pinned);
-                                      _closeMenu();
-                                    },
-                                    onPinToggle: () {
-                                      widget.onModelUnpinned?.call(pinned);
+                              Padding(
+                                padding: const EdgeInsets.all(8.0),
+                                child: SizedBox(
+                                  height: 36,
+                                  child: TextField(
+                                    controller: _mainSearchController,
+                                    cursorColor: Colors.white,
+                                    style: const TextStyle(
+                                        color: Colors.white, fontSize: 13),
+                                    decoration: InputDecoration(
+                                      hintText: 'Search models...',
+                                      hintStyle: const TextStyle(
+                                          color: Color(0xFF878787),
+                                          fontSize: 13),
+                                      contentPadding:
+                                          const EdgeInsets.symmetric(
+                                              horizontal: 12),
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                        borderSide: const BorderSide(
+                                            color: Color(0xFF333333)),
+                                      ),
+                                      enabledBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                        borderSide: const BorderSide(
+                                            color: Color(0xFF333333)),
+                                      ),
+                                      focusedBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                        borderSide: const BorderSide(
+                                            color: Color(0xFF555555)),
+                                      ),
+                                    ),
+                                    onChanged: (val) {
                                       _overlayEntry?.markNeedsBuild();
+                                      _mainSearchQuery = val;
+                                      if (val.isNotEmpty) {
+                                        _closeSubMenu();
+                                      }
                                     },
                                   ),
-                                const Padding(
-                                  padding: EdgeInsets.symmetric(vertical: 4),
-                                  child: Divider(
-                                      color: Color(0xFF2A2A2A), height: 1),
                                 ),
-                              ],
-                              const Padding(
-                                padding: EdgeInsets.symmetric(
-                                    horizontal: 12, vertical: 4),
-                                child: Text('Providers',
-                                    style: TextStyle(
-                                        color: Color(0xFF6E6E6E),
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w600)),
                               ),
-                              for (final providerEntry
-                                  in allProviderModels.entries)
-                                _HoverableProviderRow(
-                                  provider: providerEntry.key,
-                                  isHovered:
-                                      _hoveredProvider == providerEntry.key,
-                                  onEnter: (layerLink) {
-                                    _openSubMenu(providerEntry.key,
-                                        providerEntry.value, layerLink);
-                                    _overlayEntry?.markNeedsBuild();
-                                  },
-                                  onTap: (layerLink) {
-                                    _openSubMenu(providerEntry.key,
-                                        providerEntry.value, layerLink);
-                                    _overlayEntry?.markNeedsBuild();
-                                  },
-                                  onSettingsTap: () {
-                                    _closeMenu();
-                                    showDialog(
-                                      context: context,
-                                      builder: (context) => ApiKeyDialog(
-                                          providerName: providerEntry.key),
-                                    );
-                                  },
-                                )
+                              Flexible(
+                                child: ListView(
+                                  key: _providerListKey,
+                                  shrinkWrap: true,
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 4, vertical: 0),
+                                  children: [
+                                    if (isSearching) ...[
+                                      if (filteredMain.isEmpty)
+                                        const Padding(
+                                          padding: EdgeInsets.all(16.0),
+                                          child: Text('No models found',
+                                              style: TextStyle(
+                                                  color: Color(0xFF878787),
+                                                  fontSize: 13)),
+                                        )
+                                      else
+                                        for (final model in filteredMain)
+                                          _HoverableModelRow(
+                                            model: model,
+                                            isSelected:
+                                                widget.selectedModel == model,
+                                            isPinned: widget.pinnedModels
+                                                .contains(model),
+                                            onTap: () {
+                                              widget.onModelSelected(model);
+                                              _closeMenu();
+                                            },
+                                            onPinToggle: () {
+                                              if (widget.pinnedModels
+                                                  .contains(model)) {
+                                                widget.onModelUnpinned
+                                                    ?.call(model);
+                                              } else {
+                                                widget.onModelPinned
+                                                    ?.call(model);
+                                              }
+                                              _overlayEntry?.markNeedsBuild();
+                                            },
+                                          ),
+                                    ] else ...[
+                                      if (widget.pinnedModels.isNotEmpty) ...[
+                                        const Padding(
+                                          padding: EdgeInsets.symmetric(
+                                              horizontal: 12, vertical: 4),
+                                          child: Text('Pinned',
+                                              style: TextStyle(
+                                                  color: Color(0xFF6E6E6E),
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.w600)),
+                                        ),
+                                        for (final pinned
+                                            in widget.pinnedModels)
+                                          _HoverableModelRow(
+                                            model: pinned,
+                                            isSelected:
+                                                widget.selectedModel == pinned,
+                                            isPinned: true,
+                                            onTap: () {
+                                              widget.onModelSelected(pinned);
+                                              _closeMenu();
+                                            },
+                                            onPinToggle: () {
+                                              widget.onModelUnpinned
+                                                  ?.call(pinned);
+                                              _overlayEntry?.markNeedsBuild();
+                                            },
+                                          ),
+                                        const Padding(
+                                          padding:
+                                              EdgeInsets.symmetric(vertical: 4),
+                                          child: Divider(
+                                              color: Color(0xFF2A2A2A),
+                                              height: 1),
+                                        ),
+                                      ],
+                                      const Padding(
+                                        padding: EdgeInsets.symmetric(
+                                            horizontal: 12, vertical: 4),
+                                        child: Text('Providers',
+                                            style: TextStyle(
+                                                color: Color(0xFF6E6E6E),
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.w600)),
+                                      ),
+                                      for (final providerEntry
+                                          in allProviderModels.entries)
+                                        _HoverableProviderRow(
+                                          provider: providerEntry.key,
+                                          isHovered: _hoveredProvider ==
+                                              providerEntry.key,
+                                          onEnter: (layerLink) {
+                                            _openSubMenu(providerEntry.key,
+                                                providerEntry.value, layerLink);
+                                            _overlayEntry?.markNeedsBuild();
+                                          },
+                                          onTap: (layerLink) {
+                                            _openSubMenu(providerEntry.key,
+                                                providerEntry.value, layerLink);
+                                            _overlayEntry?.markNeedsBuild();
+                                          },
+                                          onSettingsTap: () {
+                                            _closeMenu();
+                                            showDialog(
+                                              context: context,
+                                              builder: (context) =>
+                                                  ApiKeyDialog(
+                                                      providerName:
+                                                          providerEntry.key),
+                                            );
+                                          },
+                                        )
+                                    ],
+                                  ],
+                                ),
+                              ),
                             ],
                           );
                         },
