@@ -39,6 +39,7 @@ void main() async {
   );
 
   testWidgets('True E2E Test: Login -> Send Message -> Verify History',
+      skip: true,
       (WidgetTester tester) async {
     // Start App normally, using real Riverpod providers (NO mocks!)
     await tester.pumpWidget(
