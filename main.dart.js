@@ -133783,13 +133783,15 @@ break
 case 1:return A.p(q,r)}})
 return A.q($async$po,r)}}
 A.bhN.prototype={
-$1(a){var s,r,q=$.jS().b
-q===$&&A.c()
-s=q.gfV().e.a
-r=s==null?null:s.c
-q=A.bjL()
-if(q==null)q=new A.uD(A.b([],t.O))
-return new A.ur(q,r,new A.hM())},
+$1(a){var s,r,q,p,o=null
+try{r=$.jS().b
+r===$&&A.c()
+s=r.gfV().e.a
+r=s
+o=r==null?null:r.c}catch(q){}r=o
+p=A.bjL()
+if(p==null)p=new A.uD(A.b([],t.O))
+return new A.ur(p,r,new A.hM())},
 $S:916}
 A.ur.prototype={
 mK(){var s=0,r=A.r(t.GU),q,p=this,o,n,m,l,k,j,i
@@ -134218,10 +134220,14 @@ if(!r.z)return
 r.a3u()
 s=r.x
 if(s!=null)s.f_(0)
+s=r.x
+if(s!=null)s.m()
 r.x=null
 r.L(new A.b6x(r))},
 a3u(){var s=this.y
 if(s!=null)s.f_(0)
+s=this.y
+if(s!=null)s.m()
 this.y=null},
 a7Q(a,b,c){var s,r,q,p=this
 if(p.Q===a)return
