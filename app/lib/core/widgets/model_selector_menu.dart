@@ -82,8 +82,7 @@ class _ModelSelectorMenuState extends ConsumerState<ModelSelectorMenu> {
     _subMenuOverlayEntry = null;
   }
 
-  void _openSubMenu(
-      String provider, List<String> models, BuildContext providerItemContext) {
+  void _openSubMenu(String provider, List<String> models, LayerLink layerLink) {
     if (_hoveredProvider == provider) return;
 
     _closeSubMenu(); // close existing submenu
@@ -92,20 +91,17 @@ class _ModelSelectorMenuState extends ConsumerState<ModelSelectorMenu> {
       _hoveredProvider = provider;
     });
 
-    final RenderBox renderBox =
-        providerItemContext.findRenderObject() as RenderBox;
-    final offset = renderBox.localToGlobal(Offset.zero);
-
-    // We position the submenu slightly overlapping or directly next to the parent menu
+    // We position the submenu exactly next to the parent row using CompositedTransformFollower
     _subMenuOverlayEntry = OverlayEntry(
       builder: (context) => Stack(
         children: [
-          // Invisible layer to catch taps outside submenu but keep main menu open?
-          // Actually, the main menu already has a huge transparent background.
-          // We don't need a background here, just Positioned
-          Positioned(
-            left: offset.dx + renderBox.size.width + 4,
-            top: offset.dy - 30, // Align roughly with the row
+          CompositedTransformFollower(
+            link: layerLink,
+            showWhenUnlinked: false,
+            targetAnchor: Alignment.topRight,
+            followerAnchor: Alignment.topLeft,
+            offset: const Offset(
+                4, -40), // slightly above the row so search is visible
             child: Material(
               color: Colors.transparent,
               child: _buildSubMenuContent(provider, models),
@@ -246,7 +242,7 @@ class _ModelSelectorMenuState extends ConsumerState<ModelSelectorMenu> {
                   child: Material(
                     color: Colors.transparent,
                     child: Container(
-                      width: 240,
+                      width: 200,
                       constraints: const BoxConstraints(maxHeight: 500),
                       decoration: BoxDecoration(
                         color: const Color(0xFF171717),
@@ -309,32 +305,29 @@ class _ModelSelectorMenuState extends ConsumerState<ModelSelectorMenu> {
                               ),
                               for (final providerEntry
                                   in allProviderModels.entries)
-                                Builder(builder: (itemContext) {
-                                  final isHovered =
-                                      _hoveredProvider == providerEntry.key;
-                                  return _HoverableProviderRow(
-                                    provider: providerEntry.key,
-                                    isHovered: isHovered,
-                                    onEnter: () {
-                                      _openSubMenu(providerEntry.key,
-                                          providerEntry.value, itemContext);
-                                      _overlayEntry?.markNeedsBuild();
-                                    },
-                                    onTap: () {
-                                      _openSubMenu(providerEntry.key,
-                                          providerEntry.value, itemContext);
-                                      _overlayEntry?.markNeedsBuild();
-                                    },
-                                    onSettingsTap: () {
-                                      _closeMenu();
-                                      showDialog(
-                                        context: context,
-                                        builder: (context) => ApiKeyDialog(
-                                            providerName: providerEntry.key),
-                                      );
-                                    },
-                                  );
-                                })
+                                _HoverableProviderRow(
+                                  provider: providerEntry.key,
+                                  isHovered:
+                                      _hoveredProvider == providerEntry.key,
+                                  onEnter: (layerLink) {
+                                    _openSubMenu(providerEntry.key,
+                                        providerEntry.value, layerLink);
+                                    _overlayEntry?.markNeedsBuild();
+                                  },
+                                  onTap: (layerLink) {
+                                    _openSubMenu(providerEntry.key,
+                                        providerEntry.value, layerLink);
+                                    _overlayEntry?.markNeedsBuild();
+                                  },
+                                  onSettingsTap: () {
+                                    _closeMenu();
+                                    showDialog(
+                                      context: context,
+                                      builder: (context) => ApiKeyDialog(
+                                          providerName: providerEntry.key),
+                                    );
+                                  },
+                                )
                             ],
                           );
                         },
@@ -380,8 +373,8 @@ class _ModelSelectorMenuState extends ConsumerState<ModelSelectorMenu> {
 class _HoverableProviderRow extends StatefulWidget {
   final String provider;
   final bool isHovered;
-  final VoidCallback onEnter;
-  final VoidCallback onTap;
+  final ValueChanged<LayerLink> onEnter;
+  final ValueChanged<LayerLink> onTap;
   final VoidCallback onSettingsTap;
 
   const _HoverableProviderRow({
@@ -398,6 +391,7 @@ class _HoverableProviderRow extends StatefulWidget {
 
 class _HoverableProviderRowState extends State<_HoverableProviderRow> {
   bool _isLocalHover = false;
+  final LayerLink _layerLink = LayerLink();
 
   Widget _providerCircle(String provider) {
     String? assetPath;
@@ -463,55 +457,58 @@ class _HoverableProviderRowState extends State<_HoverableProviderRow> {
   Widget build(BuildContext context) {
     final active = widget.isHovered || _isLocalHover;
 
-    return MouseRegion(
-      onEnter: (_) {
-        setState(() => _isLocalHover = true);
-        widget.onEnter();
-      },
-      onExit: (_) => setState(() => _isLocalHover = false),
-      child: GestureDetector(
-        onTap: widget.onTap,
-        behavior: HitTestBehavior.opaque,
-        child: Container(
-          height: 38,
-          margin: const EdgeInsets.only(bottom: 2),
-          decoration: BoxDecoration(
-            color: active ? const Color(0xFF2F2F2F) : Colors.transparent,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Row(
-            children: [
-              const SizedBox(width: 12),
-              _providerCircle(widget.provider),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  widget.provider,
-                  style: TextStyle(
-                    color: active ? Colors.white : const Color(0xFFD1D1D1),
-                    fontSize: 13,
-                    fontWeight: active ? FontWeight.w500 : FontWeight.normal,
+    return CompositedTransformTarget(
+      link: _layerLink,
+      child: MouseRegion(
+        onEnter: (_) {
+          setState(() => _isLocalHover = true);
+          widget.onEnter(_layerLink);
+        },
+        onExit: (_) => setState(() => _isLocalHover = false),
+        child: GestureDetector(
+          onTap: () => widget.onTap(_layerLink),
+          behavior: HitTestBehavior.opaque,
+          child: Container(
+            height: 38,
+            margin: const EdgeInsets.only(bottom: 2),
+            decoration: BoxDecoration(
+              color: active ? const Color(0xFF2F2F2F) : Colors.transparent,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              children: [
+                const SizedBox(width: 12),
+                _providerCircle(widget.provider),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    widget.provider,
+                    style: TextStyle(
+                      color: active ? Colors.white : const Color(0xFFD1D1D1),
+                      fontSize: 13,
+                      fontWeight: active ? FontWeight.w500 : FontWeight.normal,
+                    ),
                   ),
                 ),
-              ),
-              GestureDetector(
-                onTap: widget.onSettingsTap,
-                behavior: HitTestBehavior.opaque,
-                child: Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
-                  child: Icon(Icons.settings_outlined,
-                      size: 15,
-                      color: active
-                          ? const Color(0xFFB4B4B4)
-                          : Colors.transparent),
+                GestureDetector(
+                  onTap: widget.onSettingsTap,
+                  behavior: HitTestBehavior.opaque,
+                  child: Padding(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+                    child: Icon(Icons.settings_outlined,
+                        size: 15,
+                        color: active
+                            ? const Color(0xFFB4B4B4)
+                            : Colors.transparent),
+                  ),
                 ),
-              ),
-              Icon(Icons.chevron_right,
-                  size: 16,
-                  color: active ? Colors.white : const Color(0xFF878787)),
-              const SizedBox(width: 8),
-            ],
+                Icon(Icons.chevron_right,
+                    size: 16,
+                    color: active ? Colors.white : const Color(0xFF878787)),
+                const SizedBox(width: 8),
+              ],
+            ),
           ),
         ),
       ),
