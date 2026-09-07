@@ -5,6 +5,7 @@ import 'package:integration_test/integration_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:veraxi_app/core/widgets/model_selector_menu.dart';
 import 'dart:async';
 
 import 'package:veraxi_app/main.dart';
@@ -57,6 +58,8 @@ void main() {
     when(() => mockChatRepo.getThreadHistory(any()))
         .thenAnswer((_) async => []);
 
+    when(() => mockChatRepo.getUIConfig()).thenAnswer((_) async => {});
+
     when(() => mockChatRepo.streamChat(
           any(),
           threadId: any(named: 'threadId'),
@@ -64,9 +67,13 @@ void main() {
           model: any(named: 'model'),
           calculateGrounding: any(named: 'calculateGrounding'),
           toolSettings: any(named: 'toolSettings'),
-        )).thenAnswer((invocation) async* {
-      yield {'type': 'content', 'content': 'Hello from Mock API!'};
-      yield {'type': 'done'};
+        )).thenAnswer((_) {
+      return Stream.fromIterable([
+        {'event': 'on_chat_model_stream', 'data': {'chunk': {'content': 'Hello '}}},
+        {'event': 'on_chat_model_stream', 'data': {'chunk': {'content': 'from Mock '}}},
+        {'event': 'on_chat_model_stream', 'data': {'chunk': {'content': 'API!'}}},
+        {'event': 'on_chain_end', 'data': {}}
+      ]);
     });
   });
 
@@ -129,12 +136,12 @@ void main() {
 
     // 3. Assert we are on the Chat Screen
     expect(find.text('Chats'), findsOneWidget); // Sidebar thread list
-    expect(find.text('Ask anything...'), findsOneWidget); // Chat input
+    expect(find.text('Message Veraxi...'), findsOneWidget); // Chat input
 
     // 4. Test Model Provider Selector
     // By default, OpenAI is selected (Select a model / OpenAI)
     // Tap the model selector pill to open the dropdown
-    await tester.tap(find.byIcon(Icons.keyboard_arrow_down).first);
+    await tester.tap(find.byType(ModelSelectorMenu));
     await tester.pumpAndSettle();
 
     // Tap the 'Anthropic' provider row to reveal models
@@ -147,8 +154,10 @@ void main() {
 
     // 5. Test Sending a message
     await tester.enterText(find.byType(TextField).last, 'Write me a poem');
+    await tester.pumpAndSettle(); // Wait for send button to enable
+
     // Tap Send Button (Send icon)
-    await tester.tap(find.byIcon(Icons.send_rounded).first);
+    await tester.tap(find.byIcon(Icons.arrow_upward).first);
     await tester.pump(); // Start the send process
 
     // Wait for stream to emit
