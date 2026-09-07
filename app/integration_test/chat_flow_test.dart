@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
@@ -20,6 +21,17 @@ class MockUser extends Mock implements User {}
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
+  // Mock SpeechToText platform channel to prevent MissingPluginException on Linux
+  TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+      .setMockMethodCallHandler(
+          const MethodChannel('plugin.csdcorp.com/speech_to_text'),
+          (MethodCall methodCall) async {
+    if (methodCall.method == 'initialize') {
+      return true;
+    }
+    return null;
+  });
+
   late MockAuthRepository mockAuthRepo;
   late MockChatRepository mockChatRepo;
   late StreamController<AuthState> authStateController;
@@ -33,6 +45,12 @@ void main() {
         .thenAnswer((_) => authStateController.stream);
 
     when(() => mockAuthRepo.currentUser).thenReturn(null);
+
+    when(() => mockChatRepo.getProviderModels()).thenAnswer((_) async => {
+          'OpenAI': ['gpt-4o', 'gpt-4o-mini'],
+          'Anthropic': ['Claude 3.5 Sonnet', 'Claude 3 Opus'],
+          'Google': ['gemini-1.5-pro']
+        });
 
     when(() => mockChatRepo.getThreads()).thenAnswer((_) async => []);
 
@@ -75,7 +93,7 @@ void main() {
     await tester.pumpAndSettle();
 
     // 2. Assert we are on the Login Screen
-    expect(find.text('Welcome to Veraxi'), findsOneWidget);
+    expect(find.text('Welcome Back'), findsOneWidget);
     expect(find.byType(TextField), findsNWidgets(2)); // Email and Password
 
     // Mock SignIn interaction
@@ -119,7 +137,11 @@ void main() {
     await tester.tap(find.byIcon(Icons.keyboard_arrow_down).first);
     await tester.pumpAndSettle();
 
-    // Select Anthropic
+    // Tap the 'Anthropic' provider row to reveal models
+    await tester.tap(find.text('Anthropic').last);
+    await tester.pumpAndSettle();
+
+    // Select Anthropic model
     await tester.tap(find.text('Claude 3.5 Sonnet').last);
     await tester.pumpAndSettle();
 
