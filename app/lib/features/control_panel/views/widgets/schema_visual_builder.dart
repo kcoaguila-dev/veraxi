@@ -220,7 +220,7 @@ class _SchemaVisualBuilderState extends State<SchemaVisualBuilder> {
             color: const Color(0xFF1E1E1E),
             borderRadius: BorderRadius.circular(8),
           ),
-          constraints: const BoxConstraints(minHeight: 250),
+          constraints: const BoxConstraints(minHeight: 250, maxHeight: 500),
           child: _advancedMode ? _buildJsonEditor() : _buildVisualEditor(),
         ),
         const SizedBox(height: 12),
@@ -269,7 +269,7 @@ class _SchemaVisualBuilderState extends State<SchemaVisualBuilder> {
   }
 
   Widget _buildVisualEditor() {
-    return Padding(
+    return SingleChildScrollView(
       padding: const EdgeInsets.all(16.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
