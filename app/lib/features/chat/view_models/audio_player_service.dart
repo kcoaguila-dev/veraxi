@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:veraxi_app/core/network/tts_repository.dart';
 import 'package:veraxi_app/core/tts_settings_storage.dart';
 import 'package:veraxi_app/features/chat/view_models/chat_view_model.dart';
@@ -129,9 +130,10 @@ class AudioPlayerService extends StateNotifier<AudioPlayerState> {
       await _player.play();
 
       state = state.copyWith(isLoading: false);
-    } catch (e) {
+    } catch (e, stackTrace) {
       state = state.copyWith(isLoading: false);
-      print('Error playing audio: $e');
+      debugPrint('Error playing audio: $e');
+      Sentry.captureException(e, stackTrace: stackTrace);
     }
   }
 

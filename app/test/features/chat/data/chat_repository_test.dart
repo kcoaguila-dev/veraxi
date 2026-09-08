@@ -5,6 +5,8 @@ import 'package:veraxi_app/core/network/api_client.dart';
 import 'package:veraxi_app/features/chat/data/chat_repository.dart';
 import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:veraxi_app/core/repositories/model_config_repository.dart';
+import 'package:veraxi_app/core/api_key_storage.dart';
 
 class MockHttpClient extends Mock implements http.Client {}
 
@@ -18,7 +20,7 @@ void main() {
     FlutterSecureStorage.setMockInitialValues({});
     mockHttpClient = MockHttpClient();
     apiClient = ApiClient(client: mockHttpClient, baseUrl: 'http://test.com');
-    repository = ChatRepository(apiClient: apiClient);
+    repository = ChatRepository(apiClient: apiClient, apiKeyStorage: ApiKeyStorage());
     registerFallbackValue(Uri.parse('http://test.com'));
   });
 
@@ -46,7 +48,8 @@ void main() {
     when(() => mockHttpClient.get(any(), headers: any(named: 'headers')))
         .thenAnswer((_) async => http.Response(mockResponse, 200));
 
-    final models = await repository.getProviderModels();
+    final modelRepo = ModelConfigRepository(apiClient: apiClient);
+    final models = await modelRepo.getProviderModels();
     expect(models.length, 2);
     expect(models['OpenAI']?.length, 2);
     expect(models['OpenAI']?.first, 'gpt-4-turbo');

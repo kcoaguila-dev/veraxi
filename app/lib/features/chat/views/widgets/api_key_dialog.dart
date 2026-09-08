@@ -2,6 +2,8 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:veraxi_app/core/api_key_storage.dart';
+import 'package:veraxi_app/core/theme_extension.dart';
+
 
 class ApiKeyDialog extends StatefulWidget {
   final String providerName;
@@ -69,14 +71,14 @@ class _ApiKeyDialogState extends State<ApiKeyDialog> {
   Widget build(BuildContext context) {
     return Dialog(
       backgroundColor: Colors.transparent,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+      insetPadding: EdgeInsets.symmetric(horizontal: 24, vertical: 24),
       child: Container(
         width: 600,
         constraints: const BoxConstraints(maxWidth: 600),
         decoration: BoxDecoration(
-          color: const Color(0xFF171717),
+          color: Theme.of(context).extension<AppThemeExtension>()!.sidebarBackground,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFF2A2A2A)),
+          border: Border.all(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.5),
@@ -91,22 +93,22 @@ class _ApiKeyDialogState extends State<ApiKeyDialog> {
           children: [
             // Header
             Padding(
-              padding: const EdgeInsets.only(
+              padding: EdgeInsets.only(
                   left: 24, right: 16, top: 16, bottom: 16),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
                     'Set API Key for ${widget.providerName}',
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: Colors.white,
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.close,
-                        color: Color(0xFF878787), size: 20),
+                    icon: Icon(Icons.close,
+                        color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary, size: 20),
                     onPressed: () => Navigator.of(context).pop(),
                     padding: EdgeInsets.zero,
                     constraints:
@@ -116,33 +118,33 @@ class _ApiKeyDialogState extends State<ApiKeyDialog> {
               ),
             ),
 
-            const Divider(color: Color(0xFF2A2A2A), height: 1, thickness: 1),
+            Divider(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor, height: 1, thickness: 1),
 
             // Content
             Padding(
-              padding: const EdgeInsets.all(24),
+              padding: EdgeInsets.all(24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     'Your key will never expire',
                     style: TextStyle(
                         color: Color(0xFFEF4444),
                         fontSize: 12,
                         fontWeight: FontWeight.w500), // Tailwind Red 500
                   ),
-                  const SizedBox(height: 12),
+                  SizedBox(height: 12),
 
                   // Expires dropdown
                   Theme(
                     data: Theme.of(context).copyWith(
-                      hoverColor: const Color(0xFF2A2A2A),
+                      hoverColor: Theme.of(context).extension<AppThemeExtension>()!.borderColor,
                     ),
                     child: PopupMenuButton<String>(
-                      color: const Color(0xFF171717),
+                      color: Theme.of(context).extension<AppThemeExtension>()!.sidebarBackground,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
-                        side: const BorderSide(color: Color(0xFF2A2A2A)),
+                        side: BorderSide(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor),
                       ),
                       position: PopupMenuPosition.under,
                       onSelected: (value) {
@@ -164,17 +166,17 @@ class _ApiKeyDialogState extends State<ApiKeyDialog> {
                           return PopupMenuItem<String>(
                             value: option,
                             height: 36,
-                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            padding: EdgeInsets.symmetric(horizontal: 16),
                             child: Row(
                               children: [
                                 Text(option,
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                         color: Colors.white,
                                         fontSize: 13,
                                         fontWeight: FontWeight.w500)),
                                 if (_expiresIn == option) ...[
                                   const Spacer(),
-                                  const Icon(Icons.check,
+                                  Icon(Icons.check,
                                       color: Colors.white, size: 16),
                                 ]
                               ],
@@ -183,10 +185,10 @@ class _ApiKeyDialogState extends State<ApiKeyDialog> {
                         }).toList();
                       },
                       child: Container(
-                        padding: const EdgeInsets.symmetric(
+                        padding: EdgeInsets.symmetric(
                             horizontal: 12, vertical: 6),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF2F2F2F),
+                          color: Theme.of(context).extension<AppThemeExtension>()!.surfaceHighlight,
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Row(
@@ -196,10 +198,10 @@ class _ApiKeyDialogState extends State<ApiKeyDialog> {
                                 _expiresIn == 'never'
                                     ? 'never'
                                     : 'Expires ${_expiresIn.toLowerCase()}',
-                                style: const TextStyle(
+                                style: TextStyle(
                                     color: Colors.white, fontSize: 13)),
-                            const SizedBox(width: 4),
-                            const Icon(Icons.keyboard_arrow_down,
+                            SizedBox(width: 4),
+                            Icon(Icons.keyboard_arrow_down,
                                 color: Colors.white, size: 16),
                           ],
                         ),
@@ -207,7 +209,7 @@ class _ApiKeyDialogState extends State<ApiKeyDialog> {
                     ),
                   ),
 
-                  const SizedBox(height: 24),
+                  SizedBox(height: 24),
 
                   if (widget.providerName.toLowerCase() == 'google') ...[
                     // Field 1: Service Account Key
@@ -217,42 +219,42 @@ class _ApiKeyDialogState extends State<ApiKeyDialog> {
                         Flexible(
                             child: Text(
                                 '${widget.providerName} Service Account Key',
-                                style: const TextStyle(
+                                style: TextStyle(
                                     color: Colors.white,
                                     fontSize: 12,
                                     fontWeight: FontWeight.w500))),
-                        const SizedBox(width: 8),
+                        SizedBox(width: 8),
                         Flexible(
                             child: Text(
                                 '(from ${widget.providerName} Cloud Platform)',
-                                style: const TextStyle(
-                                    color: Color(0xFF878787), fontSize: 11),
+                                style: TextStyle(
+                                    color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary, fontSize: 11),
                                 textAlign: TextAlign.right)),
                       ],
                     ),
-                    const SizedBox(height: 8),
+                    SizedBox(height: 8),
                     Container(
                       width: double.infinity,
-                      padding: const EdgeInsets.symmetric(
+                      padding: EdgeInsets.symmetric(
                           horizontal: 12, vertical: 10),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF2A2A2A),
+                        color: Theme.of(context).extension<AppThemeExtension>()!.borderColor,
                         borderRadius: BorderRadius.circular(6),
                         border: Border.all(color: const Color(0xFF3A3A3A)),
                       ),
-                      child: const Row(
+                      child: Row(
                         children: [
                           Icon(Icons.note_add_outlined,
-                              color: Color(0xFF878787), size: 16),
+                              color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary, size: 16),
                           SizedBox(width: 8),
                           Text('Import Service Account JSON Key.',
                               style: TextStyle(
-                                  color: Color(0xFF878787), fontSize: 13)),
+                                  color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary, fontSize: 13)),
                         ],
                       ),
                     ),
 
-                    const SizedBox(height: 24),
+                    SizedBox(height: 24),
                   ],
 
                   if (widget.providerName.toLowerCase() == 'local') ...[
@@ -262,40 +264,40 @@ class _ApiKeyDialogState extends State<ApiKeyDialog> {
                       children: [
                         Flexible(
                             child: Text('Base URL',
-                                style: const TextStyle(
+                                style: TextStyle(
                                     color: Colors.white,
                                     fontSize: 12,
                                     fontWeight: FontWeight.w500))),
-                        const SizedBox(width: 8),
+                        SizedBox(width: 8),
                         Flexible(
                             child: Text('[OpenAI-Compatible Endpoint]',
-                                style: const TextStyle(
-                                    color: Color(0xFF878787), fontSize: 11),
+                                style: TextStyle(
+                                    color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary, fontSize: 11),
                                 textAlign: TextAlign.right)),
                       ],
                     ),
-                    const SizedBox(height: 8),
+                    SizedBox(height: 8),
                     Container(
                       decoration: BoxDecoration(
-                        color: const Color(0xFF1E1E1E),
+                        color: Theme.of(context).extension<AppThemeExtension>()!.cardBackground,
                         borderRadius: BorderRadius.circular(6),
                         border: Border.all(color: const Color(0xFF3A3A3A)),
                       ),
                       child: TextField(
                         controller: _baseUrlController,
                         style:
-                            const TextStyle(color: Colors.white, fontSize: 14),
+                            TextStyle(color: Colors.white, fontSize: 14),
                         decoration: InputDecoration(
                           hintText: 'e.g., http://localhost:11434/v1',
-                          hintStyle: const TextStyle(
-                              color: Color(0xFF878787), fontSize: 13),
+                          hintStyle: TextStyle(
+                              color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary, fontSize: 13),
                           border: InputBorder.none,
-                          contentPadding: const EdgeInsets.symmetric(
+                          contentPadding: EdgeInsets.symmetric(
                               horizontal: 12, vertical: 12),
                         ),
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    SizedBox(height: 16),
 
                     // Field: Model Name
                     Row(
@@ -303,40 +305,40 @@ class _ApiKeyDialogState extends State<ApiKeyDialog> {
                       children: [
                         Flexible(
                             child: Text('Model Name',
-                                style: const TextStyle(
+                                style: TextStyle(
                                     color: Colors.white,
                                     fontSize: 12,
                                     fontWeight: FontWeight.w500))),
-                        const SizedBox(width: 8),
+                        SizedBox(width: 8),
                         Flexible(
                             child: Text('[Required by Endpoint]',
-                                style: const TextStyle(
-                                    color: Color(0xFF878787), fontSize: 11),
+                                style: TextStyle(
+                                    color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary, fontSize: 11),
                                 textAlign: TextAlign.right)),
                       ],
                     ),
-                    const SizedBox(height: 8),
+                    SizedBox(height: 8),
                     Container(
                       decoration: BoxDecoration(
-                        color: const Color(0xFF1E1E1E),
+                        color: Theme.of(context).extension<AppThemeExtension>()!.cardBackground,
                         borderRadius: BorderRadius.circular(6),
                         border: Border.all(color: const Color(0xFF3A3A3A)),
                       ),
                       child: TextField(
                         controller: _modelNameController,
                         style:
-                            const TextStyle(color: Colors.white, fontSize: 14),
+                            TextStyle(color: Colors.white, fontSize: 14),
                         decoration: InputDecoration(
                           hintText: 'e.g., llama3.1',
-                          hintStyle: const TextStyle(
-                              color: Color(0xFF878787), fontSize: 13),
+                          hintStyle: TextStyle(
+                              color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary, fontSize: 13),
                           border: InputBorder.none,
-                          contentPadding: const EdgeInsets.symmetric(
+                          contentPadding: EdgeInsets.symmetric(
                               horizontal: 12, vertical: 12),
                         ),
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    SizedBox(height: 16),
                   ],
 
                   // Field 2: API Key
@@ -345,22 +347,22 @@ class _ApiKeyDialogState extends State<ApiKeyDialog> {
                     children: [
                       Flexible(
                           child: Text('${widget.providerName} API Key',
-                              style: const TextStyle(
+                              style: TextStyle(
                                   color: Colors.white,
                                   fontSize: 12,
                                   fontWeight: FontWeight.w500))),
-                      const SizedBox(width: 8),
+                      SizedBox(width: 8),
                       Flexible(
                           child: Text('[${widget.providerName} API]',
-                              style: const TextStyle(
-                                  color: Color(0xFF878787), fontSize: 11),
+                              style: TextStyle(
+                                  color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary, fontSize: 11),
                               textAlign: TextAlign.right)),
                     ],
                   ),
-                  const SizedBox(height: 8),
+                  SizedBox(height: 8),
                   Container(
                     decoration: BoxDecoration(
-                      color: const Color(0xFF1E1E1E),
+                      color: Theme.of(context).extension<AppThemeExtension>()!.cardBackground,
                       borderRadius: BorderRadius.circular(6),
                       border: Border.all(color: const Color(0xFF3A3A3A)),
                     ),
@@ -368,19 +370,19 @@ class _ApiKeyDialogState extends State<ApiKeyDialog> {
                       controller: _apiKeyController,
                       focusNode: _apiKeyFocusNode,
                       obscureText: _obscureApiKey,
-                      style: const TextStyle(color: Colors.white, fontSize: 14),
+                      style: TextStyle(color: Colors.white, fontSize: 14),
                       decoration: InputDecoration(
                         hintText:
                             'Enter value for ${widget.providerName} API Key',
-                        hintStyle: const TextStyle(
-                            color: Color(0xFF878787), fontSize: 13),
+                        hintStyle: TextStyle(
+                            color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary, fontSize: 13),
                         border: InputBorder.none,
                         focusedBorder: InputBorder.none,
                         enabledBorder: InputBorder.none,
                         errorBorder: InputBorder.none,
                         disabledBorder: InputBorder.none,
                         filled: false,
-                        contentPadding: const EdgeInsets.symmetric(
+                        contentPadding: EdgeInsets.symmetric(
                             horizontal: 12, vertical: 12),
                         suffixIcon: _isApiKeyFocused
                             ? Row(
@@ -391,7 +393,7 @@ class _ApiKeyDialogState extends State<ApiKeyDialog> {
                                       _obscureApiKey
                                           ? Icons.visibility_off_outlined
                                           : Icons.visibility_outlined,
-                                      color: const Color(0xFF878787),
+                                      color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary,
                                       size: 18,
                                     ),
                                     padding: EdgeInsets.zero,
@@ -403,7 +405,7 @@ class _ApiKeyDialogState extends State<ApiKeyDialog> {
                                       });
                                     },
                                   ),
-                                  const SizedBox(width: 4),
+                                  SizedBox(width: 4),
                                 ],
                               )
                             : null,
@@ -411,14 +413,14 @@ class _ApiKeyDialogState extends State<ApiKeyDialog> {
                     ),
                   ),
 
-                  const SizedBox(height: 24),
+                  SizedBox(height: 24),
 
                   if (widget.providerName.toLowerCase() == 'google') ...[
                     // Help Text
                     RichText(
                       text: TextSpan(
-                        style: const TextStyle(
-                            color: Color(0xFF878787),
+                        style: TextStyle(
+                            color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary,
                             fontSize: 12,
                             height: 1.5),
                         children: [
@@ -438,11 +440,11 @@ class _ApiKeyDialogState extends State<ApiKeyDialog> {
                         ],
                       ),
                     ),
-                    const SizedBox(height: 12),
+                    SizedBox(height: 12),
                     RichText(
                       text: TextSpan(
-                        style: const TextStyle(
-                            color: Color(0xFF878787),
+                        style: TextStyle(
+                            color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary,
                             fontSize: 12,
                             height: 1.5),
                         children: [
@@ -457,8 +459,8 @@ class _ApiKeyDialogState extends State<ApiKeyDialog> {
                   ] else if (widget.providerName.toLowerCase() == 'groq') ...[
                     RichText(
                       text: TextSpan(
-                        style: const TextStyle(
-                            color: Color(0xFF878787),
+                        style: TextStyle(
+                            color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary,
                             fontSize: 12,
                             height: 1.5),
                         children: [
@@ -474,8 +476,8 @@ class _ApiKeyDialogState extends State<ApiKeyDialog> {
                   ] else ...[
                     RichText(
                       text: TextSpan(
-                        style: const TextStyle(
-                            color: Color(0xFF878787),
+                        style: TextStyle(
+                            color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary,
                             fontSize: 12,
                             height: 1.5),
                         children: [
@@ -490,11 +492,11 @@ class _ApiKeyDialogState extends State<ApiKeyDialog> {
               ),
             ),
 
-            const Divider(color: Color(0xFF2A2A2A), height: 1, thickness: 1),
+            Divider(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor, height: 1, thickness: 1),
 
             // Footer (Actions)
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+              padding: EdgeInsets.symmetric(horizontal: 24, vertical: 16),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
@@ -512,15 +514,15 @@ class _ApiKeyDialogState extends State<ApiKeyDialog> {
                       backgroundColor:
                           const Color(0xFFB91C1C), // Tailwind Red 700
                       foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(
+                      padding: EdgeInsets.symmetric(
                           horizontal: 16, vertical: 12),
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(6)),
                     ),
-                    child: const Text('Revoke',
+                    child: Text('Revoke',
                         style: TextStyle(fontWeight: FontWeight.w500)),
                   ),
-                  const SizedBox(width: 12),
+                  SizedBox(width: 12),
                   TextButton(
                     onPressed: () async {
                       final provider = widget.providerName.toLowerCase();
@@ -536,14 +538,14 @@ class _ApiKeyDialogState extends State<ApiKeyDialog> {
                       if (context.mounted) Navigator.of(context).pop();
                     },
                     style: TextButton.styleFrom(
-                      backgroundColor: const Color(0xFF10A37F), // ChatGPT Green
+                      backgroundColor: Theme.of(context).colorScheme.secondary, // ChatGPT Green
                       foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(
+                      padding: EdgeInsets.symmetric(
                           horizontal: 16, vertical: 12),
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(6)),
                     ),
-                    child: const Text('Submit',
+                    child: Text('Submit',
                         style: TextStyle(fontWeight: FontWeight.w500)),
                   ),
                 ],
@@ -558,8 +560,8 @@ class _ApiKeyDialogState extends State<ApiKeyDialog> {
   TextSpan _linkSpan(String text, {String? url}) {
     return TextSpan(
       text: text,
-      style: const TextStyle(
-          color: Color(0xFF3B82F6),
+      style: TextStyle(
+          color: Theme.of(context).colorScheme.primary,
           decoration: TextDecoration.underline), // Tailwind Blue 500
       recognizer: TapGestureRecognizer()
         ..onTap = () async {

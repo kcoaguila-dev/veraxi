@@ -3,6 +3,8 @@ from typing import Any
 
 import httpx
 
+from backend.config import get_config
+
 
 def mcp_ingest_document(
     tenant_id: str,
@@ -35,7 +37,7 @@ def mcp_ingest_document(
         return {"error": "Must provide either file_path or url."}
 
     # Internal API url for the web server
-    api_base = "http://localhost:8000/api"
+    api_base = get_config().internal_api_url
 
     headers = {
         "x-tenant-id": tenant_id
@@ -105,7 +107,7 @@ def mcp_get_ingest_status(tenant_id: str, job_id: str) -> dict[str, Any]:
     """
     Polls the status of an active ingestion job.
     """
-    api_base = "http://localhost:8000/api"
+    api_base = get_config().internal_api_url
     headers = {
         "x-tenant-id": tenant_id
     }

@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:veraxi_app/features/chat/view_models/chat_view_model.dart';
 import 'package:veraxi_app/features/chat/views/widgets/api_key_dialog.dart';
+import 'package:veraxi_app/core/theme_extension.dart';
+
 
 class ModelSelectorMenu extends ConsumerStatefulWidget {
   final String selectedModel;
@@ -129,9 +131,9 @@ class _ModelSelectorMenuState extends ConsumerState<ModelSelectorMenu> {
       width: 280,
       constraints: const BoxConstraints(maxHeight: 450),
       decoration: BoxDecoration(
-        color: const Color(0xFF171717),
+        color: Theme.of(context).extension<AppThemeExtension>()!.sidebarBackground,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFF333333)),
+        border: Border.all(color: Theme.of(context).extension<AppThemeExtension>()!.borderColorStrong),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.5),
@@ -146,30 +148,30 @@ class _ModelSelectorMenuState extends ConsumerState<ModelSelectorMenu> {
         children: [
           // Search box inside submenu
           Padding(
-            padding: const EdgeInsets.all(8.0),
+            padding: EdgeInsets.all(8.0),
             child: SizedBox(
               height: 36,
               child: TextField(
                 controller: _searchController,
                 autofocus: true,
                 cursorColor: Colors.white,
-                style: const TextStyle(color: Colors.white, fontSize: 13),
+                style: TextStyle(color: Colors.white, fontSize: 13),
                 decoration: InputDecoration(
                   hintText: 'Search $provider models...',
                   hintStyle:
-                      const TextStyle(color: Color(0xFF878787), fontSize: 13),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                      TextStyle(color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary, fontSize: 13),
+                  contentPadding: EdgeInsets.symmetric(horizontal: 12),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: Color(0xFF333333)),
+                    borderSide: BorderSide(color: Theme.of(context).extension<AppThemeExtension>()!.borderColorStrong),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: Color(0xFF333333)),
+                    borderSide: BorderSide(color: Theme.of(context).extension<AppThemeExtension>()!.borderColorStrong),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: Color(0xFF555555)),
+                    borderSide: BorderSide(color: Color(0xFF555555)),
                   ),
                 ),
                 onChanged: (val) {
@@ -182,16 +184,16 @@ class _ModelSelectorMenuState extends ConsumerState<ModelSelectorMenu> {
             ),
           ),
           if (filteredModels.isEmpty)
-            const Padding(
+            Padding(
               padding: EdgeInsets.all(16.0),
               child: Text('No models found',
-                  style: TextStyle(color: Color(0xFF878787), fontSize: 13)),
+                  style: TextStyle(color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary, fontSize: 13)),
             )
           else
             Flexible(
               child: ListView.builder(
                 shrinkWrap: true,
-                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                padding: EdgeInsets.symmetric(horizontal: 4, vertical: 4),
                 itemCount: filteredModels.length,
                 itemBuilder: (context, index) {
                   final model = filteredModels[index];
@@ -252,9 +254,9 @@ class _ModelSelectorMenuState extends ConsumerState<ModelSelectorMenu> {
                       width: 200,
                       constraints: const BoxConstraints(maxHeight: 500),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF171717),
+                        color: Theme.of(context).extension<AppThemeExtension>()!.sidebarBackground,
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: const Color(0xFF333333)),
+                        border: Border.all(color: Theme.of(context).extension<AppThemeExtension>()!.borderColorStrong),
                         boxShadow: [
                           BoxShadow(
                             color: Colors.black.withValues(alpha: 0.5),
@@ -280,35 +282,35 @@ class _ModelSelectorMenuState extends ConsumerState<ModelSelectorMenu> {
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
                               Padding(
-                                padding: const EdgeInsets.all(8.0),
+                                padding: EdgeInsets.all(8.0),
                                 child: SizedBox(
                                   height: 36,
                                   child: TextField(
                                     controller: _mainSearchController,
                                     cursorColor: Colors.white,
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                         color: Colors.white, fontSize: 13),
                                     decoration: InputDecoration(
                                       hintText: 'Search models...',
-                                      hintStyle: const TextStyle(
-                                          color: Color(0xFF878787),
+                                      hintStyle: TextStyle(
+                                          color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary,
                                           fontSize: 13),
                                       contentPadding:
-                                          const EdgeInsets.symmetric(
+                                          EdgeInsets.symmetric(
                                               horizontal: 12),
                                       border: OutlineInputBorder(
                                         borderRadius: BorderRadius.circular(8),
-                                        borderSide: const BorderSide(
-                                            color: Color(0xFF333333)),
+                                        borderSide: BorderSide(
+                                            color: Theme.of(context).extension<AppThemeExtension>()!.borderColorStrong),
                                       ),
                                       enabledBorder: OutlineInputBorder(
                                         borderRadius: BorderRadius.circular(8),
-                                        borderSide: const BorderSide(
-                                            color: Color(0xFF333333)),
+                                        borderSide: BorderSide(
+                                            color: Theme.of(context).extension<AppThemeExtension>()!.borderColorStrong),
                                       ),
                                       focusedBorder: OutlineInputBorder(
                                         borderRadius: BorderRadius.circular(8),
-                                        borderSide: const BorderSide(
+                                        borderSide: BorderSide(
                                             color: Color(0xFF555555)),
                                       ),
                                     ),
@@ -326,16 +328,16 @@ class _ModelSelectorMenuState extends ConsumerState<ModelSelectorMenu> {
                                 child: ListView(
                                   key: _providerListKey,
                                   shrinkWrap: true,
-                                  padding: const EdgeInsets.symmetric(
+                                  padding: EdgeInsets.symmetric(
                                       horizontal: 4, vertical: 0),
                                   children: [
                                     if (isSearching) ...[
                                       if (filteredMain.isEmpty)
-                                        const Padding(
+                                        Padding(
                                           padding: EdgeInsets.all(16.0),
                                           child: Text('No models found',
                                               style: TextStyle(
-                                                  color: Color(0xFF878787),
+                                                  color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary,
                                                   fontSize: 13)),
                                         )
                                       else
@@ -364,7 +366,7 @@ class _ModelSelectorMenuState extends ConsumerState<ModelSelectorMenu> {
                                           ),
                                     ] else ...[
                                       if (widget.pinnedModels.isNotEmpty) ...[
-                                        const Padding(
+                                        Padding(
                                           padding: EdgeInsets.symmetric(
                                               horizontal: 12, vertical: 4),
                                           child: Text('Pinned',
@@ -390,15 +392,15 @@ class _ModelSelectorMenuState extends ConsumerState<ModelSelectorMenu> {
                                               _overlayEntry?.markNeedsBuild();
                                             },
                                           ),
-                                        const Padding(
+                                        Padding(
                                           padding:
                                               EdgeInsets.symmetric(vertical: 4),
                                           child: Divider(
-                                              color: Color(0xFF2A2A2A),
+                                              color: Theme.of(context).extension<AppThemeExtension>()!.borderColor,
                                               height: 1),
                                         ),
                                       ],
-                                      const Padding(
+                                      Padding(
                                         padding: EdgeInsets.symmetric(
                                             horizontal: 12, vertical: 4),
                                         child: Text('Providers',
@@ -441,16 +443,16 @@ class _ModelSelectorMenuState extends ConsumerState<ModelSelectorMenu> {
                             ],
                           );
                         },
-                        loading: () => const Padding(
+                        loading: () => Padding(
                           padding: EdgeInsets.all(24),
                           child: Center(
                               child: CircularProgressIndicator(
                                   color: Colors.white54)),
                         ),
                         error: (e, s) => Padding(
-                          padding: const EdgeInsets.all(16),
+                          padding: EdgeInsets.all(16),
                           child: Text('Error: $e',
-                              style: const TextStyle(color: Colors.red)),
+                              style: TextStyle(color: Colors.red)),
                         ),
                       ),
                     ),
@@ -555,11 +557,11 @@ class _HoverableProviderRowState extends State<_HoverableProviderRow> {
       );
     }
     final color = colors[provider];
-    if (color == null) return const SizedBox(width: 16);
+    if (color == null) return SizedBox(width: 16);
     return Container(
       width: 12,
       height: 12,
-      margin: const EdgeInsets.symmetric(horizontal: 2),
+      margin: EdgeInsets.symmetric(horizontal: 2),
       decoration: BoxDecoration(color: color, shape: BoxShape.circle),
     );
   }
@@ -581,16 +583,16 @@ class _HoverableProviderRowState extends State<_HoverableProviderRow> {
           behavior: HitTestBehavior.opaque,
           child: Container(
             height: 38,
-            margin: const EdgeInsets.only(bottom: 2),
+            margin: EdgeInsets.only(bottom: 2),
             decoration: BoxDecoration(
-              color: active ? const Color(0xFF2F2F2F) : Colors.transparent,
+              color: active ? Theme.of(context).extension<AppThemeExtension>()!.surfaceHighlight : Colors.transparent,
               borderRadius: BorderRadius.circular(8),
             ),
             child: Row(
               children: [
-                const SizedBox(width: 12),
+                SizedBox(width: 12),
                 _providerCircle(widget.provider),
-                const SizedBox(width: 12),
+                SizedBox(width: 12),
                 Expanded(
                   child: Text(
                     widget.provider,
@@ -609,7 +611,7 @@ class _HoverableProviderRowState extends State<_HoverableProviderRow> {
                     behavior: HitTestBehavior.opaque,
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 150),
-                      padding: const EdgeInsets.symmetric(
+                      padding: EdgeInsets.symmetric(
                           horizontal: 6, vertical: 4),
                       decoration: BoxDecoration(
                         color: _isSettingsHovered
@@ -625,11 +627,11 @@ class _HoverableProviderRowState extends State<_HoverableProviderRow> {
                               color: active
                                   ? (_isSettingsHovered
                                       ? Colors.white
-                                      : const Color(0xFFB4B4B4))
+                                      : Theme.of(context).extension<AppThemeExtension>()!.iconColor)
                                   : Colors.transparent),
                           if (_isSettingsHovered) ...[
-                            const SizedBox(width: 4),
-                            const Text('Set API Key',
+                            SizedBox(width: 4),
+                            Text('Set API Key',
                                 style: TextStyle(
                                     color: Colors.white, fontSize: 11)),
                           ]
@@ -640,8 +642,8 @@ class _HoverableProviderRowState extends State<_HoverableProviderRow> {
                 ),
                 Icon(Icons.chevron_right,
                     size: 16,
-                    color: active ? Colors.white : const Color(0xFF878787)),
-                const SizedBox(width: 8),
+                    color: active ? Colors.white : Theme.of(context).extension<AppThemeExtension>()!.textTertiary),
+                SizedBox(width: 8),
               ],
             ),
           ),
@@ -683,9 +685,9 @@ class _HoverableModelRowState extends State<_HoverableModelRow> {
         behavior: HitTestBehavior.opaque,
         child: Container(
           height: 36,
-          margin: const EdgeInsets.only(bottom: 2),
+          margin: EdgeInsets.only(bottom: 2),
           decoration: BoxDecoration(
-            color: _isHovered ? const Color(0xFF2F2F2F) : Colors.transparent,
+            color: _isHovered ? Theme.of(context).extension<AppThemeExtension>()!.surfaceHighlight : Colors.transparent,
             borderRadius: BorderRadius.circular(8),
           ),
           child: Stack(
@@ -706,7 +708,7 @@ class _HoverableModelRowState extends State<_HoverableModelRow> {
                 ),
               Row(
                 children: [
-                  const SizedBox(width: 14),
+                  SizedBox(width: 14),
                   Expanded(
                     child: Text(
                       widget.model,
@@ -726,7 +728,7 @@ class _HoverableModelRowState extends State<_HoverableModelRow> {
                     onTap: widget.onPinToggle,
                     behavior: HitTestBehavior.opaque,
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(
+                      padding: EdgeInsets.symmetric(
                           horizontal: 10, vertical: 8),
                       child: Icon(
                         widget.isPinned
@@ -736,7 +738,7 @@ class _HoverableModelRowState extends State<_HoverableModelRow> {
                         color: widget.isPinned
                             ? Colors.white
                             : (_isHovered
-                                ? const Color(0xFF878787)
+                                ? Theme.of(context).extension<AppThemeExtension>()!.textTertiary
                                 : Colors.transparent),
                       ),
                     ),

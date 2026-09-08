@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher_string.dart';
+import 'package:veraxi_app/core/theme_extension.dart';
+
 
 class SourcesSidebar extends StatelessWidget {
   final List<Map<String, dynamic>> sources;
@@ -9,20 +11,20 @@ class SourcesSidebar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Drawer(
-      backgroundColor: const Color(0xFF131313),
+      backgroundColor: Theme.of(context).extension<AppThemeExtension>()!.dialogBackground,
       width: 350,
       child: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              padding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
               child: Row(
                 children: [
-                  const Icon(Icons.menu_book_outlined,
+                  Icon(Icons.menu_book_outlined,
                       color: Colors.white, size: 20),
-                  const SizedBox(width: 12),
-                  const Text(
+                  SizedBox(width: 12),
+                  Text(
                     'Sources',
                     style: TextStyle(
                       color: Colors.white,
@@ -32,20 +34,20 @@ class SourcesSidebar extends StatelessWidget {
                   ),
                   const Spacer(),
                   IconButton(
-                    icon: const Icon(Icons.close,
+                    icon: Icon(Icons.close,
                         color: Colors.white70, size: 20),
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                 ],
               ),
             ),
-            const Divider(color: Color(0xFF2A2A2A), height: 1),
+            Divider(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor, height: 1),
             Expanded(
               child: ListView.separated(
-                padding: const EdgeInsets.all(20),
+                padding: EdgeInsets.all(20),
                 itemCount: sources.length,
                 separatorBuilder: (context, index) =>
-                    const SizedBox(height: 16),
+                    SizedBox(height: 16),
                 itemBuilder: (context, index) {
                   final source = sources[index];
                   String title = source['title'] ?? 'Web Source';
@@ -73,11 +75,11 @@ class SourcesSidebar extends StatelessWidget {
                     },
                     borderRadius: BorderRadius.circular(12),
                     child: Container(
-                      padding: const EdgeInsets.all(16),
+                      padding: EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF1E1E1E),
+                        color: Theme.of(context).extension<AppThemeExtension>()!.cardBackground,
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: const Color(0xFF2A2A2A)),
+                        border: Border.all(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -88,20 +90,20 @@ class SourcesSidebar extends StatelessWidget {
                                 width: 24,
                                 height: 24,
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFF2A2A2A),
+                                  color: Theme.of(context).extension<AppThemeExtension>()!.borderColor,
                                   borderRadius: BorderRadius.circular(6),
                                 ),
                                 alignment: Alignment.center,
                                 child: Text(
                                   '${index + 1}',
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     color: Colors.white70,
                                     fontSize: 12,
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
                               ),
-                              const SizedBox(width: 12),
+                              SizedBox(width: 12),
                               if (hasValidDomain)
                                 ClipRRect(
                                   borderRadius: BorderRadius.circular(4),
@@ -111,20 +113,20 @@ class SourcesSidebar extends StatelessWidget {
                                     height: 16,
                                     errorBuilder:
                                         (context, error, stackTrace) =>
-                                            const Icon(Icons.language,
+                                            Icon(Icons.language,
                                                 size: 16,
-                                                color: Color(0xFF878787)),
+                                                color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary),
                                   ),
                                 )
                               else
-                                const Icon(Icons.language,
-                                    size: 16, color: Color(0xFF878787)),
-                              const SizedBox(width: 8),
+                                Icon(Icons.language,
+                                    size: 16, color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary),
+                              SizedBox(width: 8),
                               Expanded(
                                 child: Text(
                                   displayDomain,
-                                  style: const TextStyle(
-                                    color: Color(0xFF878787),
+                                  style: TextStyle(
+                                    color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary,
                                     fontSize: 13,
                                   ),
                                   maxLines: 1,
@@ -133,10 +135,10 @@ class SourcesSidebar extends StatelessWidget {
                               ),
                             ],
                           ),
-                          const SizedBox(height: 12),
+                          SizedBox(height: 12),
                           Text(
                             title,
-                            style: const TextStyle(
+                            style: TextStyle(
                               color: Colors.white,
                               fontSize: 14,
                               fontWeight: FontWeight.w500,
@@ -144,13 +146,13 @@ class SourcesSidebar extends StatelessWidget {
                             ),
                           ),
                           if (snippet.isNotEmpty) ...[
-                            const SizedBox(height: 8),
+                            SizedBox(height: 8),
                             Text(
                               snippet,
                               maxLines: 4,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: Color(0xFFB4B4B4),
+                              style: TextStyle(
+                                color: Theme.of(context).extension<AppThemeExtension>()!.iconColor,
                                 fontSize: 13,
                                 height: 1.4,
                               ),

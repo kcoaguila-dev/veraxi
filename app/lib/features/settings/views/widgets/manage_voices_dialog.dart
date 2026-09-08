@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:veraxi_app/features/settings/view_models/tts_settings_view_model.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
+import 'package:veraxi_app/core/theme_extension.dart';
+
 
 class ManageVoicesDialog extends ConsumerStatefulWidget {
   const ManageVoicesDialog({super.key});
@@ -58,36 +60,36 @@ class _ManageVoicesDialogState extends ConsumerState<ManageVoicesDialog> {
       final confirmed = await showDialog<bool>(
         context: context,
         builder: (ctx) => AlertDialog(
-          backgroundColor: const Color(0xFF1E1E1E),
-          title: const Text('Configure New Voice',
+          backgroundColor: Theme.of(context).extension<AppThemeExtension>()!.cardBackground,
+          title: Text('Configure New Voice',
               style: TextStyle(color: Colors.white)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Text('Selected: $fileName',
-                  style: const TextStyle(color: Colors.grey)),
-              const SizedBox(height: 16),
+                  style: TextStyle(color: Colors.grey)),
+              SizedBox(height: 16),
               TextField(
                 controller: nameController,
-                style: const TextStyle(color: Colors.white),
+                style: TextStyle(color: Colors.white),
                 decoration: InputDecoration(
                   labelText: 'Voice Name',
-                  labelStyle: const TextStyle(color: Colors.grey),
+                  labelStyle: TextStyle(color: Colors.grey),
                   filled: true,
                   fillColor: const Color(0xFF141414),
                 ),
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: 16),
               TextField(
                 controller: promptController,
-                style: const TextStyle(color: Colors.white),
+                style: TextStyle(color: Colors.white),
                 decoration: InputDecoration(
                   labelText: 'Prompt Text (what is spoken in the audio)',
-                  labelStyle: const TextStyle(color: Colors.grey),
+                  labelStyle: TextStyle(color: Colors.grey),
                   filled: true,
                   fillColor: const Color(0xFF141414),
                   suffixIcon: IconButton(
-                    icon: const Icon(Icons.upload_file, color: Colors.grey),
+                    icon: Icon(Icons.upload_file, color: Colors.grey),
                     tooltip: 'Upload .txt file',
                     onPressed: () async {
                       final txtResult = await FilePicker.platform.pickFiles(
@@ -121,13 +123,13 @@ class _ManageVoicesDialogState extends ConsumerState<ManageVoicesDialog> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+              child: Text('Cancel', style: TextStyle(color: Colors.grey)),
             ),
             ElevatedButton(
               onPressed: () => Navigator.pop(ctx, true),
               style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.white, foregroundColor: Colors.black),
-              child: const Text('Upload'),
+              child: Text('Upload'),
             ),
           ],
         ),
@@ -195,11 +197,11 @@ class _ManageVoicesDialogState extends ConsumerState<ManageVoicesDialog> {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      backgroundColor: const Color(0xFF1E1E1E),
+      backgroundColor: Theme.of(context).extension<AppThemeExtension>()!.cardBackground,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Container(
         width: 600,
-        padding: const EdgeInsets.all(24),
+        padding: EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -207,7 +209,7 @@ class _ManageVoicesDialogState extends ConsumerState<ManageVoicesDialog> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
+                Text(
                   'Manage GPT-SoVITS Voices',
                   style: TextStyle(
                     color: Colors.white,
@@ -216,23 +218,23 @@ class _ManageVoicesDialogState extends ConsumerState<ManageVoicesDialog> {
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.close, color: Colors.grey),
+                  icon: Icon(Icons.close, color: Colors.grey),
                   onPressed: () => Navigator.of(context).pop(),
                 ),
               ],
             ),
-            const SizedBox(height: 8),
-            const Text(
+            SizedBox(height: 8),
+            Text(
               'Add or edit voice personas. Audio files must still exist on the TTS server.',
               style: TextStyle(color: Colors.grey, fontSize: 13),
             ),
-            const SizedBox(height: 24),
+            SizedBox(height: 24),
             Flexible(
               child: ListView.separated(
                 shrinkWrap: true,
                 itemCount: _voices.length,
                 separatorBuilder: (context, index) =>
-                    const Divider(color: Color(0xFF2A2A2A)),
+                    Divider(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor),
                 itemBuilder: (context, index) {
                   final voice = _voices[index];
                   final isSystem = voice['id'] == 'default_system';
@@ -241,8 +243,8 @@ class _ManageVoicesDialogState extends ConsumerState<ManageVoicesDialog> {
                     return ListTile(
                       contentPadding: EdgeInsets.zero,
                       title: Text(voice['name'] ?? 'System Default',
-                          style: const TextStyle(color: Colors.white)),
-                      subtitle: const Text('Cannot be edited or removed.',
+                          style: TextStyle(color: Colors.white)),
+                      subtitle: Text('Cannot be edited or removed.',
                           style: TextStyle(color: Colors.grey, fontSize: 12)),
                     );
                   }
@@ -257,7 +259,7 @@ class _ManageVoicesDialogState extends ConsumerState<ManageVoicesDialog> {
                 },
               ),
             ),
-            const SizedBox(height: 24),
+            SizedBox(height: 24),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -266,25 +268,25 @@ class _ManageVoicesDialogState extends ConsumerState<ManageVoicesDialog> {
                     TextButton.icon(
                       onPressed: _addVoice,
                       icon:
-                          const Icon(Icons.add, color: Colors.white, size: 18),
-                      label: const Text('Manual Entry',
+                          Icon(Icons.add, color: Colors.white, size: 18),
+                      label: Text('Manual Entry',
                           style: TextStyle(color: Colors.white)),
                       style: TextButton.styleFrom(
-                        backgroundColor: const Color(0xFF2A2A2A),
-                        padding: const EdgeInsets.symmetric(
+                        backgroundColor: Theme.of(context).extension<AppThemeExtension>()!.borderColor,
+                        padding: EdgeInsets.symmetric(
                             horizontal: 16, vertical: 12),
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    SizedBox(width: 8),
                     TextButton.icon(
                       onPressed: _uploadVoice,
-                      icon: const Icon(Icons.upload_file,
+                      icon: Icon(Icons.upload_file,
                           color: Colors.white, size: 18),
-                      label: const Text('Upload Audio',
+                      label: Text('Upload Audio',
                           style: TextStyle(color: Colors.white)),
                       style: TextButton.styleFrom(
-                        backgroundColor: const Color(0xFF10A37F),
-                        padding: const EdgeInsets.symmetric(
+                        backgroundColor: Theme.of(context).colorScheme.secondary,
+                        padding: EdgeInsets.symmetric(
                             horizontal: 16, vertical: 12),
                       ),
                     ),
@@ -295,15 +297,15 @@ class _ManageVoicesDialogState extends ConsumerState<ManageVoicesDialog> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.white,
                     foregroundColor: Colors.black,
-                    padding: const EdgeInsets.symmetric(
+                    padding: EdgeInsets.symmetric(
                         horizontal: 24, vertical: 12),
                   ),
                   child: _isSaving
-                      ? const SizedBox(
+                      ? SizedBox(
                           width: 16,
                           height: 16,
                           child: CircularProgressIndicator(strokeWidth: 2))
-                      : const Text('Save Changes'),
+                      : Text('Save Changes'),
                 ),
               ],
             ),
@@ -369,7 +371,7 @@ class _VoiceEditorFormState extends State<_VoiceEditorForm> {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      padding: EdgeInsets.symmetric(vertical: 8.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -379,22 +381,22 @@ class _VoiceEditorFormState extends State<_VoiceEditorForm> {
                 child: _buildTextField('Voice Name', _nameController, _update),
               ),
               IconButton(
-                icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                icon: Icon(Icons.delete_outline, color: Colors.redAccent),
                 onPressed: widget.onRemove,
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: 8),
           _buildTextField(
               'Audio Path (e.g. voices/geralt.wav)', _pathController, _update),
-          const SizedBox(height: 8),
+          SizedBox(height: 8),
           _buildTextField(
             'Reference Transcript',
             _promptController,
             _update,
             hintText: 'Enter exactly what is spoken in the audio file',
             suffixIcon: IconButton(
-              icon: const Icon(Icons.upload_file, color: Colors.grey),
+              icon: Icon(Icons.upload_file, color: Colors.grey),
               tooltip: 'Upload .txt file',
               onPressed: () async {
                 final txtResult = await FilePicker.platform.pickFiles(
@@ -419,7 +421,7 @@ class _VoiceEditorFormState extends State<_VoiceEditorForm> {
               },
             ),
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: 8),
           Row(
             children: [
               Expanded(
@@ -429,7 +431,7 @@ class _VoiceEditorFormState extends State<_VoiceEditorForm> {
                   _update();
                 }),
               ),
-              const SizedBox(width: 8),
+              SizedBox(width: 8),
               Expanded(
                 child: _buildDropdown('Generated Speech Language', _textLang,
                     (val) {
@@ -450,27 +452,27 @@ class _VoiceEditorFormState extends State<_VoiceEditorForm> {
     return TextField(
       controller: controller,
       onChanged: (_) => onChanged(),
-      style: const TextStyle(color: Colors.white, fontSize: 13),
+      style: TextStyle(color: Colors.white, fontSize: 13),
       decoration: InputDecoration(
         labelText: label,
         hintText: hintText,
-        hintStyle: const TextStyle(color: Color(0xFF666666), fontSize: 13),
-        labelStyle: const TextStyle(color: Colors.grey, fontSize: 12),
+        hintStyle: TextStyle(color: Color(0xFF666666), fontSize: 13),
+        labelStyle: TextStyle(color: Colors.grey, fontSize: 12),
         isDense: true,
         filled: true,
         fillColor: const Color(0xFF141414),
         suffixIcon: suffixIcon,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(6),
-          borderSide: const BorderSide(color: Color(0xFF333333)),
+          borderSide: BorderSide(color: Theme.of(context).extension<AppThemeExtension>()!.borderColorStrong),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(6),
-          borderSide: const BorderSide(color: Color(0xFF333333)),
+          borderSide: BorderSide(color: Theme.of(context).extension<AppThemeExtension>()!.borderColorStrong),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(6),
-          borderSide: const BorderSide(color: Colors.grey),
+          borderSide: BorderSide(color: Colors.grey),
         ),
       ),
     );
@@ -481,28 +483,28 @@ class _VoiceEditorFormState extends State<_VoiceEditorForm> {
     return DropdownButtonFormField<String>(
       initialValue: value,
       onChanged: onChanged,
-      style: const TextStyle(color: Colors.white, fontSize: 13),
-      dropdownColor: const Color(0xFF1E1E1E),
+      style: TextStyle(color: Colors.white, fontSize: 13),
+      dropdownColor: Theme.of(context).extension<AppThemeExtension>()!.cardBackground,
       decoration: InputDecoration(
         labelText: label,
-        labelStyle: const TextStyle(color: Colors.grey, fontSize: 12),
+        labelStyle: TextStyle(color: Colors.grey, fontSize: 12),
         isDense: true,
         filled: true,
         fillColor: const Color(0xFF141414),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(6),
-          borderSide: const BorderSide(color: Color(0xFF333333)),
+          borderSide: BorderSide(color: Theme.of(context).extension<AppThemeExtension>()!.borderColorStrong),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(6),
-          borderSide: const BorderSide(color: Color(0xFF333333)),
+          borderSide: BorderSide(color: Theme.of(context).extension<AppThemeExtension>()!.borderColorStrong),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(6),
-          borderSide: const BorderSide(color: Colors.grey),
+          borderSide: BorderSide(color: Colors.grey),
         ),
       ),
-      items: const [
+      items: [
         DropdownMenuItem(value: 'en', child: Text('English')),
         DropdownMenuItem(value: 'ja', child: Text('Japanese')),
         DropdownMenuItem(value: 'zh', child: Text('Chinese')),

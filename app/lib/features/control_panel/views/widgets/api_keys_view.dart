@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:veraxi_app/core/api_key_storage.dart';
+import 'package:veraxi_app/core/theme_extension.dart';
+
 
 class ApiKeysView extends StatefulWidget {
   const ApiKeysView({Key? key}) : super(key: key);
@@ -59,11 +61,11 @@ class _ApiKeysViewState extends State<ApiKeysView> {
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(32.0),
+      padding: EdgeInsets.all(32.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Bring Your Own Infrastructure',
             style: TextStyle(
               color: Colors.white,
@@ -71,81 +73,81 @@ class _ApiKeysViewState extends State<ApiKeysView> {
               fontWeight: FontWeight.w600,
             ),
           ),
-          const SizedBox(height: 8),
-          const Text(
+          SizedBox(height: 8),
+          Text(
             'Veraxi requires zero cloud hosting if you supply your own API keys and database credentials.',
-            style: TextStyle(color: Color(0xFF878787), fontSize: 14),
+            style: TextStyle(color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary, fontSize: 14),
           ),
-          const SizedBox(height: 48),
+          SizedBox(height: 48),
 
           // --- Section A: Intelligence Providers ---
-          const Text(
+          Text(
             'Intelligence Providers (BYOK)',
             style: TextStyle(
                 color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
           ),
-          const SizedBox(height: 8),
-          const Text(
+          SizedBox(height: 8),
+          Text(
             'Provide API keys for the language models you wish to use.',
-            style: TextStyle(color: Color(0xFF878787), fontSize: 13),
+            style: TextStyle(color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary, fontSize: 13),
           ),
-          const SizedBox(height: 24),
+          SizedBox(height: 24),
           _buildKeyInput('OpenAI API Key', 'sk-...', 'openai'),
           _buildKeyInput('Anthropic API Key', 'sk-ant-...', 'anthropic'),
           _buildKeyInput('Google Gemini API Key', 'AIza...', 'gemini'),
           _buildKeyInput('Groq API Key', 'gsk_...', 'groq'),
 
-          const SizedBox(height: 48),
-          const Divider(color: Color(0xFF2A2A2A)),
-          const SizedBox(height: 48),
+          SizedBox(height: 48),
+          Divider(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor),
+          SizedBox(height: 48),
 
           // --- Section B: Database Infrastructure ---
-          const Text(
+          Text(
             'Database Infrastructure (BYOD)',
             style: TextStyle(
                 color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
           ),
-          const SizedBox(height: 8),
-          const Text(
+          SizedBox(height: 8),
+          Text(
             'Configure your hybrid GraphRAG databases. You can run these locally via Docker, or use free cloud tiers (Neo4j Aura & Qdrant Cloud).',
-            style: TextStyle(color: Color(0xFF878787), fontSize: 13),
+            style: TextStyle(color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary, fontSize: 13),
           ),
-          const SizedBox(height: 32),
+          SizedBox(height: 32),
 
           // Neo4j Config
           Container(
-            padding: const EdgeInsets.all(24),
+            padding: EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: const Color(0xFF131313),
+              color: Theme.of(context).extension<AppThemeExtension>()!.dialogBackground,
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0xFF2A2A2A)),
+              border: Border.all(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.share_outlined,
+                    Icon(Icons.share_outlined,
                         color: Colors.blueAccent, size: 24),
-                    const SizedBox(width: 12),
-                    const Text('Neo4j Knowledge Graph',
+                    SizedBox(width: 12),
+                    Text('Neo4j Knowledge Graph',
                         style: TextStyle(
                             color: Colors.white,
                             fontSize: 16,
                             fontWeight: FontWeight.w600)),
                   ],
                 ),
-                const SizedBox(height: 24),
+                SizedBox(height: 24),
                 _buildTextInput(
                     'Neo4j URI', 'bolt://localhost:7687 or neo4j+s://...',
                     controller: _neo4jUriController),
-                const SizedBox(height: 16),
+                SizedBox(height: 16),
                 Row(
                   children: [
                     Expanded(
                         child: _buildTextInput('Username', 'neo4j',
                             controller: _neo4jUserController)),
-                    const SizedBox(width: 16),
+                    SizedBox(width: 16),
                     Expanded(
                         child: _buildKeyInput(
                             'Password', '••••••••', 'neo4j_pass',
@@ -156,36 +158,36 @@ class _ApiKeysViewState extends State<ApiKeysView> {
             ),
           ),
 
-          const SizedBox(height: 24),
+          SizedBox(height: 24),
 
           // Qdrant Config
           Container(
-            padding: const EdgeInsets.all(24),
+            padding: EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: const Color(0xFF131313),
+              color: Theme.of(context).extension<AppThemeExtension>()!.dialogBackground,
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0xFF2A2A2A)),
+              border: Border.all(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.scatter_plot_outlined,
+                    Icon(Icons.scatter_plot_outlined,
                         color: Colors.redAccent, size: 24),
-                    const SizedBox(width: 12),
-                    const Text('Qdrant Vector Database',
+                    SizedBox(width: 12),
+                    Text('Qdrant Vector Database',
                         style: TextStyle(
                             color: Colors.white,
                             fontSize: 16,
                             fontWeight: FontWeight.w600)),
                   ],
                 ),
-                const SizedBox(height: 24),
+                SizedBox(height: 24),
                 _buildTextInput(
                     'Qdrant REST URL', 'http://localhost:6333 or https://...',
                     controller: _qdrantUrlController),
-                const SizedBox(height: 16),
+                SizedBox(height: 16),
                 _buildKeyInput('Qdrant API Key (Optional)',
                     'Leave empty if running locally without auth', 'qdrant_key',
                     controller: _qdrantKeyController),
@@ -193,32 +195,32 @@ class _ApiKeysViewState extends State<ApiKeysView> {
             ),
           ),
 
-          const SizedBox(height: 48),
-          const Divider(color: Color(0xFF2A2A2A)),
-          const SizedBox(height: 48),
+          SizedBox(height: 48),
+          Divider(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor),
+          SizedBox(height: 48),
 
           // --- Section C: Model Context Protocol (BYOS) ---
-          const Text(
+          Text(
             'Model Context Protocol (BYOS)',
             style: TextStyle(
                 color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
           ),
-          const SizedBox(height: 8),
-          const Text(
+          SizedBox(height: 8),
+          Text(
             'Bring Your Own Subscription (BYOS) allows you to bypass cloud API costs by using your existing local AI subscriptions (e.g., Claude Desktop, Cursor) to act as the extraction engine.',
-            style: TextStyle(color: Color(0xFF878787), fontSize: 13),
+            style: TextStyle(color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary, fontSize: 13),
           ),
-          const SizedBox(height: 32),
+          SizedBox(height: 32),
           _buildMcpConfigCard(),
 
-          const SizedBox(height: 48),
+          SizedBox(height: 48),
           Align(
             alignment: Alignment.centerRight,
             child: ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF10A37F),
+                backgroundColor: Theme.of(context).colorScheme.secondary,
                 padding:
-                    const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                    EdgeInsets.symmetric(horizontal: 32, vertical: 16),
               ),
               onPressed: () async {
                 await _apiKeyStorage.saveByodConfig(
@@ -236,7 +238,7 @@ class _ApiKeysViewState extends State<ApiKeysView> {
                   );
                 }
               },
-              child: const Text('Save Configuration',
+              child: Text('Save Configuration',
                   style: TextStyle(
                       color: Colors.white, fontWeight: FontWeight.w600)),
             ),
@@ -252,25 +254,25 @@ class _ApiKeysViewState extends State<ApiKeysView> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(label,
-            style: const TextStyle(
-                color: Color(0xFFB4B4B4),
+            style: TextStyle(
+                color: Theme.of(context).extension<AppThemeExtension>()!.iconColor,
                 fontSize: 13,
                 fontWeight: FontWeight.w500)),
-        const SizedBox(height: 8),
+        SizedBox(height: 8),
         TextField(
           controller: controller,
-          style: const TextStyle(color: Colors.white, fontSize: 14),
+          style: TextStyle(color: Colors.white, fontSize: 14),
           cursorColor: Colors.white,
           decoration: InputDecoration(
             hintText: hint,
-            hintStyle: const TextStyle(color: Color(0xFF4A4A4A)),
+            hintStyle: TextStyle(color: (Theme.of(context).extension<AppThemeExtension>()?.textTertiary.withValues(alpha: 0.5) ?? Colors.grey)),
             filled: true,
-            fillColor: const Color(0xFF1E1E1E),
+            fillColor: Theme.of(context).extension<AppThemeExtension>()!.cardBackground,
             border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
                 borderSide: BorderSide.none),
             contentPadding:
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           ),
         ),
       ],
@@ -280,37 +282,37 @@ class _ApiKeysViewState extends State<ApiKeysView> {
   Widget _buildKeyInput(String label, String hint, String obscureKey,
       {TextEditingController? controller}) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 16.0),
+      padding: EdgeInsets.only(bottom: 16.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(label,
-              style: const TextStyle(
-                  color: Color(0xFFB4B4B4),
+              style: TextStyle(
+                  color: Theme.of(context).extension<AppThemeExtension>()!.iconColor,
                   fontSize: 13,
                   fontWeight: FontWeight.w500)),
-          const SizedBox(height: 8),
+          SizedBox(height: 8),
           TextField(
             controller: controller,
             obscureText: _obscuredFields[obscureKey] ?? true,
-            style: const TextStyle(color: Colors.white, fontSize: 14),
+            style: TextStyle(color: Colors.white, fontSize: 14),
             cursorColor: Colors.white,
             decoration: InputDecoration(
               hintText: hint,
-              hintStyle: const TextStyle(color: Color(0xFF4A4A4A)),
+              hintStyle: TextStyle(color: (Theme.of(context).extension<AppThemeExtension>()?.textTertiary.withValues(alpha: 0.5) ?? Colors.grey)),
               filled: true,
-              fillColor: const Color(0xFF1E1E1E),
+              fillColor: Theme.of(context).extension<AppThemeExtension>()!.cardBackground,
               border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
                   borderSide: BorderSide.none),
               contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               suffixIcon: IconButton(
                 icon: Icon(
                   _obscuredFields[obscureKey] == true
                       ? Icons.visibility_off
                       : Icons.visibility,
-                  color: const Color(0xFF878787),
+                  color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary,
                   size: 20,
                 ),
                 onPressed: () {
@@ -338,43 +340,43 @@ class _ApiKeysViewState extends State<ApiKeysView> {
 }''';
 
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: const Color(0xFF131313),
+        color: Theme.of(context).extension<AppThemeExtension>()!.dialogBackground,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFF2A2A2A)),
+        border: Border.all(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Icon(Icons.hub_outlined,
+              Icon(Icons.hub_outlined,
                   color: Colors.purpleAccent, size: 24),
-              const SizedBox(width: 12),
-              const Text('Connect your AI Assistant',
+              SizedBox(width: 12),
+              Text('Connect your AI Assistant',
                   style: TextStyle(
                       color: Colors.white,
                       fontSize: 16,
                       fontWeight: FontWeight.w600)),
             ],
           ),
-          const SizedBox(height: 16),
-          const Text(
+          SizedBox(height: 16),
+          Text(
             'Copy the configuration below and paste it into your Claude Desktop configuration (claude_desktop_config.json) or your Cursor MCP settings.',
-            style: TextStyle(color: Color(0xFFB4B4B4), fontSize: 14),
+            style: TextStyle(color: Theme.of(context).extension<AppThemeExtension>()!.iconColor, fontSize: 14),
           ),
-          const SizedBox(height: 24),
+          SizedBox(height: 24),
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: const Color(0xFF1E1E1E),
+              color: Theme.of(context).extension<AppThemeExtension>()!.cardBackground,
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: const Color(0xFF333333)),
+              border: Border.all(color: Theme.of(context).extension<AppThemeExtension>()!.borderColorStrong),
             ),
             child: Stack(
               children: [
-                const SizedBox(
+                SizedBox(
                   width: double.infinity,
                   child: Text(
                     configString,
@@ -389,8 +391,8 @@ class _ApiKeysViewState extends State<ApiKeysView> {
                   top: -8,
                   right: -8,
                   child: IconButton(
-                    icon: const Icon(Icons.copy,
-                        color: Color(0xFF878787), size: 18),
+                    icon: Icon(Icons.copy,
+                        color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary, size: 18),
                     onPressed: () {
                       Clipboard.setData(
                           const ClipboardData(text: configString));

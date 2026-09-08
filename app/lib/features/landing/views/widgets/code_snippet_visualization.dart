@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:veraxi_app/core/theme_extension.dart';
+
 
 class CodeSnippetVisualization extends StatelessWidget {
   const CodeSnippetVisualization({super.key});
@@ -11,12 +13,12 @@ class CodeSnippetVisualization extends StatelessWidget {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 60),
+      padding: EdgeInsets.symmetric(horizontal: 40, vertical: 60),
       child: Center(
         child: Container(
           width: 800,
           decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF1E1E1E) : const Color(0xFFF5F5F5),
+            color: isDark ? Theme.of(context).extension<AppThemeExtension>()!.cardBackground : const Color(0xFFF5F5F5),
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
                 color: theme.colorScheme.outline.withValues(alpha: 0.3)),
@@ -33,7 +35,7 @@ class CodeSnippetVisualization extends StatelessWidget {
             children: [
               Container(
                 padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 decoration: BoxDecoration(
                   border: Border(
                       bottom: BorderSide(
@@ -43,11 +45,11 @@ class CodeSnippetVisualization extends StatelessWidget {
                 child: Row(
                   children: [
                     _buildMacOsButton(Colors.redAccent),
-                    const SizedBox(width: 8),
+                    SizedBox(width: 8),
                     _buildMacOsButton(Colors.amber),
-                    const SizedBox(width: 8),
+                    SizedBox(width: 8),
                     _buildMacOsButton(Colors.greenAccent),
-                    const SizedBox(width: 24),
+                    SizedBox(width: 24),
                     Text(
                       'veraxi_agent.py',
                       style: GoogleFonts.firaCode(
@@ -60,7 +62,7 @@ class CodeSnippetVisualization extends StatelessWidget {
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.all(24.0),
+                padding: EdgeInsets.all(24.0),
                 child: Text.rich(
                   TextSpan(
                     style: GoogleFonts.firaCode(
@@ -68,7 +70,7 @@ class CodeSnippetVisualization extends StatelessWidget {
                       height: 1.6,
                       color: isDark
                           ? const Color(0xFFD4D4D4)
-                          : const Color(0xFF333333),
+                          : Theme.of(context).extension<AppThemeExtension>()!.borderColorStrong,
                     ),
                     children: [
                       _buildToken('from ', theme.colorScheme.primary),

@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:veraxi_app/features/chat/view_models/chat_view_model.dart';
 import 'package:veraxi_app/features/chat/views/widgets/api_key_dialog.dart';
+import 'package:veraxi_app/core/theme_extension.dart';
+
 
 class ModelSelectorPopup extends ConsumerStatefulWidget {
   final String selectedModel;
@@ -92,7 +94,7 @@ class _ModelSelectorPopupState extends ConsumerState<ModelSelectorPopup> {
     }
 
     final color = colors[provider];
-    if (color == null) return const SizedBox(width: 10);
+    if (color == null) return SizedBox(width: 10);
     return Container(
       width: 10,
       height: 10,
@@ -115,14 +117,14 @@ class _ModelSelectorPopupState extends ConsumerState<ModelSelectorPopup> {
             widget.onModelSelected(name);
             widget.onClose?.call();
           },
-          hoverColor: const Color(0xFF2F2F2F),
+          hoverColor: Theme.of(context).extension<AppThemeExtension>()!.surfaceHighlight,
           borderRadius: BorderRadius.circular(8),
           child: Container(
             height: 36,
-            margin: const EdgeInsets.only(bottom: 2),
+            margin: EdgeInsets.only(bottom: 2),
             decoration: BoxDecoration(
               color: isSelected || isHovered
-                  ? const Color(0xFF2F2F2F)
+                  ? Theme.of(context).extension<AppThemeExtension>()!.surfaceHighlight
                   : Colors.transparent,
               borderRadius: BorderRadius.circular(8),
             ),
@@ -143,14 +145,14 @@ class _ModelSelectorPopupState extends ConsumerState<ModelSelectorPopup> {
                   ),
                 Row(
                   children: [
-                    const SizedBox(width: 16),
+                    SizedBox(width: 16),
                     Expanded(
                       child: Text(
                         name,
                         style: TextStyle(
                           color: isSelected
                               ? Colors.white
-                              : const Color(0xFFB4B4B4),
+                              : Theme.of(context).extension<AppThemeExtension>()!.iconColor,
                           fontSize: 13,
                           fontWeight:
                               isSelected ? FontWeight.w600 : FontWeight.w500,
@@ -179,12 +181,12 @@ class _ModelSelectorPopupState extends ConsumerState<ModelSelectorPopup> {
                           ),
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      SizedBox(width: 8),
                     ],
                     if (isSelected) ...[
-                      const Icon(Icons.check_circle_outline,
+                      Icon(Icons.check_circle_outline,
                           color: Colors.white, size: 16),
-                      const SizedBox(width: 8),
+                      SizedBox(width: 8),
                     ],
                   ],
                 ),
@@ -218,14 +220,14 @@ class _ModelSelectorPopupState extends ConsumerState<ModelSelectorPopup> {
         color: Colors.transparent,
         child: Container(
           width: 360,
-          padding: const EdgeInsets.all(16),
+          padding: EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: const Color(0xFF171717),
+            color: Theme.of(context).extension<AppThemeExtension>()!.sidebarBackground,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xFF2A2A2A)),
+            border: Border.all(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor),
           ),
           child: Text('Failed to load models: $err',
-              style: const TextStyle(color: Colors.red)),
+              style: TextStyle(color: Colors.red)),
         ),
       ),
       data: (allProviderModels) {
@@ -248,15 +250,15 @@ class _ModelSelectorPopupState extends ConsumerState<ModelSelectorPopup> {
             // Provider header
             results.add(
               Padding(
-                padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+                padding: EdgeInsets.fromLTRB(12, 12, 12, 8),
                 child: Row(
                   children: [
                     _providerCircle(provider),
-                    const SizedBox(width: 8),
+                    SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         provider,
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: Colors.white,
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
@@ -274,7 +276,7 @@ class _ModelSelectorPopupState extends ConsumerState<ModelSelectorPopup> {
                       },
                       child: Tooltip(
                         message: 'Set API Key for $provider',
-                        child: const Icon(
+                        child: Icon(
                           Icons.settings_outlined,
                           color: Color(0xFF6E6E6E),
                           size: 16,
@@ -292,29 +294,29 @@ class _ModelSelectorPopupState extends ConsumerState<ModelSelectorPopup> {
           });
 
           if (results.isEmpty) {
-            results.add(const Padding(
+            results.add(Padding(
               padding: EdgeInsets.all(16),
               child: Text('No models found',
-                  style: TextStyle(color: Color(0xFF878787), fontSize: 13)),
+                  style: TextStyle(color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary, fontSize: 13)),
             ));
           }
 
           return ListView(
               shrinkWrap: true,
-              padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+              padding: EdgeInsets.symmetric(vertical: 4, horizontal: 8),
               children: results);
         }
 
         return Dialog(
           backgroundColor: Colors.transparent,
-          insetPadding: const EdgeInsets.all(24),
+          insetPadding: EdgeInsets.all(24),
           child: Container(
             width: 600,
             constraints: const BoxConstraints(maxHeight: 700),
             decoration: BoxDecoration(
-              color: const Color(0xFF171717),
+              color: Theme.of(context).extension<AppThemeExtension>()!.sidebarBackground,
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0xFF2A2A2A)),
+              border: Border.all(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withValues(alpha: 0.5),
@@ -328,11 +330,11 @@ class _ModelSelectorPopupState extends ConsumerState<ModelSelectorPopup> {
               children: [
                 // Modal Header
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+                  padding: EdgeInsets.fromLTRB(20, 20, 20, 16),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text(
+                      Text(
                         'Select AI Model',
                         style: TextStyle(
                           color: Colors.white,
@@ -341,8 +343,8 @@ class _ModelSelectorPopupState extends ConsumerState<ModelSelectorPopup> {
                         ),
                       ),
                       IconButton(
-                        icon: const Icon(Icons.close,
-                            color: Color(0xFF878787), size: 20),
+                        icon: Icon(Icons.close,
+                            color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary, size: 20),
                         onPressed: () {
                           widget.onClose?.call();
                           Navigator.of(context).pop();
@@ -356,47 +358,47 @@ class _ModelSelectorPopupState extends ConsumerState<ModelSelectorPopup> {
                 ),
                 // Global search field
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+                  padding: EdgeInsets.fromLTRB(20, 0, 20, 12),
                   child: TextField(
                     controller: _globalSearchController,
-                    style: const TextStyle(color: Colors.white, fontSize: 14),
+                    style: TextStyle(color: Colors.white, fontSize: 14),
                     cursorColor: Colors.white,
                     onChanged: (val) => setState(() {
                       _globalSearchQuery = val.toLowerCase();
                     }),
                     decoration: InputDecoration(
                       hintText: 'Search models...',
-                      hintStyle: const TextStyle(
+                      hintStyle: TextStyle(
                           color: Color(0xFF6E6E6E), fontSize: 14),
-                      prefixIcon: const Icon(Icons.search,
+                      prefixIcon: Icon(Icons.search,
                           color: Color(0xFF6E6E6E), size: 18),
                       prefixIconConstraints:
                           const BoxConstraints(minWidth: 40, minHeight: 40),
                       filled: true,
-                      fillColor: const Color(0xFF1E1E1E),
-                      contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                      fillColor: Theme.of(context).extension<AppThemeExtension>()!.cardBackground,
+                      contentPadding: EdgeInsets.symmetric(vertical: 12),
                       border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
                           borderSide:
-                              const BorderSide(color: Color(0xFF2A2A2A))),
+                              BorderSide(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor)),
                       enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
                           borderSide:
-                              const BorderSide(color: Color(0xFF2A2A2A))),
+                              BorderSide(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor)),
                       focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
                           borderSide:
-                              const BorderSide(color: Color(0xFF3A3A3A))),
+                              BorderSide(color: Color(0xFF3A3A3A))),
                     ),
                   ),
                 ),
                 Flexible(
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    padding: EdgeInsets.symmetric(horizontal: 12),
                     child: buildUnifiedList(),
                   ),
                 ),
-                const SizedBox(height: 12),
+                SizedBox(height: 12),
               ],
             ),
           ),

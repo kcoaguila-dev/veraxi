@@ -1,3 +1,8 @@
+import 'package:veraxi_app/core/network/tts_repository.dart';
+import 'package:veraxi_app/features/chat/data/chat_repository.dart';
+import 'package:veraxi_app/core/repositories/memory_repository.dart';
+import 'package:veraxi_app/features/project/data/project_repository.dart';
+import 'package:mocktail/mocktail.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -28,7 +33,8 @@ void main() {
               .overrideWith((ref) => MockChatViewModel(mockState)),
         ],
         child: MaterialApp(
-          theme: AppTheme.lightTheme,
+      theme: AppTheme.lightTheme,
+
           home: const Scaffold(body: ChatScreen()),
         ),
       ),
@@ -45,9 +51,15 @@ void main() {
   });
 }
 
-class MockChatViewModel extends StateNotifier<ChatState>
-    implements ChatViewModel {
-  MockChatViewModel(ChatState state) : super(state);
+class MockChatRepository extends Mock implements ChatRepository {}
+class MockTTSRepository extends Mock implements TTSRepository {}
+class MockMemoryRepository extends Mock implements MemoryRepository {}
+class MockProjectRepository extends Mock implements ProjectRepository {}
+
+class MockChatViewModel extends ChatViewModel {
+  MockChatViewModel(ChatState initialState) : super(MockChatRepository(), MockTTSRepository(), MockMemoryRepository()) {
+    state = initialState;
+  }
 
   @override
   Future<void> loadThreads() async {}
@@ -61,23 +73,13 @@ class MockChatViewModel extends StateNotifier<ChatState>
   @override
   Future<void> toggleTelemetry() async {}
 
-  @override
-  Future<void> renameProject(String projectId, String newName) async {}
 
-  @override
-  Future<void> deleteProject(String projectId) async {}
 
-  @override
-  void selectProject(String projectId, String projectName) {}
 
   @override
   void startNewChatInProject([String? projectId]) {}
 
-  @override
-  void exitProject() {}
 
-  @override
-  void openAllProjectsDashboard() {}
 
   @override
   Future<void> selectThread(String threadId) async {}
@@ -88,8 +90,6 @@ class MockChatViewModel extends StateNotifier<ChatState>
   @override
   void clearError() {}
 
-  @override
-  Future<void> playAudio(String text, {required String messageId}) async {}
 
   @override
   Future<void> saveToMemory(String content, {String? model}) async {}
@@ -106,8 +106,6 @@ class MockChatViewModel extends StateNotifier<ChatState>
     );
   }
 
-  @override
-  void stopAudio() {}
 
   @override
   Future<void> submitFeedback(String messageId, int value) async {}
@@ -126,11 +124,5 @@ class MockChatViewModel extends StateNotifier<ChatState>
   Future<String?> duplicateThread(String threadId) async => null;
   @override
   Future<String?> shareThread(String threadId) async => null;
-  @override
-  Future<void> assignThreadToProject(
-      String threadId, String? projectId) async {}
-  @override
-  Future<List<Map<String, dynamic>>> getProjects() async => [];
-  @override
-  Future<Map<String, dynamic>?> createProject(String name) async => null;
+
 }

@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:veraxi_app/features/settings/data/api_keys_repository.dart';
 import 'package:veraxi_app/features/settings/view_models/api_keys_view_model.dart';
+import 'package:veraxi_app/core/theme_extension.dart';
+
 
 /// Renders the "API Keys" tab content inside [SettingsDialog].
 class ApiKeysTab extends ConsumerStatefulWidget {
@@ -47,9 +48,9 @@ class _ApiKeysTabState extends ConsumerState<ApiKeysTab> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1E1E1E),
+        backgroundColor: Theme.of(context).extension<AppThemeExtension>()!.cardBackground,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        title: const Text(
+        title: Text(
           'New API Key',
           style: TextStyle(
               color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
@@ -58,26 +59,26 @@ class _ApiKeysTabState extends ConsumerState<ApiKeysTab> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               'Give this key a descriptive name so you remember where it\'s used.',
-              style: TextStyle(color: Color(0xFF878787), fontSize: 13),
+              style: TextStyle(color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary, fontSize: 13),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: 16),
             TextField(
               controller: nameController,
               autofocus: true,
-              style: const TextStyle(color: Colors.white, fontSize: 14),
+              style: TextStyle(color: Colors.white, fontSize: 14),
               decoration: InputDecoration(
                 hintText: 'e.g. Cursor on MacBook',
-                hintStyle: const TextStyle(color: Color(0xFF555555)),
+                hintStyle: TextStyle(color: Color(0xFF555555)),
                 filled: true,
-                fillColor: const Color(0xFF2A2A2A),
+                fillColor: Theme.of(context).extension<AppThemeExtension>()!.borderColor,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
                   borderSide: BorderSide.none,
                 ),
                 contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               ),
             ),
           ],
@@ -85,14 +86,14 @@ class _ApiKeysTabState extends ConsumerState<ApiKeysTab> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancel',
-                style: TextStyle(color: Color(0xFF878787))),
+            child: Text('Cancel',
+                style: TextStyle(color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary)),
           ),
           FilledButton(
             onPressed: () => Navigator.of(ctx).pop(true),
             style: FilledButton.styleFrom(
                 backgroundColor: const Color(0xFF10B981)),
-            child: const Text('Generate'),
+            child: Text('Generate'),
           ),
         ],
       ),
@@ -119,28 +120,28 @@ class _ApiKeysTabState extends ConsumerState<ApiKeysTab> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1E1E1E),
+        backgroundColor: Theme.of(context).extension<AppThemeExtension>()!.cardBackground,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        title: const Text(
+        title: Text(
           'Revoke API Key?',
           style: TextStyle(
               color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
         ),
         content: Text(
           'Any MCP client using "$keyName" will immediately lose access. This cannot be undone.',
-          style: const TextStyle(color: Color(0xFF878787), fontSize: 13),
+          style: TextStyle(color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary, fontSize: 13),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancel',
-                style: TextStyle(color: Color(0xFF878787))),
+            child: Text('Cancel',
+                style: TextStyle(color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary)),
           ),
           FilledButton(
             onPressed: () => Navigator.of(ctx).pop(true),
             style: FilledButton.styleFrom(
                 backgroundColor: const Color(0xFFEF4444)),
-            child: const Text('Revoke'),
+            child: Text('Revoke'),
           ),
         ],
       ),
@@ -176,7 +177,7 @@ class _ApiKeysTabState extends ConsumerState<ApiKeysTab> {
         // ── Header ────────────────────────────────────────────────────────
         Row(
           children: [
-            const Expanded(
+            Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -192,29 +193,29 @@ class _ApiKeysTabState extends ConsumerState<ApiKeysTab> {
                   Text(
                     'Use these keys to connect MCP clients (Cursor, Claude Desktop, etc.) permanently '
                     'to your Veraxi knowledge base without needing to re-login.',
-                    style: TextStyle(color: Color(0xFF878787), fontSize: 12),
+                    style: TextStyle(color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary, fontSize: 12),
                   ),
                 ],
               ),
             ),
-            const SizedBox(width: 16),
+            SizedBox(width: 16),
             FilledButton.icon(
               onPressed: _showCreateDialog,
-              icon: const Icon(Icons.add, size: 16),
-              label: const Text('New Key', style: TextStyle(fontSize: 13)),
+              icon: Icon(Icons.add, size: 16),
+              label: Text('New Key', style: TextStyle(fontSize: 13)),
               style: FilledButton.styleFrom(
                 backgroundColor: const Color(0xFF10B981),
                 padding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               ),
             ),
           ],
         ),
-        const SizedBox(height: 20),
+        SizedBox(height: 20),
 
         // ── MCP Config snippet ─────────────────────────────────────────────
         Container(
-          padding: const EdgeInsets.all(12),
+          padding: EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: const Color(0xFF0D1117),
             borderRadius: BorderRadius.circular(8),
@@ -223,16 +224,16 @@ class _ApiKeysTabState extends ConsumerState<ApiKeysTab> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
+              Text(
                 'Usage in MCP client config:',
                 style: TextStyle(color: Color(0xFF8B949E), fontSize: 11),
               ),
-              const SizedBox(height: 8),
-              const Text(
+              SizedBox(height: 8),
+              Text(
                 '{\n'
                 '  "mcpServers": {\n'
                 '    "veraxi": {\n'
-                '      "url": "https://veraxi-backend-877632476404.us-east4.run.app/sse",\n'
+                '      "url": "${const String.fromEnvironment('MCP_SSE_URL', defaultValue: 'https://your-backend.run.app/sse')}",\n'
                 '      "headers": { "Authorization": "Bearer YOUR_KEY" }\n'
                 '    }\n'
                 '  }\n'
@@ -246,11 +247,11 @@ class _ApiKeysTabState extends ConsumerState<ApiKeysTab> {
             ],
           ),
         ),
-        const SizedBox(height: 24),
+        SizedBox(height: 24),
 
         // ── Key list ───────────────────────────────────────────────────────
         vmState.keys.when(
-          loading: () => const Center(
+          loading: () => Center(
             child: Padding(
               padding: EdgeInsets.all(32),
               child: CircularProgressIndicator(
@@ -262,11 +263,11 @@ class _ApiKeysTabState extends ConsumerState<ApiKeysTab> {
           error: (e, _) => Center(
             child: Text(
               'Failed to load keys: $e',
-              style: const TextStyle(color: Color(0xFFEF4444), fontSize: 13),
+              style: TextStyle(color: Color(0xFFEF4444), fontSize: 13),
             ),
           ),
           data: (keys) => keys.isEmpty
-              ? const Center(
+              ? Center(
                   child: Padding(
                     padding: EdgeInsets.symmetric(vertical: 32),
                     child: Text(
@@ -311,55 +312,55 @@ class _ApiKeyRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      margin: EdgeInsets.only(bottom: 8),
+      padding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E1E1E),
+        color: Theme.of(context).extension<AppThemeExtension>()!.cardBackground,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFF2A2A2A)),
+        border: Border.all(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor),
       ),
       child: Row(
         children: [
-          const Icon(Icons.key_outlined, color: Color(0xFF10B981), size: 18),
-          const SizedBox(width: 12),
+          Icon(Icons.key_outlined, color: Color(0xFF10B981), size: 18),
+          SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   apiKey.name,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: Colors.white,
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
-                const SizedBox(height: 3),
+                SizedBox(height: 3),
                 Row(
                   children: [
                     Text(
                       '${apiKey.keyPrefix}…',
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: Color(0xFF555555),
                         fontSize: 11,
                         fontFamily: 'monospace',
                       ),
                     ),
-                    const SizedBox(width: 10),
+                    SizedBox(width: 10),
                     Text(
                       'Created ${_formatDate(apiKey.createdAt)}',
-                      style: const TextStyle(
+                      style: TextStyle(
                           color: Color(0xFF555555), fontSize: 11),
                     ),
                     if (apiKey.lastUsedAt != null) ...[
-                      const Text(
+                      Text(
                         ' · Last used ',
                         style:
                             TextStyle(color: Color(0xFF555555), fontSize: 11),
                       ),
                       Text(
                         _formatDate(apiKey.lastUsedAt!),
-                        style: const TextStyle(
+                        style: TextStyle(
                             color: Color(0xFF555555), fontSize: 11),
                       ),
                     ],
@@ -370,12 +371,12 @@ class _ApiKeyRow extends StatelessWidget {
           ),
           IconButton(
             onPressed: onRevoke,
-            icon: const Icon(Icons.delete_outline, size: 18),
+            icon: Icon(Icons.delete_outline, size: 18),
             color: const Color(0xFF555555),
             tooltip: 'Revoke key',
             hoverColor: const Color(0xFFEF4444).withValues(alpha: 0.1),
             style: IconButton.styleFrom(
-              padding: const EdgeInsets.all(6),
+              padding: EdgeInsets.all(6),
             ),
           ),
         ],
@@ -396,9 +397,9 @@ class _RevealKeyDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      backgroundColor: const Color(0xFF1E1E1E),
+      backgroundColor: Theme.of(context).extension<AppThemeExtension>()!.cardBackground,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      title: const Row(
+      title: Row(
         children: [
           Icon(Icons.key, color: Color(0xFF10B981), size: 20),
           SizedBox(width: 8),
@@ -413,14 +414,14 @@ class _RevealKeyDialog extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Copy this key and store it somewhere safe. '
             'It will not be shown again.',
-            style: TextStyle(color: Color(0xFF878787), fontSize: 13),
+            style: TextStyle(color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary, fontSize: 13),
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: 16),
           Container(
-            padding: const EdgeInsets.all(12),
+            padding: EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: const Color(0xFF0D1117),
               borderRadius: BorderRadius.circular(8),
@@ -432,7 +433,7 @@ class _RevealKeyDialog extends StatelessWidget {
                 Expanded(
                   child: SelectableText(
                     rawKey,
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: Color(0xFF10B981),
                       fontSize: 12,
                       fontFamily: 'monospace',
@@ -450,23 +451,23 @@ class _RevealKeyDialog extends StatelessWidget {
                       ),
                     );
                   },
-                  icon: const Icon(Icons.copy_outlined, size: 16),
+                  icon: Icon(Icons.copy_outlined, size: 16),
                   color: const Color(0xFF10B981),
                   tooltip: 'Copy to clipboard',
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           Container(
-            padding: const EdgeInsets.all(10),
+            padding: EdgeInsets.all(10),
             decoration: BoxDecoration(
               color: const Color(0xFF2D1B00),
               borderRadius: BorderRadius.circular(6),
               border: Border.all(
                   color: const Color(0xFFF59E0B).withValues(alpha: 0.3)),
             ),
-            child: const Row(
+            child: Row(
               children: [
                 Icon(Icons.warning_amber_outlined,
                     color: Color(0xFFF59E0B), size: 16),
@@ -487,7 +488,7 @@ class _RevealKeyDialog extends StatelessWidget {
           onPressed: () => Navigator.of(context).pop(),
           style:
               FilledButton.styleFrom(backgroundColor: const Color(0xFF10B981)),
-          child: const Text('Done, I\'ve saved it'),
+          child: Text('Done, I\'ve saved it'),
         ),
       ],
     );

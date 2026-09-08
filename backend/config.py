@@ -43,6 +43,7 @@ class Config:
     terms_of_service_url: str
     privacy_policy_url: str
     max_tenant_nodes: int
+    internal_api_url: str
 
     @classmethod
     def from_env(cls) -> "Config":
@@ -82,6 +83,7 @@ class Config:
             help_faq_url=os.environ.get("HELP_FAQ_URL", "https://veraxi.ai/help"),
             terms_of_service_url=os.environ.get("TERMS_OF_SERVICE_URL", "https://veraxi.ai/terms"),
             privacy_policy_url=os.environ.get("PRIVACY_POLICY_URL", "https://veraxi.ai/privacy"),
+            internal_api_url=os.environ.get("INTERNAL_API_URL", "http://localhost:8000/api"),
         )
 
     def get_llm_client_args(self, model_name: str | None = None) -> dict:

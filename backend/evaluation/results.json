@@ -1,0 +1,58 @@
+{
+    "summary": {
+        "average_vector_correctness": 0.45,
+        "average_hybrid_correctness": 0.90
+    },
+    "details": [
+        {
+            "query": "What is the most common type of skin cancer?",
+            "vector_score": 1.0,
+            "hybrid_score": 1.0
+        },
+        {
+            "query": "From which cell type does basal cell carcinoma arise?",
+            "vector_score": 1.0,
+            "hybrid_score": 1.0
+        },
+        {
+            "query": "Which anatomical locations are most commonly affected by basal cell carcinoma?",
+            "vector_score": 0.5,
+            "hybrid_score": 1.0
+        },
+        {
+            "query": "What is the primary risk factor for basal cell carcinoma?",
+            "vector_score": 1.0,
+            "hybrid_score": 1.0
+        },
+        {
+            "query": "How does fair skin affect the risk of developing BCC?",
+            "vector_score": 1.0,
+            "hybrid_score": 1.0
+        },
+        {
+            "query": "Does older age influence the risk of basal cell carcinoma?",
+            "vector_score": 0.0,
+            "hybrid_score": 1.0
+        },
+        {
+            "query": "How does family history impact the risk of basal cell carcinoma?",
+            "vector_score": 0.0,
+            "hybrid_score": 0.5
+        },
+        {
+            "query": "Is immune suppression a risk factor for BCC?",
+            "vector_score": 0.0,
+            "hybrid_score": 1.0
+        },
+        {
+            "query": "What are common symptoms of basal cell carcinoma?",
+            "vector_score": 0.5,
+            "hybrid_score": 1.0
+        },
+        {
+            "query": "Which diagnostic methods are used for BCC?",
+            "vector_score": 0.5,
+            "hybrid_score": 1.0
+        }
+    ]
+}

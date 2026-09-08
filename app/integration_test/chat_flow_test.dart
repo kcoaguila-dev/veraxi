@@ -13,9 +13,16 @@ import 'package:veraxi_app/core/router.dart';
 import 'package:veraxi_app/features/auth/data/auth_repository.dart';
 import 'package:veraxi_app/features/chat/data/chat_repository.dart';
 
+import 'package:veraxi_app/core/repositories/model_config_repository.dart';
+import 'package:veraxi_app/features/project/data/project_repository.dart';
+import 'package:veraxi_app/core/repositories/memory_repository.dart';
+
 class MockAuthRepository extends Mock implements AuthRepository {}
 
 class MockChatRepository extends Mock implements ChatRepository {}
+class MockModelConfigRepository extends Mock implements ModelConfigRepository {}
+class MockProjectRepository extends Mock implements ProjectRepository {}
+class MockMemoryRepository extends Mock implements MemoryRepository {}
 
 class MockUser extends Mock implements User {}
 
@@ -35,11 +42,17 @@ void main() {
 
   late MockAuthRepository mockAuthRepo;
   late MockChatRepository mockChatRepo;
+  late MockModelConfigRepository mockModelConfigRepo;
+  late MockProjectRepository mockProjectRepo;
+  late MockMemoryRepository mockMemoryRepo;
   late StreamController<AuthState> authStateController;
 
   setUp(() {
     mockAuthRepo = MockAuthRepository();
     mockChatRepo = MockChatRepository();
+    mockModelConfigRepo = MockModelConfigRepository();
+    mockProjectRepo = MockProjectRepository();
+    mockMemoryRepo = MockMemoryRepository();
     authStateController = StreamController<AuthState>.broadcast();
 
     when(() => mockAuthRepo.authStateChanges)
@@ -47,18 +60,19 @@ void main() {
 
     when(() => mockAuthRepo.currentUser).thenReturn(null);
 
-    when(() => mockChatRepo.getProviderModels()).thenAnswer((_) async => {
+    when(() => mockModelConfigRepo.getProviderModels()).thenAnswer((_) async => {
           'OpenAI': ['gpt-4o', 'gpt-4o-mini'],
           'Anthropic': ['Claude 3.5 Sonnet', 'Claude 3 Opus'],
           'Google': ['gemini-1.5-pro']
         });
 
     when(() => mockChatRepo.getThreads()).thenAnswer((_) async => []);
+    when(() => mockProjectRepo.getProjects()).thenAnswer((_) async => []);
 
     when(() => mockChatRepo.getThreadHistory(any()))
         .thenAnswer((_) async => []);
 
-    when(() => mockChatRepo.getUIConfig()).thenAnswer((_) async => {});
+    when(() => mockModelConfigRepo.getUIConfig()).thenAnswer((_) async => {});
 
     when(() => mockChatRepo.streamChat(
           any(),
@@ -107,6 +121,9 @@ void main() {
         overrides: [
           authRepositoryProvider.overrideWithValue(mockAuthRepo),
           chatRepositoryProvider.overrideWithValue(mockChatRepo),
+          modelConfigRepositoryProvider.overrideWithValue(mockModelConfigRepo),
+          projectRepositoryProvider.overrideWithValue(mockProjectRepo),
+          memoryRepositoryProvider.overrideWithValue(mockMemoryRepo),
         ],
         child: const VeraxiApp(),
       ),

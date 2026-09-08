@@ -20,8 +20,8 @@ class ChatBubble extends StatelessWidget {
         constraints: BoxConstraints(
           maxWidth: MediaQuery.of(context).size.width * 0.75,
         ),
-        margin: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
-        padding: const EdgeInsets.all(16.0),
+        margin: EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+        padding: EdgeInsets.all(16.0),
         decoration: BoxDecoration(
           color: message.isUser
               ? theme.colorScheme.primary
@@ -41,7 +41,7 @@ class ChatBubble extends StatelessWidget {
         child: message.isUser
             ? Text(
                 message.text,
-                style: const TextStyle(color: Colors.white, fontSize: 16),
+                style: TextStyle(color: Colors.white, fontSize: 16),
               )
             : _buildBotMessage(context, message.text),
       ).animate().fade(duration: 300.ms).slideY(begin: 0.1, duration: 300.ms),
@@ -61,14 +61,14 @@ class ChatBubble extends StatelessWidget {
               children: [
                 Icon(Icons.auto_graph,
                     color: theme.colorScheme.primary, size: 18),
-                const SizedBox(width: 8),
+                SizedBox(width: 8),
                 Text('Graph Visualization Artifact',
                     style: TextStyle(
                         color: theme.colorScheme.primary,
                         fontWeight: FontWeight.bold)),
               ],
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
             GraphArtifact(jsonElements: elements),
           ],
         );

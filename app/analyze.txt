@@ -1,0 +1,43 @@
+Analyzing app...                                                
+
+  error • The method 'assignThreadToProject' isn't defined for the type 'ChatRepository' • lib/features/chat/view_models/chat_history_provider.dart:181:46 • undefined_method
+  error • The method 'getProjects' isn't defined for the type 'ChatRepository' • lib/features/chat/view_models/chat_view_model.dart:262:42 • undefined_method
+  error • The method 'assignThreadToProject' isn't defined for the type 'ChatRepository' • lib/features/chat/view_models/chat_view_model.dart:975:25 • undefined_method
+  error • The method 'getProjects' isn't defined for the type 'ChatRepository' • lib/features/chat/view_models/chat_view_model.dart:985:32 • undefined_method
+  error • The method 'createProject' isn't defined for the type 'ChatRepository' • lib/features/chat/view_models/chat_view_model.dart:994:41 • undefined_method
+  error • The method 'renameProject' isn't defined for the type 'ChatRepository' • lib/features/chat/view_models/chat_view_model.dart:1006:25 • undefined_method
+  error • The method 'deleteProject' isn't defined for the type 'ChatRepository' • lib/features/chat/view_models/chat_view_model.dart:1016:25 • undefined_method
+warning • Unused import: 'package:veraxi_app/features/chat/views/widgets/global_audio_player.dart' • lib/features/chat/views/chat_screen.dart:2:8 • unused_import
+warning • Unused import: 'package:veraxi_app/features/chat/view_models/audio_player_service.dart' • lib/features/chat/views/chat_screen.dart:3:8 • unused_import
+warning • Unused import: 'package:google_fonts/google_fonts.dart' • lib/features/chat/views/chat_screen.dart:5:8 • unused_import
+warning • Unused import: 'package:flutter_markdown_plus/flutter_markdown_plus.dart' • lib/features/chat/views/chat_screen.dart:7:8 • unused_import
+warning • Unused import: 'package:veraxi_app/core/widgets/model_selector_menu.dart' • lib/features/chat/views/chat_screen.dart:9:8 • unused_import
+warning • Unused import: 'package:veraxi_app/features/chat/views/widgets/chat_message_metrics.dart' • lib/features/chat/views/chat_screen.dart:13:8 • unused_import
+warning • Unused import: 'package:veraxi_app/features/chat/views/widgets/chat_sidebar.dart' • lib/features/chat/views/chat_screen.dart:14:8 • unused_import
+warning • Unused import: 'package:veraxi_app/features/chat/views/widgets/project_dashboard_view.dart' • lib/features/chat/views/chat_screen.dart:16:8 • unused_import
+warning • Unused import: 'package:veraxi_app/features/chat/views/widgets/all_projects_dashboard_view.dart' • lib/features/chat/views/chat_screen.dart:17:8 • unused_import
+warning • Unused import: 'package:veraxi_app/features/chat/views/widgets/create_project_dialog.dart' • lib/features/chat/views/chat_screen.dart:18:8 • unused_import
+warning • Unused import: 'package:veraxi_app/features/chat/views/widgets/agentic_tool_log.dart' • lib/features/chat/views/chat_screen.dart:19:8 • unused_import
+warning • Unused import: 'package:veraxi_app/features/chat/views/widgets/sources_button.dart' • lib/features/chat/views/chat_screen.dart:20:8 • unused_import
+warning • Unused import: 'package:veraxi_app/features/chat/views/widgets/sources_sidebar.dart' • lib/features/chat/views/chat_screen.dart:21:8 • unused_import
+   info • The import of 'package:flutter/cupertino.dart' is unnecessary because all of the used elements are also provided by the import of 'package:flutter/material.dart' • lib/features/chat/views/chat_screen.dart:22:8 • unnecessary_import
+   info • The import of 'package:flutter/services.dart' is unnecessary because all of the used elements are also provided by the import of 'package:flutter/material.dart' • lib/features/chat/views/chat_screen.dart:23:8 • unnecessary_import
+warning • Unused import: 'package:markdown/markdown.dart' • lib/features/chat/views/chat_screen.dart:24:8 • unused_import
+warning • Unused import: 'package:veraxi_app/features/chat/views/widgets/markdown_citation_builder.dart' • lib/features/chat/views/chat_screen.dart:25:8 • unused_import
+warning • Unused import: 'package:veraxi_app/features/chat/views/widgets/markdown_code_builder.dart' • lib/features/chat/views/chat_screen.dart:26:8 • unused_import
+warning • Unused import: 'package:veraxi_app/core/sidebar_provider.dart' • lib/features/chat/views/chat_screen.dart:28:8 • unused_import
+warning • Unused import: 'package:lucide_icons_flutter/lucide_icons.dart' • lib/features/chat/views/chat_screen.dart:30:8 • unused_import
+  error • Missing concrete implementation of 'State.build' • lib/features/chat/views/chat_screen.dart:42:7 • non_abstract_class_inherits_abstract_member
+warning • The value of the field '_scaffoldKey' isn't used • lib/features/chat/views/chat_screen.dart:43:34 • unused_field
+warning • The declaration '_buildPopupMenuItem' isn't referenced • lib/features/chat/views/chat_screen.dart:45:25 • unused_element
+warning • The value of the field '_selectedProvider' isn't used • lib/features/chat/views/chat_screen.dart:67:11 • unused_field
+warning • The value of the field '_hoveredModel' isn't used • lib/features/chat/views/chat_screen.dart:68:11 • unused_field
+warning • The value of the field '_pinnedModels' isn't used • lib/features/chat/views/chat_screen.dart:69:21 • unused_field
+warning • The declaration '_saveSelectedModel' isn't referenced • lib/features/chat/views/chat_screen.dart:103:16 • unused_element
+warning • The declaration '_scrollToBottom' isn't referenced • lib/features/chat/views/chat_screen.dart:120:8 • unused_element
+warning • The declaration '_buildEmptyState' isn't referenced • lib/features/chat/views/chat_screen.dart:130:10 • unused_element
+warning • The declaration '_providerDotFor' isn't referenced • lib/features/chat/views/chat_screen.dart:162:10 • unused_element
+warning • Duplicate import • lib/main.dart:3:8 • duplicate_import
+warning • Duplicate import • lib/main.dart:11:8 • duplicate_import
+warning • Unused import: 'package:veraxi_app/core/providers/project_view_model.dart' • lib/main.dart:12:8 • unused_import
+

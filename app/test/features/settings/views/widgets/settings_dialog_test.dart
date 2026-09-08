@@ -1,3 +1,4 @@
+import 'package:veraxi_app/core/theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -42,7 +43,9 @@ void main() {
         overrides: [
           authViewModelProvider.overrideWith((ref) => mockAuthViewModel),
         ],
-        child: const MaterialApp(
+        child: MaterialApp(
+      theme: AppTheme.lightTheme,
+
           home: Scaffold(
             body: SettingsDialog(),
           ),

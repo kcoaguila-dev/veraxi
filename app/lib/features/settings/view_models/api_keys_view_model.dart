@@ -2,6 +2,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:veraxi_app/features/settings/data/api_keys_repository.dart';
 
+// Re-export the model so views can import it from the ViewModel layer
+// without violating the views → view_models → data dependency contract.
+export 'package:veraxi_app/features/settings/data/api_keys_repository.dart'
+    show ApiKeyModel;
+
 /// State for the API Keys tab.
 class ApiKeysState {
   final AsyncValue<List<ApiKeyModel>> keys;

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'pricing_tiers_dialog.dart';
+import 'package:veraxi_app/core/theme_extension.dart';
+
 
 class BillingView extends StatelessWidget {
   const BillingView({Key? key}) : super(key: key);
@@ -7,11 +9,11 @@ class BillingView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(32.0),
+      padding: EdgeInsets.all(32.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Billing & Plans',
             style: TextStyle(
               color: Colors.white,
@@ -19,23 +21,23 @@ class BillingView extends StatelessWidget {
               fontWeight: FontWeight.w600,
             ),
           ),
-          const SizedBox(height: 8),
-          const Text(
+          SizedBox(height: 8),
+          Text(
             'Manage your subscription and billing details.',
             style: TextStyle(
-              color: Color(0xFF878787),
+              color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary,
               fontSize: 14,
             ),
           ),
-          const SizedBox(height: 32),
+          SizedBox(height: 32),
 
           // Current Plan Card
           Container(
-            padding: const EdgeInsets.all(32),
+            padding: EdgeInsets.all(32),
             decoration: BoxDecoration(
-              color: const Color(0xFF131313), // Match Pic 2 aesthetic
+              color: Theme.of(context).extension<AppThemeExtension>()!.dialogBackground, // Match Pic 2 aesthetic
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0xFF2A2A2A)),
+              border: Border.all(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -47,12 +49,12 @@ class BillingView extends StatelessWidget {
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        const Icon(Icons.eco_outlined,
+                        Icon(Icons.eco_outlined,
                             color: Colors.white, size: 36),
-                        const SizedBox(width: 16),
+                        SizedBox(width: 16),
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
-                          children: const [
+                          children: [
                             Text(
                               'Free plan',
                               style: TextStyle(
@@ -65,7 +67,7 @@ class BillingView extends StatelessWidget {
                             Text(
                               'Local-First & BYOK',
                               style: TextStyle(
-                                color: Color(0xFF878787),
+                                color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary,
                                 fontSize: 14,
                               ),
                             ),
@@ -78,7 +80,7 @@ class BillingView extends StatelessWidget {
                         backgroundColor: Colors.white,
                         foregroundColor: Colors.black,
                         elevation: 0,
-                        padding: const EdgeInsets.symmetric(
+                        padding: EdgeInsets.symmetric(
                             horizontal: 20, vertical: 12),
                         shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(8)),
@@ -89,7 +91,7 @@ class BillingView extends StatelessWidget {
                           builder: (context) => const PricingTiersDialog(),
                         );
                       },
-                      child: const Text(
+                      child: Text(
                         'Upgrade plan',
                         style: TextStyle(
                             fontSize: 14, fontWeight: FontWeight.w600),
@@ -97,14 +99,14 @@ class BillingView extends StatelessWidget {
                     ),
                   ],
                 ),
-                const SizedBox(height: 32),
+                SizedBox(height: 32),
 
                 // Feature List
-                _buildFeatureRow('Bring your own LLM API Keys'),
-                _buildFeatureRow('Run your own local Neo4j & Qdrant'),
-                _buildFeatureRow('Basic chat, Web search, and iOS/Android'),
-                _buildFeatureRow('Generate code and visualize data'),
-                _buildFeatureRow('50MB file upload limit'),
+                _buildFeatureRow(context, 'Bring your own LLM API Keys'),
+                _buildFeatureRow(context, 'Run your own local Neo4j & Qdrant'),
+                _buildFeatureRow(context, 'Basic chat, Web search, and iOS/Android'),
+                _buildFeatureRow(context, 'Generate code and visualize data'),
+                _buildFeatureRow(context, '50MB file upload limit'),
               ],
             ),
           ),
@@ -113,18 +115,18 @@ class BillingView extends StatelessWidget {
     );
   }
 
-  Widget _buildFeatureRow(String feature) {
+  Widget _buildFeatureRow(BuildContext context, String feature) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 16.0),
+      padding: EdgeInsets.only(bottom: 16.0),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          const Icon(Icons.check, color: Color(0xFF878787), size: 18),
-          const SizedBox(width: 12),
+          Icon(Icons.check, color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary, size: 18),
+          SizedBox(width: 12),
           Text(
             feature,
-            style: const TextStyle(
-              color: Color(0xFFB4B4B4),
+            style: TextStyle(
+              color: Theme.of(context).extension<AppThemeExtension>()!.iconColor,
               fontSize: 15,
             ),
           ),

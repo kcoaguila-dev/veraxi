@@ -1,7 +1,8 @@
+import 'package:veraxi_app/core/theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:veraxi_app/features/chat/view_models/chat_view_model.dart';
 import 'package:veraxi_app/features/chat/views/widgets/sources_button.dart';
+import 'package:veraxi_app/features/chat/view_models/chat_view_model.dart';
 
 // ---------------------------------------------------------------------------
 // Helpers: build ToolEvent payloads matching what the backend actually sends.
@@ -363,6 +364,8 @@ void main() {
 
       await tester.pumpWidget(
         MaterialApp(
+      theme: AppTheme.lightTheme,
+
           home: Scaffold(
             body: SourcesButton(
               message: message,
@@ -395,6 +398,8 @@ void main() {
 
       await tester.pumpWidget(
         MaterialApp(
+      theme: AppTheme.lightTheme,
+
           home: Scaffold(
             body: SourcesButton(
               message: message,
@@ -418,6 +423,8 @@ void main() {
 
       await tester.pumpWidget(
         MaterialApp(
+      theme: AppTheme.lightTheme,
+
           home: Scaffold(
             body: SourcesButton(
               message: message,

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 import 'package:veraxi_app/features/chat/view_models/chat_view_model.dart';
 import 'dart:convert';
+import 'package:veraxi_app/core/theme_extension.dart';
+
 
 class CitationChip extends StatefulWidget {
   final String text;
@@ -175,8 +177,8 @@ class _CitationChipState extends State<CitationChip> {
             },
             borderRadius: BorderRadius.circular(4),
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-              margin: const EdgeInsets.symmetric(horizontal: 2),
+              padding: EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+              margin: EdgeInsets.symmetric(horizontal: 2),
               decoration: BoxDecoration(
                 color: const Color(0xFF272727),
                 borderRadius: BorderRadius.circular(12),
@@ -191,18 +193,18 @@ class _CitationChipState extends State<CitationChip> {
                         _faviconUrl,
                         width: 11,
                         height: 11,
-                        errorBuilder: (_, __, ___) => const Icon(
+                        errorBuilder: (_, __, ___) => Icon(
                           Icons.language,
                           size: 11,
                           color: Colors.white54,
                         ),
                       ),
                     ),
-                    const SizedBox(width: 4),
+                    SizedBox(width: 4),
                   ],
                   Text(
                     _displayText,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 11,
                       color: Color(0xFFCCCCCC),
                       fontWeight: FontWeight.w500,
@@ -233,7 +235,7 @@ class _CitationChipState extends State<CitationChip> {
         child: Container(
           width: 320,
           decoration: BoxDecoration(
-            color: const Color(0xFF1E1E1E),
+            color: Theme.of(context).extension<AppThemeExtension>()!.cardBackground,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: const Color(0xFF2E2E2E)),
             boxShadow: [
@@ -245,7 +247,7 @@ class _CitationChipState extends State<CitationChip> {
             ],
           ),
           child: Padding(
-            padding: const EdgeInsets.all(12.0),
+            padding: EdgeInsets.all(12.0),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -260,19 +262,19 @@ class _CitationChipState extends State<CitationChip> {
                           _faviconUrl,
                           width: 14,
                           height: 14,
-                          errorBuilder: (_, __, ___) => const Icon(
+                          errorBuilder: (_, __, ___) => Icon(
                             Icons.language,
                             size: 14,
                             color: Colors.white54,
                           ),
                         ),
                       ),
-                      const SizedBox(width: 6),
+                      SizedBox(width: 6),
                     ],
                     Expanded(
                       child: Text(
                         domain.isNotEmpty ? domain : _displayText,
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: Color(0xFFA0A0A0),
                           fontSize: 11,
                           fontWeight: FontWeight.w500,
@@ -286,10 +288,10 @@ class _CitationChipState extends State<CitationChip> {
 
                 // ── Article title ─────────────────────────────────────────
                 if (title.isNotEmpty) ...[
-                  const SizedBox(height: 8),
+                  SizedBox(height: 8),
                   Text(
                     title,
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: Color(0xFFE8E8E8),
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
@@ -302,10 +304,10 @@ class _CitationChipState extends State<CitationChip> {
 
                 // ── Snippet ───────────────────────────────────────────────
                 if (snippet.isNotEmpty) ...[
-                  const SizedBox(height: 6),
+                  SizedBox(height: 6),
                   Text(
                     snippet,
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: Color(0xFF9A9A9A),
                       fontSize: 12,
                       height: 1.4,

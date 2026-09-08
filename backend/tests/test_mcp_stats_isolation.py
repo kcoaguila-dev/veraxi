@@ -1,6 +1,6 @@
 from unittest.mock import patch
 
-from backend.mcp_server.server import _handle_get_database_stats
+from backend.mcp_server.handlers.tool_registry import _handle_get_database_stats
 from backend.mcp_server.tools.get_stats import get_database_stats
 
 

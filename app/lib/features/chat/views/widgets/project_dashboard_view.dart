@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:veraxi_app/features/chat/view_models/chat_view_model.dart';
+import 'package:veraxi_app/core/theme_extension.dart';
+
 
 class ProjectDashboardView extends ConsumerWidget {
   const ProjectDashboardView({super.key});
@@ -18,13 +20,13 @@ class ProjectDashboardView extends ConsumerWidget {
         state.pastThreads.where((t) => t['project_id'] == projectId).toList();
 
     return Container(
-      color: const Color(0xFF131313),
+      color: Theme.of(context).extension<AppThemeExtension>()!.dialogBackground,
       child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 800),
           child: Padding(
             padding:
-                const EdgeInsets.symmetric(horizontal: 24.0, vertical: 40.0),
+                EdgeInsets.symmetric(horizontal: 24.0, vertical: 40.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -33,17 +35,17 @@ class ProjectDashboardView extends ConsumerWidget {
                   onTap: () => viewModel.exitProject(),
                   borderRadius: BorderRadius.circular(8),
                   child: Padding(
-                    padding: const EdgeInsets.all(8.0),
+                    padding: EdgeInsets.all(8.0),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.arrow_back,
-                            color: Color(0xFF878787), size: 16),
-                        const SizedBox(width: 8),
-                        const Text(
+                        Icon(Icons.arrow_back,
+                            color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary, size: 16),
+                        SizedBox(width: 8),
+                        Text(
                           'All projects',
                           style: TextStyle(
-                            color: Color(0xFF878787),
+                            color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary,
                             fontSize: 14,
                             fontWeight: FontWeight.w500,
                           ),
@@ -52,17 +54,17 @@ class ProjectDashboardView extends ConsumerWidget {
                     ),
                   ),
                 ),
-                const SizedBox(height: 32),
+                SizedBox(height: 32),
 
                 // Project Header
                 Row(
                   children: [
-                    const Icon(LucideIcons.folder,
+                    Icon(LucideIcons.folder,
                         color: Colors.white, size: 32),
-                    const SizedBox(width: 16),
+                    SizedBox(width: 16),
                     Text(
                       projectName,
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: Colors.white,
                         fontSize: 32,
                         fontWeight: FontWeight.w600,
@@ -70,27 +72,27 @@ class ProjectDashboardView extends ConsumerWidget {
                     ),
                   ],
                 ),
-                const SizedBox(height: 32),
+                SizedBox(height: 32),
 
                 // New Chat Button
                 InkWell(
                   onTap: () => viewModel.startNewChatInProject(),
                   borderRadius: BorderRadius.circular(24),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(
+                    padding: EdgeInsets.symmetric(
                         horizontal: 24, vertical: 16),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF1E1E1E),
+                      color: Theme.of(context).extension<AppThemeExtension>()!.cardBackground,
                       borderRadius: BorderRadius.circular(24),
-                      border: Border.all(color: const Color(0xFF2A2A2A)),
+                      border: Border.all(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor),
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.add, color: Colors.white, size: 20),
-                        const SizedBox(width: 12),
+                        Icon(Icons.add, color: Colors.white, size: 20),
+                        SizedBox(width: 12),
                         Text(
                           'New chat in $projectName',
-                          style: const TextStyle(
+                          style: TextStyle(
                             color: Colors.white,
                             fontSize: 16,
                             fontWeight: FontWeight.w500,
@@ -100,7 +102,7 @@ class ProjectDashboardView extends ConsumerWidget {
                     ),
                   ),
                 ),
-                const SizedBox(height: 48),
+                SizedBox(height: 48),
 
                 // Chats List
                 Row(
@@ -108,21 +110,21 @@ class ProjectDashboardView extends ConsumerWidget {
                   children: [
                     Text(
                       'Chats ${projectThreads.length}',
-                      style: const TextStyle(
-                        color: Color(0xFF878787),
+                      style: TextStyle(
+                        color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary,
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                    const Row(
+                    Row(
                       children: [
                         Icon(Icons.arrow_upward,
-                            color: Color(0xFF878787), size: 12),
+                            color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary, size: 12),
                         SizedBox(width: 4),
                         Text(
                           'Updated',
                           style: TextStyle(
-                            color: Color(0xFF878787),
+                            color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary,
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
                           ),
@@ -131,30 +133,30 @@ class ProjectDashboardView extends ConsumerWidget {
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
+                SizedBox(height: 12),
 
                 Expanded(
                   child: Container(
                     decoration: BoxDecoration(
-                      color: const Color(0xFF131313),
+                      color: Theme.of(context).extension<AppThemeExtension>()!.dialogBackground,
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0xFF2A2A2A)),
+                      border: Border.all(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor),
                     ),
                     child: projectThreads.isEmpty
-                        ? const Center(
+                        ? Center(
                             child: Text(
                               'No chats yet',
                               style: TextStyle(
-                                color: Color(0xFF878787),
+                                color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary,
                                 fontSize: 14,
                               ),
                             ),
                           )
                         : ListView.separated(
-                            padding: const EdgeInsets.all(8),
+                            padding: EdgeInsets.all(8),
                             itemCount: projectThreads.length,
-                            separatorBuilder: (context, index) => const Divider(
-                              color: Color(0xFF2A2A2A),
+                            separatorBuilder: (context, index) => Divider(
+                              color: Theme.of(context).extension<AppThemeExtension>()!.borderColor,
                               height: 1,
                             ),
                             itemBuilder: (context, index) {
@@ -175,15 +177,15 @@ class ProjectDashboardView extends ConsumerWidget {
                                     viewModel.selectThread(thread['thread_id']),
                                 title: Text(
                                   title,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                       color: Colors.white, fontSize: 14),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                 ),
                                 trailing: Text(
                                   formattedTime,
-                                  style: const TextStyle(
-                                      color: Color(0xFF878787), fontSize: 12),
+                                  style: TextStyle(
+                                      color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary, fontSize: 12),
                                 ),
                               );
                             },

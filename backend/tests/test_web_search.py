@@ -5,8 +5,8 @@ from unittest.mock import MagicMock, patch
 from backend.mcp_server.tools.web_search import mcp_web_search
 
 
-@patch("backend.mcp_server.tools.web_search.get_config")
-@patch("backend.mcp_server.tools.web_search.urllib.request.urlopen")
+@patch("backend.mcp_server.tools.search_providers.get_config")
+@patch("backend.mcp_server.tools.search_providers.urllib.request.urlopen")
 def test_web_search_success(mock_urlopen, mock_get_config):
     # Mock config
     mock_config = MagicMock()
@@ -34,8 +34,8 @@ def test_web_search_success(mock_urlopen, mock_get_config):
     assert results[1]["url"] == "http://2.com"
 
 
-@patch("backend.mcp_server.tools.web_search.get_config")
-@patch("backend.mcp_server.tools.web_search.urllib.request.urlopen")
+@patch("backend.mcp_server.tools.search_providers.get_config")
+@patch("backend.mcp_server.tools.search_providers.urllib.request.urlopen")
 def test_web_search_forbidden_fails_gracefully(mock_urlopen, mock_get_config):
     # Mock config
     mock_config = MagicMock()
@@ -53,7 +53,7 @@ def test_web_search_forbidden_fails_gracefully(mock_urlopen, mock_get_config):
     assert results == []
 
 
-@patch("backend.mcp_server.tools.web_search.get_config")
+@patch("backend.mcp_server.tools.search_providers.get_config")
 def test_web_search_no_url_fails_gracefully(mock_get_config):
     # Mock config with empty url
     mock_config = MagicMock()

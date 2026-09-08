@@ -33,8 +33,8 @@ class _ChatMessageMetricsState extends State<ChatMessageMetrics> {
       curve: Curves.easeInOut,
       alignment: Alignment.topCenter,
       child: Container(
-        margin: const EdgeInsets.only(top: 12),
-        padding: const EdgeInsets.all(14),
+        margin: EdgeInsets.only(top: 12),
+        padding: EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: const Color(0xFF141414),
           borderRadius: BorderRadius.circular(14),
@@ -47,7 +47,7 @@ class _ChatMessageMetricsState extends State<ChatMessageMetrics> {
               children: [
                 Icon(Icons.analytics_outlined,
                     size: 16, color: ext?.primaryGradientStart ?? Colors.white),
-                const SizedBox(width: 8),
+                SizedBox(width: 8),
                 Text(
                   'Response Metrics',
                   style: theme.textTheme.labelLarge?.copyWith(
@@ -57,7 +57,7 @@ class _ChatMessageMetricsState extends State<ChatMessageMetrics> {
                 ),
               ],
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
             Wrap(
               spacing: 12,
               runSpacing: 12,
@@ -83,13 +83,13 @@ class _ChatMessageMetricsState extends State<ChatMessageMetrics> {
             ),
             if ((contextAdherence ?? 1.0) == 0.0 || (confidence ?? 1.0) == 0.0)
               Padding(
-                padding: const EdgeInsets.only(top: 12.0),
+                padding: EdgeInsets.only(top: 12.0),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(Icons.info_outline,
+                    Icon(Icons.info_outline,
                         size: 14, color: Color(0xFF8A8A8A)),
-                    const SizedBox(width: 6),
+                    SizedBox(width: 6),
                     Expanded(
                       child: Text(
                         'A 0% score typically means the AI used its pre-trained knowledge to answer, rather than strictly citing the short retrieved snippets.',
@@ -137,11 +137,11 @@ class _MetricTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: 170,
-      padding: const EdgeInsets.all(12),
+      padding: EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: const Color(0xFF1B1B1B),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFF2A2A2A)),
+        border: Border.all(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -149,14 +149,14 @@ class _MetricTile extends StatelessWidget {
         children: [
           Text(
             label.toUpperCase(),
-            style: const TextStyle(
+            style: TextStyle(
               color: Color(0xFF8A8A8A),
               fontSize: 10,
               fontWeight: FontWeight.w600,
               letterSpacing: 0.6,
             ),
           ),
-          const SizedBox(height: 10),
+          SizedBox(height: 10),
           if (!isDuration)
             SizedBox(
               width: double.infinity,
@@ -172,12 +172,12 @@ class _MetricTile extends StatelessWidget {
               ),
             )
           else
-            const SizedBox(
+            SizedBox(
                 height: 4), // Placeholder to keep tile height consistent
-          const SizedBox(height: 8),
+          SizedBox(height: 8),
           Text(
             _formatValue(),
-            style: const TextStyle(
+            style: TextStyle(
               color: Colors.white,
               fontSize: 13,
               fontWeight: FontWeight.w600,

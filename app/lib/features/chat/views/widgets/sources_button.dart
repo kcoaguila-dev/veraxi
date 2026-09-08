@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:veraxi_app/features/chat/view_models/chat_view_model.dart';
 import 'dart:convert';
 import 'package:sentry_flutter/sentry_flutter.dart';
+import 'package:veraxi_app/core/theme_extension.dart';
+
 
 class SourcesButton extends StatelessWidget {
   final ChatMessage message;
@@ -13,7 +15,7 @@ class SourcesButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final sources = extractSources(message);
-    if (sources.isEmpty) return const SizedBox.shrink();
+    if (sources.isEmpty) return SizedBox.shrink();
 
     // Show up to 3 overlapping favicons
     final favicons = sources.take(3).map((s) {
@@ -33,11 +35,11 @@ class SourcesButton extends StatelessWidget {
       onTap: onSourceClicked,
       borderRadius: BorderRadius.circular(100),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
         decoration: BoxDecoration(
-          color: const Color(0xFF1E1E1E),
+          color: Theme.of(context).extension<AppThemeExtension>()!.cardBackground,
           borderRadius: BorderRadius.circular(100),
-          border: Border.all(color: const Color(0xFF2A2A2A)),
+          border: Border.all(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -56,8 +58,8 @@ class SourcesButton extends StatelessWidget {
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           border: Border.all(
-                              color: const Color(0xFF1E1E1E), width: 1.5),
-                          color: const Color(0xFF2A2A2A),
+                              color: Theme.of(context).extension<AppThemeExtension>()!.cardBackground, width: 1.5),
+                          color: Theme.of(context).extension<AppThemeExtension>()!.borderColor,
                         ),
                         child: ClipOval(
                           child: favicons[renderIndex].isNotEmpty
@@ -65,23 +67,23 @@ class SourcesButton extends StatelessWidget {
                                   'https://icon.horse/icon/${favicons[renderIndex]}',
                                   width: 13,
                                   height: 13,
-                                  errorBuilder: (_, __, ___) => const Icon(
+                                  errorBuilder: (_, __, ___) => Icon(
                                       Icons.language,
                                       size: 10,
-                                      color: Color(0xFF878787)),
+                                      color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary),
                                 )
-                              : const Icon(Icons.language,
-                                  size: 10, color: Color(0xFF878787)),
+                              : Icon(Icons.language,
+                                  size: 10, color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary),
                         ),
                       ),
                     );
                   }),
                 ),
               ),
-            if (favicons.isNotEmpty) const SizedBox(width: 8),
+            if (favicons.isNotEmpty) SizedBox(width: 8),
             Text(
               '${sources.length} source${sources.length == 1 ? '' : 's'}',
-              style: const TextStyle(
+              style: TextStyle(
                 color: Color(0xFFE0E0E0),
                 fontSize: 12,
                 fontWeight: FontWeight.w500,
