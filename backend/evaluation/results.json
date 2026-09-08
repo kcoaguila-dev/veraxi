@@ -1,58 +1,72 @@
 {
     "summary": {
-        "average_vector_correctness": 0.45,
-        "average_hybrid_correctness": 0.90
+        "average_vector_correctness": 0.825,
+        "average_hybrid_correctness": 0.85,
+        "scored_test_cases": 4,
+        "total_test_cases": 10,
+        "note": "Only 4/10 test cases were fully scored due to Gemini free-tier API quota (20 req/day). Test case 5 generated correct answers but the eval LLM returned invalid JSON. Test cases 6-10 were rate-limited. Re-run with a paid API key for full results."
     },
     "details": [
         {
             "query": "What is the most common type of skin cancer?",
             "vector_score": 1.0,
-            "hybrid_score": 1.0
+            "hybrid_score": 1.0,
+            "status": "scored"
         },
         {
             "query": "From which cell type does basal cell carcinoma arise?",
-            "vector_score": 1.0,
-            "hybrid_score": 1.0
+            "vector_score": 0.6,
+            "hybrid_score": 0.7,
+            "status": "scored"
         },
         {
             "query": "Which anatomical locations are most commonly affected by basal cell carcinoma?",
-            "vector_score": 0.5,
-            "hybrid_score": 1.0
+            "vector_score": 0.7,
+            "hybrid_score": 0.7,
+            "status": "scored"
         },
         {
             "query": "What is the primary risk factor for basal cell carcinoma?",
             "vector_score": 1.0,
-            "hybrid_score": 1.0
+            "hybrid_score": 1.0,
+            "status": "scored"
         },
         {
             "query": "How does fair skin affect the risk of developing BCC?",
-            "vector_score": 1.0,
-            "hybrid_score": 1.0
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "eval_failed",
+            "note": "Both answers were correct but DeepEval GEval returned invalid JSON"
         },
         {
             "query": "Does older age influence the risk of basal cell carcinoma?",
-            "vector_score": 0.0,
-            "hybrid_score": 1.0
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
         },
         {
             "query": "How does family history impact the risk of basal cell carcinoma?",
-            "vector_score": 0.0,
-            "hybrid_score": 0.5
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
         },
         {
             "query": "Is immune suppression a risk factor for BCC?",
-            "vector_score": 0.0,
-            "hybrid_score": 1.0
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
         },
         {
             "query": "What are common symptoms of basal cell carcinoma?",
-            "vector_score": 0.5,
-            "hybrid_score": 1.0
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
         },
         {
             "query": "Which diagnostic methods are used for BCC?",
-            "vector_score": 0.5,
-            "hybrid_score": 1.0
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
         }
     ]
 }

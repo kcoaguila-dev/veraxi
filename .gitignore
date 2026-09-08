@@ -41,3 +41,5 @@ infra/.terraform/
 *.tfstate.*
 \n# Local TTS Data\nbackend/tts/voices.json\nbackend/tts/voices/\n
 .deepeval/
+app/diff.patch
+app/analyze.txt
