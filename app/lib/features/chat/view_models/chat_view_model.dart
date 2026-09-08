@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'dart:convert';
 import 'dart:async';
 import 'package:sentry_flutter/sentry_flutter.dart';
@@ -10,6 +11,8 @@ import 'package:veraxi_app/core/tts_settings_storage.dart';
 import 'package:veraxi_app/core/web_speech_service.dart';
 import 'package:veraxi_app/core/network/tts_repository.dart';
 import 'package:veraxi_app/features/chat/data/chat_repository.dart';
+import 'package:veraxi_app/core/repositories/memory_repository.dart';
+import 'package:veraxi_app/core/repositories/model_config_repository.dart';
 
 class ToolEvent {
   final String id;
@@ -100,7 +103,6 @@ class ChatState {
   final String? threadId;
   final List<ChatMessage> messages;
   final List<Map<String, dynamic>> pastThreads;
-  final List<Map<String, dynamic>> projects;
   final bool isLoadingHistory;
   final bool isLoadingThreads;
   final bool isLoading;
@@ -117,7 +119,6 @@ class ChatState {
     this.threadId,
     this.messages = const [],
     this.pastThreads = const [],
-    this.projects = const [],
     this.isLoadingHistory = false,
     this.isLoadingThreads = false,
     this.isLoading = false,
@@ -136,7 +137,6 @@ class ChatState {
     bool clearThreadId = false,
     List<ChatMessage>? messages,
     List<Map<String, dynamic>>? pastThreads,
-    List<Map<String, dynamic>>? projects,
     bool? isLoadingHistory,
     bool? isLoadingThreads,
     bool? isLoading,
@@ -156,7 +156,6 @@ class ChatState {
       threadId: clearThreadId ? null : (threadId ?? this.threadId),
       messages: messages ?? this.messages,
       pastThreads: pastThreads ?? this.pastThreads,
-      projects: projects ?? this.projects,
       isLoadingHistory: isLoadingHistory ?? this.isLoadingHistory,
       isLoadingThreads: isLoadingThreads ?? this.isLoadingThreads,
       isLoading: isLoading ?? this.isLoading,
@@ -182,23 +181,28 @@ final chatViewModelProvider =
     StateNotifierProvider<ChatViewModel, ChatState>((ref) {
   final repo = ref.watch(chatRepositoryProvider);
   final ttsRepo = ref.watch(ttsRepositoryProvider);
-  return ChatViewModel(repo, ttsRepo);
+  final memoryRepo = ref.watch(memoryRepositoryProvider);
+  return ChatViewModel(repo, ttsRepo, memoryRepo);
 });
 
 final providerModelsProvider =
     FutureProvider<Map<String, List<String>>>((ref) async {
-  final repo = ref.watch(chatRepositoryProvider);
+  final repo = ref.watch(modelConfigRepositoryProvider);
   return await repo.getProviderModels();
 });
 
 class ChatViewModel extends StateNotifier<ChatState> {
+  @visibleForTesting
+  void setStateForTesting(ChatState s) => state = s;
+
   final ChatRepository _repository;
   final TTSRepository _ttsRepository;
+  final MemoryRepository _memoryRepository;
   final AudioPlayer _audioPlayer = AudioPlayer();
   DateTime? _currentRequestStartTime;
   StreamSubscription<AuthState>? _authSubscription;
 
-  ChatViewModel(this._repository, this._ttsRepository) : super(ChatState()) {
+  ChatViewModel(this._repository, this._ttsRepository, this._memoryRepository) : super(ChatState()) {
     _init();
     _audioPlayer.playerStateStream.listen((playerState) {
       if (playerState.processingState == ProcessingState.completed) {
@@ -255,9 +259,8 @@ class ChatViewModel extends StateNotifier<ChatState> {
     state = state.copyWith(isLoadingThreads: true);
     try {
       final threads = await _repository.getThreads();
-      final projects = await _repository.getProjects();
       state = state.copyWith(
-          pastThreads: threads, projects: projects, isLoadingThreads: false);
+          pastThreads: threads, isLoadingThreads: false);
     } catch (e, stack) {
       Sentry.captureException(e, stackTrace: stack);
       state = state.copyWith(isLoadingThreads: false);
@@ -599,7 +602,13 @@ class ChatViewModel extends StateNotifier<ChatState> {
           final newThreadId = data['thread_id'] as String;
           state = state.copyWith(threadId: newThreadId);
           if (isNewThread && state.activeProjectId != null) {
-            assignThreadToProject(newThreadId, state.activeProjectId);
+            try {
+              _repository.assignThreadToProject(newThreadId, state.activeProjectId).catchError((e, s) {
+                Sentry.captureException(e, stackTrace: s);
+              });
+            } catch (e, s) {
+              Sentry.captureException(e, stackTrace: s);
+            }
           }
         }
         if (data['thread_title'] != null) {
@@ -791,7 +800,7 @@ class ChatViewModel extends StateNotifier<ChatState> {
 
   Future<void> saveToMemory(String content, {String? model}) async {
     try {
-      await _repository.saveToMemory(content, model: model);
+      await _memoryRepository.saveToMemory(content, model: model);
     } catch (e, st) {
       Sentry.captureException(e, stackTrace: st);
       state = state.copyWith(error: 'Failed to save memory: $e');
@@ -966,63 +975,7 @@ class ChatViewModel extends StateNotifier<ChatState> {
     }
   }
 
-  Future<void> assignThreadToProject(String threadId, String? projectId) async {
-    try {
-      await _repository.assignThreadToProject(threadId, projectId);
-      await loadThreads();
-    } catch (e, st) {
-      Sentry.captureException(e, stackTrace: st);
-      state = state.copyWith(error: 'Failed to assign project: $e');
-    }
-  }
 
-  Future<List<Map<String, dynamic>>> getProjects() async {
-    try {
-      return await _repository.getProjects();
-    } catch (e, st) {
-      Sentry.captureException(e, stackTrace: st);
-      return [];
-    }
-  }
-
-  Future<Map<String, dynamic>?> createProject(String name) async {
-    try {
-      final project = await _repository.createProject(name);
-      await loadThreads();
-      return project;
-    } catch (e, st) {
-      Sentry.captureException(e, stackTrace: st);
-      state = state.copyWith(error: 'Failed to create project: $e');
-      return null;
-    }
-  }
-
-  Future<void> renameProject(String projectId, String newName) async {
-    try {
-      await _repository.renameProject(projectId, newName);
-      await loadThreads();
-    } catch (e, st) {
-      Sentry.captureException(e, stackTrace: st);
-      state = state.copyWith(error: 'Failed to rename project: $e');
-    }
-  }
-
-  Future<void> deleteProject(String projectId) async {
-    try {
-      await _repository.deleteProject(projectId);
-      if (state.activeProjectId == projectId) {
-        state = state.copyWith(
-          activeProjectId: null,
-          threadId: null,
-          messages: [],
-        );
-      }
-      await loadThreads();
-    } catch (e, st) {
-      Sentry.captureException(e, stackTrace: st);
-      state = state.copyWith(error: 'Failed to delete project: $e');
-    }
-  }
 }
 
 // ignore: experimental_member_use
@@ -1031,6 +984,8 @@ class BytesAudioSource extends StreamAudioSource {
   BytesAudioSource(this.bytes);
 
   @override
+  // ignore: experimental_member_use
+  // ignore: experimental_member_use
   // ignore: experimental_member_use
   Future<StreamAudioResponse> request([int? start, int? end]) async {
     start ??= 0;
@@ -1041,7 +996,7 @@ class BytesAudioSource extends StreamAudioSource {
       contentLength: end - start,
       offset: start,
       stream: Stream.value(bytes.sublist(start, end)),
-      contentType: 'audio/wav',
+      contentType: 'audio/mpeg',
     );
   }
 }

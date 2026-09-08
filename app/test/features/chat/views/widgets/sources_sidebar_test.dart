@@ -1,3 +1,4 @@
+import 'package:veraxi_app/core/theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:veraxi_app/features/chat/views/widgets/sources_sidebar.dart';
@@ -19,6 +20,8 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
+      theme: AppTheme.lightTheme,
+
         home: Scaffold(
           body: SourcesSidebar(sources: testSources),
         ),
@@ -73,6 +76,8 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
+      theme: AppTheme.lightTheme,
+
         home: Scaffold(
           body: SourcesSidebar(sources: testSources),
         ),

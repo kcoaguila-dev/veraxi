@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:veraxi_app/features/chat/view_models/chat_view_model.dart';
+import 'package:veraxi_app/core/providers/project_view_model.dart';
+import 'package:veraxi_app/core/theme_extension.dart';
+
 
 class CreateProjectDialog extends ConsumerStatefulWidget {
   const CreateProjectDialog({super.key});
@@ -28,8 +30,8 @@ class _CreateProjectDialogState extends ConsumerState<CreateProjectDialog> {
       _isLoading = true;
     });
 
-    final viewModel = ref.read(chatViewModelProvider.notifier);
-    final project = await viewModel.createProject(name);
+    final projectViewModel = ref.read(projectViewModelProvider.notifier);
+    final project = await projectViewModel.createProject(name);
 
     setState(() {
       _isLoading = false;
@@ -38,7 +40,7 @@ class _CreateProjectDialogState extends ConsumerState<CreateProjectDialog> {
     if (mounted) {
       Navigator.of(context).pop();
       if (project != null) {
-        viewModel.selectProject(project['id'] as String, name);
+        projectViewModel.selectProject(project['id'] as String, name);
       }
     }
   }
@@ -46,14 +48,14 @@ class _CreateProjectDialogState extends ConsumerState<CreateProjectDialog> {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      backgroundColor: const Color(0xFF131313),
+      backgroundColor: Theme.of(context).extension<AppThemeExtension>()!.dialogBackground,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: const BorderSide(color: Color(0xFF2A2A2A)),
+        side: BorderSide(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor),
       ),
       child: Container(
         width: 400,
-        padding: const EdgeInsets.all(24),
+        padding: EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -61,7 +63,7 @@ class _CreateProjectDialogState extends ConsumerState<CreateProjectDialog> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
+                Text(
                   'Create project',
                   style: TextStyle(
                     color: Colors.white,
@@ -71,7 +73,7 @@ class _CreateProjectDialogState extends ConsumerState<CreateProjectDialog> {
                 ),
                 IconButton(
                   icon:
-                      const Icon(Icons.close, color: Colors.white70, size: 20),
+                      Icon(Icons.close, color: Colors.white70, size: 20),
                   onPressed: () => Navigator.of(context).pop(),
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
@@ -79,8 +81,8 @@ class _CreateProjectDialogState extends ConsumerState<CreateProjectDialog> {
                 ),
               ],
             ),
-            const SizedBox(height: 24),
-            const Text(
+            SizedBox(height: 24),
+            Text(
               'Project name',
               style: TextStyle(
                 color: Colors.white70,
@@ -88,30 +90,30 @@ class _CreateProjectDialogState extends ConsumerState<CreateProjectDialog> {
                 fontWeight: FontWeight.w500,
               ),
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: 8),
             TextField(
               controller: _controller,
-              style: const TextStyle(color: Colors.white, fontSize: 14),
+              style: TextStyle(color: Colors.white, fontSize: 14),
               cursorColor: Colors.white,
               decoration: InputDecoration(
                 hintText: 'New project',
-                hintStyle: const TextStyle(color: Color(0xFF555555)),
+                hintStyle: TextStyle(color: Color(0xFF555555)),
                 filled: true,
-                fillColor: const Color(0xFF131313),
+                fillColor: Theme.of(context).extension<AppThemeExtension>()!.dialogBackground,
                 contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
-                  borderSide: const BorderSide(color: Color(0xFF333333)),
+                  borderSide: BorderSide(color: Theme.of(context).extension<AppThemeExtension>()!.borderColorStrong),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
-                  borderSide: const BorderSide(color: Color(0xFF555555)),
+                  borderSide: BorderSide(color: Color(0xFF555555)),
                 ),
               ),
               onSubmitted: (_) => _createProject(),
             ),
-            const SizedBox(height: 24),
+            SizedBox(height: 24),
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
@@ -119,22 +121,22 @@ class _CreateProjectDialogState extends ConsumerState<CreateProjectDialog> {
                   onPressed: () => Navigator.of(context).pop(),
                   style: TextButton.styleFrom(
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(
+                    padding: EdgeInsets.symmetric(
                         horizontal: 16, vertical: 12),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
-                      side: const BorderSide(color: Color(0xFF333333)),
+                      side: BorderSide(color: Theme.of(context).extension<AppThemeExtension>()!.borderColorStrong),
                     ),
                   ),
-                  child: const Text('Cancel'),
+                  child: Text('Cancel'),
                 ),
-                const SizedBox(width: 12),
+                SizedBox(width: 12),
                 ElevatedButton(
                   onPressed: _isLoading ? null : _createProject,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF10A37F),
+                    backgroundColor: Theme.of(context).colorScheme.secondary,
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(
+                    padding: EdgeInsets.symmetric(
                         horizontal: 16, vertical: 12),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
@@ -142,7 +144,7 @@ class _CreateProjectDialogState extends ConsumerState<CreateProjectDialog> {
                     elevation: 0,
                   ),
                   child: _isLoading
-                      ? const SizedBox(
+                      ? SizedBox(
                           width: 16,
                           height: 16,
                           child: CircularProgressIndicator(
@@ -150,7 +152,7 @@ class _CreateProjectDialogState extends ConsumerState<CreateProjectDialog> {
                             color: Colors.white,
                           ),
                         )
-                      : const Text('Create project'),
+                      : Text('Create project'),
                 ),
               ],
             ),

@@ -1,22 +1,25 @@
 import 'package:flutter/material.dart';
+import 'package:veraxi_app/core/theme_extension.dart';
+
 
 class VeraxiLogo extends StatelessWidget {
   final double size;
-  final Color color;
+  final Color? color;
 
   const VeraxiLogo({
     super.key,
     this.size = 24.0,
-    this.color = const Color(0xFFB4B4B4),
+    this.color,
   });
 
   @override
   Widget build(BuildContext context) {
+    final effectiveColor = color ?? Theme.of(context).extension<AppThemeExtension>()!.iconColor;
     return SizedBox(
       width: size,
       height: size,
       child: CustomPaint(
-        painter: _VeraxiLogoPainter(color: color),
+        painter: _VeraxiLogoPainter(color: effectiveColor),
       ),
     );
   }

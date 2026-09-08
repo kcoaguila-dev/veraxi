@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:veraxi_app/features/chat/view_models/chat_view_model.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
+import 'package:veraxi_app/core/theme_extension.dart';
+
 
 class ArchivedChatsDialog extends ConsumerStatefulWidget {
   const ArchivedChatsDialog({super.key});
@@ -43,23 +45,23 @@ class _ArchivedChatsDialogState extends ConsumerState<ArchivedChatsDialog> {
     });
 
     return Dialog(
-      backgroundColor: const Color(0xFF171717),
+      backgroundColor: Theme.of(context).extension<AppThemeExtension>()!.sidebarBackground,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
-        side: const BorderSide(color: Color(0xFF2A2A2A)),
+        side: BorderSide(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor),
       ),
-      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+      insetPadding: EdgeInsets.symmetric(horizontal: 24, vertical: 24),
       child: Container(
         width: MediaQuery.of(context).size.width * 0.7,
         height: MediaQuery.of(context).size.height * 0.7,
-        padding: const EdgeInsets.all(24),
+        padding: EdgeInsets.all(24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
+                Text(
                   'Archived chats',
                   style: TextStyle(
                     color: Color(0xFFECECEC),
@@ -69,22 +71,22 @@ class _ArchivedChatsDialogState extends ConsumerState<ArchivedChatsDialog> {
                 ),
                 IconButton(
                   onPressed: () => Navigator.of(context).pop(),
-                  icon: const Icon(Icons.close, color: Color(0xFF888888)),
+                  icon: Icon(Icons.close, color: Color(0xFF888888)),
                   splashRadius: 20,
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
                 ),
               ],
             ),
-            const SizedBox(height: 24),
+            SizedBox(height: 24),
             Container(
               decoration: BoxDecoration(
-                border: Border.all(color: const Color(0xFF2A2A2A)),
+                border: Border.all(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor),
                 borderRadius: const BorderRadius.only(
                     topLeft: Radius.circular(6), topRight: Radius.circular(6)),
-                color: const Color(0xFF1E1E1E),
+                color: Theme.of(context).extension<AppThemeExtension>()!.cardBackground,
               ),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               child: Row(
                 children: [
                   const Expanded(flex: 3, child: _HeaderTitle('Name')),
@@ -96,18 +98,18 @@ class _ArchivedChatsDialogState extends ConsumerState<ArchivedChatsDialog> {
             ),
             Expanded(
               child: Container(
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   border: Border(
-                    left: BorderSide(color: Color(0xFF2A2A2A)),
-                    right: BorderSide(color: Color(0xFF2A2A2A)),
-                    bottom: BorderSide(color: Color(0xFF2A2A2A)),
+                    left: BorderSide(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor),
+                    right: BorderSide(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor),
+                    bottom: BorderSide(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor),
                   ),
                   borderRadius: BorderRadius.only(
                       bottomLeft: Radius.circular(6),
                       bottomRight: Radius.circular(6)),
                 ),
                 child: archivedChats.isEmpty
-                    ? const Center(
+                    ? Center(
                         child: Text('No archived chats.',
                             style: TextStyle(
                                 color: Color(0xFF888888), fontSize: 14)),
@@ -115,7 +117,7 @@ class _ArchivedChatsDialogState extends ConsumerState<ArchivedChatsDialog> {
                     : ListView.separated(
                         itemCount: archivedChats.length,
                         separatorBuilder: (context, index) =>
-                            const Divider(color: Color(0xFF2A2A2A), height: 1),
+                            Divider(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor, height: 1),
                         itemBuilder: (context, index) {
                           final chat = archivedChats[index];
                           final id = chat['thread_id'].toString();
@@ -123,7 +125,7 @@ class _ArchivedChatsDialogState extends ConsumerState<ArchivedChatsDialog> {
                           final date = _formatDate(chat['_timestamp']);
 
                           return Padding(
-                            padding: const EdgeInsets.symmetric(
+                            padding: EdgeInsets.symmetric(
                                 horizontal: 16, vertical: 8),
                             child: Row(
                               children: [
@@ -131,7 +133,7 @@ class _ArchivedChatsDialogState extends ConsumerState<ArchivedChatsDialog> {
                                   flex: 3,
                                   child: Text(
                                     title,
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                         color: Color(0xFFECECEC), fontSize: 14),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
@@ -141,7 +143,7 @@ class _ArchivedChatsDialogState extends ConsumerState<ArchivedChatsDialog> {
                                   flex: 2,
                                   child: Text(
                                     date,
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                         color: Color(0xFF888888), fontSize: 13),
                                   ),
                                 ),
@@ -153,7 +155,7 @@ class _ArchivedChatsDialogState extends ConsumerState<ArchivedChatsDialog> {
                                       Tooltip(
                                         message: 'Unarchive thread',
                                         child: IconButton(
-                                          icon: const Icon(
+                                          icon: Icon(
                                               Icons.unarchive_outlined,
                                               color: Color(0xFF888888),
                                               size: 20),
@@ -172,7 +174,7 @@ class _ArchivedChatsDialogState extends ConsumerState<ArchivedChatsDialog> {
                                       Tooltip(
                                         message: 'Delete thread',
                                         child: IconButton(
-                                          icon: const Icon(Icons.delete_outline,
+                                          icon: Icon(Icons.delete_outline,
                                               color: Color(0xFFEF4444),
                                               size: 20),
                                           onPressed: () async {
@@ -213,7 +215,7 @@ class _HeaderTitle extends StatelessWidget {
       children: [
         Text(
           title,
-          style: const TextStyle(
+          style: TextStyle(
             color: Color(0xFFECECEC),
             fontSize: 13,
             fontWeight: FontWeight.w500,

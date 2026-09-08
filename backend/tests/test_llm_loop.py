@@ -20,10 +20,7 @@ def mock_config():
         mock_get_config.return_value = mock_conf
         yield mock_conf
 
-@pytest.fixture
-def mock_app():
-    with patch("backend.mcp_server.llm_loop._app") as mock_a:
-        yield mock_a
+# Removed mock_app fixture
 
 @pytest.fixture
 def mock_postgres_saver():
@@ -39,7 +36,7 @@ def mock_postgres_saver():
         yield mock_ps
 
 @pytest.mark.asyncio
-async def test_answer_question_basic(mock_config, mock_app, mock_postgres_saver):
+async def test_answer_question_basic(mock_config, mock_postgres_saver):
     # Setup mock workflow graph
     mock_workflow = AsyncMock()
     mock_workflow.ainvoke.return_value = {
@@ -62,7 +59,7 @@ async def test_answer_question_basic(mock_config, mock_app, mock_postgres_saver)
 
 
 @pytest.mark.asyncio
-async def test_stream_answer_question_basic(mock_config, mock_app, mock_postgres_saver):
+async def test_stream_answer_question_basic(mock_config, mock_postgres_saver):
     # Mocking the async generator for astream_events
     async def mock_astream_events(*args, **kwargs):
         yield {
@@ -96,7 +93,7 @@ async def test_stream_answer_question_basic(mock_config, mock_app, mock_postgres
         assert chunks[0]["data"]["chunk"].content == "Chunk 1"
         assert chunks[1]["data"]["chunk"].content == "Chunk 2"
 
-from backend.mcp_server.llm_loop import route_evaluation, should_continue
+from backend.mcp_server.orchestrator import route_evaluation, should_continue
 
 
 def test_route_evaluation():
@@ -117,7 +114,7 @@ def test_should_continue():
 
 @pytest.mark.asyncio
 async def test_evaluate_context(mock_config):
-    from backend.mcp_server.llm_loop import GradeDocuments, evaluate_context
+    from backend.mcp_server.orchestrator import GradeDocuments, evaluate_context
     from langchain_core.messages import HumanMessage
     
     # Test empty context
@@ -128,7 +125,7 @@ async def test_evaluate_context(mock_config):
     mock_llm = AsyncMock()
     mock_llm.ainvoke.return_value = GradeDocuments(binary_score="yes")
     
-    with patch("backend.mcp_server.llm_loop.ChatOpenAI") as mock_chat:
+    with patch("backend.mcp_server.orchestrator.ChatOpenAI") as mock_chat:
         mock_chat.return_value.with_structured_output.return_value = mock_llm
         res = await evaluate_context({"messages": [HumanMessage(content="Hello")], "retrieved_context": "Some useful text"})
         assert res["context_relevance"] == "yes"
@@ -138,7 +135,7 @@ async def test_web_search_fallback(mock_config):
     import io
     import json
 
-    from backend.mcp_server.llm_loop import web_search_fallback
+    from backend.mcp_server.orchestrator import web_search_fallback
     from langchain_core.messages import HumanMessage
     
     mock_response = io.BytesIO(json.dumps({
@@ -154,13 +151,13 @@ async def test_web_search_fallback(mock_config):
         assert "retrieved_context" in res
 @pytest.mark.asyncio
 async def test_execute_tools():
-    from backend.mcp_server.llm_loop import execute_tools
+    from backend.mcp_server.orchestrator import execute_tools
     from langchain_core.messages import AIMessage
     
     # Mock tool call
     msg_with_tool = AIMessage(content="", tool_calls=[{"name": "test_tool", "args": {}, "id": "1"}])
     
-    with patch("backend.mcp_server.llm_loop._execute_single_tool") as mock_exec:
+    with patch("backend.mcp_server.tool_dispatch._execute_single_tool") as mock_exec:
         mock_exec.return_value = ([], []) # v_hits, g_hits
         
         state = {
@@ -174,14 +171,14 @@ async def test_execute_tools():
 
 @pytest.mark.asyncio
 async def test_get_tools(mock_config):
-    from backend.mcp_server.llm_loop import get_tools
+    from backend.mcp_server.tool_dispatch import get_tools
     tools = await get_tools({"file_search_enabled": True})
     assert len(tools) > 0
     assert tools[0]["function"]["name"] == "search_vectors"
 
 @pytest.mark.asyncio
 async def test_call_model(mock_config):
-    from backend.mcp_server.llm_loop import call_model
+    from backend.mcp_server.orchestrator import call_model
     from langchain_core.messages import AIMessage, HumanMessage
     
     msg = HumanMessage(content="Hello")
@@ -189,7 +186,7 @@ async def test_call_model(mock_config):
     mock_llm = AsyncMock()
     mock_llm.ainvoke.return_value = AIMessage(content="Hi there!", additional_kwargs={})
     
-    with patch("backend.mcp_server.llm_loop._create_chat_llm") as mock_create:
+    with patch("backend.mcp_server.orchestrator._create_chat_llm") as mock_create:
         mock_create.return_value.bind_tools.return_value = mock_llm
         
         state = {
@@ -202,7 +199,7 @@ async def test_call_model(mock_config):
         assert res["messages"][0].content == "Hi there!"
 
 def test_execute_single_tool(mock_config):
-    from backend.mcp_server.llm_loop import _execute_single_tool
+    from backend.mcp_server.tool_dispatch import _execute_single_tool
     
     # Test time tool
     v_hits, g_hits = _execute_single_tool("get_current_time", {}, "test_tenant")
@@ -237,13 +234,13 @@ def test_execute_single_tool(mock_config):
         assert "error" in v_hits[0].payload
 
     # Test search_vectors mock
-    with patch("backend.mcp_server.llm_loop.search_vectors") as mock_sv:
+    with patch("backend.mcp_server.tool_dispatch.search_vectors") as mock_sv:
         mock_sv.return_value = [MagicMock()]
         v_hits, g_hits = _execute_single_tool("search_vectors", {"query_text": "test", "limit": 5}, "test_tenant", tool_settings={"file_search_enabled": True})
         assert len(v_hits) == 1
         
     # Test query_graph mock
-    with patch("backend.mcp_server.llm_loop.query_graph") as mock_qg:
+    with patch("backend.mcp_server.tool_dispatch.query_graph") as mock_qg:
         mock_qg.return_value = [MagicMock()]
         v_hits, g_hits = _execute_single_tool("query_graph", {"entity_name": "test", "max_hops": 2}, "test_tenant", tool_settings={"file_search_enabled": True})
         assert len(g_hits) == 1
@@ -283,7 +280,8 @@ def test_handle_stream_events():
     assert events[0]["event"] == "metadata"
 
 def test_helpers():
-    from backend.mcp_server.llm_loop import _build_context_string, _cosine_similarity
+    from backend.mcp_server.formatter import _cosine_similarity
+    from backend.mcp_server.tool_dispatch import _build_context_string
     
     # Test _cosine_similarity
     assert _cosine_similarity([1, 0], [1, 0]) == 1.0
@@ -309,10 +307,8 @@ def test_simple_helpers():
     import os
     from unittest.mock import patch
 
-    from backend.mcp_server.llm_loop import (
-        _apply_observability_settings,
-        _prepend_system_messages,
-    )
+    from backend.mcp_server.formatter import _prepend_system_messages
+    from backend.mcp_server.llm_loop import _apply_observability_settings
     from langchain_core.messages import HumanMessage, SystemMessage
     
     # Test _apply_observability_settings

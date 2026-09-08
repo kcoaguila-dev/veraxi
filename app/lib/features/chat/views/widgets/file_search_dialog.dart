@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
+import 'package:veraxi_app/core/theme_extension.dart';
+
 
 class FileSearchDialog extends StatefulWidget {
   const FileSearchDialog({super.key});
@@ -59,15 +61,15 @@ class _FileSearchDialogState extends State<FileSearchDialog> {
   Widget build(BuildContext context) {
     return Dialog(
       backgroundColor: Colors.transparent,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+      insetPadding: EdgeInsets.symmetric(horizontal: 24, vertical: 24),
       child: Container(
         width: 480,
         constraints: const BoxConstraints(maxWidth: 480),
-        padding: const EdgeInsets.all(24),
+        padding: EdgeInsets.all(24),
         decoration: BoxDecoration(
-          color: const Color(0xFF171717),
+          color: Theme.of(context).extension<AppThemeExtension>()!.sidebarBackground,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xFF2A2A2A)),
+          border: Border.all(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.5),
@@ -81,7 +83,7 @@ class _FileSearchDialogState extends State<FileSearchDialog> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             // Header
-            const Center(
+            Center(
               child: Text(
                 'Internal Knowledge',
                 style: TextStyle(
@@ -91,13 +93,13 @@ class _FileSearchDialogState extends State<FileSearchDialog> {
                 ),
               ),
             ),
-            const SizedBox(height: 24),
+            SizedBox(height: 24),
 
             // Toggle
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Expanded(
+                Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -110,7 +112,7 @@ class _FileSearchDialogState extends State<FileSearchDialog> {
                       Text(
                           'Allow the AI to search your uploaded files and internal knowledge graph.',
                           style: TextStyle(
-                              color: Color(0xFF878787), fontSize: 12)),
+                              color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary, fontSize: 12)),
                     ],
                   ),
                 ),
@@ -121,12 +123,12 @@ class _FileSearchDialogState extends State<FileSearchDialog> {
                       _fileSearchEnabled = value;
                     });
                   },
-                  activeThumbColor: const Color(0xFF10A37F),
+                  activeThumbColor: Theme.of(context).colorScheme.secondary,
                 ),
               ],
             ),
 
-            const SizedBox(height: 32),
+            SizedBox(height: 32),
 
             // Actions
             Row(
@@ -135,29 +137,29 @@ class _FileSearchDialogState extends State<FileSearchDialog> {
                 TextButton(
                   onPressed: () => Navigator.of(context).pop(),
                   style: TextButton.styleFrom(
-                    backgroundColor: const Color(0xFF2F2F2F),
+                    backgroundColor: Theme.of(context).extension<AppThemeExtension>()!.surfaceHighlight,
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(
+                    padding: EdgeInsets.symmetric(
                         horizontal: 16, vertical: 10),
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(6)),
                   ),
-                  child: const Text('Cancel',
+                  child: Text('Cancel',
                       style:
                           TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
                 ),
-                const SizedBox(width: 12),
+                SizedBox(width: 12),
                 TextButton(
                   onPressed: _saveSettings,
                   style: TextButton.styleFrom(
-                    backgroundColor: const Color(0xFF10A37F), // ChatGPT Green
+                    backgroundColor: Theme.of(context).colorScheme.secondary, // ChatGPT Green
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(
+                    padding: EdgeInsets.symmetric(
                         horizontal: 16, vertical: 10),
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(6)),
                   ),
-                  child: const Text('Save',
+                  child: Text('Save',
                       style:
                           TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
                 ),

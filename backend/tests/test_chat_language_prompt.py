@@ -1,7 +1,8 @@
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from backend.mcp_server.llm_loop import _prepend_system_messages, call_model
+from backend.mcp_server.formatter import _prepend_system_messages
+from backend.mcp_server.orchestrator import call_model
 from backend.prompts import CHAT_SYSTEM_PROMPT
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
@@ -27,8 +28,8 @@ def test_system_prompt_citation_format():
     assert "fact [Foxbusiness](url)" in CRAG_ORCHESTRATOR_PROMPT
 
 @pytest.mark.asyncio
-@patch("backend.mcp_server.llm_loop.get_tools", new_callable=AsyncMock)
-@patch("backend.mcp_server.llm_loop._create_chat_llm")
+@patch("backend.mcp_server.orchestrator.get_tools", new_callable=AsyncMock)
+@patch("backend.mcp_server.orchestrator._create_chat_llm")
 async def test_call_model_passes_language_system_prompt(mock_create_llm, mock_get_tools):
     mock_get_tools.return_value = []
     mock_instance = AsyncMock()

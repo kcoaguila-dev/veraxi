@@ -83,10 +83,13 @@ def run_benchmark():
     vector_scores = []
     hybrid_scores = []
         
-    # ONLY DO THE FIRST QUERY because that is the only one we ingested with MCP!
-    for idx, item in enumerate(evaluation_data[:1]):
+    # Initialize results output
+    benchmark_results = []
+        
+    for idx, item in enumerate(evaluation_data[:5]):
         query = item["query"]
         expected_answer = item["expected_answer"]
+        entity = item.get("entity", "Basal cell carcinoma")
         
         print("="*60)
         print(f"TEST CASE {idx+1}")
@@ -124,7 +127,7 @@ def run_benchmark():
         v_raw = search_vectors(query_text=query, limit=5, tenant_id=tenant_id)
         v_hits = [VectorHit(id=hit.id, score=hit.score, payload=hit.payload) for hit in v_raw]
         
-        g_raw = query_graph(entity_name="Arthur's Magazine", max_hops=2, tenant_id=tenant_id)
+        g_raw = query_graph(entity_name=entity, max_hops=2, tenant_id=tenant_id)
         g_hits = [GraphHit(id=hit.id, payload=hit.payload) for hit in g_raw]
         
         hybrid_hits = merge_rank(vector_hits=v_hits, graph_hits=g_hits, limit=5)
@@ -133,6 +136,7 @@ def run_benchmark():
         hybrid_answer = generate_answer(query, hybrid_context)
         print(f"Hybrid Answer:\n{hybrid_answer}\n")
         
+        import time
         print("Evaluating Hybrid GraphRAG Correctness via DeepEval...")
         try:
             h_test_case = LLMTestCase(
@@ -148,12 +152,39 @@ def run_benchmark():
             
         hybrid_scores.append(h_score)
         print(f"Hybrid Answer Correctness Score: {h_score:.2f}")
+
+        benchmark_results.append({
+            "query": query,
+            "vector_score": v_score,
+            "hybrid_score": h_score
+        })
+        
+        print("Sleeping for 15s to respect API rate limits...")
+        time.sleep(15)
         
     print("\n" + "="*60)
     print("FINAL BENCHMARK AGGREGATION")
-    print(f"Average Vector RAG Correctness: {statistics.mean(vector_scores) * 100:.1f}%")
-    print(f"Average Hybrid GraphRAG Correctness: {statistics.mean(hybrid_scores) * 100:.1f}%")
+    
+    avg_vector = statistics.mean(vector_scores) if vector_scores else 0
+    avg_hybrid = statistics.mean(hybrid_scores) if hybrid_scores else 0
+    
+    print(f"Average Vector RAG Correctness: {avg_vector * 100:.1f}%")
+    print(f"Average Hybrid GraphRAG Correctness: {avg_hybrid * 100:.1f}%")
     print("="*60)
+
+    # Save to file
+    final_output = {
+        "summary": {
+            "average_vector_correctness": avg_vector,
+            "average_hybrid_correctness": avg_hybrid
+        },
+        "details": benchmark_results
+    }
+    
+    with open("backend/evaluation/results.json", "w") as f:
+        json.dump(final_output, f, indent=4)
+        
+    print("Results saved to backend/evaluation/results.json")
 
 if __name__ == "__main__":
     run_benchmark()

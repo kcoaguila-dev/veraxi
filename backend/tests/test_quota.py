@@ -88,41 +88,41 @@ class TestMcpInsertHandlerQuota:
     skip it on self-hosted deployments."""
 
     def test_insert_graph_nodes_enforces_cap_on_cloud(self):
-        from backend.mcp_server.server import _handle_insert_graph_nodes
-        with patch("backend.mcp_server.server.get_config",
+        from backend.mcp_server.handlers.tool_registry import _handle_insert_graph_nodes
+        with patch("backend.mcp_server.handlers.tool_registry.get_config",
                    return_value=_make_config(max_nodes=1000, auth_enabled=True)), \
-             patch("backend.mcp_server.server.check_tenant_hard_cap",
+             patch("backend.mcp_server.handlers.tool_registry.check_tenant_hard_cap",
                    side_effect=HTTPException(status_code=403, detail="quota")) as mock_cap, \
              pytest.raises(HTTPException):
             _handle_insert_graph_nodes({"nodes": [], "relations": []}, "cloud-user")
         mock_cap.assert_called_once()
 
     def test_insert_graph_nodes_skips_cap_on_self_hosted(self):
-        from backend.mcp_server.server import _handle_insert_graph_nodes
-        with patch("backend.mcp_server.server.get_config",
+        from backend.mcp_server.handlers.tool_registry import _handle_insert_graph_nodes
+        with patch("backend.mcp_server.handlers.tool_registry.get_config",
                    return_value=_make_config(auth_enabled=False)), \
-             patch("backend.mcp_server.server.check_tenant_hard_cap") as mock_cap, \
-             patch("backend.mcp_server.server.insert_graph_nodes",
+             patch("backend.mcp_server.handlers.tool_registry.check_tenant_hard_cap") as mock_cap, \
+             patch("backend.mcp_server.handlers.tool_registry.insert_graph_nodes",
                    return_value={"status": "success", "nodes_inserted": 0, "relations_inserted": 0}):
             _handle_insert_graph_nodes({"nodes": [], "relations": []}, "local_personal_user")
         mock_cap.assert_not_called()
 
     def test_insert_vectors_enforces_cap_on_cloud(self):
-        from backend.mcp_server.server import _handle_insert_vectors
-        with patch("backend.mcp_server.server.get_config",
+        from backend.mcp_server.handlers.tool_registry import _handle_insert_vectors
+        with patch("backend.mcp_server.handlers.tool_registry.get_config",
                    return_value=_make_config(max_nodes=1000, auth_enabled=True)), \
-             patch("backend.mcp_server.server.check_tenant_hard_cap",
+             patch("backend.mcp_server.handlers.tool_registry.check_tenant_hard_cap",
                    side_effect=HTTPException(status_code=403, detail="quota")) as mock_cap, \
              pytest.raises(HTTPException):
             _handle_insert_vectors({"texts": ["hello"]}, "cloud-user")
         mock_cap.assert_called_once()
 
     def test_insert_vectors_skips_cap_on_self_hosted(self):
-        from backend.mcp_server.server import _handle_insert_vectors
-        with patch("backend.mcp_server.server.get_config",
+        from backend.mcp_server.handlers.tool_registry import _handle_insert_vectors
+        with patch("backend.mcp_server.handlers.tool_registry.get_config",
                    return_value=_make_config(auth_enabled=False)), \
-             patch("backend.mcp_server.server.check_tenant_hard_cap") as mock_cap, \
-             patch("backend.mcp_server.server.insert_vectors",
+             patch("backend.mcp_server.handlers.tool_registry.check_tenant_hard_cap") as mock_cap, \
+             patch("backend.mcp_server.handlers.tool_registry.insert_vectors",
                    return_value={"status": "success", "vectors_inserted": 0, "point_ids": []}):
             _handle_insert_vectors({"texts": []}, "local_personal_user")
         mock_cap.assert_not_called()

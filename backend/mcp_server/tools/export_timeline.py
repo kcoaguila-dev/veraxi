@@ -1,8 +1,10 @@
 import os
-from typing import List, Dict, Any, Literal
+from typing import Any, Literal
+
 import opentimelineio as otio
 
-def build_otio(clips: List[Dict[str, Any]]) -> otio.schema.Timeline:
+
+def build_otio(clips: list[dict[str, Any]]) -> otio.schema.Timeline:
     timeline = otio.schema.Timeline("Veraxi_Generated_Timeline")
     
     # We will create two tracks: one for Video (which might have text overlay markers or generic generators) and one for Audio
@@ -59,7 +61,7 @@ def build_otio(clips: List[Dict[str, Any]]) -> otio.schema.Timeline:
         
     return timeline
 
-def build_fcpxml(clips: List[Dict[str, Any]]) -> str:
+def build_fcpxml(clips: list[dict[str, Any]]) -> str:
     # A very simplified FCPXML generator for basic sequential audio clips
     xml = ['<?xml version="1.0" encoding="UTF-8"?>']
     xml.append('<!DOCTYPE fcpxml>')
@@ -90,8 +92,8 @@ def build_fcpxml(clips: List[Dict[str, Any]]) -> str:
         dialogue = clip.get("dialogue", "").replace('"', '&quot;').replace('<', '&lt;').replace('>', '&gt;')
         xml.append(f'              <title name="{clip.get("character", "Title")}" offset="0s" duration="{dur_str}">')
         xml.append(f'                <text><text-style>{dialogue}</text-style></text>')
-        xml.append(f'              </title>')
-        xml.append(f'            </clip>')
+        xml.append('              </title>')
+        xml.append('            </clip>')
         
         total_time += duration
         
@@ -104,7 +106,7 @@ def build_fcpxml(clips: List[Dict[str, Any]]) -> str:
     
     return "\n".join(xml)
 
-def build_ymm4_csv(clips: List[Dict[str, Any]]) -> str:
+def build_ymm4_csv(clips: list[dict[str, Any]]) -> str:
     # Generates a CSV formatted for YMM4's CSV import feature.
     # Typical YMM4 CSV columns: キャラクター,セリフ,音声ファイルパス (Character, Dialogue, Audio Path)
     lines = []
@@ -121,7 +123,7 @@ def build_ymm4_csv(clips: List[Dict[str, Any]]) -> str:
 
 
 def mcp_veraxi_mcp_export_timeline(
-    clips: List[Dict[str, Any]], 
+    clips: list[dict[str, Any]], 
     format: Literal["otio", "fcpxml", "ymm4_csv"] = "otio",
     output_name: str = "veraxi_timeline"
 ) -> str:

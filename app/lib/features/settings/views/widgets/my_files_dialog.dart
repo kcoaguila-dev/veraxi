@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
-import 'package:veraxi_app/features/chat/data/chat_repository.dart';
+import 'package:veraxi_app/core/repositories/file_repository.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
+import 'package:veraxi_app/core/theme_extension.dart';
+
 
 class MyFilesDialog extends ConsumerStatefulWidget {
   const MyFilesDialog({super.key});
@@ -30,7 +32,7 @@ class _MyFilesDialogState extends ConsumerState<MyFilesDialog> {
       _error = null;
     });
     try {
-      final repo = ref.read(chatRepositoryProvider);
+      final repo = ref.read(fileRepositoryProvider);
       final files = await repo.getFiles();
       setState(() {
         _files = files;
@@ -48,7 +50,7 @@ class _MyFilesDialogState extends ConsumerState<MyFilesDialog> {
   Future<void> _deleteSelected() async {
     if (_selectedIds.isEmpty) return;
 
-    final repo = ref.read(chatRepositoryProvider);
+    final repo = ref.read(fileRepositoryProvider);
     for (final id in _selectedIds.toList()) {
       try {
         await repo.deleteFile(id);
@@ -76,23 +78,23 @@ class _MyFilesDialogState extends ConsumerState<MyFilesDialog> {
     }).toList();
 
     return Dialog(
-      backgroundColor: const Color(0xFF171717),
+      backgroundColor: Theme.of(context).extension<AppThemeExtension>()!.sidebarBackground,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
-        side: const BorderSide(color: Color(0xFF2A2A2A)),
+        side: BorderSide(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor),
       ),
-      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+      insetPadding: EdgeInsets.symmetric(horizontal: 24, vertical: 24),
       child: Container(
         width: MediaQuery.of(context).size.width * 0.8,
         height: MediaQuery.of(context).size.height * 0.8,
-        padding: const EdgeInsets.all(24),
+        padding: EdgeInsets.all(24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
+                Text(
                   'My Files',
                   style: TextStyle(
                     color: Color(0xFFECECEC),
@@ -102,14 +104,14 @@ class _MyFilesDialogState extends ConsumerState<MyFilesDialog> {
                 ),
                 IconButton(
                   onPressed: () => Navigator.of(context).pop(),
-                  icon: const Icon(Icons.close, color: Color(0xFF888888)),
+                  icon: Icon(Icons.close, color: Color(0xFF888888)),
                   splashRadius: 20,
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
                 ),
               ],
             ),
-            const SizedBox(height: 24),
+            SizedBox(height: 24),
             Row(
               children: [
                 ElevatedButton.icon(
@@ -136,47 +138,47 @@ class _MyFilesDialogState extends ConsumerState<MyFilesDialog> {
                     elevation: 0,
                     side: BorderSide(
                         color: _selectedIds.isEmpty
-                            ? const Color(0xFF2A2A2A)
+                            ? Theme.of(context).extension<AppThemeExtension>()!.borderColor
                             : const Color(0xFFEF4444).withValues(alpha: 0.5)),
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(6)),
-                    padding: const EdgeInsets.symmetric(
+                    padding: EdgeInsets.symmetric(
                         horizontal: 16, vertical: 12),
                   ),
                 ),
-                const SizedBox(width: 16),
+                SizedBox(width: 16),
                 Expanded(
                   child: TextField(
                     onChanged: (val) => setState(() => _searchQuery = val),
                     style:
-                        const TextStyle(color: Color(0xFFECECEC), fontSize: 14),
+                        TextStyle(color: Color(0xFFECECEC), fontSize: 14),
                     decoration: InputDecoration(
                       hintText: 'Filter files...',
-                      hintStyle: const TextStyle(color: Color(0xFF888888)),
+                      hintStyle: TextStyle(color: Color(0xFF888888)),
                       isDense: true,
-                      contentPadding: const EdgeInsets.symmetric(
+                      contentPadding: EdgeInsets.symmetric(
                           horizontal: 16, vertical: 12),
                       filled: true,
                       fillColor: Colors.transparent,
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(6),
-                        borderSide: const BorderSide(color: Color(0xFF2A2A2A)),
+                        borderSide: BorderSide(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor),
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(6),
-                        borderSide: const BorderSide(color: Color(0xFF666666)),
+                        borderSide: BorderSide(color: Color(0xFF666666)),
                       ),
                     ),
                   ),
                 ),
-                const SizedBox(width: 16),
+                SizedBox(width: 16),
                 Container(
                   decoration: BoxDecoration(
-                    border: Border.all(color: const Color(0xFF2A2A2A)),
+                    border: Border.all(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor),
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: IconButton(
-                    icon: const Icon(Icons.filter_list,
+                    icon: Icon(Icons.filter_list,
                         color: Color(0xFF888888), size: 18),
                     onPressed: () {},
                     splashRadius: 20,
@@ -184,15 +186,15 @@ class _MyFilesDialogState extends ConsumerState<MyFilesDialog> {
                 ),
               ],
             ),
-            const SizedBox(height: 24),
+            SizedBox(height: 24),
             Container(
               decoration: BoxDecoration(
-                border: Border.all(color: const Color(0xFF2A2A2A)),
+                border: Border.all(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor),
                 borderRadius: const BorderRadius.only(
                     topLeft: Radius.circular(6), topRight: Radius.circular(6)),
-                color: const Color(0xFF1E1E1E),
+                color: Theme.of(context).extension<AppThemeExtension>()!.cardBackground,
               ),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               child: Row(
                 children: [
                   SizedBox(
@@ -211,11 +213,11 @@ class _MyFilesDialogState extends ConsumerState<MyFilesDialog> {
                           }
                         });
                       },
-                      side: const BorderSide(color: Color(0xFF666666)),
-                      activeColor: const Color(0xFF3B82F6),
+                      side: BorderSide(color: Color(0xFF666666)),
+                      activeColor: Theme.of(context).colorScheme.primary,
                     ),
                   ),
-                  const SizedBox(width: 16),
+                  SizedBox(width: 16),
                   const Expanded(flex: 3, child: _HeaderTitle('Name')),
                   const Expanded(flex: 2, child: _HeaderTitle('Date')),
                   const Expanded(flex: 1, child: _HeaderTitle('Storage')),
@@ -226,26 +228,26 @@ class _MyFilesDialogState extends ConsumerState<MyFilesDialog> {
             ),
             Expanded(
               child: Container(
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   border: Border(
-                    left: BorderSide(color: Color(0xFF2A2A2A)),
-                    right: BorderSide(color: Color(0xFF2A2A2A)),
-                    bottom: BorderSide(color: Color(0xFF2A2A2A)),
+                    left: BorderSide(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor),
+                    right: BorderSide(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor),
+                    bottom: BorderSide(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor),
                   ),
                   borderRadius: BorderRadius.only(
                       bottomLeft: Radius.circular(6),
                       bottomRight: Radius.circular(6)),
                 ),
                 child: _isLoading
-                    ? const Center(
+                    ? Center(
                         child:
                             CircularProgressIndicator(color: Color(0xFF888888)))
                     : _error != null
                         ? Center(
                             child: Text(_error!,
-                                style: const TextStyle(color: Colors.red)))
+                                style: TextStyle(color: Colors.red)))
                         : filteredFiles.isEmpty
-                            ? const Center(
+                            ? Center(
                                 child: Text('No results.',
                                     style: TextStyle(
                                         color: Color(0xFF888888),
@@ -254,8 +256,8 @@ class _MyFilesDialogState extends ConsumerState<MyFilesDialog> {
                             : ListView.separated(
                                 itemCount: filteredFiles.length,
                                 separatorBuilder: (context, index) =>
-                                    const Divider(
-                                        color: Color(0xFF2A2A2A), height: 1),
+                                    Divider(
+                                        color: Theme.of(context).extension<AppThemeExtension>()!.borderColor, height: 1),
                                 itemBuilder: (context, index) {
                                   final file = filteredFiles[index];
                                   final id = file['id'].toString();
@@ -268,7 +270,7 @@ class _MyFilesDialogState extends ConsumerState<MyFilesDialog> {
                                       : 'Unknown';
 
                                   return Padding(
-                                    padding: const EdgeInsets.symmetric(
+                                    padding: EdgeInsets.symmetric(
                                         horizontal: 16, vertical: 12),
                                     child: Row(
                                       children: [
@@ -286,19 +288,19 @@ class _MyFilesDialogState extends ConsumerState<MyFilesDialog> {
                                                 }
                                               });
                                             },
-                                            side: const BorderSide(
+                                            side: BorderSide(
                                                 color: Color(0xFF666666)),
                                             activeColor:
-                                                const Color(0xFF3B82F6),
+                                                Theme.of(context).colorScheme.primary,
                                           ),
                                         ),
-                                        const SizedBox(width: 16),
+                                        SizedBox(width: 16),
                                         Expanded(
                                           flex: 3,
                                           child: Text(
                                             file['filename']?.toString() ??
                                                 'Unknown',
-                                            style: const TextStyle(
+                                            style: TextStyle(
                                                 color: Color(0xFFECECEC),
                                                 fontSize: 13),
                                             maxLines: 1,
@@ -309,7 +311,7 @@ class _MyFilesDialogState extends ConsumerState<MyFilesDialog> {
                                           flex: 2,
                                           child: Text(
                                             date,
-                                            style: const TextStyle(
+                                            style: TextStyle(
                                                 color: Color(0xFF888888),
                                                 fontSize: 13),
                                           ),
@@ -336,7 +338,7 @@ class _MyFilesDialogState extends ConsumerState<MyFilesDialog> {
                                           flex: 1,
                                           child: Text(
                                             _formatSize(file['size'] ?? 0),
-                                            style: const TextStyle(
+                                            style: TextStyle(
                                                 color: Color(0xFF888888),
                                                 fontSize: 13),
                                           ),
@@ -348,45 +350,45 @@ class _MyFilesDialogState extends ConsumerState<MyFilesDialog> {
                               ),
               ),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: 16),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
                   '${_selectedIds.length} of ${filteredFiles.length} item(s) selected',
                   style:
-                      const TextStyle(color: Color(0xFF888888), fontSize: 12),
+                      TextStyle(color: Color(0xFF888888), fontSize: 12),
                 ),
                 Row(
                   children: [
-                    const Text('Page 1 / 1',
+                    Text('Page 1 / 1',
                         style: TextStyle(
                             color: Color(0xFFECECEC),
                             fontSize: 12,
                             fontWeight: FontWeight.bold)),
-                    const SizedBox(width: 16),
+                    SizedBox(width: 16),
                     OutlinedButton(
                       onPressed: null,
                       style: OutlinedButton.styleFrom(
                         foregroundColor: const Color(0xFF888888),
-                        side: const BorderSide(color: Color(0xFF2A2A2A)),
-                        padding: const EdgeInsets.symmetric(
+                        side: BorderSide(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor),
+                        padding: EdgeInsets.symmetric(
                             horizontal: 12, vertical: 8),
                         minimumSize: Size.zero,
                       ),
-                      child: const Text('Prev', style: TextStyle(fontSize: 12)),
+                      child: Text('Prev', style: TextStyle(fontSize: 12)),
                     ),
-                    const SizedBox(width: 8),
+                    SizedBox(width: 8),
                     OutlinedButton(
                       onPressed: null,
                       style: OutlinedButton.styleFrom(
                         foregroundColor: const Color(0xFF888888),
-                        side: const BorderSide(color: Color(0xFF2A2A2A)),
-                        padding: const EdgeInsets.symmetric(
+                        side: BorderSide(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor),
+                        padding: EdgeInsets.symmetric(
                             horizontal: 12, vertical: 8),
                         minimumSize: Size.zero,
                       ),
-                      child: const Text('Next', style: TextStyle(fontSize: 12)),
+                      child: Text('Next', style: TextStyle(fontSize: 12)),
                     ),
                   ],
                 ),
@@ -409,14 +411,14 @@ class _HeaderTitle extends StatelessWidget {
       children: [
         Text(
           title,
-          style: const TextStyle(
+          style: TextStyle(
             color: Color(0xFFECECEC),
             fontSize: 13,
             fontWeight: FontWeight.w500,
           ),
         ),
-        const SizedBox(width: 4),
-        const Icon(Icons.unfold_more, color: Color(0xFF666666), size: 14),
+        SizedBox(width: 4),
+        Icon(Icons.unfold_more, color: Color(0xFF666666), size: 14),
       ],
     );
   }

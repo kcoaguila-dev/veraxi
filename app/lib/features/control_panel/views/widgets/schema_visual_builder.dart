@@ -1,5 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:veraxi_app/core/theme_extension.dart';
+
 
 class SchemaVisualBuilder extends StatefulWidget {
   final Map<String, dynamic>? initialSchema;
@@ -186,7 +188,7 @@ class _SchemaVisualBuilderState extends State<SchemaVisualBuilder> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text('Schema Configuration',
+            Text('Schema Configuration',
                 style: TextStyle(
                     color: Colors.white, fontWeight: FontWeight.w500)),
             TextButton.icon(
@@ -209,21 +211,21 @@ class _SchemaVisualBuilderState extends State<SchemaVisualBuilder> {
               ),
               label: Text(
                 _advancedMode ? 'Visual Mode' : 'Advanced (JSON)',
-                style: const TextStyle(color: Colors.blueAccent),
+                style: TextStyle(color: Colors.blueAccent),
               ),
             ),
           ],
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: 8),
         Container(
           decoration: BoxDecoration(
-            color: const Color(0xFF1E1E1E),
+            color: Theme.of(context).extension<AppThemeExtension>()!.cardBackground,
             borderRadius: BorderRadius.circular(8),
           ),
           constraints: const BoxConstraints(minHeight: 250, maxHeight: 500),
           child: _advancedMode ? _buildJsonEditor() : _buildVisualEditor(),
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: 12),
         ElevatedButton.icon(
           onPressed: widget.isSaving
               ? null
@@ -241,8 +243,8 @@ class _SchemaVisualBuilderState extends State<SchemaVisualBuilder> {
                     widget.onSave(_buildSchemaFromVisual());
                   }
                 },
-          icon: const Icon(Icons.save, size: 18),
-          label: const Text('Save Schema'),
+          icon: Icon(Icons.save, size: 18),
+          label: Text('Save Schema'),
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.blue.shade600,
             foregroundColor: Colors.white,
@@ -254,11 +256,11 @@ class _SchemaVisualBuilderState extends State<SchemaVisualBuilder> {
 
   Widget _buildJsonEditor() {
     return Padding(
-      padding: const EdgeInsets.all(8.0),
+      padding: EdgeInsets.all(8.0),
       child: TextField(
         controller: _jsonController,
         maxLines: 15,
-        style: const TextStyle(
+        style: TextStyle(
             color: Colors.greenAccent, fontSize: 13, fontFamily: 'monospace'),
         decoration: const InputDecoration(
           border: InputBorder.none,
@@ -270,22 +272,22 @@ class _SchemaVisualBuilderState extends State<SchemaVisualBuilder> {
 
   Widget _buildVisualEditor() {
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(16.0),
+      padding: EdgeInsets.all(16.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Entities',
+          Text('Entities',
               style: TextStyle(
                   color: Colors.white70, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8),
+          SizedBox(height: 8),
           Wrap(
             spacing: 8,
             runSpacing: 8,
             children: [
               ..._entities.map((e) => Chip(
-                    label: Text(e, style: const TextStyle(fontSize: 12)),
-                    backgroundColor: const Color(0xFF333333),
-                    deleteIcon: const Icon(Icons.close, size: 14),
+                    label: Text(e, style: TextStyle(fontSize: 12)),
+                    backgroundColor: Theme.of(context).extension<AppThemeExtension>()!.borderColorStrong,
+                    deleteIcon: Icon(Icons.close, size: 14),
                     onDeleted: () => _removeEntity(e),
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16)),
@@ -296,15 +298,15 @@ class _SchemaVisualBuilderState extends State<SchemaVisualBuilder> {
                 height: 32,
                 child: TextField(
                   controller: _newEntityController,
-                  style: const TextStyle(color: Colors.white, fontSize: 13),
+                  style: TextStyle(color: Colors.white, fontSize: 13),
                   decoration: InputDecoration(
                     hintText: 'Add entity...',
                     hintStyle:
-                        const TextStyle(color: Colors.white38, fontSize: 13),
+                        TextStyle(color: Colors.white38, fontSize: 13),
                     filled: true,
-                    fillColor: const Color(0xFF2A2A2A),
+                    fillColor: Theme.of(context).extension<AppThemeExtension>()!.borderColor,
                     contentPadding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+                        EdgeInsets.symmetric(horizontal: 12, vertical: 0),
                     border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(16),
                         borderSide: BorderSide.none),
@@ -314,13 +316,13 @@ class _SchemaVisualBuilderState extends State<SchemaVisualBuilder> {
               ),
             ],
           ),
-          const SizedBox(height: 24),
-          const Text('Relationships',
+          SizedBox(height: 24),
+          Text('Relationships',
               style: TextStyle(
                   color: Colors.white70, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8),
+          SizedBox(height: 8),
           if (_relations.isEmpty)
-            const Text('No relationships defined.',
+            Text('No relationships defined.',
                 style: TextStyle(color: Colors.white38, fontSize: 13)),
           ListView.builder(
             shrinkWrap: true,
@@ -329,7 +331,7 @@ class _SchemaVisualBuilderState extends State<SchemaVisualBuilder> {
             itemBuilder: (context, index) {
               final rel = _relations[index];
               return Padding(
-                padding: const EdgeInsets.only(bottom: 8.0),
+                padding: EdgeInsets.only(bottom: 8.0),
                 child: Row(
                   children: [
                     Expanded(
@@ -337,19 +339,19 @@ class _SchemaVisualBuilderState extends State<SchemaVisualBuilder> {
                       child: _buildEntityDropdown(rel['source']!,
                           (val) => _updateRelation(index, 'source', val!)),
                     ),
-                    const SizedBox(width: 8),
+                    SizedBox(width: 8),
                     Expanded(
                       flex: 4,
                       child: SizedBox(
                         height: 36,
                         child: TextFormField(
                           initialValue: rel['type'],
-                          style: const TextStyle(
+                          style: TextStyle(
                               color: Colors.white, fontSize: 13),
                           decoration: InputDecoration(
                             filled: true,
-                            fillColor: const Color(0xFF2A2A2A),
-                            contentPadding: const EdgeInsets.symmetric(
+                            fillColor: Theme.of(context).extension<AppThemeExtension>()!.borderColor,
+                            contentPadding: EdgeInsets.symmetric(
                                 horizontal: 12, vertical: 0),
                             border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(4),
@@ -360,14 +362,14 @@ class _SchemaVisualBuilderState extends State<SchemaVisualBuilder> {
                         ),
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    SizedBox(width: 8),
                     Expanded(
                       flex: 3,
                       child: _buildEntityDropdown(rel['target']!,
                           (val) => _updateRelation(index, 'target', val!)),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.remove_circle_outline,
+                      icon: Icon(Icons.remove_circle_outline,
                           color: Colors.redAccent, size: 20),
                       onPressed: () => _removeRelation(index),
                     ),
@@ -376,11 +378,11 @@ class _SchemaVisualBuilderState extends State<SchemaVisualBuilder> {
               );
             },
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: 8),
           TextButton.icon(
             onPressed: _entities.isEmpty ? null : _addRelation,
-            icon: const Icon(Icons.add, size: 16),
-            label: const Text('Add Relationship'),
+            icon: Icon(Icons.add, size: 16),
+            label: Text('Add Relationship'),
             style: TextButton.styleFrom(
               foregroundColor: Colors.blueAccent,
             ),
@@ -398,16 +400,16 @@ class _SchemaVisualBuilderState extends State<SchemaVisualBuilder> {
 
     return Container(
       height: 36,
-      padding: const EdgeInsets.symmetric(horizontal: 12),
+      padding: EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFF2A2A2A),
+        color: Theme.of(context).extension<AppThemeExtension>()!.borderColor,
         borderRadius: BorderRadius.circular(4),
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
           value: validValue,
-          dropdownColor: const Color(0xFF2A2A2A),
-          style: const TextStyle(color: Colors.white, fontSize: 13),
+          dropdownColor: Theme.of(context).extension<AppThemeExtension>()!.borderColor,
+          style: TextStyle(color: Colors.white, fontSize: 13),
           isExpanded: true,
           items: _entities
               .map((e) => DropdownMenuItem(value: e, child: Text(e)))

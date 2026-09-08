@@ -39,14 +39,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(authState.error.toString(),
-              style: const TextStyle(color: Colors.white)),
+              style: TextStyle(color: Colors.white)),
           backgroundColor: Theme.of(context).colorScheme.error,
         ),
       );
     } else if (mounted && _isSignUp && authState.value == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('Please check your email to verify your account.',
+          content: Text('Please check your email to verify your account.',
               style: TextStyle(color: Colors.white)),
           backgroundColor: Theme.of(context).colorScheme.primary,
         ),
@@ -95,7 +95,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               ref.read(themeProvider.notifier).toggle();
             },
           ),
-          const SizedBox(width: 8),
+          SizedBox(width: 8),
         ],
       ),
       body: Stack(
@@ -116,8 +116,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           Center(
             child: Container(
               constraints: const BoxConstraints(maxWidth: 400),
-              margin: const EdgeInsets.symmetric(horizontal: 24),
-              padding: const EdgeInsets.all(24),
+              margin: EdgeInsets.symmetric(horizontal: 24),
+              padding: EdgeInsets.all(24),
               decoration: BoxDecoration(
                 color: theme.colorScheme.surface.withValues(alpha: 0.5),
                 borderRadius: BorderRadius.circular(24),
@@ -138,7 +138,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       const VeraxiLogo(size: 48),
-                      const SizedBox(height: 24),
+                      SizedBox(height: 24),
                       Text(
                         _isSignUp ? 'Create Account' : 'Welcome Back',
                         style: GoogleFonts.inter(
@@ -148,7 +148,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           letterSpacing: -0.5,
                         ),
                       ),
-                      const SizedBox(height: 8),
+                      SizedBox(height: 8),
                       Text(
                         _isSignUp
                             ? 'Join Veraxi today.'
@@ -158,7 +158,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           fontSize: 14,
                         ),
                       ),
-                      const SizedBox(height: 32),
+                      SizedBox(height: 32),
                       TextField(
                         controller: _emailController,
                         style: TextStyle(color: theme.colorScheme.onSurface),
@@ -168,7 +168,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               color: theme.colorScheme.onSurfaceVariant),
                         ),
                       ),
-                      const SizedBox(height: 16),
+                      SizedBox(height: 16),
                       TextField(
                         controller: _passwordController,
                         obscureText: true,
@@ -179,7 +179,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               color: theme.colorScheme.onSurfaceVariant),
                         ),
                       ),
-                      const SizedBox(height: 32),
+                      SizedBox(height: 32),
                       SizedBox(
                         width: double.infinity,
                         child: ElevatedButton(
@@ -187,7 +187,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           style: ElevatedButton.styleFrom(
                             backgroundColor: theme.colorScheme.primary,
                             foregroundColor: theme.colorScheme.onPrimary,
-                            padding: const EdgeInsets.symmetric(vertical: 20),
+                            padding: EdgeInsets.symmetric(vertical: 20),
                             shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12)),
                             elevation: 0,
@@ -202,13 +202,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 )
                               : Text(
                                   _isSignUp ? 'Sign Up' : 'Sign In',
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                       fontWeight: FontWeight.bold,
                                       fontSize: 16),
                                 ),
                         ),
                       ),
-                      const SizedBox(height: 24),
+                      SizedBox(height: 24),
                       TextButton(
                         onPressed: () {
                           setState(() {
@@ -223,14 +223,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               color: theme.colorScheme.onSurfaceVariant),
                         ),
                       ),
-                      const SizedBox(height: 16),
+                      SizedBox(height: 16),
                       Row(
                         children: [
                           Expanded(
                               child: Divider(
                                   color: theme.colorScheme.outlineVariant)),
                           Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            padding: EdgeInsets.symmetric(horizontal: 16),
                             child: Text('OR',
                                 style: TextStyle(
                                     color: theme.colorScheme.onSurfaceVariant,
@@ -241,7 +241,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                   color: theme.colorScheme.outlineVariant)),
                         ],
                       ),
-                      const SizedBox(height: 16),
+                      SizedBox(height: 16),
                       SizedBox(
                         width: double.infinity,
                         child: OutlinedButton.icon(
@@ -250,19 +250,19 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 .read(authViewModelProvider.notifier)
                                 .signInWithOAuth(OAuthProvider.google);
                           },
-                          icon: const Icon(Icons.g_mobiledata, size: 24),
-                          label: const Text('Continue with Google'),
+                          icon: Icon(Icons.g_mobiledata, size: 24),
+                          label: Text('Continue with Google'),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: theme.colorScheme.onSurface,
                             side: BorderSide(
                                 color: theme.colorScheme.outlineVariant),
-                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            padding: EdgeInsets.symmetric(vertical: 16),
                             shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12)),
                           ),
                         ),
                       ),
-                      const SizedBox(height: 12),
+                      SizedBox(height: 12),
                       SizedBox(
                         width: double.infinity,
                         child: OutlinedButton.icon(
@@ -271,13 +271,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 .read(authViewModelProvider.notifier)
                                 .signInWithOAuth(OAuthProvider.github);
                           },
-                          icon: const Icon(Icons.code, size: 20),
-                          label: const Text('Continue with GitHub'),
+                          icon: Icon(Icons.code, size: 20),
+                          label: Text('Continue with GitHub'),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: theme.colorScheme.onSurface,
                             side: BorderSide(
                                 color: theme.colorScheme.outlineVariant),
-                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            padding: EdgeInsets.symmetric(vertical: 16),
                             shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12)),
                           ),

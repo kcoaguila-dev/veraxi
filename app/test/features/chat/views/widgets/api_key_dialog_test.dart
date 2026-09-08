@@ -1,3 +1,4 @@
+import 'package:veraxi_app/core/theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -15,7 +16,9 @@ void main() {
     tester.view.physicalSize = const Size(1024, 768);
     tester.view.devicePixelRatio = 1.0;
 
-    await tester.pumpWidget(const MaterialApp(
+    await tester.pumpWidget(MaterialApp(
+      theme: AppTheme.lightTheme,
+
       home: Scaffold(
         body: Center(child: ApiKeyDialog(providerName: 'Gemini')),
       ),

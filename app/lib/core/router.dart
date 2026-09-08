@@ -7,7 +7,7 @@ import 'package:veraxi_app/features/chat/views/shared_chat_screen.dart';
 import 'package:veraxi_app/features/control_panel/views/control_panel_screen.dart';
 import 'package:veraxi_app/features/docs/views/docs_screen.dart';
 import 'package:veraxi_app/features/landing/views/landing_screen.dart';
-import 'package:veraxi_app/main.dart';
+import 'package:veraxi_app/core/widgets/app_shell.dart';
 
 final GlobalKey<NavigatorState> _rootNavigatorKey =
     GlobalKey<NavigatorState>(debugLabel: 'root');

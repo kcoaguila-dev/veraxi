@@ -34,7 +34,7 @@ def override_redis(monkeypatch):
 @pytest.mark.asyncio
 async def test_chat_endpoint_no_stream(override_redis):
     # Mock answer_question to return a static answer and context
-    with patch('backend.api_gateway.answer_question', new_callable=AsyncMock) as mock_answer:
+    with patch('backend.routes.chat.answer_question', new_callable=AsyncMock) as mock_answer:
         mock_answer.return_value = (
             "Hello from test",
             "Test Context",
@@ -71,7 +71,7 @@ async def test_chat_endpoint_stream(override_redis):
         yield {"type": "content", "content": "world"}
         yield {"type": "metadata", "content": "Metadata test"}
 
-    with patch('backend.api_gateway.stream_answer_question', side_effect=mock_stream_events):
+    with patch('backend.routes.chat.stream_answer_question', side_effect=mock_stream_events):
         response = client.post(
             "/api/chat",
             json={"question": "Stream me?", "stream": True, "model": "test-model"},
@@ -94,7 +94,7 @@ async def test_chat_endpoint_stream(override_redis):
 @pytest.mark.asyncio
 async def test_chat_endpoint_with_api_key_override(override_redis):
     # Mock answer_question to verify api_key_override is passed through
-    with patch('backend.api_gateway.answer_question', new_callable=AsyncMock) as mock_answer:
+    with patch('backend.routes.chat.answer_question', new_callable=AsyncMock) as mock_answer:
         mock_answer.return_value = (
             "API Key tested",
             "Context",
@@ -234,7 +234,7 @@ async def test_chat_endpoint_tool_events(override_redis):
         yield {"event": "on_tool_start", "name": "mcp_web_search", "run_id": "123", "data": {"input": {"query": "test"}}}
         yield {"event": "on_tool_end", "name": "mcp_web_search", "run_id": "123", "data": {"output": "search results"}}
 
-    with patch('backend.api_gateway.stream_answer_question', side_effect=mock_stream_events_with_tools):
+    with patch('backend.routes.chat.stream_answer_question', side_effect=mock_stream_events_with_tools):
         response = client.post(
             "/api/chat",
             json={"question": "search something", "stream": True, "model": "test-model"},

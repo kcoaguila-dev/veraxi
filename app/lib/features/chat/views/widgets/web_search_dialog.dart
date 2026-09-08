@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
+import 'package:veraxi_app/core/theme_extension.dart';
+
 
 class WebSearchDialog extends StatefulWidget {
   const WebSearchDialog({super.key});
@@ -76,7 +78,9 @@ class _WebSearchDialogState extends State<WebSearchDialog> {
     if (currentJson != null) {
       try {
         settings = jsonDecode(currentJson) as Map<String, dynamic>;
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('[WebSearchDialog] Failed to decode tool_settings: $e');
+      }
     }
 
     final bool isEnabled = settings['web_search'] is Map
@@ -121,14 +125,14 @@ class _WebSearchDialogState extends State<WebSearchDialog> {
   Widget build(BuildContext context) {
     return Dialog(
       backgroundColor: Colors.transparent,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+      insetPadding: EdgeInsets.symmetric(horizontal: 24, vertical: 24),
       child: Container(
         width: 480,
         constraints: const BoxConstraints(maxWidth: 480, maxHeight: 680),
         decoration: BoxDecoration(
-          color: const Color(0xFF171717),
+          color: Theme.of(context).extension<AppThemeExtension>()!.sidebarBackground,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xFF2A2A2A)),
+          border: Border.all(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.5),
@@ -140,13 +144,13 @@ class _WebSearchDialogState extends State<WebSearchDialog> {
         child: ClipRRect(
           borderRadius: BorderRadius.circular(12),
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
+            padding: EdgeInsets.all(24),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 // ── Header ────────────────────────────────────────────────
-                const Center(
+                Center(
                   child: Text(
                     'Web Search',
                     style: TextStyle(
@@ -156,34 +160,34 @@ class _WebSearchDialogState extends State<WebSearchDialog> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 24),
+                SizedBox(height: 24),
 
                 // ── Search Provider ───────────────────────────────────────
                 _SectionLabel(label: 'Search Provider'),
-                const SizedBox(height: 8),
+                SizedBox(height: 8),
                 _DropdownRow(
                   selected: _selectedProvider,
-                  options: const ['SearXNG', 'Serper API', 'Tavily API'],
+                  options: ['SearXNG', 'Serper API', 'Tavily API'],
                   onSelected: (v) => setState(() => _selectedProvider = v),
                 ),
-                const SizedBox(height: 12),
+                SizedBox(height: 12),
                 _buildProviderFields(),
 
-                const SizedBox(height: 28),
-                const Divider(color: Color(0xFF2A2A2A)),
-                const SizedBox(height: 20),
+                SizedBox(height: 28),
+                Divider(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor),
+                SizedBox(height: 20),
 
                 // ── Page Content Scraper ──────────────────────────────────
                 _SectionLabel(label: 'Page Content Scraper'),
-                const SizedBox(height: 4),
-                const Text(
+                SizedBox(height: 4),
+                Text(
                   'Fetches the full article text after search, enabling grounded citations.',
                   style: TextStyle(color: Color(0xFF6E6E6E), fontSize: 11),
                 ),
-                const SizedBox(height: 10),
+                SizedBox(height: 10),
                 _DropdownRow(
                   selected: _selectedScraper,
-                  options: const [
+                  options: [
                     'None',
                     'Trafilatura (local)',
                     'Jina Reader',
@@ -193,16 +197,16 @@ class _WebSearchDialogState extends State<WebSearchDialog> {
                   ],
                   onSelected: (v) => setState(() => _selectedScraper = v),
                 ),
-                const SizedBox(height: 12),
+                SizedBox(height: 12),
                 _buildScraperFields(),
 
                 // ── Max pages slider (shown for all scrapers except None) ─
                 if (_selectedScraper != 'None') ...[
-                  const SizedBox(height: 16),
+                  SizedBox(height: 16),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text(
+                      Text(
                         'Max pages to fetch',
                         style: TextStyle(
                           color: Color(0xFFAAAAAA),
@@ -211,7 +215,7 @@ class _WebSearchDialogState extends State<WebSearchDialog> {
                       ),
                       Text(
                         '${_scraperMaxPages.round()}',
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: Colors.white,
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
@@ -221,9 +225,9 @@ class _WebSearchDialogState extends State<WebSearchDialog> {
                   ),
                   SliderTheme(
                     data: SliderTheme.of(context).copyWith(
-                      activeTrackColor: const Color(0xFF10A37F),
-                      inactiveTrackColor: const Color(0xFF2F2F2F),
-                      thumbColor: const Color(0xFF10A37F),
+                      activeTrackColor: Theme.of(context).colorScheme.secondary,
+                      inactiveTrackColor: Theme.of(context).extension<AppThemeExtension>()!.surfaceHighlight,
+                      thumbColor: Theme.of(context).colorScheme.secondary,
                       overlayColor: const Color(0x2210A37F),
                       trackHeight: 2,
                       thumbShape:
@@ -237,13 +241,13 @@ class _WebSearchDialogState extends State<WebSearchDialog> {
                       onChanged: (v) => setState(() => _scraperMaxPages = v),
                     ),
                   ),
-                  const Text(
+                  Text(
                     'More pages = richer citations but higher latency (~1-3s per page).',
                     style: TextStyle(color: Color(0xFF555555), fontSize: 10),
                   ),
                 ],
 
-                const SizedBox(height: 28),
+                SizedBox(height: 28),
 
                 // ── Actions ───────────────────────────────────────────────
                 Row(
@@ -252,29 +256,29 @@ class _WebSearchDialogState extends State<WebSearchDialog> {
                     TextButton(
                       onPressed: () => Navigator.of(context).pop(),
                       style: TextButton.styleFrom(
-                        backgroundColor: const Color(0xFF2F2F2F),
+                        backgroundColor: Theme.of(context).extension<AppThemeExtension>()!.surfaceHighlight,
                         foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(
+                        padding: EdgeInsets.symmetric(
                             horizontal: 16, vertical: 10),
                         shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(6)),
                       ),
-                      child: const Text('Cancel',
+                      child: Text('Cancel',
                           style: TextStyle(
                               fontSize: 13, fontWeight: FontWeight.w500)),
                     ),
-                    const SizedBox(width: 12),
+                    SizedBox(width: 12),
                     TextButton(
                       onPressed: _saveSettings,
                       style: TextButton.styleFrom(
-                        backgroundColor: const Color(0xFF10A37F),
+                        backgroundColor: Theme.of(context).colorScheme.secondary,
                         foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(
+                        padding: EdgeInsets.symmetric(
                             horizontal: 16, vertical: 10),
                         shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(6)),
                       ),
-                      child: const Text('Save',
+                      child: Text('Save',
                           style: TextStyle(
                               fontSize: 13, fontWeight: FontWeight.w500)),
                     ),
@@ -298,7 +302,7 @@ class _WebSearchDialogState extends State<WebSearchDialog> {
           _InputField(
               controller: _searxngUrlController,
               hintText: 'SearXNG Instance URL'),
-          const SizedBox(height: 8),
+          SizedBox(height: 8),
           _ApiKeyField(
               controller: _searxngKeyController,
               hintText: 'API Key (optional)'),
@@ -311,7 +315,7 @@ class _WebSearchDialogState extends State<WebSearchDialog> {
       children: [
         _ApiKeyField(
             controller: _serperKeyController, hintText: 'Enter API Key'),
-        const SizedBox(height: 6),
+        SizedBox(height: 6),
         RichText(
           text: _linkSpan(
             'Get your $_selectedProvider key',
@@ -350,12 +354,12 @@ class _WebSearchDialogState extends State<WebSearchDialog> {
               controller: _jinaKeyController,
               hintText: 'Jina API Key (optional — increases rate limit)',
             ),
-            const SizedBox(height: 6),
+            SizedBox(height: 6),
             RichText(
               text: _linkSpan('Get a free Jina API key',
                   url: 'https://jina.ai/reader/'),
             ),
-            const SizedBox(height: 6),
+            SizedBox(height: 6),
             _InfoChip(
               icon: Icons.javascript_rounded,
               text: 'Handles JavaScript-rendered pages via r.jina.ai.',
@@ -371,12 +375,12 @@ class _WebSearchDialogState extends State<WebSearchDialog> {
               controller: _firecrawlUrlController,
               hintText: 'Firecrawl URL (leave blank for api.firecrawl.dev)',
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: 8),
             _ApiKeyField(
               controller: _firecrawlKeyController,
               hintText: 'Firecrawl API Key',
             ),
-            const SizedBox(height: 6),
+            SizedBox(height: 6),
             RichText(
               text: _linkSpan('Get your Firecrawl API key',
                   url: 'https://docs.firecrawl.dev/introduction#api-key'),
@@ -392,7 +396,7 @@ class _WebSearchDialogState extends State<WebSearchDialog> {
               controller: _serperScrapeKeyController,
               hintText: 'Serper API Key',
             ),
-            const SizedBox(height: 6),
+            SizedBox(height: 6),
             RichText(
               text: _linkSpan('Get your Serper API key',
                   url: 'https://serper.dev/api-keys'),
@@ -408,7 +412,7 @@ class _WebSearchDialogState extends State<WebSearchDialog> {
               controller: _tavilyKeyController,
               hintText: 'Tavily API Key',
             ),
-            const SizedBox(height: 6),
+            SizedBox(height: 6),
             RichText(
               text: _linkSpan('Get your Tavily API key',
                   url: 'https://app.tavily.com/home'),
@@ -417,7 +421,7 @@ class _WebSearchDialogState extends State<WebSearchDialog> {
         );
 
       default:
-        return const SizedBox.shrink();
+        return SizedBox.shrink();
     }
   }
 
@@ -426,8 +430,8 @@ class _WebSearchDialogState extends State<WebSearchDialog> {
   TextSpan _linkSpan(String text, {String? url}) {
     return TextSpan(
       text: text,
-      style: const TextStyle(
-        color: Color(0xFF3B82F6),
+      style: TextStyle(
+        color: Theme.of(context).colorScheme.primary,
         decoration: TextDecoration.underline,
         fontSize: 11,
       ),
@@ -452,7 +456,7 @@ class _SectionLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(
       label,
-      style: const TextStyle(
+      style: TextStyle(
         color: Colors.white,
         fontSize: 13,
         fontWeight: FontWeight.w600,
@@ -475,7 +479,7 @@ class _DropdownRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return PopupMenuButton<String>(
-      color: const Color(0xFF2F2F2F),
+      color: Theme.of(context).extension<AppThemeExtension>()!.surfaceHighlight,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       offset: const Offset(0, 36),
       onSelected: onSelected,
@@ -484,14 +488,14 @@ class _DropdownRow extends StatelessWidget {
                 value: o,
                 height: 38,
                 child: Text(o,
-                    style: const TextStyle(color: Colors.white, fontSize: 13)),
+                    style: TextStyle(color: Colors.white, fontSize: 13)),
               ))
           .toList(),
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: const Color(0xFF2F2F2F),
+          color: Theme.of(context).extension<AppThemeExtension>()!.surfaceHighlight,
           borderRadius: BorderRadius.circular(6),
           border: Border.all(color: const Color(0xFF3A3A3A)),
         ),
@@ -499,8 +503,8 @@ class _DropdownRow extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(selected,
-                style: const TextStyle(color: Colors.white, fontSize: 13)),
-            const Icon(Icons.keyboard_arrow_down,
+                style: TextStyle(color: Colors.white, fontSize: 13)),
+            Icon(Icons.keyboard_arrow_down,
                 color: Colors.white54, size: 16),
           ],
         ),
@@ -517,9 +521,9 @@ class _InfoChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E1E1E),
+        color: Theme.of(context).extension<AppThemeExtension>()!.cardBackground,
         borderRadius: BorderRadius.circular(6),
         border: Border.all(color: const Color(0xFF2E2E2E)),
       ),
@@ -527,11 +531,11 @@ class _InfoChip extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(icon, size: 14, color: const Color(0xFF6E6E6E)),
-          const SizedBox(width: 8),
+          SizedBox(width: 8),
           Expanded(
             child: Text(
               text,
-              style: const TextStyle(color: Color(0xFF6E6E6E), fontSize: 11),
+              style: TextStyle(color: Color(0xFF6E6E6E), fontSize: 11),
             ),
           ),
         ],
@@ -549,16 +553,16 @@ class _InputField extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF1E1E1E),
+        color: Theme.of(context).extension<AppThemeExtension>()!.cardBackground,
         borderRadius: BorderRadius.circular(6),
         border: Border.all(color: const Color(0xFF3A3A3A)),
       ),
       child: TextField(
         controller: controller,
-        style: const TextStyle(color: Colors.white, fontSize: 13),
+        style: TextStyle(color: Colors.white, fontSize: 13),
         decoration: InputDecoration(
           hintText: hintText,
-          hintStyle: const TextStyle(color: Color(0xFF6E6E6E), fontSize: 13),
+          hintStyle: TextStyle(color: Color(0xFF6E6E6E), fontSize: 13),
           border: InputBorder.none,
           focusedBorder: InputBorder.none,
           enabledBorder: InputBorder.none,
@@ -566,7 +570,7 @@ class _InputField extends StatelessWidget {
           disabledBorder: InputBorder.none,
           filled: false,
           contentPadding:
-              const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         ),
       ),
     );
@@ -604,7 +608,7 @@ class _ApiKeyFieldState extends State<_ApiKeyField> {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF1E1E1E),
+        color: Theme.of(context).extension<AppThemeExtension>()!.cardBackground,
         borderRadius: BorderRadius.circular(6),
         border: Border.all(color: const Color(0xFF3A3A3A)),
       ),
@@ -612,10 +616,10 @@ class _ApiKeyFieldState extends State<_ApiKeyField> {
         controller: widget.controller,
         focusNode: _focusNode,
         obscureText: _obscureText,
-        style: const TextStyle(color: Colors.white, fontSize: 13),
+        style: TextStyle(color: Colors.white, fontSize: 13),
         decoration: InputDecoration(
           hintText: widget.hintText,
-          hintStyle: const TextStyle(color: Color(0xFF6E6E6E), fontSize: 13),
+          hintStyle: TextStyle(color: Color(0xFF6E6E6E), fontSize: 13),
           border: InputBorder.none,
           focusedBorder: InputBorder.none,
           enabledBorder: InputBorder.none,
@@ -623,7 +627,7 @@ class _ApiKeyFieldState extends State<_ApiKeyField> {
           disabledBorder: InputBorder.none,
           filled: false,
           contentPadding:
-              const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           suffixIcon: _isFocused
               ? Row(
                   mainAxisSize: MainAxisSize.min,
@@ -633,7 +637,7 @@ class _ApiKeyFieldState extends State<_ApiKeyField> {
                         _obscureText
                             ? Icons.visibility_off_outlined
                             : Icons.visibility_outlined,
-                        color: const Color(0xFF878787),
+                        color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary,
                         size: 16,
                       ),
                       padding: EdgeInsets.zero,
@@ -642,7 +646,7 @@ class _ApiKeyFieldState extends State<_ApiKeyField> {
                       onPressed: () =>
                           setState(() => _obscureText = !_obscureText),
                     ),
-                    const SizedBox(width: 4),
+                    SizedBox(width: 4),
                   ],
                 )
               : null,

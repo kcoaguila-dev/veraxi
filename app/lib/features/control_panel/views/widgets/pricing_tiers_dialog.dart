@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:veraxi_app/features/control_panel/views/checkout_screen.dart';
+import 'package:veraxi_app/core/theme_extension.dart';
+
 
 class PricingTiersDialog extends StatefulWidget {
   const PricingTiersDialog({Key? key}) : super(key: key);
@@ -15,15 +17,15 @@ class _PricingTiersDialogState extends State<PricingTiersDialog> {
   Widget build(BuildContext context) {
     return Dialog(
       backgroundColor: Colors.transparent,
-      insetPadding: const EdgeInsets.all(24),
+      insetPadding: EdgeInsets.all(24),
       child: Container(
         width: 800,
         constraints: const BoxConstraints(maxHeight: 850),
-        padding: const EdgeInsets.all(40),
+        padding: EdgeInsets.all(40),
         decoration: BoxDecoration(
-          color: const Color(0xFF131313),
+          color: Theme.of(context).extension<AppThemeExtension>()!.dialogBackground,
           borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: const Color(0xFF2A2A2A)),
+          border: Border.all(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.6),
@@ -40,12 +42,12 @@ class _PricingTiersDialogState extends State<PricingTiersDialog> {
               Align(
                 alignment: Alignment.topRight,
                 child: IconButton(
-                  icon: const Icon(Icons.close, color: Color(0xFF878787)),
+                  icon: Icon(Icons.close, color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary),
                   onPressed: () => Navigator.of(context).pop(),
                   splashRadius: 20,
                 ),
               ),
-              const Text(
+              Text(
                 'Plans that grow with you',
                 style: TextStyle(
                   color: Colors.white,
@@ -54,14 +56,14 @@ class _PricingTiersDialogState extends State<PricingTiersDialog> {
                   fontFamily: 'serif',
                 ),
               ),
-              const SizedBox(height: 24),
+              SizedBox(height: 24),
               // Fake Segmented Control
               Container(
-                padding: const EdgeInsets.all(4),
+                padding: EdgeInsets.all(4),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1E1E1E),
+                  color: Theme.of(context).extension<AppThemeExtension>()!.cardBackground,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFF2A2A2A)),
+                  border: Border.all(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -69,11 +71,11 @@ class _PricingTiersDialogState extends State<PricingTiersDialog> {
                     GestureDetector(
                       onTap: () => setState(() => _isEnterprise = false),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(
+                        padding: EdgeInsets.symmetric(
                             horizontal: 20, vertical: 8),
                         decoration: BoxDecoration(
                           color: !_isEnterprise
-                              ? const Color(0xFF2A2A2A)
+                              ? Theme.of(context).extension<AppThemeExtension>()!.borderColor
                               : Colors.transparent,
                           borderRadius: BorderRadius.circular(8),
                         ),
@@ -82,7 +84,7 @@ class _PricingTiersDialogState extends State<PricingTiersDialog> {
                           style: TextStyle(
                               color: !_isEnterprise
                                   ? Colors.white
-                                  : const Color(0xFF878787),
+                                  : Theme.of(context).extension<AppThemeExtension>()!.textTertiary,
                               fontSize: 13,
                               fontWeight: FontWeight.w500),
                         ),
@@ -91,11 +93,11 @@ class _PricingTiersDialogState extends State<PricingTiersDialog> {
                     GestureDetector(
                       onTap: () => setState(() => _isEnterprise = true),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(
+                        padding: EdgeInsets.symmetric(
                             horizontal: 20, vertical: 8),
                         decoration: BoxDecoration(
                           color: _isEnterprise
-                              ? const Color(0xFF2A2A2A)
+                              ? Theme.of(context).extension<AppThemeExtension>()!.borderColor
                               : Colors.transparent,
                           borderRadius: BorderRadius.circular(8),
                         ),
@@ -104,7 +106,7 @@ class _PricingTiersDialogState extends State<PricingTiersDialog> {
                           style: TextStyle(
                               color: _isEnterprise
                                   ? Colors.white
-                                  : const Color(0xFF878787),
+                                  : Theme.of(context).extension<AppThemeExtension>()!.textTertiary,
                               fontSize: 13,
                               fontWeight: FontWeight.w500),
                         ),
@@ -113,7 +115,7 @@ class _PricingTiersDialogState extends State<PricingTiersDialog> {
                   ],
                 ),
               ),
-              const SizedBox(height: 48),
+              SizedBox(height: 48),
               // Pricing Cards
               IntrinsicHeight(
                 child: Row(
@@ -136,7 +138,7 @@ class _PricingTiersDialogState extends State<PricingTiersDialog> {
                               '50MB file upload limit',
                             ],
                           ),
-                          const SizedBox(width: 24),
+                          SizedBox(width: 24),
                           _buildPricingCard(
                             context,
                             title: 'Pro',
@@ -170,7 +172,7 @@ class _PricingTiersDialogState extends State<PricingTiersDialog> {
                               'Zero data retention for training',
                             ],
                           ),
-                          const SizedBox(width: 24),
+                          SizedBox(width: 24),
                           _buildPricingCard(
                             context,
                             title: 'Enterprise',
@@ -207,60 +209,60 @@ class _PricingTiersDialogState extends State<PricingTiersDialog> {
   }) {
     return Container(
       width: 320,
-      padding: const EdgeInsets.all(28),
+      padding: EdgeInsets.all(28),
       decoration: BoxDecoration(
         color: const Color(0xFF1C1C1C),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFF2A2A2A)),
+        border: Border.all(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(isPrimary ? Icons.auto_awesome : Icons.eco,
               color: Colors.white, size: 28),
-          const SizedBox(height: 16),
+          SizedBox(height: 16),
           Text(
             title,
-            style: const TextStyle(
+            style: TextStyle(
                 color: Colors.white, fontSize: 24, fontWeight: FontWeight.w600),
           ),
-          const SizedBox(height: 4),
+          SizedBox(height: 4),
           Text(
             subtitle,
-            style: const TextStyle(color: Color(0xFF878787), fontSize: 14),
+            style: TextStyle(color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary, fontSize: 14),
           ),
-          const SizedBox(height: 24),
+          SizedBox(height: 24),
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
                 price,
-                style: const TextStyle(
+                style: TextStyle(
                     color: Colors.white,
                     fontSize: 40,
                     fontWeight: FontWeight.bold),
               ),
               if (priceSubtext != null) ...[
-                const SizedBox(width: 8),
+                SizedBox(width: 8),
                 Padding(
-                  padding: const EdgeInsets.only(bottom: 8.0),
+                  padding: EdgeInsets.only(bottom: 8.0),
                   child: Text(
                     priceSubtext,
                     style:
-                        const TextStyle(color: Color(0xFF878787), fontSize: 13),
+                        TextStyle(color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary, fontSize: 13),
                   ),
                 ),
               ]
             ],
           ),
-          const SizedBox(height: 24),
+          SizedBox(height: 24),
           SizedBox(
             width: double.infinity,
             height: 44,
             child: ElevatedButton(
               style: ElevatedButton.styleFrom(
                 backgroundColor:
-                    isPrimary ? Colors.white : const Color(0xFF2A2A2A),
+                    isPrimary ? Colors.white : Theme.of(context).extension<AppThemeExtension>()!.borderColor,
                 foregroundColor: isPrimary ? Colors.black : Colors.white,
                 elevation: 0,
                 shape: RoundedRectangleBorder(
@@ -280,26 +282,26 @@ class _PricingTiersDialogState extends State<PricingTiersDialog> {
                 style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w600,
-                  color: isPrimary ? Colors.black : const Color(0xFF878787),
+                  color: isPrimary ? Colors.black : Theme.of(context).extension<AppThemeExtension>()!.textTertiary,
                 ),
               ),
             ),
           ),
-          const SizedBox(height: 32),
+          SizedBox(height: 32),
           ...features.map((feature) => Padding(
-                padding: const EdgeInsets.only(bottom: 16),
+                padding: EdgeInsets.only(bottom: 16),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(Icons.check, color: Color(0xFF878787), size: 18),
-                    const SizedBox(width: 12),
+                    Icon(Icons.check, color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary, size: 18),
+                    SizedBox(width: 12),
                     Expanded(
                       child: Text(
                         feature,
                         style: TextStyle(
                           color: feature.startsWith('Everything in')
                               ? Colors.white
-                              : const Color(0xFFB4B4B4),
+                              : Theme.of(context).extension<AppThemeExtension>()!.iconColor,
                           fontSize: 15,
                           height: 1.5,
                           fontWeight: feature.startsWith('Everything in')

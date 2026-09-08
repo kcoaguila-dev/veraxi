@@ -31,6 +31,13 @@ class AppTheme {
           primaryGradientStart: Color(0xFF3B82F6),
           primaryGradientEnd: Color(0xFF2563EB),
           surfaceHighlight: surfaceHighlight,
+          sidebarBackground: Color(0xFF171717),
+          cardBackground: Color(0xFF1E1E1E),
+          dialogBackground: Color(0xFF131313),
+          borderColor: Color(0xFF2A2A2A),
+          borderColorStrong: Color(0xFF333333),
+          textTertiary: Color(0xFF878787),
+          iconColor: Color(0xFFB4B4B4),
         ),
       ],
       textTheme:
@@ -89,10 +96,16 @@ class AppTheme {
       ),
       extensions: const <ThemeExtension<dynamic>>[
         AppThemeExtension(
-          primaryGradientStart:
-              Color(0xFF818CF8), // Keep same primary gradient vibe
+          primaryGradientStart: Color(0xFF818CF8),
           primaryGradientEnd: Color(0xFF6366F1),
           surfaceHighlight: surfaceHighlight,
+          sidebarBackground: Color(0xFFF1F5F9), // Slate 100
+          cardBackground: surface, // White
+          dialogBackground: surface, // White
+          borderColor: Color(0xFFE2E8F0), // Slate 200
+          borderColorStrong: Color(0xFFCBD5E1), // Slate 300
+          textTertiary: Color(0xFF94A3B8), // Slate 400
+          iconColor: Color(0xFF64748B), // Slate 500
         ),
       ],
       textTheme:

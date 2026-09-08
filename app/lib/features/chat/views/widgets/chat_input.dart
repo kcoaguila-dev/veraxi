@@ -7,6 +7,8 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 import 'web_search_dialog.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
+import 'package:veraxi_app/core/theme_extension.dart';
+
 
 class ChatInput extends StatefulWidget {
   final bool isLoading;
@@ -170,7 +172,9 @@ class _ChatInputState extends State<ChatInput> {
             _artifactsActive = artifactsEnabled;
           });
         }
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('[ChatInput] Failed to decode tool_settings: $e');
+      }
     }
   }
 
@@ -195,7 +199,9 @@ class _ChatInputState extends State<ChatInput> {
     if (currentSettingsJson != null) {
       try {
         settings = jsonDecode(currentSettingsJson) as Map<String, dynamic>;
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('[ChatInput] Failed to decode tool_settings: $e');
+      }
     }
 
     bool newPinned = !currentPinned;
@@ -243,7 +249,9 @@ class _ChatInputState extends State<ChatInput> {
     if (currentSettingsJson != null) {
       try {
         settings = jsonDecode(currentSettingsJson) as Map<String, dynamic>;
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('[ChatInput] Failed to decode tool_settings: $e');
+      }
     }
     settings['web_search'] = settings['web_search'] ?? {};
     settings['web_search']['high_accuracy'] = !currentValue;
@@ -314,9 +322,9 @@ class _ChatInputState extends State<ChatInput> {
       children: [
         if (widget.errorText != null)
           Container(
-            margin: const EdgeInsets.only(bottom: 8.0, left: 16.0, right: 16.0),
+            margin: EdgeInsets.only(bottom: 8.0, left: 16.0, right: 16.0),
             padding:
-                const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+                EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
             decoration: BoxDecoration(
               color: Colors.red.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
@@ -324,17 +332,17 @@ class _ChatInputState extends State<ChatInput> {
             ),
             child: Row(
               children: [
-                const Icon(Icons.error_outline, color: Colors.red, size: 20),
-                const SizedBox(width: 8),
+                Icon(Icons.error_outline, color: Colors.red, size: 20),
+                SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     widget.errorText!,
-                    style: const TextStyle(color: Colors.red, fontSize: 14),
+                    style: TextStyle(color: Colors.red, fontSize: 14),
                   ),
                 ),
                 if (widget.onDismissError != null)
                   IconButton(
-                    icon: const Icon(Icons.close, color: Colors.red, size: 20),
+                    icon: Icon(Icons.close, color: Colors.red, size: 20),
                     onPressed: widget.onDismissError,
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
@@ -345,17 +353,17 @@ class _ChatInputState extends State<ChatInput> {
         Container(
           width: double.infinity,
           decoration: BoxDecoration(
-            color: const Color(0xFF2F2F2F),
+            color: Theme.of(context).extension<AppThemeExtension>()!.surfaceHighlight,
             borderRadius: BorderRadius.circular(24),
           ),
-          padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+          padding: EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               if (_attachedFiles.isNotEmpty)
                 Padding(
-                  padding: const EdgeInsets.only(
+                  padding: EdgeInsets.only(
                       bottom: 8.0, left: 12.0, right: 12.0),
                   child: Wrap(
                     spacing: 8.0,
@@ -366,13 +374,13 @@ class _ChatInputState extends State<ChatInput> {
                       return Chip(
                         label: Text(
                           file.name,
-                          style: const TextStyle(
+                          style: TextStyle(
                               color: Colors.white, fontSize: 12),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
-                        backgroundColor: const Color(0xFF404040),
-                        deleteIconColor: const Color(0xFFB4B4B4),
+                        backgroundColor: Theme.of(context).extension<AppThemeExtension>()!.borderColorStrong,
+                        deleteIconColor: Theme.of(context).extension<AppThemeExtension>()!.iconColor,
                         onDeleted: () => _removeAttachment(idx),
                         padding: EdgeInsets.zero,
                         materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -390,14 +398,14 @@ class _ChatInputState extends State<ChatInput> {
                     controller: _controller,
                     minLines: 1,
                     maxLines: _isExpanded ? 20 : 5,
-                    style: const TextStyle(color: Colors.white, fontSize: 16),
+                    style: TextStyle(color: Colors.white, fontSize: 16),
                     cursorColor: Colors.white,
                     decoration: InputDecoration(
                       hintText: widget.projectName != null
                           ? 'New chat in ${widget.projectName}'
                           : 'Message Veraxi...',
-                      hintStyle: const TextStyle(
-                          color: Color(0xFF878787), fontSize: 16),
+                      hintStyle: TextStyle(
+                          color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary, fontSize: 16),
                       border: InputBorder.none,
                       focusedBorder: InputBorder.none,
                       enabledBorder: InputBorder.none,
@@ -422,7 +430,7 @@ class _ChatInputState extends State<ChatInput> {
                                 ? Icons.close_fullscreen
                                 : Icons.open_in_full,
                             size: 16,
-                            color: const Color(0xFF878787)),
+                            color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary),
                         onPressed: () {
                           setState(() {
                             _isExpanded = !_isExpanded;
@@ -447,10 +455,10 @@ class _ChatInputState extends State<ChatInput> {
                       highlightColor: Colors.transparent,
                     ),
                     child: PopupMenuButton<String>(
-                      icon: const Icon(Icons.attach_file,
-                          color: Color(0xFFB4B4B4), size: 20),
+                      icon: Icon(Icons.attach_file,
+                          color: Theme.of(context).extension<AppThemeExtension>()!.iconColor, size: 20),
                       tooltip: 'Attach file',
-                      color: const Color(0xFF2A2A2A),
+                      color: Theme.of(context).extension<AppThemeExtension>()!.borderColor,
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8)),
                       position: PopupMenuPosition.over,
@@ -460,31 +468,31 @@ class _ChatInputState extends State<ChatInput> {
                       },
                       itemBuilder: (BuildContext context) =>
                           <PopupMenuEntry<String>>[
-                        const PopupMenuItem<String>(
+                        PopupMenuItem<String>(
                           value: 'provider',
                           height: 40,
                           child: Row(
                             children: [
                               Icon(Icons.upload_file,
-                                  color: Color(0xFFB4B4B4), size: 16),
+                                  color: Theme.of(context).extension<AppThemeExtension>()!.iconColor, size: 16),
                               SizedBox(width: 8),
                               Text('Upload to Provider',
                                   style: TextStyle(
-                                      color: Color(0xFFB4B4B4), fontSize: 13)),
+                                      color: Theme.of(context).extension<AppThemeExtension>()!.iconColor, fontSize: 13)),
                             ],
                           ),
                         ),
-                        const PopupMenuItem<String>(
+                        PopupMenuItem<String>(
                           value: 'text',
                           height: 40,
                           child: Row(
                             children: [
                               Icon(Icons.text_snippet,
-                                  color: Color(0xFFB4B4B4), size: 16),
+                                  color: Theme.of(context).extension<AppThemeExtension>()!.iconColor, size: 16),
                               SizedBox(width: 8),
                               Text('Upload as Text',
                                   style: TextStyle(
-                                      color: Color(0xFFB4B4B4), fontSize: 13)),
+                                      color: Theme.of(context).extension<AppThemeExtension>()!.iconColor, fontSize: 13)),
                             ],
                           ),
                         ),
@@ -494,18 +502,18 @@ class _ChatInputState extends State<ChatInput> {
                   MenuAnchor(
                     style: MenuStyle(
                       backgroundColor:
-                          const WidgetStatePropertyAll(Color(0xFF171717)),
+                          WidgetStatePropertyAll(Theme.of(context).extension<AppThemeExtension>()!.sidebarBackground),
                       shape: WidgetStatePropertyAll(RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
-                        side: const BorderSide(color: Color(0xFF2A2A2A)),
+                        side: BorderSide(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor),
                       )),
                       padding: const WidgetStatePropertyAll(
                           EdgeInsets.symmetric(vertical: 8)),
                     ),
                     builder: (context, controller, child) {
                       return IconButton(
-                        icon: const Icon(Icons.tune,
-                            color: Color(0xFFB4B4B4), size: 20),
+                        icon: Icon(Icons.tune,
+                            color: Theme.of(context).extension<AppThemeExtension>()!.iconColor, size: 20),
                         tooltip: 'Tools',
                         onPressed: () {
                           if (controller.isOpen) {
@@ -534,7 +542,7 @@ class _ChatInputState extends State<ChatInput> {
                           isPinned: _artifactsPinned),
                     ],
                   ),
-                  const SizedBox(width: 8),
+                  SizedBox(width: 8),
                   Expanded(
                     child: SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
@@ -573,13 +581,13 @@ class _ChatInputState extends State<ChatInput> {
                       _isListening ? Icons.mic : Icons.mic_none_outlined,
                       color: _isListening
                           ? const Color(0xFFE53935)
-                          : const Color(0xFFB4B4B4),
+                          : Theme.of(context).extension<AppThemeExtension>()!.iconColor,
                       size: 20,
                     ),
                     onPressed: widget.isLoading ? null : _toggleListening,
                     tooltip: 'Voice input',
                   ),
-                  const SizedBox(width: 8),
+                  SizedBox(width: 8),
                   GestureDetector(
                     onTap: (widget.isLoading || !_hasText) ? null : _handleSend,
                     child: Container(
@@ -593,7 +601,7 @@ class _ChatInputState extends State<ChatInput> {
                       ),
                       child: Center(
                         child: widget.isLoading
-                            ? const Icon(
+                            ? Icon(
                                 Icons.stop_rounded,
                                 color: Colors.black,
                                 size: 16,
@@ -602,13 +610,13 @@ class _ChatInputState extends State<ChatInput> {
                                 Icons.arrow_upward,
                                 color: _hasText
                                     ? Colors.black
-                                    : const Color(0xFFB4B4B4),
+                                    : Theme.of(context).extension<AppThemeExtension>()!.iconColor,
                                 size: 20,
                               ),
                       ),
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  SizedBox(width: 8),
                 ],
               ),
             ],
@@ -633,13 +641,13 @@ class _ChatInputState extends State<ChatInput> {
           children: [
             Icon(icon,
                 color: isActive
-                    ? const Color(0xFF10A37F)
-                    : const Color(0xFFB4B4B4),
+                    ? Theme.of(context).colorScheme.secondary
+                    : Theme.of(context).extension<AppThemeExtension>()!.iconColor,
                 size: 14),
-            const SizedBox(width: 8),
+            SizedBox(width: 8),
             Expanded(
               child: Text(text,
-                  style: const TextStyle(
+                  style: TextStyle(
                       color: Color(0xFFE0E0E0),
                       fontSize: 13,
                       fontWeight: FontWeight.w400),
@@ -648,10 +656,10 @@ class _ChatInputState extends State<ChatInput> {
             GestureDetector(
               onTap: () => _togglePin(value, isPinned),
               child: Padding(
-                padding: const EdgeInsets.all(4.0),
+                padding: EdgeInsets.all(4.0),
                 child: Icon(isPinned ? LucideIcons.pinOff : LucideIcons.pin,
                     color: isPinned
-                        ? const Color(0xFF10A37F)
+                        ? Theme.of(context).colorScheme.secondary
                         : const Color(0xFF6E6E6E),
                     size: 14),
               ),
@@ -668,10 +676,10 @@ class _ChatInputState extends State<ChatInput> {
           padding:
               WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 10))),
       menuStyle: MenuStyle(
-        backgroundColor: const WidgetStatePropertyAll(Color(0xFF171717)),
+        backgroundColor: WidgetStatePropertyAll(Theme.of(context).extension<AppThemeExtension>()!.sidebarBackground),
         shape: WidgetStatePropertyAll(RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
-          side: const BorderSide(color: Color(0xFF2A2A2A)),
+          side: BorderSide(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor),
         )),
       ),
       menuChildren: [
@@ -684,11 +692,11 @@ class _ChatInputState extends State<ChatInput> {
           child: Container(
             width: 165,
             padding:
-                const EdgeInsets.only(left: 14, right: 10, top: 4, bottom: 4),
+                EdgeInsets.only(left: 14, right: 10, top: 4, bottom: 4),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('High-Accuracy',
+                Text('High-Accuracy',
                     style: TextStyle(
                         color: Color(0xFFE0E0E0),
                         fontSize: 13,
@@ -697,11 +705,11 @@ class _ChatInputState extends State<ChatInput> {
                   scale: 0.6,
                   child: Switch(
                     value: _highAccuracyEnabled,
-                    activeThumbColor: const Color(0xFF10A37F),
+                    activeThumbColor: Theme.of(context).colorScheme.secondary,
                     activeTrackColor:
-                        const Color(0xFF10A37F).withValues(alpha: 0.3),
-                    inactiveThumbColor: const Color(0xFFB4B4B4),
-                    inactiveTrackColor: const Color(0xFF2A2A2A),
+                        Theme.of(context).colorScheme.secondary.withValues(alpha: 0.3),
+                    inactiveThumbColor: Theme.of(context).extension<AppThemeExtension>()!.iconColor,
+                    inactiveTrackColor: Theme.of(context).extension<AppThemeExtension>()!.borderColor,
                     onChanged: (val) {
                       _toggleHighAccuracy(!val);
                     },
@@ -720,10 +728,10 @@ class _ChatInputState extends State<ChatInput> {
           children: [
             Icon(Icons.language,
                 color: isActive
-                    ? const Color(0xFF10A37F)
-                    : const Color(0xFFB4B4B4),
+                    ? Theme.of(context).colorScheme.secondary
+                    : Theme.of(context).extension<AppThemeExtension>()!.iconColor,
                 size: 14),
-            const SizedBox(width: 8),
+            SizedBox(width: 8),
             const Expanded(
               child: Text('Web Search',
                   style: TextStyle(
@@ -741,20 +749,20 @@ class _ChatInputState extends State<ChatInput> {
                 );
                 _loadToolSettings();
               },
-              child: const Padding(
+              child: Padding(
                 padding: EdgeInsets.all(4.0),
                 child: Icon(Icons.settings_outlined,
                     color: Color(0xFF6E6E6E), size: 14),
               ),
             ),
-            const SizedBox(width: 4),
+            SizedBox(width: 4),
             GestureDetector(
               onTap: () => _togglePin('web_search', isPinned),
               child: Padding(
-                padding: const EdgeInsets.all(4.0),
+                padding: EdgeInsets.all(4.0),
                 child: Icon(isPinned ? LucideIcons.pinOff : LucideIcons.pin,
                     color: isPinned
-                        ? const Color(0xFF10A37F)
+                        ? Theme.of(context).colorScheme.secondary
                         : const Color(0xFF6E6E6E),
                     size: 14),
               ),
@@ -779,10 +787,10 @@ class _ChatInputState extends State<ChatInput> {
           children: [
             Icon(Icons.extension_outlined,
                 color: isActive
-                    ? const Color(0xFF10A37F)
-                    : const Color(0xFFB4B4B4),
+                    ? Theme.of(context).colorScheme.secondary
+                    : Theme.of(context).extension<AppThemeExtension>()!.iconColor,
                 size: 14),
-            const SizedBox(width: 8),
+            SizedBox(width: 8),
             const Expanded(
               child: Text('Skills',
                   style: TextStyle(
@@ -796,20 +804,20 @@ class _ChatInputState extends State<ChatInput> {
                 Navigator.of(context).popUntil((route) => route.isFirst);
                 context.go('/admin');
               },
-              child: const Padding(
+              child: Padding(
                 padding: EdgeInsets.all(4.0),
                 child: Icon(Icons.settings_outlined,
                     color: Color(0xFF6E6E6E), size: 14),
               ),
             ),
-            const SizedBox(width: 4),
+            SizedBox(width: 4),
             GestureDetector(
               onTap: () => _togglePin('skills', isPinned),
               child: Padding(
-                padding: const EdgeInsets.all(4.0),
+                padding: EdgeInsets.all(4.0),
                 child: Icon(isPinned ? LucideIcons.pinOff : LucideIcons.pin,
                     color: isPinned
-                        ? const Color(0xFF10A37F)
+                        ? Theme.of(context).colorScheme.secondary
                         : const Color(0xFF6E6E6E),
                     size: 14),
               ),
@@ -825,16 +833,16 @@ class _ChatInputState extends State<ChatInput> {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        margin: const EdgeInsets.only(right: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        margin: EdgeInsets.only(right: 8),
+        padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
           color: (isToggle && isActive)
-              ? const Color(0xFF10A37F).withValues(alpha: 0.1)
-              : const Color(0xFF2A2A2A),
+              ? Theme.of(context).colorScheme.secondary.withValues(alpha: 0.1)
+              : Theme.of(context).extension<AppThemeExtension>()!.borderColor,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
               color: (isToggle && isActive)
-                  ? const Color(0xFF10A37F).withValues(alpha: 0.3)
+                  ? Theme.of(context).colorScheme.secondary.withValues(alpha: 0.3)
                   : const Color(0xFF3A3A3A)),
         ),
         child: Row(
@@ -842,14 +850,14 @@ class _ChatInputState extends State<ChatInput> {
           children: [
             Icon(icon,
                 color: (isToggle && isActive)
-                    ? const Color(0xFF10A37F)
-                    : const Color(0xFFB4B4B4),
+                    ? Theme.of(context).colorScheme.secondary
+                    : Theme.of(context).extension<AppThemeExtension>()!.iconColor,
                 size: 12),
-            const SizedBox(width: 6),
+            SizedBox(width: 6),
             Text(label,
                 style: TextStyle(
                     color: (isToggle && isActive)
-                        ? const Color(0xFF10A37F)
+                        ? Theme.of(context).colorScheme.secondary
                         : const Color(0xFFE0E0E0),
                     fontSize: 11,
                     fontWeight: FontWeight.w500)),

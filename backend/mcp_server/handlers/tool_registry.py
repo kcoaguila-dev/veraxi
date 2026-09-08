@@ -1,0 +1,539 @@
+import dataclasses
+import json
+
+from backend.config import get_config
+from backend.mcp_server.tools.delete_entity import delete_entity
+from backend.mcp_server.tools.delete_relationship import delete_relationship
+from backend.mcp_server.tools.delete_vector import delete_vector
+from backend.mcp_server.tools.get_schema import get_graph_schema
+from backend.mcp_server.tools.get_stats import get_database_stats
+from backend.mcp_server.tools.ingest_document import (
+    mcp_get_ingest_status,
+    mcp_ingest_document,
+)
+from backend.mcp_server.tools.insert_graph import insert_graph_nodes
+from backend.mcp_server.tools.insert_vector import insert_vectors
+from backend.mcp_server.tools.query_graph import query_graph
+from backend.mcp_server.tools.run_analytics import run_community_detection
+from backend.mcp_server.tools.search_vectors import search_vectors
+from backend.mcp_server.tools.update_document import update_document_metadata
+from backend.mcp_server.tools.update_entity import update_entity
+from backend.storage.quota import check_tenant_hard_cap
+from mcp.types import TextContent, Tool
+
+REGISTERED_TOOLS = [
+    Tool(
+        name="mcp_search_vectors",
+        description="Semantic search over documents",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "query_text": {"type": "string"},
+                "limit": {"type": "integer", "default": 10},
+            },
+            "required": ["query_text"],
+        },
+    ),
+    Tool(
+        name="mcp_query_graph",
+        description="Find exact entity relationships",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "entity_name": {"type": "string"},
+                "max_hops": {"type": "integer", "default": 2},
+            },
+            "required": ["entity_name"],
+        },
+    ),
+    Tool(
+        name="mcp_insert_graph_nodes",
+        description="Insert structured nodes and relations into the Neo4j Knowledge Graph. The Host AI should extract these from unstructured text first.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "nodes": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "type": {"type": "string"},
+                            "name": {"type": "string"},
+                            "properties": {"type": "object"}
+                        },
+                        "required": ["type", "name"]
+                    }
+                },
+                "relations": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "from_entity": {"type": "string"},
+                            "to_entity": {"type": "string"},
+                            "type": {"type": "string"}
+                        },
+                        "required": ["from_entity", "to_entity", "type"]
+                    }
+                }
+            },
+            "required": ["nodes", "relations"],
+        },
+    ),
+    Tool(
+        name="mcp_insert_vectors",
+        description="Generate embeddings and insert text chunks into the Qdrant Vector Database.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "texts": {
+                    "type": "array",
+                    "items": {"type": "string"}
+                }
+            },
+            "required": ["texts"],
+        },
+    ),
+    Tool(
+        name="mcp_merge_rank",
+        description="Perform a unified GraphRAG search. It searches vectors using query_text and traverses the graph from entity_name, then fuses the results using Reciprocal Rank Fusion.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "query_text": {"type": "string"},
+                "entity_name": {"type": "string"},
+                "limit": {"type": "integer", "default": 10},
+                "max_hops": {"type": "integer", "default": 2},
+            },
+            "required": ["query_text", "entity_name"],
+        },
+    ),
+    Tool(
+        name="mcp_get_graph_schema",
+        description="Retrieves all unique Node Labels and Relationship Types currently in the Neo4j database. Call this before inserting data to understand the current schema.",
+        inputSchema={
+            "type": "object",
+            "properties": {},
+        },
+    ),
+    Tool(
+        name="mcp_delete_entity",
+        description="Deletes a specific entity and all its relationships from Neo4j.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "entity_name": {"type": "string"}
+            },
+            "required": ["entity_name"],
+        },
+    ),
+    Tool(
+        name="mcp_delete_document",
+        description="Deletes a specific document chunk from Qdrant using its document ID.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "document_id": {"type": "string"}
+            },
+            "required": ["document_id"],
+        },
+    ),
+    Tool(
+        name="mcp_update_entity",
+        description="Updates the properties of an existing Neo4j entity. Only provide the properties you want to add or overwrite.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "entity_name": {"type": "string"},
+                "properties": {"type": "object"}
+            },
+            "required": ["entity_name", "properties"],
+        },
+    ),
+    Tool(
+        name="mcp_get_database_stats",
+        description="Retrieves high-level statistics about the size of the database (nodes, relationships, vectors).",
+        inputSchema={
+            "type": "object",
+            "properties": {},
+        },
+    ),
+    Tool(
+        name="mcp_run_community_detection",
+        description="Runs a Graph Data Science community detection algorithm to find clusters of connected entities.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "min_size": {"type": "integer", "default": 2}
+            },
+        },
+    ),
+    Tool(
+        name="mcp_delete_relationship",
+        description="Deletes a specific relationship edge between two entities without deleting the entities themselves.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "from_entity": {"type": "string"},
+                "to_entity": {"type": "string"},
+                "rel_type": {"type": "string"}
+            },
+            "required": ["from_entity", "to_entity", "rel_type"],
+        },
+    ),
+    Tool(
+        name="mcp_update_document_metadata",
+        description="Updates or adds metadata properties to an existing vector document chunk in Qdrant.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "document_id": {"type": "string"},
+                "payload": {"type": "object"}
+            },
+            "required": ["document_id", "payload"],
+        },
+    ),
+    Tool(
+        name="mcp_evaluate_grounding",
+        description="Evaluates what percentage of a generated response is mathematically supported by the retrieved context. Returns a float between 0.0 and 1.0.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "response_text": {"type": "string"},
+                "context_text": {"type": "string"}
+            },
+            "required": ["response_text", "context_text"],
+        },
+    ),
+    Tool(
+        name="mcp_web_search",
+        description="Fallback mechanism to search the live web when internal retrieval yields insufficient context. Returns a list of JSON snippets.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "query": {"type": "string"},
+                "max_results": {"type": "integer", "default": 3}
+            },
+        },
+    ),
+    Tool(
+        name="mcp_skills",
+        description="Lists available agentic skills for tool augmentation.",
+        inputSchema={
+            "type": "object",
+            "properties": {},
+        },
+    ),
+    Tool(
+        name="mcp_run_code",
+        description="Executes Python code in a secure sandbox and returns the stdout/stderr.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "code": {"type": "string"},
+            },
+            "required": ["code"],
+        },
+    ),
+    Tool(
+        name="mcp_list_artifacts",
+        description="Lists all artifacts stored in the workspace for the current tenant.",
+        inputSchema={
+            "type": "object",
+            "properties": {},
+        },
+    ),
+    Tool(
+        name="mcp_read_artifact",
+        description="Reads the content of a specific artifact by its name.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "artifact_name": {"type": "string"},
+            },
+            "required": ["artifact_name"],
+        },
+    ),
+    Tool(
+        name="mcp_ingest_document",
+        description="Submits a document or URL to Veraxi's native ingestion pipeline (OCR -> Graph extraction -> Insertion).",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "file_path": {"type": "string", "description": "Absolute path to a local document file."},
+                "url": {"type": "string", "description": "URL to scrape and ingest instead of a local file."},
+                "fast_extraction": {"type": "boolean", "default": False},
+                "language": {"type": "string", "default": "en"},
+                "chunk_size": {"type": "integer", "default": 200},
+                "chunk_overlap": {"type": "integer", "default": 50},
+                "wait_for_completion": {"type": "boolean", "default": False, "description": "If true, the tool will block and poll internally until ingestion is complete."}
+            },
+        },
+    ),
+    Tool(
+        name="mcp_get_ingest_status",
+        description="Polls the status of an active ingestion job.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "job_id": {"type": "string", "description": "The job ID returned from mcp_ingest_document."}
+            },
+            "required": ["job_id"],
+        },
+    ),
+    Tool(
+        name="mcp_dynamic_web_graph",
+        description="Dynamic Web Search GraphRAG - searches the web and returns a structured Knowledge Graph of entities and relations instead of raw text snippets, allowing for high-accuracy multi-hop reasoning over live data.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "query": {"type": "string"},
+                "language": {"type": "string", "default": "en"},
+                "max_results": {"type": "integer", "default": 5}
+            },
+            "required": ["query"]
+        }
+    ),
+    Tool(
+        name="mcp_deep_research",
+        description="Performs deep web research. Searches the internet, dynamically ingests the top results into your Hybrid RAG database, and returns mathematically ranked facts. Use this for complex research where standard web search lacks depth or relational accuracy. If you already have URLs to research, provide them in the 'urls' array.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "query": {"type": "string"},
+                "max_results": {"type": "integer", "default": 3},
+                "urls": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Optional list of pre-searched URLs to ingest and research over. If provided, skips the internal web search phase."
+                }
+            },
+        }
+    ),
+    Tool(
+        name="mcp_export_timeline",
+        description="Export a structured list of clips/dialogue into a universal video editing timeline format (OpenTimelineIO, FCPXML, or YMM4 CSV).",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "clips": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "start_time": {"type": "number"},
+                            "duration": {"type": "number"},
+                            "character": {"type": "string"},
+                            "dialogue": {"type": "string"},
+                            "audio_path": {"type": "string"}
+                        }
+                    }
+                },
+                "format": {
+                    "type": "string",
+                    "enum": ["otio", "fcpxml", "ymm4_csv"],
+                    "default": "otio"
+                },
+                "output_name": {"type": "string", "default": "veraxi_timeline"}
+            },
+            "required": ["clips"]
+        }
+    ),
+]
+
+def _handle_search_vectors(args: dict, tenant_id: str) -> list[TextContent]:
+    config = get_config()
+    results = search_vectors(
+        query_text=args["query_text"],
+        limit=args.get("limit", config.default_search_limit),
+        tenant_id=tenant_id
+    )
+    dict_results = [dataclasses.asdict(r) for r in results]
+    return [TextContent(type="text", text=json.dumps(dict_results))]
+
+def _handle_query_graph(args: dict, tenant_id: str) -> list[TextContent]:
+    config = get_config()
+    results = query_graph(
+        entity_name=args["entity_name"],
+        max_hops=args.get("max_hops", config.default_max_hops),
+        tenant_id=tenant_id
+    )
+    return [TextContent(type="text", text=json.dumps(results))]
+
+def _handle_insert_graph_nodes(args: dict, tenant_id: str) -> list[TextContent]:
+    # Enforce the free-tier node cap on cloud deployments.
+    # Self-hosted (auth_enabled=False) runs without limits — it's the user's own infra.
+    config = get_config()
+    if config.auth_enabled:
+        check_tenant_hard_cap(tenant_id, config)
+    results = insert_graph_nodes(
+        nodes=args["nodes"],
+        relations=args["relations"],
+        tenant_id=tenant_id
+    )
+    return [TextContent(type="text", text=json.dumps(results))]
+
+def _handle_insert_vectors(args: dict, tenant_id: str) -> list[TextContent]:
+    # Same guard: cloud users are capped, self-hosted users are not.
+    config = get_config()
+    if config.auth_enabled:
+        check_tenant_hard_cap(tenant_id, config)
+    results = insert_vectors(
+        texts=args["texts"],
+        tenant_id=tenant_id
+    )
+    return [TextContent(type="text", text=json.dumps(results))]
+
+def _handle_merge_rank(args: dict, tenant_id: str) -> list[TextContent]:
+    import dataclasses
+
+    from backend.retrieval.merge_rank import merge_rank
+    
+    config = get_config()
+    
+    v_hits = search_vectors(
+        query_text=args["query_text"],
+        limit=args.get("limit", config.default_search_limit),
+        tenant_id=tenant_id
+    )
+    g_hits = query_graph(
+        entity_name=args["entity_name"],
+        max_hops=args.get("max_hops", config.default_max_hops),
+        tenant_id=tenant_id
+    )
+    results = merge_rank(v_hits, g_hits, limit=args.get("limit", config.default_search_limit))
+    dict_results = [dataclasses.asdict(r) for r in results]
+    
+    return [TextContent(type="text", text=json.dumps(dict_results))]
+
+def _handle_get_graph_schema(args: dict, tenant_id: str) -> list[TextContent]:
+    results = get_graph_schema()
+    return [TextContent(type="text", text=json.dumps(results))]
+
+def _handle_delete_entity(args: dict, tenant_id: str) -> list[TextContent]:
+    result = delete_entity(args["entity_name"], tenant_id=tenant_id)
+    return [TextContent(type="text", text=result)]
+
+def _handle_delete_document(args: dict, tenant_id: str) -> list[TextContent]:
+    result = delete_vector(args["document_id"], tenant_id=tenant_id)
+    return [TextContent(type="text", text=result)]
+
+def _handle_update_entity(args: dict, tenant_id: str) -> list[TextContent]:
+    result = update_entity(args["entity_name"], args["properties"], tenant_id=tenant_id)
+    return [TextContent(type="text", text=result)]
+
+def _handle_get_database_stats(args: dict, tenant_id: str) -> list[TextContent]:
+    results = get_database_stats(tenant_id=tenant_id)
+    return [TextContent(type="text", text=json.dumps(results))]
+
+def _handle_run_community_detection(args: dict, tenant_id: str) -> list[TextContent]:
+    results = run_community_detection(args.get("min_size", 2))
+    return [TextContent(type="text", text=json.dumps(results))]
+
+def _handle_delete_relationship(args: dict, tenant_id: str) -> list[TextContent]:
+    result = delete_relationship(args["from_entity"], args["to_entity"], args["rel_type"], tenant_id=tenant_id)
+    return [TextContent(type="text", text=result)]
+
+def _handle_update_document_metadata(args: dict, tenant_id: str) -> list[TextContent]:
+    result = update_document_metadata(args["document_id"], args["payload"], tenant_id=tenant_id)
+    return [TextContent(type="text", text=result)]
+
+def _handle_evaluate_grounding(args: dict, tenant_id: str) -> list[TextContent]:
+    from backend.mcp_server.tools.evaluate_grounding import mcp_evaluate_grounding
+    score = mcp_evaluate_grounding(args["response_text"], args["context_text"])
+    return [TextContent(type="text", text=str(score))]
+
+def _handle_web_search(args: dict, tenant_id: str) -> list[TextContent]:
+    from backend.mcp_server.tools.web_search import mcp_web_search
+    tool_settings = args.get("_tool_settings", {})
+    results = mcp_web_search(args["query"], args.get("max_results", 3), tool_settings=tool_settings)
+    return [TextContent(type="text", text=json.dumps(results))]
+
+def _handle_dynamic_web_graph(args: dict, tenant_id: str) -> list[TextContent]:
+    from backend.mcp_server.tools.dynamic_web_graph import mcp_dynamic_web_graph
+    tool_settings = args.get("_tool_settings", {})
+    results = mcp_dynamic_web_graph(args["query"], args.get("language", "en"), args.get("max_results", 5), tool_settings=tool_settings)
+    return [TextContent(type="text", text=json.dumps(results))]
+
+def _handle_deep_research(args: dict, tenant_id: str) -> list[TextContent]:
+    from backend.mcp_server.tools.deep_research import mcp_deep_research
+    tool_settings = args.get("_tool_settings", {})
+    results = mcp_deep_research(
+        query=args["query"], 
+        tenant_id=tenant_id, 
+        max_results=args.get("max_results", 3), 
+        urls=args.get("urls"),
+        tool_settings=tool_settings
+    )
+    return [TextContent(type="text", text=json.dumps(results))]
+
+def _handle_skills(args: dict, tenant_id: str) -> list[TextContent]:
+    from backend.mcp_server.tools.skills import list_skills
+    results = list_skills()
+    return [TextContent(type="text", text=json.dumps(results))]
+
+def _handle_run_code(args: dict, tenant_id: str) -> list[TextContent]:
+    from backend.mcp_server.tools.run_code import execute_python_code
+    result = execute_python_code(args["code"])
+    return [TextContent(type="text", text=json.dumps(result))]
+
+def _handle_list_artifacts(args: dict, tenant_id: str) -> list[TextContent]:
+    from backend.mcp_server.tools.artifacts import list_artifacts
+    results = list_artifacts(tenant_id)
+    return [TextContent(type="text", text=json.dumps(results))]
+
+def _handle_read_artifact(args: dict, tenant_id: str) -> list[TextContent]:
+    from backend.mcp_server.tools.artifacts import read_artifact
+    result = read_artifact(tenant_id, args["artifact_name"])
+    return [TextContent(type="text", text=result)]
+
+def _handle_ingest_document(args: dict, tenant_id: str) -> list[TextContent]:
+    result = mcp_ingest_document(
+        tenant_id=tenant_id,
+        file_path=args.get("file_path"),
+        url=args.get("url"),
+        fast_extraction=args.get("fast_extraction", False),
+        language=args.get("language", "en")
+    )
+    return [TextContent(type="text", text=json.dumps(result))]
+
+def _handle_get_ingest_status(args: dict, tenant_id: str) -> list[TextContent]:
+    result = mcp_get_ingest_status(tenant_id=tenant_id, job_id=args["job_id"])
+    return [TextContent(type="text", text=json.dumps(result))]
+
+def _handle_export_timeline(args: dict, tenant_id: str) -> list[TextContent]:
+    from backend.mcp_server.tools.export_timeline import mcp_veraxi_mcp_export_timeline
+    
+    filepath = mcp_veraxi_mcp_export_timeline(
+        clips=args.get("clips", []),
+        format=args.get("format", "otio"),
+        output_name=args.get("output_name", "veraxi_timeline")
+    )
+    return [TextContent(type="text", text=filepath)]
+
+TOOL_HANDLERS = {
+    "mcp_search_vectors": _handle_search_vectors,
+    "mcp_query_graph": _handle_query_graph,
+    "mcp_insert_graph_nodes": _handle_insert_graph_nodes,
+    "mcp_insert_vectors": _handle_insert_vectors,
+    "mcp_merge_rank": _handle_merge_rank,
+    "mcp_get_graph_schema": _handle_get_graph_schema,
+    "mcp_delete_entity": _handle_delete_entity,
+    "mcp_delete_document": _handle_delete_document,
+    "mcp_update_entity": _handle_update_entity,
+    "mcp_get_database_stats": _handle_get_database_stats,
+    "mcp_run_community_detection": _handle_run_community_detection,
+    "mcp_delete_relationship": _handle_delete_relationship,
+    "mcp_update_document_metadata": _handle_update_document_metadata,
+    "mcp_evaluate_grounding": _handle_evaluate_grounding,
+    "mcp_web_search": _handle_web_search,
+    "mcp_dynamic_web_graph": _handle_dynamic_web_graph,
+    "mcp_skills": _handle_skills,
+    "mcp_run_code": _handle_run_code,
+    "mcp_list_artifacts": _handle_list_artifacts,
+    "mcp_read_artifact": _handle_read_artifact,
+    "mcp_ingest_document": _handle_ingest_document,
+    "mcp_get_ingest_status": _handle_get_ingest_status,
+    "mcp_deep_research": _handle_deep_research,
+    "mcp_export_timeline": _handle_export_timeline,
+}

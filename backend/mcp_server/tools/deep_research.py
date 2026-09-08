@@ -1,17 +1,18 @@
+import dataclasses
 import logging
+import uuid
 from concurrent.futures import ThreadPoolExecutor
 
+import redis
 from backend.config import get_config
 from backend.mcp_server.tools.ingest_document import mcp_ingest_document
-from backend.mcp_server.tools.search_providers import get_search_provider
-from backend.retrieval.merge_rank import merge_rank
-from backend.mcp_server.tools.search_vectors import search_vectors
 from backend.mcp_server.tools.query_graph import query_graph
+from backend.mcp_server.tools.search_providers import get_search_provider
+from backend.mcp_server.tools.search_vectors import search_vectors
+from backend.retrieval.merge_rank import merge_rank
 from backend.storage.neo4j_client import Neo4jStorageClient
 from backend.storage.qdrant_client import QdrantStorageClient
-import redis
-import uuid
-import dataclasses
+
 logger = logging.getLogger(__name__)
 
 def mcp_deep_research(
@@ -74,8 +75,7 @@ def mcp_deep_research(
             )
 
         with ThreadPoolExecutor(max_workers=max_results) as executor:
-            for res in executor.map(_ingest_url, urls):
-                ingestion_results.append(res)
+            ingestion_results.extend(executor.map(_ingest_url, urls))
                 
         logger.info(f"Deep Research ingestion complete in {ephemeral_tenant_id}. Running merge_rank...")
 
@@ -128,7 +128,7 @@ def mcp_deep_research(
             r.delete(f"tenant:{ephemeral_tenant_id}:schema")
             
             logger.info(f"Successfully wiped ephemeral tenant: {ephemeral_tenant_id}")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             logger.error(f"Failed to wipe ephemeral tenant {ephemeral_tenant_id}: {e}")
             import sentry_sdk
             sentry_sdk.capture_exception(e)

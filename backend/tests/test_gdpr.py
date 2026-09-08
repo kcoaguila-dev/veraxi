@@ -28,13 +28,17 @@ def override_redis(monkeypatch):
     monkeypatch.setattr(app.state, "redis", MockRedis(), raising=False)
 
 @pytest.mark.asyncio
-async def test_export_user_data(override_redis):
+@patch("backend.routes.gdpr.get_config")
+async def test_export_user_data(mock_get_config, override_redis):
+    app.dependency_overrides[get_tenant_id] = lambda: "test_tenant_id"
+    mock_get_config.return_value.redis_url = "redis://mock"
     # Mock AsyncRedisSaver to prevent connecting to a real Redis instance
     with patch("langgraph.checkpoint.redis.aio.AsyncRedisSaver.from_conn_string") as mock_saver:
         mock_memory = AsyncMock()
         mock_saver.return_value.__aenter__.return_value = mock_memory
         
         response = client.get("/api/user/export")
+        app.dependency_overrides.clear()
         assert response.status_code == 200
         data = response.json()
         assert data["tenant_id"] == "test_tenant_id"
@@ -42,10 +46,14 @@ async def test_export_user_data(override_redis):
         assert data["threads"] == []
 
 @pytest.mark.asyncio
-async def test_delete_user_data(override_redis):
+@patch("backend.routes.gdpr.get_config")
+@patch("psycopg.AsyncConnection.connect", new_callable=AsyncMock)
+async def test_delete_user_data(mock_connect, mock_get_config, override_redis):
+    app.dependency_overrides[get_tenant_id] = lambda: "test_tenant_id"
+    mock_get_config.return_value.postgres_url = "postgresql://mock"
     # Mock Neo4jStorageClient and QdrantStorageClient
-    with patch("backend.api_gateway.Neo4jStorageClient") as mock_neo4j_cls, \
-         patch("backend.api_gateway.QdrantStorageClient") as mock_qdrant_cls:
+    with patch("backend.routes.gdpr.Neo4jStorageClient") as mock_neo4j_cls, \
+         patch("backend.routes.gdpr.QdrantStorageClient") as mock_qdrant_cls:
          
         mock_neo4j = MagicMock()
         mock_neo4j_cls.return_value = mock_neo4j
@@ -66,3 +74,4 @@ async def test_delete_user_data(override_redis):
         mock_qdrant.client.delete.assert_called_once()
         _qdrant_args, qdrant_kwargs = mock_qdrant.client.delete.call_args
         assert qdrant_kwargs["collection_name"] == mock_qdrant.collection_name
+        app.dependency_overrides.clear()

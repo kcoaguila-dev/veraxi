@@ -3,11 +3,13 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:veraxi_app/features/chat/data/chat_repository.dart';
+import 'package:veraxi_app/core/repositories/model_config_repository.dart';
 import 'package:veraxi_app/features/settings/views/widgets/settings_dialog.dart';
 import 'package:veraxi_app/features/settings/views/widgets/my_files_dialog.dart';
 import 'package:veraxi_app/features/settings/views/widgets/archived_chats_dialog.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
+import 'package:veraxi_app/core/theme_extension.dart';
+
 
 // Resolved at compile time via --dart-define=IS_SELF_HOSTED=true
 // Defaults to true so local dev / self-hosted builds work without Supabase auth.
@@ -54,7 +56,7 @@ class _ProfileMenuButtonState extends ConsumerState<ProfileMenuButton> {
   }
 
   Future<void> _fetchConfig() async {
-    final repo = ref.read(chatRepositoryProvider);
+    final repo = ref.read(modelConfigRepositoryProvider);
     final config = await repo.getUIConfig();
     if (mounted) {
       setState(() {
@@ -75,10 +77,10 @@ class _ProfileMenuButtonState extends ConsumerState<ProfileMenuButton> {
   @override
   Widget build(BuildContext context) {
     final menuStyle = MenuStyle(
-      backgroundColor: const WidgetStatePropertyAll(Color(0xFF171717)),
+      backgroundColor: WidgetStatePropertyAll(Theme.of(context).extension<AppThemeExtension>()!.sidebarBackground),
       shape: WidgetStatePropertyAll(RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: const BorderSide(color: Color(0xFF2A2A2A)),
+        side: BorderSide(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor),
       )),
       padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 8)),
     );
@@ -108,20 +110,20 @@ class _ProfileMenuButtonState extends ConsumerState<ProfileMenuButton> {
           child: Container(
             width: 36,
             height: 36,
-            decoration: const BoxDecoration(
-              color: Color(0xFF2F2F2F),
+            decoration: BoxDecoration(
+              color: Theme.of(context).extension<AppThemeExtension>()!.surfaceHighlight,
               shape: BoxShape.circle,
             ),
             child: Center(
               child: (resolveDisplayName() == 'Local User' ||
                       resolveDisplayName() == 'Guest')
-                  ? const Icon(Icons.person_outline,
+                  ? Icon(Icons.person_outline,
                       color: Color(0xFFECECEC), size: 20)
                   : Text(
                       resolveDisplayName().isNotEmpty
                           ? resolveDisplayName()[0].toUpperCase()
                           : '?',
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: Color(0xFFECECEC),
                         fontWeight: FontWeight.w500,
                         fontSize: 14,
@@ -137,10 +139,10 @@ class _ProfileMenuButtonState extends ConsumerState<ProfileMenuButton> {
           onPressed: null,
           child: Text(
             resolveDisplayName(),
-            style: const TextStyle(color: Color(0xFFECECEC), fontSize: 13),
+            style: TextStyle(color: Color(0xFFECECEC), fontSize: 13),
           ),
         ),
-        const Divider(color: Color(0xFF2A2A2A), height: 1),
+        Divider(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor, height: 1),
         SubmenuButton(
           style: itemStyle,
           menuStyle: menuStyle,
@@ -149,7 +151,7 @@ class _ProfileMenuButtonState extends ConsumerState<ProfileMenuButton> {
               style: itemStyle,
               onPressed: () => _launchUrl(
                   _uiConfig['help_faq_url'], 'https://veraxi.ai/help'),
-              child: const Row(
+              child: Row(
                 children: [
                   Icon(Icons.help_outline, color: Color(0xFFECECEC), size: 16),
                   SizedBox(width: 12),
@@ -160,7 +162,7 @@ class _ProfileMenuButtonState extends ConsumerState<ProfileMenuButton> {
             MenuItemButton(
               style: itemStyle,
               onPressed: () {},
-              child: const Row(
+              child: Row(
                 children: [
                   Icon(Icons.keyboard_outlined,
                       color: Color(0xFFECECEC), size: 16),
@@ -173,7 +175,7 @@ class _ProfileMenuButtonState extends ConsumerState<ProfileMenuButton> {
               style: itemStyle,
               onPressed: () => _launchUrl(
                   _uiConfig['terms_of_service_url'], 'https://veraxi.ai/terms'),
-              child: const Row(
+              child: Row(
                 children: [
                   Icon(Icons.gavel_outlined,
                       color: Color(0xFFECECEC), size: 16),
@@ -186,7 +188,7 @@ class _ProfileMenuButtonState extends ConsumerState<ProfileMenuButton> {
               style: itemStyle,
               onPressed: () => _launchUrl(
                   _uiConfig['privacy_policy_url'], 'https://veraxi.ai/privacy'),
-              child: const Row(
+              child: Row(
                 children: [
                   Icon(Icons.privacy_tip_outlined,
                       color: Color(0xFFECECEC), size: 16),
@@ -196,7 +198,7 @@ class _ProfileMenuButtonState extends ConsumerState<ProfileMenuButton> {
               ),
             ),
           ],
-          child: const Row(
+          child: Row(
             children: [
               Icon(Icons.help_outline, color: Color(0xFFECECEC), size: 16),
               SizedBox(width: 12),
@@ -215,7 +217,7 @@ class _ProfileMenuButtonState extends ConsumerState<ProfileMenuButton> {
               }
             });
           },
-          child: const Row(
+          child: Row(
             children: [
               Icon(Icons.insert_drive_file_outlined,
                   color: Color(0xFFECECEC), size: 16),
@@ -235,7 +237,7 @@ class _ProfileMenuButtonState extends ConsumerState<ProfileMenuButton> {
               }
             });
           },
-          child: const Row(
+          child: Row(
             children: [
               Icon(Icons.archive_outlined, color: Color(0xFFECECEC), size: 16),
               SizedBox(width: 12),
@@ -256,7 +258,7 @@ class _ProfileMenuButtonState extends ConsumerState<ProfileMenuButton> {
               }
             });
           },
-          child: const Row(
+          child: Row(
             children: [
               Icon(Icons.settings_outlined, color: Color(0xFFECECEC), size: 16),
               SizedBox(width: 12),
@@ -264,11 +266,11 @@ class _ProfileMenuButtonState extends ConsumerState<ProfileMenuButton> {
             ],
           ),
         ),
-        const Divider(color: Color(0xFF2A2A2A), height: 1),
+        Divider(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor, height: 1),
         MenuItemButton(
           style: itemStyle,
           onPressed: () {},
-          child: const Row(
+          child: Row(
             children: [
               Icon(Icons.logout_outlined, color: Color(0xFFECECEC), size: 16),
               SizedBox(width: 12),

@@ -1,42 +1,52 @@
 [
     {
         "query": "What is the most common type of skin cancer?",
-        "expected_answer": "Basal cell carcinoma (BCC) is the most common type of skin cancer."
+        "expected_answer": "Basal cell carcinoma (BCC) is the most common type of skin cancer.",
+        "entity": "Basal cell carcinoma"
     },
     {
         "query": "From which cell type does basal cell carcinoma arise?",
-        "expected_answer": "Basal cell carcinoma arises from basal cells in the lower part of the epidermis."
+        "expected_answer": "Basal cell carcinoma arises from basal cells in the lower part of the epidermis.",
+        "entity": "Basal cell carcinoma"
     },
     {
         "query": "Which anatomical locations are most commonly affected by basal cell carcinoma?",
-        "expected_answer": "BCC most commonly develops in sun-exposed areas such as the face, head, and neck."
+        "expected_answer": "BCC most commonly develops in sun-exposed areas such as the face, head, and neck.",
+        "entity": "Basal cell carcinoma"
     },
     {
         "query": "What is the primary risk factor for basal cell carcinoma?",
-        "expected_answer": "UV radiation exposure is a primary risk factor for BCC."
+        "expected_answer": "UV radiation exposure is a primary risk factor for BCC.",
+        "entity": "Basal cell carcinoma"
     },
     {
         "query": "How does fair skin affect the risk of developing BCC?",
-        "expected_answer": "Fair skin increases the risk of BCC."
+        "expected_answer": "Fair skin increases the risk of BCC.",
+        "entity": "Basal cell carcinoma"
     },
     {
         "query": "Does older age influence the risk of basal cell carcinoma?",
-        "expected_answer": "Older age is associated with higher risk of BCC."
+        "expected_answer": "Older age is associated with higher risk of BCC.",
+        "entity": "Basal cell carcinoma"
     },
     {
         "query": "How does family history impact the risk of basal cell carcinoma?",
-        "expected_answer": "Family history of skin cancer increases risk of BCC."
+        "expected_answer": "Family history of skin cancer increases risk of BCC.",
+        "entity": "Basal cell carcinoma"
     },
     {
         "query": "Is immune suppression a risk factor for BCC?",
-        "expected_answer": "Immune suppression is a risk factor for BCC."
+        "expected_answer": "Immune suppression is a risk factor for BCC.",
+        "entity": "Basal cell carcinoma"
     },
     {
         "query": "What are common symptoms of basal cell carcinoma?",
-        "expected_answer": "BCC presents as flat, pale or yellow areas, red patches, shiny bumps, open sores, or brown/black bumps with rolled borders."
+        "expected_answer": "BCC presents as flat, pale or yellow areas, red patches, shiny bumps, open sores, or brown/black bumps with rolled borders.",
+        "entity": "Basal cell carcinoma"
     },
     {
         "query": "Which diagnostic methods are used for BCC?",
-        "expected_answer": "Diagnosis of BCC involves medical and family history, physical exam, skin exam, biopsy, and sometimes imaging."
+        "expected_answer": "Diagnosis of BCC involves medical and family history, physical exam, skin exam, biopsy, and sometimes imaging.",
+        "entity": "Basal cell carcinoma"
     }
 ]

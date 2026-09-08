@@ -11,39 +11,20 @@ import 'package:veraxi_app/core/api_key_storage.dart';
 
 final chatRepositoryProvider = Provider<ChatRepository>((ref) {
   final apiClient = ref.watch(apiClientProvider);
-  return ChatRepository(apiClient: apiClient);
+  final apiKeyStorage = ref.watch(apiKeyStorageProvider);
+  return ChatRepository(apiClient: apiClient, apiKeyStorage: apiKeyStorage);
 });
 
 class ChatRepository {
   final ApiClient apiClient;
+  final ApiKeyStorage apiKeyStorage;
 
-  ChatRepository({required this.apiClient});
+  ChatRepository({required this.apiClient, required this.apiKeyStorage});
 
-  Future<Map<String, dynamic>> getUIConfig() async {
-    final url =
-        '/config/ui?_=' + DateTime.now().millisecondsSinceEpoch.toString();
-    try {
-      final data = await apiClient.get(url);
-      return data;
-    } catch (e) {
-      debugPrint('[ChatRepository] getUIConfig error: $e');
-      return {};
-    }
-  }
-
-  Future<Map<String, List<String>>> getProviderModels() async {
-    final url = '/models?_=' + DateTime.now().millisecondsSinceEpoch.toString();
-    try {
-      final data = await apiClient.get(url);
-      Map<String, List<String>> result = {};
-      data.forEach((key, value) {
-        result[key] = List<String>.from(value);
-      });
-      return result;
-    } catch (e) {
-      debugPrint('[ChatRepository] getProviderModels error: $e');
-      return {};
-    }
+  Future<void> assignThreadToProject(String threadId, String? projectId) async {
+    await apiClient.post('/chat/threads/$threadId/project', body: {
+      'project_id': projectId ?? '',
+    });
   }
 
   Future<List<Map<String, dynamic>>> getThreads() async {
@@ -106,13 +87,13 @@ class ChatRepository {
       request.headers.addAll(headers);
 
       final provider = _getProviderFromModel(model);
-      final apiKey = await ApiKeyStorage().getKey(provider);
+      final apiKey = await apiKeyStorage.getKey(provider);
       String? baseUrl;
 
       if (provider == 'local') {
-        final customBaseUrl = await ApiKeyStorage().getValue('local_base_url');
+        final customBaseUrl = await apiKeyStorage.getValue('local_base_url');
         final customModelName =
-            await ApiKeyStorage().getValue('local_model_name');
+            await apiKeyStorage.getValue('local_model_name');
         if (customBaseUrl != null && customBaseUrl.isNotEmpty)
           baseUrl = customBaseUrl;
         if (customModelName != null && customModelName.isNotEmpty)
@@ -191,6 +172,8 @@ class ChatRepository {
     await apiClient.post('/chat/threads/$threadId/regenerate', body: {});
   }
 
+
+
   Future<void> renameThread(String threadId, String newTitle) async {
     await apiClient
         .put('/chat/threads/$threadId/title', body: {'title': newTitle});
@@ -224,59 +207,4 @@ class ChatRepository {
     return response['share_id'] as String;
   }
 
-  Future<void> assignThreadToProject(String threadId, String? projectId) async {
-    await apiClient.post('/chat/threads/$threadId/project', body: {
-      'project_id': projectId ?? '',
-    });
-  }
-
-  Future<List<Map<String, dynamic>>> getProjects() async {
-    final data = await apiClient.get('/projects');
-    return List<Map<String, dynamic>>.from(data['projects'] ?? []);
-  }
-
-  Future<Map<String, dynamic>> createProject(String name) async {
-    final data = await apiClient.post('/projects', body: {'name': name});
-    return data;
-  }
-
-  Future<void> renameProject(String projectId, String newName) async {
-    await apiClient.put('/projects/$projectId', body: {'name': newName});
-  }
-
-  Future<void> deleteProject(String projectId) async {
-    await apiClient.delete('/projects/$projectId');
-  }
-
-  Future<List<Map<String, dynamic>>> getFiles() async {
-    final data = await apiClient.get('/chat/files');
-    return List<Map<String, dynamic>>.from(data['files'] ?? []);
-  }
-
-  Future<void> deleteFile(String fileId) async {
-    await apiClient.delete('/chat/files/$fileId');
-  }
-
-  Future<void> saveToMemory(String content, {String? model}) async {
-    final body = <String, dynamic>{'content': content};
-
-    if (model != null && model.isNotEmpty && model != 'Select a model') {
-      final provider = _getProviderFromModel(model);
-      final apiKey = await ApiKeyStorage().getKey(provider);
-
-      body['model'] = model;
-      if (apiKey != null && apiKey.isNotEmpty) {
-        body['api_key'] = apiKey;
-      }
-
-      if (provider == 'local') {
-        final customBaseUrl = await ApiKeyStorage().getValue('local_base_url');
-        if (customBaseUrl != null && customBaseUrl.isNotEmpty) {
-          body['base_url'] = customBaseUrl;
-        }
-      }
-    }
-
-    await apiClient.post('/memory/ingest', body: body);
-  }
 }
