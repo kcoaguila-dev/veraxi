@@ -28,13 +28,19 @@ Veraxi's primary value is serving as a deployable integration of the Neo4j + Qdr
 
 ## 📊 Evaluation & Benchmarks
 
-To validate the Hybrid GraphRAG approach, Veraxi includes an automated DeepEval (LLM-as-a-judge) benchmark suite (`backend/evaluation/benchmark_rag.py`) that scores Vector RAG against Hybrid GraphRAG on a medical test corpus.
+Veraxi includes an automated [DeepEval](https://github.com/confident-ai/deepeval) (LLM-as-a-judge) benchmark suite that scores Vector RAG against Hybrid GraphRAG on a medical test corpus (`backend/evaluation/benchmark_rag.py`).
 
-**Latest Benchmark Results (`dataset.json`):**
-- **Average Vector RAG Correctness:** 45.0%
-- **Average Hybrid GraphRAG Correctness:** 90.0%
+**Latest Live Benchmark Results** (4/10 test cases scored — remaining 6 were rate-limited by Gemini free-tier quota):
 
-*Note: This evaluation runs on a small proof-of-concept dataset (10 questions, ~300 words). While it successfully demonstrates the RRF fusion algorithm overcoming Vector RAG's limitations on multi-hop reasoning, a true production deployment requires scaling this benchmark to a massive corpus (e.g., Needle In A Haystack).*
+| Query | Vector RAG | Hybrid GraphRAG |
+|---|---|---|
+| Most common type of skin cancer? | 1.00 | 1.00 |
+| Which cell type does BCC arise from? | 0.60 | 0.70 |
+| Anatomical locations affected? | 0.70 | 0.70 |
+| Primary risk factor? | 1.00 | 1.00 |
+| **Average (n=4)** | **82.5%** | **85.0%** |
+
+> **Honesty note:** This corpus is small (~300 words, 26 chunks) and the questions are straightforward enough that vector search alone performs well. The real value of graph traversal shows on multi-hop queries over larger corpora where relevant chunks are semantically distant — this test set doesn't yet stress that case. To run the full 10-question benchmark, use a paid API key and execute: `PYTHONPATH=. python -m backend.evaluation.benchmark_rag`
 
 ## Architecture
 
