@@ -311,32 +311,27 @@ REGISTERED_TOOLS = [
         }
     ),
     Tool(
-        name="mcp_export_timeline",
-        description="Export a structured list of clips/dialogue into a universal video editing timeline format (OpenTimelineIO, FCPXML, or YMM4 CSV).",
+        name="mcp_export_data",
+        description="Serializes and exports dynamically structured datasets into agnostic, interoperable file formats (CSV, OTIO, FCPXML). Facilitates seamless data handoff to external analytical pipelines, data science environments, and professional non-linear editing (NLE) systems without imposing domain-specific schemas.",
         inputSchema={
             "type": "object",
             "properties": {
-                "clips": {
+                "data": {
                     "type": "array",
                     "items": {
                         "type": "object",
-                        "properties": {
-                            "start_time": {"type": "number"},
-                            "duration": {"type": "number"},
-                            "character": {"type": "string"},
-                            "dialogue": {"type": "string"},
-                            "audio_path": {"type": "string"}
-                        }
+                        "description": "Any structured data dictionary. If exporting to otio/fcpxml, include start_time, duration, character, dialogue, audio_path.",
+                        "additionalProperties": True
                     }
                 },
                 "format": {
                     "type": "string",
-                    "enum": ["otio", "fcpxml", "ymm4_csv"],
-                    "default": "otio"
+                    "enum": ["csv", "otio", "fcpxml"],
+                    "default": "csv"
                 },
-                "output_name": {"type": "string", "default": "veraxi_timeline"}
+                "output_name": {"type": "string", "default": "veraxi_export"}
             },
-            "required": ["clips"]
+            "required": ["data"]
         }
     ),
 ]
@@ -501,13 +496,13 @@ def _handle_get_ingest_status(args: dict, tenant_id: str) -> list[TextContent]:
     result = mcp_get_ingest_status(tenant_id=tenant_id, job_id=args["job_id"])
     return [TextContent(type="text", text=json.dumps(result))]
 
-def _handle_export_timeline(args: dict, tenant_id: str) -> list[TextContent]:
-    from backend.mcp_server.tools.export_timeline import mcp_veraxi_mcp_export_timeline
+def _handle_export_data(args: dict, tenant_id: str) -> list[TextContent]:
+    from backend.mcp_server.tools.export_data import mcp_veraxi_mcp_export_data
     
-    filepath = mcp_veraxi_mcp_export_timeline(
-        clips=args.get("clips", []),
-        format=args.get("format", "otio"),
-        output_name=args.get("output_name", "veraxi_timeline")
+    filepath = mcp_veraxi_mcp_export_data(
+        data=args.get("data", []),
+        format=args.get("format", "csv"),
+        output_name=args.get("output_name", "veraxi_export")
     )
     return [TextContent(type="text", text=filepath)]
 
@@ -535,5 +530,5 @@ TOOL_HANDLERS = {
     "mcp_ingest_document": _handle_ingest_document,
     "mcp_get_ingest_status": _handle_get_ingest_status,
     "mcp_deep_research": _handle_deep_research,
-    "mcp_export_timeline": _handle_export_timeline,
+    "mcp_export_data": _handle_export_data,
 }

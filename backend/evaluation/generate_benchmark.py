@@ -10,10 +10,14 @@ DATASET_PATH = os.path.join(os.path.dirname(__file__), "dataset.json")
 import argparse
 
 
-def generate_multihop():
+def generate_multihop(num_samples: int):
     print("Loading MultiHop-RAG dataset from Hugging Face...")
     dataset = load_dataset("yixuantt/MultiHopRAG", "MultiHopRAG", split="train", streaming=True)
-    samples = list(dataset.take(10))
+    
+    if num_samples > 0:
+        samples = list(dataset.take(num_samples))
+    else:
+        samples = list(dataset)
     
     corpus_paragraphs = []
     evaluation_dataset = []
@@ -38,10 +42,14 @@ def generate_multihop():
         
     return corpus_paragraphs, evaluation_dataset
 
-def generate_graphrag_bench():
+def generate_graphrag_bench(num_samples: int):
     print("Loading GraphRAG-Bench (Medical) dataset from Hugging Face...")
     dataset = load_dataset("GraphRAG-Bench/GraphRAG-Bench", "medical", split="train", streaming=True)
-    samples = list(dataset.take(10))
+    
+    if num_samples > 0:
+        samples = list(dataset.take(num_samples))
+    else:
+        samples = list(dataset)
     
     corpus_paragraphs = []
     evaluation_dataset = []
@@ -68,12 +76,13 @@ def generate_graphrag_bench():
 def generate():
     parser = argparse.ArgumentParser(description="Generate RAG evaluation benchmarks.")
     parser.add_argument("--dataset", type=str, choices=["multihop", "graphrag_bench"], default="multihop", help="Dataset to use for benchmarking.")
+    parser.add_argument("--samples", type=int, default=10, help="Number of samples to extract. Set to 0 to extract the entire dataset.")
     args = parser.parse_args()
     
     if args.dataset == "multihop":
-        corpus_paragraphs, evaluation_dataset = generate_multihop()
+        corpus_paragraphs, evaluation_dataset = generate_multihop(args.samples)
     elif args.dataset == "graphrag_bench":
-        corpus_paragraphs, evaluation_dataset = generate_graphrag_bench()
+        corpus_paragraphs, evaluation_dataset = generate_graphrag_bench(args.samples)
     
     random.seed(42)
     random.shuffle(corpus_paragraphs)

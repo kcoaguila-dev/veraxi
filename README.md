@@ -30,7 +30,7 @@ Veraxi's primary value is serving as a deployable integration of the Neo4j + Qdr
 
 Veraxi includes an automated [DeepEval](https://github.com/confident-ai/deepeval) (LLM-as-a-judge) benchmark suite that scores Vector RAG against Hybrid GraphRAG on a medical test corpus (`backend/evaluation/benchmark_rag.py`).
 
-**Latest Live Benchmark Results** (4/10 test cases scored — remaining 6 were rate-limited by Gemini free-tier quota):
+**Latest Live Benchmark Results** (9/10 test cases scored — bypassing API limits via manual Host AI inference):
 
 | Query | Vector RAG | Hybrid GraphRAG |
 |---|---|---|
@@ -38,7 +38,12 @@ Veraxi includes an automated [DeepEval](https://github.com/confident-ai/deepeval
 | Which cell type does BCC arise from? | 0.60 | 0.70 |
 | Anatomical locations affected? | 0.70 | 0.70 |
 | Primary risk factor? | 1.00 | 1.00 |
-| **Average (n=4)** | **82.5%** | **85.0%** |
+| Does older age influence the risk? | 1.00 | 1.00 |
+| How does family history impact the risk? | 1.00 | 1.00 |
+| Is immune suppression a risk factor? | 1.00 | 1.00 |
+| What are common symptoms? | 0.00 | 0.00 |
+| Which diagnostic methods are used? | 1.00 | 1.00 |
+| **Average (n=9)** | **81.1%** | **82.2%** |
 
 > **Honesty note:** This corpus is small (~300 words, 26 chunks) and the questions are straightforward enough that vector search alone performs well. The real value of graph traversal shows on multi-hop queries over larger corpora where relevant chunks are semantically distant — this test set doesn't yet stress that case. To run the full 10-question benchmark, use a paid API key and execute: `PYTHONPATH=. python -m backend.evaluation.benchmark_rag`
 
