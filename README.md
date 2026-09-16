@@ -40,7 +40,13 @@ Veraxi includes an automated [DeepEval](https://github.com/confident-ai/deepeval
 | Primary risk factor? | 1.00 | 1.00 |
 | **Average (n=4)** | **82.5%** | **85.0%** |
 
-> **Honesty note:** This corpus is small (~300 words, 26 chunks) and the questions are straightforward enough that vector search alone performs well. The real value of graph traversal shows on multi-hop queries over larger corpora where relevant chunks are semantically distant — this test set doesn't yet stress that case. To run the full 10-question benchmark, use a paid API key and execute: `PYTHONPATH=. python -m backend.evaluation.benchmark_rag`
+> **Honesty note:** This corpus is small (~300 words, 26 chunks) and the questions are straightforward enough that vector search alone performs well. The real value of graph traversal shows on multi-hop queries over larger corpora where relevant chunks are semantically distant — this test set doesn't yet stress that case. 
+> 
+> **Evaluation Infrastructure Status:** A massive 2,062-question pipeline (`run_full_suite.sh`) and a zero-cost deterministic 150-question pipeline (`run_deterministic_suite.sh`) have been built and committed. The deterministic suite uses true stratified sampling and F1 token-overlap (ROUGE-1) to bypass LLM-as-a-judge API costs. However, executing either suite requires ~600+ API generation calls, which currently exceeds the strict 20 Requests Per Day limit on the free-tier `gemini-3.6-flash` model. 
+> 
+> **Metric Caveat:** The F1 token-overlap metric is excellent for fact retrieval, but degrades on "Level 4: Creative Generation" questions where fluent paraphrasing correctly scores low due to exact-match penalties. This is a known limitation of deterministic metrics on open-ended RAG evaluations.
+> 
+> To run the full benchmark, provision a paid API key and execute: `PYTHONPATH=. python -m backend.evaluation.benchmark_rag`
 
 ## Architecture
 

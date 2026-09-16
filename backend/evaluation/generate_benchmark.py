@@ -47,9 +47,31 @@ def generate_graphrag_bench(num_samples: int):
     dataset = load_dataset("GraphRAG-Bench/GraphRAG-Bench", "medical", split="train", streaming=True)
     
     if num_samples > 0:
-        samples = list(dataset.take(num_samples))
+        dataset_list = list(dataset)
+        
+        # Group by question type for true stratified sampling
+        strata = {}
+        for item in dataset_list:
+            q_type = item.get('question_type', 'unknown')
+            if q_type not in strata:
+                strata[q_type] = []
+            strata[q_type].append(item)
+            
+        samples = []
+        total_items = len(dataset_list)
+        
+        # Sample proportionally from each stratum
+        for q_type, group in strata.items():
+            proportion = len(group) / total_items
+            stratum_sample_size = max(1, int(round(proportion * num_samples)))
+            samples.extend(random.sample(group, min(stratum_sample_size, len(group))))
+            
+        # Ensure we have exactly num_samples (trim or pad if rounding was slightly off)
+        random.shuffle(samples)
+        samples = samples[:num_samples]
     else:
         samples = list(dataset)
+    
     
     corpus_paragraphs = []
     evaluation_dataset = []
