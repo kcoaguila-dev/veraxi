@@ -39,7 +39,15 @@ Thumbs.db
 infra/.terraform/
 *.tfstate
 *.tfstate.*
-\n# Local TTS Data\nbackend/tts/voices.json\nbackend/tts/voices/\n
+
+# Local TTS Data
+backend/tts/voices.json
+backend/tts/voices/
+
 .deepeval/
-app/diff.patch
-app/analyze.txt
+*.patch
+analyze.txt
+scratch/
+*.out
+*.pid
+*.log

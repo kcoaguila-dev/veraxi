@@ -106,65 +106,67 @@ def build_fcpxml(clips: list[dict[str, Any]]) -> str:
     
     return "\n".join(xml)
 
-def build_ymm4_csv(clips: list[dict[str, Any]]) -> str:
-    # Generates a CSV formatted for YMM4's CSV import feature.
-    # Typical YMM4 CSV columns: キャラクター,セリフ,音声ファイルパス (Character, Dialogue, Audio Path)
-    lines = []
-    lines.append("キャラクター,セリフ,音声ファイルパス")
+import csv
+import io
+
+def build_csv(data: list[dict[str, Any]]) -> str:
+    # Generates a generic CSV file from any list of dictionaries.
+    if not data:
+        return ""
     
-    for clip in clips:
-        char = clip.get("character", "").replace('"', '""')
-        dialogue = clip.get("dialogue", "").replace('"', '""').replace("\n", " ")
-        path = clip.get("audio_path", "").replace('"', '""')
+    # Extract all unique keys to form the header
+    keys = []
+    for row in data:
+        for k in row.keys():
+            if k not in keys:
+                keys.append(k)
+                
+    output = io.StringIO()
+    writer = csv.DictWriter(output, fieldnames=keys)
+    writer.writeheader()
+    for row in data:
+        writer.writerow(row)
         
-        lines.append(f'"{char}","{dialogue}","{path}"')
-        
-    return "\n".join(lines)
+    return output.getvalue()
 
 
-def mcp_veraxi_mcp_export_timeline(
-    clips: list[dict[str, Any]], 
-    format: Literal["otio", "fcpxml", "ymm4_csv"] = "otio",
-    output_name: str = "veraxi_timeline"
+def mcp_veraxi_mcp_export_data(
+    data: list[dict[str, Any]], 
+    format: Literal["csv", "otio", "fcpxml"] = "csv",
+    output_name: str = "veraxi_export"
 ) -> str:
         """
-        Export a structured list of clips/dialogue into a universal video editing timeline format.
-        This enables workflows for content creators (Premiere, Resolve, Yukkuri Movie Maker).
+        Export a structured list of dictionaries into a universal data or timeline format.
+        This enables workflows for data science (CSV) and content creators (Premiere, Resolve via OTIO).
         
         Args:
-            clips: A list of dicts. Each dict must contain:
-                   - 'start_time' (float)
-                   - 'duration' (float)
-                   - 'character' (string, optional)
-                   - 'dialogue' (string, optional)
-                   - 'audio_path' (string, optional)
-            format: "otio" (OpenTimelineIO, recommended), "fcpxml" (Final Cut Pro), or "ymm4_csv" (for YMM4 native import).
+            data: A list of dicts. For OTIO/FCPXML, expected keys are 'duration', 'character', 'dialogue', 'audio_path'.
+            format: "csv" (Data Science/Spreadsheets), "otio" (OpenTimelineIO), or "fcpxml" (Final Cut Pro).
             output_name: Base filename (without extension).
             
         Returns:
-            The absolute path to the generated timeline file.
+            The absolute path to the generated export file.
         """
         
         workspace_dir = os.environ.get("VERAXI_WORKSPACE_DIR", "/tmp")
         
         if format == "otio":
-            timeline = build_otio(clips)
+            timeline = build_otio(data)
             filepath = os.path.join(workspace_dir, f"{output_name}.otio")
             otio.adapters.write_to_file(timeline, filepath)
             
         elif format == "fcpxml":
-            xml_content = build_fcpxml(clips)
+            xml_content = build_fcpxml(data)
             filepath = os.path.join(workspace_dir, f"{output_name}.fcpxml")
             with open(filepath, "w", encoding="utf-8") as f:
                 f.write(xml_content)
                 
-        elif format == "ymm4_csv":
-            csv_content = build_ymm4_csv(clips)
+        elif format == "csv":
+            csv_content = build_csv(data)
             filepath = os.path.join(workspace_dir, f"{output_name}.csv")
-            # Shift-JIS or UTF-8 with BOM is usually preferred for Japanese CSV software, but utf-8 is safest for Python
-            with open(filepath, "w", encoding="utf-8-sig") as f:
+            with open(filepath, "w", encoding="utf-8-sig", newline="") as f:
                 f.write(csv_content)
         else:
-            raise ValueError(f"Unsupported timeline format: {format}")
+            raise ValueError(f"Unsupported export format: {format}")
             
         return filepath
