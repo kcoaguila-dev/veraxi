@@ -19,18 +19,18 @@ async def test_moderate_text_flagged():
         result = await moderate_text("bad text", api_key="dummy_key")
         assert result is True
 
+
 @pytest.mark.asyncio
 async def test_moderate_text_safe():
     with patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post:
         mock_response = MagicMock()
         mock_response.raise_for_status.return_value = None
-        mock_response.json.return_value = {
-            "results": [{"flagged": False}]
-        }
+        mock_response.json.return_value = {"results": [{"flagged": False}]}
         mock_post.return_value = mock_response
 
         result = await moderate_text("good text", api_key="dummy_key")
         assert result is False
+
 
 @pytest.mark.asyncio
 async def test_moderate_text_fail_open():
@@ -40,6 +40,7 @@ async def test_moderate_text_fail_open():
         # Should catch the error and fail open (return False)
         result = await moderate_text("some text", api_key="dummy_key")
         assert result is False
+
 
 @pytest.mark.asyncio
 async def test_moderate_text_no_key():

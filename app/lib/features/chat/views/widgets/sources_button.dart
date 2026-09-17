@@ -4,7 +4,6 @@ import 'dart:convert';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
 
-
 class SourcesButton extends StatelessWidget {
   final ChatMessage message;
   final VoidCallback onSourceClicked;
@@ -37,9 +36,13 @@ class SourcesButton extends StatelessWidget {
       child: Container(
         padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
         decoration: BoxDecoration(
-          color: Theme.of(context).extension<AppThemeExtension>()!.cardBackground,
+          color:
+              Theme.of(context).extension<AppThemeExtension>()!.cardBackground,
           borderRadius: BorderRadius.circular(100),
-          border: Border.all(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor),
+          border: Border.all(
+              color: Theme.of(context)
+                  .extension<AppThemeExtension>()!
+                  .borderColor),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -58,8 +61,13 @@ class SourcesButton extends StatelessWidget {
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           border: Border.all(
-                              color: Theme.of(context).extension<AppThemeExtension>()!.cardBackground, width: 1.5),
-                          color: Theme.of(context).extension<AppThemeExtension>()!.borderColor,
+                              color: Theme.of(context)
+                                  .extension<AppThemeExtension>()!
+                                  .cardBackground,
+                              width: 1.5),
+                          color: Theme.of(context)
+                              .extension<AppThemeExtension>()!
+                              .borderColor,
                         ),
                         child: ClipOval(
                           child: favicons[renderIndex].isNotEmpty
@@ -70,10 +78,15 @@ class SourcesButton extends StatelessWidget {
                                   errorBuilder: (_, __, ___) => Icon(
                                       Icons.language,
                                       size: 10,
-                                      color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary),
+                                      color: Theme.of(context)
+                                          .extension<AppThemeExtension>()!
+                                          .textTertiary),
                                 )
                               : Icon(Icons.language,
-                                  size: 10, color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary),
+                                  size: 10,
+                                  color: Theme.of(context)
+                                      .extension<AppThemeExtension>()!
+                                      .textTertiary),
                         ),
                       ),
                     );

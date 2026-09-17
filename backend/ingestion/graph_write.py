@@ -55,7 +55,7 @@ def write_to_graph(
 
         node_id = neo4j_client.create_node(entity["type"], props)
         entity_name_to_node_id[entity["name"]] = node_id
-        
+
         if qdrant_id not in qdrant_id_to_neo4j_ids:
             qdrant_id_to_neo4j_ids[qdrant_id] = []
         qdrant_id_to_neo4j_ids[qdrant_id].append(node_id)

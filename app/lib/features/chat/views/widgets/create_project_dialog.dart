@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:veraxi_app/core/providers/project_view_model.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
 
-
 class CreateProjectDialog extends ConsumerStatefulWidget {
   const CreateProjectDialog({super.key});
 
@@ -48,10 +47,13 @@ class _CreateProjectDialogState extends ConsumerState<CreateProjectDialog> {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      backgroundColor: Theme.of(context).extension<AppThemeExtension>()!.dialogBackground,
+      backgroundColor:
+          Theme.of(context).extension<AppThemeExtension>()!.dialogBackground,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor),
+        side: BorderSide(
+            color:
+                Theme.of(context).extension<AppThemeExtension>()!.borderColor),
       ),
       child: Container(
         width: 400,
@@ -72,8 +74,7 @@ class _CreateProjectDialogState extends ConsumerState<CreateProjectDialog> {
                   ),
                 ),
                 IconButton(
-                  icon:
-                      Icon(Icons.close, color: Colors.white70, size: 20),
+                  icon: Icon(Icons.close, color: Colors.white70, size: 20),
                   onPressed: () => Navigator.of(context).pop(),
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
@@ -99,12 +100,17 @@ class _CreateProjectDialogState extends ConsumerState<CreateProjectDialog> {
                 hintText: 'New project',
                 hintStyle: TextStyle(color: Color(0xFF555555)),
                 filled: true,
-                fillColor: Theme.of(context).extension<AppThemeExtension>()!.dialogBackground,
+                fillColor: Theme.of(context)
+                    .extension<AppThemeExtension>()!
+                    .dialogBackground,
                 contentPadding:
                     EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide(color: Theme.of(context).extension<AppThemeExtension>()!.borderColorStrong),
+                  borderSide: BorderSide(
+                      color: Theme.of(context)
+                          .extension<AppThemeExtension>()!
+                          .borderColorStrong),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
@@ -121,11 +127,13 @@ class _CreateProjectDialogState extends ConsumerState<CreateProjectDialog> {
                   onPressed: () => Navigator.of(context).pop(),
                   style: TextButton.styleFrom(
                     foregroundColor: Colors.white,
-                    padding: EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 12),
+                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
-                      side: BorderSide(color: Theme.of(context).extension<AppThemeExtension>()!.borderColorStrong),
+                      side: BorderSide(
+                          color: Theme.of(context)
+                              .extension<AppThemeExtension>()!
+                              .borderColorStrong),
                     ),
                   ),
                   child: Text('Cancel'),
@@ -136,8 +144,7 @@ class _CreateProjectDialogState extends ConsumerState<CreateProjectDialog> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Theme.of(context).colorScheme.secondary,
                     foregroundColor: Colors.white,
-                    padding: EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 12),
+                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
                     ),

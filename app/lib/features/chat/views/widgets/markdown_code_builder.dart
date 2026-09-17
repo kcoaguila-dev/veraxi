@@ -7,7 +7,6 @@ import 'package:flutter_highlighter/flutter_highlighter.dart';
 import 'package:flutter_highlighter/themes/atom-one-dark.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
 
-
 class InteractiveCodeBlock extends StatefulWidget {
   final String language;
   final String code;
@@ -88,7 +87,8 @@ class _InteractiveCodeBlockState extends State<InteractiveCodeBlock> {
           Container(
             padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             decoration: BoxDecoration(
-              color: Theme.of(context).extension<AppThemeExtension>()!.borderColor,
+              color:
+                  Theme.of(context).extension<AppThemeExtension>()!.borderColor,
               borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
             ),
             child: Row(

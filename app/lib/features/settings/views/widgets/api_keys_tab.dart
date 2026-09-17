@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:veraxi_app/features/settings/view_models/api_keys_view_model.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
 
-
 /// Renders the "API Keys" tab content inside [SettingsDialog].
 class ApiKeysTab extends ConsumerStatefulWidget {
   const ApiKeysTab({super.key});
@@ -48,7 +47,8 @@ class _ApiKeysTabState extends ConsumerState<ApiKeysTab> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: Theme.of(context).extension<AppThemeExtension>()!.cardBackground,
+        backgroundColor:
+            Theme.of(context).extension<AppThemeExtension>()!.cardBackground,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         title: Text(
           'New API Key',
@@ -61,7 +61,11 @@ class _ApiKeysTabState extends ConsumerState<ApiKeysTab> {
           children: [
             Text(
               'Give this key a descriptive name so you remember where it\'s used.',
-              style: TextStyle(color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary, fontSize: 13),
+              style: TextStyle(
+                  color: Theme.of(context)
+                      .extension<AppThemeExtension>()!
+                      .textTertiary,
+                  fontSize: 13),
             ),
             SizedBox(height: 16),
             TextField(
@@ -72,7 +76,9 @@ class _ApiKeysTabState extends ConsumerState<ApiKeysTab> {
                 hintText: 'e.g. Cursor on MacBook',
                 hintStyle: TextStyle(color: Color(0xFF555555)),
                 filled: true,
-                fillColor: Theme.of(context).extension<AppThemeExtension>()!.borderColor,
+                fillColor: Theme.of(context)
+                    .extension<AppThemeExtension>()!
+                    .borderColor,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
                   borderSide: BorderSide.none,
@@ -87,7 +93,10 @@ class _ApiKeysTabState extends ConsumerState<ApiKeysTab> {
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
             child: Text('Cancel',
-                style: TextStyle(color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary)),
+                style: TextStyle(
+                    color: Theme.of(context)
+                        .extension<AppThemeExtension>()!
+                        .textTertiary)),
           ),
           FilledButton(
             onPressed: () => Navigator.of(ctx).pop(true),
@@ -120,7 +129,8 @@ class _ApiKeysTabState extends ConsumerState<ApiKeysTab> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: Theme.of(context).extension<AppThemeExtension>()!.cardBackground,
+        backgroundColor:
+            Theme.of(context).extension<AppThemeExtension>()!.cardBackground,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         title: Text(
           'Revoke API Key?',
@@ -129,13 +139,20 @@ class _ApiKeysTabState extends ConsumerState<ApiKeysTab> {
         ),
         content: Text(
           'Any MCP client using "$keyName" will immediately lose access. This cannot be undone.',
-          style: TextStyle(color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary, fontSize: 13),
+          style: TextStyle(
+              color: Theme.of(context)
+                  .extension<AppThemeExtension>()!
+                  .textTertiary,
+              fontSize: 13),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
             child: Text('Cancel',
-                style: TextStyle(color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary)),
+                style: TextStyle(
+                    color: Theme.of(context)
+                        .extension<AppThemeExtension>()!
+                        .textTertiary)),
           ),
           FilledButton(
             onPressed: () => Navigator.of(ctx).pop(true),
@@ -193,7 +210,11 @@ class _ApiKeysTabState extends ConsumerState<ApiKeysTab> {
                   Text(
                     'Use these keys to connect MCP clients (Cursor, Claude Desktop, etc.) permanently '
                     'to your Veraxi knowledge base without needing to re-login.',
-                    style: TextStyle(color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary, fontSize: 12),
+                    style: TextStyle(
+                        color: Theme.of(context)
+                            .extension<AppThemeExtension>()!
+                            .textTertiary,
+                        fontSize: 12),
                   ),
                 ],
               ),
@@ -205,8 +226,7 @@ class _ApiKeysTabState extends ConsumerState<ApiKeysTab> {
               label: Text('New Key', style: TextStyle(fontSize: 13)),
               style: FilledButton.styleFrom(
                 backgroundColor: const Color(0xFF10B981),
-                padding:
-                    EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                padding: EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               ),
             ),
           ],
@@ -317,7 +337,9 @@ class _ApiKeyRow extends StatelessWidget {
       decoration: BoxDecoration(
         color: Theme.of(context).extension<AppThemeExtension>()!.cardBackground,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor),
+        border: Border.all(
+            color:
+                Theme.of(context).extension<AppThemeExtension>()!.borderColor),
       ),
       child: Row(
         children: [
@@ -349,8 +371,7 @@ class _ApiKeyRow extends StatelessWidget {
                     SizedBox(width: 10),
                     Text(
                       'Created ${_formatDate(apiKey.createdAt)}',
-                      style: TextStyle(
-                          color: Color(0xFF555555), fontSize: 11),
+                      style: TextStyle(color: Color(0xFF555555), fontSize: 11),
                     ),
                     if (apiKey.lastUsedAt != null) ...[
                       Text(
@@ -360,8 +381,8 @@ class _ApiKeyRow extends StatelessWidget {
                       ),
                       Text(
                         _formatDate(apiKey.lastUsedAt!),
-                        style: TextStyle(
-                            color: Color(0xFF555555), fontSize: 11),
+                        style:
+                            TextStyle(color: Color(0xFF555555), fontSize: 11),
                       ),
                     ],
                   ],
@@ -397,7 +418,8 @@ class _RevealKeyDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      backgroundColor: Theme.of(context).extension<AppThemeExtension>()!.cardBackground,
+      backgroundColor:
+          Theme.of(context).extension<AppThemeExtension>()!.cardBackground,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       title: Row(
         children: [
@@ -417,7 +439,11 @@ class _RevealKeyDialog extends StatelessWidget {
           Text(
             'Copy this key and store it somewhere safe. '
             'It will not be shown again.',
-            style: TextStyle(color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary, fontSize: 13),
+            style: TextStyle(
+                color: Theme.of(context)
+                    .extension<AppThemeExtension>()!
+                    .textTertiary,
+                fontSize: 13),
           ),
           SizedBox(height: 16),
           Container(

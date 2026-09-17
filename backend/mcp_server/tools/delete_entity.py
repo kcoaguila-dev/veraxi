@@ -16,7 +16,9 @@ def delete_entity(entity_name: str, tenant_id: str = "default") -> str:
     """
 
     try:
-        results = neo4j.execute_read(query, {"entity_name": entity_name, "tenant_id": tenant_id})
+        results = neo4j.execute_read(
+            query, {"entity_name": entity_name, "tenant_id": tenant_id}
+        )
         count = results[0]["deleted_count"] if results else 0
         return f"Successfully deleted {count} entity(s) matching '{entity_name}'."
     finally:

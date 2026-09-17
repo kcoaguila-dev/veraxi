@@ -37,9 +37,9 @@ def test_resolve_entities_deduplication():
 
     # We expect Veraxi, Veraxi Corp, and veraxi corporation to be merged into one
     orgs = [e for e in resolved if e["type"] == "Organization"]
-    assert (
-        len(orgs) == 1
-    ), "Expected the three organizations to be deduplicated into one"
+    assert len(orgs) == 1, (
+        "Expected the three organizations to be deduplicated into one"
+    )
 
     # The canonical name should be the longest one
     assert orgs[0]["name"] == "Veraxi Corp"
@@ -115,11 +115,9 @@ def test_resolve_entities_rewrites_relations_with_aliases():
     for rel in relations:
         from_entity = alias_mapping.get(rel["from_entity"], rel["from_entity"])
         to_entity = alias_mapping.get(rel["to_entity"], rel["to_entity"])
-        rewritten_relations.append({
-            "from_entity": from_entity,
-            "to_entity": to_entity,
-            "type": rel["type"]
-        })
+        rewritten_relations.append(
+            {"from_entity": from_entity, "to_entity": to_entity, "type": rel["type"]}
+        )
 
     # Verify both relations now use the canonical name
     assert len(rewritten_relations) == 2

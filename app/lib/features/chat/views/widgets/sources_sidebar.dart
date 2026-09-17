@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
 
-
 class SourcesSidebar extends StatelessWidget {
   final List<Map<String, dynamic>> sources;
 
@@ -11,7 +10,8 @@ class SourcesSidebar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Drawer(
-      backgroundColor: Theme.of(context).extension<AppThemeExtension>()!.dialogBackground,
+      backgroundColor:
+          Theme.of(context).extension<AppThemeExtension>()!.dialogBackground,
       width: 350,
       child: SafeArea(
         child: Column(
@@ -21,8 +21,7 @@ class SourcesSidebar extends StatelessWidget {
               padding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
               child: Row(
                 children: [
-                  Icon(Icons.menu_book_outlined,
-                      color: Colors.white, size: 20),
+                  Icon(Icons.menu_book_outlined, color: Colors.white, size: 20),
                   SizedBox(width: 12),
                   Text(
                     'Sources',
@@ -34,20 +33,22 @@ class SourcesSidebar extends StatelessWidget {
                   ),
                   const Spacer(),
                   IconButton(
-                    icon: Icon(Icons.close,
-                        color: Colors.white70, size: 20),
+                    icon: Icon(Icons.close, color: Colors.white70, size: 20),
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                 ],
               ),
             ),
-            Divider(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor, height: 1),
+            Divider(
+                color: Theme.of(context)
+                    .extension<AppThemeExtension>()!
+                    .borderColor,
+                height: 1),
             Expanded(
               child: ListView.separated(
                 padding: EdgeInsets.all(20),
                 itemCount: sources.length,
-                separatorBuilder: (context, index) =>
-                    SizedBox(height: 16),
+                separatorBuilder: (context, index) => SizedBox(height: 16),
                 itemBuilder: (context, index) {
                   final source = sources[index];
                   String title = source['title'] ?? 'Web Source';
@@ -77,9 +78,14 @@ class SourcesSidebar extends StatelessWidget {
                     child: Container(
                       padding: EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: Theme.of(context).extension<AppThemeExtension>()!.cardBackground,
+                        color: Theme.of(context)
+                            .extension<AppThemeExtension>()!
+                            .cardBackground,
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor),
+                        border: Border.all(
+                            color: Theme.of(context)
+                                .extension<AppThemeExtension>()!
+                                .borderColor),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -90,7 +96,9 @@ class SourcesSidebar extends StatelessWidget {
                                 width: 24,
                                 height: 24,
                                 decoration: BoxDecoration(
-                                  color: Theme.of(context).extension<AppThemeExtension>()!.borderColor,
+                                  color: Theme.of(context)
+                                      .extension<AppThemeExtension>()!
+                                      .borderColor,
                                   borderRadius: BorderRadius.circular(6),
                                 ),
                                 alignment: Alignment.center,
@@ -112,21 +120,28 @@ class SourcesSidebar extends StatelessWidget {
                                     width: 16,
                                     height: 16,
                                     errorBuilder:
-                                        (context, error, stackTrace) =>
-                                            Icon(Icons.language,
-                                                size: 16,
-                                                color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary),
+                                        (context, error, stackTrace) => Icon(
+                                            Icons.language,
+                                            size: 16,
+                                            color: Theme.of(context)
+                                                .extension<AppThemeExtension>()!
+                                                .textTertiary),
                                   ),
                                 )
                               else
                                 Icon(Icons.language,
-                                    size: 16, color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary),
+                                    size: 16,
+                                    color: Theme.of(context)
+                                        .extension<AppThemeExtension>()!
+                                        .textTertiary),
                               SizedBox(width: 8),
                               Expanded(
                                 child: Text(
                                   displayDomain,
                                   style: TextStyle(
-                                    color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary,
+                                    color: Theme.of(context)
+                                        .extension<AppThemeExtension>()!
+                                        .textTertiary,
                                     fontSize: 13,
                                   ),
                                   maxLines: 1,
@@ -152,7 +167,9 @@ class SourcesSidebar extends StatelessWidget {
                               maxLines: 4,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
-                                color: Theme.of(context).extension<AppThemeExtension>()!.iconColor,
+                                color: Theme.of(context)
+                                    .extension<AppThemeExtension>()!
+                                    .iconColor,
                                 fontSize: 13,
                                 height: 1.4,
                               ),

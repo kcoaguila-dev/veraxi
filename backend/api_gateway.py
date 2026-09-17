@@ -61,6 +61,7 @@ jwks_client = PyJWKClient(jwks_url)
 # Lifespan — Redis pool
 # ---------------------------------------------------------------------------
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     config = get_config()
@@ -79,6 +80,7 @@ app = FastAPI(
 # ---------------------------------------------------------------------------
 # Rate Limiter
 # ---------------------------------------------------------------------------
+
 
 def get_auth_token_key(request: Request) -> str:
     auth = request.headers.get("Authorization")
@@ -106,6 +108,7 @@ app.add_middleware(
 # ---------------------------------------------------------------------------
 # BYOD Context Middleware
 # ---------------------------------------------------------------------------
+
 
 @app.middleware("http")
 async def byod_context_middleware(request: Request, call_next):
@@ -139,7 +142,9 @@ def _get_jwt_payload(token: str) -> dict:
         raise HTTPException(status_code=401, detail="Token has expired")
     except jwt.InvalidAudienceError as e:
         logger.warning(f"JWT Invalid Audience: {e}")
-        raise HTTPException(status_code=401, detail="Invalid audience. Expected 'authenticated'.")
+        raise HTTPException(
+            status_code=401, detail="Invalid audience. Expected 'authenticated'."
+        )
     except jwt.InvalidTokenError as e:
         logger.warning(f"JWT Validation Error: {e}")
         raise HTTPException(status_code=401, detail="Invalid token")
@@ -149,7 +154,9 @@ def _decode_and_validate_jwt(token: str) -> str:
     payload = _get_jwt_payload(token)
     tenant_id = payload.get("sub")
     if not tenant_id:
-        raise HTTPException(status_code=401, detail="Invalid token: missing sub (user ID) claim")
+        raise HTTPException(
+            status_code=401, detail="Invalid token: missing sub (user ID) claim"
+        )
     return tenant_id
 
 
@@ -161,7 +168,9 @@ def _get_supabase() -> "Client":
     """Return a cached Supabase service-role client."""
     global _supabase_client
     if _supabase_client is None:
-        _supabase_client = create_client(config.supabase_url, config.supabase_service_key)
+        _supabase_client = create_client(
+            config.supabase_url, config.supabase_service_key
+        )
     return _supabase_client
 
 
@@ -175,7 +184,9 @@ def get_tenant_id(
             return header_tenant
         return "local_personal_user"
     if not credentials:
-        logger.warning("No credentials provided in request headers (Authorization header missing or invalid)")
+        logger.warning(
+            "No credentials provided in request headers (Authorization header missing or invalid)"
+        )
         raise HTTPException(status_code=401, detail="Not authenticated")
     token = credentials.credentials
     if token.startswith("vx-"):
@@ -199,16 +210,26 @@ async def verify_infrastructure_access(
         is_subscribed = cached.decode("utf-8") == "true"
     else:
         import asyncio
+
         def _fetch_sub():
             try:
-                res = _get_supabase().table("users").select("is_subscribed").eq("id", tenant_id).execute()
+                res = (
+                    _get_supabase()
+                    .table("users")
+                    .select("is_subscribed")
+                    .eq("id", tenant_id)
+                    .execute()
+                )
                 if res.data and len(res.data) > 0:
                     return bool(res.data[0].get("is_subscribed", False))
             except Exception as e:  # noqa: BLE001
                 logger.error(f"Failed to check subscription status: {e}")
             return False
+
         is_subscribed = await asyncio.to_thread(_fetch_sub)
-        await request.app.state.redis.setex(cache_key, 86400, "true" if is_subscribed else "false")
+        await request.app.state.redis.setex(
+            cache_key, 86400, "true" if is_subscribed else "false"
+        )
     if is_subscribed:
         return tenant_id
     raise HTTPException(
@@ -232,15 +253,23 @@ from backend.routes.projects import register_project_routes
 from backend.routes.tts import register_tts_routes
 
 register_chat_routes(app, get_tenant_id, verify_infrastructure_access, limiter, config)
-register_ingestion_routes(app, get_tenant_id, verify_infrastructure_access, limiter, config)
+register_ingestion_routes(
+    app, get_tenant_id, verify_infrastructure_access, limiter, config
+)
 register_tts_routes(app, get_tenant_id, verify_infrastructure_access, limiter, config)
-register_payment_routes(app, get_tenant_id, verify_infrastructure_access, limiter, config)
+register_payment_routes(
+    app, get_tenant_id, verify_infrastructure_access, limiter, config
+)
 register_admin_routes(app, get_tenant_id, verify_infrastructure_access, limiter, config)
-register_project_routes(app, get_tenant_id, verify_infrastructure_access, limiter, config)
+register_project_routes(
+    app, get_tenant_id, verify_infrastructure_access, limiter, config
+)
 register_file_routes(app, get_tenant_id, verify_infrastructure_access, limiter, config)
 register_api_key_routes(app, get_tenant_id, _get_supabase)
 register_gdpr_routes(app, get_tenant_id, verify_infrastructure_access, limiter, config)
-register_mcp_transport_routes(app, get_tenant_id, verify_infrastructure_access, limiter, config)
+register_mcp_transport_routes(
+    app, get_tenant_id, verify_infrastructure_access, limiter, config
+)
 
 
 # ---------------------------------------------------------------------------

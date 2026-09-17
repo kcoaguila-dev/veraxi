@@ -18,7 +18,6 @@ void main() {
 
     await tester.pumpWidget(MaterialApp(
       theme: AppTheme.lightTheme,
-
       home: Scaffold(
         body: Center(child: ApiKeyDialog(providerName: 'Gemini')),
       ),

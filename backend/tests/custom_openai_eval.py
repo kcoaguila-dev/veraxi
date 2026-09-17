@@ -5,15 +5,16 @@ from openai import AsyncOpenAI, OpenAI
 
 class OpenAIDeepEvalModel(DeepEvalBaseLLM):
     """
-    Custom DeepEval Judge that uses the openai SDK 
+    Custom DeepEval Judge that uses the openai SDK
     to evaluate metrics using the configured model.
     """
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.config = get_config()
-        
+
         client_args = self.config.get_llm_client_args()
-        
+
         self.client = OpenAI(**client_args)
         self.async_client = AsyncOpenAI(**client_args)
         self.model_name = self.config.llm_model_name
@@ -25,7 +26,7 @@ class OpenAIDeepEvalModel(DeepEvalBaseLLM):
         response = self.client.chat.completions.create(
             model=self.model_name,
             messages=[{"role": "user", "content": prompt}],
-            temperature=0.0
+            temperature=0.0,
         )
         return response.choices[0].message.content
 
@@ -34,7 +35,7 @@ class OpenAIDeepEvalModel(DeepEvalBaseLLM):
         response = await self.async_client.chat.completions.create(
             model=self.model_name,
             messages=[{"role": "user", "content": prompt}],
-            temperature=0.0
+            temperature=0.0,
         )
         return response.choices[0].message.content
 

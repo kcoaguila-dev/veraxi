@@ -41,7 +41,7 @@ DEFAULT_PROVIDER_MODELS = {
         "gpt-3.5-0301",
         "gpt-3.5-turbo-instruct",
         "davinci-002",
-        "babbage-002"
+        "babbage-002",
     ],
     "Anthropic": [
         "claude-fable-5",
@@ -59,19 +59,14 @@ DEFAULT_PROVIDER_MODELS = {
         "claude-3-5-haiku-20241022",
         "claude-3-opus-20240229",
         "claude-3-sonnet-20240229",
-        "claude-3-haiku-20240307"
+        "claude-3-haiku-20240307",
     ],
-    "DeepSeek": [
-        "deepseek-chat",
-        "deepseek-coder",
-        "deepseek-reasoner",
-        "deepseek-r1"
-    ],
+    "DeepSeek": ["deepseek-chat", "deepseek-coder", "deepseek-reasoner", "deepseek-r1"],
     "Kimi": [
         "moonshot-v1-8k",
         "moonshot-v1-32k",
         "moonshot-v1-128k",
-        "moonshot-v1-auto"
+        "moonshot-v1-auto",
     ],
     "Google": [
         "gemini-3.6-flash",
@@ -84,7 +79,7 @@ DEFAULT_PROVIDER_MODELS = {
         "gemini-3-flash-preview",
         "gemini-2.5-pro",
         "gemini-2.5-flash",
-        "gemini-2.5-flash-lite"
+        "gemini-2.5-flash-lite",
     ],
     "Mistral": [
         "codestral-2405",
@@ -116,7 +111,7 @@ DEFAULT_PROVIDER_MODELS = {
         "pixtral-12b-2409",
         "pixtral-12b-latest",
         "pixtral-large-2411",
-        "pixtral-large-latest"
+        "pixtral-large-latest",
     ],
     "groq": [
         "allam-2-7b",
@@ -129,6 +124,6 @@ DEFAULT_PROVIDER_MODELS = {
         "meta-llama/llama-prompt-guard-2-22m",
         "meta-llama/llama-prompt-guard-2-86m",
         "openai/gpt-oss-120b",
-        "qwen/qwen3.6-27b"
-    ]
+        "qwen/qwen3.6-27b",
+    ],
 }

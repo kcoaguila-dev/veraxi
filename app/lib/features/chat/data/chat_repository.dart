@@ -172,8 +172,6 @@ class ChatRepository {
     await apiClient.post('/chat/threads/$threadId/regenerate', body: {});
   }
 
-
-
   Future<void> renameThread(String threadId, String newTitle) async {
     await apiClient
         .put('/chat/threads/$threadId/title', body: {'title': newTitle});
@@ -206,5 +204,4 @@ class ChatRepository {
         await apiClient.post('/chat/threads/$threadId/share', body: {});
     return response['share_id'] as String;
   }
-
 }

@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 import 'web_search_dialog.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
 
-
 class ChatInputToolsMenu extends StatelessWidget {
   final bool fileSearchActive;
   final bool fileSearchPinned;
@@ -42,7 +41,8 @@ class ChatInputToolsMenu extends StatelessWidget {
     required this.onReloadSettings,
   });
 
-  Widget _buildToolItem(BuildContext context, String value, String text, IconData icon,
+  Widget _buildToolItem(
+      BuildContext context, String value, String text, IconData icon,
       {bool isActive = false, bool isPinned = false}) {
     return MenuItemButton(
       style: const ButtonStyle(
@@ -58,7 +58,9 @@ class ChatInputToolsMenu extends StatelessWidget {
             Icon(icon,
                 color: isActive
                     ? Theme.of(context).colorScheme.secondary
-                    : Theme.of(context).extension<AppThemeExtension>()!.iconColor,
+                    : Theme.of(context)
+                        .extension<AppThemeExtension>()!
+                        .iconColor,
                 size: 14),
             const SizedBox(width: 8),
             Expanded(
@@ -86,16 +88,22 @@ class ChatInputToolsMenu extends StatelessWidget {
     );
   }
 
-  Widget _buildWebSearchItem(BuildContext context, {bool isActive = false, bool isPinned = false}) {
+  Widget _buildWebSearchItem(BuildContext context,
+      {bool isActive = false, bool isPinned = false}) {
     return SubmenuButton(
       style: const ButtonStyle(
           padding:
               WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 10))),
       menuStyle: MenuStyle(
-        backgroundColor: WidgetStatePropertyAll(Theme.of(context).extension<AppThemeExtension>()!.sidebarBackground),
+        backgroundColor: WidgetStatePropertyAll(Theme.of(context)
+            .extension<AppThemeExtension>()!
+            .sidebarBackground),
         shape: WidgetStatePropertyAll(RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
-          side: BorderSide(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor),
+          side: BorderSide(
+              color: Theme.of(context)
+                  .extension<AppThemeExtension>()!
+                  .borderColor),
         )),
       ),
       menuChildren: [
@@ -122,10 +130,16 @@ class ChatInputToolsMenu extends StatelessWidget {
                   child: Switch(
                     value: highAccuracyEnabled,
                     activeThumbColor: Theme.of(context).colorScheme.secondary,
-                    activeTrackColor:
-                        Theme.of(context).colorScheme.secondary.withValues(alpha: 0.3),
-                    inactiveThumbColor: Theme.of(context).extension<AppThemeExtension>()!.iconColor,
-                    inactiveTrackColor: Theme.of(context).extension<AppThemeExtension>()!.borderColor,
+                    activeTrackColor: Theme.of(context)
+                        .colorScheme
+                        .secondary
+                        .withValues(alpha: 0.3),
+                    inactiveThumbColor: Theme.of(context)
+                        .extension<AppThemeExtension>()!
+                        .iconColor,
+                    inactiveTrackColor: Theme.of(context)
+                        .extension<AppThemeExtension>()!
+                        .borderColor,
                     onChanged: (val) {
                       onToggleHighAccuracy(!val);
                     },
@@ -145,7 +159,9 @@ class ChatInputToolsMenu extends StatelessWidget {
             Icon(Icons.language,
                 color: isActive
                     ? Theme.of(context).colorScheme.secondary
-                    : Theme.of(context).extension<AppThemeExtension>()!.iconColor,
+                    : Theme.of(context)
+                        .extension<AppThemeExtension>()!
+                        .iconColor,
                 size: 14),
             const SizedBox(width: 8),
             const Expanded(
@@ -189,7 +205,8 @@ class ChatInputToolsMenu extends StatelessWidget {
     );
   }
 
-  Widget _buildSkillsItem(BuildContext context, {bool isActive = false, bool isPinned = false}) {
+  Widget _buildSkillsItem(BuildContext context,
+      {bool isActive = false, bool isPinned = false}) {
     return MenuItemButton(
       style: const ButtonStyle(
           padding:
@@ -204,7 +221,9 @@ class ChatInputToolsMenu extends StatelessWidget {
             Icon(Icons.extension_outlined,
                 color: isActive
                     ? Theme.of(context).colorScheme.secondary
-                    : Theme.of(context).extension<AppThemeExtension>()!.iconColor,
+                    : Theme.of(context)
+                        .extension<AppThemeExtension>()!
+                        .iconColor,
                 size: 14),
             const SizedBox(width: 8),
             const Expanded(
@@ -248,16 +267,25 @@ class ChatInputToolsMenu extends StatelessWidget {
   Widget build(BuildContext context) {
     return MenuAnchor(
       style: MenuStyle(
-        backgroundColor: WidgetStatePropertyAll(Theme.of(context).extension<AppThemeExtension>()!.sidebarBackground),
+        backgroundColor: WidgetStatePropertyAll(Theme.of(context)
+            .extension<AppThemeExtension>()!
+            .sidebarBackground),
         shape: WidgetStatePropertyAll(RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
-          side: BorderSide(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor),
+          side: BorderSide(
+              color: Theme.of(context)
+                  .extension<AppThemeExtension>()!
+                  .borderColor),
         )),
-        padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 8)),
+        padding:
+            const WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 8)),
       ),
       builder: (context, controller, child) {
         return IconButton(
-          icon: Icon(Icons.tune, color: Theme.of(context).extension<AppThemeExtension>()!.iconColor, size: 20),
+          icon: Icon(Icons.tune,
+              color:
+                  Theme.of(context).extension<AppThemeExtension>()!.iconColor,
+              size: 20),
           tooltip: 'Tools',
           onPressed: () {
             if (controller.isOpen) {
@@ -269,7 +297,8 @@ class ChatInputToolsMenu extends StatelessWidget {
         );
       },
       menuChildren: [
-        _buildToolItem(context, 'file_search', 'File Search', Icons.grid_view_outlined,
+        _buildToolItem(
+            context, 'file_search', 'File Search', Icons.grid_view_outlined,
             isActive: fileSearchActive, isPinned: fileSearchPinned),
         _buildWebSearchItem(context,
             isActive: webSearchActive, isPinned: webSearchPinned),
@@ -302,14 +331,18 @@ class ChatInputActiveTools extends StatelessWidget {
     required this.onToggleActive,
   });
 
-  Widget _buildActiveToolChip(BuildContext context, String label, IconData icon, VoidCallback onTap) {
+  Widget _buildActiveToolChip(
+      BuildContext context, String label, IconData icon, VoidCallback onTap) {
     return Padding(
       padding: const EdgeInsets.only(right: 6.0),
       child: ActionChip(
-        avatar: Icon(icon, color: Theme.of(context).colorScheme.secondary, size: 14),
+        avatar: Icon(icon,
+            color: Theme.of(context).colorScheme.secondary, size: 14),
         label: Text(label,
-            style: TextStyle(color: Theme.of(context).colorScheme.secondary, fontSize: 12)),
-        backgroundColor: Theme.of(context).colorScheme.secondary.withValues(alpha: 0.1),
+            style: TextStyle(
+                color: Theme.of(context).colorScheme.secondary, fontSize: 12)),
+        backgroundColor:
+            Theme.of(context).colorScheme.secondary.withValues(alpha: 0.1),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
           side: BorderSide(color: Theme.of(context).colorScheme.secondary),
@@ -335,7 +368,10 @@ class ChatInputActiveTools extends StatelessWidget {
         child: Row(
           children: [
             if (fileSearchActive)
-              _buildActiveToolChip(context, 'File Search', Icons.grid_view_outlined,
+              _buildActiveToolChip(
+                  context,
+                  'File Search',
+                  Icons.grid_view_outlined,
                   () => onToggleActive('file_search', true)),
             if (webSearchActive)
               _buildActiveToolChip(context, 'Web Search', Icons.language,

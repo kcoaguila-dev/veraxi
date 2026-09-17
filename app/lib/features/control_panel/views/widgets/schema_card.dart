@@ -4,7 +4,6 @@ import 'package:veraxi_app/features/control_panel/view_models/control_panel_view
 import 'package:veraxi_app/features/control_panel/views/widgets/schema_visual_builder.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
 
-
 class SchemaCard extends ConsumerStatefulWidget {
   const SchemaCard({super.key});
 
@@ -29,9 +28,13 @@ class _SchemaCardState extends ConsumerState<SchemaCard> {
     return Container(
       padding: EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: Theme.of(context).extension<AppThemeExtension>()!.surfaceHighlight,
+        color:
+            Theme.of(context).extension<AppThemeExtension>()!.surfaceHighlight,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Theme.of(context).extension<AppThemeExtension>()!.borderColorStrong),
+        border: Border.all(
+            color: Theme.of(context)
+                .extension<AppThemeExtension>()!
+                .borderColorStrong),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -44,7 +47,11 @@ class _SchemaCardState extends ConsumerState<SchemaCard> {
           SizedBox(height: 4),
           Text(
               'Define the entities and relationships that the AI should extract during ingestion.',
-              style: TextStyle(color: Theme.of(context).extension<AppThemeExtension>()!.iconColor, fontSize: 14)),
+              style: TextStyle(
+                  color: Theme.of(context)
+                      .extension<AppThemeExtension>()!
+                      .iconColor,
+                  fontSize: 14)),
           SizedBox(height: 16),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -67,7 +74,9 @@ class _SchemaCardState extends ConsumerState<SchemaCard> {
                             'Paste a sample of your text here (e.g., an abstract or executive summary). The AI will auto-generate an appropriate schema.',
                         hintStyle: TextStyle(color: Colors.white38),
                         filled: true,
-                        fillColor: Theme.of(context).extension<AppThemeExtension>()!.cardBackground,
+                        fillColor: Theme.of(context)
+                            .extension<AppThemeExtension>()!
+                            .cardBackground,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
                           borderSide: BorderSide.none,

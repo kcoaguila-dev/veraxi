@@ -12,7 +12,6 @@ import 'package:veraxi_app/core/providers/project_view_model.dart';
 import 'package:veraxi_app/features/chat/views/widgets/pinned_models_widget.dart';
 import 'package:veraxi_app/features/project/views/widgets/project_list_widget.dart';
 
-
 class ChatSidebar extends ConsumerStatefulWidget {
   final bool isSidebarOpen;
   final bool isMobile;
@@ -42,7 +41,9 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
       width: 18,
       height: 18,
       fit: BoxFit.contain,
-      colorFilter: ColorFilter.mode(Theme.of(context).extension<AppThemeExtension>()!.iconColor, BlendMode.srcIn),
+      colorFilter: ColorFilter.mode(
+          Theme.of(context).extension<AppThemeExtension>()!.iconColor,
+          BlendMode.srcIn),
     );
   }
 
@@ -53,7 +54,9 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
       child: Row(
         children: [
           Icon(icon,
-              color: isDestructive ? Colors.red : Theme.of(context).extension<AppThemeExtension>()!.iconColor,
+              color: isDestructive
+                  ? Colors.red
+                  : Theme.of(context).extension<AppThemeExtension>()!.iconColor,
               size: 16),
           SizedBox(width: 12),
           Text(title,
@@ -64,7 +67,6 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
       ),
     );
   }
-
 
   void _showShareDialog(
       BuildContext context, ChatViewModel viewModel, String threadId) async {
@@ -84,22 +86,29 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
         context: context,
         builder: (context) {
           return AlertDialog(
-            backgroundColor: Theme.of(context).extension<AppThemeExtension>()!.cardBackground,
+            backgroundColor: Theme.of(context)
+                .extension<AppThemeExtension>()!
+                .cardBackground,
             title: Text('Share Link',
                 style: TextStyle(color: Colors.white, fontSize: 16)),
             content: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                    'Anyone with this link can view the shared conversation.',
-                    style: TextStyle(color: Theme.of(context).extension<AppThemeExtension>()!.iconColor, fontSize: 13)),
+                Text('Anyone with this link can view the shared conversation.',
+                    style: TextStyle(
+                        color: Theme.of(context)
+                            .extension<AppThemeExtension>()!
+                            .iconColor,
+                        fontSize: 13)),
                 SizedBox(height: 16),
                 Container(
-                  padding: EdgeInsets.only(
-                      left: 12, right: 4, top: 4, bottom: 4),
+                  padding:
+                      EdgeInsets.only(left: 12, right: 4, top: 4, bottom: 4),
                   decoration: BoxDecoration(
-                    color: Theme.of(context).extension<AppThemeExtension>()!.borderColor,
+                    color: Theme.of(context)
+                        .extension<AppThemeExtension>()!
+                        .borderColor,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Row(
@@ -107,14 +116,16 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
                       Expanded(
                         child: Text(
                           url,
-                          style: TextStyle(
-                              color: Colors.white, fontSize: 13),
+                          style: TextStyle(color: Colors.white, fontSize: 13),
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
                       IconButton(
                         icon: Icon(Icons.copy,
-                            size: 18, color: Theme.of(context).extension<AppThemeExtension>()!.iconColor),
+                            size: 18,
+                            color: Theme.of(context)
+                                .extension<AppThemeExtension>()!
+                                .iconColor),
                         onPressed: () {
                           Clipboard.setData(ClipboardData(text: url));
                           ScaffoldMessenger.of(context).showSnackBar(
@@ -136,7 +147,10 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
               TextButton(
                 onPressed: () => Navigator.pop(context),
                 child: Text('Close',
-                    style: TextStyle(color: Theme.of(context).extension<AppThemeExtension>()!.iconColor)),
+                    style: TextStyle(
+                        color: Theme.of(context)
+                            .extension<AppThemeExtension>()!
+                            .iconColor)),
               ),
             ],
           );
@@ -145,14 +159,15 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
     }
   }
 
-void _showRenameDialog(BuildContext context, ChatViewModel viewModel,
+  void _showRenameDialog(BuildContext context, ChatViewModel viewModel,
       String threadId, String currentTitle) {
     final controller = TextEditingController(text: currentTitle);
     showDialog(
       context: context,
       builder: (context) {
         return AlertDialog(
-          backgroundColor: Theme.of(context).extension<AppThemeExtension>()!.cardBackground,
+          backgroundColor:
+              Theme.of(context).extension<AppThemeExtension>()!.cardBackground,
           title: Text('Rename Chat',
               style: TextStyle(color: Colors.white, fontSize: 16)),
           content: TextField(
@@ -162,7 +177,10 @@ void _showRenameDialog(BuildContext context, ChatViewModel viewModel,
               hintText: 'Enter new title',
               hintStyle: TextStyle(color: Color(0xFF6E6E6E)),
               enabledBorder: OutlineInputBorder(
-                  borderSide: BorderSide(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor)),
+                  borderSide: BorderSide(
+                      color: Theme.of(context)
+                          .extension<AppThemeExtension>()!
+                          .borderColor)),
               focusedBorder: OutlineInputBorder(
                   borderSide: BorderSide(color: Color(0xFF3A3A3A))),
             ),
@@ -171,7 +189,10 @@ void _showRenameDialog(BuildContext context, ChatViewModel viewModel,
             TextButton(
               onPressed: () => Navigator.pop(context),
               child: Text('Cancel',
-                  style: TextStyle(color: Theme.of(context).extension<AppThemeExtension>()!.iconColor)),
+                  style: TextStyle(
+                      color: Theme.of(context)
+                          .extension<AppThemeExtension>()!
+                          .iconColor)),
             ),
             TextButton(
               onPressed: () async {
@@ -199,7 +220,8 @@ void _showRenameDialog(BuildContext context, ChatViewModel viewModel,
       context: context,
       builder: (context) {
         return AlertDialog(
-          backgroundColor: Theme.of(context).extension<AppThemeExtension>()!.cardBackground,
+          backgroundColor:
+              Theme.of(context).extension<AppThemeExtension>()!.cardBackground,
           title: Text('Assign Project',
               style: TextStyle(color: Colors.white, fontSize: 16)),
           content: SizedBox(
@@ -213,7 +235,9 @@ void _showRenameDialog(BuildContext context, ChatViewModel viewModel,
                     title: Text('No Project',
                         style: TextStyle(color: Colors.white)),
                     onTap: () async {
-                      await ref.read(chatHistoryProvider.notifier).assignThreadToProject(threadId, null);
+                      await ref
+                          .read(chatHistoryProvider.notifier)
+                          .assignThreadToProject(threadId, null);
                       if (context.mounted) Navigator.pop(context);
                     },
                   );
@@ -223,8 +247,10 @@ void _showRenameDialog(BuildContext context, ChatViewModel viewModel,
                   title: Text(project['name'] as String,
                       style: TextStyle(color: Colors.white)),
                   onTap: () async {
-                    await ref.read(chatHistoryProvider.notifier).assignThreadToProject(
-                        threadId, project['id'] as String);
+                    await ref
+                        .read(chatHistoryProvider.notifier)
+                        .assignThreadToProject(
+                            threadId, project['id'] as String);
                     if (context.mounted) Navigator.pop(context);
                   },
                 );
@@ -235,7 +261,10 @@ void _showRenameDialog(BuildContext context, ChatViewModel viewModel,
             TextButton(
               onPressed: () => Navigator.pop(context),
               child: Text('Close',
-                  style: TextStyle(color: Theme.of(context).extension<AppThemeExtension>()!.iconColor)),
+                  style: TextStyle(
+                      color: Theme.of(context)
+                          .extension<AppThemeExtension>()!
+                          .iconColor)),
             ),
           ],
         );
@@ -243,21 +272,20 @@ void _showRenameDialog(BuildContext context, ChatViewModel viewModel,
     );
   }
 
-Widget build(BuildContext context) {
+  Widget build(BuildContext context) {
     // We override references to variables that used to be class members
-    
-    
-    
+
     // In original code, these methods might be defined before _buildSidebarContent, but we moved them to this class.
-return _buildSidebarContentActual(context); 
-} 
-Widget _buildSidebarContentActual(BuildContext context) { 
-final state = ref.watch(chatViewModelProvider);
-final viewModel = ref.read(chatViewModelProvider.notifier);
-final projectState = ref.watch(projectViewModelProvider);
-final projectViewModel = ref.read(projectViewModelProvider.notifier);
-final modelSelection = ref.watch(modelSelectionProvider);
-final isSidebarOpen = widget.isSidebarOpen;
+    return _buildSidebarContentActual(context);
+  }
+
+  Widget _buildSidebarContentActual(BuildContext context) {
+    final state = ref.watch(chatViewModelProvider);
+    final viewModel = ref.read(chatViewModelProvider.notifier);
+    final projectState = ref.watch(projectViewModelProvider);
+    final projectViewModel = ref.read(projectViewModelProvider.notifier);
+    final modelSelection = ref.watch(modelSelectionProvider);
+    final isSidebarOpen = widget.isSidebarOpen;
     return AnimatedContainer(
       duration: const Duration(milliseconds: 250),
       curve: Curves.easeInOut,
@@ -265,7 +293,9 @@ final isSidebarOpen = widget.isSidebarOpen;
       child: ClipRect(
         child: Container(
           width: 260,
-          color: Theme.of(context).extension<AppThemeExtension>()!.sidebarBackground,
+          color: Theme.of(context)
+              .extension<AppThemeExtension>()!
+              .sidebarBackground,
           padding: EdgeInsets.symmetric(horizontal: 16, vertical: 20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -310,7 +340,9 @@ final isSidebarOpen = widget.isSidebarOpen;
                 pinnedModels: modelSelection.pinnedModels.toList(),
                 selectedModel: modelSelection.selectedModel,
                 onModelSelected: (model, provider) {
-                  ref.read(modelSelectionProvider.notifier).selectModel(model, provider: provider);
+                  ref
+                      .read(modelSelectionProvider.notifier)
+                      .selectModel(model, provider: provider);
                 },
                 onModelUnpinned: (model) {
                   ref.read(modelSelectionProvider.notifier).unpinModel(model);
@@ -336,7 +368,9 @@ final isSidebarOpen = widget.isSidebarOpen;
                       children: [
                         Text('Chats',
                             style: TextStyle(
-                                color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary,
+                                color: Theme.of(context)
+                                    .extension<AppThemeExtension>()!
+                                    .textTertiary,
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600)),
                         SizedBox(width: 4),
@@ -344,7 +378,9 @@ final isSidebarOpen = widget.isSidebarOpen;
                             _chatsExpanded
                                 ? Icons.keyboard_arrow_down
                                 : Icons.keyboard_arrow_right,
-                            color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary,
+                            color: Theme.of(context)
+                                .extension<AppThemeExtension>()!
+                                .textTertiary,
                             size: 16),
                       ],
                     ),
@@ -357,7 +393,10 @@ final isSidebarOpen = widget.isSidebarOpen;
                     child: Padding(
                       padding: EdgeInsets.all(4.0),
                       child: Icon(Icons.edit_square,
-                          color: Theme.of(context).extension<AppThemeExtension>()!.iconColor, size: 16),
+                          color: Theme.of(context)
+                              .extension<AppThemeExtension>()!
+                              .iconColor,
+                          size: 16),
                     ),
                   ),
                 ],
@@ -472,7 +511,9 @@ final isSidebarOpen = widget.isSidebarOpen;
                                 child: Container(
                                   decoration: BoxDecoration(
                                     color: isSelected
-                                        ? Theme.of(context).extension<AppThemeExtension>()!.borderColor
+                                        ? Theme.of(context)
+                                            .extension<AppThemeExtension>()!
+                                            .borderColor
                                         : Colors.transparent,
                                     borderRadius: BorderRadius.circular(8),
                                   ),
@@ -486,7 +527,10 @@ final isSidebarOpen = widget.isSidebarOpen;
                                           style: TextStyle(
                                             color: isSelected
                                                 ? Colors.white
-                                                : Theme.of(context).extension<AppThemeExtension>()!.iconColor,
+                                                : Theme.of(context)
+                                                    .extension<
+                                                        AppThemeExtension>()!
+                                                    .iconColor,
                                             fontSize: 13,
                                             fontWeight: isSelected
                                                 ? FontWeight.w500
@@ -513,9 +557,15 @@ final isSidebarOpen = widget.isSidebarOpen;
                                               icon: Icon(Icons.more_horiz,
                                                   color: isSelected
                                                       ? Colors.white
-                                                      : Theme.of(context).extension<AppThemeExtension>()!.iconColor,
+                                                      : Theme.of(context)
+                                                          .extension<
+                                                              AppThemeExtension>()!
+                                                          .iconColor,
                                                   size: 16),
-                                              color: Theme.of(context).extension<AppThemeExtension>()!.borderColor,
+                                              color: Theme.of(context)
+                                                  .extension<
+                                                      AppThemeExtension>()!
+                                                  .borderColor,
                                               shape: RoundedRectangleBorder(
                                                   borderRadius:
                                                       BorderRadius.circular(8)),
@@ -618,9 +668,5 @@ final isSidebarOpen = widget.isSidebarOpen;
         ),
       ),
     );
-
-
-
-
-
-}}
+  }
+}

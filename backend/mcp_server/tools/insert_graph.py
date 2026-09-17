@@ -7,7 +7,7 @@ from backend.storage.neo4j_client import Neo4jStorageClient
 def insert_graph_nodes(
     nodes: list[dict[str, Any]],
     relations: list[dict[str, str]],
-    tenant_id: str = "default"
+    tenant_id: str = "default",
 ) -> dict[str, Any]:
     """
     Insert raw graph nodes and relations into Neo4j without using an LLM API key.
@@ -28,7 +28,7 @@ def insert_graph_nodes(
             name = node.get("name", "Unknown")
             props["name"] = name
             props["tenant_id"] = tenant_id
-            
+
             node_id = neo4j_client.create_node(node_type, props)
             entity_name_to_node_id[name] = node_id
             nodes_inserted += 1
@@ -48,7 +48,7 @@ def insert_graph_nodes(
         return {
             "status": "success",
             "nodes_inserted": nodes_inserted,
-            "relations_inserted": relations_inserted
+            "relations_inserted": relations_inserted,
         }
     finally:
         neo4j_client.close()

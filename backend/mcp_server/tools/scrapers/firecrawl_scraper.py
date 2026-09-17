@@ -7,6 +7,7 @@ including JavaScript-rendered pages. Supports both the managed cloud service
 
 Best for: production deployments needing reliable JS rendering + anti-bot bypass.
 """
+
 from __future__ import annotations
 
 import json
@@ -23,7 +24,9 @@ logger = logging.getLogger(__name__)
 _MIN_CONTENT_LENGTH = 150
 
 
-def _fetch_one(url: str, base_url: str, api_key: str, timeout: float) -> tuple[str, str]:
+def _fetch_one(
+    url: str, base_url: str, api_key: str, timeout: float
+) -> tuple[str, str]:
     """Call Firecrawl scrape endpoint for a single URL. Returns (url, markdown)."""
     endpoint = f"{base_url}/v1/scrape"
     payload = json.dumps({"url": url, "formats": ["markdown"]}).encode()
@@ -35,14 +38,14 @@ def _fetch_one(url: str, base_url: str, api_key: str, timeout: float) -> tuple[s
         headers["Authorization"] = f"Bearer {api_key}"
 
     try:
-        req = urllib.request.Request(endpoint, data=payload, headers=headers, method="POST")
+        req = urllib.request.Request(
+            endpoint, data=payload, headers=headers, method="POST"
+        )
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             data = json.loads(resp.read().decode("utf-8", errors="replace"))
             # Firecrawl v1 response: {"success": true, "data": {"markdown": "..."}}
             markdown = (
-                data.get("data", {}).get("markdown")
-                or data.get("markdown")
-                or ""
+                data.get("data", {}).get("markdown") or data.get("markdown") or ""
             )
             return url, markdown.strip()
     except urllib.error.HTTPError as exc:
@@ -64,7 +67,9 @@ class FirecrawlScraper:
                  self-hosted instances with auth disabled.
     """
 
-    def __init__(self, base_url: str = "https://api.firecrawl.dev", api_key: str = "") -> None:
+    def __init__(
+        self, base_url: str = "https://api.firecrawl.dev", api_key: str = ""
+    ) -> None:
         self._base_url = base_url
         self._api_key = api_key
 

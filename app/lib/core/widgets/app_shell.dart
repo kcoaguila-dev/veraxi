@@ -36,7 +36,9 @@ class _ScaffoldWithNavBarState extends ConsumerState<ScaffoldWithNavBar> {
       width: 18,
       height: 18,
       fit: BoxFit.contain,
-      colorFilter: ColorFilter.mode(Theme.of(context).extension<AppThemeExtension>()!.iconColor, BlendMode.srcIn),
+      colorFilter: ColorFilter.mode(
+          Theme.of(context).extension<AppThemeExtension>()!.iconColor,
+          BlendMode.srcIn),
     );
   }
 
@@ -62,13 +64,17 @@ class _ScaffoldWithNavBarState extends ConsumerState<ScaffoldWithNavBar> {
         height: 36,
         decoration: isSelected
             ? BoxDecoration(
-                color: Theme.of(context).extension<AppThemeExtension>()!.surfaceHighlight,
+                color: Theme.of(context)
+                    .extension<AppThemeExtension>()!
+                    .surfaceHighlight,
                 borderRadius: BorderRadius.circular(8),
               )
             : null,
         child: Icon(
           icon,
-          color: isSelected ? const Color(0xFFFFFFFF) : Theme.of(context).extension<AppThemeExtension>()!.textTertiary,
+          color: isSelected
+              ? const Color(0xFFFFFFFF)
+              : Theme.of(context).extension<AppThemeExtension>()!.textTertiary,
           size: 20,
         ),
       ),
@@ -90,7 +96,9 @@ class _ScaffoldWithNavBarState extends ConsumerState<ScaffoldWithNavBar> {
               if (isWideScreen)
                 Container(
                   width: 64,
-                  color: Theme.of(context).extension<AppThemeExtension>()!.sidebarBackground,
+                  color: Theme.of(context)
+                      .extension<AppThemeExtension>()!
+                      .sidebarBackground,
                   child: Column(
                     children: [
                       SizedBox(height: 20),

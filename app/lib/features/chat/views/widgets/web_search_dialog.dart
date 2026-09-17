@@ -6,7 +6,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
 
-
 class WebSearchDialog extends StatefulWidget {
   const WebSearchDialog({super.key});
 
@@ -130,9 +129,14 @@ class _WebSearchDialogState extends State<WebSearchDialog> {
         width: 480,
         constraints: const BoxConstraints(maxWidth: 480, maxHeight: 680),
         decoration: BoxDecoration(
-          color: Theme.of(context).extension<AppThemeExtension>()!.sidebarBackground,
+          color: Theme.of(context)
+              .extension<AppThemeExtension>()!
+              .sidebarBackground,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor),
+          border: Border.all(
+              color: Theme.of(context)
+                  .extension<AppThemeExtension>()!
+                  .borderColor),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.5),
@@ -174,7 +178,10 @@ class _WebSearchDialogState extends State<WebSearchDialog> {
                 _buildProviderFields(),
 
                 SizedBox(height: 28),
-                Divider(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor),
+                Divider(
+                    color: Theme.of(context)
+                        .extension<AppThemeExtension>()!
+                        .borderColor),
                 SizedBox(height: 20),
 
                 // ── Page Content Scraper ──────────────────────────────────
@@ -226,7 +233,9 @@ class _WebSearchDialogState extends State<WebSearchDialog> {
                   SliderTheme(
                     data: SliderTheme.of(context).copyWith(
                       activeTrackColor: Theme.of(context).colorScheme.secondary,
-                      inactiveTrackColor: Theme.of(context).extension<AppThemeExtension>()!.surfaceHighlight,
+                      inactiveTrackColor: Theme.of(context)
+                          .extension<AppThemeExtension>()!
+                          .surfaceHighlight,
                       thumbColor: Theme.of(context).colorScheme.secondary,
                       overlayColor: const Color(0x2210A37F),
                       trackHeight: 2,
@@ -256,10 +265,12 @@ class _WebSearchDialogState extends State<WebSearchDialog> {
                     TextButton(
                       onPressed: () => Navigator.of(context).pop(),
                       style: TextButton.styleFrom(
-                        backgroundColor: Theme.of(context).extension<AppThemeExtension>()!.surfaceHighlight,
+                        backgroundColor: Theme.of(context)
+                            .extension<AppThemeExtension>()!
+                            .surfaceHighlight,
                         foregroundColor: Colors.white,
-                        padding: EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 10),
+                        padding:
+                            EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                         shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(6)),
                       ),
@@ -271,10 +282,11 @@ class _WebSearchDialogState extends State<WebSearchDialog> {
                     TextButton(
                       onPressed: _saveSettings,
                       style: TextButton.styleFrom(
-                        backgroundColor: Theme.of(context).colorScheme.secondary,
+                        backgroundColor:
+                            Theme.of(context).colorScheme.secondary,
                         foregroundColor: Colors.white,
-                        padding: EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 10),
+                        padding:
+                            EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                         shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(6)),
                       ),
@@ -495,17 +507,17 @@ class _DropdownRow extends StatelessWidget {
         width: double.infinity,
         padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: Theme.of(context).extension<AppThemeExtension>()!.surfaceHighlight,
+          color: Theme.of(context)
+              .extension<AppThemeExtension>()!
+              .surfaceHighlight,
           borderRadius: BorderRadius.circular(6),
           border: Border.all(color: const Color(0xFF3A3A3A)),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(selected,
-                style: TextStyle(color: Colors.white, fontSize: 13)),
-            Icon(Icons.keyboard_arrow_down,
-                color: Colors.white54, size: 16),
+            Text(selected, style: TextStyle(color: Colors.white, fontSize: 13)),
+            Icon(Icons.keyboard_arrow_down, color: Colors.white54, size: 16),
           ],
         ),
       ),
@@ -569,8 +581,7 @@ class _InputField extends StatelessWidget {
           errorBorder: InputBorder.none,
           disabledBorder: InputBorder.none,
           filled: false,
-          contentPadding:
-              EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         ),
       ),
     );
@@ -626,8 +637,7 @@ class _ApiKeyFieldState extends State<_ApiKeyField> {
           errorBorder: InputBorder.none,
           disabledBorder: InputBorder.none,
           filled: false,
-          contentPadding:
-              EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           suffixIcon: _isFocused
               ? Row(
                   mainAxisSize: MainAxisSize.min,
@@ -637,7 +647,9 @@ class _ApiKeyFieldState extends State<_ApiKeyField> {
                         _obscureText
                             ? Icons.visibility_off_outlined
                             : Icons.visibility_outlined,
-                        color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary,
+                        color: Theme.of(context)
+                            .extension<AppThemeExtension>()!
+                            .textTertiary,
                         size: 16,
                       ),
                       padding: EdgeInsets.zero,

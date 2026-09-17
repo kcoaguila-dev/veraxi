@@ -20,8 +20,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-      theme: AppTheme.lightTheme,
-
+        theme: AppTheme.lightTheme,
         home: Scaffold(
           body: SourcesSidebar(sources: testSources),
         ),
@@ -76,8 +75,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-      theme: AppTheme.lightTheme,
-
+        theme: AppTheme.lightTheme,
         home: Scaffold(
           body: SourcesSidebar(sources: testSources),
         ),

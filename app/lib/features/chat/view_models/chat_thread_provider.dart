@@ -81,9 +81,11 @@ class ChatThreadViewModel extends Notifier<ChatThreadState> {
   }
 
   Future<void> selectThread(String threadId) async {
-    state = state.copyWith(isLoadingHistory: true, threadId: threadId, messages: []);
+    state = state
+        .copyWith(isLoadingHistory: true, threadId: threadId, messages: []);
     try {
-      final history = await ref.read(chatRepositoryProvider).getThreadHistory(threadId);
+      final history =
+          await ref.read(chatRepositoryProvider).getThreadHistory(threadId);
       final messages = history.map((m) {
         List<ToolEvent> toolEvents = [];
         if (m['toolEvents'] != null) {
@@ -92,7 +94,9 @@ class ChatThreadViewModel extends Notifier<ChatThreadState> {
               .map((e) => ToolEvent(
                     id: e['id'] as String? ?? '',
                     name: e['name'] as String? ?? '',
-                    args: e['args'] is Map ? Map<String, dynamic>.from(e['args'] as Map) : {},
+                    args: e['args'] is Map
+                        ? Map<String, dynamic>.from(e['args'] as Map)
+                        : {},
                     result: e['result'],
                     isComplete: e['isComplete'] as bool? ?? true,
                   ))
@@ -105,7 +109,9 @@ class ChatThreadViewModel extends Notifier<ChatThreadState> {
           feedback: m['feedback'] as int? ?? 0,
           modelName: m['model_name'] as String?,
           toolEvents: toolEvents,
-          metrics: m['metrics'] is Map ? Map<String, dynamic>.from(m['metrics'] as Map) : null,
+          metrics: m['metrics'] is Map
+              ? Map<String, dynamic>.from(m['metrics'] as Map)
+              : null,
         );
       }).toList();
       state = state.copyWith(messages: messages, isLoadingHistory: false);
@@ -115,14 +121,18 @@ class ChatThreadViewModel extends Notifier<ChatThreadState> {
     }
   }
 
-  Future<void> sendMessage(String text, {String? model, List<dynamic>? attachments}) async {
-    if (text.trim().isEmpty && (attachments == null || attachments.isEmpty)) return;
+  Future<void> sendMessage(String text,
+      {String? model, List<dynamic>? attachments}) async {
+    if (text.trim().isEmpty && (attachments == null || attachments.isEmpty))
+      return;
 
     if (model == null || model == 'Select a model' || model.isEmpty) {
-      final userMsg = ChatMessage(role: 'user', content: text.isEmpty ? '[Attachment]' : text);
+      final userMsg = ChatMessage(
+          role: 'user', content: text.isEmpty ? '[Attachment]' : text);
       final errorMsg = ChatMessage(
         role: 'assistant',
-        content: 'No AI model selected. Please select a model from the top left menu.',
+        content:
+            'No AI model selected. Please select a model from the top left menu.',
         isError: true,
       );
       state = state.copyWith(messages: [...state.messages, userMsg, errorMsg]);
@@ -139,7 +149,8 @@ class ChatThreadViewModel extends Notifier<ChatThreadState> {
       messages: [
         ...state.messages,
         userMsgForUI,
-        ChatMessage(role: 'assistant', content: '', isStreaming: true, modelName: model)
+        ChatMessage(
+            role: 'assistant', content: '', isStreaming: true, modelName: model)
       ],
       isLoading: true,
       clearError: true,
@@ -155,7 +166,9 @@ class ChatThreadViewModel extends Notifier<ChatThreadState> {
           final fileBytes = attachment.bytes as List<int>?;
           final fileName = attachment.name as String;
           if (fileBytes != null) {
-            final extracted = await ref.read(chatRepositoryProvider).uploadAttachment(fileBytes, fileName);
+            final extracted = await ref
+                .read(chatRepositoryProvider)
+                .uploadAttachment(fileBytes, fileName);
             if (extracted.isNotEmpty) {
               extractedTexts.add("--- Attachment: $fileName ---\n$extracted");
             }
@@ -164,14 +177,17 @@ class ChatThreadViewModel extends Notifier<ChatThreadState> {
         if (extractedTexts.isNotEmpty) {
           final attachmentsStr = extractedTexts.join("\n\n");
           if (queryText.isEmpty) {
-            queryText = "Please analyze the following attached document(s):\n\n$attachmentsStr";
+            queryText =
+                "Please analyze the following attached document(s):\n\n$attachmentsStr";
           } else {
-            queryText = "Here are the attached document(s) for context:\n\n$attachmentsStr\n\nUser Query: $queryText";
+            queryText =
+                "Here are the attached document(s) for context:\n\n$attachmentsStr\n\nUser Query: $queryText";
           }
         }
       } catch (e, st) {
         Sentry.captureException(e, stackTrace: st);
-        state = state.copyWith(isLoading: false, error: "Failed to process attachments: $e");
+        state = state.copyWith(
+            isLoading: false, error: "Failed to process attachments: $e");
         return;
       }
     }
@@ -195,13 +211,13 @@ class ChatThreadViewModel extends Notifier<ChatThreadState> {
     while (!success && retries <= maxRetries) {
       try {
         await for (final event in ref.read(chatRepositoryProvider).streamChat(
-          currentQuery,
-          threadId: state.threadId,
-          isTemporary: ref.read(chatHistoryProvider).isTemporary,
-          model: model,
-          calculateGrounding: state.showTelemetry,
-          toolSettings: toolSettings,
-        )) {
+              currentQuery,
+              threadId: state.threadId,
+              isTemporary: ref.read(chatHistoryProvider).isTemporary,
+              model: model,
+              calculateGrounding: state.showTelemetry,
+              toolSettings: toolSettings,
+            )) {
           _handleStreamEvent(event);
         }
         state = state.copyWith(isLoading: false);
@@ -216,9 +232,11 @@ class ChatThreadViewModel extends Notifier<ChatThreadState> {
 
         if (isNetworkError && retries < maxRetries) {
           retries++;
-          final partialResponse = state.messages.isNotEmpty ? state.messages.last.content : "";
+          final partialResponse =
+              state.messages.isNotEmpty ? state.messages.last.content : "";
           if (partialResponse.isNotEmpty && partialResponse != "Thinking...") {
-            currentQuery = "System: The previous response was interrupted by a network drop. Please continue generating your response EXACTLY where you left off. Do not repeat what was already said. Here is what you generated so far:\n\n$partialResponse";
+            currentQuery =
+                "System: The previous response was interrupted by a network drop. Please continue generating your response EXACTLY where you left off. Do not repeat what was already said. Here is what you generated so far:\n\n$partialResponse";
           }
           await Future.delayed(const Duration(seconds: 1));
           continue;
@@ -227,18 +245,24 @@ class ChatThreadViewModel extends Notifier<ChatThreadState> {
         Sentry.captureException(e, stackTrace: st);
         String uiError = "Error: Unable to complete request.";
         if (isNetworkError) {
-          uiError = "Network connection lost. Please check your internet connection and try again.";
-        } else if (errorStr.contains("402") && errorStr.contains("Payment Required")) {
-          uiError = "Payment Required: Free tier users must configure Bring Your Own Database (BYOD) in Control Panel (Gear Icon) -> Infrastructure.";
+          uiError =
+              "Network connection lost. Please check your internet connection and try again.";
+        } else if (errorStr.contains("402") &&
+            errorStr.contains("Payment Required")) {
+          uiError =
+              "Payment Required: Free tier users must configure Bring Your Own Database (BYOD) in Control Panel (Gear Icon) -> Infrastructure.";
         }
         String finalContent = uiError;
         if (state.messages.isNotEmpty) {
           final currentContent = state.messages.last.content;
-          if (currentContent.isNotEmpty && !currentContent.endsWith(uiError) && !currentContent.endsWith("[$uiError]")) {
+          if (currentContent.isNotEmpty &&
+              !currentContent.endsWith(uiError) &&
+              !currentContent.endsWith("[$uiError]")) {
             finalContent = "$currentContent\n\n[$uiError]";
           }
         }
-        _updateLastMessage(content: finalContent, isStreaming: false, isError: true);
+        _updateLastMessage(
+            content: finalContent, isStreaming: false, isError: true);
         state = state.copyWith(isLoading: false);
         break;
       }
@@ -247,7 +271,10 @@ class ChatThreadViewModel extends Notifier<ChatThreadState> {
 
   void _handleStreamEvent(Map<String, dynamic> event) {
     if (event.containsKey('error')) {
-      _updateLastMessage(content: "Error: ${event['error']}", isStreaming: false, isError: true);
+      _updateLastMessage(
+          content: "Error: ${event['error']}",
+          isStreaming: false,
+          isError: true);
       return;
     }
     final type = event['event'];
@@ -259,10 +286,12 @@ class ChatThreadViewModel extends Notifier<ChatThreadState> {
           state = state.copyWith(threadId: newThreadId);
         }
         if (data['thread_title'] != null) {
-          ref.read(chatHistoryProvider.notifier).applyThreadTitle(state.threadId!, data['thread_title'] as String);
+          ref.read(chatHistoryProvider.notifier).applyThreadTitle(
+              state.threadId!, data['thread_title'] as String);
         }
         if (data['metrics'] is Map) {
-          _updateLastMessage(metrics: Map<String, dynamic>.from(data['metrics'] as Map));
+          _updateLastMessage(
+              metrics: Map<String, dynamic>.from(data['metrics'] as Map));
         }
       }
       return;
@@ -282,7 +311,8 @@ class ChatThreadViewModel extends Notifier<ChatThreadState> {
       }
     } else if (type == 'on_tool_start') {
       final toolName = event['name'];
-      final runId = event['run_id'] ?? DateTime.now().millisecondsSinceEpoch.toString();
+      final runId =
+          event['run_id'] ?? DateTime.now().millisecondsSinceEpoch.toString();
       final args = event['data']?['input'] ?? {};
       final friendlyName = _friendlyToolLabel(toolName);
       if (state.messages.isNotEmpty) {
@@ -294,7 +324,8 @@ class ChatThreadViewModel extends Notifier<ChatThreadState> {
           args: args is Map ? Map<String, dynamic>.from(args) : {},
           isComplete: false,
         ));
-        _updateLastMessage(activeTool: '$friendlyName...', toolEvents: newEvents);
+        _updateLastMessage(
+            activeTool: '$friendlyName...', toolEvents: newEvents);
       } else {
         _updateLastMessage(activeTool: '$friendlyName...');
       }
@@ -319,12 +350,16 @@ class ChatThreadViewModel extends Notifier<ChatThreadState> {
       if (_currentRequestStartTime != null && state.messages.isNotEmpty) {
         final lastMsg = state.messages.last;
         if (lastMsg.metrics != null) {
-          final elapsed = DateTime.now().difference(_currentRequestStartTime!).inMilliseconds / 1000.0;
+          final elapsed = DateTime.now()
+                  .difference(_currentRequestStartTime!)
+                  .inMilliseconds /
+              1000.0;
           updatedMetrics = Map<String, dynamic>.from(lastMsg.metrics!);
           updatedMetrics['generation_seconds'] = elapsed;
         }
       }
-      _updateLastMessage(isStreaming: false, activeTool: null, metrics: updatedMetrics);
+      _updateLastMessage(
+          isStreaming: false, activeTool: null, metrics: updatedMetrics);
       state = state.copyWith(isLoading: false);
       _currentRequestStartTime = null;
       ref.read(chatHistoryProvider.notifier).loadThreads();
@@ -372,7 +407,9 @@ class ChatThreadViewModel extends Notifier<ChatThreadState> {
   Future<void> submitFeedback(String messageId, int value) async {
     try {
       await ref.read(chatRepositoryProvider).submitFeedback(messageId, value);
-      final msgs = state.messages.map((m) => m.id == messageId ? m.copyWith(feedback: value) : m).toList();
+      final msgs = state.messages
+          .map((m) => m.id == messageId ? m.copyWith(feedback: value) : m)
+          .toList();
       state = state.copyWith(messages: msgs, clearError: true);
     } catch (e, st) {
       Sentry.captureException(e, stackTrace: st);
@@ -383,8 +420,12 @@ class ChatThreadViewModel extends Notifier<ChatThreadState> {
   Future<void> editMessage(String messageId, String content) async {
     if (state.threadId == null) return;
     try {
-      await ref.read(chatRepositoryProvider).editMessage(messageId, content, state.threadId!);
-      final msgs = state.messages.map((m) => m.id == messageId ? m.copyWith(content: content) : m).toList();
+      await ref
+          .read(chatRepositoryProvider)
+          .editMessage(messageId, content, state.threadId!);
+      final msgs = state.messages
+          .map((m) => m.id == messageId ? m.copyWith(content: content) : m)
+          .toList();
       state = state.copyWith(messages: msgs, clearError: true);
     } catch (e, st) {
       Sentry.captureException(e, stackTrace: st);
@@ -395,7 +436,9 @@ class ChatThreadViewModel extends Notifier<ChatThreadState> {
   Future<void> regenerateResponse() async {
     if (state.threadId == null) return;
     try {
-      await ref.read(chatRepositoryProvider).regenerateResponse(state.threadId!);
+      await ref
+          .read(chatRepositoryProvider)
+          .regenerateResponse(state.threadId!);
       state = state.copyWith(clearError: true);
       selectThread(state.threadId!);
     } catch (e, st) {
@@ -406,7 +449,9 @@ class ChatThreadViewModel extends Notifier<ChatThreadState> {
 
   Future<void> saveToMemory(String content, {String? model}) async {
     try {
-      await ref.read(memoryRepositoryProvider).saveToMemory(content, model: model);
+      await ref
+          .read(memoryRepositoryProvider)
+          .saveToMemory(content, model: model);
     } catch (e, st) {
       Sentry.captureException(e, stackTrace: st);
       state = state.copyWith(error: 'Failed to save memory: $e');
@@ -414,14 +459,16 @@ class ChatThreadViewModel extends Notifier<ChatThreadState> {
   }
 }
 
-final chatThreadProvider = NotifierProvider<ChatThreadViewModel, ChatThreadState>(
+final chatThreadProvider =
+    NotifierProvider<ChatThreadViewModel, ChatThreadState>(
   () => ChatThreadViewModel(),
 );
 
 /// Provides shared thread history for public/shared links.
 /// Used by SharedChatScreen to avoid importing the data layer directly.
 final sharedThreadHistoryProvider =
-    FutureProvider.family<List<Map<String, dynamic>>, String>((ref, shareId) async {
+    FutureProvider.family<List<Map<String, dynamic>>, String>(
+        (ref, shareId) async {
   final repo = ref.read(chatRepositoryProvider);
   return repo.getSharedThreadHistory(shareId);
 });

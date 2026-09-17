@@ -18,6 +18,7 @@ VOICE_REGISTRY = {
     }
 }
 
+
 def load_voices():
     """Loads the voice registry from voices.json if it exists."""
     json_path = os.path.join(os.path.dirname(__file__), "voices.json")
@@ -29,35 +30,40 @@ def load_voices():
         except Exception as e:  # noqa: BLE001
             logger.error(f"Failed to load voices.json: {e}")
 
+
 # Load voices at module initialization
 load_voices()
+
 
 def get_available_voices():
     """Returns a list of available voices (ID and name only)."""
     return [{"id": v["id"], "name": v["name"]} for v in VOICE_REGISTRY.values()]
 
+
 def get_all_voices():
     """Returns the full list of voice configurations."""
     return list(VOICE_REGISTRY.values())
+
 
 def get_voice(voice_id: str):
     """Returns the full voice configuration for a given voice ID."""
     return VOICE_REGISTRY.get(voice_id)
 
+
 def save_voices(new_voices: list[dict]):
     """Updates the registry and saves to voices.json."""
     global VOICE_REGISTRY
-    
+
     # Preserve default system voice if not provided
     default_system = VOICE_REGISTRY.get("default_system")
-    
+
     VOICE_REGISTRY = {}
     if default_system:
         VOICE_REGISTRY["default_system"] = default_system
 
     for v in new_voices:
         if v.get("id") == "default_system":
-            continue # Don't allow overwriting the default system voice through the list
+            continue  # Don't allow overwriting the default system voice through the list
         if not v.get("id"):
             v["id"] = v.get("name", "").lower().replace(" ", "_")
         VOICE_REGISTRY[v["id"]] = v
@@ -72,13 +78,21 @@ def save_voices(new_voices: list[dict]):
         logger.error(f"Failed to save voices.json: {e}")
         raise
 
-def add_voice(voice_id: str, name: str, ref_audio_path: str, prompt_text: str, prompt_lang: str = "en", text_lang: str = "en"):
+
+def add_voice(
+    voice_id: str,
+    name: str,
+    ref_audio_path: str,
+    prompt_text: str,
+    prompt_lang: str = "en",
+    text_lang: str = "en",
+):
     """Adds a single voice and saves the registry."""
     global VOICE_REGISTRY  # noqa: PLW0602
-    
+
     if voice_id == "default_system":
         return
-        
+
     VOICE_REGISTRY[voice_id] = {
         "id": voice_id,
         "name": name,
@@ -87,7 +101,7 @@ def add_voice(voice_id: str, name: str, ref_audio_path: str, prompt_text: str, p
         "prompt_lang": prompt_lang,
         "text_lang": text_lang,
     }
-    
+
     json_path = os.path.join(os.path.dirname(__file__), "voices.json")
     try:
         with open(json_path, "w", encoding="utf-8") as f:

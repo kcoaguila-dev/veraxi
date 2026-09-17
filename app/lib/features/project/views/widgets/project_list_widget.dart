@@ -6,7 +6,6 @@ import 'package:veraxi_app/core/providers/project_view_model.dart';
 import 'package:veraxi_app/features/project/views/widgets/create_project_dialog.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
 
-
 class ProjectListWidget extends ConsumerStatefulWidget {
   final ChatState chatState;
   final ChatViewModel chatViewModel;
@@ -42,7 +41,9 @@ class _ProjectListWidgetState extends ConsumerState<ProjectListWidget> {
       child: Row(
         children: [
           Icon(icon,
-              color: isDestructive ? Colors.red : Theme.of(context).extension<AppThemeExtension>()!.iconColor,
+              color: isDestructive
+                  ? Colors.red
+                  : Theme.of(context).extension<AppThemeExtension>()!.iconColor,
               size: 16),
           SizedBox(width: 12),
           Text(title,
@@ -61,9 +62,9 @@ class _ProjectListWidgetState extends ConsumerState<ProjectListWidget> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          backgroundColor: Theme.of(context).extension<AppThemeExtension>()!.cardBackground,
-          title: Text('Rename Project',
-              style: TextStyle(color: Colors.white)),
+          backgroundColor:
+              Theme.of(context).extension<AppThemeExtension>()!.cardBackground,
+          title: Text('Rename Project', style: TextStyle(color: Colors.white)),
           content: TextField(
             controller: controller,
             style: TextStyle(color: Colors.white),
@@ -102,9 +103,9 @@ class _ProjectListWidgetState extends ConsumerState<ProjectListWidget> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          backgroundColor: Theme.of(context).extension<AppThemeExtension>()!.cardBackground,
-          title: Text('Delete Project',
-              style: TextStyle(color: Colors.white)),
+          backgroundColor:
+              Theme.of(context).extension<AppThemeExtension>()!.cardBackground,
+          title: Text('Delete Project', style: TextStyle(color: Colors.white)),
           content: Text(
               'Are you sure you want to delete the project "$projectName"? This action cannot be undone.',
               style: TextStyle(color: Colors.white)),
@@ -118,8 +119,7 @@ class _ProjectListWidgetState extends ConsumerState<ProjectListWidget> {
                 viewModel.deleteProject(projectId);
                 Navigator.pop(context);
               },
-              child: Text('Delete',
-                  style: TextStyle(color: Colors.redAccent)),
+              child: Text('Delete', style: TextStyle(color: Colors.redAccent)),
             ),
           ],
         );
@@ -136,13 +136,15 @@ class _ProjectListWidgetState extends ConsumerState<ProjectListWidget> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             InkWell(
-              onTap: () =>
-                  setState(() => _projectsListExpanded = !_projectsListExpanded),
+              onTap: () => setState(
+                  () => _projectsListExpanded = !_projectsListExpanded),
               child: Row(
                 children: [
                   Text('Projects',
                       style: TextStyle(
-                          color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary,
+                          color: Theme.of(context)
+                              .extension<AppThemeExtension>()!
+                              .textTertiary,
                           fontSize: 12,
                           fontWeight: FontWeight.w600)),
                   SizedBox(width: 4),
@@ -150,7 +152,9 @@ class _ProjectListWidgetState extends ConsumerState<ProjectListWidget> {
                       _projectsListExpanded
                           ? Icons.keyboard_arrow_down
                           : Icons.keyboard_arrow_right,
-                      color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary,
+                      color: Theme.of(context)
+                          .extension<AppThemeExtension>()!
+                          .textTertiary,
                       size: 16),
                 ],
               ),
@@ -160,12 +164,16 @@ class _ProjectListWidgetState extends ConsumerState<ProjectListWidget> {
                 Tooltip(
                   message: 'All Projects',
                   child: InkWell(
-                    onTap: () => widget.projectViewModel.openAllProjectsDashboard(),
+                    onTap: () =>
+                        widget.projectViewModel.openAllProjectsDashboard(),
                     borderRadius: BorderRadius.circular(4),
                     child: Padding(
                       padding: EdgeInsets.all(4.0),
                       child: Icon(LucideIcons.folder,
-                          color: Theme.of(context).extension<AppThemeExtension>()!.iconColor, size: 16),
+                          color: Theme.of(context)
+                              .extension<AppThemeExtension>()!
+                              .iconColor,
+                          size: 16),
                     ),
                   ),
                 ),
@@ -183,7 +191,10 @@ class _ProjectListWidgetState extends ConsumerState<ProjectListWidget> {
                     child: Padding(
                       padding: EdgeInsets.all(4.0),
                       child: Icon(LucideIcons.folderPlus,
-                          color: Theme.of(context).extension<AppThemeExtension>()!.iconColor, size: 16),
+                          color: Theme.of(context)
+                              .extension<AppThemeExtension>()!
+                              .iconColor,
+                          size: 16),
                     ),
                   ),
                 ),
@@ -202,8 +213,7 @@ class _ProjectListWidgetState extends ConsumerState<ProjectListWidget> {
 
               final projectThreads = widget.chatState.pastThreads
                   .where((t) =>
-                      t['project_id'] == projectId &&
-                      t['is_archived'] != true)
+                      t['project_id'] == projectId && t['is_archived'] != true)
                   .toList();
 
               return Column(
@@ -232,7 +242,9 @@ class _ProjectListWidgetState extends ConsumerState<ProjectListWidget> {
                                   horizontal: 4, vertical: 8),
                               decoration: BoxDecoration(
                                 color: (isActive || isHovered)
-                                    ? Theme.of(context).extension<AppThemeExtension>()!.borderColor
+                                    ? Theme.of(context)
+                                        .extension<AppThemeExtension>()!
+                                        .borderColor
                                     : Colors.transparent,
                                 borderRadius: BorderRadius.circular(6),
                               ),
@@ -244,7 +256,9 @@ class _ProjectListWidgetState extends ConsumerState<ProjectListWidget> {
                                       isExpanded
                                           ? Icons.keyboard_arrow_down
                                           : Icons.keyboard_arrow_right,
-                                      color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary,
+                                      color: Theme.of(context)
+                                          .extension<AppThemeExtension>()!
+                                          .textTertiary,
                                       size: 16,
                                     ),
                                   ),
@@ -253,7 +267,9 @@ class _ProjectListWidgetState extends ConsumerState<ProjectListWidget> {
                                     LucideIcons.folder,
                                     color: isActive
                                         ? Colors.white
-                                        : Theme.of(context).extension<AppThemeExtension>()!.textTertiary,
+                                        : Theme.of(context)
+                                            .extension<AppThemeExtension>()!
+                                            .textTertiary,
                                     size: 16,
                                   ),
                                   SizedBox(width: 8),
@@ -263,7 +279,9 @@ class _ProjectListWidgetState extends ConsumerState<ProjectListWidget> {
                                       style: TextStyle(
                                         color: isActive
                                             ? Colors.white
-                                            : Theme.of(context).extension<AppThemeExtension>()!.textTertiary,
+                                            : Theme.of(context)
+                                                .extension<AppThemeExtension>()!
+                                                .textTertiary,
                                         fontSize: 13,
                                         fontWeight: isActive
                                             ? FontWeight.w500
@@ -283,11 +301,15 @@ class _ProjectListWidgetState extends ConsumerState<ProjectListWidget> {
                                         InkWell(
                                           onTap: () => widget.chatViewModel
                                               .startNewChatInProject(projectId),
-                                          borderRadius: BorderRadius.circular(4),
+                                          borderRadius:
+                                              BorderRadius.circular(4),
                                           child: Padding(
                                             padding: EdgeInsets.all(4.0),
                                             child: Icon(Icons.edit_square,
-                                                color: Theme.of(context).extension<AppThemeExtension>()!.iconColor,
+                                                color: Theme.of(context)
+                                                    .extension<
+                                                        AppThemeExtension>()!
+                                                    .iconColor,
                                                 size: 14),
                                           ),
                                         ),
@@ -301,9 +323,14 @@ class _ProjectListWidgetState extends ConsumerState<ProjectListWidget> {
                                           child: PopupMenuButton<String>(
                                             padding: EdgeInsets.zero,
                                             icon: Icon(Icons.more_horiz,
-                                                color: Theme.of(context).extension<AppThemeExtension>()!.iconColor,
+                                                color: Theme.of(context)
+                                                    .extension<
+                                                        AppThemeExtension>()!
+                                                    .iconColor,
                                                 size: 14),
-                                            color: Theme.of(context).extension<AppThemeExtension>()!.borderColor,
+                                            color: Theme.of(context)
+                                                .extension<AppThemeExtension>()!
+                                                .borderColor,
                                             shape: RoundedRectangleBorder(
                                                 borderRadius:
                                                     BorderRadius.circular(8)),
@@ -327,16 +354,17 @@ class _ProjectListWidgetState extends ConsumerState<ProjectListWidget> {
                                                     widget.projectViewModel);
                                               }
                                             },
-                                            itemBuilder: (BuildContext
-                                                    context) =>
-                                                <PopupMenuEntry<String>>[
+                                            itemBuilder:
+                                                (BuildContext context) =>
+                                                    <PopupMenuEntry<String>>[
                                               const PopupMenuItem<String>(
                                                 value: 'open',
                                                 height: 36,
                                                 child: Row(
                                                   children: [
                                                     Icon(LucideIcons.folder,
-                                                        color: Color(0xFF6E6E6E),
+                                                        color:
+                                                            Color(0xFF6E6E6E),
                                                         size: 14),
                                                     SizedBox(width: 8),
                                                     Text('Open project',
@@ -353,7 +381,8 @@ class _ProjectListWidgetState extends ConsumerState<ProjectListWidget> {
                                                 child: Row(
                                                   children: [
                                                     Icon(Icons.edit_outlined,
-                                                        color: Color(0xFF6E6E6E),
+                                                        color:
+                                                            Color(0xFF6E6E6E),
                                                         size: 14),
                                                     SizedBox(width: 8),
                                                     Text('Rename',
@@ -397,8 +426,8 @@ class _ProjectListWidgetState extends ConsumerState<ProjectListWidget> {
                   })(),
                   if (isExpanded && projectThreads.isNotEmpty)
                     Padding(
-                      padding: EdgeInsets.only(
-                          left: 32.0, top: 4.0, bottom: 4.0),
+                      padding:
+                          EdgeInsets.only(left: 32.0, top: 4.0, bottom: 4.0),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: projectThreads.map((threadData) {
@@ -420,15 +449,17 @@ class _ProjectListWidgetState extends ConsumerState<ProjectListWidget> {
                               onExit: (_) =>
                                   setHoverState(() => isHovered = false),
                               child: InkWell(
-                                onTap: () => widget.chatViewModel
-                                    .selectThread(threadId),
+                                onTap: () =>
+                                    widget.chatViewModel.selectThread(threadId),
                                 borderRadius: BorderRadius.circular(6),
                                 child: Container(
                                   padding: EdgeInsets.symmetric(
                                       horizontal: 8, vertical: 6),
                                   decoration: BoxDecoration(
                                     color: isThreadActive
-                                        ? Theme.of(context).extension<AppThemeExtension>()!.borderColor
+                                        ? Theme.of(context)
+                                            .extension<AppThemeExtension>()!
+                                            .borderColor
                                         : Colors.transparent,
                                     borderRadius: BorderRadius.circular(6),
                                   ),
@@ -440,7 +471,10 @@ class _ProjectListWidgetState extends ConsumerState<ProjectListWidget> {
                                           style: TextStyle(
                                             color: isThreadActive
                                                 ? Colors.white
-                                                : Theme.of(context).extension<AppThemeExtension>()!.iconColor,
+                                                : Theme.of(context)
+                                                    .extension<
+                                                        AppThemeExtension>()!
+                                                    .iconColor,
                                             fontSize: 13,
                                             fontWeight: isThreadActive
                                                 ? FontWeight.w500
@@ -468,9 +502,15 @@ class _ProjectListWidgetState extends ConsumerState<ProjectListWidget> {
                                               icon: Icon(Icons.more_horiz,
                                                   color: isThreadActive
                                                       ? Colors.white
-                                                      : Theme.of(context).extension<AppThemeExtension>()!.iconColor,
+                                                      : Theme.of(context)
+                                                          .extension<
+                                                              AppThemeExtension>()!
+                                                          .iconColor,
                                                   size: 16),
-                                              color: Theme.of(context).extension<AppThemeExtension>()!.borderColor,
+                                              color: Theme.of(context)
+                                                  .extension<
+                                                      AppThemeExtension>()!
+                                                  .borderColor,
                                               shape: RoundedRectangleBorder(
                                                   borderRadius:
                                                       BorderRadius.circular(8)),
@@ -495,7 +535,8 @@ class _ProjectListWidgetState extends ConsumerState<ProjectListWidget> {
                                                               .push_pin_outlined),
                                                   _buildPopupMenuItem('Rename',
                                                       Icons.edit_outlined),
-                                                  _buildPopupMenuItem('Duplicate',
+                                                  _buildPopupMenuItem(
+                                                      'Duplicate',
                                                       Icons.copy_outlined),
                                                   _buildPopupMenuItem(
                                                       'Change project',
@@ -522,22 +563,26 @@ class _ProjectListWidgetState extends ConsumerState<ProjectListWidget> {
                                                 } else if (value == 'Pin' ||
                                                     value == 'Unpin') {
                                                   await widget.chatViewModel
-                                                      .togglePinThread(threadId);
+                                                      .togglePinThread(
+                                                          threadId);
                                                 } else if (value == 'Rename') {
                                                   widget.showRenameDialog(
                                                       context,
                                                       widget.chatViewModel,
                                                       threadId,
                                                       title);
-                                                } else if (value == 'Duplicate') {
+                                                } else if (value ==
+                                                    'Duplicate') {
                                                   await widget.chatViewModel
-                                                      .duplicateThread(threadId);
+                                                      .duplicateThread(
+                                                          threadId);
                                                 } else if (value ==
                                                     'Change project') {
-                                                  widget.showChangeProjectDialog(
-                                                      context,
-                                                      widget.chatViewModel,
-                                                      threadId);
+                                                  widget
+                                                      .showChangeProjectDialog(
+                                                          context,
+                                                          widget.chatViewModel,
+                                                          threadId);
                                                 } else if (value == 'Archive' ||
                                                     value == 'Unarchive') {
                                                   await widget.chatViewModel

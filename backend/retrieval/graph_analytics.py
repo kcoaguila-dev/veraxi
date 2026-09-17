@@ -4,7 +4,9 @@ from backend.storage.neo4j_client import Neo4jStorageClient
 
 
 def get_community_detection(
-    neo4j_client: Neo4jStorageClient, min_community_size: int = 1, tenant_id: str = "default"
+    neo4j_client: Neo4jStorageClient,
+    min_community_size: int = 1,
+    tenant_id: str = "default",
 ) -> list[dict[str, Any]]:
     """
     Uses the Neo4j Graph Data Science (GDS) Louvain algorithm to find densely connected components.
@@ -25,7 +27,8 @@ def get_community_detection(
     """
 
     return neo4j_client.execute_read(
-        query_grouping, parameters={"min_community_size": min_community_size, "tenant_id": tenant_id}
+        query_grouping,
+        parameters={"min_community_size": min_community_size, "tenant_id": tenant_id},
     )
 
 
@@ -43,4 +46,6 @@ def get_node_degree_centrality(
     LIMIT toInteger($limit)
     """
 
-    return neo4j_client.execute_read(query, parameters={"limit": limit, "tenant_id": tenant_id})
+    return neo4j_client.execute_read(
+        query, parameters={"limit": limit, "tenant_id": tenant_id}
+    )

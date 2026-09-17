@@ -4,7 +4,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
 
-
 class ObservabilityView extends StatefulWidget {
   const ObservabilityView({super.key});
 
@@ -77,16 +76,23 @@ class _ObservabilityViewState extends State<ObservabilityView> {
         SizedBox(height: 8),
         Text(
           'Connect external platforms for deep tracing, auditing, and observability of your AI agents.',
-          style: theme.textTheme.bodyLarge
-              ?.copyWith(color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary),
+          style: theme.textTheme.bodyLarge?.copyWith(
+              color: Theme.of(context)
+                  .extension<AppThemeExtension>()!
+                  .textTertiary),
         ),
         SizedBox(height: 40),
         Container(
           padding: EdgeInsets.all(24),
           decoration: BoxDecoration(
-            color: Theme.of(context).extension<AppThemeExtension>()!.surfaceHighlight,
+            color: Theme.of(context)
+                .extension<AppThemeExtension>()!
+                .surfaceHighlight,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Theme.of(context).extension<AppThemeExtension>()!.borderColorStrong),
+            border: Border.all(
+                color: Theme.of(context)
+                    .extension<AppThemeExtension>()!
+                    .borderColorStrong),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -100,7 +106,9 @@ class _ObservabilityViewState extends State<ObservabilityView> {
                         width: 48,
                         height: 48,
                         decoration: BoxDecoration(
-                          color: Theme.of(context).extension<AppThemeExtension>()!.sidebarBackground,
+                          color: Theme.of(context)
+                              .extension<AppThemeExtension>()!
+                              .sidebarBackground,
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Icon(Icons.analytics_outlined,
@@ -119,7 +127,9 @@ class _ObservabilityViewState extends State<ObservabilityView> {
                           Text(
                               'Record LLM inputs, tool calls, and latencies via LangChain.',
                               style: TextStyle(
-                                  color: Theme.of(context).extension<AppThemeExtension>()!.iconColor,
+                                  color: Theme.of(context)
+                                      .extension<AppThemeExtension>()!
+                                      .iconColor,
                                   fontSize: 14)),
                         ],
                       ),
@@ -134,7 +144,9 @@ class _ObservabilityViewState extends State<ObservabilityView> {
                       _saveSettings();
                     },
                     activeTrackColor: Theme.of(context).colorScheme.primary,
-                    inactiveThumbColor: Theme.of(context).extension<AppThemeExtension>()!.iconColor,
+                    inactiveThumbColor: Theme.of(context)
+                        .extension<AppThemeExtension>()!
+                        .iconColor,
                     inactiveTrackColor: const Color(0xFF424242),
                   ),
                 ],

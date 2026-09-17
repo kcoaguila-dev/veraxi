@@ -4,7 +4,6 @@ import 'package:veraxi_app/features/chat/view_models/chat_view_model.dart';
 import 'dart:convert';
 import 'package:veraxi_app/core/theme_extension.dart';
 
-
 class CitationChip extends StatefulWidget {
   final String text;
   final String url;
@@ -235,7 +234,9 @@ class _CitationChipState extends State<CitationChip> {
         child: Container(
           width: 320,
           decoration: BoxDecoration(
-            color: Theme.of(context).extension<AppThemeExtension>()!.cardBackground,
+            color: Theme.of(context)
+                .extension<AppThemeExtension>()!
+                .cardBackground,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: const Color(0xFF2E2E2E)),
             boxShadow: [

@@ -33,7 +33,10 @@ from contextvars import ContextVar
 
 _request_model: ContextVar[str | None] = ContextVar("_request_model", default=None)
 _request_api_key: ContextVar[str | None] = ContextVar("_request_api_key", default=None)
-_request_base_url: ContextVar[str | None] = ContextVar("_request_base_url", default=None)
+_request_base_url: ContextVar[str | None] = ContextVar(
+    "_request_base_url", default=None
+)
+
 
 def _create_chat_llm(model_name: str, api_key: str | None, base_url: str | None = None):
     """Build the configured chat LLM client for the active provider."""
@@ -252,6 +255,7 @@ async def execute_tools(state: AgentState):
         except Exception as e:  # noqa: BLE001
             logger.warning("Failed to generate embedding for context: %s", repr(e))
             import sentry_sdk
+
             sentry_sdk.capture_exception(e)
 
     for tool_call in last_message.tool_calls:
@@ -454,5 +458,3 @@ async def evaluate_context(state: AgentState):
 
     logger.info(f"CRAG: Graded context relevance as '{score}'")
     return {"context_relevance": score}
-
-

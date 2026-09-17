@@ -4,7 +4,6 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:veraxi_app/features/control_panel/data/payment_repository.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
 
-
 class CheckoutScreen extends ConsumerStatefulWidget {
   const CheckoutScreen({Key? key}) : super(key: key);
 
@@ -19,9 +18,11 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Theme.of(context).extension<AppThemeExtension>()!.dialogBackground,
+      backgroundColor:
+          Theme.of(context).extension<AppThemeExtension>()!.dialogBackground,
       appBar: AppBar(
-        backgroundColor: Theme.of(context).extension<AppThemeExtension>()!.dialogBackground,
+        backgroundColor:
+            Theme.of(context).extension<AppThemeExtension>()!.dialogBackground,
         elevation: 0,
         leading: IconButton(
           icon: Icon(Icons.arrow_back, color: Colors.white),
@@ -35,8 +36,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 1000),
           child: ListView(
-            padding:
-                EdgeInsets.symmetric(horizontal: 24.0, vertical: 40.0),
+            padding: EdgeInsets.symmetric(horizontal: 24.0, vertical: 40.0),
             children: [
               LayoutBuilder(
                 builder: (context, constraints) {
@@ -161,7 +161,9 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       decoration: BoxDecoration(
         color: Theme.of(context).extension<AppThemeExtension>()!.cardBackground,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor),
+        border: Border.all(
+            color:
+                Theme.of(context).extension<AppThemeExtension>()!.borderColor),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -182,7 +184,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
           SizedBox(height: 12),
           _buildSummaryRow('Tax', '\$${tax.toStringAsFixed(2)}'),
           SizedBox(height: 16),
-          Divider(color: Theme.of(context).extension<AppThemeExtension>()!.borderColorStrong),
+          Divider(
+              color: Theme.of(context)
+                  .extension<AppThemeExtension>()!
+                  .borderColorStrong),
           SizedBox(height: 16),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -205,20 +210,27 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
           Container(
             padding: EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Theme.of(context).extension<AppThemeExtension>()!.borderColor,
+              color:
+                  Theme.of(context).extension<AppThemeExtension>()!.borderColor,
               borderRadius: BorderRadius.circular(8),
             ),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Icon(Icons.info_outline,
-                    color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary, size: 18),
+                    color: Theme.of(context)
+                        .extension<AppThemeExtension>()!
+                        .textTertiary,
+                    size: 18),
                 SizedBox(width: 12),
                 Expanded(
                   child: Text(
                     'Your subscription will auto-renew on ${DateTime.now().add(_isAnnual ? const Duration(days: 365) : const Duration(days: 30)).toString().substring(0, 10)}. You will be charged \$${subtotal.toStringAsFixed(2)}/${_isAnnual ? "year" : "month"} + tax.',
-                    style:
-                        TextStyle(color: Theme.of(context).extension<AppThemeExtension>()!.iconColor, fontSize: 13),
+                    style: TextStyle(
+                        color: Theme.of(context)
+                            .extension<AppThemeExtension>()!
+                            .iconColor,
+                        fontSize: 13),
                   ),
                 ),
               ],
@@ -241,14 +253,21 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                       states.contains(WidgetState.selected)
                           ? Theme.of(context).colorScheme.secondary
                           : Colors.transparent),
-                  side: BorderSide(color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary),
+                  side: BorderSide(
+                      color: Theme.of(context)
+                          .extension<AppThemeExtension>()!
+                          .textTertiary),
                 ),
               ),
               SizedBox(width: 12),
               Expanded(
                 child: Text(
                   'You agree that Veraxi will charge your card in the amount above now and on a recurring basis until you cancel in accordance with our terms. You can cancel at any time in your account settings.',
-                  style: TextStyle(color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary, fontSize: 12),
+                  style: TextStyle(
+                      color: Theme.of(context)
+                          .extension<AppThemeExtension>()!
+                          .textTertiary,
+                      fontSize: 12),
                 ),
               ),
             ],
@@ -260,8 +279,13 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
             width: double.infinity,
             child: ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor:
-                    _termsAccepted ? Colors.white : (Theme.of(context).extension<AppThemeExtension>()?.textTertiary.withValues(alpha: 0.5) ?? Colors.grey),
+                backgroundColor: _termsAccepted
+                    ? Colors.white
+                    : (Theme.of(context)
+                            .extension<AppThemeExtension>()
+                            ?.textTertiary
+                            .withValues(alpha: 0.5) ??
+                        Colors.grey),
                 foregroundColor: Colors.black,
                 padding: EdgeInsets.symmetric(vertical: 16),
                 shape: RoundedRectangleBorder(
@@ -272,7 +296,8 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                   ? () async {
                       try {
                         final paymentRepo = ref.read(paymentRepositoryProvider);
-                        final checkoutUrl = await paymentRepo.createCheckoutSession(
+                        final checkoutUrl =
+                            await paymentRepo.createCheckoutSession(
                           plan: _isAnnual ? 'annual' : 'monthly',
                         );
 
@@ -316,9 +341,17 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(label,
-            style: TextStyle(color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary, fontSize: 14)),
+            style: TextStyle(
+                color: Theme.of(context)
+                    .extension<AppThemeExtension>()!
+                    .textTertiary,
+                fontSize: 14)),
         Text(amount,
-            style: TextStyle(color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary, fontSize: 14)),
+            style: TextStyle(
+                color: Theme.of(context)
+                    .extension<AppThemeExtension>()!
+                    .textTertiary,
+                fontSize: 14)),
       ],
     );
   }
@@ -338,11 +371,14 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         decoration: BoxDecoration(
           color: isSelected
               ? const Color(0xFF1A2235)
-              : Theme.of(context).extension<AppThemeExtension>()!.cardBackground, // Subtle blue tint when selected
+              : Theme.of(context)
+                  .extension<AppThemeExtension>()!
+                  .cardBackground, // Subtle blue tint when selected
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color:
-                isSelected ? Theme.of(context).colorScheme.primary : Theme.of(context).extension<AppThemeExtension>()!.borderColor,
+            color: isSelected
+                ? Theme.of(context).colorScheme.primary
+                : Theme.of(context).extension<AppThemeExtension>()!.borderColor,
             width: 2,
           ),
         ),
@@ -358,7 +394,9 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                       : Icons.radio_button_unchecked,
                   color: isSelected
                       ? Theme.of(context).colorScheme.primary
-                      : Theme.of(context).extension<AppThemeExtension>()!.textTertiary,
+                      : Theme.of(context)
+                          .extension<AppThemeExtension>()!
+                          .textTertiary,
                   size: 20,
                 ),
                 if (badge != null)
@@ -377,10 +415,18 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                     fontWeight: FontWeight.w500)),
             SizedBox(height: 8),
             Text(price,
-                style: TextStyle(color: Theme.of(context).extension<AppThemeExtension>()!.iconColor, fontSize: 14)),
+                style: TextStyle(
+                    color: Theme.of(context)
+                        .extension<AppThemeExtension>()!
+                        .iconColor,
+                    fontSize: 14)),
             SizedBox(height: 4),
             Text(subtitle,
-                style: TextStyle(color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary, fontSize: 13)),
+                style: TextStyle(
+                    color: Theme.of(context)
+                        .extension<AppThemeExtension>()!
+                        .textTertiary,
+                    fontSize: 13)),
           ],
         ),
       ),
@@ -393,7 +439,8 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       children: [
         Text(label,
             style: TextStyle(
-                color: Theme.of(context).extension<AppThemeExtension>()!.iconColor,
+                color:
+                    Theme.of(context).extension<AppThemeExtension>()!.iconColor,
                 fontSize: 13,
                 fontWeight: FontWeight.w500)),
         SizedBox(height: 8),
@@ -403,14 +450,20 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
           cursorColor: Colors.white,
           decoration: InputDecoration(
             hintText: hint,
-            hintStyle: TextStyle(color: (Theme.of(context).extension<AppThemeExtension>()?.textTertiary.withValues(alpha: 0.5) ?? Colors.grey)),
+            hintStyle: TextStyle(
+                color: (Theme.of(context)
+                        .extension<AppThemeExtension>()
+                        ?.textTertiary
+                        .withValues(alpha: 0.5) ??
+                    Colors.grey)),
             filled: true,
-            fillColor: Theme.of(context).extension<AppThemeExtension>()!.cardBackground,
+            fillColor: Theme.of(context)
+                .extension<AppThemeExtension>()!
+                .cardBackground,
             border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
                 borderSide: BorderSide.none),
-            contentPadding:
-                EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           ),
         ),
       ],
@@ -424,24 +477,30 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       children: [
         Text(label,
             style: TextStyle(
-                color: Theme.of(context).extension<AppThemeExtension>()!.iconColor,
+                color:
+                    Theme.of(context).extension<AppThemeExtension>()!.iconColor,
                 fontSize: 13,
                 fontWeight: FontWeight.w500)),
         SizedBox(height: 8),
         DropdownButtonFormField<String>(
           initialValue: initialValue,
-          dropdownColor: Theme.of(context).extension<AppThemeExtension>()!.cardBackground,
+          dropdownColor:
+              Theme.of(context).extension<AppThemeExtension>()!.cardBackground,
           style: TextStyle(color: Colors.white, fontSize: 14),
           decoration: InputDecoration(
             filled: true,
-            fillColor: Theme.of(context).extension<AppThemeExtension>()!.cardBackground,
+            fillColor: Theme.of(context)
+                .extension<AppThemeExtension>()!
+                .cardBackground,
             border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
                 borderSide: BorderSide.none),
-            contentPadding:
-                EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           ),
-          icon: Icon(Icons.keyboard_arrow_down, color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary),
+          icon: Icon(Icons.keyboard_arrow_down,
+              color: Theme.of(context)
+                  .extension<AppThemeExtension>()!
+                  .textTertiary),
           items: options.map((String value) {
             return DropdownMenuItem<String>(
               value: value,

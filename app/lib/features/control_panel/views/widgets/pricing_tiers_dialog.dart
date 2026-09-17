@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:veraxi_app/features/control_panel/views/checkout_screen.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
 
-
 class PricingTiersDialog extends StatefulWidget {
   const PricingTiersDialog({Key? key}) : super(key: key);
 
@@ -23,9 +22,14 @@ class _PricingTiersDialogState extends State<PricingTiersDialog> {
         constraints: const BoxConstraints(maxHeight: 850),
         padding: EdgeInsets.all(40),
         decoration: BoxDecoration(
-          color: Theme.of(context).extension<AppThemeExtension>()!.dialogBackground,
+          color: Theme.of(context)
+              .extension<AppThemeExtension>()!
+              .dialogBackground,
           borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor),
+          border: Border.all(
+              color: Theme.of(context)
+                  .extension<AppThemeExtension>()!
+                  .borderColor),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.6),
@@ -42,7 +46,10 @@ class _PricingTiersDialogState extends State<PricingTiersDialog> {
               Align(
                 alignment: Alignment.topRight,
                 child: IconButton(
-                  icon: Icon(Icons.close, color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary),
+                  icon: Icon(Icons.close,
+                      color: Theme.of(context)
+                          .extension<AppThemeExtension>()!
+                          .textTertiary),
                   onPressed: () => Navigator.of(context).pop(),
                   splashRadius: 20,
                 ),
@@ -61,9 +68,14 @@ class _PricingTiersDialogState extends State<PricingTiersDialog> {
               Container(
                 padding: EdgeInsets.all(4),
                 decoration: BoxDecoration(
-                  color: Theme.of(context).extension<AppThemeExtension>()!.cardBackground,
+                  color: Theme.of(context)
+                      .extension<AppThemeExtension>()!
+                      .cardBackground,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor),
+                  border: Border.all(
+                      color: Theme.of(context)
+                          .extension<AppThemeExtension>()!
+                          .borderColor),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -71,11 +83,13 @@ class _PricingTiersDialogState extends State<PricingTiersDialog> {
                     GestureDetector(
                       onTap: () => setState(() => _isEnterprise = false),
                       child: Container(
-                        padding: EdgeInsets.symmetric(
-                            horizontal: 20, vertical: 8),
+                        padding:
+                            EdgeInsets.symmetric(horizontal: 20, vertical: 8),
                         decoration: BoxDecoration(
                           color: !_isEnterprise
-                              ? Theme.of(context).extension<AppThemeExtension>()!.borderColor
+                              ? Theme.of(context)
+                                  .extension<AppThemeExtension>()!
+                                  .borderColor
                               : Colors.transparent,
                           borderRadius: BorderRadius.circular(8),
                         ),
@@ -84,7 +98,9 @@ class _PricingTiersDialogState extends State<PricingTiersDialog> {
                           style: TextStyle(
                               color: !_isEnterprise
                                   ? Colors.white
-                                  : Theme.of(context).extension<AppThemeExtension>()!.textTertiary,
+                                  : Theme.of(context)
+                                      .extension<AppThemeExtension>()!
+                                      .textTertiary,
                               fontSize: 13,
                               fontWeight: FontWeight.w500),
                         ),
@@ -93,11 +109,13 @@ class _PricingTiersDialogState extends State<PricingTiersDialog> {
                     GestureDetector(
                       onTap: () => setState(() => _isEnterprise = true),
                       child: Container(
-                        padding: EdgeInsets.symmetric(
-                            horizontal: 20, vertical: 8),
+                        padding:
+                            EdgeInsets.symmetric(horizontal: 20, vertical: 8),
                         decoration: BoxDecoration(
                           color: _isEnterprise
-                              ? Theme.of(context).extension<AppThemeExtension>()!.borderColor
+                              ? Theme.of(context)
+                                  .extension<AppThemeExtension>()!
+                                  .borderColor
                               : Colors.transparent,
                           borderRadius: BorderRadius.circular(8),
                         ),
@@ -106,7 +124,9 @@ class _PricingTiersDialogState extends State<PricingTiersDialog> {
                           style: TextStyle(
                               color: _isEnterprise
                                   ? Colors.white
-                                  : Theme.of(context).extension<AppThemeExtension>()!.textTertiary,
+                                  : Theme.of(context)
+                                      .extension<AppThemeExtension>()!
+                                      .textTertiary,
                               fontSize: 13,
                               fontWeight: FontWeight.w500),
                         ),
@@ -216,7 +236,9 @@ class _PricingTiersDialogState extends State<PricingTiersDialog> {
       decoration: BoxDecoration(
         color: const Color(0xFF1C1C1C),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor),
+        border: Border.all(
+            color:
+                Theme.of(context).extension<AppThemeExtension>()!.borderColor),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -232,7 +254,11 @@ class _PricingTiersDialogState extends State<PricingTiersDialog> {
           SizedBox(height: 4),
           Text(
             subtitle,
-            style: TextStyle(color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary, fontSize: 14),
+            style: TextStyle(
+                color: Theme.of(context)
+                    .extension<AppThemeExtension>()!
+                    .textTertiary,
+                fontSize: 14),
           ),
           SizedBox(height: 24),
           Row(
@@ -251,8 +277,11 @@ class _PricingTiersDialogState extends State<PricingTiersDialog> {
                   padding: EdgeInsets.only(bottom: 8.0),
                   child: Text(
                     priceSubtext,
-                    style:
-                        TextStyle(color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary, fontSize: 13),
+                    style: TextStyle(
+                        color: Theme.of(context)
+                            .extension<AppThemeExtension>()!
+                            .textTertiary,
+                        fontSize: 13),
                   ),
                 ),
               ]
@@ -264,8 +293,11 @@ class _PricingTiersDialogState extends State<PricingTiersDialog> {
             height: 44,
             child: ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor:
-                    isPrimary ? Colors.white : Theme.of(context).extension<AppThemeExtension>()!.borderColor,
+                backgroundColor: isPrimary
+                    ? Colors.white
+                    : Theme.of(context)
+                        .extension<AppThemeExtension>()!
+                        .borderColor,
                 foregroundColor: isPrimary ? Colors.black : Colors.white,
                 elevation: 0,
                 shape: RoundedRectangleBorder(
@@ -285,7 +317,11 @@ class _PricingTiersDialogState extends State<PricingTiersDialog> {
                 style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w600,
-                  color: isPrimary ? Colors.black : Theme.of(context).extension<AppThemeExtension>()!.textTertiary,
+                  color: isPrimary
+                      ? Colors.black
+                      : Theme.of(context)
+                          .extension<AppThemeExtension>()!
+                          .textTertiary,
                 ),
               ),
             ),
@@ -296,7 +332,11 @@ class _PricingTiersDialogState extends State<PricingTiersDialog> {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(Icons.check, color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary, size: 18),
+                    Icon(Icons.check,
+                        color: Theme.of(context)
+                            .extension<AppThemeExtension>()!
+                            .textTertiary,
+                        size: 18),
                     SizedBox(width: 12),
                     Expanded(
                       child: Text(
@@ -304,7 +344,9 @@ class _PricingTiersDialogState extends State<PricingTiersDialog> {
                         style: TextStyle(
                           color: feature.startsWith('Everything in')
                               ? Colors.white
-                              : Theme.of(context).extension<AppThemeExtension>()!.iconColor,
+                              : Theme.of(context)
+                                  .extension<AppThemeExtension>()!
+                                  .iconColor,
                           fontSize: 15,
                           height: 1.5,
                           fontWeight: feature.startsWith('Everything in')

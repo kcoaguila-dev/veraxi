@@ -4,6 +4,7 @@ Base protocol and result type for all page-content scrapers.
 Each scraper must implement fetch_batch(), which accepts a list of URLs and a
 per-URL timeout, and returns a dict mapping URL → extracted plain text.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -13,6 +14,7 @@ from typing import Protocol, runtime_checkable
 @dataclass
 class ScraperResult:
     """Holds the outcome of a single page fetch attempt."""
+
     url: str
     content: str
     error: str | None = field(default=None)

@@ -5,6 +5,7 @@ from backend.config import get_config
 
 logger = logging.getLogger(__name__)
 
+
 class GPTSoVITSClient:
     def __init__(self, base_url: str | None = None):
         if not base_url:
@@ -13,7 +14,14 @@ class GPTSoVITSClient:
         self.base_url = base_url.rstrip("/")
         self.client = httpx.AsyncClient(timeout=300.0)
 
-    async def synthesize(self, text: str, ref_audio_path: str, prompt_text: str, prompt_lang: str = "en", text_lang: str = "en"):
+    async def synthesize(
+        self,
+        text: str,
+        ref_audio_path: str,
+        prompt_text: str,
+        prompt_lang: str = "en",
+        text_lang: str = "en",
+    ):
         """
         Synthesizes text into speech using GPT-SoVITS API.
         """
@@ -22,7 +30,7 @@ class GPTSoVITSClient:
             "text_lang": text_lang,
             "ref_audio_path": ref_audio_path,
             "prompt_text": prompt_text,
-            "prompt_lang": prompt_lang
+            "prompt_lang": prompt_lang,
         }
 
         endpoint = f"{self.base_url}/tts"

@@ -53,8 +53,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     _scrollController.addListener(_onScroll);
   }
 
-
-
   @override
   void dispose() {
     _scrollController.removeListener(_onScroll);
@@ -183,7 +181,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                                     msg: msg,
                                                     theme: theme,
                                                     ext: ext,
-                                                    showTelemetry: state.showTelemetry,
+                                                    showTelemetry:
+                                                        state.showTelemetry,
                                                   );
                                                 },
                                               ),
@@ -229,7 +228,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                 setState(() {
                                   _selectedModel = model;
                                 });
-                                final prefs = await SharedPreferences.getInstance();
+                                final prefs =
+                                    await SharedPreferences.getInstance();
                                 await prefs.setString('selected_model', model);
                               },
                               onModelPinned: (model) {
@@ -251,7 +251,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     if (_selectedModel != 'Select a model') ...[
-                                      const Icon(Icons.psychology, size: 16, color: Colors.white),
+                                      const Icon(Icons.psychology,
+                                          size: 16, color: Colors.white),
                                       const SizedBox(width: 8),
                                     ],
                                     Text(_selectedModel,
@@ -438,5 +439,4 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       ),
     );
   }
-
 }

@@ -4,7 +4,6 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:veraxi_app/core/api_key_storage.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
 
-
 class ApiKeyDialog extends StatefulWidget {
   final String providerName;
 
@@ -76,9 +75,14 @@ class _ApiKeyDialogState extends State<ApiKeyDialog> {
         width: 600,
         constraints: const BoxConstraints(maxWidth: 600),
         decoration: BoxDecoration(
-          color: Theme.of(context).extension<AppThemeExtension>()!.sidebarBackground,
+          color: Theme.of(context)
+              .extension<AppThemeExtension>()!
+              .sidebarBackground,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor),
+          border: Border.all(
+              color: Theme.of(context)
+                  .extension<AppThemeExtension>()!
+                  .borderColor),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.5),
@@ -93,8 +97,8 @@ class _ApiKeyDialogState extends State<ApiKeyDialog> {
           children: [
             // Header
             Padding(
-              padding: EdgeInsets.only(
-                  left: 24, right: 16, top: 16, bottom: 16),
+              padding:
+                  EdgeInsets.only(left: 24, right: 16, top: 16, bottom: 16),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -108,7 +112,10 @@ class _ApiKeyDialogState extends State<ApiKeyDialog> {
                   ),
                   IconButton(
                     icon: Icon(Icons.close,
-                        color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary, size: 20),
+                        color: Theme.of(context)
+                            .extension<AppThemeExtension>()!
+                            .textTertiary,
+                        size: 20),
                     onPressed: () => Navigator.of(context).pop(),
                     padding: EdgeInsets.zero,
                     constraints:
@@ -118,7 +125,12 @@ class _ApiKeyDialogState extends State<ApiKeyDialog> {
               ),
             ),
 
-            Divider(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor, height: 1, thickness: 1),
+            Divider(
+                color: Theme.of(context)
+                    .extension<AppThemeExtension>()!
+                    .borderColor,
+                height: 1,
+                thickness: 1),
 
             // Content
             Padding(
@@ -138,13 +150,20 @@ class _ApiKeyDialogState extends State<ApiKeyDialog> {
                   // Expires dropdown
                   Theme(
                     data: Theme.of(context).copyWith(
-                      hoverColor: Theme.of(context).extension<AppThemeExtension>()!.borderColor,
+                      hoverColor: Theme.of(context)
+                          .extension<AppThemeExtension>()!
+                          .borderColor,
                     ),
                     child: PopupMenuButton<String>(
-                      color: Theme.of(context).extension<AppThemeExtension>()!.sidebarBackground,
+                      color: Theme.of(context)
+                          .extension<AppThemeExtension>()!
+                          .sidebarBackground,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
-                        side: BorderSide(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor),
+                        side: BorderSide(
+                            color: Theme.of(context)
+                                .extension<AppThemeExtension>()!
+                                .borderColor),
                       ),
                       position: PopupMenuPosition.under,
                       onSelected: (value) {
@@ -185,10 +204,12 @@ class _ApiKeyDialogState extends State<ApiKeyDialog> {
                         }).toList();
                       },
                       child: Container(
-                        padding: EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 6),
+                        padding:
+                            EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                         decoration: BoxDecoration(
-                          color: Theme.of(context).extension<AppThemeExtension>()!.surfaceHighlight,
+                          color: Theme.of(context)
+                              .extension<AppThemeExtension>()!
+                              .surfaceHighlight,
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Row(
@@ -228,28 +249,39 @@ class _ApiKeyDialogState extends State<ApiKeyDialog> {
                             child: Text(
                                 '(from ${widget.providerName} Cloud Platform)',
                                 style: TextStyle(
-                                    color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary, fontSize: 11),
+                                    color: Theme.of(context)
+                                        .extension<AppThemeExtension>()!
+                                        .textTertiary,
+                                    fontSize: 11),
                                 textAlign: TextAlign.right)),
                       ],
                     ),
                     SizedBox(height: 8),
                     Container(
                       width: double.infinity,
-                      padding: EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 10),
+                      padding:
+                          EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                       decoration: BoxDecoration(
-                        color: Theme.of(context).extension<AppThemeExtension>()!.borderColor,
+                        color: Theme.of(context)
+                            .extension<AppThemeExtension>()!
+                            .borderColor,
                         borderRadius: BorderRadius.circular(6),
                         border: Border.all(color: const Color(0xFF3A3A3A)),
                       ),
                       child: Row(
                         children: [
                           Icon(Icons.note_add_outlined,
-                              color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary, size: 16),
+                              color: Theme.of(context)
+                                  .extension<AppThemeExtension>()!
+                                  .textTertiary,
+                              size: 16),
                           SizedBox(width: 8),
                           Text('Import Service Account JSON Key.',
                               style: TextStyle(
-                                  color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary, fontSize: 13)),
+                                  color: Theme.of(context)
+                                      .extension<AppThemeExtension>()!
+                                      .textTertiary,
+                                  fontSize: 13)),
                         ],
                       ),
                     ),
@@ -272,25 +304,32 @@ class _ApiKeyDialogState extends State<ApiKeyDialog> {
                         Flexible(
                             child: Text('[OpenAI-Compatible Endpoint]',
                                 style: TextStyle(
-                                    color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary, fontSize: 11),
+                                    color: Theme.of(context)
+                                        .extension<AppThemeExtension>()!
+                                        .textTertiary,
+                                    fontSize: 11),
                                 textAlign: TextAlign.right)),
                       ],
                     ),
                     SizedBox(height: 8),
                     Container(
                       decoration: BoxDecoration(
-                        color: Theme.of(context).extension<AppThemeExtension>()!.cardBackground,
+                        color: Theme.of(context)
+                            .extension<AppThemeExtension>()!
+                            .cardBackground,
                         borderRadius: BorderRadius.circular(6),
                         border: Border.all(color: const Color(0xFF3A3A3A)),
                       ),
                       child: TextField(
                         controller: _baseUrlController,
-                        style:
-                            TextStyle(color: Colors.white, fontSize: 14),
+                        style: TextStyle(color: Colors.white, fontSize: 14),
                         decoration: InputDecoration(
                           hintText: 'e.g., http://localhost:11434/v1',
                           hintStyle: TextStyle(
-                              color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary, fontSize: 13),
+                              color: Theme.of(context)
+                                  .extension<AppThemeExtension>()!
+                                  .textTertiary,
+                              fontSize: 13),
                           border: InputBorder.none,
                           contentPadding: EdgeInsets.symmetric(
                               horizontal: 12, vertical: 12),
@@ -313,25 +352,32 @@ class _ApiKeyDialogState extends State<ApiKeyDialog> {
                         Flexible(
                             child: Text('[Required by Endpoint]',
                                 style: TextStyle(
-                                    color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary, fontSize: 11),
+                                    color: Theme.of(context)
+                                        .extension<AppThemeExtension>()!
+                                        .textTertiary,
+                                    fontSize: 11),
                                 textAlign: TextAlign.right)),
                       ],
                     ),
                     SizedBox(height: 8),
                     Container(
                       decoration: BoxDecoration(
-                        color: Theme.of(context).extension<AppThemeExtension>()!.cardBackground,
+                        color: Theme.of(context)
+                            .extension<AppThemeExtension>()!
+                            .cardBackground,
                         borderRadius: BorderRadius.circular(6),
                         border: Border.all(color: const Color(0xFF3A3A3A)),
                       ),
                       child: TextField(
                         controller: _modelNameController,
-                        style:
-                            TextStyle(color: Colors.white, fontSize: 14),
+                        style: TextStyle(color: Colors.white, fontSize: 14),
                         decoration: InputDecoration(
                           hintText: 'e.g., llama3.1',
                           hintStyle: TextStyle(
-                              color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary, fontSize: 13),
+                              color: Theme.of(context)
+                                  .extension<AppThemeExtension>()!
+                                  .textTertiary,
+                              fontSize: 13),
                           border: InputBorder.none,
                           contentPadding: EdgeInsets.symmetric(
                               horizontal: 12, vertical: 12),
@@ -355,14 +401,19 @@ class _ApiKeyDialogState extends State<ApiKeyDialog> {
                       Flexible(
                           child: Text('[${widget.providerName} API]',
                               style: TextStyle(
-                                  color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary, fontSize: 11),
+                                  color: Theme.of(context)
+                                      .extension<AppThemeExtension>()!
+                                      .textTertiary,
+                                  fontSize: 11),
                               textAlign: TextAlign.right)),
                     ],
                   ),
                   SizedBox(height: 8),
                   Container(
                     decoration: BoxDecoration(
-                      color: Theme.of(context).extension<AppThemeExtension>()!.cardBackground,
+                      color: Theme.of(context)
+                          .extension<AppThemeExtension>()!
+                          .cardBackground,
                       borderRadius: BorderRadius.circular(6),
                       border: Border.all(color: const Color(0xFF3A3A3A)),
                     ),
@@ -375,15 +426,18 @@ class _ApiKeyDialogState extends State<ApiKeyDialog> {
                         hintText:
                             'Enter value for ${widget.providerName} API Key',
                         hintStyle: TextStyle(
-                            color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary, fontSize: 13),
+                            color: Theme.of(context)
+                                .extension<AppThemeExtension>()!
+                                .textTertiary,
+                            fontSize: 13),
                         border: InputBorder.none,
                         focusedBorder: InputBorder.none,
                         enabledBorder: InputBorder.none,
                         errorBorder: InputBorder.none,
                         disabledBorder: InputBorder.none,
                         filled: false,
-                        contentPadding: EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 12),
+                        contentPadding:
+                            EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                         suffixIcon: _isApiKeyFocused
                             ? Row(
                                 mainAxisSize: MainAxisSize.min,
@@ -393,7 +447,9 @@ class _ApiKeyDialogState extends State<ApiKeyDialog> {
                                       _obscureApiKey
                                           ? Icons.visibility_off_outlined
                                           : Icons.visibility_outlined,
-                                      color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary,
+                                      color: Theme.of(context)
+                                          .extension<AppThemeExtension>()!
+                                          .textTertiary,
                                       size: 18,
                                     ),
                                     padding: EdgeInsets.zero,
@@ -420,7 +476,9 @@ class _ApiKeyDialogState extends State<ApiKeyDialog> {
                     RichText(
                       text: TextSpan(
                         style: TextStyle(
-                            color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary,
+                            color: Theme.of(context)
+                                .extension<AppThemeExtension>()!
+                                .textTertiary,
                             fontSize: 12,
                             height: 1.5),
                         children: [
@@ -444,7 +502,9 @@ class _ApiKeyDialogState extends State<ApiKeyDialog> {
                     RichText(
                       text: TextSpan(
                         style: TextStyle(
-                            color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary,
+                            color: Theme.of(context)
+                                .extension<AppThemeExtension>()!
+                                .textTertiary,
                             fontSize: 12,
                             height: 1.5),
                         children: [
@@ -460,7 +520,9 @@ class _ApiKeyDialogState extends State<ApiKeyDialog> {
                     RichText(
                       text: TextSpan(
                         style: TextStyle(
-                            color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary,
+                            color: Theme.of(context)
+                                .extension<AppThemeExtension>()!
+                                .textTertiary,
                             fontSize: 12,
                             height: 1.5),
                         children: [
@@ -477,7 +539,9 @@ class _ApiKeyDialogState extends State<ApiKeyDialog> {
                     RichText(
                       text: TextSpan(
                         style: TextStyle(
-                            color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary,
+                            color: Theme.of(context)
+                                .extension<AppThemeExtension>()!
+                                .textTertiary,
                             fontSize: 12,
                             height: 1.5),
                         children: [
@@ -492,7 +556,12 @@ class _ApiKeyDialogState extends State<ApiKeyDialog> {
               ),
             ),
 
-            Divider(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor, height: 1, thickness: 1),
+            Divider(
+                color: Theme.of(context)
+                    .extension<AppThemeExtension>()!
+                    .borderColor,
+                height: 1,
+                thickness: 1),
 
             // Footer (Actions)
             Padding(
@@ -514,8 +583,8 @@ class _ApiKeyDialogState extends State<ApiKeyDialog> {
                       backgroundColor:
                           const Color(0xFFB91C1C), // Tailwind Red 700
                       foregroundColor: Colors.white,
-                      padding: EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 12),
+                      padding:
+                          EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(6)),
                     ),
@@ -538,10 +607,12 @@ class _ApiKeyDialogState extends State<ApiKeyDialog> {
                       if (context.mounted) Navigator.of(context).pop();
                     },
                     style: TextButton.styleFrom(
-                      backgroundColor: Theme.of(context).colorScheme.secondary, // ChatGPT Green
+                      backgroundColor: Theme.of(context)
+                          .colorScheme
+                          .secondary, // ChatGPT Green
                       foregroundColor: Colors.white,
-                      padding: EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 12),
+                      padding:
+                          EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(6)),
                     ),

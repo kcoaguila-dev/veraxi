@@ -7,14 +7,17 @@ from pydantic import BaseModel
 
 app = FastAPI()
 
+
 class CodeExecutionRequest(BaseModel):
     code: str
     timeout: int = 10
+
 
 class CodeExecutionResponse(BaseModel):
     stdout: str
     stderr: str
     exit_code: int
+
 
 @app.post("/execute", response_model=CodeExecutionResponse)
 async def execute_code(req: CodeExecutionRequest):
@@ -22,27 +25,24 @@ async def execute_code(req: CodeExecutionRequest):
     # In a real production setup with LibreChat, they use NsJail or libkrun.
     # For this implementation, we rely on the Docker container isolation.
     try:
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
             f.write(req.code)
             temp_path = f.name
-            
+
         result = subprocess.run(  # noqa: ASYNC221, PLW1510
-            ["python", temp_path],
-            capture_output=True,
-            text=True,
-            timeout=req.timeout
+            ["python", temp_path], capture_output=True, text=True, timeout=req.timeout
         )
-        
+
         return CodeExecutionResponse(
-            stdout=result.stdout,
-            stderr=result.stderr,
-            exit_code=result.returncode
+            stdout=result.stdout, stderr=result.stderr, exit_code=result.returncode
         )
     except subprocess.TimeoutExpired as e:
         return CodeExecutionResponse(
-            stdout=e.stdout.decode('utf-8') if e.stdout else "",
-            stderr=e.stderr.decode('utf-8') if e.stderr else f"Execution timed out after {req.timeout} seconds.",
-            exit_code=-1
+            stdout=e.stdout.decode("utf-8") if e.stdout else "",
+            stderr=e.stderr.decode("utf-8")
+            if e.stderr
+            else f"Execution timed out after {req.timeout} seconds.",
+            exit_code=-1,
         )
     except Exception as e:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=str(e))

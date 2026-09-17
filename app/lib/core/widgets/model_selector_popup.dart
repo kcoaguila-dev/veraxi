@@ -5,7 +5,6 @@ import 'package:veraxi_app/features/chat/view_models/chat_view_model.dart';
 import 'package:veraxi_app/features/chat/views/widgets/api_key_dialog.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
 
-
 class ModelSelectorPopup extends ConsumerStatefulWidget {
   final String selectedModel;
   final ValueChanged<String> onModelSelected;
@@ -117,14 +116,18 @@ class _ModelSelectorPopupState extends ConsumerState<ModelSelectorPopup> {
             widget.onModelSelected(name);
             widget.onClose?.call();
           },
-          hoverColor: Theme.of(context).extension<AppThemeExtension>()!.surfaceHighlight,
+          hoverColor: Theme.of(context)
+              .extension<AppThemeExtension>()!
+              .surfaceHighlight,
           borderRadius: BorderRadius.circular(8),
           child: Container(
             height: 36,
             margin: EdgeInsets.only(bottom: 2),
             decoration: BoxDecoration(
               color: isSelected || isHovered
-                  ? Theme.of(context).extension<AppThemeExtension>()!.surfaceHighlight
+                  ? Theme.of(context)
+                      .extension<AppThemeExtension>()!
+                      .surfaceHighlight
                   : Colors.transparent,
               borderRadius: BorderRadius.circular(8),
             ),
@@ -152,7 +155,9 @@ class _ModelSelectorPopupState extends ConsumerState<ModelSelectorPopup> {
                         style: TextStyle(
                           color: isSelected
                               ? Colors.white
-                              : Theme.of(context).extension<AppThemeExtension>()!.iconColor,
+                              : Theme.of(context)
+                                  .extension<AppThemeExtension>()!
+                                  .iconColor,
                           fontSize: 13,
                           fontWeight:
                               isSelected ? FontWeight.w600 : FontWeight.w500,
@@ -222,9 +227,14 @@ class _ModelSelectorPopupState extends ConsumerState<ModelSelectorPopup> {
           width: 360,
           padding: EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Theme.of(context).extension<AppThemeExtension>()!.sidebarBackground,
+            color: Theme.of(context)
+                .extension<AppThemeExtension>()!
+                .sidebarBackground,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor),
+            border: Border.all(
+                color: Theme.of(context)
+                    .extension<AppThemeExtension>()!
+                    .borderColor),
           ),
           child: Text('Failed to load models: $err',
               style: TextStyle(color: Colors.red)),
@@ -297,7 +307,11 @@ class _ModelSelectorPopupState extends ConsumerState<ModelSelectorPopup> {
             results.add(Padding(
               padding: EdgeInsets.all(16),
               child: Text('No models found',
-                  style: TextStyle(color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary, fontSize: 13)),
+                  style: TextStyle(
+                      color: Theme.of(context)
+                          .extension<AppThemeExtension>()!
+                          .textTertiary,
+                      fontSize: 13)),
             ));
           }
 
@@ -314,9 +328,14 @@ class _ModelSelectorPopupState extends ConsumerState<ModelSelectorPopup> {
             width: 600,
             constraints: const BoxConstraints(maxHeight: 700),
             decoration: BoxDecoration(
-              color: Theme.of(context).extension<AppThemeExtension>()!.sidebarBackground,
+              color: Theme.of(context)
+                  .extension<AppThemeExtension>()!
+                  .sidebarBackground,
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor),
+              border: Border.all(
+                  color: Theme.of(context)
+                      .extension<AppThemeExtension>()!
+                      .borderColor),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withValues(alpha: 0.5),
@@ -344,7 +363,10 @@ class _ModelSelectorPopupState extends ConsumerState<ModelSelectorPopup> {
                       ),
                       IconButton(
                         icon: Icon(Icons.close,
-                            color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary, size: 20),
+                            color: Theme.of(context)
+                                .extension<AppThemeExtension>()!
+                                .textTertiary,
+                            size: 20),
                         onPressed: () {
                           widget.onClose?.call();
                           Navigator.of(context).pop();
@@ -368,27 +390,32 @@ class _ModelSelectorPopupState extends ConsumerState<ModelSelectorPopup> {
                     }),
                     decoration: InputDecoration(
                       hintText: 'Search models...',
-                      hintStyle: TextStyle(
-                          color: Color(0xFF6E6E6E), fontSize: 14),
+                      hintStyle:
+                          TextStyle(color: Color(0xFF6E6E6E), fontSize: 14),
                       prefixIcon: Icon(Icons.search,
                           color: Color(0xFF6E6E6E), size: 18),
                       prefixIconConstraints:
                           const BoxConstraints(minWidth: 40, minHeight: 40),
                       filled: true,
-                      fillColor: Theme.of(context).extension<AppThemeExtension>()!.cardBackground,
+                      fillColor: Theme.of(context)
+                          .extension<AppThemeExtension>()!
+                          .cardBackground,
                       contentPadding: EdgeInsets.symmetric(vertical: 12),
                       border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
-                          borderSide:
-                              BorderSide(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor)),
+                          borderSide: BorderSide(
+                              color: Theme.of(context)
+                                  .extension<AppThemeExtension>()!
+                                  .borderColor)),
                       enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
-                          borderSide:
-                              BorderSide(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor)),
+                          borderSide: BorderSide(
+                              color: Theme.of(context)
+                                  .extension<AppThemeExtension>()!
+                                  .borderColor)),
                       focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
-                          borderSide:
-                              BorderSide(color: Color(0xFF3A3A3A))),
+                          borderSide: BorderSide(color: Color(0xFF3A3A3A))),
                     ),
                   ),
                 ),

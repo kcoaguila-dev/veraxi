@@ -4,7 +4,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
 
-
 class McpIntegrationsView extends StatefulWidget {
   const McpIntegrationsView({super.key});
 
@@ -69,9 +68,9 @@ class _McpIntegrationsViewState extends State<McpIntegrationsView> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          backgroundColor: Theme.of(context).extension<AppThemeExtension>()!.cardBackground,
-          title: Text('Add MCP Server',
-              style: TextStyle(color: Colors.white)),
+          backgroundColor:
+              Theme.of(context).extension<AppThemeExtension>()!.cardBackground,
+          title: Text('Add MCP Server', style: TextStyle(color: Colors.white)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -156,8 +155,10 @@ class _McpIntegrationsViewState extends State<McpIntegrationsView> {
         SizedBox(height: 8),
         Text(
           'Manage the external tools, services, and capabilities available to the Sovereign Intelligence.',
-          style: theme.textTheme.bodyLarge
-              ?.copyWith(color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary),
+          style: theme.textTheme.bodyLarge?.copyWith(
+              color: Theme.of(context)
+                  .extension<AppThemeExtension>()!
+                  .textTertiary),
         ),
         SizedBox(height: 40),
         Row(
@@ -166,15 +167,23 @@ class _McpIntegrationsViewState extends State<McpIntegrationsView> {
               child: Container(
                 height: 44,
                 decoration: BoxDecoration(
-                  color: Theme.of(context).extension<AppThemeExtension>()!.sidebarBackground,
+                  color: Theme.of(context)
+                      .extension<AppThemeExtension>()!
+                      .sidebarBackground,
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Theme.of(context).extension<AppThemeExtension>()!.borderColorStrong),
+                  border: Border.all(
+                      color: Theme.of(context)
+                          .extension<AppThemeExtension>()!
+                          .borderColorStrong),
                 ),
                 padding: EdgeInsets.symmetric(horizontal: 16),
                 child: Row(
                   children: [
                     Icon(Icons.search,
-                        color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary, size: 20),
+                        color: Theme.of(context)
+                            .extension<AppThemeExtension>()!
+                            .textTertiary,
+                        size: 20),
                     SizedBox(width: 12),
                     Expanded(
                       child: TextField(
@@ -182,7 +191,10 @@ class _McpIntegrationsViewState extends State<McpIntegrationsView> {
                         cursorColor: Colors.white,
                         decoration: InputDecoration(
                           hintText: 'Search integrations...',
-                          hintStyle: TextStyle(color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary),
+                          hintStyle: TextStyle(
+                              color: Theme.of(context)
+                                  .extension<AppThemeExtension>()!
+                                  .textTertiary),
                           border: InputBorder.none,
                           focusedBorder: InputBorder.none,
                           enabledBorder: InputBorder.none,
@@ -200,7 +212,9 @@ class _McpIntegrationsViewState extends State<McpIntegrationsView> {
               onPressed: _showAddServerDialog,
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.white,
-                foregroundColor: Theme.of(context).extension<AppThemeExtension>()!.sidebarBackground,
+                foregroundColor: Theme.of(context)
+                    .extension<AppThemeExtension>()!
+                    .sidebarBackground,
                 minimumSize: const Size(140, 44),
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8)),
@@ -219,8 +233,10 @@ class _McpIntegrationsViewState extends State<McpIntegrationsView> {
             child: Padding(
               padding: EdgeInsets.symmetric(vertical: 40),
               child: Text('No MCP Integrations configured.',
-                  style: theme.textTheme.bodyLarge
-                      ?.copyWith(color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary)),
+                  style: theme.textTheme.bodyLarge?.copyWith(
+                      color: Theme.of(context)
+                          .extension<AppThemeExtension>()!
+                          .textTertiary)),
             ),
           )
         else
@@ -242,12 +258,16 @@ class _McpIntegrationsViewState extends State<McpIntegrationsView> {
                     status: isOn ? 'Live Connection Active' : 'Disconnected',
                     statusColor: isOn
                         ? const Color(0xFF10B981)
-                        : Theme.of(context).extension<AppThemeExtension>()!.textTertiary,
+                        : Theme.of(context)
+                            .extension<AppThemeExtension>()!
+                            .textTertiary,
                     description: server['url'] ?? '',
                     icon: Icons.extension,
                     iconColor: isOn
                         ? Theme.of(context).colorScheme.primary
-                        : Theme.of(context).extension<AppThemeExtension>()!.textTertiary,
+                        : Theme.of(context)
+                            .extension<AppThemeExtension>()!
+                            .textTertiary,
                     isOn: isOn,
                     onToggle: (val) => _toggleServer(index, val),
                     onDelete: () => _removeServer(index),
@@ -275,9 +295,12 @@ class _McpIntegrationsViewState extends State<McpIntegrationsView> {
     return Container(
       padding: EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: Theme.of(context).extension<AppThemeExtension>()!.surfaceHighlight,
+        color:
+            Theme.of(context).extension<AppThemeExtension>()!.surfaceHighlight,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: borderColor ?? Theme.of(context).extension<AppThemeExtension>()!.borderColor),
+        border: Border.all(
+            color: borderColor ??
+                Theme.of(context).extension<AppThemeExtension>()!.borderColor),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -286,7 +309,9 @@ class _McpIntegrationsViewState extends State<McpIntegrationsView> {
             width: 48,
             height: 48,
             decoration: BoxDecoration(
-              color: Theme.of(context).extension<AppThemeExtension>()!.sidebarBackground,
+              color: Theme.of(context)
+                  .extension<AppThemeExtension>()!
+                  .sidebarBackground,
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(icon, color: iconColor),
@@ -318,7 +343,9 @@ class _McpIntegrationsViewState extends State<McpIntegrationsView> {
                       value: isOn,
                       onChanged: onToggle,
                       activeTrackColor: Theme.of(context).colorScheme.primary,
-                      inactiveThumbColor: Theme.of(context).extension<AppThemeExtension>()!.iconColor,
+                      inactiveThumbColor: Theme.of(context)
+                          .extension<AppThemeExtension>()!
+                          .iconColor,
                       inactiveTrackColor: const Color(0xFF424242),
                     ),
                   ],
@@ -342,7 +369,10 @@ class _McpIntegrationsViewState extends State<McpIntegrationsView> {
                 SizedBox(height: 12),
                 Text(description,
                     style: TextStyle(
-                        color: Theme.of(context).extension<AppThemeExtension>()!.iconColor, fontSize: 14)),
+                        color: Theme.of(context)
+                            .extension<AppThemeExtension>()!
+                            .iconColor,
+                        fontSize: 14)),
               ],
             ),
           ),

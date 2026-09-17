@@ -5,7 +5,7 @@ class ModelProviderStyles {
   static Widget getProviderCircle(String provider) {
     String? assetPath;
     final lower = provider.toLowerCase();
-    
+
     if (lower == 'google') {
       assetPath = 'assets/icons/google.svg';
     } else if (lower == 'openai') {
@@ -44,7 +44,7 @@ class ModelProviderStyles {
         orElse: () => 'OpenAI',
       );
       final iconColor = colors[colorKey] ?? Colors.white;
-      
+
       return SizedBox(
         width: 16,
         height: 16,
@@ -61,7 +61,7 @@ class ModelProviderStyles {
 
     final color = colors[provider];
     if (color == null) return const SizedBox(width: 16);
-    
+
     return Container(
       width: 12,
       height: 12,

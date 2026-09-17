@@ -3,7 +3,6 @@ import 'package:veraxi_app/core/widgets/veraxi_logo.dart';
 import 'settings_shared_ui.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
 
-
 class AboutTab extends StatelessWidget {
   const AboutTab({super.key});
 
@@ -17,7 +16,10 @@ class AboutTab extends StatelessWidget {
           padding: EdgeInsets.all(24),
           decoration: BoxDecoration(
             color: Colors.transparent,
-            border: Border.all(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor),
+            border: Border.all(
+                color: Theme.of(context)
+                    .extension<AppThemeExtension>()!
+                    .borderColor),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Column(
@@ -35,7 +37,11 @@ class AboutTab extends StatelessWidget {
               SizedBox(height: 4),
               Text(
                 'Version 1.0.0',
-                style: TextStyle(color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary, fontSize: 13),
+                style: TextStyle(
+                    color: Theme.of(context)
+                        .extension<AppThemeExtension>()!
+                        .textTertiary,
+                    fontSize: 13),
               ),
               SizedBox(height: 24),
               Row(
@@ -44,7 +50,8 @@ class AboutTab extends StatelessWidget {
                   SettingsUI.buildLinkButton(context, 'GitHub', Icons.code,
                       'https://github.com/kcoaguila-dev/veraxi'),
                   SizedBox(width: 12),
-                  SettingsUI.buildLinkButton(context, 'Website', Icons.language, '/'),
+                  SettingsUI.buildLinkButton(
+                      context, 'Website', Icons.language, '/'),
                 ],
               ),
             ],

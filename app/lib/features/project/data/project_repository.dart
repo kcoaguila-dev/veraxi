@@ -11,8 +11,6 @@ class ProjectRepository {
 
   ProjectRepository({required this.apiClient});
 
-
-
   Future<List<Map<String, dynamic>>> getProjects() async {
     final data = await apiClient.get('/projects');
     return List<Map<String, dynamic>>.from(data['projects'] ?? []);

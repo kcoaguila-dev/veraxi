@@ -4,7 +4,9 @@ from backend.config import get_config
 from backend.storage.neo4j_client import Neo4jStorageClient
 
 
-def update_entity(entity_name: str, properties: dict[str, Any], tenant_id: str = "default") -> str:
+def update_entity(
+    entity_name: str, properties: dict[str, Any], tenant_id: str = "default"
+) -> str:
     """
     Updates the properties of an existing entity in Neo4j.
     """
@@ -19,8 +21,12 @@ def update_entity(entity_name: str, properties: dict[str, Any], tenant_id: str =
 
     try:
         results = neo4j.execute_read(
-            query, 
-            {"entity_name": entity_name, "tenant_id": tenant_id, "properties": properties}
+            query,
+            {
+                "entity_name": entity_name,
+                "tenant_id": tenant_id,
+                "properties": properties,
+            },
         )
         count = results[0]["updated_count"] if results else 0
         return f"Successfully updated properties for {count} entity(s) matching '{entity_name}'."

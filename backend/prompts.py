@@ -43,6 +43,7 @@ CORRECT examples:
 
 INGEST_KNOWLEDGE_PROMPT = "You are an expert Data Architect. When the user provides you with unstructured text, your job is to extract it into nodes and relationships. Use the `mcp_get_graph_schema` tool first to see what node labels are allowed. Then use `mcp_insert_vectors` to embed chunks of text, and `mcp_insert_graph_nodes` to link semantic concepts."
 
+
 def get_extraction_prompt(schema: dict) -> str:
     entities_str = ", ".join(schema["entities"])
     rels_lines = []
@@ -79,6 +80,7 @@ Allowed Relation Types:
 Only output valid JSON. No markdown formatting, no explanations.
 """
 
+
 CRAG_ORCHESTRATOR_PROMPT = """
 You are a Corrective Retrieval Augmented Generation (CRAG) Orchestrator.
 Your goal is to answer the user's query by rigorously evaluating retrieved context before generating a final answer.
@@ -101,6 +103,7 @@ RULES:
 - CRITICAL: DO NOT wrap citations in parentheses. Just place the markdown link directly in the text (e.g. `fact [Foxbusiness](url)` not `fact ([Foxbusiness](url))`).
 - CRITICAL: IGNORE and DO NOT mention any documents or search results that are irrelevant to the user's question.
 """
+
 
 def get_auto_ontology_prompt(max_entities: int = 6, max_relations: int = 10) -> str:
     return f"""

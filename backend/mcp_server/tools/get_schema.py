@@ -12,16 +12,17 @@ def get_graph_schema() -> dict[str, list[str]]:
 
     try:
         # Get all node labels
-        labels_result = neo4j_client.execute_read("CALL db.labels() YIELD label RETURN label")
+        labels_result = neo4j_client.execute_read(
+            "CALL db.labels() YIELD label RETURN label"
+        )
         labels = [row["label"] for row in labels_result]
 
         # Get all relationship types
-        rels_result = neo4j_client.execute_read("CALL db.relationshipTypes() YIELD relationshipType RETURN relationshipType")
+        rels_result = neo4j_client.execute_read(
+            "CALL db.relationshipTypes() YIELD relationshipType RETURN relationshipType"
+        )
         relationship_types = [row["relationshipType"] for row in rels_result]
 
-        return {
-            "node_labels": labels,
-            "relationship_types": relationship_types
-        }
+        return {"node_labels": labels, "relationship_types": relationship_types}
     finally:
         neo4j_client.close()

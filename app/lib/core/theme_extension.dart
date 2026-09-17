@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 
-
-
 class AppThemeExtension extends ThemeExtension<AppThemeExtension> {
   final Color primaryGradientStart;
   final Color primaryGradientEnd;
@@ -67,11 +65,14 @@ class AppThemeExtension extends ThemeExtension<AppThemeExtension> {
           Color.lerp(primaryGradientEnd, other.primaryGradientEnd, t)!,
       surfaceHighlight:
           Color.lerp(surfaceHighlight, other.surfaceHighlight, t)!,
-      sidebarBackground: Color.lerp(sidebarBackground, other.sidebarBackground, t)!,
+      sidebarBackground:
+          Color.lerp(sidebarBackground, other.sidebarBackground, t)!,
       cardBackground: Color.lerp(cardBackground, other.cardBackground, t)!,
-      dialogBackground: Color.lerp(dialogBackground, other.dialogBackground, t)!,
+      dialogBackground:
+          Color.lerp(dialogBackground, other.dialogBackground, t)!,
       borderColor: Color.lerp(borderColor, other.borderColor, t)!,
-      borderColorStrong: Color.lerp(borderColorStrong, other.borderColorStrong, t)!,
+      borderColorStrong:
+          Color.lerp(borderColorStrong, other.borderColorStrong, t)!,
       textTertiary: Color.lerp(textTertiary, other.textTertiary, t)!,
       iconColor: Color.lerp(iconColor, other.iconColor, t)!,
     );

@@ -3,9 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
 
-
 class SettingsUI {
-  static Widget buildLinkButton(BuildContext context, String label, IconData icon, String url) {
+  static Widget buildLinkButton(
+      BuildContext context, String label, IconData icon, String url) {
     return TextButton.icon(
       onPressed: () async {
         final uri = Uri.parse(url);
@@ -17,20 +17,23 @@ class SettingsUI {
       label: Text(label, style: TextStyle(color: Color(0xFFECECEC))),
       style: TextButton.styleFrom(
         padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        backgroundColor: Theme.of(context).extension<AppThemeExtension>()!.surfaceHighlight,
+        backgroundColor:
+            Theme.of(context).extension<AppThemeExtension>()!.surfaceHighlight,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
     );
   }
 
-  static Widget buildSectionHeader(BuildContext context, String title, {bool isDestructive = false}) {
+  static Widget buildSectionHeader(BuildContext context, String title,
+      {bool isDestructive = false}) {
     return Padding(
       padding: EdgeInsets.only(bottom: 12),
       child: Text(
         title,
         style: TextStyle(
-          color:
-              isDestructive ? const Color(0xFFE53935) : Theme.of(context).extension<AppThemeExtension>()!.textTertiary,
+          color: isDestructive
+              ? const Color(0xFFE53935)
+              : Theme.of(context).extension<AppThemeExtension>()!.textTertiary,
           fontSize: 11,
           fontWeight: FontWeight.bold,
           letterSpacing: 0.5,
@@ -39,11 +42,14 @@ class SettingsUI {
     );
   }
 
-  static Widget buildSettingsGroup(BuildContext context, List<Widget> children) {
+  static Widget buildSettingsGroup(
+      BuildContext context, List<Widget> children) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.transparent,
-        border: Border.all(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor),
+        border: Border.all(
+            color:
+                Theme.of(context).extension<AppThemeExtension>()!.borderColor),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
@@ -52,7 +58,12 @@ class SettingsUI {
           return Column(
             children: [
               entry.value,
-              if (!isLast) Divider(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor, height: 1),
+              if (!isLast)
+                Divider(
+                    color: Theme.of(context)
+                        .extension<AppThemeExtension>()!
+                        .borderColor,
+                    height: 1),
             ],
           );
         }).toList(),
@@ -60,7 +71,8 @@ class SettingsUI {
     );
   }
 
-  static Widget buildDropdownRow(BuildContext context, String label, String value,
+  static Widget buildDropdownRow(
+      BuildContext context, String label, String value,
       {VoidCallback? onTap}) {
     return InkWell(
       onTap: onTap,
@@ -74,17 +86,21 @@ class SettingsUI {
             Container(
               padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
-                color: Theme.of(context).extension<AppThemeExtension>()!.borderColor,
+                color: Theme.of(context)
+                    .extension<AppThemeExtension>()!
+                    .borderColor,
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Row(
                 children: [
                   Text(value,
-                      style:
-                          TextStyle(color: Colors.white, fontSize: 13)),
+                      style: TextStyle(color: Colors.white, fontSize: 13)),
                   SizedBox(width: 8),
                   Icon(Icons.keyboard_arrow_down,
-                      color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary, size: 16),
+                      color: Theme.of(context)
+                          .extension<AppThemeExtension>()!
+                          .textTertiary,
+                      size: 16),
                 ],
               ),
             ),
@@ -101,8 +117,7 @@ class SettingsUI {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label,
-              style: TextStyle(color: Color(0xFFECECEC), fontSize: 13)),
+          Text(label, style: TextStyle(color: Color(0xFFECECEC), fontSize: 13)),
           Theme(
             data: Theme.of(context).copyWith(
               hoverColor: Colors.transparent,
@@ -110,7 +125,8 @@ class SettingsUI {
               highlightColor: Colors.transparent,
             ),
             child: PopupMenuButton<String>(
-              color: Theme.of(context).extension<AppThemeExtension>()!.borderColor,
+              color:
+                  Theme.of(context).extension<AppThemeExtension>()!.borderColor,
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8)),
               position: PopupMenuPosition.under,
@@ -126,27 +142,29 @@ class SettingsUI {
                                 style: TextStyle(
                                     color: Colors.white, fontSize: 13)),
                             if (item == value)
-                              Icon(Icons.check,
-                                  color: Colors.white, size: 16),
+                              Icon(Icons.check, color: Colors.white, size: 16),
                           ],
                         ),
                       ))
                   .toList(),
               child: Container(
-                padding:
-                    EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
-                  color: Theme.of(context).extension<AppThemeExtension>()!.borderColor,
+                  color: Theme.of(context)
+                      .extension<AppThemeExtension>()!
+                      .borderColor,
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Row(
                   children: [
                     Text(value,
-                        style:
-                            TextStyle(color: Colors.white, fontSize: 13)),
+                        style: TextStyle(color: Colors.white, fontSize: 13)),
                     SizedBox(width: 8),
                     Icon(Icons.keyboard_arrow_down,
-                        color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary, size: 16),
+                        color: Theme.of(context)
+                            .extension<AppThemeExtension>()!
+                            .textTertiary,
+                        size: 16),
                   ],
                 ),
               ),
@@ -157,18 +175,19 @@ class SettingsUI {
     );
   }
 
-  static Widget buildTextButtonRow(BuildContext context, String label, String value) {
+  static Widget buildTextButtonRow(
+      BuildContext context, String label, String value) {
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label,
-              style: TextStyle(color: Color(0xFFECECEC), fontSize: 13)),
+          Text(label, style: TextStyle(color: Color(0xFFECECEC), fontSize: 13)),
           Container(
             padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
-              color: Theme.of(context).extension<AppThemeExtension>()!.borderColor,
+              color:
+                  Theme.of(context).extension<AppThemeExtension>()!.borderColor,
               borderRadius: BorderRadius.circular(6),
             ),
             child: Text(value,
@@ -179,7 +198,8 @@ class SettingsUI {
     );
   }
 
-  static Widget buildTextFieldRow(BuildContext context, String label, TextEditingController controller,
+  static Widget buildTextFieldRow(
+      BuildContext context, String label, TextEditingController controller,
       {Function(String)? onSubmitted}) {
     return StatefulBuilder(
       builder: (context, setState) {
@@ -192,8 +212,7 @@ class SettingsUI {
               Expanded(
                 flex: 2,
                 child: Text(label,
-                    style: TextStyle(
-                        color: Color(0xFFECECEC), fontSize: 13)),
+                    style: TextStyle(color: Color(0xFFECECEC), fontSize: 13)),
               ),
               Expanded(
                 flex: 3,
@@ -203,10 +222,12 @@ class SettingsUI {
                     controller: controller,
                     style: TextStyle(color: Colors.white, fontSize: 13),
                     decoration: InputDecoration(
-                      contentPadding: EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 0),
+                      contentPadding:
+                          EdgeInsets.symmetric(horizontal: 12, vertical: 0),
                       filled: true,
-                      fillColor: Theme.of(context).extension<AppThemeExtension>()!.borderColor,
+                      fillColor: Theme.of(context)
+                          .extension<AppThemeExtension>()!
+                          .borderColor,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(6),
                         borderSide: BorderSide.none,
@@ -246,7 +267,9 @@ class SettingsUI {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: isSaved
                       ? Theme.of(context).colorScheme.secondary
-                      : Theme.of(context).extension<AppThemeExtension>()!.surfaceHighlight,
+                      : Theme.of(context)
+                          .extension<AppThemeExtension>()!
+                          .surfaceHighlight,
                   foregroundColor: Colors.white,
                   padding: EdgeInsets.symmetric(horizontal: 12),
                   minimumSize: const Size(0, 36),
@@ -283,7 +306,8 @@ class SettingsUI {
     );
   }
 
-  static Widget buildActionRow(BuildContext context, String title, String subtitle, String buttonText,
+  static Widget buildActionRow(
+      BuildContext context, String title, String subtitle, String buttonText,
       {bool isDestructive = false, VoidCallback? onTap}) {
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -295,13 +319,15 @@ class SettingsUI {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(title,
-                    style: TextStyle(
-                        color: Color(0xFFECECEC), fontSize: 14)),
+                    style: TextStyle(color: Color(0xFFECECEC), fontSize: 14)),
                 if (subtitle.isNotEmpty) ...[
                   SizedBox(height: 2),
                   Text(subtitle,
                       style: TextStyle(
-                          color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary, fontSize: 12)),
+                          color: Theme.of(context)
+                              .extension<AppThemeExtension>()!
+                              .textTertiary,
+                          fontSize: 12)),
                 ],
               ],
             ),
@@ -314,9 +340,7 @@ class SettingsUI {
               backgroundColor:
                   isDestructive ? const Color(0xFFD32F2F) : Colors.transparent,
               elevation: 0,
-              side: isDestructive
-                  ? null
-                  : BorderSide(color: Color(0xFF3A3A3A)),
+              side: isDestructive ? null : BorderSide(color: Color(0xFF3A3A3A)),
               padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(6)),

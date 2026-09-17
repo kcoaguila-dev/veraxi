@@ -4,7 +4,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
 
-
 class FileSearchDialog extends StatefulWidget {
   const FileSearchDialog({super.key});
 
@@ -67,9 +66,14 @@ class _FileSearchDialogState extends State<FileSearchDialog> {
         constraints: const BoxConstraints(maxWidth: 480),
         padding: EdgeInsets.all(24),
         decoration: BoxDecoration(
-          color: Theme.of(context).extension<AppThemeExtension>()!.sidebarBackground,
+          color: Theme.of(context)
+              .extension<AppThemeExtension>()!
+              .sidebarBackground,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor),
+          border: Border.all(
+              color: Theme.of(context)
+                  .extension<AppThemeExtension>()!
+                  .borderColor),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.5),
@@ -112,7 +116,10 @@ class _FileSearchDialogState extends State<FileSearchDialog> {
                       Text(
                           'Allow the AI to search your uploaded files and internal knowledge graph.',
                           style: TextStyle(
-                              color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary, fontSize: 12)),
+                              color: Theme.of(context)
+                                  .extension<AppThemeExtension>()!
+                                  .textTertiary,
+                              fontSize: 12)),
                     ],
                   ),
                 ),
@@ -137,10 +144,11 @@ class _FileSearchDialogState extends State<FileSearchDialog> {
                 TextButton(
                   onPressed: () => Navigator.of(context).pop(),
                   style: TextButton.styleFrom(
-                    backgroundColor: Theme.of(context).extension<AppThemeExtension>()!.surfaceHighlight,
+                    backgroundColor: Theme.of(context)
+                        .extension<AppThemeExtension>()!
+                        .surfaceHighlight,
                     foregroundColor: Colors.white,
-                    padding: EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 10),
+                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(6)),
                   ),
@@ -152,10 +160,11 @@ class _FileSearchDialogState extends State<FileSearchDialog> {
                 TextButton(
                   onPressed: _saveSettings,
                   style: TextButton.styleFrom(
-                    backgroundColor: Theme.of(context).colorScheme.secondary, // ChatGPT Green
+                    backgroundColor: Theme.of(context)
+                        .colorScheme
+                        .secondary, // ChatGPT Green
                     foregroundColor: Colors.white,
-                    padding: EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 10),
+                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(6)),
                   ),

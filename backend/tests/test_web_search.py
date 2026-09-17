@@ -19,16 +19,16 @@ def test_web_search_success(mock_urlopen, mock_get_config):
     fake_data = {
         "results": [
             {"title": "Result 1", "url": "http://1.com", "content": "Content 1"},
-            {"title": "Result 2", "url": "http://2.com", "content": "Content 2"}
+            {"title": "Result 2", "url": "http://2.com", "content": "Content 2"},
         ]
     }
     mock_response.read.return_value = json.dumps(fake_data).encode("utf-8")
-    
+
     # Context manager setup for urlopen
     mock_urlopen.return_value.__enter__.return_value = mock_response
 
     results = mcp_web_search("test query", max_results=2)
-    
+
     assert len(results) == 2
     assert results[0]["title"] == "Result 1"
     assert results[1]["url"] == "http://2.com"
@@ -48,7 +48,7 @@ def test_web_search_forbidden_fails_gracefully(mock_urlopen, mock_get_config):
     )
 
     results = mcp_web_search("test query")
-    
+
     # Should safely catch the error and return empty list
     assert results == []
 
@@ -61,6 +61,6 @@ def test_web_search_no_url_fails_gracefully(mock_get_config):
     mock_get_config.return_value = mock_config
 
     results = mcp_web_search("test query")
-    
+
     # Should short-circuit and return empty list
     assert results == []

@@ -6,23 +6,20 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:veraxi_app/features/chat/data/chat_repository.dart';
 import 'package:veraxi_app/features/chat/view_models/chat_view_model.dart';
 
-
-
 class MockChatRepository extends Mock implements ChatRepository {}
-
 
 class MockRef extends Mock implements Ref {}
 
 void main() {
   late MockChatRepository mockRepository;
-    late ChatViewModel viewModel;
+  late ChatViewModel viewModel;
 
   setUpAll(() {
     FlutterSecureStorage.setMockInitialValues({});
     SharedPreferences.setMockInitialValues({});
   });
 
-late ProviderContainer container;
+  late ProviderContainer container;
 
   setUp(() {
     TestWidgetsFlutterBinding.ensureInitialized();
@@ -133,7 +130,8 @@ late ProviderContainer container;
 
     expect(container.read(chatViewModelProvider).messages.length, 2);
     expect(container.read(chatViewModelProvider).messages[1].isError, isTrue);
-    expect(container.read(chatViewModelProvider).messages[1].content, contains('Once upon a time'));
+    expect(container.read(chatViewModelProvider).messages[1].content,
+        contains('Once upon a time'));
     expect(
         container.read(chatViewModelProvider).messages[1].content,
         contains(
@@ -186,7 +184,8 @@ late ProviderContainer container;
     await viewModel.sendMessage(question, model: 'test-model');
 
     expect(container.read(chatViewModelProvider).messages.length, 2);
-    expect(container.read(chatViewModelProvider).messages[1].text, 'Result found');
+    expect(
+        container.read(chatViewModelProvider).messages[1].text, 'Result found');
   });
 
   test('sendMessage extracts artifact during tool end if present', () async {
@@ -228,10 +227,18 @@ late ProviderContainer container;
     await viewModel.sendMessage(question, model: 'test-model');
 
     expect(container.read(chatViewModelProvider).messages.length, 2);
-    expect(container.read(chatViewModelProvider).messages[1].toolEvents.length, 1);
-    expect(container.read(chatViewModelProvider).messages[1].toolEvents.first.result, [
-      {'title': 'Art1'}
-    ]);
+    expect(
+        container.read(chatViewModelProvider).messages[1].toolEvents.length, 1);
+    expect(
+        container
+            .read(chatViewModelProvider)
+            .messages[1]
+            .toolEvents
+            .first
+            .result,
+        [
+          {'title': 'Art1'}
+        ]);
   });
 
   test('regenerateResponse calls repository and selectThread', () async {
@@ -243,7 +250,9 @@ late ProviderContainer container;
         .thenAnswer((_) async => []);
 
     // Set threadId to simulate an active thread
-    viewModel.setStateForTesting(container.read(chatViewModelProvider).copyWith(threadId: 'test-thread'));
+    viewModel.setStateForTesting(container
+        .read(chatViewModelProvider)
+        .copyWith(threadId: 'test-thread'));
 
     await viewModel.regenerateResponse();
 
@@ -251,11 +260,11 @@ late ProviderContainer container;
     verify(() => mockRepository.getThreadHistory('test-thread')).called(1);
   });
 
-
-
   test('regenerateResponse catches exception and sets error', () async {
     await pumpEventQueue();
-    viewModel.setStateForTesting(container.read(chatViewModelProvider).copyWith(threadId: 'test-thread'));
+    viewModel.setStateForTesting(container
+        .read(chatViewModelProvider)
+        .copyWith(threadId: 'test-thread'));
 
     when(() => mockRepository.regenerateResponse(any()))
         .thenThrow(Exception('Regen Error'));
@@ -268,8 +277,9 @@ late ProviderContainer container;
 
   test('clearError resets error state', () async {
     await pumpEventQueue();
-    
-    viewModel.setStateForTesting(container.read(chatViewModelProvider).copyWith(error: 'Some error'));
+
+    viewModel.setStateForTesting(
+        container.read(chatViewModelProvider).copyWith(error: 'Some error'));
 
     // expect(container.read(chatViewModelProvider).error, 'Some error');
 
@@ -297,8 +307,4 @@ late ProviderContainer container;
     expect(container.read(chatViewModelProvider).showTelemetry, isFalse);
     expect(prefs.getBool('show_telemetry'), isFalse);
   });
-
-
-
-
 }

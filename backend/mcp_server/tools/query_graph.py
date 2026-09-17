@@ -1,4 +1,3 @@
-
 from backend.config import get_config
 from backend.retrieval.merge_rank import GraphHit
 from backend.storage.neo4j_client import Neo4jStorageClient

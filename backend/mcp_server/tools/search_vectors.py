@@ -1,4 +1,3 @@
-
 from backend.config import get_config
 from backend.ingestion.chunk_embed import embed_text, embed_text_sparse
 from backend.retrieval.merge_rank import VectorHit
@@ -14,7 +13,7 @@ def search_vectors(
     """
     config = get_config()
     qdrant_client = QdrantStorageClient.from_config(config)
-    
+
     COLLECTION_NAME = config.qdrant_collection_name
 
     # Embed the query

@@ -5,7 +5,6 @@ import 'package:veraxi_app/features/chat/view_models/chat_view_model.dart';
 import 'package:veraxi_app/features/chat/views/widgets/api_key_dialog.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
 
-
 class ModelSelectorMenu extends ConsumerStatefulWidget {
   final String selectedModel;
   final ValueChanged<String> onModelSelected;
@@ -131,9 +130,13 @@ class _ModelSelectorMenuState extends ConsumerState<ModelSelectorMenu> {
       width: 280,
       constraints: const BoxConstraints(maxHeight: 450),
       decoration: BoxDecoration(
-        color: Theme.of(context).extension<AppThemeExtension>()!.sidebarBackground,
+        color:
+            Theme.of(context).extension<AppThemeExtension>()!.sidebarBackground,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Theme.of(context).extension<AppThemeExtension>()!.borderColorStrong),
+        border: Border.all(
+            color: Theme.of(context)
+                .extension<AppThemeExtension>()!
+                .borderColorStrong),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.5),
@@ -158,16 +161,25 @@ class _ModelSelectorMenuState extends ConsumerState<ModelSelectorMenu> {
                 style: TextStyle(color: Colors.white, fontSize: 13),
                 decoration: InputDecoration(
                   hintText: 'Search $provider models...',
-                  hintStyle:
-                      TextStyle(color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary, fontSize: 13),
+                  hintStyle: TextStyle(
+                      color: Theme.of(context)
+                          .extension<AppThemeExtension>()!
+                          .textTertiary,
+                      fontSize: 13),
                   contentPadding: EdgeInsets.symmetric(horizontal: 12),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide(color: Theme.of(context).extension<AppThemeExtension>()!.borderColorStrong),
+                    borderSide: BorderSide(
+                        color: Theme.of(context)
+                            .extension<AppThemeExtension>()!
+                            .borderColorStrong),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide(color: Theme.of(context).extension<AppThemeExtension>()!.borderColorStrong),
+                    borderSide: BorderSide(
+                        color: Theme.of(context)
+                            .extension<AppThemeExtension>()!
+                            .borderColorStrong),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
@@ -187,7 +199,11 @@ class _ModelSelectorMenuState extends ConsumerState<ModelSelectorMenu> {
             Padding(
               padding: EdgeInsets.all(16.0),
               child: Text('No models found',
-                  style: TextStyle(color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary, fontSize: 13)),
+                  style: TextStyle(
+                      color: Theme.of(context)
+                          .extension<AppThemeExtension>()!
+                          .textTertiary,
+                      fontSize: 13)),
             )
           else
             Flexible(
@@ -254,9 +270,14 @@ class _ModelSelectorMenuState extends ConsumerState<ModelSelectorMenu> {
                       width: 200,
                       constraints: const BoxConstraints(maxHeight: 500),
                       decoration: BoxDecoration(
-                        color: Theme.of(context).extension<AppThemeExtension>()!.sidebarBackground,
+                        color: Theme.of(context)
+                            .extension<AppThemeExtension>()!
+                            .sidebarBackground,
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Theme.of(context).extension<AppThemeExtension>()!.borderColorStrong),
+                        border: Border.all(
+                            color: Theme.of(context)
+                                .extension<AppThemeExtension>()!
+                                .borderColorStrong),
                         boxShadow: [
                           BoxShadow(
                             color: Colors.black.withValues(alpha: 0.5),
@@ -293,20 +314,25 @@ class _ModelSelectorMenuState extends ConsumerState<ModelSelectorMenu> {
                                     decoration: InputDecoration(
                                       hintText: 'Search models...',
                                       hintStyle: TextStyle(
-                                          color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary,
+                                          color: Theme.of(context)
+                                              .extension<AppThemeExtension>()!
+                                              .textTertiary,
                                           fontSize: 13),
                                       contentPadding:
-                                          EdgeInsets.symmetric(
-                                              horizontal: 12),
+                                          EdgeInsets.symmetric(horizontal: 12),
                                       border: OutlineInputBorder(
                                         borderRadius: BorderRadius.circular(8),
                                         borderSide: BorderSide(
-                                            color: Theme.of(context).extension<AppThemeExtension>()!.borderColorStrong),
+                                            color: Theme.of(context)
+                                                .extension<AppThemeExtension>()!
+                                                .borderColorStrong),
                                       ),
                                       enabledBorder: OutlineInputBorder(
                                         borderRadius: BorderRadius.circular(8),
                                         borderSide: BorderSide(
-                                            color: Theme.of(context).extension<AppThemeExtension>()!.borderColorStrong),
+                                            color: Theme.of(context)
+                                                .extension<AppThemeExtension>()!
+                                                .borderColorStrong),
                                       ),
                                       focusedBorder: OutlineInputBorder(
                                         borderRadius: BorderRadius.circular(8),
@@ -337,7 +363,10 @@ class _ModelSelectorMenuState extends ConsumerState<ModelSelectorMenu> {
                                           padding: EdgeInsets.all(16.0),
                                           child: Text('No models found',
                                               style: TextStyle(
-                                                  color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary,
+                                                  color: Theme.of(context)
+                                                      .extension<
+                                                          AppThemeExtension>()!
+                                                      .textTertiary,
                                                   fontSize: 13)),
                                         )
                                       else
@@ -396,7 +425,10 @@ class _ModelSelectorMenuState extends ConsumerState<ModelSelectorMenu> {
                                           padding:
                                               EdgeInsets.symmetric(vertical: 4),
                                           child: Divider(
-                                              color: Theme.of(context).extension<AppThemeExtension>()!.borderColor,
+                                              color: Theme.of(context)
+                                                  .extension<
+                                                      AppThemeExtension>()!
+                                                  .borderColor,
                                               height: 1),
                                         ),
                                       ],
@@ -585,7 +617,11 @@ class _HoverableProviderRowState extends State<_HoverableProviderRow> {
             height: 38,
             margin: EdgeInsets.only(bottom: 2),
             decoration: BoxDecoration(
-              color: active ? Theme.of(context).extension<AppThemeExtension>()!.surfaceHighlight : Colors.transparent,
+              color: active
+                  ? Theme.of(context)
+                      .extension<AppThemeExtension>()!
+                      .surfaceHighlight
+                  : Colors.transparent,
               borderRadius: BorderRadius.circular(8),
             ),
             child: Row(
@@ -611,8 +647,7 @@ class _HoverableProviderRowState extends State<_HoverableProviderRow> {
                     behavior: HitTestBehavior.opaque,
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 150),
-                      padding: EdgeInsets.symmetric(
-                          horizontal: 6, vertical: 4),
+                      padding: EdgeInsets.symmetric(horizontal: 6, vertical: 4),
                       decoration: BoxDecoration(
                         color: _isSettingsHovered
                             ? const Color(0xFF444444)
@@ -627,7 +662,9 @@ class _HoverableProviderRowState extends State<_HoverableProviderRow> {
                               color: active
                                   ? (_isSettingsHovered
                                       ? Colors.white
-                                      : Theme.of(context).extension<AppThemeExtension>()!.iconColor)
+                                      : Theme.of(context)
+                                          .extension<AppThemeExtension>()!
+                                          .iconColor)
                                   : Colors.transparent),
                           if (_isSettingsHovered) ...[
                             SizedBox(width: 4),
@@ -642,7 +679,11 @@ class _HoverableProviderRowState extends State<_HoverableProviderRow> {
                 ),
                 Icon(Icons.chevron_right,
                     size: 16,
-                    color: active ? Colors.white : Theme.of(context).extension<AppThemeExtension>()!.textTertiary),
+                    color: active
+                        ? Colors.white
+                        : Theme.of(context)
+                            .extension<AppThemeExtension>()!
+                            .textTertiary),
                 SizedBox(width: 8),
               ],
             ),
@@ -687,7 +728,11 @@ class _HoverableModelRowState extends State<_HoverableModelRow> {
           height: 36,
           margin: EdgeInsets.only(bottom: 2),
           decoration: BoxDecoration(
-            color: _isHovered ? Theme.of(context).extension<AppThemeExtension>()!.surfaceHighlight : Colors.transparent,
+            color: _isHovered
+                ? Theme.of(context)
+                    .extension<AppThemeExtension>()!
+                    .surfaceHighlight
+                : Colors.transparent,
             borderRadius: BorderRadius.circular(8),
           ),
           child: Stack(
@@ -728,8 +773,8 @@ class _HoverableModelRowState extends State<_HoverableModelRow> {
                     onTap: widget.onPinToggle,
                     behavior: HitTestBehavior.opaque,
                     child: Padding(
-                      padding: EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 8),
+                      padding:
+                          EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                       child: Icon(
                         widget.isPinned
                             ? Icons.push_pin
@@ -738,7 +783,9 @@ class _HoverableModelRowState extends State<_HoverableModelRow> {
                         color: widget.isPinned
                             ? Colors.white
                             : (_isHovered
-                                ? Theme.of(context).extension<AppThemeExtension>()!.textTertiary
+                                ? Theme.of(context)
+                                    .extension<AppThemeExtension>()!
+                                    .textTertiary
                                 : Colors.transparent),
                       ),
                     ),

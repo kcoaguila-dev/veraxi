@@ -6,6 +6,7 @@ giving the LLM the full article text instead of only the ~200-char search snippe
 
 Dependency direction (per AGENTS.md): mcp_server/tools → (no imports from retrieval/storage)
 """
+
 from backend.mcp_server.tools.scrapers.base import PageScraper, ScraperResult
 from backend.mcp_server.tools.scrapers.firecrawl_scraper import FirecrawlScraper
 from backend.mcp_server.tools.scrapers.jina_scraper import JinaScraper

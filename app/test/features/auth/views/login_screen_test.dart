@@ -47,8 +47,7 @@ void main() {
           authViewModelProvider.overrideWith((ref) => mockAuthViewModel),
         ],
         child: MaterialApp(
-      theme: AppTheme.lightTheme,
-
+          theme: AppTheme.lightTheme,
           home: LoginScreen(),
         ),
       ),

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
 
-
 class SectionLabel extends StatelessWidget {
   final String label;
   const SectionLabel({super.key, required this.label});
@@ -50,17 +49,17 @@ class DropdownRow extends StatelessWidget {
         width: double.infinity,
         padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: Theme.of(context).extension<AppThemeExtension>()!.surfaceHighlight,
+          color: Theme.of(context)
+              .extension<AppThemeExtension>()!
+              .surfaceHighlight,
           borderRadius: BorderRadius.circular(6),
           border: Border.all(color: const Color(0xFF3A3A3A)),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(selected,
-                style: TextStyle(color: Colors.white, fontSize: 13)),
-            Icon(Icons.keyboard_arrow_down,
-                color: Colors.white54, size: 16),
+            Text(selected, style: TextStyle(color: Colors.white, fontSize: 13)),
+            Icon(Icons.keyboard_arrow_down, color: Colors.white54, size: 16),
           ],
         ),
       ),
@@ -102,7 +101,8 @@ class InfoChip extends StatelessWidget {
 class InputField extends StatelessWidget {
   final TextEditingController controller;
   final String hintText;
-  const InputField({super.key, required this.controller, required this.hintText});
+  const InputField(
+      {super.key, required this.controller, required this.hintText});
 
   @override
   Widget build(BuildContext context) {
@@ -124,8 +124,7 @@ class InputField extends StatelessWidget {
           errorBorder: InputBorder.none,
           disabledBorder: InputBorder.none,
           filled: false,
-          contentPadding:
-              EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         ),
       ),
     );
@@ -135,7 +134,8 @@ class InputField extends StatelessWidget {
 class ApiKeyField extends StatefulWidget {
   final TextEditingController controller;
   final String hintText;
-  const ApiKeyField({super.key, required this.controller, required this.hintText});
+  const ApiKeyField(
+      {super.key, required this.controller, required this.hintText});
 
   @override
   State<ApiKeyField> createState() => _ApiKeyFieldState();
@@ -181,8 +181,7 @@ class _ApiKeyFieldState extends State<ApiKeyField> {
           errorBorder: InputBorder.none,
           disabledBorder: InputBorder.none,
           filled: false,
-          contentPadding:
-              EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           suffixIcon: _isFocused
               ? Row(
                   mainAxisSize: MainAxisSize.min,
@@ -192,7 +191,9 @@ class _ApiKeyFieldState extends State<ApiKeyField> {
                         _obscureText
                             ? Icons.visibility_off_outlined
                             : Icons.visibility_outlined,
-                        color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary,
+                        color: Theme.of(context)
+                            .extension<AppThemeExtension>()!
+                            .textTertiary,
                         size: 16,
                       ),
                       padding: EdgeInsets.zero,

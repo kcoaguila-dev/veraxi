@@ -9,7 +9,6 @@ import 'web_search_dialog.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
 
-
 class ChatInput extends StatefulWidget {
   final bool isLoading;
   final String? projectName;
@@ -323,8 +322,7 @@ class _ChatInputState extends State<ChatInput> {
         if (widget.errorText != null)
           Container(
             margin: EdgeInsets.only(bottom: 8.0, left: 16.0, right: 16.0),
-            padding:
-                EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+            padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
             decoration: BoxDecoration(
               color: Colors.red.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
@@ -353,7 +351,9 @@ class _ChatInputState extends State<ChatInput> {
         Container(
           width: double.infinity,
           decoration: BoxDecoration(
-            color: Theme.of(context).extension<AppThemeExtension>()!.surfaceHighlight,
+            color: Theme.of(context)
+                .extension<AppThemeExtension>()!
+                .surfaceHighlight,
             borderRadius: BorderRadius.circular(24),
           ),
           padding: EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
@@ -363,8 +363,8 @@ class _ChatInputState extends State<ChatInput> {
             children: [
               if (_attachedFiles.isNotEmpty)
                 Padding(
-                  padding: EdgeInsets.only(
-                      bottom: 8.0, left: 12.0, right: 12.0),
+                  padding:
+                      EdgeInsets.only(bottom: 8.0, left: 12.0, right: 12.0),
                   child: Wrap(
                     spacing: 8.0,
                     runSpacing: 4.0,
@@ -374,13 +374,16 @@ class _ChatInputState extends State<ChatInput> {
                       return Chip(
                         label: Text(
                           file.name,
-                          style: TextStyle(
-                              color: Colors.white, fontSize: 12),
+                          style: TextStyle(color: Colors.white, fontSize: 12),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
-                        backgroundColor: Theme.of(context).extension<AppThemeExtension>()!.borderColorStrong,
-                        deleteIconColor: Theme.of(context).extension<AppThemeExtension>()!.iconColor,
+                        backgroundColor: Theme.of(context)
+                            .extension<AppThemeExtension>()!
+                            .borderColorStrong,
+                        deleteIconColor: Theme.of(context)
+                            .extension<AppThemeExtension>()!
+                            .iconColor,
                         onDeleted: () => _removeAttachment(idx),
                         padding: EdgeInsets.zero,
                         materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -405,7 +408,10 @@ class _ChatInputState extends State<ChatInput> {
                           ? 'New chat in ${widget.projectName}'
                           : 'Message Veraxi...',
                       hintStyle: TextStyle(
-                          color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary, fontSize: 16),
+                          color: Theme.of(context)
+                              .extension<AppThemeExtension>()!
+                              .textTertiary,
+                          fontSize: 16),
                       border: InputBorder.none,
                       focusedBorder: InputBorder.none,
                       enabledBorder: InputBorder.none,
@@ -430,7 +436,9 @@ class _ChatInputState extends State<ChatInput> {
                                 ? Icons.close_fullscreen
                                 : Icons.open_in_full,
                             size: 16,
-                            color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary),
+                            color: Theme.of(context)
+                                .extension<AppThemeExtension>()!
+                                .textTertiary),
                         onPressed: () {
                           setState(() {
                             _isExpanded = !_isExpanded;
@@ -456,9 +464,14 @@ class _ChatInputState extends State<ChatInput> {
                     ),
                     child: PopupMenuButton<String>(
                       icon: Icon(Icons.attach_file,
-                          color: Theme.of(context).extension<AppThemeExtension>()!.iconColor, size: 20),
+                          color: Theme.of(context)
+                              .extension<AppThemeExtension>()!
+                              .iconColor,
+                          size: 20),
                       tooltip: 'Attach file',
-                      color: Theme.of(context).extension<AppThemeExtension>()!.borderColor,
+                      color: Theme.of(context)
+                          .extension<AppThemeExtension>()!
+                          .borderColor,
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8)),
                       position: PopupMenuPosition.over,
@@ -474,11 +487,17 @@ class _ChatInputState extends State<ChatInput> {
                           child: Row(
                             children: [
                               Icon(Icons.upload_file,
-                                  color: Theme.of(context).extension<AppThemeExtension>()!.iconColor, size: 16),
+                                  color: Theme.of(context)
+                                      .extension<AppThemeExtension>()!
+                                      .iconColor,
+                                  size: 16),
                               SizedBox(width: 8),
                               Text('Upload to Provider',
                                   style: TextStyle(
-                                      color: Theme.of(context).extension<AppThemeExtension>()!.iconColor, fontSize: 13)),
+                                      color: Theme.of(context)
+                                          .extension<AppThemeExtension>()!
+                                          .iconColor,
+                                      fontSize: 13)),
                             ],
                           ),
                         ),
@@ -488,11 +507,17 @@ class _ChatInputState extends State<ChatInput> {
                           child: Row(
                             children: [
                               Icon(Icons.text_snippet,
-                                  color: Theme.of(context).extension<AppThemeExtension>()!.iconColor, size: 16),
+                                  color: Theme.of(context)
+                                      .extension<AppThemeExtension>()!
+                                      .iconColor,
+                                  size: 16),
                               SizedBox(width: 8),
                               Text('Upload as Text',
                                   style: TextStyle(
-                                      color: Theme.of(context).extension<AppThemeExtension>()!.iconColor, fontSize: 13)),
+                                      color: Theme.of(context)
+                                          .extension<AppThemeExtension>()!
+                                          .iconColor,
+                                      fontSize: 13)),
                             ],
                           ),
                         ),
@@ -501,11 +526,15 @@ class _ChatInputState extends State<ChatInput> {
                   ),
                   MenuAnchor(
                     style: MenuStyle(
-                      backgroundColor:
-                          WidgetStatePropertyAll(Theme.of(context).extension<AppThemeExtension>()!.sidebarBackground),
+                      backgroundColor: WidgetStatePropertyAll(Theme.of(context)
+                          .extension<AppThemeExtension>()!
+                          .sidebarBackground),
                       shape: WidgetStatePropertyAll(RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
-                        side: BorderSide(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor),
+                        side: BorderSide(
+                            color: Theme.of(context)
+                                .extension<AppThemeExtension>()!
+                                .borderColor),
                       )),
                       padding: const WidgetStatePropertyAll(
                           EdgeInsets.symmetric(vertical: 8)),
@@ -513,7 +542,10 @@ class _ChatInputState extends State<ChatInput> {
                     builder: (context, controller, child) {
                       return IconButton(
                         icon: Icon(Icons.tune,
-                            color: Theme.of(context).extension<AppThemeExtension>()!.iconColor, size: 20),
+                            color: Theme.of(context)
+                                .extension<AppThemeExtension>()!
+                                .iconColor,
+                            size: 20),
                         tooltip: 'Tools',
                         onPressed: () {
                           if (controller.isOpen) {
@@ -581,7 +613,9 @@ class _ChatInputState extends State<ChatInput> {
                       _isListening ? Icons.mic : Icons.mic_none_outlined,
                       color: _isListening
                           ? const Color(0xFFE53935)
-                          : Theme.of(context).extension<AppThemeExtension>()!.iconColor,
+                          : Theme.of(context)
+                              .extension<AppThemeExtension>()!
+                              .iconColor,
                       size: 20,
                     ),
                     onPressed: widget.isLoading ? null : _toggleListening,
@@ -610,7 +644,9 @@ class _ChatInputState extends State<ChatInput> {
                                 Icons.arrow_upward,
                                 color: _hasText
                                     ? Colors.black
-                                    : Theme.of(context).extension<AppThemeExtension>()!.iconColor,
+                                    : Theme.of(context)
+                                        .extension<AppThemeExtension>()!
+                                        .iconColor,
                                 size: 20,
                               ),
                       ),
@@ -642,7 +678,9 @@ class _ChatInputState extends State<ChatInput> {
             Icon(icon,
                 color: isActive
                     ? Theme.of(context).colorScheme.secondary
-                    : Theme.of(context).extension<AppThemeExtension>()!.iconColor,
+                    : Theme.of(context)
+                        .extension<AppThemeExtension>()!
+                        .iconColor,
                 size: 14),
             SizedBox(width: 8),
             Expanded(
@@ -676,10 +714,15 @@ class _ChatInputState extends State<ChatInput> {
           padding:
               WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 10))),
       menuStyle: MenuStyle(
-        backgroundColor: WidgetStatePropertyAll(Theme.of(context).extension<AppThemeExtension>()!.sidebarBackground),
+        backgroundColor: WidgetStatePropertyAll(Theme.of(context)
+            .extension<AppThemeExtension>()!
+            .sidebarBackground),
         shape: WidgetStatePropertyAll(RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
-          side: BorderSide(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor),
+          side: BorderSide(
+              color: Theme.of(context)
+                  .extension<AppThemeExtension>()!
+                  .borderColor),
         )),
       ),
       menuChildren: [
@@ -691,8 +734,7 @@ class _ChatInputState extends State<ChatInput> {
           },
           child: Container(
             width: 165,
-            padding:
-                EdgeInsets.only(left: 14, right: 10, top: 4, bottom: 4),
+            padding: EdgeInsets.only(left: 14, right: 10, top: 4, bottom: 4),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -706,10 +748,16 @@ class _ChatInputState extends State<ChatInput> {
                   child: Switch(
                     value: _highAccuracyEnabled,
                     activeThumbColor: Theme.of(context).colorScheme.secondary,
-                    activeTrackColor:
-                        Theme.of(context).colorScheme.secondary.withValues(alpha: 0.3),
-                    inactiveThumbColor: Theme.of(context).extension<AppThemeExtension>()!.iconColor,
-                    inactiveTrackColor: Theme.of(context).extension<AppThemeExtension>()!.borderColor,
+                    activeTrackColor: Theme.of(context)
+                        .colorScheme
+                        .secondary
+                        .withValues(alpha: 0.3),
+                    inactiveThumbColor: Theme.of(context)
+                        .extension<AppThemeExtension>()!
+                        .iconColor,
+                    inactiveTrackColor: Theme.of(context)
+                        .extension<AppThemeExtension>()!
+                        .borderColor,
                     onChanged: (val) {
                       _toggleHighAccuracy(!val);
                     },
@@ -729,7 +777,9 @@ class _ChatInputState extends State<ChatInput> {
             Icon(Icons.language,
                 color: isActive
                     ? Theme.of(context).colorScheme.secondary
-                    : Theme.of(context).extension<AppThemeExtension>()!.iconColor,
+                    : Theme.of(context)
+                        .extension<AppThemeExtension>()!
+                        .iconColor,
                 size: 14),
             SizedBox(width: 8),
             const Expanded(
@@ -788,7 +838,9 @@ class _ChatInputState extends State<ChatInput> {
             Icon(Icons.extension_outlined,
                 color: isActive
                     ? Theme.of(context).colorScheme.secondary
-                    : Theme.of(context).extension<AppThemeExtension>()!.iconColor,
+                    : Theme.of(context)
+                        .extension<AppThemeExtension>()!
+                        .iconColor,
                 size: 14),
             SizedBox(width: 8),
             const Expanded(
@@ -842,7 +894,10 @@ class _ChatInputState extends State<ChatInput> {
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
               color: (isToggle && isActive)
-                  ? Theme.of(context).colorScheme.secondary.withValues(alpha: 0.3)
+                  ? Theme.of(context)
+                      .colorScheme
+                      .secondary
+                      .withValues(alpha: 0.3)
                   : const Color(0xFF3A3A3A)),
         ),
         child: Row(
@@ -851,7 +906,9 @@ class _ChatInputState extends State<ChatInput> {
             Icon(icon,
                 color: (isToggle && isActive)
                     ? Theme.of(context).colorScheme.secondary
-                    : Theme.of(context).extension<AppThemeExtension>()!.iconColor,
+                    : Theme.of(context)
+                        .extension<AppThemeExtension>()!
+                        .iconColor,
                 size: 12),
             SizedBox(width: 6),
             Text(label,

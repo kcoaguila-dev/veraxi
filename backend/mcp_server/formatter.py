@@ -181,5 +181,3 @@ def _prepend_system_messages(
     for system_message in reversed(system_messages):
         modified_messages.insert(0, system_message)
     return modified_messages
-
-
