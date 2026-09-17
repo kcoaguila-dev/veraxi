@@ -51,7 +51,6 @@ class SharedChatScreen extends ConsumerStatefulWidget {
 }
 
 class _SharedChatScreenState extends ConsumerState<SharedChatScreen> {
-
   List<ChatMessage> _mapHistory(List<Map<String, dynamic>> history) {
     return history.map((m) {
       return ChatMessage(
@@ -163,8 +162,7 @@ class _SharedChatScreenState extends ConsumerState<SharedChatScreen> {
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
         backgroundColor: const Color(0xFF1A1A1A),
-        title:
-            Text('Shared Conversation', style: TextStyle(fontSize: 14)),
+        title: Text('Shared Conversation', style: TextStyle(fontSize: 14)),
         centerTitle: true,
         leading: IconButton(
           icon: Icon(Icons.home_outlined),

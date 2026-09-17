@@ -27,7 +27,9 @@ def register_api_key_routes(app_router, get_tenant_id, _get_supabase):
             response = (
                 _get_supabase()
                 .table("api_keys")
-                .select("id, name, key_prefix, is_active, created_at, last_used_at, expires_at")
+                .select(
+                    "id, name, key_prefix, is_active, created_at, last_used_at, expires_at"
+                )
                 .eq("tenant_id", tenant_id)
                 .eq("is_active", True)
                 .order("created_at", desc=True)
@@ -40,16 +42,30 @@ def register_api_key_routes(app_router, get_tenant_id, _get_supabase):
             raise HTTPException(status_code=500, detail="Failed to list API keys")
 
     @app_router.post("/api/user/api-keys", status_code=201)
-    async def create_api_key_endpoint(payload: ApiKeyCreateRequest, tenant_id: str = Depends(get_tenant_id)):
+    async def create_api_key_endpoint(
+        payload: ApiKeyCreateRequest, tenant_id: str = Depends(get_tenant_id)
+    ):
         """Generate a new personal API key. Returns the raw key ONCE — it cannot be retrieved again."""
         raw_key, key_hash = generate_api_key()
         key_prefix = raw_key[:10]
-        insert_data = {"tenant_id": tenant_id, "name": payload.name, "key_hash": key_hash, "key_prefix": key_prefix, "expires_at": payload.expires_at}
+        insert_data = {
+            "tenant_id": tenant_id,
+            "name": payload.name,
+            "key_hash": key_hash,
+            "key_prefix": key_prefix,
+            "expires_at": payload.expires_at,
+        }
         try:
             response = _get_supabase().table("api_keys").insert(insert_data).execute()
             key_id = response.data[0]["id"]
             logger.info(f"New API key created for tenant {tenant_id}: {key_prefix}…")
-            return {"id": key_id, "name": payload.name, "key": raw_key, "key_prefix": key_prefix, "created_at": response.data[0]["created_at"]}
+            return {
+                "id": key_id,
+                "name": payload.name,
+                "key": raw_key,
+                "key_prefix": key_prefix,
+                "created_at": response.data[0]["created_at"],
+            }
         except Exception as e:  # noqa: BLE001
             sentry_sdk.capture_exception(e)
             logger.error(f"Error creating API key for tenant {tenant_id}: {e}")

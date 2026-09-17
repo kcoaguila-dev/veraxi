@@ -6,7 +6,6 @@ import 'package:veraxi_app/core/providers/project_view_model.dart';
 import 'package:veraxi_app/features/chat/views/widgets/create_project_dialog.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
 
-
 class AllProjectsDashboardView extends ConsumerStatefulWidget {
   const AllProjectsDashboardView({super.key});
 
@@ -37,8 +36,7 @@ class _AllProjectsDashboardViewState
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 900),
           child: Padding(
-            padding:
-                EdgeInsets.symmetric(horizontal: 32.0, vertical: 48.0),
+            padding: EdgeInsets.symmetric(horizontal: 32.0, vertical: 48.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -59,16 +57,20 @@ class _AllProjectsDashboardViewState
                         Text(
                           'Sort by',
                           style: TextStyle(
-                            color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary,
+                            color: Theme.of(context)
+                                .extension<AppThemeExtension>()!
+                                .textTertiary,
                             fontSize: 14,
                           ),
                         ),
                         SizedBox(width: 8),
                         Container(
-                          padding: EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 8),
+                          padding:
+                              EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                           decoration: BoxDecoration(
-                            color: Theme.of(context).extension<AppThemeExtension>()!.borderColor,
+                            color: Theme.of(context)
+                                .extension<AppThemeExtension>()!
+                                .borderColor,
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Row(
@@ -130,14 +132,22 @@ class _AllProjectsDashboardViewState
                 Container(
                   padding: EdgeInsets.symmetric(horizontal: 16),
                   decoration: BoxDecoration(
-                    color: Theme.of(context).extension<AppThemeExtension>()!.cardBackground,
+                    color: Theme.of(context)
+                        .extension<AppThemeExtension>()!
+                        .cardBackground,
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor),
+                    border: Border.all(
+                        color: Theme.of(context)
+                            .extension<AppThemeExtension>()!
+                            .borderColor),
                   ),
                   child: Row(
                     children: [
                       Icon(Icons.search,
-                          color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary, size: 20),
+                          color: Theme.of(context)
+                              .extension<AppThemeExtension>()!
+                              .textTertiary,
+                          size: 20),
                       SizedBox(width: 12),
                       Expanded(
                         child: TextField(
@@ -146,12 +156,14 @@ class _AllProjectsDashboardViewState
                               _searchQuery = val;
                             });
                           },
-                          style: TextStyle(
-                              color: Colors.white, fontSize: 15),
+                          style: TextStyle(color: Colors.white, fontSize: 15),
                           decoration: InputDecoration(
                             hintText: 'Search projects',
                             hintStyle: TextStyle(
-                                color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary, fontSize: 15),
+                                color: Theme.of(context)
+                                    .extension<AppThemeExtension>()!
+                                    .textTertiary,
+                                fontSize: 15),
                             border: InputBorder.none,
                             contentPadding: EdgeInsets.symmetric(vertical: 16),
                           ),
@@ -166,10 +178,12 @@ class _AllProjectsDashboardViewState
                 Row(
                   children: [
                     Container(
-                      padding: EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 8),
+                      padding:
+                          EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                       decoration: BoxDecoration(
-                        color: Theme.of(context).extension<AppThemeExtension>()!.borderColor,
+                        color: Theme.of(context)
+                            .extension<AppThemeExtension>()!
+                            .borderColor,
                         borderRadius: BorderRadius.circular(16),
                       ),
                       child: Text(
@@ -192,7 +206,10 @@ class _AllProjectsDashboardViewState
                           child: Text(
                             'No projects found.',
                             style: TextStyle(
-                                color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary, fontSize: 16),
+                                color: Theme.of(context)
+                                    .extension<AppThemeExtension>()!
+                                    .textTertiary,
+                                fontSize: 16),
                           ),
                         )
                       : GridView.builder(
@@ -219,7 +236,8 @@ class _AllProjectsDashboardViewState
                               chatCount: chatCount,
                               dateStr: 'Aug 6, 2026', // Placeholder for now
                               onTap: () {
-                                projectViewModel.selectProject(projectId, projectName);
+                                projectViewModel.selectProject(
+                                    projectId, projectName);
                               },
                             );
                           },
@@ -265,13 +283,18 @@ class _ProjectCardState extends State<_ProjectCard> {
           duration: const Duration(milliseconds: 200),
           padding: EdgeInsets.all(16.0),
           decoration: BoxDecoration(
-            color:
-                _isHovered ? Theme.of(context).extension<AppThemeExtension>()!.borderColor : Theme.of(context).extension<AppThemeExtension>()!.cardBackground,
+            color: _isHovered
+                ? Theme.of(context).extension<AppThemeExtension>()!.borderColor
+                : Theme.of(context)
+                    .extension<AppThemeExtension>()!
+                    .cardBackground,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
               color: _isHovered
                   ? const Color(0xFF444444)
-                  : Theme.of(context).extension<AppThemeExtension>()!.borderColor,
+                  : Theme.of(context)
+                      .extension<AppThemeExtension>()!
+                      .borderColor,
             ),
           ),
           child: Column(
@@ -302,14 +325,18 @@ class _ProjectCardState extends State<_ProjectCard> {
                   Text(
                     '${widget.chatCount} chats',
                     style: TextStyle(
-                      color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary,
+                      color: Theme.of(context)
+                          .extension<AppThemeExtension>()!
+                          .textTertiary,
                       fontSize: 12,
                     ),
                   ),
                   Text(
                     widget.dateStr,
                     style: TextStyle(
-                      color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary,
+                      color: Theme.of(context)
+                          .extension<AppThemeExtension>()!
+                          .textTertiary,
                       fontSize: 12,
                     ),
                   ),

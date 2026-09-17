@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
 
-
 class HoverableModelRow extends StatefulWidget {
   final String model;
   final bool isSelected;
@@ -37,7 +36,11 @@ class _HoverableModelRowState extends State<HoverableModelRow> {
           height: 36,
           margin: EdgeInsets.only(bottom: 2),
           decoration: BoxDecoration(
-            color: _isHovered ? Theme.of(context).extension<AppThemeExtension>()!.surfaceHighlight : Colors.transparent,
+            color: _isHovered
+                ? Theme.of(context)
+                    .extension<AppThemeExtension>()!
+                    .surfaceHighlight
+                : Colors.transparent,
             borderRadius: BorderRadius.circular(8),
           ),
           child: Stack(
@@ -78,8 +81,8 @@ class _HoverableModelRowState extends State<HoverableModelRow> {
                     onTap: widget.onPinToggle,
                     behavior: HitTestBehavior.opaque,
                     child: Padding(
-                      padding: EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 8),
+                      padding:
+                          EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                       child: Icon(
                         widget.isPinned
                             ? Icons.push_pin
@@ -88,7 +91,9 @@ class _HoverableModelRowState extends State<HoverableModelRow> {
                         color: widget.isPinned
                             ? Colors.white
                             : (_isHovered
-                                ? Theme.of(context).extension<AppThemeExtension>()!.textTertiary
+                                ? Theme.of(context)
+                                    .extension<AppThemeExtension>()!
+                                    .textTertiary
                                 : Colors.transparent),
                       ),
                     ),

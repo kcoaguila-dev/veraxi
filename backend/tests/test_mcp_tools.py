@@ -80,7 +80,7 @@ def test_extraction_validation_rejects_malformed():
 
     schema = {
         "entities": ["Person", "Organization"],
-        "relations": {"Person": {"Organization": ["WORKS_AT"]}}
+        "relations": {"Person": {"Organization": ["WORKS_AT"]}},
     }
     valid_ents, valid_rels = validate_extraction(
         malformed_entities, malformed_relations, schema
@@ -105,7 +105,7 @@ def test_extraction_validation_accepts_correct():
 
     schema = {
         "entities": ["Person", "Organization"],
-        "relations": {"Person": {"Organization": ["WORKS_AT"]}}
+        "relations": {"Person": {"Organization": ["WORKS_AT"]}},
     }
     valid_ents, valid_rels = validate_extraction(entities, relations, schema)
 
@@ -126,7 +126,10 @@ def test_extraction_validation_normalizes_nested_properties():
                 "nested_dict": {"key": "value"},  # Invalid - nested dict
                 "count": 42,  # Valid primitive
                 "active": True,  # Valid primitive
-                "mixed_array": ["text", {"nested": "object"}],  # Invalid - contains nested object
+                "mixed_array": [
+                    "text",
+                    {"nested": "object"},
+                ],  # Invalid - contains nested object
             },
         }
     ]
@@ -134,7 +137,7 @@ def test_extraction_validation_normalizes_nested_properties():
 
     schema = {
         "entities": ["Person", "Organization"],
-        "relations": {"Person": {"Organization": ["WORKS_AT"]}}
+        "relations": {"Person": {"Organization": ["WORKS_AT"]}},
     }
     valid_ents, _valid_rels = validate_extraction(entities, relations, schema)
 
@@ -171,6 +174,7 @@ def test_insert_graph_nodes_success(mock_neo4j_class, mock_get_config):
     assert result["nodes_inserted"] == 1
     assert result["relations_inserted"] == 0
     mock_instance.create_node.assert_called_once()
+
 
 @patch("backend.mcp_server.tools.insert_vector.get_config")
 @patch("backend.mcp_server.tools.insert_vector.QdrantStorageClient")

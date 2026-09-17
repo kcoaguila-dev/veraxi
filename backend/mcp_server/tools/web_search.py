@@ -11,6 +11,7 @@ IMPORTANT (to LLM): When citing sources in your response, use inline bracketed
 citations containing ONLY the source name (e.g. [Yahoo Finance], [Reuters]).
 Do not use numbers (like [1]) or markdown hyperlinks.
 """
+
 from __future__ import annotations
 
 import logging
@@ -53,7 +54,7 @@ def mcp_web_search(
 
     provider = get_search_provider(web_settings)
     search_results = provider.search(query, language, max_results, web_settings)
-    
+
     if not search_results:
         return []
 

@@ -12,6 +12,7 @@ Self-hosted deployments (AUTH_ENABLED=false) never reach this check because
 get_tenant_id() returns "local_personal_user" and callers skip the check
 when auth is disabled — matching the behaviour of rivals like LibreChat.
 """
+
 import logging
 
 import sentry_sdk
@@ -44,6 +45,7 @@ def check_tenant_hard_cap(
 # ---------------------------------------------------------------------------
 # Private helpers — keep the public surface minimal
 # ---------------------------------------------------------------------------
+
 
 def _count_tenant_nodes(tenant_id: str, config: Config) -> int:
     """Return the number of Neo4j nodes belonging to this tenant."""

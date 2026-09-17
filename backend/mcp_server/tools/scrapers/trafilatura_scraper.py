@@ -7,6 +7,7 @@ external API calls, no rate limits, no JS rendering.
 
 Best for: news sites, blogs, documentation pages (SSR content).
 """
+
 from __future__ import annotations
 
 import logging
@@ -69,8 +70,7 @@ class TrafilaturaScraper:
 
         with ThreadPoolExecutor(max_workers=min(len(urls), 5)) as executor:
             future_to_url = {
-                executor.submit(_fetch_one, url, timeout_per_url): url
-                for url in urls
+                executor.submit(_fetch_one, url, timeout_per_url): url for url in urls
             }
             for future in as_completed(future_to_url, timeout=timeout_per_url + 1):
                 try:
@@ -78,7 +78,9 @@ class TrafilaturaScraper:
                     if content and len(content) >= _MIN_CONTENT_LENGTH:
                         results[url] = content
                 except FuturesTimeoutError:
-                    logger.warning("Trafilatura timed out for %s", future_to_url[future])
+                    logger.warning(
+                        "Trafilatura timed out for %s", future_to_url[future]
+                    )
                 except Exception as exc:  # noqa: BLE001
                     sentry_sdk.capture_exception(exc)
                     logger.warning("Trafilatura fetch_batch error: %s", exc)

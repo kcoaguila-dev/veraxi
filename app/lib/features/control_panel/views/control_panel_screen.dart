@@ -14,7 +14,6 @@ import 'package:veraxi_app/core/sidebar_provider.dart';
 import 'widgets/schema_visual_builder.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
 
-
 class ControlPanelScreen extends ConsumerStatefulWidget {
   const ControlPanelScreen({super.key});
 
@@ -58,7 +57,9 @@ class _ControlPanelScreenState extends ConsumerState<ControlPanelScreen> {
       width: 18,
       height: 18,
       fit: BoxFit.contain,
-      colorFilter: ColorFilter.mode(Theme.of(context).extension<AppThemeExtension>()!.iconColor, BlendMode.srcIn),
+      colorFilter: ColorFilter.mode(
+          Theme.of(context).extension<AppThemeExtension>()!.iconColor,
+          BlendMode.srcIn),
     );
   }
 
@@ -148,9 +149,9 @@ class _ControlPanelScreenState extends ConsumerState<ControlPanelScreen> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          backgroundColor: Theme.of(context).extension<AppThemeExtension>()!.cardBackground,
-          title: Text('Add MCP Server',
-              style: TextStyle(color: Colors.white)),
+          backgroundColor:
+              Theme.of(context).extension<AppThemeExtension>()!.cardBackground,
+          title: Text('Add MCP Server', style: TextStyle(color: Colors.white)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -250,9 +251,9 @@ class _ControlPanelScreenState extends ConsumerState<ControlPanelScreen> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          backgroundColor: Theme.of(context).extension<AppThemeExtension>()!.cardBackground,
-          title: Text('Add Agent Skill',
-              style: TextStyle(color: Colors.white)),
+          backgroundColor:
+              Theme.of(context).extension<AppThemeExtension>()!.cardBackground,
+          title: Text('Add Agent Skill', style: TextStyle(color: Colors.white)),
           content: SizedBox(
             width: 400,
             child: Column(
@@ -341,9 +342,9 @@ class _ControlPanelScreenState extends ConsumerState<ControlPanelScreen> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          backgroundColor: Theme.of(context).extension<AppThemeExtension>()!.cardBackground,
-          title:
-              Text('Upload skill', style: TextStyle(color: Colors.white)),
+          backgroundColor:
+              Theme.of(context).extension<AppThemeExtension>()!.cardBackground,
+          title: Text('Upload skill', style: TextStyle(color: Colors.white)),
           content: SizedBox(
             width: 400,
             child: Column(
@@ -367,19 +368,30 @@ class _ControlPanelScreenState extends ConsumerState<ControlPanelScreen> {
                     padding: EdgeInsets.symmetric(vertical: 32),
                     decoration: BoxDecoration(
                       border: Border.all(
-                          color: Theme.of(context).extension<AppThemeExtension>()!.borderColorStrong,
+                          color: Theme.of(context)
+                              .extension<AppThemeExtension>()!
+                              .borderColorStrong,
                           style: BorderStyle.solid),
                       borderRadius: BorderRadius.circular(8),
-                      color: Theme.of(context).extension<AppThemeExtension>()!.sidebarBackground.withValues(alpha: 0.5),
+                      color: Theme.of(context)
+                          .extension<AppThemeExtension>()!
+                          .sidebarBackground
+                          .withValues(alpha: 0.5),
                     ),
                     child: Column(
                       children: [
                         Icon(Icons.upload_outlined,
-                            color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary, size: 32),
+                            color: Theme.of(context)
+                                .extension<AppThemeExtension>()!
+                                .textTertiary,
+                            size: 32),
                         SizedBox(height: 12),
                         Text('Drag and drop or click to upload',
                             style: TextStyle(
-                                color: Theme.of(context).extension<AppThemeExtension>()!.iconColor, fontSize: 14)),
+                                color: Theme.of(context)
+                                    .extension<AppThemeExtension>()!
+                                    .iconColor,
+                                fontSize: 14)),
                       ],
                     ),
                   ),
@@ -393,7 +405,11 @@ class _ControlPanelScreenState extends ConsumerState<ControlPanelScreen> {
                 SizedBox(height: 4),
                 Text(
                     '• .md file must contain skill name and description formatted in YAML\n• .zip or .skill file must include a SKILL.md file\n• File size must not exceed 50 MB',
-                    style: TextStyle(color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary, fontSize: 12)),
+                    style: TextStyle(
+                        color: Theme.of(context)
+                            .extension<AppThemeExtension>()!
+                            .textTertiary,
+                        fontSize: 12)),
               ],
             ),
           ),
@@ -445,9 +461,10 @@ class _ControlPanelScreenState extends ConsumerState<ControlPanelScreen> {
             child: ClipRect(
               child: Container(
                 width: 260,
-                color: Theme.of(context).extension<AppThemeExtension>()!.sidebarBackground,
-                padding:
-                    EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+                color: Theme.of(context)
+                    .extension<AppThemeExtension>()!
+                    .sidebarBackground,
+                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 20),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -548,7 +565,11 @@ class _ControlPanelScreenState extends ConsumerState<ControlPanelScreen> {
       },
       child: Container(
         decoration: BoxDecoration(
-          color: isSelected ? Theme.of(context).extension<AppThemeExtension>()!.surfaceHighlight : Colors.transparent,
+          color: isSelected
+              ? Theme.of(context)
+                  .extension<AppThemeExtension>()!
+                  .surfaceHighlight
+              : Colors.transparent,
           borderRadius: BorderRadius.circular(8),
         ),
         child: Stack(
@@ -568,12 +589,19 @@ class _ControlPanelScreenState extends ConsumerState<ControlPanelScreen> {
               ),
             ListTile(
               leading: Icon(icon,
-                  color: isSelected ? Colors.white : Theme.of(context).extension<AppThemeExtension>()!.iconColor,
+                  color: isSelected
+                      ? Colors.white
+                      : Theme.of(context)
+                          .extension<AppThemeExtension>()!
+                          .iconColor,
                   size: 20),
               title: Text(title,
                   style: TextStyle(
-                      color:
-                          isSelected ? Colors.white : Theme.of(context).extension<AppThemeExtension>()!.iconColor,
+                      color: isSelected
+                          ? Colors.white
+                          : Theme.of(context)
+                              .extension<AppThemeExtension>()!
+                              .iconColor,
                       fontSize: 14,
                       fontWeight:
                           isSelected ? FontWeight.w600 : FontWeight.w500)),
@@ -601,7 +629,10 @@ class _ControlPanelScreenState extends ConsumerState<ControlPanelScreen> {
         SizedBox(height: 8),
         Text(
           'Manage your custom knowledge base.',
-          style: TextStyle(color: Theme.of(context).extension<AppThemeExtension>()!.iconColor, fontSize: 14),
+          style: TextStyle(
+              color:
+                  Theme.of(context).extension<AppThemeExtension>()!.iconColor,
+              fontSize: 14),
         ),
         SizedBox(height: 32),
         _buildSchemaCard(theme),
@@ -616,7 +647,10 @@ class _ControlPanelScreenState extends ConsumerState<ControlPanelScreen> {
         SizedBox(height: 8),
         Text(
           'Launch web dashboards to inspect the raw databases.',
-          style: TextStyle(color: Theme.of(context).extension<AppThemeExtension>()!.iconColor, fontSize: 14),
+          style: TextStyle(
+              color:
+                  Theme.of(context).extension<AppThemeExtension>()!.iconColor,
+              fontSize: 14),
         ),
         SizedBox(height: 16),
         Row(
@@ -653,16 +687,21 @@ class _ControlPanelScreenState extends ConsumerState<ControlPanelScreen> {
     return Container(
       padding: EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Theme.of(context).extension<AppThemeExtension>()!.surfaceHighlight,
+        color:
+            Theme.of(context).extension<AppThemeExtension>()!.surfaceHighlight,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Theme.of(context).extension<AppThemeExtension>()!.borderColorStrong),
+        border: Border.all(
+            color: Theme.of(context)
+                .extension<AppThemeExtension>()!
+                .borderColorStrong),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(icon, color: Theme.of(context).colorScheme.primary, size: 24),
+              Icon(icon,
+                  color: Theme.of(context).colorScheme.primary, size: 24),
               SizedBox(width: 12),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -674,7 +713,10 @@ class _ControlPanelScreenState extends ConsumerState<ControlPanelScreen> {
                           fontSize: 16)),
                   Text(subtitle,
                       style: TextStyle(
-                          color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary, fontSize: 12)),
+                          color: Theme.of(context)
+                              .extension<AppThemeExtension>()!
+                              .textTertiary,
+                          fontSize: 12)),
                 ],
               ),
             ],
@@ -693,8 +735,8 @@ class _ControlPanelScreenState extends ConsumerState<ControlPanelScreen> {
               }
             },
             icon: Icon(Icons.open_in_new, size: 16, color: Colors.white),
-            label: Text('Open Dashboard',
-                style: TextStyle(color: Colors.white)),
+            label:
+                Text('Open Dashboard', style: TextStyle(color: Colors.white)),
             style: ElevatedButton.styleFrom(
               backgroundColor: Theme.of(context).colorScheme.primary,
               foregroundColor: Colors.white,
@@ -716,9 +758,13 @@ class _ControlPanelScreenState extends ConsumerState<ControlPanelScreen> {
     return Container(
       padding: EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: Theme.of(context).extension<AppThemeExtension>()!.surfaceHighlight,
+        color:
+            Theme.of(context).extension<AppThemeExtension>()!.surfaceHighlight,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Theme.of(context).extension<AppThemeExtension>()!.borderColorStrong),
+        border: Border.all(
+            color: Theme.of(context)
+                .extension<AppThemeExtension>()!
+                .borderColorStrong),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -731,7 +777,11 @@ class _ControlPanelScreenState extends ConsumerState<ControlPanelScreen> {
           SizedBox(height: 4),
           Text(
               'Define the entities and relationships that the AI should extract during ingestion.',
-              style: TextStyle(color: Theme.of(context).extension<AppThemeExtension>()!.iconColor, fontSize: 14)),
+              style: TextStyle(
+                  color: Theme.of(context)
+                      .extension<AppThemeExtension>()!
+                      .iconColor,
+                  fontSize: 14)),
           SizedBox(height: 16),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -754,7 +804,9 @@ class _ControlPanelScreenState extends ConsumerState<ControlPanelScreen> {
                             'Paste a sample of your text here (e.g., an abstract or executive summary). The AI will auto-generate an appropriate schema.',
                         hintStyle: TextStyle(color: Colors.white38),
                         filled: true,
-                        fillColor: Theme.of(context).extension<AppThemeExtension>()!.cardBackground,
+                        fillColor: Theme.of(context)
+                            .extension<AppThemeExtension>()!
+                            .cardBackground,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
                           borderSide: BorderSide.none,
@@ -810,9 +862,13 @@ class _ControlPanelScreenState extends ConsumerState<ControlPanelScreen> {
     return Container(
       padding: EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: Theme.of(context).extension<AppThemeExtension>()!.surfaceHighlight,
+        color:
+            Theme.of(context).extension<AppThemeExtension>()!.surfaceHighlight,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Theme.of(context).extension<AppThemeExtension>()!.borderColorStrong),
+        border: Border.all(
+            color: Theme.of(context)
+                .extension<AppThemeExtension>()!
+                .borderColorStrong),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -825,7 +881,11 @@ class _ControlPanelScreenState extends ConsumerState<ControlPanelScreen> {
           SizedBox(height: 4),
           Text(
               'Upload documents or provide a URL. This data will be available to all AI agents.',
-              style: TextStyle(color: Theme.of(context).extension<AppThemeExtension>()!.iconColor, fontSize: 14)),
+              style: TextStyle(
+                  color: Theme.of(context)
+                      .extension<AppThemeExtension>()!
+                      .iconColor,
+                  fontSize: 14)),
           SizedBox(height: 24),
           Text('Upload Files',
               style: TextStyle(
@@ -890,20 +950,37 @@ class _ControlPanelScreenState extends ConsumerState<ControlPanelScreen> {
               padding: EdgeInsets.symmetric(vertical: 32),
               decoration: BoxDecoration(
                 border: Border.all(
-                    color: Theme.of(context).extension<AppThemeExtension>()!.borderColorStrong, style: BorderStyle.solid),
+                    color: Theme.of(context)
+                        .extension<AppThemeExtension>()!
+                        .borderColorStrong,
+                    style: BorderStyle.solid),
                 borderRadius: BorderRadius.circular(8),
-                color: Theme.of(context).extension<AppThemeExtension>()!.sidebarBackground.withValues(alpha: 0.5),
+                color: Theme.of(context)
+                    .extension<AppThemeExtension>()!
+                    .sidebarBackground
+                    .withValues(alpha: 0.5),
               ),
               child: Column(
                 children: [
                   Icon(Icons.cloud_upload_outlined,
-                      color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary, size: 32),
+                      color: Theme.of(context)
+                          .extension<AppThemeExtension>()!
+                          .textTertiary,
+                      size: 32),
                   SizedBox(height: 12),
                   Text('Click to select a file',
-                      style: TextStyle(color: Theme.of(context).extension<AppThemeExtension>()!.iconColor, fontSize: 14)),
+                      style: TextStyle(
+                          color: Theme.of(context)
+                              .extension<AppThemeExtension>()!
+                              .iconColor,
+                          fontSize: 14)),
                   SizedBox(height: 4),
                   Text('PDF, TXT, MD, CSV, DOCX, Images (PNG/JPG) (Max 50MB)',
-                      style: TextStyle(color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary, fontSize: 12)),
+                      style: TextStyle(
+                          color: Theme.of(context)
+                              .extension<AppThemeExtension>()!
+                              .textTertiary,
+                          fontSize: 12)),
                 ],
               ),
             ),
@@ -924,11 +1001,16 @@ class _ControlPanelScreenState extends ConsumerState<ControlPanelScreen> {
                   cursorColor: Colors.white,
                   decoration: InputDecoration(
                     hintText: 'https://example.com/article',
-                    hintStyle: TextStyle(color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary),
+                    hintStyle: TextStyle(
+                        color: Theme.of(context)
+                            .extension<AppThemeExtension>()!
+                            .textTertiary),
                     filled: true,
-                    fillColor: Theme.of(context).extension<AppThemeExtension>()!.sidebarBackground,
-                    contentPadding: EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 14),
+                    fillColor: Theme.of(context)
+                        .extension<AppThemeExtension>()!
+                        .sidebarBackground,
+                    contentPadding:
+                        EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                     border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
                         borderSide: BorderSide.none),
@@ -948,8 +1030,7 @@ class _ControlPanelScreenState extends ConsumerState<ControlPanelScreen> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Theme.of(context).colorScheme.primary,
                   foregroundColor: Colors.white,
-                  padding:
-                      EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                  padding: EdgeInsets.symmetric(horizontal: 24, vertical: 16),
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8)),
                 ),
@@ -962,9 +1043,14 @@ class _ControlPanelScreenState extends ConsumerState<ControlPanelScreen> {
           Container(
             padding: EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Theme.of(context).extension<AppThemeExtension>()!.sidebarBackground,
+              color: Theme.of(context)
+                  .extension<AppThemeExtension>()!
+                  .sidebarBackground,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Theme.of(context).extension<AppThemeExtension>()!.borderColorStrong),
+              border: Border.all(
+                  color: Theme.of(context)
+                      .extension<AppThemeExtension>()!
+                      .borderColorStrong),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -975,9 +1061,12 @@ class _ControlPanelScreenState extends ConsumerState<ControlPanelScreen> {
                         fontSize: 16,
                         fontWeight: FontWeight.w600)),
                 SizedBox(height: 4),
-                Text(
-                    'Select the AI model used for knowledge graph extraction.',
-                    style: TextStyle(color: Theme.of(context).extension<AppThemeExtension>()!.iconColor, fontSize: 12)),
+                Text('Select the AI model used for knowledge graph extraction.',
+                    style: TextStyle(
+                        color: Theme.of(context)
+                            .extension<AppThemeExtension>()!
+                            .iconColor,
+                        fontSize: 12)),
                 SizedBox(height: 16),
                 InkWell(
                   onTap: () {
@@ -993,20 +1082,23 @@ class _ControlPanelScreenState extends ConsumerState<ControlPanelScreen> {
                     );
                   },
                   child: Container(
-                    padding: EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 12),
+                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     decoration: BoxDecoration(
-                      color: Theme.of(context).extension<AppThemeExtension>()!.cardBackground,
+                      color: Theme.of(context)
+                          .extension<AppThemeExtension>()!
+                          .cardBackground,
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Theme.of(context).extension<AppThemeExtension>()!.borderColorStrong),
+                      border: Border.all(
+                          color: Theme.of(context)
+                              .extension<AppThemeExtension>()!
+                              .borderColorStrong),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(_selectedModel,
                             style: TextStyle(color: Colors.white)),
-                        Icon(Icons.arrow_drop_down,
-                            color: Colors.white54),
+                        Icon(Icons.arrow_drop_down, color: Colors.white54),
                       ],
                     ),
                   ),
@@ -1018,9 +1110,14 @@ class _ControlPanelScreenState extends ConsumerState<ControlPanelScreen> {
           Container(
             padding: EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Theme.of(context).extension<AppThemeExtension>()!.sidebarBackground,
+              color: Theme.of(context)
+                  .extension<AppThemeExtension>()!
+                  .sidebarBackground,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Theme.of(context).extension<AppThemeExtension>()!.borderColorStrong),
+              border: Border.all(
+                  color: Theme.of(context)
+                      .extension<AppThemeExtension>()!
+                      .borderColorStrong),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1038,7 +1135,10 @@ class _ControlPanelScreenState extends ConsumerState<ControlPanelScreen> {
                       Text(
                           'Uses a hybrid 90% fast NLP and 10% AI approach. Highly recommended for large datasets.',
                           style: TextStyle(
-                              color: Theme.of(context).extension<AppThemeExtension>()!.iconColor, fontSize: 12)),
+                              color: Theme.of(context)
+                                  .extension<AppThemeExtension>()!
+                                  .iconColor,
+                              fontSize: 12)),
                     ],
                   ),
                 ),
@@ -1050,7 +1150,9 @@ class _ControlPanelScreenState extends ConsumerState<ControlPanelScreen> {
                     });
                   },
                   activeTrackColor: Theme.of(context).colorScheme.primary,
-                  inactiveThumbColor: Theme.of(context).extension<AppThemeExtension>()!.iconColor,
+                  inactiveThumbColor: Theme.of(context)
+                      .extension<AppThemeExtension>()!
+                      .iconColor,
                   inactiveTrackColor: const Color(0xFF424242),
                 ),
               ],
@@ -1064,18 +1166,32 @@ class _ControlPanelScreenState extends ConsumerState<ControlPanelScreen> {
               child: ExpansionTile(
                 title: Text('Advanced Settings',
                     style: TextStyle(color: Colors.white, fontSize: 14)),
-                iconColor: Theme.of(context).extension<AppThemeExtension>()!.textTertiary,
-                collapsedIconColor: Theme.of(context).extension<AppThemeExtension>()!.textTertiary,
+                iconColor: Theme.of(context)
+                    .extension<AppThemeExtension>()!
+                    .textTertiary,
+                collapsedIconColor: Theme.of(context)
+                    .extension<AppThemeExtension>()!
+                    .textTertiary,
                 tilePadding: EdgeInsets.symmetric(horizontal: 16),
                 childrenPadding: EdgeInsets.all(16),
-                backgroundColor: Theme.of(context).extension<AppThemeExtension>()!.cardBackground,
-                collapsedBackgroundColor: Theme.of(context).extension<AppThemeExtension>()!.cardBackground,
+                backgroundColor: Theme.of(context)
+                    .extension<AppThemeExtension>()!
+                    .cardBackground,
+                collapsedBackgroundColor: Theme.of(context)
+                    .extension<AppThemeExtension>()!
+                    .cardBackground,
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
-                    side: BorderSide(color: Theme.of(context).extension<AppThemeExtension>()!.borderColorStrong)),
+                    side: BorderSide(
+                        color: Theme.of(context)
+                            .extension<AppThemeExtension>()!
+                            .borderColorStrong)),
                 collapsedShape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
-                    side: BorderSide(color: Theme.of(context).extension<AppThemeExtension>()!.borderColorStrong)),
+                    side: BorderSide(
+                        color: Theme.of(context)
+                            .extension<AppThemeExtension>()!
+                            .borderColorStrong)),
                 children: [
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1086,22 +1202,30 @@ class _ControlPanelScreenState extends ConsumerState<ControlPanelScreen> {
                           children: [
                             Text('Language',
                                 style: TextStyle(
-                                    color: Theme.of(context).extension<AppThemeExtension>()!.iconColor, fontSize: 12)),
+                                    color: Theme.of(context)
+                                        .extension<AppThemeExtension>()!
+                                        .iconColor,
+                                    fontSize: 12)),
                             SizedBox(height: 8),
                             Container(
-                              padding:
-                                  EdgeInsets.symmetric(horizontal: 12),
+                              padding: EdgeInsets.symmetric(horizontal: 12),
                               decoration: BoxDecoration(
-                                color: Theme.of(context).extension<AppThemeExtension>()!.sidebarBackground,
+                                color: Theme.of(context)
+                                    .extension<AppThemeExtension>()!
+                                    .sidebarBackground,
                                 borderRadius: BorderRadius.circular(8),
-                                border:
-                                    Border.all(color: Theme.of(context).extension<AppThemeExtension>()!.borderColorStrong),
+                                border: Border.all(
+                                    color: Theme.of(context)
+                                        .extension<AppThemeExtension>()!
+                                        .borderColorStrong),
                               ),
                               child: DropdownButtonHideUnderline(
                                 child: DropdownButton<String>(
                                   value: _selectedLanguage,
                                   isExpanded: true,
-                                  dropdownColor: Theme.of(context).extension<AppThemeExtension>()!.cardBackground,
+                                  dropdownColor: Theme.of(context)
+                                      .extension<AppThemeExtension>()!
+                                      .cardBackground,
                                   style: TextStyle(color: Colors.white),
                                   items: [
                                     DropdownMenuItem(
@@ -1132,7 +1256,10 @@ class _ControlPanelScreenState extends ConsumerState<ControlPanelScreen> {
                           children: [
                             Text('Custom Stop Words (comma separated)',
                                 style: TextStyle(
-                                    color: Theme.of(context).extension<AppThemeExtension>()!.iconColor, fontSize: 12)),
+                                    color: Theme.of(context)
+                                        .extension<AppThemeExtension>()!
+                                        .iconColor,
+                                    fontSize: 12)),
                             SizedBox(height: 8),
                             TextField(
                               controller: _customStopWordsController,
@@ -1140,24 +1267,34 @@ class _ControlPanelScreenState extends ConsumerState<ControlPanelScreen> {
                               cursorColor: Colors.white,
                               decoration: InputDecoration(
                                 hintText: 'e.g. client, company, confidential',
-                                hintStyle:
-                                    TextStyle(color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary),
+                                hintStyle: TextStyle(
+                                    color: Theme.of(context)
+                                        .extension<AppThemeExtension>()!
+                                        .textTertiary),
                                 filled: true,
-                                fillColor: Theme.of(context).extension<AppThemeExtension>()!.sidebarBackground,
+                                fillColor: Theme.of(context)
+                                    .extension<AppThemeExtension>()!
+                                    .sidebarBackground,
                                 contentPadding: EdgeInsets.symmetric(
                                     horizontal: 12, vertical: 14),
                                 border: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(8),
                                     borderSide: BorderSide(
-                                        color: Theme.of(context).extension<AppThemeExtension>()!.borderColorStrong)),
+                                        color: Theme.of(context)
+                                            .extension<AppThemeExtension>()!
+                                            .borderColorStrong)),
                                 enabledBorder: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(8),
                                     borderSide: BorderSide(
-                                        color: Theme.of(context).extension<AppThemeExtension>()!.borderColorStrong)),
+                                        color: Theme.of(context)
+                                            .extension<AppThemeExtension>()!
+                                            .borderColorStrong)),
                                 focusedBorder: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(8),
                                     borderSide: BorderSide(
-                                        color: Theme.of(context).extension<AppThemeExtension>()!.borderColorStrong)),
+                                        color: Theme.of(context)
+                                            .extension<AppThemeExtension>()!
+                                            .borderColorStrong)),
                               ),
                             ),
                           ],
@@ -1190,8 +1327,10 @@ class _ControlPanelScreenState extends ConsumerState<ControlPanelScreen> {
                 SizedBox(height: 8),
                 Text(
                     'Manage custom instructions and workflows for the AI models.',
-                    style: theme.textTheme.bodyLarge
-                        ?.copyWith(color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary)),
+                    style: theme.textTheme.bodyLarge?.copyWith(
+                        color: Theme.of(context)
+                            .extension<AppThemeExtension>()!
+                            .textTertiary)),
               ],
             ),
             PopupMenuButton<String>(
@@ -1202,23 +1341,30 @@ class _ControlPanelScreenState extends ConsumerState<ControlPanelScreen> {
                   _showUploadSkillDialog();
                 }
               },
-              color: Theme.of(context).extension<AppThemeExtension>()!.cardBackground,
+              color: Theme.of(context)
+                  .extension<AppThemeExtension>()!
+                  .cardBackground,
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8)),
               child: Container(
-                padding:
-                    EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 decoration: BoxDecoration(
                   color: const Color(0xFFE3E3E3),
                   borderRadius: BorderRadius.circular(24),
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.add, size: 18, color: Theme.of(context).extension<AppThemeExtension>()!.sidebarBackground),
+                    Icon(Icons.add,
+                        size: 18,
+                        color: Theme.of(context)
+                            .extension<AppThemeExtension>()!
+                            .sidebarBackground),
                     SizedBox(width: 4),
                     Text('Add Skill',
                         style: TextStyle(
-                            color: Theme.of(context).extension<AppThemeExtension>()!.sidebarBackground,
+                            color: Theme.of(context)
+                                .extension<AppThemeExtension>()!
+                                .sidebarBackground,
                             fontWeight: FontWeight.w600)),
                   ],
                 ),
@@ -1257,7 +1403,10 @@ class _ControlPanelScreenState extends ConsumerState<ControlPanelScreen> {
             child: Padding(
               padding: EdgeInsets.all(32.0),
               child: Text('No skills configured.',
-                  style: TextStyle(color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary)),
+                  style: TextStyle(
+                      color: Theme.of(context)
+                          .extension<AppThemeExtension>()!
+                          .textTertiary)),
             ),
           )
         else
@@ -1271,19 +1420,25 @@ class _ControlPanelScreenState extends ConsumerState<ControlPanelScreen> {
                 margin: EdgeInsets.only(bottom: 12),
                 padding: EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Theme.of(context).extension<AppThemeExtension>()!.sidebarBackground,
+                  color: Theme.of(context)
+                      .extension<AppThemeExtension>()!
+                      .sidebarBackground,
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor),
+                  border: Border.all(
+                      color: Theme.of(context)
+                          .extension<AppThemeExtension>()!
+                          .borderColor),
                 ),
                 child: Row(
                   children: [
                     Container(
                       padding: EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                          color: Theme.of(context).extension<AppThemeExtension>()!.borderColor,
+                          color: Theme.of(context)
+                              .extension<AppThemeExtension>()!
+                              .borderColor,
                           borderRadius: BorderRadius.circular(8)),
-                      child: Icon(Icons.psychology,
-                          color: Color(0xFFE3E3E3)),
+                      child: Icon(Icons.psychology, color: Color(0xFFE3E3E3)),
                     ),
                     SizedBox(width: 16),
                     Expanded(
@@ -1298,7 +1453,10 @@ class _ControlPanelScreenState extends ConsumerState<ControlPanelScreen> {
                           SizedBox(height: 4),
                           Text(skill['description'] as String,
                               style: TextStyle(
-                                  color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary, fontSize: 14)),
+                                  color: Theme.of(context)
+                                      .extension<AppThemeExtension>()!
+                                      .textTertiary,
+                                  fontSize: 14)),
                         ],
                       ),
                     ),
@@ -1308,8 +1466,7 @@ class _ControlPanelScreenState extends ConsumerState<ControlPanelScreen> {
                       activeThumbColor: Theme.of(context).colorScheme.secondary,
                     ),
                     IconButton(
-                      icon: Icon(Icons.delete_outline,
-                          color: Colors.redAccent),
+                      icon: Icon(Icons.delete_outline, color: Colors.redAccent),
                       onPressed: () => _removeSkill(index),
                     ),
                   ],
@@ -1357,8 +1514,10 @@ class _ControlPanelScreenState extends ConsumerState<ControlPanelScreen> {
         SizedBox(height: 8),
         Text(
           'Manage the external tools, services, and capabilities available to the Sovereign Intelligence.',
-          style: theme.textTheme.bodyLarge
-              ?.copyWith(color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary),
+          style: theme.textTheme.bodyLarge?.copyWith(
+              color: Theme.of(context)
+                  .extension<AppThemeExtension>()!
+                  .textTertiary),
         ),
         SizedBox(height: 40),
         Row(
@@ -1367,15 +1526,23 @@ class _ControlPanelScreenState extends ConsumerState<ControlPanelScreen> {
               child: Container(
                 height: 44,
                 decoration: BoxDecoration(
-                  color: Theme.of(context).extension<AppThemeExtension>()!.sidebarBackground,
+                  color: Theme.of(context)
+                      .extension<AppThemeExtension>()!
+                      .sidebarBackground,
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Theme.of(context).extension<AppThemeExtension>()!.borderColorStrong),
+                  border: Border.all(
+                      color: Theme.of(context)
+                          .extension<AppThemeExtension>()!
+                          .borderColorStrong),
                 ),
                 padding: EdgeInsets.symmetric(horizontal: 16),
                 child: Row(
                   children: [
                     Icon(Icons.search,
-                        color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary, size: 20),
+                        color: Theme.of(context)
+                            .extension<AppThemeExtension>()!
+                            .textTertiary,
+                        size: 20),
                     SizedBox(width: 12),
                     Expanded(
                       child: TextField(
@@ -1383,7 +1550,10 @@ class _ControlPanelScreenState extends ConsumerState<ControlPanelScreen> {
                         cursorColor: Colors.white,
                         decoration: InputDecoration(
                           hintText: 'Search integrations...',
-                          hintStyle: TextStyle(color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary),
+                          hintStyle: TextStyle(
+                              color: Theme.of(context)
+                                  .extension<AppThemeExtension>()!
+                                  .textTertiary),
                           border: InputBorder.none,
                           focusedBorder: InputBorder.none,
                           enabledBorder: InputBorder.none,
@@ -1401,7 +1571,9 @@ class _ControlPanelScreenState extends ConsumerState<ControlPanelScreen> {
               onPressed: _showAddServerDialog,
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.white,
-                foregroundColor: Theme.of(context).extension<AppThemeExtension>()!.sidebarBackground,
+                foregroundColor: Theme.of(context)
+                    .extension<AppThemeExtension>()!
+                    .sidebarBackground,
                 minimumSize: const Size(140, 44),
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8)),
@@ -1420,8 +1592,10 @@ class _ControlPanelScreenState extends ConsumerState<ControlPanelScreen> {
             child: Padding(
               padding: EdgeInsets.symmetric(vertical: 40),
               child: Text('No MCP Integrations configured.',
-                  style: theme.textTheme.bodyLarge
-                      ?.copyWith(color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary)),
+                  style: theme.textTheme.bodyLarge?.copyWith(
+                      color: Theme.of(context)
+                          .extension<AppThemeExtension>()!
+                          .textTertiary)),
             ),
           )
         else
@@ -1443,12 +1617,16 @@ class _ControlPanelScreenState extends ConsumerState<ControlPanelScreen> {
                     status: isOn ? 'Live Connection Active' : 'Disconnected',
                     statusColor: isOn
                         ? const Color(0xFF10B981)
-                        : Theme.of(context).extension<AppThemeExtension>()!.textTertiary,
+                        : Theme.of(context)
+                            .extension<AppThemeExtension>()!
+                            .textTertiary,
                     description: server['url'] ?? '',
                     icon: Icons.extension,
                     iconColor: isOn
                         ? Theme.of(context).colorScheme.primary
-                        : Theme.of(context).extension<AppThemeExtension>()!.textTertiary,
+                        : Theme.of(context)
+                            .extension<AppThemeExtension>()!
+                            .textTertiary,
                     isOn: isOn,
                     onToggle: (val) => _toggleServer(index, val),
                     onDelete: () => _removeServer(index),
@@ -1471,16 +1649,23 @@ class _ControlPanelScreenState extends ConsumerState<ControlPanelScreen> {
         SizedBox(height: 8),
         Text(
           'Connect external platforms for deep tracing, auditing, and observability of your AI agents.',
-          style: theme.textTheme.bodyLarge
-              ?.copyWith(color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary),
+          style: theme.textTheme.bodyLarge?.copyWith(
+              color: Theme.of(context)
+                  .extension<AppThemeExtension>()!
+                  .textTertiary),
         ),
         SizedBox(height: 40),
         Container(
           padding: EdgeInsets.all(24),
           decoration: BoxDecoration(
-            color: Theme.of(context).extension<AppThemeExtension>()!.surfaceHighlight,
+            color: Theme.of(context)
+                .extension<AppThemeExtension>()!
+                .surfaceHighlight,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Theme.of(context).extension<AppThemeExtension>()!.borderColorStrong),
+            border: Border.all(
+                color: Theme.of(context)
+                    .extension<AppThemeExtension>()!
+                    .borderColorStrong),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1494,7 +1679,9 @@ class _ControlPanelScreenState extends ConsumerState<ControlPanelScreen> {
                         width: 48,
                         height: 48,
                         decoration: BoxDecoration(
-                          color: Theme.of(context).extension<AppThemeExtension>()!.sidebarBackground,
+                          color: Theme.of(context)
+                              .extension<AppThemeExtension>()!
+                              .sidebarBackground,
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Icon(Icons.analytics_outlined,
@@ -1513,7 +1700,9 @@ class _ControlPanelScreenState extends ConsumerState<ControlPanelScreen> {
                           Text(
                               'Record LLM inputs, tool calls, and latencies via LangChain.',
                               style: TextStyle(
-                                  color: Theme.of(context).extension<AppThemeExtension>()!.iconColor,
+                                  color: Theme.of(context)
+                                      .extension<AppThemeExtension>()!
+                                      .iconColor,
                                   fontSize: 14)),
                         ],
                       ),
@@ -1528,7 +1717,9 @@ class _ControlPanelScreenState extends ConsumerState<ControlPanelScreen> {
                       _saveSettings();
                     },
                     activeTrackColor: Theme.of(context).colorScheme.primary,
-                    inactiveThumbColor: Theme.of(context).extension<AppThemeExtension>()!.iconColor,
+                    inactiveThumbColor: Theme.of(context)
+                        .extension<AppThemeExtension>()!
+                        .iconColor,
                     inactiveTrackColor: const Color(0xFF424242),
                   ),
                 ],
@@ -1573,9 +1764,12 @@ class _ControlPanelScreenState extends ConsumerState<ControlPanelScreen> {
     return Container(
       padding: EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: Theme.of(context).extension<AppThemeExtension>()!.surfaceHighlight,
+        color:
+            Theme.of(context).extension<AppThemeExtension>()!.surfaceHighlight,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: borderColor ?? Theme.of(context).extension<AppThemeExtension>()!.borderColor),
+        border: Border.all(
+            color: borderColor ??
+                Theme.of(context).extension<AppThemeExtension>()!.borderColor),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1584,7 +1778,9 @@ class _ControlPanelScreenState extends ConsumerState<ControlPanelScreen> {
             width: 48,
             height: 48,
             decoration: BoxDecoration(
-              color: Theme.of(context).extension<AppThemeExtension>()!.sidebarBackground,
+              color: Theme.of(context)
+                  .extension<AppThemeExtension>()!
+                  .sidebarBackground,
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(icon, color: iconColor),
@@ -1616,7 +1812,9 @@ class _ControlPanelScreenState extends ConsumerState<ControlPanelScreen> {
                       value: isOn,
                       onChanged: onToggle,
                       activeTrackColor: Theme.of(context).colorScheme.primary,
-                      inactiveThumbColor: Theme.of(context).extension<AppThemeExtension>()!.iconColor,
+                      inactiveThumbColor: Theme.of(context)
+                          .extension<AppThemeExtension>()!
+                          .iconColor,
                       inactiveTrackColor: const Color(0xFF424242),
                     ),
                   ],
@@ -1640,7 +1838,10 @@ class _ControlPanelScreenState extends ConsumerState<ControlPanelScreen> {
                 SizedBox(height: 12),
                 Text(description,
                     style: TextStyle(
-                        color: Theme.of(context).extension<AppThemeExtension>()!.iconColor, fontSize: 14)),
+                        color: Theme.of(context)
+                            .extension<AppThemeExtension>()!
+                            .iconColor,
+                        fontSize: 14)),
               ],
             ),
           ),

@@ -20,13 +20,15 @@ class GeneralSettingsTab extends StatelessWidget {
         SettingsUI.buildSectionHeader(context, 'LAYOUT'),
         SettingsUI.buildSettingsGroup(context, [
           SettingsUI.buildToggleRow(context, 'Maximize chat space', false),
-          SettingsUI.buildToggleRow(context, 'Center Chat Input on Welcome Screen', true),
+          SettingsUI.buildToggleRow(
+              context, 'Center Chat Input on Welcome Screen', true),
           SettingsUI.buildToggleRow(context, 'Scroll to the end button', true),
         ]),
         const SizedBox(height: 32),
         SettingsUI.buildSectionHeader(context, 'ACCESSIBILITY'),
         SettingsUI.buildSettingsGroup(context, [
-          SettingsUI.buildToggleRow(context, 'Keep screen awake during response generation', true),
+          SettingsUI.buildToggleRow(
+              context, 'Keep screen awake during response generation', true),
         ]),
       ],
     );

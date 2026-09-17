@@ -15,18 +15,24 @@ from deepeval.test_case import LLMTestCase
 
 def get_test_cases():
     """Load dataset and generate Pytest parameters."""
-    dataset_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "evaluation", "dataset.json")
+    dataset_path = os.path.join(
+        os.path.dirname(os.path.dirname(__file__)), "evaluation", "dataset.json"
+    )
     if not os.path.exists(dataset_path):
         return []
-    
+
     with open(dataset_path, "r") as f:
         dataset = json.load(f)
-        
+
     return dataset
+
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("item", get_test_cases())
-@pytest.mark.skipif(os.environ.get("GEMINI_API_KEY", "test_gemini_key") == "test_gemini_key", reason="Needs real GEMINI_API_KEY")
+@pytest.mark.skipif(
+    os.environ.get("GEMINI_API_KEY", "test_gemini_key") == "test_gemini_key",
+    reason="Needs real GEMINI_API_KEY",
+)
 async def test_rag_pipeline(item, patch_env):
     """
     Evaluates the RAG pipeline using DeepEval's LLM-as-a-judge (Gemini).
@@ -38,8 +44,10 @@ async def test_rag_pipeline(item, patch_env):
     expected_output = item["expected_answer"]
 
     # Execute the RAG pipeline
-    actual_output, context_str = await answer_question(query, tenant_id=tenant_id, return_context=True)
-    
+    actual_output, context_str = await answer_question(
+        query, tenant_id=tenant_id, return_context=True
+    )
+
     # We pass the context_str as a list of strings (retrieval context)
     retrieval_context = [context_str] if context_str else ["No context retrieved."]
 

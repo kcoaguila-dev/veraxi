@@ -61,7 +61,8 @@ class SpeechSettingsTab extends ConsumerWidget {
             },
           ),
           if (!isBrowser)
-            SettingsUI.buildTextFieldRow(context, 
+            SettingsUI.buildTextFieldRow(
+              context,
               'API Base URL',
               urlController,
               onSubmitted: (value) {
@@ -86,7 +87,8 @@ class SpeechSettingsTab extends ConsumerWidget {
           ),
           SettingsUI.buildDropdownRow(context, 'Playback speed', '1.0x'),
           if (ttsState.selectedEngine == 'GPT-SoVITS')
-            SettingsUI.buildActionRow(context, 
+            SettingsUI.buildActionRow(
+              context,
               'Manage Voices',
               'Add or configure GPT-SoVITS personas',
               'Manage',

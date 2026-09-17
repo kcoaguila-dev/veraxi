@@ -9,6 +9,7 @@ an API key raises the limit significantly.
 
 Best for: JS-heavy SPAs, pages that block plain HTTP scrapers, Reddit, Twitter/X.
 """
+
 from __future__ import annotations
 
 import logging
@@ -87,7 +88,9 @@ class JinaScraper:
                     if content and len(content) >= _MIN_CONTENT_LENGTH:
                         results[url] = content
                 except FuturesTimeoutError:
-                    logger.warning("Jina Reader timed out for %s", future_to_url[future])
+                    logger.warning(
+                        "Jina Reader timed out for %s", future_to_url[future]
+                    )
                 except Exception as exc:  # noqa: BLE001
                     sentry_sdk.capture_exception(exc)
                     logger.warning("Jina Reader fetch_batch error: %s", exc)

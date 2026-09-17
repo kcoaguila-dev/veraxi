@@ -18,6 +18,7 @@ supabase: Client = create_client(url, key)
 EMAIL = "e2e_tester@veraxi.me"
 PASSWORD = "e2e_test_password_123"
 
+
 def setup_user():
     print(f"Setting up E2E user: {EMAIL}")
     try:
@@ -25,21 +26,22 @@ def setup_user():
         # Wait, admin API doesn't have list users easily without pagination.
         # We can just try to create the user with admin API.
         try:
-            supabase.auth.admin.create_user({
-                "email": EMAIL,
-                "password": PASSWORD,
-                "email_confirm": True
-            })
+            supabase.auth.admin.create_user(
+                {"email": EMAIL, "password": PASSWORD, "email_confirm": True}
+            )
             print("User created successfully.")
         except Exception as e:
-            if "already registered" in str(e).lower() or "already exists" in str(e).lower() or "already been registered" in str(e).lower():
+            if (
+                "already registered" in str(e).lower()
+                or "already exists" in str(e).lower()
+                or "already been registered" in str(e).lower()
+            ):
                 print("User already exists. Updating password to ensure it matches.")
                 users = supabase.auth.admin.list_users()
                 user = next((u for u in users if u.email == EMAIL), None)
                 if user:
                     supabase.auth.admin.update_user_by_id(
-                        user.id,
-                        {"password": PASSWORD, "email_confirm": True}
+                        user.id, {"password": PASSWORD, "email_confirm": True}
                     )
                     print("User password updated successfully.")
                 else:
@@ -49,6 +51,7 @@ def setup_user():
     except Exception as e:  # noqa: BLE001
         print(f"Error setting up E2E user: {e}")
         sys.exit(1)
+
 
 if __name__ == "__main__":
     setup_user()

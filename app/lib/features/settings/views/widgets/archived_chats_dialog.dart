@@ -5,7 +5,6 @@ import 'package:veraxi_app/features/chat/view_models/chat_view_model.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
 
-
 class ArchivedChatsDialog extends ConsumerStatefulWidget {
   const ArchivedChatsDialog({super.key});
 
@@ -45,10 +44,13 @@ class _ArchivedChatsDialogState extends ConsumerState<ArchivedChatsDialog> {
     });
 
     return Dialog(
-      backgroundColor: Theme.of(context).extension<AppThemeExtension>()!.sidebarBackground,
+      backgroundColor:
+          Theme.of(context).extension<AppThemeExtension>()!.sidebarBackground,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
-        side: BorderSide(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor),
+        side: BorderSide(
+            color:
+                Theme.of(context).extension<AppThemeExtension>()!.borderColor),
       ),
       insetPadding: EdgeInsets.symmetric(horizontal: 24, vertical: 24),
       child: Container(
@@ -81,10 +83,15 @@ class _ArchivedChatsDialogState extends ConsumerState<ArchivedChatsDialog> {
             SizedBox(height: 24),
             Container(
               decoration: BoxDecoration(
-                border: Border.all(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor),
+                border: Border.all(
+                    color: Theme.of(context)
+                        .extension<AppThemeExtension>()!
+                        .borderColor),
                 borderRadius: const BorderRadius.only(
                     topLeft: Radius.circular(6), topRight: Radius.circular(6)),
-                color: Theme.of(context).extension<AppThemeExtension>()!.cardBackground,
+                color: Theme.of(context)
+                    .extension<AppThemeExtension>()!
+                    .cardBackground,
               ),
               padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               child: Row(
@@ -100,9 +107,18 @@ class _ArchivedChatsDialogState extends ConsumerState<ArchivedChatsDialog> {
               child: Container(
                 decoration: BoxDecoration(
                   border: Border(
-                    left: BorderSide(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor),
-                    right: BorderSide(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor),
-                    bottom: BorderSide(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor),
+                    left: BorderSide(
+                        color: Theme.of(context)
+                            .extension<AppThemeExtension>()!
+                            .borderColor),
+                    right: BorderSide(
+                        color: Theme.of(context)
+                            .extension<AppThemeExtension>()!
+                            .borderColor),
+                    bottom: BorderSide(
+                        color: Theme.of(context)
+                            .extension<AppThemeExtension>()!
+                            .borderColor),
                   ),
                   borderRadius: BorderRadius.only(
                       bottomLeft: Radius.circular(6),
@@ -116,8 +132,11 @@ class _ArchivedChatsDialogState extends ConsumerState<ArchivedChatsDialog> {
                       )
                     : ListView.separated(
                         itemCount: archivedChats.length,
-                        separatorBuilder: (context, index) =>
-                            Divider(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor, height: 1),
+                        separatorBuilder: (context, index) => Divider(
+                            color: Theme.of(context)
+                                .extension<AppThemeExtension>()!
+                                .borderColor,
+                            height: 1),
                         itemBuilder: (context, index) {
                           final chat = archivedChats[index];
                           final id = chat['thread_id'].toString();
@@ -155,8 +174,7 @@ class _ArchivedChatsDialogState extends ConsumerState<ArchivedChatsDialog> {
                                       Tooltip(
                                         message: 'Unarchive thread',
                                         child: IconButton(
-                                          icon: Icon(
-                                              Icons.unarchive_outlined,
+                                          icon: Icon(Icons.unarchive_outlined,
                                               color: Color(0xFF888888),
                                               size: 20),
                                           onPressed: () async {

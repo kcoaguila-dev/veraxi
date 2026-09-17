@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
 
-
 class VeraxiLogo extends StatelessWidget {
   final double size;
   final Color? color;
@@ -14,7 +13,8 @@ class VeraxiLogo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final effectiveColor = color ?? Theme.of(context).extension<AppThemeExtension>()!.iconColor;
+    final effectiveColor =
+        color ?? Theme.of(context).extension<AppThemeExtension>()!.iconColor;
     return SizedBox(
       width: size,
       height: size,

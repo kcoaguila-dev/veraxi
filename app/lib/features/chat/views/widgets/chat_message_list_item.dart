@@ -1,4 +1,3 @@
-
 import 'package:veraxi_app/features/chat/view_models/audio_player_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -18,12 +17,12 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter/services.dart';
 import 'package:veraxi_app/features/chat/views/widgets/sources_button.dart';
 import 'package:veraxi_app/features/chat/views/widgets/global_audio_player.dart';
+
 class ChatMessageListItem extends ConsumerWidget {
   final ChatMessage msg;
   final ThemeData theme;
   final AppThemeExtension ext;
   final bool showTelemetry;
-  
 
   const ChatMessageListItem({
     super.key,
@@ -31,18 +30,20 @@ class ChatMessageListItem extends ConsumerWidget {
     required this.theme,
     required this.ext,
     required this.showTelemetry,
-    
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return _buildChatMessageActual(msg, theme, ext, showTelemetry: showTelemetry, context: context, ref: ref);
+    return _buildChatMessageActual(msg, theme, ext,
+        showTelemetry: showTelemetry, context: context, ref: ref);
   }
 
   // We change the signature to pass context since it was previously available in the State.
   Widget _buildChatMessageActual(
       ChatMessage msg, ThemeData theme, AppThemeExtension ext,
-      {bool showTelemetry = false, required BuildContext context, required WidgetRef ref}) {
+      {bool showTelemetry = false,
+      required BuildContext context,
+      required WidgetRef ref}) {
     final isUser = msg.role == 'user';
     final name = isUser
         ? 'User'
@@ -386,7 +387,8 @@ class ChatMessageListItem extends ConsumerWidget {
                                                     .state =
                                                 SourcesButton.extractSources(
                                                     msg);
-                                            Scaffold.of(context).openEndDrawer();
+                                            Scaffold.of(context)
+                                                .openEndDrawer();
                                           },
                                         ),
                                       ],
@@ -481,9 +483,4 @@ class ChatMessageListItem extends ConsumerWidget {
       decoration: BoxDecoration(color: color, shape: BoxShape.circle),
     );
   }
-
-  
-
-  
-
 }

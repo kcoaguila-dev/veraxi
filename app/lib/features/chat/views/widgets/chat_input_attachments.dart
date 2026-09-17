@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
 
-
 class ChatInputAttachments extends StatelessWidget {
   final List<PlatformFile> attachedFiles;
   final Function(int) onRemove;
@@ -32,8 +31,11 @@ class ChatInputAttachments extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
-            backgroundColor: Theme.of(context).extension<AppThemeExtension>()!.borderColorStrong,
-            deleteIconColor: Theme.of(context).extension<AppThemeExtension>()!.iconColor,
+            backgroundColor: Theme.of(context)
+                .extension<AppThemeExtension>()!
+                .borderColorStrong,
+            deleteIconColor:
+                Theme.of(context).extension<AppThemeExtension>()!.iconColor,
             onDeleted: () => onRemove(idx),
             padding: EdgeInsets.zero,
             materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,

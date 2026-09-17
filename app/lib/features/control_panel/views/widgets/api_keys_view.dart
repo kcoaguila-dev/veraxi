@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 import 'package:veraxi_app/core/api_key_storage.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
 
-
 class ApiKeysView extends StatefulWidget {
   const ApiKeysView({Key? key}) : super(key: key);
 
@@ -76,7 +75,11 @@ class _ApiKeysViewState extends State<ApiKeysView> {
           SizedBox(height: 8),
           Text(
             'Veraxi requires zero cloud hosting if you supply your own API keys and database credentials.',
-            style: TextStyle(color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary, fontSize: 14),
+            style: TextStyle(
+                color: Theme.of(context)
+                    .extension<AppThemeExtension>()!
+                    .textTertiary,
+                fontSize: 14),
           ),
           SizedBox(height: 48),
 
@@ -89,7 +92,11 @@ class _ApiKeysViewState extends State<ApiKeysView> {
           SizedBox(height: 8),
           Text(
             'Provide API keys for the language models you wish to use.',
-            style: TextStyle(color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary, fontSize: 13),
+            style: TextStyle(
+                color: Theme.of(context)
+                    .extension<AppThemeExtension>()!
+                    .textTertiary,
+                fontSize: 13),
           ),
           SizedBox(height: 24),
           _buildKeyInput('OpenAI API Key', 'sk-...', 'openai'),
@@ -98,7 +105,10 @@ class _ApiKeysViewState extends State<ApiKeysView> {
           _buildKeyInput('Groq API Key', 'gsk_...', 'groq'),
 
           SizedBox(height: 48),
-          Divider(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor),
+          Divider(
+              color: Theme.of(context)
+                  .extension<AppThemeExtension>()!
+                  .borderColor),
           SizedBox(height: 48),
 
           // --- Section B: Database Infrastructure ---
@@ -110,7 +120,11 @@ class _ApiKeysViewState extends State<ApiKeysView> {
           SizedBox(height: 8),
           Text(
             'Configure your hybrid GraphRAG databases. You can run these locally via Docker, or use free cloud tiers (Neo4j Aura & Qdrant Cloud).',
-            style: TextStyle(color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary, fontSize: 13),
+            style: TextStyle(
+                color: Theme.of(context)
+                    .extension<AppThemeExtension>()!
+                    .textTertiary,
+                fontSize: 13),
           ),
           SizedBox(height: 32),
 
@@ -118,9 +132,14 @@ class _ApiKeysViewState extends State<ApiKeysView> {
           Container(
             padding: EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: Theme.of(context).extension<AppThemeExtension>()!.dialogBackground,
+              color: Theme.of(context)
+                  .extension<AppThemeExtension>()!
+                  .dialogBackground,
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor),
+              border: Border.all(
+                  color: Theme.of(context)
+                      .extension<AppThemeExtension>()!
+                      .borderColor),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -164,9 +183,14 @@ class _ApiKeysViewState extends State<ApiKeysView> {
           Container(
             padding: EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: Theme.of(context).extension<AppThemeExtension>()!.dialogBackground,
+              color: Theme.of(context)
+                  .extension<AppThemeExtension>()!
+                  .dialogBackground,
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor),
+              border: Border.all(
+                  color: Theme.of(context)
+                      .extension<AppThemeExtension>()!
+                      .borderColor),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -196,7 +220,10 @@ class _ApiKeysViewState extends State<ApiKeysView> {
           ),
 
           SizedBox(height: 48),
-          Divider(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor),
+          Divider(
+              color: Theme.of(context)
+                  .extension<AppThemeExtension>()!
+                  .borderColor),
           SizedBox(height: 48),
 
           // --- Section C: Model Context Protocol (BYOS) ---
@@ -208,7 +235,11 @@ class _ApiKeysViewState extends State<ApiKeysView> {
           SizedBox(height: 8),
           Text(
             'Bring Your Own Subscription (BYOS) allows you to bypass cloud API costs by using your existing local AI subscriptions (e.g., Claude Desktop, Cursor) to act as the extraction engine.',
-            style: TextStyle(color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary, fontSize: 13),
+            style: TextStyle(
+                color: Theme.of(context)
+                    .extension<AppThemeExtension>()!
+                    .textTertiary,
+                fontSize: 13),
           ),
           SizedBox(height: 32),
           _buildMcpConfigCard(),
@@ -219,8 +250,7 @@ class _ApiKeysViewState extends State<ApiKeysView> {
             child: ElevatedButton(
               style: ElevatedButton.styleFrom(
                 backgroundColor: Theme.of(context).colorScheme.secondary,
-                padding:
-                    EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                padding: EdgeInsets.symmetric(horizontal: 32, vertical: 16),
               ),
               onPressed: () async {
                 await _apiKeyStorage.saveByodConfig(
@@ -255,7 +285,8 @@ class _ApiKeysViewState extends State<ApiKeysView> {
       children: [
         Text(label,
             style: TextStyle(
-                color: Theme.of(context).extension<AppThemeExtension>()!.iconColor,
+                color:
+                    Theme.of(context).extension<AppThemeExtension>()!.iconColor,
                 fontSize: 13,
                 fontWeight: FontWeight.w500)),
         SizedBox(height: 8),
@@ -265,14 +296,20 @@ class _ApiKeysViewState extends State<ApiKeysView> {
           cursorColor: Colors.white,
           decoration: InputDecoration(
             hintText: hint,
-            hintStyle: TextStyle(color: (Theme.of(context).extension<AppThemeExtension>()?.textTertiary.withValues(alpha: 0.5) ?? Colors.grey)),
+            hintStyle: TextStyle(
+                color: (Theme.of(context)
+                        .extension<AppThemeExtension>()
+                        ?.textTertiary
+                        .withValues(alpha: 0.5) ??
+                    Colors.grey)),
             filled: true,
-            fillColor: Theme.of(context).extension<AppThemeExtension>()!.cardBackground,
+            fillColor: Theme.of(context)
+                .extension<AppThemeExtension>()!
+                .cardBackground,
             border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
                 borderSide: BorderSide.none),
-            contentPadding:
-                EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           ),
         ),
       ],
@@ -288,7 +325,9 @@ class _ApiKeysViewState extends State<ApiKeysView> {
         children: [
           Text(label,
               style: TextStyle(
-                  color: Theme.of(context).extension<AppThemeExtension>()!.iconColor,
+                  color: Theme.of(context)
+                      .extension<AppThemeExtension>()!
+                      .iconColor,
                   fontSize: 13,
                   fontWeight: FontWeight.w500)),
           SizedBox(height: 8),
@@ -299,9 +338,16 @@ class _ApiKeysViewState extends State<ApiKeysView> {
             cursorColor: Colors.white,
             decoration: InputDecoration(
               hintText: hint,
-              hintStyle: TextStyle(color: (Theme.of(context).extension<AppThemeExtension>()?.textTertiary.withValues(alpha: 0.5) ?? Colors.grey)),
+              hintStyle: TextStyle(
+                  color: (Theme.of(context)
+                          .extension<AppThemeExtension>()
+                          ?.textTertiary
+                          .withValues(alpha: 0.5) ??
+                      Colors.grey)),
               filled: true,
-              fillColor: Theme.of(context).extension<AppThemeExtension>()!.cardBackground,
+              fillColor: Theme.of(context)
+                  .extension<AppThemeExtension>()!
+                  .cardBackground,
               border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
                   borderSide: BorderSide.none),
@@ -312,7 +358,9 @@ class _ApiKeysViewState extends State<ApiKeysView> {
                   _obscuredFields[obscureKey] == true
                       ? Icons.visibility_off
                       : Icons.visibility,
-                  color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary,
+                  color: Theme.of(context)
+                      .extension<AppThemeExtension>()!
+                      .textTertiary,
                   size: 20,
                 ),
                 onPressed: () {
@@ -342,17 +390,19 @@ class _ApiKeysViewState extends State<ApiKeysView> {
     return Container(
       padding: EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: Theme.of(context).extension<AppThemeExtension>()!.dialogBackground,
+        color:
+            Theme.of(context).extension<AppThemeExtension>()!.dialogBackground,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor),
+        border: Border.all(
+            color:
+                Theme.of(context).extension<AppThemeExtension>()!.borderColor),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(Icons.hub_outlined,
-                  color: Colors.purpleAccent, size: 24),
+              Icon(Icons.hub_outlined, color: Colors.purpleAccent, size: 24),
               SizedBox(width: 12),
               Text('Connect your AI Assistant',
                   style: TextStyle(
@@ -364,15 +414,23 @@ class _ApiKeysViewState extends State<ApiKeysView> {
           SizedBox(height: 16),
           Text(
             'Copy the configuration below and paste it into your Claude Desktop configuration (claude_desktop_config.json) or your Cursor MCP settings.',
-            style: TextStyle(color: Theme.of(context).extension<AppThemeExtension>()!.iconColor, fontSize: 14),
+            style: TextStyle(
+                color:
+                    Theme.of(context).extension<AppThemeExtension>()!.iconColor,
+                fontSize: 14),
           ),
           SizedBox(height: 24),
           Container(
             padding: EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Theme.of(context).extension<AppThemeExtension>()!.cardBackground,
+              color: Theme.of(context)
+                  .extension<AppThemeExtension>()!
+                  .cardBackground,
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Theme.of(context).extension<AppThemeExtension>()!.borderColorStrong),
+              border: Border.all(
+                  color: Theme.of(context)
+                      .extension<AppThemeExtension>()!
+                      .borderColorStrong),
             ),
             child: Stack(
               children: [
@@ -392,7 +450,10 @@ class _ApiKeysViewState extends State<ApiKeysView> {
                   right: -8,
                   child: IconButton(
                     icon: Icon(Icons.copy,
-                        color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary, size: 18),
+                        color: Theme.of(context)
+                            .extension<AppThemeExtension>()!
+                            .textTertiary,
+                        size: 18),
                     onPressed: () {
                       Clipboard.setData(
                           const ClipboardData(text: configString));

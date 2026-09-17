@@ -31,9 +31,14 @@ class QdrantStorageClient:
 
         return cls(url=url, api_key=api_key)
 
-    def create_collection(self, collection_name: str, vector_size: int = 384, distance_metric: str = "Cosine"):
+    def create_collection(
+        self,
+        collection_name: str,
+        vector_size: int = 384,
+        distance_metric: str = "Cosine",
+    ):
         """Create a collection if it doesn't already exist."""
-        
+
         # Safely map the string to the official Qdrant Enum
         d_enum = Distance.COSINE
         if distance_metric.upper() == "EUCLID":
@@ -42,13 +47,14 @@ class QdrantStorageClient:
             d_enum = Distance.DOT
         elif distance_metric.upper() == "MANHATTAN":
             d_enum = Distance.MANHATTAN
-            
+
         try:
             collection_info = self.client.get_collection(collection_name)
             if not collection_info.config.params.sparse_vectors:
                 self.client.delete_collection(collection_name)
         except Exception as e:  # noqa: BLE001
             import sentry_sdk
+
             sentry_sdk.capture_exception(e)
 
         if not self.client.collection_exists(collection_name):
@@ -56,16 +62,15 @@ class QdrantStorageClient:
                 collection_name=collection_name,
                 vectors_config=VectorParams(size=vector_size, distance=d_enum),
                 sparse_vectors_config={
-                    "text-sparse": SparseVectorParams(
-                        modifier=Modifier.IDF
-                    )
-                }
+                    "text-sparse": SparseVectorParams(modifier=Modifier.IDF)
+                },
             )
             from qdrant_client.http import models
+
             self.client.create_payload_index(
                 collection_name=collection_name,
                 field_name="tenant_id",
-                field_schema=models.PayloadSchemaType.KEYWORD
+                field_schema=models.PayloadSchemaType.KEYWORD,
             )
 
     def insert_points(
@@ -90,17 +95,18 @@ class QdrantStorageClient:
         for vector, sparse, payload in zip(vectors, sparse_vectors, payloads):
             point_id = str(uuid.uuid4())
             point_ids.append(point_id)
-            
+
             # Combine dense and sparse into a dictionary for Qdrant
             qdrant_vector = {
                 "": vector,
                 "text-sparse": SparseVector(
-                    indices=sparse["indices"],
-                    values=sparse["values"]
-                )
+                    indices=sparse["indices"], values=sparse["values"]
+                ),
             }
-            
-            points.append(PointStruct(id=point_id, vector=qdrant_vector, payload=payload))
+
+            points.append(
+                PointStruct(id=point_id, vector=qdrant_vector, payload=payload)
+            )
 
         self.client.upsert(collection_name=collection_name, points=points)
         return point_ids
@@ -137,7 +143,7 @@ class QdrantStorageClient:
         )
 
         from qdrant_client.http.exceptions import UnexpectedResponse
-        
+
         try:
             results = self.client.query_points(
                 collection_name=collection_name,
@@ -145,18 +151,15 @@ class QdrantStorageClient:
                     models.Prefetch(
                         query=models.SparseVector(
                             indices=sparse_query_vector["indices"],
-                            values=sparse_query_vector["values"]
+                            values=sparse_query_vector["values"],
                         ),
                         using="text-sparse",
                         filter=query_filter,
-                        limit=limit
+                        limit=limit,
                     ),
                     models.Prefetch(
-                        query=query_vector,
-                        using="",
-                        filter=query_filter,
-                        limit=limit
-                    )
+                        query=query_vector, using="", filter=query_filter, limit=limit
+                    ),
                 ],
                 query=models.FusionQuery(fusion=models.Fusion.RRF),
                 limit=limit,
@@ -173,36 +176,36 @@ class QdrantStorageClient:
             out.append({"id": p.id, "score": p.score, "payload": p.payload})
         return out
 
-
-
     def delete_points(self, collection_name: str, point_ids: list[str]):
         """Delete points by their IDs."""
         from qdrant_client.http import models
+
         self.client.delete(
             collection_name=collection_name,
-            points_selector=models.PointIdsList(points=point_ids)
+            points_selector=models.PointIdsList(points=point_ids),
         )
 
     def delete_tenant(self, collection_name: str, tenant_id: str):
         """Delete all points belonging to a specific tenant."""
         from qdrant_client.http import models
+
         self.client.delete(
             collection_name=collection_name,
             points_selector=models.FilterSelector(
                 filter=models.Filter(
                     must=[
                         models.FieldCondition(
-                            key="tenant_id",
-                            match=models.MatchValue(value=tenant_id)
+                            key="tenant_id", match=models.MatchValue(value=tenant_id)
                         )
                     ]
                 )
-            )
+            ),
         )
 
     def count(self, collection_name: str, tenant_id: str = "default") -> int:
         """Count the number of vectors for a given tenant."""
         from qdrant_client.http import models
+
         count_filter = models.Filter(
             must=[
                 models.FieldCondition(
@@ -211,7 +214,5 @@ class QdrantStorageClient:
             ]
         )
         return self.client.count(
-            collection_name=collection_name,
-            count_filter=count_filter,
-            exact=True
+            collection_name=collection_name, count_filter=count_filter, exact=True
         ).count

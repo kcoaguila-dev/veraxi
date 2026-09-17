@@ -156,7 +156,8 @@ class ChatHistoryViewModel extends Notifier<ChatHistoryState> {
 
   Future<String?> duplicateThread(String threadId) async {
     try {
-      final newId = await ref.read(chatRepositoryProvider).duplicateThread(threadId);
+      final newId =
+          await ref.read(chatRepositoryProvider).duplicateThread(threadId);
       await loadThreads();
       return newId;
     } catch (e, st) {
@@ -168,7 +169,8 @@ class ChatHistoryViewModel extends Notifier<ChatHistoryState> {
 
   Future<String?> shareThread(String threadId) async {
     try {
-      final shareId = await ref.read(chatRepositoryProvider).shareThread(threadId);
+      final shareId =
+          await ref.read(chatRepositoryProvider).shareThread(threadId);
       return shareId;
     } catch (e, st) {
       Sentry.captureException(e, stackTrace: st);
@@ -179,7 +181,9 @@ class ChatHistoryViewModel extends Notifier<ChatHistoryState> {
 
   Future<void> assignThreadToProject(String threadId, String? projectId) async {
     try {
-      await ref.read(chatRepositoryProvider).assignThreadToProject(threadId, projectId);
+      await ref
+          .read(chatRepositoryProvider)
+          .assignThreadToProject(threadId, projectId);
       await loadThreads();
     } catch (e, st) {
       Sentry.captureException(e, stackTrace: st);
@@ -188,6 +192,7 @@ class ChatHistoryViewModel extends Notifier<ChatHistoryState> {
   }
 }
 
-final chatHistoryProvider = NotifierProvider<ChatHistoryViewModel, ChatHistoryState>(
+final chatHistoryProvider =
+    NotifierProvider<ChatHistoryViewModel, ChatHistoryState>(
   () => ChatHistoryViewModel(),
 );

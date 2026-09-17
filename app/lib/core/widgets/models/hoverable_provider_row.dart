@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'model_provider_styles.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
 
-
 class HoverableProviderRow extends StatefulWidget {
   final String provider;
   final bool isHovered;
@@ -47,7 +46,11 @@ class _HoverableProviderRowState extends State<HoverableProviderRow> {
             height: 38,
             margin: EdgeInsets.only(bottom: 2),
             decoration: BoxDecoration(
-              color: active ? Theme.of(context).extension<AppThemeExtension>()!.surfaceHighlight : Colors.transparent,
+              color: active
+                  ? Theme.of(context)
+                      .extension<AppThemeExtension>()!
+                      .surfaceHighlight
+                  : Colors.transparent,
               borderRadius: BorderRadius.circular(8),
             ),
             child: Row(
@@ -73,8 +76,7 @@ class _HoverableProviderRowState extends State<HoverableProviderRow> {
                     behavior: HitTestBehavior.opaque,
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 150),
-                      padding: EdgeInsets.symmetric(
-                          horizontal: 6, vertical: 4),
+                      padding: EdgeInsets.symmetric(horizontal: 6, vertical: 4),
                       decoration: BoxDecoration(
                         color: _isSettingsHovered
                             ? const Color(0xFF444444)
@@ -89,7 +91,9 @@ class _HoverableProviderRowState extends State<HoverableProviderRow> {
                               color: active
                                   ? (_isSettingsHovered
                                       ? Colors.white
-                                      : Theme.of(context).extension<AppThemeExtension>()!.iconColor)
+                                      : Theme.of(context)
+                                          .extension<AppThemeExtension>()!
+                                          .iconColor)
                                   : Colors.transparent),
                           if (_isSettingsHovered) ...[
                             SizedBox(width: 4),
@@ -104,7 +108,11 @@ class _HoverableProviderRowState extends State<HoverableProviderRow> {
                 ),
                 Icon(Icons.chevron_right,
                     size: 16,
-                    color: active ? Colors.white : Theme.of(context).extension<AppThemeExtension>()!.textTertiary),
+                    color: active
+                        ? Colors.white
+                        : Theme.of(context)
+                            .extension<AppThemeExtension>()!
+                            .textTertiary),
                 SizedBox(width: 8),
               ],
             ),

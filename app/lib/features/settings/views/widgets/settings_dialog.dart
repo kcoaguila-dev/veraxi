@@ -9,7 +9,6 @@ import 'api_keys_tab.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
 
-
 class SettingsDialog extends ConsumerStatefulWidget {
   final VoidCallback? onDeleteAllChats;
   const SettingsDialog({super.key, this.onDeleteAllChats});
@@ -50,9 +49,14 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
         width: 800,
         height: 600,
         decoration: BoxDecoration(
-          color: Theme.of(context).extension<AppThemeExtension>()!.sidebarBackground,
+          color: Theme.of(context)
+              .extension<AppThemeExtension>()!
+              .sidebarBackground,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor),
+          border: Border.all(
+              color: Theme.of(context)
+                  .extension<AppThemeExtension>()!
+                  .borderColor),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.5),
@@ -65,8 +69,8 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
           children: [
             // Header
             Padding(
-              padding: EdgeInsets.only(
-                  left: 24, right: 16, top: 16, bottom: 16),
+              padding:
+                  EdgeInsets.only(left: 24, right: 16, top: 16, bottom: 16),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -80,14 +84,21 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
                   ),
                   IconButton(
                     icon: Icon(Icons.close,
-                        color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary, size: 20),
+                        color: Theme.of(context)
+                            .extension<AppThemeExtension>()!
+                            .textTertiary,
+                        size: 20),
                     onPressed: () => Navigator.of(context).pop(),
                     splashRadius: 20,
                   ),
                 ],
               ),
             ),
-            Divider(height: 1, color: Theme.of(context).extension<AppThemeExtension>()!.borderColor),
+            Divider(
+                height: 1,
+                color: Theme.of(context)
+                    .extension<AppThemeExtension>()!
+                    .borderColor),
             // Body
             Expanded(
               child: Row(
@@ -104,7 +115,9 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
                         Container(
                           height: 36,
                           decoration: BoxDecoration(
-                            color: Theme.of(context).extension<AppThemeExtension>()!.borderColor,
+                            color: Theme.of(context)
+                                .extension<AppThemeExtension>()!
+                                .borderColor,
                             borderRadius: BorderRadius.circular(18),
                             border: Border.all(color: const Color(0xFF3A3A3A)),
                           ),
@@ -112,7 +125,10 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
                             children: [
                               SizedBox(width: 12),
                               Icon(Icons.search,
-                                  color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary, size: 16),
+                                  color: Theme.of(context)
+                                      .extension<AppThemeExtension>()!
+                                      .textTertiary,
+                                  size: 16),
                               SizedBox(width: 8),
                               Expanded(
                                 child: TextField(
@@ -122,7 +138,10 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
                                   decoration: InputDecoration.collapsed(
                                     hintText: 'Search settings',
                                     hintStyle: TextStyle(
-                                        color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary, fontSize: 13),
+                                        color: Theme.of(context)
+                                            .extension<AppThemeExtension>()!
+                                            .textTertiary,
+                                        fontSize: 13),
                                   ),
                                 ),
                               ),
@@ -146,13 +165,17 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
                                     });
                                   },
                                   borderRadius: BorderRadius.circular(8),
-                                  hoverColor: Theme.of(context).extension<AppThemeExtension>()!.surfaceHighlight,
+                                  hoverColor: Theme.of(context)
+                                      .extension<AppThemeExtension>()!
+                                      .surfaceHighlight,
                                   child: Container(
                                     padding: EdgeInsets.symmetric(
                                         horizontal: 12, vertical: 10),
                                     decoration: BoxDecoration(
                                       color: isSelected
-                                          ? Theme.of(context).extension<AppThemeExtension>()!.surfaceHighlight
+                                          ? Theme.of(context)
+                                              .extension<AppThemeExtension>()!
+                                              .surfaceHighlight
                                           : Colors.transparent,
                                       borderRadius: BorderRadius.circular(8),
                                     ),
@@ -188,7 +211,9 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
                   // Vertical Divider
                   Container(
                     width: 1,
-                    color: Theme.of(context).extension<AppThemeExtension>()!.borderColor,
+                    color: Theme.of(context)
+                        .extension<AppThemeExtension>()!
+                        .borderColor,
                   ),
                   // Content
                   Expanded(
@@ -226,7 +251,10 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
         return [
           Center(
               child: Text('Not implemented yet',
-                  style: TextStyle(color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary)))
+                  style: TextStyle(
+                      color: Theme.of(context)
+                          .extension<AppThemeExtension>()!
+                          .textTertiary)))
         ];
     }
   }
@@ -397,12 +425,16 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: Theme.of(context).extension<AppThemeExtension>()!.cardBackground,
+        backgroundColor:
+            Theme.of(context).extension<AppThemeExtension>()!.cardBackground,
         title: Text('Delete account & data',
             style: TextStyle(color: Colors.white)),
         content: Text(
             'Are you sure you want to permanently delete your account and all conversations? This action cannot be undone.',
-            style: TextStyle(color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary)),
+            style: TextStyle(
+                color: Theme.of(context)
+                    .extension<AppThemeExtension>()!
+                    .textTertiary)),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
@@ -451,7 +483,10 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
         padding: EdgeInsets.all(24),
         decoration: BoxDecoration(
           color: Colors.transparent,
-          border: Border.all(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor),
+          border: Border.all(
+              color: Theme.of(context)
+                  .extension<AppThemeExtension>()!
+                  .borderColor),
           borderRadius: BorderRadius.circular(8),
         ),
         child: Column(
@@ -469,7 +504,11 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
             SizedBox(height: 4),
             Text(
               'Version 1.0.0',
-              style: TextStyle(color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary, fontSize: 13),
+              style: TextStyle(
+                  color: Theme.of(context)
+                      .extension<AppThemeExtension>()!
+                      .textTertiary,
+                  fontSize: 13),
             ),
             SizedBox(height: 24),
             Row(
@@ -499,7 +538,8 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
       label: Text(label, style: TextStyle(color: Color(0xFFECECEC))),
       style: TextButton.styleFrom(
         padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        backgroundColor: Theme.of(context).extension<AppThemeExtension>()!.surfaceHighlight,
+        backgroundColor:
+            Theme.of(context).extension<AppThemeExtension>()!.surfaceHighlight,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
     );
@@ -511,8 +551,9 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
       child: Text(
         title,
         style: TextStyle(
-          color:
-              isDestructive ? const Color(0xFFE53935) : Theme.of(context).extension<AppThemeExtension>()!.textTertiary,
+          color: isDestructive
+              ? const Color(0xFFE53935)
+              : Theme.of(context).extension<AppThemeExtension>()!.textTertiary,
           fontSize: 11,
           fontWeight: FontWeight.bold,
           letterSpacing: 0.5,
@@ -525,7 +566,9 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
     return Container(
       decoration: BoxDecoration(
         color: Colors.transparent,
-        border: Border.all(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor),
+        border: Border.all(
+            color:
+                Theme.of(context).extension<AppThemeExtension>()!.borderColor),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
@@ -534,7 +577,12 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
           return Column(
             children: [
               entry.value,
-              if (!isLast) Divider(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor, height: 1),
+              if (!isLast)
+                Divider(
+                    color: Theme.of(context)
+                        .extension<AppThemeExtension>()!
+                        .borderColor,
+                    height: 1),
             ],
           );
         }).toList(),
@@ -555,17 +603,21 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
             Container(
               padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
-                color: Theme.of(context).extension<AppThemeExtension>()!.borderColor,
+                color: Theme.of(context)
+                    .extension<AppThemeExtension>()!
+                    .borderColor,
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Row(
                 children: [
                   Text(value,
-                      style:
-                          TextStyle(color: Colors.white, fontSize: 13)),
+                      style: TextStyle(color: Colors.white, fontSize: 13)),
                   SizedBox(width: 8),
                   Icon(Icons.keyboard_arrow_down,
-                      color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary, size: 16),
+                      color: Theme.of(context)
+                          .extension<AppThemeExtension>()!
+                          .textTertiary,
+                      size: 16),
                 ],
               ),
             ),
@@ -582,8 +634,7 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label,
-              style: TextStyle(color: Color(0xFFECECEC), fontSize: 13)),
+          Text(label, style: TextStyle(color: Color(0xFFECECEC), fontSize: 13)),
           Theme(
             data: Theme.of(context).copyWith(
               hoverColor: Colors.transparent,
@@ -591,7 +642,8 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
               highlightColor: Colors.transparent,
             ),
             child: PopupMenuButton<String>(
-              color: Theme.of(context).extension<AppThemeExtension>()!.borderColor,
+              color:
+                  Theme.of(context).extension<AppThemeExtension>()!.borderColor,
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8)),
               position: PopupMenuPosition.under,
@@ -607,27 +659,29 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
                                 style: TextStyle(
                                     color: Colors.white, fontSize: 13)),
                             if (item == value)
-                              Icon(Icons.check,
-                                  color: Colors.white, size: 16),
+                              Icon(Icons.check, color: Colors.white, size: 16),
                           ],
                         ),
                       ))
                   .toList(),
               child: Container(
-                padding:
-                    EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
-                  color: Theme.of(context).extension<AppThemeExtension>()!.borderColor,
+                  color: Theme.of(context)
+                      .extension<AppThemeExtension>()!
+                      .borderColor,
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Row(
                   children: [
                     Text(value,
-                        style:
-                            TextStyle(color: Colors.white, fontSize: 13)),
+                        style: TextStyle(color: Colors.white, fontSize: 13)),
                     SizedBox(width: 8),
                     Icon(Icons.keyboard_arrow_down,
-                        color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary, size: 16),
+                        color: Theme.of(context)
+                            .extension<AppThemeExtension>()!
+                            .textTertiary,
+                        size: 16),
                   ],
                 ),
               ),
@@ -644,12 +698,12 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label,
-              style: TextStyle(color: Color(0xFFECECEC), fontSize: 13)),
+          Text(label, style: TextStyle(color: Color(0xFFECECEC), fontSize: 13)),
           Container(
             padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
-              color: Theme.of(context).extension<AppThemeExtension>()!.borderColor,
+              color:
+                  Theme.of(context).extension<AppThemeExtension>()!.borderColor,
               borderRadius: BorderRadius.circular(6),
             ),
             child: Text(value,
@@ -673,8 +727,7 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
               Expanded(
                 flex: 2,
                 child: Text(label,
-                    style: TextStyle(
-                        color: Color(0xFFECECEC), fontSize: 13)),
+                    style: TextStyle(color: Color(0xFFECECEC), fontSize: 13)),
               ),
               Expanded(
                 flex: 3,
@@ -684,10 +737,12 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
                     controller: controller,
                     style: TextStyle(color: Colors.white, fontSize: 13),
                     decoration: InputDecoration(
-                      contentPadding: EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 0),
+                      contentPadding:
+                          EdgeInsets.symmetric(horizontal: 12, vertical: 0),
                       filled: true,
-                      fillColor: Theme.of(context).extension<AppThemeExtension>()!.borderColor,
+                      fillColor: Theme.of(context)
+                          .extension<AppThemeExtension>()!
+                          .borderColor,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(6),
                         borderSide: BorderSide.none,
@@ -727,7 +782,9 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: isSaved
                       ? Theme.of(context).colorScheme.secondary
-                      : Theme.of(context).extension<AppThemeExtension>()!.surfaceHighlight,
+                      : Theme.of(context)
+                          .extension<AppThemeExtension>()!
+                          .surfaceHighlight,
                   foregroundColor: Colors.white,
                   padding: EdgeInsets.symmetric(horizontal: 12),
                   minimumSize: const Size(0, 36),
@@ -776,13 +833,15 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(title,
-                    style: TextStyle(
-                        color: Color(0xFFECECEC), fontSize: 14)),
+                    style: TextStyle(color: Color(0xFFECECEC), fontSize: 14)),
                 if (subtitle.isNotEmpty) ...[
                   SizedBox(height: 2),
                   Text(subtitle,
                       style: TextStyle(
-                          color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary, fontSize: 12)),
+                          color: Theme.of(context)
+                              .extension<AppThemeExtension>()!
+                              .textTertiary,
+                          fontSize: 12)),
                 ],
               ],
             ),
@@ -795,15 +854,13 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
               backgroundColor:
                   isDestructive ? const Color(0xFFD32F2F) : Colors.transparent,
               elevation: 0,
-              side: isDestructive
-                  ? null
-                  : BorderSide(color: Color(0xFF3A3A3A)),
+              side: isDestructive ? null : BorderSide(color: Color(0xFF3A3A3A)),
               padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8)),
             ),
-            child: Text(buttonText,
-                style: TextStyle(fontWeight: FontWeight.w500)),
+            child:
+                Text(buttonText, style: TextStyle(fontWeight: FontWeight.w500)),
           ),
         ],
       ),

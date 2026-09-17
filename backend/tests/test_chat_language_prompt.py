@@ -21,16 +21,19 @@ def test_prepend_system_messages_injects_chat_prompt():
 def test_system_prompt_citation_format():
     """Verify that the system prompts strictly forbid parentheses around citations."""
     from backend.prompts import CHAT_SYSTEM_PROMPT, CRAG_ORCHESTRATOR_PROMPT
-    
+
     assert "DO NOT wrap citations in parentheses" in CHAT_SYSTEM_PROMPT
     assert "DO NOT wrap citations in parentheses" in CRAG_ORCHESTRATOR_PROMPT
     assert "fact [Foxbusiness](url)" in CHAT_SYSTEM_PROMPT
     assert "fact [Foxbusiness](url)" in CRAG_ORCHESTRATOR_PROMPT
 
+
 @pytest.mark.asyncio
 @patch("backend.mcp_server.orchestrator.get_tools", new_callable=AsyncMock)
 @patch("backend.mcp_server.orchestrator._create_chat_llm")
-async def test_call_model_passes_language_system_prompt(mock_create_llm, mock_get_tools):
+async def test_call_model_passes_language_system_prompt(
+    mock_create_llm, mock_get_tools
+):
     mock_get_tools.return_value = []
     mock_instance = AsyncMock()
     mock_create_llm.return_value = mock_instance
@@ -57,5 +60,8 @@ async def test_call_model_passes_language_system_prompt(mock_create_llm, mock_ge
 
     assert captured_messages
     assert isinstance(captured_messages[0], SystemMessage)
-    assert "not transliteration (e.g., no romaji or pinyin)" in captured_messages[0].content
+    assert (
+        "not transliteration (e.g., no romaji or pinyin)"
+        in captured_messages[0].content
+    )
     assert result["messages"][0].content == "元気です！あなたはどうですか？"

@@ -59,10 +59,10 @@ REGISTERED_TOOLS = [
                         "properties": {
                             "type": {"type": "string"},
                             "name": {"type": "string"},
-                            "properties": {"type": "object"}
+                            "properties": {"type": "object"},
                         },
-                        "required": ["type", "name"]
-                    }
+                        "required": ["type", "name"],
+                    },
                 },
                 "relations": {
                     "type": "array",
@@ -71,11 +71,11 @@ REGISTERED_TOOLS = [
                         "properties": {
                             "from_entity": {"type": "string"},
                             "to_entity": {"type": "string"},
-                            "type": {"type": "string"}
+                            "type": {"type": "string"},
                         },
-                        "required": ["from_entity", "to_entity", "type"]
-                    }
-                }
+                        "required": ["from_entity", "to_entity", "type"],
+                    },
+                },
             },
             "required": ["nodes", "relations"],
         },
@@ -85,12 +85,7 @@ REGISTERED_TOOLS = [
         description="Generate embeddings and insert text chunks into the Qdrant Vector Database.",
         inputSchema={
             "type": "object",
-            "properties": {
-                "texts": {
-                    "type": "array",
-                    "items": {"type": "string"}
-                }
-            },
+            "properties": {"texts": {"type": "array", "items": {"type": "string"}}},
             "required": ["texts"],
         },
     ),
@@ -121,9 +116,7 @@ REGISTERED_TOOLS = [
         description="Deletes a specific entity and all its relationships from Neo4j.",
         inputSchema={
             "type": "object",
-            "properties": {
-                "entity_name": {"type": "string"}
-            },
+            "properties": {"entity_name": {"type": "string"}},
             "required": ["entity_name"],
         },
     ),
@@ -132,9 +125,7 @@ REGISTERED_TOOLS = [
         description="Deletes a specific document chunk from Qdrant using its document ID.",
         inputSchema={
             "type": "object",
-            "properties": {
-                "document_id": {"type": "string"}
-            },
+            "properties": {"document_id": {"type": "string"}},
             "required": ["document_id"],
         },
     ),
@@ -145,7 +136,7 @@ REGISTERED_TOOLS = [
             "type": "object",
             "properties": {
                 "entity_name": {"type": "string"},
-                "properties": {"type": "object"}
+                "properties": {"type": "object"},
             },
             "required": ["entity_name", "properties"],
         },
@@ -163,9 +154,7 @@ REGISTERED_TOOLS = [
         description="Runs a Graph Data Science community detection algorithm to find clusters of connected entities.",
         inputSchema={
             "type": "object",
-            "properties": {
-                "min_size": {"type": "integer", "default": 2}
-            },
+            "properties": {"min_size": {"type": "integer", "default": 2}},
         },
     ),
     Tool(
@@ -176,7 +165,7 @@ REGISTERED_TOOLS = [
             "properties": {
                 "from_entity": {"type": "string"},
                 "to_entity": {"type": "string"},
-                "rel_type": {"type": "string"}
+                "rel_type": {"type": "string"},
             },
             "required": ["from_entity", "to_entity", "rel_type"],
         },
@@ -188,7 +177,7 @@ REGISTERED_TOOLS = [
             "type": "object",
             "properties": {
                 "document_id": {"type": "string"},
-                "payload": {"type": "object"}
+                "payload": {"type": "object"},
             },
             "required": ["document_id", "payload"],
         },
@@ -200,7 +189,7 @@ REGISTERED_TOOLS = [
             "type": "object",
             "properties": {
                 "response_text": {"type": "string"},
-                "context_text": {"type": "string"}
+                "context_text": {"type": "string"},
             },
             "required": ["response_text", "context_text"],
         },
@@ -212,7 +201,7 @@ REGISTERED_TOOLS = [
             "type": "object",
             "properties": {
                 "query": {"type": "string"},
-                "max_results": {"type": "integer", "default": 3}
+                "max_results": {"type": "integer", "default": 3},
             },
         },
     ),
@@ -260,13 +249,23 @@ REGISTERED_TOOLS = [
         inputSchema={
             "type": "object",
             "properties": {
-                "file_path": {"type": "string", "description": "Absolute path to a local document file."},
-                "url": {"type": "string", "description": "URL to scrape and ingest instead of a local file."},
+                "file_path": {
+                    "type": "string",
+                    "description": "Absolute path to a local document file.",
+                },
+                "url": {
+                    "type": "string",
+                    "description": "URL to scrape and ingest instead of a local file.",
+                },
                 "fast_extraction": {"type": "boolean", "default": False},
                 "language": {"type": "string", "default": "en"},
                 "chunk_size": {"type": "integer", "default": 200},
                 "chunk_overlap": {"type": "integer", "default": 50},
-                "wait_for_completion": {"type": "boolean", "default": False, "description": "If true, the tool will block and poll internally until ingestion is complete."}
+                "wait_for_completion": {
+                    "type": "boolean",
+                    "default": False,
+                    "description": "If true, the tool will block and poll internally until ingestion is complete.",
+                },
             },
         },
     ),
@@ -276,7 +275,10 @@ REGISTERED_TOOLS = [
         inputSchema={
             "type": "object",
             "properties": {
-                "job_id": {"type": "string", "description": "The job ID returned from mcp_ingest_document."}
+                "job_id": {
+                    "type": "string",
+                    "description": "The job ID returned from mcp_ingest_document.",
+                }
             },
             "required": ["job_id"],
         },
@@ -289,10 +291,10 @@ REGISTERED_TOOLS = [
             "properties": {
                 "query": {"type": "string"},
                 "language": {"type": "string", "default": "en"},
-                "max_results": {"type": "integer", "default": 5}
+                "max_results": {"type": "integer", "default": 5},
             },
-            "required": ["query"]
-        }
+            "required": ["query"],
+        },
     ),
     Tool(
         name="mcp_deep_research",
@@ -305,10 +307,10 @@ REGISTERED_TOOLS = [
                 "urls": {
                     "type": "array",
                     "items": {"type": "string"},
-                    "description": "Optional list of pre-searched URLs to ingest and research over. If provided, skips the internal web search phase."
-                }
+                    "description": "Optional list of pre-searched URLs to ingest and research over. If provided, skips the internal web search phase.",
+                },
             },
-        }
+        },
     ),
     Tool(
         name="mcp_export_data",
@@ -321,39 +323,42 @@ REGISTERED_TOOLS = [
                     "items": {
                         "type": "object",
                         "description": "Any structured data dictionary. If exporting to otio/fcpxml, include start_time, duration, character, dialogue, audio_path.",
-                        "additionalProperties": True
-                    }
+                        "additionalProperties": True,
+                    },
                 },
                 "format": {
                     "type": "string",
                     "enum": ["csv", "otio", "fcpxml"],
-                    "default": "csv"
+                    "default": "csv",
                 },
-                "output_name": {"type": "string", "default": "veraxi_export"}
+                "output_name": {"type": "string", "default": "veraxi_export"},
             },
-            "required": ["data"]
-        }
+            "required": ["data"],
+        },
     ),
 ]
+
 
 def _handle_search_vectors(args: dict, tenant_id: str) -> list[TextContent]:
     config = get_config()
     results = search_vectors(
         query_text=args["query_text"],
         limit=args.get("limit", config.default_search_limit),
-        tenant_id=tenant_id
+        tenant_id=tenant_id,
     )
     dict_results = [dataclasses.asdict(r) for r in results]
     return [TextContent(type="text", text=json.dumps(dict_results))]
+
 
 def _handle_query_graph(args: dict, tenant_id: str) -> list[TextContent]:
     config = get_config()
     results = query_graph(
         entity_name=args["entity_name"],
         max_hops=args.get("max_hops", config.default_max_hops),
-        tenant_id=tenant_id
+        tenant_id=tenant_id,
     )
     return [TextContent(type="text", text=json.dumps(results))]
+
 
 def _handle_insert_graph_nodes(args: dict, tenant_id: str) -> list[TextContent]:
     # Enforce the free-tier node cap on cloud deployments.
@@ -362,125 +367,160 @@ def _handle_insert_graph_nodes(args: dict, tenant_id: str) -> list[TextContent]:
     if config.auth_enabled:
         check_tenant_hard_cap(tenant_id, config)
     results = insert_graph_nodes(
-        nodes=args["nodes"],
-        relations=args["relations"],
-        tenant_id=tenant_id
+        nodes=args["nodes"], relations=args["relations"], tenant_id=tenant_id
     )
     return [TextContent(type="text", text=json.dumps(results))]
+
 
 def _handle_insert_vectors(args: dict, tenant_id: str) -> list[TextContent]:
     # Same guard: cloud users are capped, self-hosted users are not.
     config = get_config()
     if config.auth_enabled:
         check_tenant_hard_cap(tenant_id, config)
-    results = insert_vectors(
-        texts=args["texts"],
-        tenant_id=tenant_id
-    )
+    results = insert_vectors(texts=args["texts"], tenant_id=tenant_id)
     return [TextContent(type="text", text=json.dumps(results))]
+
 
 def _handle_merge_rank(args: dict, tenant_id: str) -> list[TextContent]:
     import dataclasses
 
     from backend.retrieval.merge_rank import merge_rank
-    
+
     config = get_config()
-    
+
     v_hits = search_vectors(
         query_text=args["query_text"],
         limit=args.get("limit", config.default_search_limit),
-        tenant_id=tenant_id
+        tenant_id=tenant_id,
     )
     g_hits = query_graph(
         entity_name=args["entity_name"],
         max_hops=args.get("max_hops", config.default_max_hops),
-        tenant_id=tenant_id
+        tenant_id=tenant_id,
     )
-    results = merge_rank(v_hits, g_hits, limit=args.get("limit", config.default_search_limit))
+    results = merge_rank(
+        v_hits, g_hits, limit=args.get("limit", config.default_search_limit)
+    )
     dict_results = [dataclasses.asdict(r) for r in results]
-    
+
     return [TextContent(type="text", text=json.dumps(dict_results))]
+
 
 def _handle_get_graph_schema(args: dict, tenant_id: str) -> list[TextContent]:
     results = get_graph_schema()
     return [TextContent(type="text", text=json.dumps(results))]
 
+
 def _handle_delete_entity(args: dict, tenant_id: str) -> list[TextContent]:
     result = delete_entity(args["entity_name"], tenant_id=tenant_id)
     return [TextContent(type="text", text=result)]
+
 
 def _handle_delete_document(args: dict, tenant_id: str) -> list[TextContent]:
     result = delete_vector(args["document_id"], tenant_id=tenant_id)
     return [TextContent(type="text", text=result)]
 
+
 def _handle_update_entity(args: dict, tenant_id: str) -> list[TextContent]:
     result = update_entity(args["entity_name"], args["properties"], tenant_id=tenant_id)
     return [TextContent(type="text", text=result)]
+
 
 def _handle_get_database_stats(args: dict, tenant_id: str) -> list[TextContent]:
     results = get_database_stats(tenant_id=tenant_id)
     return [TextContent(type="text", text=json.dumps(results))]
 
+
 def _handle_run_community_detection(args: dict, tenant_id: str) -> list[TextContent]:
     results = run_community_detection(args.get("min_size", 2))
     return [TextContent(type="text", text=json.dumps(results))]
 
+
 def _handle_delete_relationship(args: dict, tenant_id: str) -> list[TextContent]:
-    result = delete_relationship(args["from_entity"], args["to_entity"], args["rel_type"], tenant_id=tenant_id)
+    result = delete_relationship(
+        args["from_entity"], args["to_entity"], args["rel_type"], tenant_id=tenant_id
+    )
     return [TextContent(type="text", text=result)]
 
+
 def _handle_update_document_metadata(args: dict, tenant_id: str) -> list[TextContent]:
-    result = update_document_metadata(args["document_id"], args["payload"], tenant_id=tenant_id)
+    result = update_document_metadata(
+        args["document_id"], args["payload"], tenant_id=tenant_id
+    )
     return [TextContent(type="text", text=result)]
+
 
 def _handle_evaluate_grounding(args: dict, tenant_id: str) -> list[TextContent]:
     from backend.mcp_server.tools.evaluate_grounding import mcp_evaluate_grounding
+
     score = mcp_evaluate_grounding(args["response_text"], args["context_text"])
     return [TextContent(type="text", text=str(score))]
 
+
 def _handle_web_search(args: dict, tenant_id: str) -> list[TextContent]:
     from backend.mcp_server.tools.web_search import mcp_web_search
-    tool_settings = args.get("_tool_settings", {})
-    results = mcp_web_search(args["query"], args.get("max_results", 3), tool_settings=tool_settings)
-    return [TextContent(type="text", text=json.dumps(results))]
 
-def _handle_dynamic_web_graph(args: dict, tenant_id: str) -> list[TextContent]:
-    from backend.mcp_server.tools.dynamic_web_graph import mcp_dynamic_web_graph
     tool_settings = args.get("_tool_settings", {})
-    results = mcp_dynamic_web_graph(args["query"], args.get("language", "en"), args.get("max_results", 5), tool_settings=tool_settings)
-    return [TextContent(type="text", text=json.dumps(results))]
-
-def _handle_deep_research(args: dict, tenant_id: str) -> list[TextContent]:
-    from backend.mcp_server.tools.deep_research import mcp_deep_research
-    tool_settings = args.get("_tool_settings", {})
-    results = mcp_deep_research(
-        query=args["query"], 
-        tenant_id=tenant_id, 
-        max_results=args.get("max_results", 3), 
-        urls=args.get("urls"),
-        tool_settings=tool_settings
+    results = mcp_web_search(
+        args["query"], args.get("max_results", 3), tool_settings=tool_settings
     )
     return [TextContent(type="text", text=json.dumps(results))]
 
+
+def _handle_dynamic_web_graph(args: dict, tenant_id: str) -> list[TextContent]:
+    from backend.mcp_server.tools.dynamic_web_graph import mcp_dynamic_web_graph
+
+    tool_settings = args.get("_tool_settings", {})
+    results = mcp_dynamic_web_graph(
+        args["query"],
+        args.get("language", "en"),
+        args.get("max_results", 5),
+        tool_settings=tool_settings,
+    )
+    return [TextContent(type="text", text=json.dumps(results))]
+
+
+def _handle_deep_research(args: dict, tenant_id: str) -> list[TextContent]:
+    from backend.mcp_server.tools.deep_research import mcp_deep_research
+
+    tool_settings = args.get("_tool_settings", {})
+    results = mcp_deep_research(
+        query=args["query"],
+        tenant_id=tenant_id,
+        max_results=args.get("max_results", 3),
+        urls=args.get("urls"),
+        tool_settings=tool_settings,
+    )
+    return [TextContent(type="text", text=json.dumps(results))]
+
+
 def _handle_skills(args: dict, tenant_id: str) -> list[TextContent]:
     from backend.mcp_server.tools.skills import list_skills
+
     results = list_skills()
     return [TextContent(type="text", text=json.dumps(results))]
 
+
 def _handle_run_code(args: dict, tenant_id: str) -> list[TextContent]:
     from backend.mcp_server.tools.run_code import execute_python_code
+
     result = execute_python_code(args["code"])
     return [TextContent(type="text", text=json.dumps(result))]
 
+
 def _handle_list_artifacts(args: dict, tenant_id: str) -> list[TextContent]:
     from backend.mcp_server.tools.artifacts import list_artifacts
+
     results = list_artifacts(tenant_id)
     return [TextContent(type="text", text=json.dumps(results))]
 
+
 def _handle_read_artifact(args: dict, tenant_id: str) -> list[TextContent]:
     from backend.mcp_server.tools.artifacts import read_artifact
+
     result = read_artifact(tenant_id, args["artifact_name"])
     return [TextContent(type="text", text=result)]
+
 
 def _handle_ingest_document(args: dict, tenant_id: str) -> list[TextContent]:
     result = mcp_ingest_document(
@@ -488,23 +528,26 @@ def _handle_ingest_document(args: dict, tenant_id: str) -> list[TextContent]:
         file_path=args.get("file_path"),
         url=args.get("url"),
         fast_extraction=args.get("fast_extraction", False),
-        language=args.get("language", "en")
+        language=args.get("language", "en"),
     )
     return [TextContent(type="text", text=json.dumps(result))]
+
 
 def _handle_get_ingest_status(args: dict, tenant_id: str) -> list[TextContent]:
     result = mcp_get_ingest_status(tenant_id=tenant_id, job_id=args["job_id"])
     return [TextContent(type="text", text=json.dumps(result))]
 
+
 def _handle_export_data(args: dict, tenant_id: str) -> list[TextContent]:
     from backend.mcp_server.tools.export_data import mcp_veraxi_mcp_export_data
-    
+
     filepath = mcp_veraxi_mcp_export_data(
         data=args.get("data", []),
         format=args.get("format", "csv"),
-        output_name=args.get("output_name", "veraxi_export")
+        output_name=args.get("output_name", "veraxi_export"),
     )
     return [TextContent(type="text", text=filepath)]
+
 
 TOOL_HANDLERS = {
     "mcp_search_vectors": _handle_search_vectors,

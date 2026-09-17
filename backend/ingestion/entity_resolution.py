@@ -39,7 +39,9 @@ def _merge_cluster(cluster: list[dict[str, Any]]) -> dict[str, Any]:
     return canonical_ent
 
 
-def _group_entities_by_type(entities: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
+def _group_entities_by_type(
+    entities: list[dict[str, Any]],
+) -> dict[str, list[dict[str, Any]]]:
     type_groups: dict[str, list[dict[str, Any]]] = {}
     for ent in entities:
         ent_type = ent.get("type", "Unknown")
@@ -73,7 +75,9 @@ def _process_clusters(
             alias_to_canonical[ent["name"]] = canonical_name
 
 
-def resolve_entities(entities: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], dict[str, str]]:
+def resolve_entities(
+    entities: list[dict[str, Any]],
+) -> tuple[list[dict[str, Any]], dict[str, str]]:
     """
     Deduplication pass using native Python to collapse similar entities.
     Expects entities to have 'name' and 'type'.

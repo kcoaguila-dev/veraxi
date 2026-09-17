@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
 
-
 class SchemaVisualBuilder extends StatefulWidget {
   final Map<String, dynamic>? initialSchema;
   final bool isSaving;
@@ -219,7 +218,9 @@ class _SchemaVisualBuilderState extends State<SchemaVisualBuilder> {
         SizedBox(height: 8),
         Container(
           decoration: BoxDecoration(
-            color: Theme.of(context).extension<AppThemeExtension>()!.cardBackground,
+            color: Theme.of(context)
+                .extension<AppThemeExtension>()!
+                .cardBackground,
             borderRadius: BorderRadius.circular(8),
           ),
           constraints: const BoxConstraints(minHeight: 250, maxHeight: 500),
@@ -286,7 +287,9 @@ class _SchemaVisualBuilderState extends State<SchemaVisualBuilder> {
             children: [
               ..._entities.map((e) => Chip(
                     label: Text(e, style: TextStyle(fontSize: 12)),
-                    backgroundColor: Theme.of(context).extension<AppThemeExtension>()!.borderColorStrong,
+                    backgroundColor: Theme.of(context)
+                        .extension<AppThemeExtension>()!
+                        .borderColorStrong,
                     deleteIcon: Icon(Icons.close, size: 14),
                     onDeleted: () => _removeEntity(e),
                     shape: RoundedRectangleBorder(
@@ -301,10 +304,11 @@ class _SchemaVisualBuilderState extends State<SchemaVisualBuilder> {
                   style: TextStyle(color: Colors.white, fontSize: 13),
                   decoration: InputDecoration(
                     hintText: 'Add entity...',
-                    hintStyle:
-                        TextStyle(color: Colors.white38, fontSize: 13),
+                    hintStyle: TextStyle(color: Colors.white38, fontSize: 13),
                     filled: true,
-                    fillColor: Theme.of(context).extension<AppThemeExtension>()!.borderColor,
+                    fillColor: Theme.of(context)
+                        .extension<AppThemeExtension>()!
+                        .borderColor,
                     contentPadding:
                         EdgeInsets.symmetric(horizontal: 12, vertical: 0),
                     border: OutlineInputBorder(
@@ -346,11 +350,12 @@ class _SchemaVisualBuilderState extends State<SchemaVisualBuilder> {
                         height: 36,
                         child: TextFormField(
                           initialValue: rel['type'],
-                          style: TextStyle(
-                              color: Colors.white, fontSize: 13),
+                          style: TextStyle(color: Colors.white, fontSize: 13),
                           decoration: InputDecoration(
                             filled: true,
-                            fillColor: Theme.of(context).extension<AppThemeExtension>()!.borderColor,
+                            fillColor: Theme.of(context)
+                                .extension<AppThemeExtension>()!
+                                .borderColor,
                             contentPadding: EdgeInsets.symmetric(
                                 horizontal: 12, vertical: 0),
                             border: OutlineInputBorder(
@@ -408,7 +413,8 @@ class _SchemaVisualBuilderState extends State<SchemaVisualBuilder> {
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
           value: validValue,
-          dropdownColor: Theme.of(context).extension<AppThemeExtension>()!.borderColor,
+          dropdownColor:
+              Theme.of(context).extension<AppThemeExtension>()!.borderColor,
           style: TextStyle(color: Colors.white, fontSize: 13),
           isExpanded: true,
           items: _entities

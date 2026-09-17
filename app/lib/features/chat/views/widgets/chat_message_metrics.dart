@@ -141,7 +141,9 @@ class _MetricTile extends StatelessWidget {
       decoration: BoxDecoration(
         color: const Color(0xFF1B1B1B),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor),
+        border: Border.all(
+            color:
+                Theme.of(context).extension<AppThemeExtension>()!.borderColor),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -172,8 +174,7 @@ class _MetricTile extends StatelessWidget {
               ),
             )
           else
-            SizedBox(
-                height: 4), // Placeholder to keep tile height consistent
+            SizedBox(height: 4), // Placeholder to keep tile height consistent
           SizedBox(height: 8),
           Text(
             _formatValue(),

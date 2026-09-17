@@ -14,7 +14,18 @@ from backend.storage.qdrant_client import QdrantStorageClient
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 
 
-def run_ingestion(config, text: str, schema: dict, tenant_id: str = "default", fast_extraction: bool = False, language: str = "en", custom_stop_words: list | None = None, model: str | None = None, chunk_size: int = 200, chunk_overlap: int = 50):
+def run_ingestion(
+    config,
+    text: str,
+    schema: dict,
+    tenant_id: str = "default",
+    fast_extraction: bool = False,
+    language: str = "en",
+    custom_stop_words: list | None = None,
+    model: str | None = None,
+    chunk_size: int = 200,
+    chunk_overlap: int = 50,
+):
     # 1. Initialize clients
     qdrant = QdrantStorageClient.from_config(config)
     neo4j = Neo4jStorageClient.from_config(config)
@@ -26,7 +37,9 @@ def run_ingestion(config, text: str, schema: dict, tenant_id: str = "default", f
     logging.info(f"Starting ingestion for tenant: {tenant_id}...")  # noqa: LOG015
 
     # 2. Chunk and embed
-    chunks_and_embeddings = chunk_and_embed(text, chunk_size=chunk_size, chunk_overlap=chunk_overlap)
+    chunks_and_embeddings = chunk_and_embed(
+        text, chunk_size=chunk_size, chunk_overlap=chunk_overlap
+    )
 
     vectors = [item[1] for item in chunks_and_embeddings]
     sparse_vectors = [item[2] for item in chunks_and_embeddings]
@@ -45,11 +58,17 @@ def run_ingestion(config, text: str, schema: dict, tenant_id: str = "default", f
 
     # 4. Extract entities and relations
     if fast_extraction:
-        logging.info(f"Using Fast Extraction (spaCy NLP) for entity extraction (Lang: {language}).")  # noqa: LOG015
-        entities, relations = extract_entities_and_relations_fast(text, schema, language, custom_stop_words or [])
+        logging.info(  # noqa: LOG015
+            f"Using Fast Extraction (spaCy NLP) for entity extraction (Lang: {language})."
+        )
+        entities, relations = extract_entities_and_relations_fast(
+            text, schema, language, custom_stop_words or []
+        )
     else:
         logging.info("Using Deep Extraction (LLM) for entity extraction.")  # noqa: LOG015
-        entities, relations = extract_entities_and_relations(text, schema, model_name=model)
+        entities, relations = extract_entities_and_relations(
+            text, schema, model_name=model
+        )
 
     # Resolve entities to deduplicate and get alias mapping
     entities, alias_to_canonical = resolve_entities(entities)
@@ -59,19 +78,21 @@ def run_ingestion(config, text: str, schema: dict, tenant_id: str = "default", f
     for rel in relations:
         from_entity = alias_to_canonical.get(rel["from_entity"], rel["from_entity"])
         to_entity = alias_to_canonical.get(rel["to_entity"], rel["to_entity"])
-        rewritten_relations.append({
-            "from_entity": from_entity,
-            "to_entity": to_entity,
-            "type": rel["type"]
-        })
+        rewritten_relations.append(
+            {"from_entity": from_entity, "to_entity": to_entity, "type": rel["type"]}
+        )
 
     payload = IngestionPayload(
-        entities=entities, relations=rewritten_relations, qdrant_point_ids=qdrant_point_ids
+        entities=entities,
+        relations=rewritten_relations,
+        qdrant_point_ids=qdrant_point_ids,
     )
 
     # 5. Write to Neo4j
-    entity_id_map, qdrant_id_to_neo4j_ids = write_to_graph(neo4j, payload, tenant_id=tenant_id)
-    
+    entity_id_map, qdrant_id_to_neo4j_ids = write_to_graph(
+        neo4j, payload, tenant_id=tenant_id
+    )
+
     # 6. Critical Link: Update Qdrant points with their corresponding Neo4j Node IDs
     for q_id, n_ids in qdrant_id_to_neo4j_ids.items():
         qdrant.client.set_payload(
@@ -95,21 +116,26 @@ def run_ingestion(config, text: str, schema: dict, tenant_id: str = "default", f
 def main():
     config = get_config()
     import os
-    
+
     # ⚠️ ARCHITECTURE NOTE FOR PRODUCTION ⚠️
-    # The current 'graphrag_test_corpus.txt' is a tiny 300-word file meant ONLY for fast CI/CD pipeline checks. 
-    # To properly test RAG (Reciprocal Rank Fusion, Context Precision/Recall), you must replace this file 
+    # The current 'graphrag_test_corpus.txt' is a tiny 300-word file meant ONLY for fast CI/CD pipeline checks.
+    # To properly test RAG (Reciprocal Rank Fusion, Context Precision/Recall), you must replace this file
     # with a massive, unstructured text corpus (e.g., the 'Paul Graham Essays' dataset or a 50-page PDF).
     # You must also inject a "Needle In A Haystack" fact into that corpus and update `dataset.json` to query it.
-    
-    corpus_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "tests", "data", "graphrag_test_corpus.txt")
+
+    corpus_path = os.path.join(
+        os.path.dirname(os.path.dirname(__file__)),
+        "tests",
+        "data",
+        "graphrag_test_corpus.txt",
+    )
     with open(corpus_path, "r", encoding="utf-8") as f:
         text = f.read()
-        
+
     # For local CLI testing, we mock a schema since it is now strictly required.
     mock_schema = {
         "entities": ["Person", "Organization", "Location"],
-        "relations": {"Person": {"Organization": ["WORKS_AT"]}}
+        "relations": {"Person": {"Organization": ["WORKS_AT"]}},
     }
     run_ingestion(config, text, schema=mock_schema)
 

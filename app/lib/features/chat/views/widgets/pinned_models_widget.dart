@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
 
-
 class PinnedModelsWidget extends StatefulWidget {
   final List<String> pinnedModels;
   final String selectedModel;
@@ -76,7 +75,11 @@ class _PinnedModelsWidgetState extends State<PinnedModelsWidget> {
                 margin: EdgeInsets.only(bottom: 2),
                 padding: EdgeInsets.symmetric(horizontal: 6),
                 decoration: BoxDecoration(
-                  color: isActive ? Theme.of(context).extension<AppThemeExtension>()!.surfaceHighlight : Colors.transparent,
+                  color: isActive
+                      ? Theme.of(context)
+                          .extension<AppThemeExtension>()!
+                          .surfaceHighlight
+                      : Colors.transparent,
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Row(
@@ -91,7 +94,9 @@ class _PinnedModelsWidgetState extends State<PinnedModelsWidget> {
                             fontSize: 12,
                             color: isActive
                                 ? Colors.white
-                                : Theme.of(context).extension<AppThemeExtension>()!.textTertiary),
+                                : Theme.of(context)
+                                    .extension<AppThemeExtension>()!
+                                    .textTertiary),
                       ),
                     ),
                     if (isHovered)
@@ -102,7 +107,10 @@ class _PinnedModelsWidgetState extends State<PinnedModelsWidget> {
                         child: Tooltip(
                           message: 'Unpin',
                           child: Icon(Icons.push_pin,
-                              color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary, size: 12),
+                              color: Theme.of(context)
+                                  .extension<AppThemeExtension>()!
+                                  .textTertiary,
+                              size: 12),
                         ),
                       ),
                   ],

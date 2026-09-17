@@ -5,7 +5,6 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
 
-
 class AgenticToolLog extends StatefulWidget {
   final ToolEvent event;
 
@@ -27,7 +26,9 @@ class _AgenticToolLogState extends State<AgenticToolLog> {
       decoration: BoxDecoration(
         color: Theme.of(context).extension<AppThemeExtension>()!.cardBackground,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor),
+        border: Border.all(
+            color:
+                Theme.of(context).extension<AppThemeExtension>()!.borderColor),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -48,13 +49,17 @@ class _AgenticToolLogState extends State<AgenticToolLog> {
                         ? Icons.keyboard_arrow_down
                         : Icons.keyboard_arrow_right,
                     size: 16,
-                    color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary,
+                    color: Theme.of(context)
+                        .extension<AppThemeExtension>()!
+                        .textTertiary,
                   ),
                   SizedBox(width: 8),
                   Text(
                     '> ${widget.event.name}',
                     style: TextStyle(
-                      color: Theme.of(context).extension<AppThemeExtension>()!.iconColor,
+                      color: Theme.of(context)
+                          .extension<AppThemeExtension>()!
+                          .iconColor,
                       fontSize: 13,
                       fontFamily: 'monospace',
                     ),
@@ -66,14 +71,20 @@ class _AgenticToolLogState extends State<AgenticToolLog> {
                       height: 12,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        valueColor:
-                            AlwaysStoppedAnimation<Color>(Theme.of(context).extension<AppThemeExtension>()!.textTertiary),
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                            Theme.of(context)
+                                .extension<AppThemeExtension>()!
+                                .textTertiary),
                       ),
                     )
                         .animate(onPlay: (controller) => controller.repeat())
                         .shimmer(duration: 1.seconds, color: Colors.white30)
                   else
-                    Icon(Icons.check, size: 14, color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary),
+                    Icon(Icons.check,
+                        size: 14,
+                        color: Theme.of(context)
+                            .extension<AppThemeExtension>()!
+                            .textTertiary),
                 ],
               ),
             ),
@@ -83,7 +94,11 @@ class _AgenticToolLogState extends State<AgenticToolLog> {
               width: double.infinity,
               padding: EdgeInsets.all(12),
               decoration: BoxDecoration(
-                border: Border(top: BorderSide(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor)),
+                border: Border(
+                    top: BorderSide(
+                        color: Theme.of(context)
+                            .extension<AppThemeExtension>()!
+                            .borderColor)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -91,13 +106,17 @@ class _AgenticToolLogState extends State<AgenticToolLog> {
                   if (widget.event.name.contains('web_search')) ...[
                     Text('Query: "${widget.event.args['query'] ?? ''}"',
                         style: TextStyle(
-                            color: Theme.of(context).extension<AppThemeExtension>()!.iconColor,
+                            color: Theme.of(context)
+                                .extension<AppThemeExtension>()!
+                                .iconColor,
                             fontSize: 13,
                             fontStyle: FontStyle.italic)),
                     SizedBox(height: 12),
                     Text('Sources Retrieved:',
                         style: TextStyle(
-                            color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary,
+                            color: Theme.of(context)
+                                .extension<AppThemeExtension>()!
+                                .textTertiary,
                             fontSize: 12,
                             fontWeight: FontWeight.bold)),
                     SizedBox(height: 8),
@@ -106,11 +125,16 @@ class _AgenticToolLogState extends State<AgenticToolLog> {
                     else
                       Text('...',
                           style: TextStyle(
-                              color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary, fontSize: 12)),
+                              color: Theme.of(context)
+                                  .extension<AppThemeExtension>()!
+                                  .textTertiary,
+                              fontSize: 12)),
                   ] else ...[
                     Text('Arguments:',
                         style: TextStyle(
-                            color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary,
+                            color: Theme.of(context)
+                                .extension<AppThemeExtension>()!
+                                .textTertiary,
                             fontSize: 12,
                             fontWeight: FontWeight.bold)),
                     SizedBox(height: 4),
@@ -118,14 +142,18 @@ class _AgenticToolLogState extends State<AgenticToolLog> {
                       const JsonEncoder.withIndent('  ')
                           .convert(widget.event.args),
                       style: TextStyle(
-                          color: Theme.of(context).extension<AppThemeExtension>()!.iconColor,
+                          color: Theme.of(context)
+                              .extension<AppThemeExtension>()!
+                              .iconColor,
                           fontSize: 12,
                           fontFamily: 'monospace'),
                     ),
                     SizedBox(height: 12),
                     Text('Result:',
                         style: TextStyle(
-                            color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary,
+                            color: Theme.of(context)
+                                .extension<AppThemeExtension>()!
+                                .textTertiary,
                             fontSize: 12,
                             fontWeight: FontWeight.bold)),
                     SizedBox(height: 4),
@@ -136,7 +164,9 @@ class _AgenticToolLogState extends State<AgenticToolLog> {
                             : const JsonEncoder.withIndent('  ')
                                 .convert(widget.event.result),
                         style: TextStyle(
-                            color: Theme.of(context).extension<AppThemeExtension>()!.iconColor,
+                            color: Theme.of(context)
+                                .extension<AppThemeExtension>()!
+                                .iconColor,
                             fontSize: 12,
                             fontFamily: 'monospace'),
                         maxLines: 10,
@@ -145,7 +175,10 @@ class _AgenticToolLogState extends State<AgenticToolLog> {
                     else
                       Text('...',
                           style: TextStyle(
-                              color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary, fontSize: 12)),
+                              color: Theme.of(context)
+                                  .extension<AppThemeExtension>()!
+                                  .textTertiary,
+                              fontSize: 12)),
                   ]
                 ],
               ),
@@ -167,7 +200,11 @@ class _AgenticToolLogState extends State<AgenticToolLog> {
         // Not JSON
         return [
           Text(result.toString(),
-              style: TextStyle(color: Theme.of(context).extension<AppThemeExtension>()!.iconColor, fontSize: 12))
+              style: TextStyle(
+                  color: Theme.of(context)
+                      .extension<AppThemeExtension>()!
+                      .iconColor,
+                  fontSize: 12))
         ];
       }
     } else if (result is List) {

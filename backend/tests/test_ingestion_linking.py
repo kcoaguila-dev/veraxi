@@ -8,24 +8,32 @@ from backend.storage.qdrant_client import QdrantStorageClient
 def _verify_neo4j_nodes_have_qdrant_ids(nodes: list[dict]) -> set[str]:
     qdrant_ids_from_neo4j = set()
     for node in nodes:
-        assert node.get("qdrant_point_id") is not None, f"Node {node['id']} is missing qdrant_point_id"
+        assert node.get("qdrant_point_id") is not None, (
+            f"Node {node['id']} is missing qdrant_point_id"
+        )
         qdrant_ids_from_neo4j.add(node["qdrant_point_id"])
     return qdrant_ids_from_neo4j
 
-def _verify_qdrant_points_exist(qdrant, collection_name: str, qdrant_ids_from_neo4j: set[str]):
+
+def _verify_qdrant_points_exist(
+    qdrant, collection_name: str, qdrant_ids_from_neo4j: set[str]
+):
     points = qdrant.get_points(collection_name, list(qdrant_ids_from_neo4j))
     found_qdrant_ids = {p["id"] for p in points}
     for q_id in qdrant_ids_from_neo4j:
-        assert q_id in found_qdrant_ids, f"Qdrant point {q_id} referenced by Neo4j does not exist in Qdrant"
+        assert q_id in found_qdrant_ids, (
+            f"Qdrant point {q_id} referenced by Neo4j does not exist in Qdrant"
+        )
 
-def _verify_all_qdrant_points_in_neo4j(qdrant, collection_name: str, qdrant_ids_from_neo4j: set[str]):
+
+def _verify_all_qdrant_points_in_neo4j(
+    qdrant, collection_name: str, qdrant_ids_from_neo4j: set[str]
+):
     all_qdrant_points = []
     next_page_offset = None
     while True:
         scroll_result = qdrant.client.scroll(
-            collection_name=collection_name,
-            limit=100,
-            offset=next_page_offset
+            collection_name=collection_name, limit=100, offset=next_page_offset
         )
         points, next_page_offset = scroll_result[0], scroll_result[1]
         all_qdrant_points.extend(points)
@@ -34,7 +42,10 @@ def _verify_all_qdrant_points_in_neo4j(qdrant, collection_name: str, qdrant_ids_
 
     all_qdrant_ids = {p.id for p in all_qdrant_points}
     for q_id in all_qdrant_ids:
-        assert q_id in qdrant_ids_from_neo4j, f"Qdrant point {q_id} is missing from Neo4j nodes"
+        assert q_id in qdrant_ids_from_neo4j, (
+            f"Qdrant point {q_id} is missing from Neo4j nodes"
+        )
+
 
 @pytest.mark.integration
 def test_ingestion_linking(patch_env):

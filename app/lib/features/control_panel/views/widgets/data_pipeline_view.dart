@@ -4,7 +4,6 @@ import 'package:veraxi_app/features/control_panel/views/widgets/ingestion_card.d
 import 'package:veraxi_app/features/control_panel/views/widgets/database_monitor_card.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
 
-
 class DataPipelineView extends StatelessWidget {
   const DataPipelineView({super.key});
 
@@ -20,7 +19,10 @@ class DataPipelineView extends StatelessWidget {
         SizedBox(height: 8),
         Text(
           'Manage your custom knowledge base.',
-          style: TextStyle(color: Theme.of(context).extension<AppThemeExtension>()!.iconColor, fontSize: 14),
+          style: TextStyle(
+              color:
+                  Theme.of(context).extension<AppThemeExtension>()!.iconColor,
+              fontSize: 14),
         ),
         SizedBox(height: 32),
         const SchemaCard(),
@@ -35,7 +37,10 @@ class DataPipelineView extends StatelessWidget {
         SizedBox(height: 8),
         Text(
           'Launch web dashboards to inspect the raw databases.',
-          style: TextStyle(color: Theme.of(context).extension<AppThemeExtension>()!.iconColor, fontSize: 14),
+          style: TextStyle(
+              color:
+                  Theme.of(context).extension<AppThemeExtension>()!.iconColor,
+              fontSize: 14),
         ),
         SizedBox(height: 16),
         Row(

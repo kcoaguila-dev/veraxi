@@ -6,9 +6,8 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:veraxi_app/features/chat/views/widgets/chat_input.dart';
 
 void main() {
-  Widget wrap(Widget child) => MaterialApp(
-      theme: AppTheme.lightTheme,
-home: Scaffold(body: child));
+  Widget wrap(Widget child) =>
+      MaterialApp(theme: AppTheme.lightTheme, home: Scaffold(body: child));
 
   group('ChatInput', () {
     testWidgets('shows a text field and send button when there is no error',

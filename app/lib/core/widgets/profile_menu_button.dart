@@ -10,7 +10,6 @@ import 'package:veraxi_app/features/settings/views/widgets/archived_chats_dialog
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
 
-
 // Resolved at compile time via --dart-define=IS_SELF_HOSTED=true
 // Defaults to true so local dev / self-hosted builds work without Supabase auth.
 const bool _isSelfHosted =
@@ -77,10 +76,13 @@ class _ProfileMenuButtonState extends ConsumerState<ProfileMenuButton> {
   @override
   Widget build(BuildContext context) {
     final menuStyle = MenuStyle(
-      backgroundColor: WidgetStatePropertyAll(Theme.of(context).extension<AppThemeExtension>()!.sidebarBackground),
+      backgroundColor: WidgetStatePropertyAll(
+          Theme.of(context).extension<AppThemeExtension>()!.sidebarBackground),
       shape: WidgetStatePropertyAll(RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor),
+        side: BorderSide(
+            color:
+                Theme.of(context).extension<AppThemeExtension>()!.borderColor),
       )),
       padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 8)),
     );
@@ -111,7 +113,9 @@ class _ProfileMenuButtonState extends ConsumerState<ProfileMenuButton> {
             width: 36,
             height: 36,
             decoration: BoxDecoration(
-              color: Theme.of(context).extension<AppThemeExtension>()!.surfaceHighlight,
+              color: Theme.of(context)
+                  .extension<AppThemeExtension>()!
+                  .surfaceHighlight,
               shape: BoxShape.circle,
             ),
             child: Center(
@@ -142,7 +146,10 @@ class _ProfileMenuButtonState extends ConsumerState<ProfileMenuButton> {
             style: TextStyle(color: Color(0xFFECECEC), fontSize: 13),
           ),
         ),
-        Divider(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor, height: 1),
+        Divider(
+            color:
+                Theme.of(context).extension<AppThemeExtension>()!.borderColor,
+            height: 1),
         SubmenuButton(
           style: itemStyle,
           menuStyle: menuStyle,
@@ -266,7 +273,10 @@ class _ProfileMenuButtonState extends ConsumerState<ProfileMenuButton> {
             ],
           ),
         ),
-        Divider(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor, height: 1),
+        Divider(
+            color:
+                Theme.of(context).extension<AppThemeExtension>()!.borderColor,
+            height: 1),
         MenuItemButton(
           style: itemStyle,
           onPressed: () {},

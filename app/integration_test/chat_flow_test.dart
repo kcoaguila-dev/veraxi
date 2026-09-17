@@ -20,8 +20,11 @@ import 'package:veraxi_app/core/repositories/memory_repository.dart';
 class MockAuthRepository extends Mock implements AuthRepository {}
 
 class MockChatRepository extends Mock implements ChatRepository {}
+
 class MockModelConfigRepository extends Mock implements ModelConfigRepository {}
+
 class MockProjectRepository extends Mock implements ProjectRepository {}
+
 class MockMemoryRepository extends Mock implements MemoryRepository {}
 
 class MockUser extends Mock implements User {}
@@ -60,11 +63,12 @@ void main() {
 
     when(() => mockAuthRepo.currentUser).thenReturn(null);
 
-    when(() => mockModelConfigRepo.getProviderModels()).thenAnswer((_) async => {
-          'OpenAI': ['gpt-4o', 'gpt-4o-mini'],
-          'Anthropic': ['Claude 3.5 Sonnet', 'Claude 3 Opus'],
-          'Google': ['gemini-1.5-pro']
-        });
+    when(() => mockModelConfigRepo.getProviderModels())
+        .thenAnswer((_) async => {
+              'OpenAI': ['gpt-4o', 'gpt-4o-mini'],
+              'Anthropic': ['Claude 3.5 Sonnet', 'Claude 3 Opus'],
+              'Google': ['gemini-1.5-pro']
+            });
 
     when(() => mockChatRepo.getThreads()).thenAnswer((_) async => []);
     when(() => mockProjectRepo.getProjects()).thenAnswer((_) async => []);

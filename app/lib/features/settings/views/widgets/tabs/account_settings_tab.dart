@@ -15,11 +15,13 @@ class AccountSettingsTab extends StatelessWidget {
       children: [
         SettingsUI.buildSectionHeader(context, 'PROFILE'),
         SettingsUI.buildSettingsGroup(context, [
-          SettingsUI.buildActionRow(context, 'Profile Picture', 'Update your avatar', 'Change'),
+          SettingsUI.buildActionRow(
+              context, 'Profile Picture', 'Update your avatar', 'Change'),
           SettingsUI.buildActionRow(context, 'Email Address', email, 'Update'),
         ]),
         const SizedBox(height: 32),
-        SettingsUI.buildSectionHeader(context, 'DANGER ZONE', isDestructive: true),
+        SettingsUI.buildSectionHeader(context, 'DANGER ZONE',
+            isDestructive: true),
         SettingsUI.buildSettingsGroup(context, [
           SettingsUI.buildActionRow(context, 'Delete account',
               'Permanently remove your account and data', 'Delete',

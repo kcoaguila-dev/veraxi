@@ -5,7 +5,6 @@ import 'package:veraxi_app/core/repositories/file_repository.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
 
-
 class MyFilesDialog extends ConsumerStatefulWidget {
   const MyFilesDialog({super.key});
 
@@ -78,10 +77,13 @@ class _MyFilesDialogState extends ConsumerState<MyFilesDialog> {
     }).toList();
 
     return Dialog(
-      backgroundColor: Theme.of(context).extension<AppThemeExtension>()!.sidebarBackground,
+      backgroundColor:
+          Theme.of(context).extension<AppThemeExtension>()!.sidebarBackground,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
-        side: BorderSide(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor),
+        side: BorderSide(
+            color:
+                Theme.of(context).extension<AppThemeExtension>()!.borderColor),
       ),
       insetPadding: EdgeInsets.symmetric(horizontal: 24, vertical: 24),
       child: Container(
@@ -138,31 +140,34 @@ class _MyFilesDialogState extends ConsumerState<MyFilesDialog> {
                     elevation: 0,
                     side: BorderSide(
                         color: _selectedIds.isEmpty
-                            ? Theme.of(context).extension<AppThemeExtension>()!.borderColor
+                            ? Theme.of(context)
+                                .extension<AppThemeExtension>()!
+                                .borderColor
                             : const Color(0xFFEF4444).withValues(alpha: 0.5)),
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(6)),
-                    padding: EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 12),
+                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   ),
                 ),
                 SizedBox(width: 16),
                 Expanded(
                   child: TextField(
                     onChanged: (val) => setState(() => _searchQuery = val),
-                    style:
-                        TextStyle(color: Color(0xFFECECEC), fontSize: 14),
+                    style: TextStyle(color: Color(0xFFECECEC), fontSize: 14),
                     decoration: InputDecoration(
                       hintText: 'Filter files...',
                       hintStyle: TextStyle(color: Color(0xFF888888)),
                       isDense: true,
-                      contentPadding: EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 12),
+                      contentPadding:
+                          EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                       filled: true,
                       fillColor: Colors.transparent,
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(6),
-                        borderSide: BorderSide(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor),
+                        borderSide: BorderSide(
+                            color: Theme.of(context)
+                                .extension<AppThemeExtension>()!
+                                .borderColor),
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(6),
@@ -174,7 +179,10 @@ class _MyFilesDialogState extends ConsumerState<MyFilesDialog> {
                 SizedBox(width: 16),
                 Container(
                   decoration: BoxDecoration(
-                    border: Border.all(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor),
+                    border: Border.all(
+                        color: Theme.of(context)
+                            .extension<AppThemeExtension>()!
+                            .borderColor),
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: IconButton(
@@ -189,10 +197,15 @@ class _MyFilesDialogState extends ConsumerState<MyFilesDialog> {
             SizedBox(height: 24),
             Container(
               decoration: BoxDecoration(
-                border: Border.all(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor),
+                border: Border.all(
+                    color: Theme.of(context)
+                        .extension<AppThemeExtension>()!
+                        .borderColor),
                 borderRadius: const BorderRadius.only(
                     topLeft: Radius.circular(6), topRight: Radius.circular(6)),
-                color: Theme.of(context).extension<AppThemeExtension>()!.cardBackground,
+                color: Theme.of(context)
+                    .extension<AppThemeExtension>()!
+                    .cardBackground,
               ),
               padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               child: Row(
@@ -230,9 +243,18 @@ class _MyFilesDialogState extends ConsumerState<MyFilesDialog> {
               child: Container(
                 decoration: BoxDecoration(
                   border: Border(
-                    left: BorderSide(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor),
-                    right: BorderSide(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor),
-                    bottom: BorderSide(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor),
+                    left: BorderSide(
+                        color: Theme.of(context)
+                            .extension<AppThemeExtension>()!
+                            .borderColor),
+                    right: BorderSide(
+                        color: Theme.of(context)
+                            .extension<AppThemeExtension>()!
+                            .borderColor),
+                    bottom: BorderSide(
+                        color: Theme.of(context)
+                            .extension<AppThemeExtension>()!
+                            .borderColor),
                   ),
                   borderRadius: BorderRadius.only(
                       bottomLeft: Radius.circular(6),
@@ -255,9 +277,11 @@ class _MyFilesDialogState extends ConsumerState<MyFilesDialog> {
                               )
                             : ListView.separated(
                                 itemCount: filteredFiles.length,
-                                separatorBuilder: (context, index) =>
-                                    Divider(
-                                        color: Theme.of(context).extension<AppThemeExtension>()!.borderColor, height: 1),
+                                separatorBuilder: (context, index) => Divider(
+                                    color: Theme.of(context)
+                                        .extension<AppThemeExtension>()!
+                                        .borderColor,
+                                    height: 1),
                                 itemBuilder: (context, index) {
                                   final file = filteredFiles[index];
                                   final id = file['id'].toString();
@@ -290,8 +314,9 @@ class _MyFilesDialogState extends ConsumerState<MyFilesDialog> {
                                             },
                                             side: BorderSide(
                                                 color: Color(0xFF666666)),
-                                            activeColor:
-                                                Theme.of(context).colorScheme.primary,
+                                            activeColor: Theme.of(context)
+                                                .colorScheme
+                                                .primary,
                                           ),
                                         ),
                                         SizedBox(width: 16),
@@ -356,8 +381,7 @@ class _MyFilesDialogState extends ConsumerState<MyFilesDialog> {
               children: [
                 Text(
                   '${_selectedIds.length} of ${filteredFiles.length} item(s) selected',
-                  style:
-                      TextStyle(color: Color(0xFF888888), fontSize: 12),
+                  style: TextStyle(color: Color(0xFF888888), fontSize: 12),
                 ),
                 Row(
                   children: [
@@ -371,9 +395,12 @@ class _MyFilesDialogState extends ConsumerState<MyFilesDialog> {
                       onPressed: null,
                       style: OutlinedButton.styleFrom(
                         foregroundColor: const Color(0xFF888888),
-                        side: BorderSide(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor),
-                        padding: EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 8),
+                        side: BorderSide(
+                            color: Theme.of(context)
+                                .extension<AppThemeExtension>()!
+                                .borderColor),
+                        padding:
+                            EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                         minimumSize: Size.zero,
                       ),
                       child: Text('Prev', style: TextStyle(fontSize: 12)),
@@ -383,9 +410,12 @@ class _MyFilesDialogState extends ConsumerState<MyFilesDialog> {
                       onPressed: null,
                       style: OutlinedButton.styleFrom(
                         foregroundColor: const Color(0xFF888888),
-                        side: BorderSide(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor),
-                        padding: EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 8),
+                        side: BorderSide(
+                            color: Theme.of(context)
+                                .extension<AppThemeExtension>()!
+                                .borderColor),
+                        padding:
+                            EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                         minimumSize: Size.zero,
                       ),
                       child: Text('Next', style: TextStyle(fontSize: 12)),

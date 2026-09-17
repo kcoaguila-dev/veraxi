@@ -5,6 +5,7 @@ import httpx
 
 logger = logging.getLogger(__name__)
 
+
 async def moderate_text(text: str, api_key: str | None = None) -> bool:
     """
     Calls the free OpenAI Moderation API to check if the text violates safety policies.
@@ -16,32 +17,34 @@ async def moderate_text(text: str, api_key: str | None = None) -> bool:
     if not key:
         logger.debug("No OpenAI API key available for moderation. Skipping.")
         return False
-        
+
     try:
         async with httpx.AsyncClient() as client:
             response = await client.post(
                 "https://api.openai.com/v1/moderations",
                 headers={
                     "Authorization": f"Bearer {key}",
-                    "Content-Type": "application/json"
+                    "Content-Type": "application/json",
                 },
                 json={"input": text},
-                timeout=5.0
+                timeout=5.0,
             )
             response.raise_for_status()
             data = response.json()
-            
+
             # The API returns a list of results (one per input string)
             results = data.get("results", [])
             if results:
                 is_flagged = results[0].get("flagged", False)
                 if is_flagged:
-                    logger.warning(f"Text flagged by moderation API. Categories: {results[0].get('categories')}")
+                    logger.warning(
+                        f"Text flagged by moderation API. Categories: {results[0].get('categories')}"
+                    )
                 return is_flagged
-                
+
     except Exception as e:  # noqa: BLE001
         logger.error(f"Error calling moderation API: {e}")
         # Fail open
         return False
-        
+
     return False

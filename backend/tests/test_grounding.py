@@ -18,28 +18,30 @@ def test_grounding_success(mock_openai_class, mock_get_config):
     # Mock OpenAI client and response
     mock_client = MagicMock()
     mock_openai_class.return_value = mock_client
-    
+
     mock_response = MagicMock()
     mock_choice = MagicMock()
     mock_choice.message.content = json.dumps({"score": 0.85, "reasoning": "Test"})
     mock_response.choices = [mock_choice]
-    
+
     mock_client.chat.completions.create.return_value = mock_response
 
     score = evaluate_groundedness("Response text", "Context text")
-    
+
     assert score == 0.85
     mock_client.chat.completions.create.assert_called_once()
 
 
 @patch("backend.evaluation.grounding.get_config")
 @patch("backend.evaluation.grounding.OpenAI")
-def test_grounding_missing_credentials_fails_gracefully(mock_openai_class, mock_get_config):
+def test_grounding_missing_credentials_fails_gracefully(
+    mock_openai_class, mock_get_config
+):
     # Mock OpenAI instantiation to throw missing credentials error
     mock_openai_class.side_effect = OpenAIError("Missing credentials")
-    
+
     score = evaluate_groundedness("Response text", "Context text")
-    
+
     # Should safely catch the error and return 0.0
     assert score == 0.0
 

@@ -20,6 +20,7 @@ from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 
 logger = logging.getLogger(__name__)
 
+
 async def generate_chat_title(
     question: str,
     api_key_override: str | None = None,
@@ -131,8 +132,6 @@ async def answer_question(
     if return_metrics:
         return final_answer, metrics
     return final_answer
-
-
 
 
 def _handle_chat_model_end(event: dict) -> list[dict]:
@@ -365,6 +364,3 @@ async def stream_answer_question(
         _request_api_key.reset(token_api)
         _request_base_url.reset(token_base_url)
         _request_model.reset(token_model)
-
-
-

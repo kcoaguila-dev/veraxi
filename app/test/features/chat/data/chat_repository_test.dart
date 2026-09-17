@@ -20,7 +20,8 @@ void main() {
     FlutterSecureStorage.setMockInitialValues({});
     mockHttpClient = MockHttpClient();
     apiClient = ApiClient(client: mockHttpClient, baseUrl: 'http://test.com');
-    repository = ChatRepository(apiClient: apiClient, apiKeyStorage: ApiKeyStorage());
+    repository =
+        ChatRepository(apiClient: apiClient, apiKeyStorage: ApiKeyStorage());
     registerFallbackValue(Uri.parse('http://test.com'));
   });
 

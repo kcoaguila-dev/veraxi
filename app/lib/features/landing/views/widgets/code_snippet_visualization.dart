@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
 
-
 class CodeSnippetVisualization extends StatelessWidget {
   const CodeSnippetVisualization({super.key});
 
@@ -18,7 +17,11 @@ class CodeSnippetVisualization extends StatelessWidget {
         child: Container(
           width: 800,
           decoration: BoxDecoration(
-            color: isDark ? Theme.of(context).extension<AppThemeExtension>()!.cardBackground : const Color(0xFFF5F5F5),
+            color: isDark
+                ? Theme.of(context)
+                    .extension<AppThemeExtension>()!
+                    .cardBackground
+                : const Color(0xFFF5F5F5),
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
                 color: theme.colorScheme.outline.withValues(alpha: 0.3)),
@@ -34,8 +37,7 @@ class CodeSnippetVisualization extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
-                padding:
-                    EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 decoration: BoxDecoration(
                   border: Border(
                       bottom: BorderSide(
@@ -70,7 +72,9 @@ class CodeSnippetVisualization extends StatelessWidget {
                       height: 1.6,
                       color: isDark
                           ? const Color(0xFFD4D4D4)
-                          : Theme.of(context).extension<AppThemeExtension>()!.borderColorStrong,
+                          : Theme.of(context)
+                              .extension<AppThemeExtension>()!
+                              .borderColorStrong,
                     ),
                     children: [
                       _buildToken('from ', theme.colorScheme.primary),

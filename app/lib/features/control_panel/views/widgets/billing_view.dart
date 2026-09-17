@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'pricing_tiers_dialog.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
 
-
 class BillingView extends StatelessWidget {
   const BillingView({Key? key}) : super(key: key);
 
@@ -25,7 +24,9 @@ class BillingView extends StatelessWidget {
           Text(
             'Manage your subscription and billing details.',
             style: TextStyle(
-              color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary,
+              color: Theme.of(context)
+                  .extension<AppThemeExtension>()!
+                  .textTertiary,
               fontSize: 14,
             ),
           ),
@@ -35,9 +36,14 @@ class BillingView extends StatelessWidget {
           Container(
             padding: EdgeInsets.all(32),
             decoration: BoxDecoration(
-              color: Theme.of(context).extension<AppThemeExtension>()!.dialogBackground, // Match Pic 2 aesthetic
+              color: Theme.of(context)
+                  .extension<AppThemeExtension>()!
+                  .dialogBackground, // Match Pic 2 aesthetic
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor),
+              border: Border.all(
+                  color: Theme.of(context)
+                      .extension<AppThemeExtension>()!
+                      .borderColor),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -49,8 +55,7 @@ class BillingView extends StatelessWidget {
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        Icon(Icons.eco_outlined,
-                            color: Colors.white, size: 36),
+                        Icon(Icons.eco_outlined, color: Colors.white, size: 36),
                         SizedBox(width: 16),
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -67,7 +72,9 @@ class BillingView extends StatelessWidget {
                             Text(
                               'Local-First & BYOK',
                               style: TextStyle(
-                                color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary,
+                                color: Theme.of(context)
+                                    .extension<AppThemeExtension>()!
+                                    .textTertiary,
                                 fontSize: 14,
                               ),
                             ),
@@ -80,8 +87,8 @@ class BillingView extends StatelessWidget {
                         backgroundColor: Colors.white,
                         foregroundColor: Colors.black,
                         elevation: 0,
-                        padding: EdgeInsets.symmetric(
-                            horizontal: 20, vertical: 12),
+                        padding:
+                            EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                         shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(8)),
                       ),
@@ -104,7 +111,8 @@ class BillingView extends StatelessWidget {
                 // Feature List
                 _buildFeatureRow(context, 'Bring your own LLM API Keys'),
                 _buildFeatureRow(context, 'Run your own local Neo4j & Qdrant'),
-                _buildFeatureRow(context, 'Basic chat, Web search, and iOS/Android'),
+                _buildFeatureRow(
+                    context, 'Basic chat, Web search, and iOS/Android'),
                 _buildFeatureRow(context, 'Generate code and visualize data'),
                 _buildFeatureRow(context, '50MB file upload limit'),
               ],
@@ -121,12 +129,17 @@ class BillingView extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Icon(Icons.check, color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary, size: 18),
+          Icon(Icons.check,
+              color: Theme.of(context)
+                  .extension<AppThemeExtension>()!
+                  .textTertiary,
+              size: 18),
           SizedBox(width: 12),
           Text(
             feature,
             style: TextStyle(
-              color: Theme.of(context).extension<AppThemeExtension>()!.iconColor,
+              color:
+                  Theme.of(context).extension<AppThemeExtension>()!.iconColor,
               fontSize: 15,
             ),
           ),

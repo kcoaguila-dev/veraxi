@@ -53,7 +53,9 @@ class Config:
             neo4j_password=_require("NEO4J_PASSWORD"),
             qdrant_url=_require("QDRANT_URL"),
             qdrant_api_key=os.environ.get("QDRANT_API_KEY"),
-            qdrant_collection_name=os.environ.get("QDRANT_COLLECTION_NAME", "veraxi_docs"),
+            qdrant_collection_name=os.environ.get(
+                "QDRANT_COLLECTION_NAME", "veraxi_docs"
+            ),
             llm_api_key=os.environ.get("LLM_API_KEY", ""),
             llm_base_url=os.environ.get("LLM_BASE_URL", ""),
             llm_model_name=os.environ.get("LLM_MODEL_NAME", ""),
@@ -62,11 +64,15 @@ class Config:
                 "EMBEDDING_MODEL_NAME", "text-embedding-004"
             ),
             sentry_dsn=os.environ.get("SENTRY_DSN", ""),
-            stripe_api_key=os.environ.get("STRIPE_SECRET_KEY", os.environ.get("STRIPE_API_KEY", "")),
+            stripe_api_key=os.environ.get(
+                "STRIPE_SECRET_KEY", os.environ.get("STRIPE_API_KEY", "")
+            ),
             stripe_webhook_secret=os.environ.get("STRIPE_WEBHOOK_SECRET", ""),
             supabase_url=os.environ.get("SUPABASE_URL", ""),
             supabase_service_key=os.environ.get("SUPABASE_SERVICE_KEY", ""),
-            postgres_url=os.environ.get("POSTGRES_URL", "postgresql://postgres:postgres@localhost:5432/postgres"),
+            postgres_url=os.environ.get(
+                "POSTGRES_URL", "postgresql://postgres:postgres@localhost:5432/postgres"
+            ),
             rate_limit_chat=os.environ.get("RATE_LIMIT_CHAT", "100/day"),
             rate_limit_ingest=os.environ.get("RATE_LIMIT_INGEST", "50/day"),
             rate_limit_sse=os.environ.get("RATE_LIMIT_SSE", "10/minute"),
@@ -77,13 +83,23 @@ class Config:
             auth_enabled=os.environ.get("AUTH_ENABLED", "true").lower() == "true",
             max_tenant_nodes=int(os.environ.get("MAX_TENANT_NODES", "1000")),
             cors_origins=os.environ.get("CORS_ORIGINS", "*"),
-            gpt_sovits_base_url=os.environ.get("GPT_SOVITS_BASE_URL", "http://localhost:9880"),
-            code_interpreter_url=os.environ.get("CODE_INTERPRETER_URL", "http://code_interpreter:8000/execute"),
+            gpt_sovits_base_url=os.environ.get(
+                "GPT_SOVITS_BASE_URL", "http://localhost:9880"
+            ),
+            code_interpreter_url=os.environ.get(
+                "CODE_INTERPRETER_URL", "http://code_interpreter:8000/execute"
+            ),
             is_enterprise=os.environ.get("IS_ENTERPRISE", "false").lower() == "true",
             help_faq_url=os.environ.get("HELP_FAQ_URL", "https://veraxi.ai/help"),
-            terms_of_service_url=os.environ.get("TERMS_OF_SERVICE_URL", "https://veraxi.ai/terms"),
-            privacy_policy_url=os.environ.get("PRIVACY_POLICY_URL", "https://veraxi.ai/privacy"),
-            internal_api_url=os.environ.get("INTERNAL_API_URL", "http://localhost:8000/api"),
+            terms_of_service_url=os.environ.get(
+                "TERMS_OF_SERVICE_URL", "https://veraxi.ai/terms"
+            ),
+            privacy_policy_url=os.environ.get(
+                "PRIVACY_POLICY_URL", "https://veraxi.ai/privacy"
+            ),
+            internal_api_url=os.environ.get(
+                "INTERNAL_API_URL", "http://localhost:8000/api"
+            ),
         )
 
     def get_llm_client_args(self, model_name: str | None = None) -> dict:
@@ -96,7 +112,9 @@ class Config:
         else:
             effective_model = model_name or self.llm_model_name
             if effective_model.startswith("gemini"):
-                args["base_url"] = "https://generativelanguage.googleapis.com/v1beta/openai/"
+                args["base_url"] = (
+                    "https://generativelanguage.googleapis.com/v1beta/openai/"
+                )
             elif effective_model.startswith(("gpt", "o1", "o3")):
                 pass  # Default to api.openai.com
             elif effective_model.startswith("deepseek"):
@@ -109,6 +127,7 @@ class Config:
                 # Fallback to groq for llama, mixtral, qwen, etc.
                 args["base_url"] = "https://api.groq.com/openai/v1"
         return args
+
 
 def _require(key: str) -> str:
     value = os.environ.get(key)

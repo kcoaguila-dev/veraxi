@@ -33,8 +33,7 @@ void main() {
               .overrideWith((ref) => MockChatViewModel(mockState)),
         ],
         child: MaterialApp(
-      theme: AppTheme.lightTheme,
-
+          theme: AppTheme.lightTheme,
           home: const Scaffold(body: ChatScreen()),
         ),
       ),
@@ -52,12 +51,17 @@ void main() {
 }
 
 class MockChatRepository extends Mock implements ChatRepository {}
+
 class MockTTSRepository extends Mock implements TTSRepository {}
+
 class MockMemoryRepository extends Mock implements MemoryRepository {}
+
 class MockProjectRepository extends Mock implements ProjectRepository {}
 
 class MockChatViewModel extends ChatViewModel {
-  MockChatViewModel(ChatState initialState) : super(MockChatRepository(), MockTTSRepository(), MockMemoryRepository()) {
+  MockChatViewModel(ChatState initialState)
+      : super(
+            MockChatRepository(), MockTTSRepository(), MockMemoryRepository()) {
     state = initialState;
   }
 
@@ -73,13 +77,8 @@ class MockChatViewModel extends ChatViewModel {
   @override
   Future<void> toggleTelemetry() async {}
 
-
-
-
   @override
   void startNewChatInProject([String? projectId]) {}
-
-
 
   @override
   Future<void> selectThread(String threadId) async {}
@@ -89,7 +88,6 @@ class MockChatViewModel extends ChatViewModel {
 
   @override
   void clearError() {}
-
 
   @override
   Future<void> saveToMemory(String content, {String? model}) async {}
@@ -105,7 +103,6 @@ class MockChatViewModel extends ChatViewModel {
           #sendMessage, [text], {#attachments: attachments, #model: model}),
     );
   }
-
 
   @override
   Future<void> submitFeedback(String messageId, int value) async {}
@@ -124,5 +121,4 @@ class MockChatViewModel extends ChatViewModel {
   Future<String?> duplicateThread(String threadId) async => null;
   @override
   Future<String?> shareThread(String threadId) async => null;
-
 }

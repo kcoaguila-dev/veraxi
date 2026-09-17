@@ -8,6 +8,7 @@ Rules:
 - The raw key is returned exactly once at creation time and then discarded.
 - Key format: vx-<32 random hex chars>  (prefix makes them grep-able in config files)
 """
+
 import hashlib
 import logging
 import secrets
@@ -58,6 +59,7 @@ def resolve_api_key(raw_key: str, supabase: Client) -> str:
 # Private helpers
 # ---------------------------------------------------------------------------
 
+
 def _hash_key(raw_key: str) -> str:
     """Return the hex SHA-256 digest of a raw key string."""
     return hashlib.sha256(raw_key.encode()).hexdigest()
@@ -70,8 +72,7 @@ def _lookup_hash(key_hash: str, supabase: Client) -> str:
     """
     try:
         response = (
-            supabase
-            .table("api_keys")
+            supabase.table("api_keys")
             .select("tenant_id, expires_at")
             .eq("key_hash", key_hash)
             .eq("is_active", True)
@@ -97,6 +98,7 @@ def _check_expiry(expires_at: str | None) -> None:
         return  # permanent key
 
     from datetime import datetime
+
     expiry = datetime.fromisoformat(expires_at)
     if datetime.now(UTC) > expiry:
         raise HTTPException(status_code=401, detail="API key has expired")
@@ -106,6 +108,7 @@ def _record_last_used(key_hash: str, supabase: Client) -> None:
     """Fire-and-forget update of last_used_at. Failures are logged, not raised."""
     try:
         from datetime import datetime
+
         supabase.table("api_keys").update(
             {"last_used_at": datetime.now(UTC).isoformat()}
         ).eq("key_hash", key_hash).execute()

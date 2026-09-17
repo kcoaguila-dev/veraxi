@@ -5,7 +5,6 @@ import 'package:file_picker/file_picker.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
 
-
 class AgentSkillsView extends StatefulWidget {
   const AgentSkillsView({super.key});
 
@@ -72,9 +71,9 @@ class _AgentSkillsViewState extends State<AgentSkillsView> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          backgroundColor: Theme.of(context).extension<AppThemeExtension>()!.cardBackground,
-          title: Text('Add Agent Skill',
-              style: TextStyle(color: Colors.white)),
+          backgroundColor:
+              Theme.of(context).extension<AppThemeExtension>()!.cardBackground,
+          title: Text('Add Agent Skill', style: TextStyle(color: Colors.white)),
           content: SizedBox(
             width: 400,
             child: Column(
@@ -155,7 +154,8 @@ class _AgentSkillsViewState extends State<AgentSkillsView> {
       setState(() {
         _skills.add({
           'id': DateTime.now().millisecondsSinceEpoch.toString(),
-          'name': result.files.single.name.replaceAll(RegExp(r'\.(md|txt)$'), ''),
+          'name':
+              result.files.single.name.replaceAll(RegExp(r'\.(md|txt)$'), ''),
           'description': 'Uploaded via file',
           'instructions': 'Imported instructions...', // Placeholder
           'enabled': true,
@@ -193,8 +193,10 @@ class _AgentSkillsViewState extends State<AgentSkillsView> {
                 SizedBox(height: 8),
                 Text(
                     'Manage custom instructions and workflows for the AI models.',
-                    style: theme.textTheme.bodyLarge
-                        ?.copyWith(color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary)),
+                    style: theme.textTheme.bodyLarge?.copyWith(
+                        color: Theme.of(context)
+                            .extension<AppThemeExtension>()!
+                            .textTertiary)),
               ],
             ),
             PopupMenuButton<String>(
@@ -205,23 +207,30 @@ class _AgentSkillsViewState extends State<AgentSkillsView> {
                   _handleUploadSkill();
                 }
               },
-              color: Theme.of(context).extension<AppThemeExtension>()!.cardBackground,
+              color: Theme.of(context)
+                  .extension<AppThemeExtension>()!
+                  .cardBackground,
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8)),
               child: Container(
-                padding:
-                    EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 decoration: BoxDecoration(
                   color: const Color(0xFFE3E3E3),
                   borderRadius: BorderRadius.circular(24),
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.add, size: 18, color: Theme.of(context).extension<AppThemeExtension>()!.sidebarBackground),
+                    Icon(Icons.add,
+                        size: 18,
+                        color: Theme.of(context)
+                            .extension<AppThemeExtension>()!
+                            .sidebarBackground),
                     SizedBox(width: 4),
                     Text('Add Skill',
                         style: TextStyle(
-                            color: Theme.of(context).extension<AppThemeExtension>()!.sidebarBackground,
+                            color: Theme.of(context)
+                                .extension<AppThemeExtension>()!
+                                .sidebarBackground,
                             fontWeight: FontWeight.w600)),
                   ],
                 ),
@@ -262,7 +271,10 @@ class _AgentSkillsViewState extends State<AgentSkillsView> {
             child: Padding(
               padding: EdgeInsets.all(32.0),
               child: Text('No skills configured.',
-                  style: TextStyle(color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary)),
+                  style: TextStyle(
+                      color: Theme.of(context)
+                          .extension<AppThemeExtension>()!
+                          .textTertiary)),
             ),
           )
         else
@@ -276,19 +288,25 @@ class _AgentSkillsViewState extends State<AgentSkillsView> {
                 margin: EdgeInsets.only(bottom: 12),
                 padding: EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Theme.of(context).extension<AppThemeExtension>()!.sidebarBackground,
+                  color: Theme.of(context)
+                      .extension<AppThemeExtension>()!
+                      .sidebarBackground,
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Theme.of(context).extension<AppThemeExtension>()!.borderColor),
+                  border: Border.all(
+                      color: Theme.of(context)
+                          .extension<AppThemeExtension>()!
+                          .borderColor),
                 ),
                 child: Row(
                   children: [
                     Container(
                       padding: EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                          color: Theme.of(context).extension<AppThemeExtension>()!.borderColor,
+                          color: Theme.of(context)
+                              .extension<AppThemeExtension>()!
+                              .borderColor,
                           borderRadius: BorderRadius.circular(8)),
-                      child: Icon(Icons.psychology,
-                          color: Color(0xFFE3E3E3)),
+                      child: Icon(Icons.psychology, color: Color(0xFFE3E3E3)),
                     ),
                     SizedBox(width: 16),
                     Expanded(
@@ -303,7 +321,10 @@ class _AgentSkillsViewState extends State<AgentSkillsView> {
                           SizedBox(height: 4),
                           Text(skill['description'] as String,
                               style: TextStyle(
-                                  color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary, fontSize: 14)),
+                                  color: Theme.of(context)
+                                      .extension<AppThemeExtension>()!
+                                      .textTertiary,
+                                  fontSize: 14)),
                         ],
                       ),
                     ),
@@ -313,8 +334,7 @@ class _AgentSkillsViewState extends State<AgentSkillsView> {
                       activeThumbColor: Theme.of(context).colorScheme.secondary,
                     ),
                     IconButton(
-                      icon: Icon(Icons.delete_outline,
-                          color: Colors.redAccent),
+                      icon: Icon(Icons.delete_outline, color: Colors.redAccent),
                       onPressed: () => _removeSkill(index),
                     ),
                   ],
