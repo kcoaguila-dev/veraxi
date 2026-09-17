@@ -9,12 +9,6 @@ from collections.abc import Sequence
 from typing import Annotated, Any, TypedDict
 
 import sentry_sdk
-from backend.config import get_config
-from backend.mcp_server.formatter import (
-    _finalize_metrics,
-    _prepend_system_messages,
-)
-from backend.mcp_server.tool_dispatch import get_tools
 from langchain_core.messages import (
     AIMessage,
     BaseMessage,
@@ -26,6 +20,13 @@ from langchain_openai import ChatOpenAI
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.message import add_messages
 from pydantic import BaseModel, Field
+
+from backend.config import get_config
+from backend.mcp_server.formatter import (
+    _finalize_metrics,
+    _prepend_system_messages,
+)
+from backend.mcp_server.tool_dispatch import get_tools
 
 logger = logging.getLogger(__name__)
 

@@ -5,11 +5,12 @@ import logging
 import uuid
 from typing import Any
 
+from mcp.client.session import ClientSession
+from mcp.client.sse import sse_client
+
 from backend.config import get_config
 from backend.mcp_server.tools.query_graph import query_graph
 from backend.mcp_server.tools.search_vectors import search_vectors
-from mcp.client.session import ClientSession
-from mcp.client.sse import sse_client
 
 logger = logging.getLogger(__name__)
 

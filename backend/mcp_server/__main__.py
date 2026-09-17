@@ -1,7 +1,8 @@
 import asyncio
 
-from backend.mcp_server.server import mcp_server
 from mcp.server.stdio import stdio_server
+
+from backend.mcp_server.server import mcp_server
 
 
 async def main():

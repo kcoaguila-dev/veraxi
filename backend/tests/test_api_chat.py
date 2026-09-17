@@ -1,8 +1,9 @@
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from backend.api_gateway import app, get_tenant_id
 from fastapi.testclient import TestClient
+
+from backend.api_gateway import app, get_tenant_id
 
 
 # Mock the dependency to return a static tenant ID

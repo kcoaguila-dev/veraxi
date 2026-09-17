@@ -2,10 +2,11 @@ import re
 from collections.abc import Sequence
 from typing import Any
 
-from backend.config import get_config
-from backend.prompts import CHAT_SYSTEM_PROMPT
 from langchain_core.messages import BaseMessage, SystemMessage
 from langchain_openai import ChatOpenAI
+
+from backend.config import get_config
+from backend.prompts import CHAT_SYSTEM_PROMPT
 
 
 def _extract_metrics_from_state(state: dict) -> dict[str, Any]:
