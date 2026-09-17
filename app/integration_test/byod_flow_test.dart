@@ -86,7 +86,10 @@ void main() {
         'http://test-qdrant:6333');
 
     // Scroll to the bottom to ensure the Save button is fully visible
-    await tester.drag(find.byType(SingleChildScrollView), const Offset(0, -2000));
+    await tester.drag(
+      find.byType(SingleChildScrollView),
+      const Offset(0, -2000),
+    );
     await tester.pumpAndSettle();
 
     // Tap Save button
