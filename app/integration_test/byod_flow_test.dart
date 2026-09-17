@@ -85,11 +85,12 @@ void main() {
         find.descendant(of: qdrantUrlField, matching: find.byType(TextField)),
         'http://test-qdrant:6333');
 
-    // Scroll to the Save button and tap it
-    final saveButton = find.text('Save Configuration');
-    await tester.ensureVisible(saveButton);
+    // Scroll to the bottom to ensure the Save button is fully visible
+    await tester.drag(find.byType(SingleChildScrollView), const Offset(0, -2000));
     await tester.pumpAndSettle();
-    await tester.tap(saveButton);
+    
+    // Tap Save button
+    await tester.tap(find.byType(ElevatedButton));
 
     // Allow animations and async saves to settle
     await tester.pumpAndSettle(const Duration(seconds: 1));
