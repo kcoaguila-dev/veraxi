@@ -21,8 +21,9 @@ from functools import lru_cache
 @lru_cache(maxsize=1)
 def get_embedding_model():
     """Load model once and cache it"""
-    from backend.config import get_config
     from sentence_transformers import SentenceTransformer
+
+    from backend.config import get_config
 
     config = get_config()
     return SentenceTransformer(config.embedding_model_name)

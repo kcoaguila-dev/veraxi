@@ -1,9 +1,10 @@
 import unittest.mock
 
 import pytest
+from fastapi.testclient import TestClient
+
 from backend.api_gateway import app
 from backend.config import get_config
-from fastapi.testclient import TestClient
 
 client = TestClient(app)
 

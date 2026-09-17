@@ -4,6 +4,7 @@ import uuid
 from concurrent.futures import ThreadPoolExecutor
 
 import redis
+
 from backend.config import get_config
 from backend.mcp_server.tools.ingest_document import mcp_ingest_document
 from backend.mcp_server.tools.query_graph import query_graph

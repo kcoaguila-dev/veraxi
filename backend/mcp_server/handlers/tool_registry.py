@@ -1,6 +1,8 @@
 import dataclasses
 import json
 
+from mcp.types import TextContent, Tool
+
 from backend.config import get_config
 from backend.mcp_server.tools.delete_entity import delete_entity
 from backend.mcp_server.tools.delete_relationship import delete_relationship
@@ -19,7 +21,6 @@ from backend.mcp_server.tools.search_vectors import search_vectors
 from backend.mcp_server.tools.update_document import update_document_metadata
 from backend.mcp_server.tools.update_entity import update_entity
 from backend.storage.quota import check_tenant_hard_cap
-from mcp.types import TextContent, Tool
 
 REGISTERED_TOOLS = [
     Tool(

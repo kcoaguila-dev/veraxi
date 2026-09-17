@@ -17,6 +17,7 @@ from __future__ import annotations
 import logging
 
 import sentry_sdk
+
 from backend.mcp_server.tools.scrapers import build_scraper
 from backend.mcp_server.tools.search_providers import get_search_provider
 
