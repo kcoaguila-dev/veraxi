@@ -49,7 +49,4 @@ jobs:
         
     - name: Run integration tests
       run: |
-        eval $(dbus-launch --sh-syntax)
-        eval $(echo "" | gnome-keyring-daemon --unlock) || true
-        eval $(gnome-keyring-daemon --start --components=secrets) || true
-        xvfb-run -a env GDK_BACKEND=x11 flutter test -d linux integration_test/
+        dbus-run-session -- sh -c "echo 'test' | gnome-keyring-daemon --unlock; xvfb-run -a env GDK_BACKEND=x11 flutter test -d linux integration_test/"
