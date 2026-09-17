@@ -228,6 +228,8 @@ class ChatThreadViewModel extends Notifier<ChatThreadState> {
         String uiError = "Error: Unable to complete request.";
         if (isNetworkError) {
           uiError = "Network connection lost. Please check your internet connection and try again.";
+        } else if (errorStr.contains("402") && errorStr.contains("Payment Required")) {
+          uiError = "Payment Required: Free tier users must configure Bring Your Own Database (BYOD) in Control Panel (Gear Icon) -> Infrastructure.";
         }
         String finalContent = uiError;
         if (state.messages.isNotEmpty) {

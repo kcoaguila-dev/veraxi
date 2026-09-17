@@ -145,7 +145,8 @@ class _PricingTiersDialogState extends State<PricingTiersDialog> {
                             subtitle: 'Fully Cloud Hosted',
                             price: '\$19',
                             priceSubtext: 'USD / month',
-                            buttonText: 'Get Pro plan',
+                            buttonText: 'Coming Soon',
+                            isDisabled: true,
                             isPrimary: true,
                             features: [
                               'We host the AI models & Databases',
@@ -163,7 +164,8 @@ class _PricingTiersDialogState extends State<PricingTiersDialog> {
                             subtitle: 'Secure Collaborative Workspace',
                             price: '\$25',
                             priceSubtext: 'USD / user / mo',
-                            buttonText: 'Upgrade to Team',
+                            buttonText: 'Coming Soon',
+                            isDisabled: true,
                             isPrimary: true,
                             features: [
                               'Everything in Pro',
@@ -205,6 +207,7 @@ class _PricingTiersDialogState extends State<PricingTiersDialog> {
     String? priceSubtext,
     required String buttonText,
     required bool isPrimary,
+    bool isDisabled = false,
     required List<String> features,
   }) {
     return Container(
@@ -268,15 +271,15 @@ class _PricingTiersDialogState extends State<PricingTiersDialog> {
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8)),
               ),
-              onPressed: isPrimary
-                  ? () {
+              onPressed: (isDisabled || !isPrimary)
+                  ? null
+                  : () {
                       Navigator.of(context).pop(); // Close dialog
                       Navigator.of(context).push(
                         MaterialPageRoute(
                             builder: (context) => const CheckoutScreen()),
                       );
-                    }
-                  : null,
+                    },
               child: Text(
                 buttonText,
                 style: TextStyle(

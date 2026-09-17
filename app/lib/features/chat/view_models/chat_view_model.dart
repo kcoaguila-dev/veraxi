@@ -540,6 +540,8 @@ class ChatViewModel extends StateNotifier<ChatState> {
         } else if (errorStr.contains("No AI model selected")) {
           uiError =
               "No AI model selected. Please select a model from the top left menu.";
+        } else if (errorStr.contains("402") && errorStr.contains("Payment Required")) {
+          uiError = "Payment Required: Free tier users must configure Bring Your Own Database (BYOD) in Control Panel (Gear Icon) -> Infrastructure.";
         }
 
         String finalContent = uiError;
