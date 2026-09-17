@@ -5,6 +5,7 @@ import 'package:integration_test/integration_test.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:veraxi_app/core/api_key_storage.dart';
 import 'package:veraxi_app/features/control_panel/views/widgets/api_keys_view.dart';
+import 'package:veraxi_app/core/theme.dart';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
@@ -37,8 +38,9 @@ void main() {
 
     // Boot the widget in isolation for testing
     await tester.pumpWidget(
-      const MaterialApp(
-        home: Scaffold(
+      MaterialApp(
+        theme: AppTheme.darkTheme,
+        home: const Scaffold(
           body: ApiKeysView(),
         ),
       ),
