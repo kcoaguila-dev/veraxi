@@ -44,4 +44,4 @@ jobs:
       run: flutter test
         
     - name: Run integration tests
-      run: flutter test -d linux integration_test/
+      run: xvfb-run flutter test -d linux integration_test/
