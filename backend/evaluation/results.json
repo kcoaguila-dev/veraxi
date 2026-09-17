@@ -1,42 +1,41 @@
 {
     "summary": {
-        "average_vector_correctness": 0.825,
-        "average_hybrid_correctness": 0.85,
-        "scored_test_cases": 4,
-        "total_test_cases": 10,
-        "note": "Only 4/10 test cases were fully scored due to Gemini free-tier API quota (20 req/day). Test case 5 generated correct answers but the eval LLM returned invalid JSON. Test cases 6-10 were rate-limited. Re-run with a paid API key for full results."
+        "average_vector_correctness": 0.4473,
+        "average_hybrid_correctness": 0.5629,
+        "scored_test_cases": 1,
+        "total_test_cases": 150,
+        "note": "Evaluated using deterministic F1 Token Overlap to bypass LLM-as-a-judge API costs."
     },
     "details": [
         {
             "query": "What is the most common type of skin cancer?",
-            "vector_score": 1.0,
-            "hybrid_score": 1.0,
-            "status": "scored"
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
         },
         {
             "query": "From which cell type does basal cell carcinoma arise?",
-            "vector_score": 0.6,
-            "hybrid_score": 0.7,
-            "status": "scored"
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
         },
         {
             "query": "Which anatomical locations are most commonly affected by basal cell carcinoma?",
-            "vector_score": 0.7,
-            "hybrid_score": 0.7,
-            "status": "scored"
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
         },
         {
             "query": "What is the primary risk factor for basal cell carcinoma?",
-            "vector_score": 1.0,
-            "hybrid_score": 1.0,
-            "status": "scored"
+            "vector_score": null,
+            "hybrid_score": 0.4210526315789473,
+            "status": "partial"
         },
         {
             "query": "How does fair skin affect the risk of developing BCC?",
             "vector_score": null,
-            "hybrid_score": null,
-            "status": "eval_failed",
-            "note": "Both answers were correct but DeepEval GEval returned invalid JSON"
+            "hybrid_score": 1.0,
+            "status": "partial"
         },
         {
             "query": "Does older age influence the risk of basal cell carcinoma?",
@@ -64,6 +63,846 @@
         },
         {
             "query": "Which diagnostic methods are used for BCC?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "What is the most common treatment for basal cell carcinoma?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "When might radiation therapy be used in BCC?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "What is recurrence in the context of BCC?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "What does follow-up for BCC typically include?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "Which skin cancer subtype arises from basal cells?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "What anatomical layer do basal cells belong to?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "Is sun exposure a risk factor for BCC?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "Do tanning beds increase the risk of BCC?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "What hair and eye colors are associated with increased BCC risk?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "Can a history of radiation therapy increase BCC risk?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "What is a common presentation of BCC on the skin?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "What is the role of biopsy in BCC diagnosis?",
+            "vector_score": 0.8750000000000001,
+            "hybrid_score": null,
+            "status": "partial"
+        },
+        {
+            "query": "Which systemic therapy may be considered for BCC?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "What is included in the management of BCC recurrence?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "What is the recommended frequency for full skin exams in BCC follow-up?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "Can BCC spread to lymph nodes?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "What is a brown or glossy black bump with rolled border a symptom of?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "What is the relationship between organ transplant and BCC risk?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "Is autoimmune disease associated with increased BCC risk?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "What is the role of imaging in BCC diagnosis?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "Can BCC occur anywhere on the body?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "What is the most common type of skin cancer?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "From which cells does basal cell carcinoma arise?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "Which anatomical locations are most commonly affected by BCC?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "What is the primary risk factor for developing basal cell carcinoma?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "How does fair skin affect the risk of basal cell carcinoma?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "Does older age influence the risk of BCC?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "Does a family history of skin cancer affect the risk of BCC?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "Is immune suppression a risk factor for basal cell carcinoma?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "What are common symptoms of basal cell carcinoma?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "What diagnostic methods are used for BCC?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "What is the most common treatment for basal cell carcinoma?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "When might radiation therapy or systemic therapy be used for BCC?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "What does recurrence mean in the context of BCC?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "What is recommended for follow-up after BCC treatment?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "Which cell type is affected in basal cell carcinoma?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "Is sun exposure a risk factor for BCC?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "Are tanning beds considered a risk factor for BCC?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "Does having red or blond hair increase the risk of BCC?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "Is light eye color associated with increased risk of BCC?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "Can a history of radiation therapy increase BCC risk?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "Are organ transplant recipients at higher risk for BCC?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "Is autoimmune disease a risk factor for BCC?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "What is a flat, pale or yellow area on the skin indicative of in BCC?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "What does a shiny bump on the skin suggest in the context of BCC?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "What is the significance of a brown or glossy black bump with rolled border?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "Which exams are essential for diagnosing BCC?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "What role does biopsy play in BCC diagnosis?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "Is imaging sometimes used in the diagnosis of BCC?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "What treatments are available for BCC besides surgery?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "How is recurrence of BCC managed?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "What is included in annual follow-up for BCC patients?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "What is the primary cancer type discussed in this context?",
+            "vector_score": null,
+            "hybrid_score": 0.6,
+            "status": "partial"
+        },
+        {
+            "query": "Which cells does primary CNS lymphoma originate from?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "What is the most common location affected by primary CNS lymphoma?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "Name a cancer subtype of primary CNS lymphoma that affects the eyes.",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "List three anatomical sites, other than the brain, that primary CNS lymphoma can involve.",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "What is a major risk factor for developing primary CNS lymphoma?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "Which viral infection is considered a risk factor for primary CNS lymphoma?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "Name two autoimmune conditions listed as risk factors for primary CNS lymphoma.",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "Which diagnostic imaging technique is considered most useful for identifying primary CNS lymphoma?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "What is the standard biopsy procedure for diagnosing primary CNS lymphoma?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "Which laboratory test is commonly used during the diagnosis of primary CNS lymphoma?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "What is a typical initial clinical assessment for suspected primary CNS lymphoma?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "Which procedure is performed if cancer cells are found in the cerebrospinal fluid?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "What specialized treatment is given if the eyes are involved in primary CNS lymphoma?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "What is the main chemotherapy drug for primary CNS lymphoma?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "Which immunotherapy drug is primarily used in the treatment of primary CNS lymphoma?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "What is the most commonly used radiation technique for primary CNS lymphoma?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "What are the two main treatment phases for primary CNS lymphoma?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "What is the purpose of supportive care in primary CNS lymphoma management?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "Which performance measure is evaluated to guide treatment decisions in primary CNS lymphoma?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "What is recommended for all patients with primary CNS lymphoma regarding research participation?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "Name three neurological symptoms commonly caused by primary CNS lymphoma.",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "Which diagnostic method is used to assess eye involvement in primary CNS lymphoma?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "What follow-up method is recommended for surveillance after treatment of primary CNS lymphoma?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "Which age group is at higher risk for primary CNS lymphoma?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "What is the role of corticosteroids in the treatment of primary CNS lymphoma?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "Which chemotherapy drugs, besides methotrexate, can be used in induction therapy for primary CNS lymphoma?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "Which procedure is included in laboratory tests for diagnosing primary CNS lymphoma?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "What is a potential site of relapse for primary CNS lymphoma?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "How often does primary CNS lymphoma spread outside the central nervous system?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "Which imaging technique uses gadolinium contrast for better visualization in primary CNS lymphoma?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "What supportive care interventions are recommended for patients with primary CNS lymphoma?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "What is the second most common type of skin cancer?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "Which cancer subtype is classified as a type of nonmelanoma skin cancer?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "What are the main stages of cutaneous squamous cell carcinoma (CSCC)?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "What is a precancerous lesion that can progress to CSCC?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "Which risk factors are major contributors to CSCC development?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "Which genetic syndromes increase the risk for CSCC?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "What are common symptoms of CSCC?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "Which methods are used to diagnose CSCC?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "What biopsy types are used in the diagnosis of CSCC?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "What are the preferred treatments for low-risk local CSCC?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "Which treatment options are considered for high-risk or very high-risk local CSCC?",
+            "vector_score": null,
+            "hybrid_score": 0.16666666666666669,
+            "status": "partial"
+        },
+        {
+            "query": "How is regional CSCC with lymph node involvement treated?",
+            "vector_score": 0.3076923076923077,
+            "hybrid_score": 0.6315789473684211,
+            "status": "scored"
+        },
+        {
+            "query": "What is the preferred treatment for metastatic CSCC?",
+            "vector_score": 0.125,
+            "hybrid_score": null,
+            "status": "partial"
+        },
+        {
+            "query": "Which systemic therapies are used for advanced CSCC?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "What therapies are used for actinic keratoses and superficial CSCC?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "What is the recommended follow-up strategy after CSCC treatment?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "What is a key biomarker used in risk assessment for CSCC?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "Which environmental toxins are risk factors for CSCC?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "How is risk assessment for CSCC performed?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "Which imaging modalities are used for staging and surveillance in CSCC?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "What follow-up schedule is recommended for high-risk local CSCC after treatment?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "What are the main symptoms of CSCC in areas of chronic damage?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "Which topical therapies are used for actinic keratosis?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "What is the preferred surgical method for high-risk local CSCC?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "Which patients are recommended to consider clinical trials in CSCC management?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "What is the role of sentinel lymph node biopsy (SLNB) in CSCC?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "Which immunotherapy agents are used for metastatic CSCC?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "How often should skin and lymph node exams be performed for low-risk local CSCC during the first 2 years after treatment?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "What is the preferred systemic therapy for metastatic CSCC?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "Which factors are included in clinical management risk assessment for CSCC?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "Which clinical management strategy is used for surveillance in high-risk or regional CSCC?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "What type of cancer is chronic myeloid leukemia (CML)?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "What genetic alteration causes chronic myeloid leukemia?",
+            "vector_score": null,
+            "hybrid_score": 0.5454545454545454,
+            "status": "partial"
+        },
+        {
+            "query": "Which chromosomal translocation results in the BCR::ABL1 gene?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "What is the Philadelphia chromosome?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "What is required for a diagnosis of CML?",
+            "vector_score": 0.6060606060606061,
+            "hybrid_score": null,
+            "status": "partial"
+        },
+        {
+            "query": "From which cells does CML arise?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "What are the two main diagnostic methods for CML?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "Which biomarker is associated with CML?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "What is the abnormal chromosome found in most CML cases?",
+            "vector_score": null,
+            "hybrid_score": 0.6153846153846153,
+            "status": "partial"
+        },
+        {
+            "query": "What is the primary treatment goal for CML?",
+            "vector_score": 0.3225806451612903,
+            "hybrid_score": null,
+            "status": "partial"
+        },
+        {
+            "query": "Which blood cell types are increased in CML?",
+            "vector_score": null,
+            "hybrid_score": 0.47058823529411764,
+            "status": "partial"
+        },
+        {
+            "query": "What is blast phase CML?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "Which chromosomes are involved in the translocation that creates the BCR::ABL1 fusion gene?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "What is the abnormality found on chromosome 22 in CML?",
+            "vector_score": null,
+            "hybrid_score": 0.6153846153846153,
+            "status": "partial"
+        },
+        {
+            "query": "Which fusion gene is necessary for the diagnosis of CML?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "Which phase of CML is considered advanced?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "Which blood cell type is produced in increased numbers in CML?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "What are the main white blood cell subtypes involved in CML?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "Which diagnostic tests are used to detect the BCR::ABL1 fusion gene?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "What chromosomal abnormality is characteristic of CML?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "Which treatment strategy targets the abnormal protein in CML?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "What is the result of the translocation between chromosome 9 and 22?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "Which phase of CML is associated with increased blasts in the blood or bone marrow?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "Which two main laboratory methods are used for CML diagnosis?",
+            "vector_score": null,
+            "hybrid_score": null,
+            "status": "rate_limited"
+        },
+        {
+            "query": "What is the relationship between the Philadelphia chromosome and the BCR::ABL1 fusion gene?",
             "vector_score": null,
             "hybrid_score": null,
             "status": "rate_limited"

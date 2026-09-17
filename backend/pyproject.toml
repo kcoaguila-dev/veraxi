@@ -51,3 +51,7 @@ dev = [
     "deepeval",
     "datasets",
 ]
+
+[tool.mypy]
+explicit_package_bases = true
+namespace_packages = true
