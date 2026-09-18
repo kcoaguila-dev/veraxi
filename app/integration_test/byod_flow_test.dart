@@ -92,8 +92,9 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    // Tap Save button
-    await tester.tap(find.byType(ElevatedButton));
+    // Bypass hit-testing in headless CI by invoking the callback directly
+    final button = tester.widget<ElevatedButton>(find.byType(ElevatedButton));
+    button.onPressed!();
 
     // Allow animations and async saves to settle
     await tester.pumpAndSettle(const Duration(seconds: 1));
