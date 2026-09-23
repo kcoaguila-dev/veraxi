@@ -13,15 +13,6 @@ import jwt
 import sentry_sdk
 from arq import create_pool
 from arq.connections import RedisSettings
-from fastapi import Depends, FastAPI, HTTPException, Request
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from jwt import PyJWKClient
-from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.errors import RateLimitExceeded
-from slowapi.util import get_remote_address
-from supabase import Client, create_client
-
 from backend import context as byod_context
 from backend.config import get_config
 from backend.mcp_server.llm_loop import (
@@ -34,6 +25,14 @@ from backend.security.api_keys import resolve_api_key
 from backend.security.moderation import moderate_text
 from backend.storage.neo4j_client import Neo4jStorageClient
 from backend.storage.qdrant_client import QdrantStorageClient
+from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from jwt import PyJWKClient
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
+from supabase import Client, create_client
 
 # ---------------------------------------------------------------------------
 # Logging & Sentry
@@ -223,7 +222,7 @@ async def verify_infrastructure_access(
                 )
                 if res.data and len(res.data) > 0:
                     return bool(res.data[0].get("is_subscribed", False))
-            except Exception as e:  # noqa: BLE001
+            except Exception as e:
                 logger.error(f"Failed to check subscription status: {e}")
             return False
 

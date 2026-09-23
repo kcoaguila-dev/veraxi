@@ -4,7 +4,6 @@ import uuid
 from concurrent.futures import ThreadPoolExecutor
 
 import redis
-
 from backend.config import get_config
 from backend.mcp_server.tools.ingest_document import mcp_ingest_document
 from backend.mcp_server.tools.query_graph import query_graph
@@ -148,7 +147,7 @@ def mcp_deep_research(
             r.delete(f"tenant:{ephemeral_tenant_id}:schema")
 
             logger.info(f"Successfully wiped ephemeral tenant: {ephemeral_tenant_id}")
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             logger.error(f"Failed to wipe ephemeral tenant {ephemeral_tenant_id}: {e}")
             import sentry_sdk
 

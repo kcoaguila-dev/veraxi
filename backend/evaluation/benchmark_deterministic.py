@@ -20,12 +20,11 @@ from dotenv import load_dotenv
 
 load_dotenv("backend/.env")
 
-from openai import OpenAI
-
 from backend.config import get_config
 from backend.mcp_server.tools.query_graph import query_graph
 from backend.mcp_server.tools.search_vectors import search_vectors
 from backend.retrieval.merge_rank import GraphHit, VectorHit, merge_rank
+from openai import OpenAI
 
 logging.basicConfig(level=logging.ERROR, format="%(levelname)s: %(message)s")
 
@@ -87,7 +86,7 @@ def _call_llm_with_retry(client, model: str, prompt: str) -> str | None:
                 temperature=0.0,
             )
             return response.choices[0].message.content
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
                 delay = RETRY_BASE_DELAY_S * (attempt + 1)
                 print(
@@ -123,7 +122,7 @@ def _evaluate_correctness(
         )
         metric.measure(test_case)
         return metric.score
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         print(f"  Evaluation failed: {e}")
         return None
 

@@ -48,7 +48,7 @@ def setup_user():
                     print(f"Failed to find existing user {EMAIL} to update.")
             else:
                 raise
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         print(f"Error setting up E2E user: {e}")
         sys.exit(1)
 

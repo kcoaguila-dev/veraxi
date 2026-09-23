@@ -9,6 +9,12 @@ from collections.abc import Sequence
 from typing import Annotated, Any, TypedDict
 
 import sentry_sdk
+from backend.config import get_config
+from backend.mcp_server.formatter import (
+    _finalize_metrics,
+    _prepend_system_messages,
+)
+from backend.mcp_server.tool_dispatch import get_tools
 from langchain_core.messages import (
     AIMessage,
     BaseMessage,
@@ -20,13 +26,6 @@ from langchain_openai import ChatOpenAI
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.message import add_messages
 from pydantic import BaseModel, Field
-
-from backend.config import get_config
-from backend.mcp_server.formatter import (
-    _finalize_metrics,
-    _prepend_system_messages,
-)
-from backend.mcp_server.tool_dispatch import get_tools
 
 logger = logging.getLogger(__name__)
 
@@ -161,7 +160,7 @@ async def call_model(state: AgentState):
         try:
             response = await llm_with_tools.ainvoke(modified_messages)
             break
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             import logging
 
             logging.getLogger(__name__).warning(
@@ -253,7 +252,7 @@ async def execute_tools(state: AgentState):
                 if context_str and context_str != "No results found."
                 else None
             )
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             logger.warning("Failed to generate embedding for context: %s", repr(e))
             import sentry_sdk
 
@@ -376,7 +375,7 @@ async def web_search_fallback(state: AgentState):
             )
         )
         return {"messages": [grounding_message], "retrieved_context": context_str}
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         sentry_sdk.capture_exception(e)
         logger.error(f"CRAG Web Search failed: {e}")
         return {
@@ -452,7 +451,7 @@ async def evaluate_context(state: AgentState):
     try:
         res = await structured_llm_grader.ainvoke(grade_prompt)
         score = res.binary_score
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         sentry_sdk.capture_exception(e)
         logger.error(f"CRAG Evaluation failed: {e}. Defaulting to 'no'.")
         score = "no"

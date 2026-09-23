@@ -17,7 +17,6 @@ from __future__ import annotations
 import logging
 
 import sentry_sdk
-
 from backend.mcp_server.tools.scrapers import build_scraper
 from backend.mcp_server.tools.search_providers import get_search_provider
 
@@ -86,7 +85,7 @@ def _enrich(results: list[dict], web_settings: dict) -> list[dict]:
 
     try:
         enriched = scraper.fetch_batch(urls_to_fetch, timeout_per_url=timeout_per_url)
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         # Never let scraping failures break the search result entirely.
         sentry_sdk.capture_exception(exc)
         logger.error("Scraper fetch_batch raised unexpectedly: %s", exc)

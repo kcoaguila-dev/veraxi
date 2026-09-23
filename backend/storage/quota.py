@@ -16,10 +16,9 @@ when auth is disabled — matching the behaviour of rivals like LibreChat.
 import logging
 
 import sentry_sdk
-from fastapi import HTTPException
-
 from backend.config import Config, get_config
 from backend.storage.neo4j_client import Neo4jStorageClient
+from fastapi import HTTPException
 
 logger = logging.getLogger(__name__)
 
@@ -80,6 +79,6 @@ def _enforce_cap(tenant_id: str, config: Config) -> None:
             )
     except HTTPException:
         raise
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         sentry_sdk.capture_exception(e)
         logger.error(f"Failed to check hard cap for tenant {tenant_id}: {e}")

@@ -3,10 +3,9 @@ import logging
 from typing import Any
 
 import sentry_sdk
-from openai import OpenAI
-
 from backend.config import get_config
 from backend.prompts import get_extraction_prompt
+from openai import OpenAI
 
 logger = logging.getLogger(__name__)
 
@@ -168,7 +167,7 @@ def extract_entities_and_relations(
         raw_relations = data.get("relations", [])
 
         return validate_extraction(raw_entities, raw_relations, schema)
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         sentry_sdk.capture_exception(e)
         return [], []
 

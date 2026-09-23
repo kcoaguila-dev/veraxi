@@ -2,8 +2,8 @@
 import os
 from dataclasses import dataclass
 from functools import lru_cache
-
 from pathlib import Path
+
 from dotenv import load_dotenv
 
 env_path = Path(__file__).parent / ".env"

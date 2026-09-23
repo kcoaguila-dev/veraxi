@@ -27,7 +27,7 @@ def load_voices():
             with open(json_path, "r", encoding="utf-8") as f:
                 loaded_voices = json.load(f)
                 VOICE_REGISTRY.update(loaded_voices)
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             logger.error(f"Failed to load voices.json: {e}")
 
 

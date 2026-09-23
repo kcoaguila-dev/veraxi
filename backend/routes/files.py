@@ -55,7 +55,7 @@ def register_file_routes(
             ]:
                 try:
                     extracted_text = content.decode("utf-8")
-                except Exception as e:  # noqa: BLE001
+                except Exception as e:
                     logger.warning(
                         "Failed to decode text/csv file content: %s", repr(e)
                     )
@@ -65,10 +65,10 @@ def register_file_routes(
                     converter = DocumentConverter()
                     result = converter.convert(file_path)
                     extracted_text = result.document.export_to_markdown()
-                except Exception as e:  # noqa: BLE001
+                except Exception as e:
                     logger.warning(f"Docling could not convert {file.filename}: {e}")
             return {"text": extracted_text, "file_id": file_id}
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             sentry_sdk.capture_exception(e)
             logger.error(f"Error uploading attachment: {e}")
             raise HTTPException(status_code=500, detail=str(e))
@@ -84,7 +84,7 @@ def register_file_routes(
                     json.loads(fmeta.decode("utf-8")) for fmeta in files_dict.values()
                 ]
             }
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             logger.error(f"Error getting files: {e}")
             return {"files": []}
 
@@ -102,6 +102,6 @@ def register_file_routes(
                     os.remove(file_meta["path"])
                 await request.app.state.redis.hdel(f"tenant:{tenant_id}:files", file_id)
             return {"success": True}
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             logger.error(f"Error deleting file: {e}")
             raise HTTPException(status_code=500, detail=str(e))

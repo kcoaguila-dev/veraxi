@@ -42,7 +42,7 @@ def register_tts_routes(
             client = GPTSoVITSClient(base_url=gpt_sovits_url)
             try:
                 await client.check_connection()
-            except Exception as e:  # noqa: BLE001
+            except Exception as e:
                 raise HTTPException(
                     status_code=503, detail=f"GPT-SoVITS instance unreachable: {e!s}"
                 )
@@ -57,7 +57,7 @@ def register_tts_routes(
 
         try:
             save_voices_to_disk(request.voices)
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             sentry_sdk.capture_exception(e)
             raise HTTPException(status_code=500, detail=str(e))
         return {"voices": get_all_voices()}
@@ -88,7 +88,7 @@ def register_tts_routes(
                 prompt_text=prompt_text,
             )
             return {"voices": get_all_voices()}
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             sentry_sdk.capture_exception(e)
             logger.error(f"Error uploading voice: {e}")
             raise HTTPException(status_code=500, detail=str(e))
@@ -159,7 +159,7 @@ def register_tts_routes(
                 media_type="audio/wav",
                 headers={"Content-Disposition": "attachment; filename=audio.wav"},
             )
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             sentry_sdk.capture_exception(e)
             logger.error(f"Failed to synthesize audio: {e}")
             raise HTTPException(

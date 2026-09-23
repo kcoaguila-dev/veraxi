@@ -38,5 +38,5 @@ def cleanup_audio_cache(cache_dir: str, max_files: int = 100, max_age_hours: int
                     f"Deleted cached audio (capacity limit): {os.path.basename(filepath)}"
                 )
 
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         logger.error(f"Error cleaning up audio cache: {e}")

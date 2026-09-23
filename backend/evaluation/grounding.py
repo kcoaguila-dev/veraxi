@@ -4,9 +4,8 @@ import os
 from functools import lru_cache
 
 import sentry_sdk
-from openai import OpenAI
-
 from backend.config import get_config
+from openai import OpenAI
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +33,7 @@ def _parse_grounding_score(result_content: str) -> float | None:
 
         score = float(score_val)
         return max(0.0, min(1.0, score))
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         sentry_sdk.capture_exception(e)
         logger.error(f"Failed to parse grounding score: {e}")
         return 0.0
@@ -93,7 +92,7 @@ def evaluate_groundedness(
         return _call_llm_for_grounding(
             config, context_text, response_text, api_key=api_key, model_name=model_name
         )
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         sentry_sdk.capture_exception(e)
         logger.error(f"Error calculating grounding score: {e}")
         # In case of evaluation failure, we return 0.0 to fail safely

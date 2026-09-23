@@ -4,12 +4,11 @@ from dotenv import load_dotenv
 
 load_dotenv("backend/.env")
 
-from openai import OpenAI
-
 from backend.config import get_config
 from backend.mcp_server.tools.evaluate_grounding import mcp_evaluate_grounding
 from backend.mcp_server.tools.search_vectors import search_vectors
 from backend.retrieval.merge_rank import merge_rank
+from openai import OpenAI
 
 logging.basicConfig(level=logging.ERROR, format="%(levelname)s: %(message)s")
 
@@ -28,7 +27,7 @@ def generate_answer(query: str, context: str) -> str:
             temperature=0.0,
         )
         return response.choices[0].message.content
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         return f"[Answer Generation Skipped: Missing LLM_API_KEY ({e!s})]"
 
 

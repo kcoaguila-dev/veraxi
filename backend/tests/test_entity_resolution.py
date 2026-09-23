@@ -1,5 +1,4 @@
 import pytest
-
 from backend.config import get_config
 from backend.ingestion.entity_resolution import resolve_entities
 

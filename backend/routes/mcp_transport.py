@@ -2,11 +2,10 @@
 
 import logging
 
-from fastapi import Depends, Request
-from mcp.server.sse import SseServerTransport
-
 from backend.mcp_server.context import tenant_context
 from backend.mcp_server.server import mcp_server
+from fastapi import Depends, Request
+from mcp.server.sse import SseServerTransport
 
 logger = logging.getLogger(__name__)
 

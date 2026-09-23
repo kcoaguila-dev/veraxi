@@ -1,9 +1,8 @@
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
-
 from backend.mcp_server.llm_loop import answer_question, stream_answer_question
+from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
 
 @pytest.fixture
@@ -114,9 +113,8 @@ def test_should_continue():
 
 @pytest.mark.asyncio
 async def test_evaluate_context(mock_config):
-    from langchain_core.messages import HumanMessage
-
     from backend.mcp_server.orchestrator import GradeDocuments, evaluate_context
+    from langchain_core.messages import HumanMessage
 
     # Test empty context
     res = await evaluate_context(
@@ -144,9 +142,8 @@ async def test_web_search_fallback(mock_config):
     import io
     import json
 
-    from langchain_core.messages import HumanMessage
-
     from backend.mcp_server.orchestrator import web_search_fallback
+    from langchain_core.messages import HumanMessage
 
     mock_response = io.BytesIO(
         json.dumps(
@@ -165,9 +162,8 @@ async def test_web_search_fallback(mock_config):
 
 @pytest.mark.asyncio
 async def test_execute_tools():
-    from langchain_core.messages import AIMessage
-
     from backend.mcp_server.orchestrator import execute_tools
+    from langchain_core.messages import AIMessage
 
     # Mock tool call
     msg_with_tool = AIMessage(
@@ -198,9 +194,8 @@ async def test_get_tools(mock_config):
 
 @pytest.mark.asyncio
 async def test_call_model(mock_config):
-    from langchain_core.messages import AIMessage, HumanMessage
-
     from backend.mcp_server.orchestrator import call_model
+    from langchain_core.messages import AIMessage, HumanMessage
 
     msg = HumanMessage(content="Hello")
 
@@ -303,13 +298,12 @@ def test_execute_single_tool(mock_config):
 
 
 def test_handle_stream_events():
-    from langchain_core.messages import AIMessage
-
     from backend.mcp_server.llm_loop import (
         _handle_chain_end_langgraph,
         _handle_chain_end_tools,
         _handle_chat_model_end,
     )
+    from langchain_core.messages import AIMessage
 
     # Test _handle_chat_model_end
     msg = AIMessage(
@@ -367,10 +361,9 @@ def test_simple_helpers():
     import os
     from unittest.mock import patch
 
-    from langchain_core.messages import HumanMessage, SystemMessage
-
     from backend.mcp_server.formatter import _prepend_system_messages
     from backend.mcp_server.llm_loop import _apply_observability_settings
+    from langchain_core.messages import HumanMessage, SystemMessage
 
     # Test _apply_observability_settings
     with patch.dict(os.environ, {}):

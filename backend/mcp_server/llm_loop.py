@@ -2,9 +2,6 @@ import logging
 import os
 from collections.abc import AsyncGenerator
 
-from langchain_core.messages import HumanMessage, SystemMessage
-from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
-
 from backend.config import get_config
 from backend.mcp_server.formatter import (
     _extract_metrics_from_state,
@@ -18,6 +15,8 @@ from backend.mcp_server.orchestrator import (
     _request_model,
 )
 from backend.prompts import TITLE_GENERATION_PROMPT
+from langchain_core.messages import HumanMessage, SystemMessage
+from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 
 logger = logging.getLogger(__name__)
 

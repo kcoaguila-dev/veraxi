@@ -2,7 +2,6 @@ import asyncio
 import logging
 
 from arq.connections import RedisSettings
-
 from backend.config import get_config
 from backend.ingestion.__main__ import run_ingestion
 

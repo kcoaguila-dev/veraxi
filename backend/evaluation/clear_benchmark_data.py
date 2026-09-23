@@ -12,7 +12,7 @@ try:
         collection_name=config.qdrant_collection_name, tenant_id=tenant
     )
     print(f"Cleared Qdrant for tenant {tenant}")
-except Exception as e:  # noqa: BLE001
+except Exception as e:
     print(f"Failed to clear Qdrant: {e}")
 
 # Clear Neo4j
@@ -22,5 +22,5 @@ try:
         "MATCH (n {tenant_id: $tenant}) DETACH DELETE n", {"tenant": tenant}
     )
     print(f"Cleared Neo4j for tenant {tenant}")
-except Exception as e:  # noqa: BLE001
+except Exception as e:
     print(f"Failed to clear Neo4j: {e}")

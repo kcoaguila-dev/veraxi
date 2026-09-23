@@ -1,7 +1,6 @@
 from typing import Any
 
 import sentry_sdk
-
 from backend.config import get_config
 from backend.storage.neo4j_client import Neo4jStorageClient
 from backend.storage.qdrant_client import QdrantStorageClient
@@ -28,7 +27,7 @@ def get_database_stats(tenant_id: str = "default") -> dict[str, Any]:
 
         stats["neo4j_nodes"] = node_res[0]["node_count"] if node_res else 0
         stats["neo4j_relationships"] = rel_res[0]["rel_count"] if rel_res else 0
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         sentry_sdk.capture_exception(e)
         stats["neo4j_error"] = str(e)
     finally:
@@ -39,7 +38,7 @@ def get_database_stats(tenant_id: str = "default") -> dict[str, Any]:
         qdrant = QdrantStorageClient.from_config(config)
         COLLECTION_NAME = config.qdrant_collection_name
         stats["qdrant_vectors"] = qdrant.count(COLLECTION_NAME, tenant_id=tenant_id)
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         sentry_sdk.capture_exception(e)
         stats["qdrant_error"] = str(e)
 

@@ -5,11 +5,10 @@ import logging
 
 import sentry_sdk
 import stripe
+from backend.config import get_config
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from supabase import Client, create_client
-
-from backend.config import get_config
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +50,7 @@ def _activate_tenant_subscription(tenant_id: str | None, config, redis):
             await redis.setex(f"tenant:{tenant_id}:subscription_status", 86400, "true")
 
         asyncio.create_task(_update_redis())
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         sentry_sdk.capture_exception(e)
         logger.error(f"Failed to update database for tenant {tenant_id}: {e}")
 
@@ -95,7 +94,7 @@ def register_payment_routes(
                 client_reference_id=tenant_id,
             )
             return {"checkout_url": session.url}
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             sentry_sdk.capture_exception(e)
             logger.error(f"Stripe error: {e}")
             raise HTTPException(status_code=500, detail=str(e))

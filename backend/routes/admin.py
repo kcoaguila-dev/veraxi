@@ -6,12 +6,11 @@ import re
 
 import httpx
 import sentry_sdk
-from fastapi import APIRouter, Depends, HTTPException
-
 from backend.config import get_config
 from backend.models_config import DEFAULT_PROVIDER_MODELS
 from backend.storage.neo4j_client import Neo4jStorageClient
 from backend.storage.qdrant_client import QdrantStorageClient
+from fastapi import APIRouter, Depends, HTTPException
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +48,7 @@ def register_admin_routes(
                 )
                 vector_count = qdrant_points.count
                 stats["qdrant_points"] = vector_count
-            except Exception as e:  # noqa: BLE001
+            except Exception as e:
                 sentry_sdk.capture_exception(e)
                 logger.warning(f"Failed to get qdrant stats: {e}")
                 vector_count = 0
@@ -59,7 +58,7 @@ def register_admin_routes(
                     parameters={"tenant_id": tenant_id},
                 )
                 node_count = records[0]["count"] if records else 0
-            except Exception as e:  # noqa: BLE001
+            except Exception as e:
                 sentry_sdk.capture_exception(e)
                 logger.warning(f"Failed to get neo4j stats: {e}")
                 node_count = 0
@@ -70,7 +69,7 @@ def register_admin_routes(
                 "vector_count": vector_count,
                 "tenant_id": tenant_id,
             }
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             sentry_sdk.capture_exception(e)
             logger.error(f"Error getting stats: {e}")
             raise HTTPException(status_code=500, detail=str(e))
@@ -119,7 +118,7 @@ def register_admin_routes(
                                 dict.fromkeys(models_dict["OpenAI"] + fetched_list)
                             )
                             models_dict["OpenAI"] = combined
-            except Exception as e:  # noqa: BLE001
+            except Exception as e:
                 logging.warning(f"Failed to fetch dynamic OpenAI models: {e}")  # noqa: LOG015
         _models_cache = models_dict
         _models_cache_time = time.time()
