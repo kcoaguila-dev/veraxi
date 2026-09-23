@@ -639,7 +639,8 @@ class _ControlPanelScreenState extends ConsumerState<ControlPanelScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Icon(Icons.lock_outline, size: 64, color: theme.colorScheme.primary),
+            Icon(Icons.lock_outline,
+                size: 64, color: theme.colorScheme.primary),
             SizedBox(height: 24),
             Text(
               'Premium Feature',

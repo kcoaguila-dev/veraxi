@@ -108,7 +108,7 @@ def main():
 
     for file_path in files:
         filename = os.path.basename(file_path)
-        logger.info(f"==================================================")
+        logger.info("==================================================")
         logger.info(f"Processing: {filename}")
         
         text = extract_text(file_path)
