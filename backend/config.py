@@ -3,9 +3,12 @@ import os
 from dataclasses import dataclass
 from functools import lru_cache
 
+import os
+from pathlib import Path
 from dotenv import load_dotenv
 
-load_dotenv()
+env_path = Path(__file__).parent / ".env"
+load_dotenv(dotenv_path=env_path)
 
 
 @dataclass
@@ -44,6 +47,7 @@ class Config:
     privacy_policy_url: str
     max_tenant_nodes: int
     internal_api_url: str
+    admin_tenant_ids: list[str]
 
     @classmethod
     def from_env(cls) -> "Config":
@@ -100,6 +104,11 @@ class Config:
             internal_api_url=os.environ.get(
                 "INTERNAL_API_URL", "http://localhost:8000/api"
             ),
+            admin_tenant_ids=[
+                t.strip()
+                for t in os.environ.get("ADMIN_TENANT_IDS", "").split(",")
+                if t.strip()
+            ],
         )
 
     def get_llm_client_args(self, model_name: str | None = None) -> dict:

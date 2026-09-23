@@ -94,13 +94,51 @@ async def get_tools(tool_settings: dict | None = None) -> list:
                 "type": "function",
                 "function": {
                     "name": "web_search",
-                    "description": "Search the internet for real-time information, news, and external knowledge.",
+                    "description": "Search the internet for real-time information, news, and external knowledge. Use this for general queries.",
                     "parameters": {
                         "type": "object",
                         "properties": {
                             "query": {
                                 "type": "string",
                                 "description": "The search query.",
+                            }
+                        },
+                        "required": ["query"],
+                    },
+                },
+            }
+        )
+        all_tools.append(
+            {
+                "type": "function",
+                "function": {
+                    "name": "deep_research",
+                    "description": "Perform a highly precise, deep web search by building a temporary knowledge graph. Use this for complex research, fact-checking, or mapping entity relationships.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "query": {
+                                "type": "string",
+                                "description": "The specific topic or claim to research.",
+                            }
+                        },
+                        "required": ["query"],
+                    },
+                },
+            }
+        )
+        all_tools.append(
+            {
+                "type": "function",
+                "function": {
+                    "name": "agentic_debate",
+                    "description": "Run a multi-agent debate (STORM-like) to research, draft, and aggressively fact-check a claim using multiple AI personas. Use this for the highest possible precision fact checking.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "query": {
+                                "type": "string",
+                                "description": "The specific claim to fact check.",
                             }
                         },
                         "required": ["query"],
@@ -254,6 +292,64 @@ def _execute_single_tool(
                     self.sources = [res.get("url", "web")]
 
             return [WebHit(r) for r in results], []
+
+    elif tool_name == "deep_research":
+        web_search = settings.get("web_search", {})
+        if not web_search.get("enabled", False):
+            class ErrorHit:
+                def __init__(self):
+                    self.id = "tool_err"
+                    self.payload = {
+                        "error": "Tool deep_research is currently disabled by the user."
+                    }
+                    self.sources = ["System Error"]
+            return [ErrorHit()], []
+
+        from backend.mcp_server.tools.deep_research import mcp_deep_research
+        
+        dr_results = mcp_deep_research(tool_input["query"], tenant_id=tenant_id, tool_settings=tool_settings)
+        
+        class DeepHit:
+            def __init__(self, res):
+                self.id = res.get("id", str(uuid.uuid4()))
+                self.payload = {
+                    "text": res.get("text", ""),
+                    "title": "Verified Entity Context",
+                    "url": res.get("sources", [""])[0] if res.get("sources") else "",
+                }
+                self.sources = res.get("sources", [""])
+
+        hits = dr_results.get("results", [])
+        return [DeepHit(r) for r in hits], []
+
+    elif tool_name == "agentic_debate":
+        web_search = settings.get("web_search", {})
+        if not web_search.get("enabled", False):
+            class ErrorHit:
+                def __init__(self):
+                    self.id = "tool_err"
+                    self.payload = {
+                        "error": "Tool agentic_debate is currently disabled by the user."
+                    }
+                    self.sources = ["System Error"]
+            return [ErrorHit()], []
+
+        from backend.mcp_server.orchestrator_multi_agent import mcp_agentic_debate
+        
+        debate_results = mcp_agentic_debate(tool_input["query"], tenant_id=tenant_id, tool_settings=tool_settings)
+        
+        class DebateHit:
+            def __init__(self, res):
+                self.id = res.get("id", str(uuid.uuid4()))
+                self.payload = {
+                    "text": res.get("text", ""),
+                    "title": "Agentic Debate Verified Answer",
+                    "url": "",
+                }
+                self.sources = res.get("sources", [""])
+
+        hits = debate_results.get("results", [])
+        return [DebateHit(r) for r in hits], []
 
     elif tool_name == "run_python_code":
         import requests

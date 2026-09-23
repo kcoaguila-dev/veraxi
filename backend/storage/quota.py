@@ -40,6 +40,10 @@ def check_tenant_hard_cap(
     if config is None:
         config = get_config()
 
+    if tenant_id in config.admin_tenant_ids:
+        logger.info(f"Bypassing quota check for admin tenant: {tenant_id}")
+        return
+
     _enforce_cap(tenant_id, config)
 
 
