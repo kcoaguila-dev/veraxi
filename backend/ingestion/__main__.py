@@ -130,12 +130,14 @@ def main():
         "graphrag_test_corpus.txt",
     )
     if not os.path.exists(corpus_path):
-        corpus_path = os.path.join(
-            os.getcwd(),
-            "tests",
-            "data",
-            "graphrag_test_corpus.txt",
-        )
+        path1 = os.path.join(os.getcwd(), "tests", "data", "graphrag_test_corpus.txt")
+        path2 = os.path.join(os.getcwd(), "backend", "tests", "data", "graphrag_test_corpus.txt")
+        if os.path.exists(path1):
+            corpus_path = path1
+        elif os.path.exists(path2):
+            corpus_path = path2
+        else:
+            corpus_path = path1
     with open(corpus_path, "r", encoding="utf-8") as f:
         text = f.read()
 
