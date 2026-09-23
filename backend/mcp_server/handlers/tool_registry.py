@@ -1,9 +1,6 @@
 import dataclasses
 import json
 import logging
-
-logger = logging.getLogger(__name__)
-
 from mcp.types import TextContent, Tool
 
 from backend.config import get_config
@@ -25,6 +22,8 @@ from backend.mcp_server.tools.update_document import update_document_metadata
 from backend.mcp_server.tools.update_entity import update_entity
 from backend.storage.quota import check_tenant_hard_cap
 from backend.mcp_server.orchestrator_multi_agent import mcp_agentic_debate
+
+logger = logging.getLogger(__name__)
 
 REGISTERED_TOOLS = [
     Tool(

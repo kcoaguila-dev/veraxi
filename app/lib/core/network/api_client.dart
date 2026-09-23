@@ -19,8 +19,10 @@ final apiClientProvider = Provider<ApiClient>((ref) {
 
 class PaymentRequiredException implements Exception {
   final String message;
-  PaymentRequiredException([this.message = 'Payment is required to access this feature. Please upgrade your account.']);
-  
+  PaymentRequiredException(
+      [this.message =
+          'Payment is required to access this feature. Please upgrade your account.']);
+
   @override
   String toString() => message;
 }
