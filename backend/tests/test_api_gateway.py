@@ -5,19 +5,20 @@ from backend.api_gateway import app, get_tenant_id
 from fastapi.testclient import TestClient
 
 
-# Override the auth dependency for testing
-async def override_get_tenant_id():
-    return "test_tenant_id"
-
-
 from backend.api_gateway import verify_infrastructure_access
 
-app.dependency_overrides[get_tenant_id] = override_get_tenant_id
+@pytest.fixture(autouse=True)
+def override_dependencies():
+    async def override_get_tenant_id_local():
+        return "test_tenant_id"
 
-async def override_verify_infrastructure_access():
-    return "test_tenant_id"
+    async def override_verify_infrastructure_access():
+        return "test_tenant_id"
 
-app.dependency_overrides[verify_infrastructure_access] = override_verify_infrastructure_access
+    app.dependency_overrides[get_tenant_id] = override_get_tenant_id_local
+    app.dependency_overrides[verify_infrastructure_access] = override_verify_infrastructure_access
+    yield
+    app.dependency_overrides.clear()
 
 
 @pytest.fixture
