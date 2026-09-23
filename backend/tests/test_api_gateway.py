@@ -10,7 +10,14 @@ async def override_get_tenant_id():
     return "test_tenant_id"
 
 
+from backend.api_gateway import verify_infrastructure_access
+
 app.dependency_overrides[get_tenant_id] = override_get_tenant_id
+
+async def override_verify_infrastructure_access():
+    return "test_tenant_id"
+
+app.dependency_overrides[verify_infrastructure_access] = override_verify_infrastructure_access
 
 
 @pytest.fixture

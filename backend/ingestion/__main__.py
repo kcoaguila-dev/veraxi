@@ -129,6 +129,13 @@ def main():
         "data",
         "graphrag_test_corpus.txt",
     )
+    if not os.path.exists(corpus_path):
+        corpus_path = os.path.join(
+            os.getcwd(),
+            "tests",
+            "data",
+            "graphrag_test_corpus.txt",
+        )
     with open(corpus_path, "r", encoding="utf-8") as f:
         text = f.read()
 
