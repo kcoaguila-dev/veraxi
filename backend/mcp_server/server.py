@@ -139,7 +139,12 @@ async def handle_call_tool(ctx, params) -> CallToolResult:
         )
 
     try:
-        return CallToolResult(content=handler(args, tenant_id))
+        import inspect
+        if inspect.iscoroutinefunction(handler):
+            content = await handler(args, tenant_id)
+        else:
+            content = handler(args, tenant_id)
+        return CallToolResult(content=content)
     except Exception as e:  # noqa: BLE001
         sentry_sdk.capture_exception(e)
         return CallToolResult(

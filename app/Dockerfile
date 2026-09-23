@@ -15,9 +15,10 @@ COPY . .
 ARG IS_SELF_HOSTED=true
 ARG AUTH_ENABLED=true
 ARG IS_ENTERPRISE=false
+ARG API_URL=/api
 
 # Build the web application (outputs to /app/build/web)
-RUN flutter build web --release --dart-define=IS_SELF_HOSTED=$IS_SELF_HOSTED --dart-define=AUTH_ENABLED=$AUTH_ENABLED --dart-define=IS_ENTERPRISE=$IS_ENTERPRISE
+RUN flutter build web --release --dart-define=IS_SELF_HOSTED=$IS_SELF_HOSTED --dart-define=AUTH_ENABLED=$AUTH_ENABLED --dart-define=IS_ENTERPRISE=$IS_ENTERPRISE --dart-define=API_URL=$API_URL
 
 # Stage 2: Serve the app with Nginx
 FROM nginx:alpine

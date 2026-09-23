@@ -17,6 +17,14 @@ final apiClientProvider = Provider<ApiClient>((ref) {
   return ApiClient(tenantId: tenantId);
 });
 
+class PaymentRequiredException implements Exception {
+  final String message;
+  PaymentRequiredException([this.message = 'Payment is required to access this feature. Please upgrade your account.']);
+  
+  @override
+  String toString() => message;
+}
+
 class ApiClient {
   final String baseUrl;
   final http.Client client;
@@ -82,6 +90,9 @@ class ApiClient {
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
       }
+      if (response.statusCode == 402) {
+        throw PaymentRequiredException();
+      }
       throw Exception('Server error: ${response.statusCode}');
     } catch (e, stackTrace) {
       Sentry.captureException(e, stackTrace: stackTrace);
@@ -106,6 +117,9 @@ class ApiClient {
 
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
+      }
+      if (response.statusCode == 402) {
+        throw PaymentRequiredException();
       }
       throw Exception('Server error: ${response.statusCode}');
     } catch (e, stackTrace) {
@@ -132,6 +146,9 @@ class ApiClient {
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
       }
+      if (response.statusCode == 402) {
+        throw PaymentRequiredException();
+      }
       throw Exception('Server error: ${response.statusCode}');
     } catch (e, stackTrace) {
       Sentry.captureException(e, stackTrace: stackTrace);
@@ -153,6 +170,9 @@ class ApiClient {
 
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
+      }
+      if (response.statusCode == 402) {
+        throw PaymentRequiredException();
       }
       throw Exception('Server error: ${response.statusCode}');
     } catch (e, stackTrace) {
@@ -193,6 +213,9 @@ class ApiClient {
 
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
+      }
+      if (response.statusCode == 402) {
+        throw PaymentRequiredException();
       }
       throw Exception(
           'Server error: ${response.statusCode} - ${response.body}');

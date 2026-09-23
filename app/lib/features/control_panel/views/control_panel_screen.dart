@@ -428,6 +428,7 @@ class _ControlPanelScreenState extends ConsumerState<ControlPanelScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isSidebarOpen = ref.watch(sidebarStateProvider);
+    final state = ref.watch(controlPanelViewModelProvider);
 
     ref.listen<ControlPanelState>(controlPanelViewModelProvider,
         (previous, next) {
@@ -536,17 +537,19 @@ class _ControlPanelScreenState extends ConsumerState<ControlPanelScreen> {
                 padding: EdgeInsets.all(40.0),
                 child: _isLoading
                     ? Center(child: CircularProgressIndicator())
-                    : (_selectedIndex == 0
-                        ? _buildMcpIntegrations(theme)
-                        : _selectedIndex == 1
-                            ? _buildDataPipeline(theme)
-                            : _selectedIndex == 2
-                                ? const BillingView()
-                                : _selectedIndex == 3
-                                    ? const ApiKeysView()
-                                    : _selectedIndex == 4
-                                        ? _buildSecurityLogs(theme)
-                                        : _buildAgentSkills(theme)),
+                    : state.requiresPayment
+                        ? _buildUpgradeRequiredCard(theme)
+                        : (_selectedIndex == 0
+                            ? _buildMcpIntegrations(theme)
+                            : _selectedIndex == 1
+                                ? _buildDataPipeline(theme)
+                                : _selectedIndex == 2
+                                    ? const BillingView()
+                                    : _selectedIndex == 3
+                                        ? const ApiKeysView()
+                                        : _selectedIndex == 4
+                                            ? _buildSecurityLogs(theme)
+                                            : _buildAgentSkills(theme)),
               ),
             ),
           ),
@@ -612,6 +615,68 @@ class _ControlPanelScreenState extends ConsumerState<ControlPanelScreen> {
                   _selectedIndex = index;
                 });
               },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildUpgradeRequiredCard(ThemeData theme) {
+    return Center(
+      child: Container(
+        constraints: BoxConstraints(maxWidth: 500),
+        margin: EdgeInsets.only(top: 60),
+        padding: EdgeInsets.all(48),
+        decoration: BoxDecoration(
+          color: theme.extension<AppThemeExtension>()!.cardBackground,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: theme.extension<AppThemeExtension>()!.borderColor,
+          ),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Icon(Icons.lock_outline, size: 64, color: theme.colorScheme.primary),
+            SizedBox(height: 24),
+            Text(
+              'Premium Feature',
+              style: theme.textTheme.headlineMedium?.copyWith(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            SizedBox(height: 16),
+            Text(
+              'This workspace requires an active billing plan to access advanced capabilities such as custom integrations and schema management.',
+              style: TextStyle(
+                color: theme.extension<AppThemeExtension>()!.iconColor,
+                fontSize: 16,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            SizedBox(height: 32),
+            ElevatedButton(
+              onPressed: () {
+                setState(() {
+                  _selectedIndex = 2; // Go to Billing
+                });
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: theme.colorScheme.primary,
+                foregroundColor: Colors.white,
+                padding: EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              child: Text(
+                'View Billing Plans',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
             ),
           ],
         ),

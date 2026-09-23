@@ -105,6 +105,7 @@ services:
         - IS_SELF_HOSTED=${IS_SELF_HOSTED:-true}
         - AUTH_ENABLED=${AUTH_ENABLED:-true}
         - IS_ENTERPRISE=${IS_ENTERPRISE:-true}
+        - API_URL=${API_URL:-https://api.veraxi.me/api}
     depends_on:
       - backend
 

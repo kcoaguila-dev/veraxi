@@ -1,5 +1,8 @@
 import dataclasses
 import json
+import logging
+
+logger = logging.getLogger(__name__)
 
 from mcp.types import TextContent, Tool
 
@@ -21,6 +24,7 @@ from backend.mcp_server.tools.search_vectors import search_vectors
 from backend.mcp_server.tools.update_document import update_document_metadata
 from backend.mcp_server.tools.update_entity import update_entity
 from backend.storage.quota import check_tenant_hard_cap
+from backend.mcp_server.orchestrator_multi_agent import mcp_agentic_debate
 
 REGISTERED_TOOLS = [
     Tool(
@@ -206,6 +210,7 @@ REGISTERED_TOOLS = [
             },
         },
     ),
+
     Tool(
         name="mcp_skills",
         description="Lists available agentic skills for tool augmentation.",
@@ -463,7 +468,7 @@ def _handle_web_search(args: dict, tenant_id: str) -> list[TextContent]:
 
     tool_settings = args.get("_tool_settings", {})
     results = mcp_web_search(
-        args["query"], args.get("max_results", 3), tool_settings=tool_settings
+        args["query"], max_results=args.get("max_results", 3), tool_settings=tool_settings
     )
     return [TextContent(type="text", text=json.dumps(results))]
 
@@ -549,6 +554,11 @@ def _handle_export_data(args: dict, tenant_id: str) -> list[TextContent]:
     )
     return [TextContent(type="text", text=filepath)]
 
+
+async def _handle_agentic_debate(args: dict, tenant_id: str) -> list[TextContent]:
+    logger.info(f"mcp_agentic_debate called for tenant: {tenant_id}")
+    res = await mcp_agentic_debate(args["query"], tenant_id=tenant_id)
+    return [TextContent(type="text", text=json.dumps(res, indent=2))]
 
 TOOL_HANDLERS = {
     "mcp_search_vectors": _handle_search_vectors,

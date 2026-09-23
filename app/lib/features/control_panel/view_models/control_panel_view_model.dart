@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/control_panel_repository.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
+import '../../../core/network/api_client.dart';
 
 class ControlPanelState {
   final bool isIngesting;
@@ -8,6 +9,7 @@ class ControlPanelState {
   final String? successMessage;
   final BackendStats? stats;
   final Map<String, dynamic>? schema;
+  final bool requiresPayment;
 
   const ControlPanelState({
     this.isIngesting = false,
@@ -15,6 +17,7 @@ class ControlPanelState {
     this.successMessage,
     this.stats,
     this.schema,
+    this.requiresPayment = false,
   });
 }
 
@@ -42,6 +45,13 @@ class ControlPanelViewModel extends StateNotifier<ControlPanelState> {
         error: null,
         successMessage: null,
       );
+    } on PaymentRequiredException catch (_) {
+      state = ControlPanelState(
+        isIngesting: state.isIngesting,
+        stats: state.stats,
+        schema: state.schema,
+        requiresPayment: true,
+      );
     } catch (e) {
       // Ignore if no schema found or error, it will just remain null
     }
@@ -56,6 +66,13 @@ class ControlPanelViewModel extends StateNotifier<ControlPanelState> {
         schema: newSchema,
         error: null,
         successMessage: 'Schema saved successfully.',
+      );
+    } on PaymentRequiredException catch (_) {
+      state = ControlPanelState(
+        isIngesting: state.isIngesting,
+        stats: state.stats,
+        schema: state.schema,
+        requiresPayment: true,
       );
     } catch (e, st) {
       Sentry.captureException(e, stackTrace: st);
@@ -80,6 +97,13 @@ class ControlPanelViewModel extends StateNotifier<ControlPanelState> {
     try {
       final schema = await repository.autoGenerateSchema(text);
       await saveSchema(schema);
+    } on PaymentRequiredException catch (_) {
+      state = ControlPanelState(
+        isIngesting: false,
+        stats: state.stats,
+        schema: state.schema,
+        requiresPayment: true,
+      );
     } catch (e, st) {
       Sentry.captureException(e, stackTrace: st);
       state = ControlPanelState(
@@ -101,6 +125,13 @@ class ControlPanelViewModel extends StateNotifier<ControlPanelState> {
         schema: state.schema,
         error: null,
         successMessage: null,
+      );
+    } on PaymentRequiredException catch (_) {
+      state = ControlPanelState(
+        isIngesting: state.isIngesting,
+        stats: state.stats,
+        schema: state.schema,
+        requiresPayment: true,
       );
     } catch (e, st) {
       Sentry.captureException(e, stackTrace: st);
