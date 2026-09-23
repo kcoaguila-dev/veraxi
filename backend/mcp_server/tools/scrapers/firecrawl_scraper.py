@@ -51,7 +51,7 @@ def _fetch_one(
     except urllib.error.HTTPError as exc:
         logger.warning("Firecrawl HTTP %s for %s", exc.code, url)
         return url, ""
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         sentry_sdk.capture_exception(exc)
         logger.warning("Firecrawl failed for %s: %s", url, exc)
         return url, ""
@@ -101,7 +101,7 @@ class FirecrawlScraper:
                         results[url] = content
                 except FuturesTimeoutError:
                     logger.warning("Firecrawl timed out for %s", future_to_url[future])
-                except Exception as exc:  # noqa: BLE001
+                except Exception as exc:
                     sentry_sdk.capture_exception(exc)
                     logger.warning("Firecrawl fetch_batch error: %s", exc)
 

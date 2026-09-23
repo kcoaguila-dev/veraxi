@@ -2,9 +2,8 @@ import asyncio
 import uuid
 from unittest.mock import patch
 
-from langchain_core.messages import AIMessage
-
 from backend.mcp_server.llm_loop import answer_question
+from langchain_core.messages import AIMessage
 
 thread_id = str(uuid.uuid4())
 tenant_id = "test_tenant"

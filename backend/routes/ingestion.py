@@ -7,12 +7,11 @@ import tempfile
 
 import magic
 import sentry_sdk
+from backend.config import get_config
+from backend.storage.quota import check_tenant_hard_cap
 from docling.document_converter import DocumentConverter
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from pydantic import BaseModel
-
-from backend.config import get_config
-from backend.storage.quota import check_tenant_hard_cap
 
 logger = logging.getLogger(__name__)
 
@@ -63,9 +62,8 @@ async def _ensure_schema_exists(redis, tenant_id: str, sample_text: str):
         f"No schema found for tenant {tenant_id}. Auto-generating from ingested content..."
     )
     config = get_config()
-    from openai import AsyncOpenAI
-
     from backend.prompts import get_auto_ontology_prompt
+    from openai import AsyncOpenAI
 
     client = AsyncOpenAI(**config.get_llm_client_args())
     try:
@@ -86,7 +84,7 @@ async def _ensure_schema_exists(redis, tenant_id: str, sample_text: str):
         content = response.choices[0].message.content
         await redis.set(f"tenant:{tenant_id}:schema", content)
         logger.info(f"Auto-generated and saved schema for tenant {tenant_id}.")
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         logger.error(f"Failed to auto-generate schema: {e}")
 
 
@@ -134,7 +132,7 @@ def register_ingestion_routes(
                 ingest_request.custom_stop_words,
             )
             return {"status": "queued", "job_id": job.job_id}
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             sentry_sdk.capture_exception(e)
             logger.error(f"Error during ingestion: {e}")
             raise HTTPException(status_code=500, detail=str(e))
@@ -163,7 +161,7 @@ def register_ingestion_routes(
                 model_name,
             )
             return {"status": "queued", "job_id": job.job_id}
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             sentry_sdk.capture_exception(e)
             logger.error(f"Error during memory ingestion: {e}")
             raise HTTPException(status_code=500, detail=str(e))
@@ -239,7 +237,7 @@ def register_ingestion_routes(
             return {"status": "queued", "job_id": job.job_id}
         except HTTPException:
             raise
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             sentry_sdk.capture_exception(e)
             logger.error(f"Error during file ingestion: {e}")
             raise HTTPException(status_code=500, detail=str(e))
@@ -275,7 +273,7 @@ def register_ingestion_routes(
                 url_request.chunk_overlap,
             )
             return {"status": "queued", "job_id": job.job_id}
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             sentry_sdk.capture_exception(e)
             logger.error(f"Error during URL ingestion: {e}")
             raise HTTPException(status_code=500, detail=str(e))
@@ -338,9 +336,8 @@ def register_ingestion_routes(
     @app_router.post("/api/admin/schema/auto-generate")
     async def auto_generate_schema(data: AutoGenerateSchemaRequest):
         config = get_config()
-        from openai import AsyncOpenAI
-
         from backend.prompts import get_auto_ontology_prompt
+        from openai import AsyncOpenAI
 
         client = AsyncOpenAI(**config.get_llm_client_args())
         try:
@@ -355,7 +352,7 @@ def register_ingestion_routes(
                 temperature=data.temperature,
             )
             return json.loads(response.choices[0].message.content)
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             sentry_sdk.capture_exception(e)
             raise HTTPException(
                 status_code=500, detail=f"Failed to generate valid schema: {e!s}"

@@ -5,12 +5,11 @@ import logging
 import uuid
 from typing import Any
 
-from mcp.client.session import ClientSession
-from mcp.client.sse import sse_client
-
 from backend.config import get_config
 from backend.mcp_server.tools.query_graph import query_graph
 from backend.mcp_server.tools.search_vectors import search_vectors
+from mcp.client.session import ClientSession
+from mcp.client.sse import sse_client
 
 logger = logging.getLogger(__name__)
 
@@ -202,7 +201,7 @@ async def get_tools(tool_settings: dict | None = None) -> list:
                             )
                         _MCP_TOOL_CACHE[url] = mapped_tools
                         all_tools.extend(mapped_tools)
-            except Exception as e:  # noqa: BLE001
+            except Exception as e:
                 logger.error(f"Failed to fetch tools from MCP server {url}: {e}")
 
     return all_tools
@@ -374,7 +373,7 @@ def _execute_single_tool(
                     self.sources = ["Python Sandbox"]
 
             return [CodeHit(data)], []
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
 
             class ErrorHit:
                 def __init__(self, err):
@@ -411,7 +410,7 @@ def _execute_single_tool(
                     self.sources = [url]
 
             return [UrlHit(resp.text, tool_input["url"])], []
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
 
             class UrlErrorHit:
                 def __init__(self, err, url):
@@ -454,7 +453,7 @@ async def _execute_mcp_tool(
                         self.sources = [f"MCP Server ({server_name})"]
 
                 return [McpHit(result)], []
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         logger.error(f"Failed to execute MCP tool {tool_name} on {url}: {e}")
 
         class McpErrorHit:

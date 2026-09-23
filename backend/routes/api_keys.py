@@ -3,10 +3,9 @@
 import logging
 
 import sentry_sdk
+from backend.security.api_keys import generate_api_key
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-
-from backend.security.api_keys import generate_api_key
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +36,7 @@ def register_api_key_routes(app_router, get_tenant_id, _get_supabase):
                 .execute()
             )
             return {"api_keys": response.data or []}
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             sentry_sdk.capture_exception(e)
             logger.error(f"Error listing API keys for tenant {tenant_id}: {e}")
             raise HTTPException(status_code=500, detail="Failed to list API keys")
@@ -67,7 +66,7 @@ def register_api_key_routes(app_router, get_tenant_id, _get_supabase):
                 "key_prefix": key_prefix,
                 "created_at": response.data[0]["created_at"],
             }
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             sentry_sdk.capture_exception(e)
             logger.error(f"Error creating API key for tenant {tenant_id}: {e}")
             raise HTTPException(status_code=500, detail="Failed to create API key")
@@ -90,7 +89,7 @@ def register_api_key_routes(app_router, get_tenant_id, _get_supabase):
             return {"status": "revoked"}
         except HTTPException:
             raise
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             sentry_sdk.capture_exception(e)
             logger.error(f"Error revoking API key {key_id}: {e}")
             raise HTTPException(status_code=500, detail="Failed to revoke API key")

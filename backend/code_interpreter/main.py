@@ -44,7 +44,7 @@ async def execute_code(req: CodeExecutionRequest):
             else f"Execution timed out after {req.timeout} seconds.",
             exit_code=-1,
         )
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         if os.path.exists(temp_path):

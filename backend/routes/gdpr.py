@@ -4,11 +4,10 @@ import datetime
 import logging
 
 import sentry_sdk
-from fastapi import APIRouter, Depends, HTTPException, Request
-
 from backend.config import get_config
 from backend.storage.neo4j_client import Neo4jStorageClient
 from backend.storage.qdrant_client import QdrantStorageClient
+from fastapi import APIRouter, Depends, HTTPException, Request
 
 logger = logging.getLogger(__name__)
 
@@ -61,7 +60,7 @@ def register_gdpr_routes(
                         {"thread_id": tid, "title": title, "messages": messages}
                     )
             return export_data
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             logger.error("ERROR IN EXPORT_USER_DATA: %s", repr(e))
             sentry_sdk.capture_exception(e)
             raise HTTPException(status_code=500, detail="Failed to export data")
@@ -79,7 +78,7 @@ def register_gdpr_routes(
                     "MATCH (n) WHERE n.tenant_id = $tenant_id DETACH DELETE n",
                     {"tenant_id": tenant_id},
                 )
-            except Exception as e:  # noqa: BLE001
+            except Exception as e:
                 logger.error(f"Error deleting Neo4j data: {e}")
             # 2. Delete from Qdrant
             qdrant_client = QdrantStorageClient()
@@ -99,7 +98,7 @@ def register_gdpr_routes(
                         )
                     ),
                 )
-            except Exception as e:  # noqa: BLE001
+            except Exception as e:
                 logger.error(f"Error deleting Qdrant data: {e}")
             # 3. Delete from Redis & Postgres (Chat History)
             threads = await request.app.state.redis.smembers(
@@ -127,7 +126,7 @@ def register_gdpr_routes(
                             "DELETE FROM checkpoint_blobs WHERE thread_id = %s", (tid,)
                         )
                     await conn.commit()
-            except Exception as e:  # noqa: BLE001
+            except Exception as e:
                 logger.error(f"Error deleting Postgres chat history: {e}")
             await request.app.state.redis.delete(f"tenant:{tenant_id}:threads")
             await request.app.state.redis.delete(f"tenant:{tenant_id}:thread_titles")
@@ -138,7 +137,7 @@ def register_gdpr_routes(
                 f"tenant:{tenant_id}:thread_timestamps"
             )
             return {"status": "success", "message": "All user data deleted"}
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             logger.error("ERROR IN DELETE_USER_DATA: %s", repr(e))
             sentry_sdk.capture_exception(e)
             raise HTTPException(status_code=500, detail="Failed to delete data")

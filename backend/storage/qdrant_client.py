@@ -1,6 +1,7 @@
 import uuid
 from typing import Any
 
+from backend import context as byod_context
 from qdrant_client import QdrantClient
 from qdrant_client.models import (
     Distance,
@@ -10,8 +11,6 @@ from qdrant_client.models import (
     SparseVectorParams,
     VectorParams,
 )
-
-from backend import context as byod_context
 
 
 class QdrantStorageClient:
@@ -53,7 +52,7 @@ class QdrantStorageClient:
             collection_info = self.client.get_collection(collection_name)
             if not collection_info.config.params.sparse_vectors:
                 self.client.delete_collection(collection_name)
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             import sentry_sdk
 
             sentry_sdk.capture_exception(e)

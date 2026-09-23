@@ -2,7 +2,6 @@ import os
 from typing import Any
 
 import httpx
-
 from backend.config import get_config
 
 
@@ -106,7 +105,7 @@ def mcp_ingest_document(
             "error": f"HTTP Error during ingestion: {e!s}",
             "details": response_text,
         }
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         return {"error": f"Unexpected error: {e!s}"}
 
 
@@ -126,5 +125,5 @@ def mcp_get_ingest_status(tenant_id: str, job_id: str) -> dict[str, Any]:
             return response.json()
     except httpx.HTTPError as e:
         return {"error": f"HTTP Error checking status: {e!s}"}
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         return {"error": f"Unexpected error: {e!s}"}

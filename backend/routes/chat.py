@@ -8,16 +8,15 @@ import time
 import uuid
 
 import sentry_sdk
-from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
-
 from backend.mcp_server.llm_loop import (
     answer_question,
     generate_chat_title,
     stream_answer_question,
 )
 from backend.security.moderation import moderate_text
+from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 
@@ -77,7 +76,7 @@ async def _generate_and_save_title(
             return None
         await redis.hset(f"tenant:{tenant_id}:thread_titles", thread_id, title)
         return title
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         sentry_sdk.capture_exception(e)
         logger.error(f"Error generating title for thread {thread_id}: {e}")
         return None
@@ -197,10 +196,10 @@ async def _stream_events(
                 title = await asyncio.wait_for(title_task, timeout=10.0)
                 if title:
                     yield f"data: {json.dumps({'event': 'metadata', 'data': {'thread_title': title}})}\n\n"
-            except Exception as e:  # noqa: BLE001
+            except Exception as e:
                 logger.error(f"Error waiting for title task: {e}")
         yield "data: [DONE]\n\n"
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         sentry_sdk.capture_exception(e)
         logger.error(f"Error in streaming: {e}")
         yield f"data: {json.dumps({'error': str(e)})}\n\n"
@@ -289,7 +288,7 @@ def register_chat_routes(
                 metrics=metrics or None,
                 thread_id=thread_id,
             )
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             sentry_sdk.capture_exception(e)
             logger.error(f"Error processing question: {e}")
             raise HTTPException(status_code=500, detail=str(e))
@@ -322,7 +321,7 @@ def register_chat_routes(
                     threads, titles, pinned, archived, projects, timestamps
                 )
             }
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             sentry_sdk.capture_exception(e)
             logger.error(f"Error listing threads: {e}")
             raise HTTPException(status_code=500, detail=str(e))
@@ -340,9 +339,8 @@ def register_chat_routes(
                 raise HTTPException(
                     status_code=403, detail="Thread not found or access denied."
                 )
-            from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
-
             from backend.config import get_config as _get_config
+            from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 
             config_obj = _get_config()
             async with AsyncPostgresSaver.from_conn_string(
@@ -364,7 +362,7 @@ def register_chat_routes(
                 )
                 for k, v in feedbacks_raw.items():
                     feedback_dict[k.decode("utf-8")] = int(v.decode("utf-8"))
-            except Exception as e:  # noqa: BLE001
+            except Exception as e:
                 sentry_sdk.capture_exception(e)
                 logger.error(f"Failed to fetch feedback: {e}")
             return {
@@ -372,7 +370,7 @@ def register_chat_routes(
             }
         except HTTPException:
             raise
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             sentry_sdk.capture_exception(e)
             logger.error(f"Error fetching thread {thread_id}: {e}")
             raise HTTPException(status_code=500, detail=str(e))
@@ -387,9 +385,8 @@ def register_chat_routes(
         if not is_owner:
             raise HTTPException(status_code=403, detail="Access denied")
         try:
-            from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
-
             from backend.config import get_config as _get_config
+            from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 
             config_obj = _get_config()
             async with AsyncPostgresSaver.from_conn_string(
@@ -418,7 +415,7 @@ def register_chat_routes(
             return {"share_id": share_id}
         except HTTPException:
             raise
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             sentry_sdk.capture_exception(e)
             raise HTTPException(status_code=500, detail=str(e))
 
@@ -437,9 +434,8 @@ def register_chat_routes(
             is_shared = await request.app.state.redis.get(f"shared_thread:{thread_id}")
             if not is_shared:
                 raise HTTPException(status_code=404, detail="Shared thread not found.")
-            from langgraph.checkpoint.redis.aio import AsyncRedisSaver
-
             from backend.config import get_config as _get_config
+            from langgraph.checkpoint.redis.aio import AsyncRedisSaver
 
             config_obj = _get_config()
             async with AsyncRedisSaver.from_conn_string(config_obj.redis_url) as memory:
@@ -454,7 +450,7 @@ def register_chat_routes(
             return {"messages": _extract_messages_from_state(raw_messages, {})}
         except HTTPException:
             raise
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             sentry_sdk.capture_exception(e)
             raise HTTPException(status_code=500, detail=str(e))
 
@@ -475,7 +471,7 @@ def register_chat_routes(
                     f"tenant:{tenant_id}:message_feedback", message_id, payload.value
                 )
             return {"status": "ok"}
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             sentry_sdk.capture_exception(e)
             raise HTTPException(status_code=500, detail=str(e))
 
@@ -487,9 +483,8 @@ def register_chat_routes(
         tenant_id: str = Depends(get_tenant_id),
     ):
         try:
-            from langgraph.checkpoint.redis.aio import AsyncRedisSaver
-
             from backend.config import get_config as _get_config
+            from langgraph.checkpoint.redis.aio import AsyncRedisSaver
 
             config_obj = _get_config()
             async with AsyncRedisSaver.from_conn_string(config_obj.redis_url) as memory:
@@ -520,7 +515,7 @@ def register_chat_routes(
             return {"status": "ok"}
         except HTTPException:
             raise
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             sentry_sdk.capture_exception(e)
             raise HTTPException(status_code=500, detail=str(e))
 
@@ -621,9 +616,8 @@ def register_chat_routes(
         )
         await request.app.state.redis.sadd(f"tenant:{tenant_id}:threads", new_thread_id)
         try:
-            from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
-
             from backend.config import get_config as _get_config
+            from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 
             config_obj = _get_config()
             async with AsyncPostgresSaver.from_conn_string(
@@ -650,7 +644,7 @@ def register_chat_routes(
                             {"configurable": {"thread_id": new_thread_id}},
                             {"messages": copied_messages},
                         )
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             sentry_sdk.capture_exception(e)
             logger.error(f"Error duplicating LangGraph state: {e}")
         return {"status": "ok", "new_thread_id": new_thread_id}

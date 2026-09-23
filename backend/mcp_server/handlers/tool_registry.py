@@ -1,9 +1,9 @@
 import dataclasses
 import json
 import logging
-from mcp.types import TextContent, Tool
 
 from backend.config import get_config
+from backend.mcp_server.orchestrator_multi_agent import mcp_agentic_debate
 from backend.mcp_server.tools.delete_entity import delete_entity
 from backend.mcp_server.tools.delete_relationship import delete_relationship
 from backend.mcp_server.tools.delete_vector import delete_vector
@@ -21,7 +21,7 @@ from backend.mcp_server.tools.search_vectors import search_vectors
 from backend.mcp_server.tools.update_document import update_document_metadata
 from backend.mcp_server.tools.update_entity import update_entity
 from backend.storage.quota import check_tenant_hard_cap
-from backend.mcp_server.orchestrator_multi_agent import mcp_agentic_debate
+from mcp.types import TextContent, Tool
 
 logger = logging.getLogger(__name__)
 

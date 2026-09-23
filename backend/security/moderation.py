@@ -42,7 +42,7 @@ async def moderate_text(text: str, api_key: str | None = None) -> bool:
                     )
                 return is_flagged
 
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         logger.error(f"Error calling moderation API: {e}")
         # Fail open
         return False

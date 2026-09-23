@@ -1,8 +1,6 @@
 import uuid
 
 import pytest
-from qdrant_client.http.models import PointStruct
-
 from backend.config import get_config
 from backend.mcp_server.tools.delete_entity import delete_entity
 from backend.mcp_server.tools.delete_relationship import delete_relationship
@@ -13,6 +11,7 @@ from backend.mcp_server.tools.update_document import update_document_metadata
 from backend.mcp_server.tools.update_entity import update_entity
 from backend.storage.neo4j_client import Neo4jStorageClient
 from backend.storage.qdrant_client import QdrantStorageClient
+from qdrant_client.http.models import PointStruct
 
 
 @pytest.fixture

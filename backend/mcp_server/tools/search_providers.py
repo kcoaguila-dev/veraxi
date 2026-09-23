@@ -15,7 +15,6 @@ import urllib.request
 from abc import ABC, abstractmethod
 
 import sentry_sdk
-
 from backend.config import get_config
 
 logger = logging.getLogger(__name__)
@@ -77,7 +76,7 @@ class SearXNGProvider(SearchProvider):
                             "snippet": res.get("content", ""),
                         }
                     )
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             sentry_sdk.capture_exception(exc)
             logger.error("SearXNG search failed: %s", exc)
             return []
@@ -130,7 +129,7 @@ class TavilyProvider(SearchProvider):
                             "snippet": res.get("content", ""),
                         }
                     )
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             sentry_sdk.capture_exception(exc)
             logger.error("Tavily search failed: %s", exc)
             return []

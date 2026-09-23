@@ -40,7 +40,7 @@ def _fetch_one(url: str, timeout: float) -> tuple[str, str]:
             no_fallback=False,
         )
         return url, (text or "").strip()
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         sentry_sdk.capture_exception(exc)
         logger.warning("Trafilatura failed for %s: %s", url, exc)
         return url, ""
@@ -81,7 +81,7 @@ class TrafilaturaScraper:
                     logger.warning(
                         "Trafilatura timed out for %s", future_to_url[future]
                     )
-                except Exception as exc:  # noqa: BLE001
+                except Exception as exc:
                     sentry_sdk.capture_exception(exc)
                     logger.warning("Trafilatura fetch_batch error: %s", exc)
 

@@ -2,10 +2,9 @@ import os
 from unittest.mock import patch
 
 import pytest
+from backend.config import get_config
 from testcontainers.neo4j import Neo4jContainer
 from testcontainers.qdrant import QdrantContainer
-
-from backend.config import get_config
 
 # Set default dummy environment variables for pytest collection phase
 # to prevent get_config() from crashing when modules are imported globally.

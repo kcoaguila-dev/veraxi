@@ -46,7 +46,7 @@ def _fetch_one(url: str, api_key: str, timeout: float) -> tuple[str, str]:
     except urllib.error.HTTPError as exc:
         logger.warning("Jina Reader HTTP %s for %s", exc.code, url)
         return url, ""
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         sentry_sdk.capture_exception(exc)
         logger.warning("Jina Reader failed for %s: %s", url, exc)
         return url, ""
@@ -91,7 +91,7 @@ class JinaScraper:
                     logger.warning(
                         "Jina Reader timed out for %s", future_to_url[future]
                     )
-                except Exception as exc:  # noqa: BLE001
+                except Exception as exc:
                     sentry_sdk.capture_exception(exc)
                     logger.warning("Jina Reader fetch_batch error: %s", exc)
 
