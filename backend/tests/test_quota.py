@@ -24,6 +24,7 @@ def _make_config(max_nodes: int = 1000, auth_enabled: bool = True) -> Config:
     cfg = MagicMock(spec=Config)
     cfg.max_tenant_nodes = max_nodes
     cfg.auth_enabled = auth_enabled
+    cfg.admin_tenant_ids = []
     return cfg
 
 

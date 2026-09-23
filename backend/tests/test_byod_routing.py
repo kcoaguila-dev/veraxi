@@ -48,6 +48,8 @@ def mock_config():
         terms_of_service_url="x",
         privacy_policy_url="x",
         max_tenant_nodes=1000,
+        internal_api_url="http://internal",
+        admin_tenant_ids=["admin"],
     )
 
 
