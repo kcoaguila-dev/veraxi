@@ -133,9 +133,9 @@ class _ChatInputState extends State<ChatInput> {
   Future<void> _loadToolSettings() async {
     final prefs = await SharedPreferences.getInstance();
     final settingsJson = prefs.getString('tool_settings');
-    if (settingsJson != null) {
+    if ((settingsJson ?? '').isNotEmpty) {
       try {
-        final settings = jsonDecode(settingsJson) as Map<String, dynamic>;
+        final settings = jsonDecode(settingsJson!) as Map<String, dynamic>;
         bool fileEnabled = settings.containsKey('file_search_enabled')
             ? settings['file_search_enabled'] as bool
             : false;
@@ -195,9 +195,9 @@ class _ChatInputState extends State<ChatInput> {
     final prefs = await SharedPreferences.getInstance();
     final currentSettingsJson = prefs.getString('tool_settings');
     Map<String, dynamic> settings = {};
-    if (currentSettingsJson != null) {
+    if ((currentSettingsJson ?? '').isNotEmpty) {
       try {
-        settings = jsonDecode(currentSettingsJson) as Map<String, dynamic>;
+        settings = jsonDecode(currentSettingsJson!) as Map<String, dynamic>;
       } catch (e) {
         debugPrint('[ChatInput] Failed to decode tool_settings: $e');
       }
@@ -245,9 +245,9 @@ class _ChatInputState extends State<ChatInput> {
     final prefs = await SharedPreferences.getInstance();
     final currentSettingsJson = prefs.getString('tool_settings');
     Map<String, dynamic> settings = {};
-    if (currentSettingsJson != null) {
+    if ((currentSettingsJson ?? '').isNotEmpty) {
       try {
-        settings = jsonDecode(currentSettingsJson) as Map<String, dynamic>;
+        settings = jsonDecode(currentSettingsJson!) as Map<String, dynamic>;
       } catch (e) {
         debugPrint('[ChatInput] Failed to decode tool_settings: $e');
       }
@@ -277,8 +277,7 @@ class _ChatInputState extends State<ChatInput> {
 
   Future<void> _pickFiles() async {
     try {
-      FilePickerResult? result = await FilePicker.platform.pickFiles(
-        allowMultiple: true,
+      final result = await FilePicker.pickFiles(
         type: FileType.custom,
         allowedExtensions: [
           'pdf',
@@ -293,12 +292,11 @@ class _ChatInputState extends State<ChatInput> {
           'xls',
           'xlsx'
         ],
-        withData: true, // Need bytes to upload
       );
 
-      if (result != null) {
+      if (result.isNotEmpty) {
         setState(() {
-          _attachedFiles.addAll(result.files);
+          _attachedFiles.addAll(result);
         });
       }
     } catch (e, st) {

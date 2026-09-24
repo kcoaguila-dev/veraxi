@@ -64,12 +64,15 @@ class ProjectDashboardView extends ConsumerWidget {
                   children: [
                     Icon(LucideIcons.folder, color: Colors.white, size: 32),
                     SizedBox(width: 16),
-                    Text(
-                      projectName,
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 32,
-                        fontWeight: FontWeight.w600,
+                    Expanded(
+                      child: Text(
+                        projectName,
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 32,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ],

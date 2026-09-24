@@ -40,15 +40,14 @@ class _ManageVoicesDialogState extends ConsumerState<ManageVoicesDialog> {
   }
 
   Future<void> _uploadVoice() async {
-    final result = await FilePicker.platform.pickFiles(
+    final result = await FilePicker.pickFiles(
       type: FileType.audio,
-      withData: true,
     );
 
-    if (result != null && result.files.single.bytes != null) {
-      final file = result.files.single;
+    if (result.isNotEmpty) {
+      final file = result.first;
       final fileName = file.name;
-      final bytes = file.bytes!;
+      final bytes = await file.readAsBytes();
 
       if (!mounted) return;
 
@@ -91,16 +90,14 @@ class _ManageVoicesDialogState extends ConsumerState<ManageVoicesDialog> {
                     icon: Icon(Icons.upload_file, color: Colors.grey),
                     tooltip: 'Upload .txt file',
                     onPressed: () async {
-                      final txtResult = await FilePicker.platform.pickFiles(
+                      final txtResult = await FilePicker.pickFiles(
                         type: FileType.custom,
                         allowedExtensions: ['txt'],
-                        withData: true,
                       );
-                      if (txtResult != null &&
-                          txtResult.files.single.bytes != null) {
+                      if (txtResult.isNotEmpty) {
                         try {
                           final text =
-                              utf8.decode(txtResult.files.single.bytes!);
+                              utf8.decode(await txtResult.first.readAsBytes());
                           promptController.text = text;
                         } catch (e, st) {
                           Sentry.captureException(e, stackTrace: st);
@@ -402,14 +399,13 @@ class _VoiceEditorFormState extends State<_VoiceEditorForm> {
               icon: Icon(Icons.upload_file, color: Colors.grey),
               tooltip: 'Upload .txt file',
               onPressed: () async {
-                final txtResult = await FilePicker.platform.pickFiles(
+                final txtResult = await FilePicker.pickFiles(
                   type: FileType.custom,
                   allowedExtensions: ['txt'],
-                  withData: true,
                 );
-                if (txtResult != null && txtResult.files.single.bytes != null) {
+                if (txtResult.isNotEmpty) {
                   try {
-                    final text = utf8.decode(txtResult.files.single.bytes!);
+                    final text = utf8.decode(await txtResult.first.readAsBytes());
                     _promptController.text = text;
                     _update();
                   } catch (e, st) {

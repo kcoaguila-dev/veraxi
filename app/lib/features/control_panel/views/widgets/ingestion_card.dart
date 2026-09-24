@@ -83,7 +83,7 @@ class _IngestionCardState extends ConsumerState<IngestionCard> {
           InkWell(
             onTap: () async {
               try {
-                final result = await FilePicker.platform.pickFiles(
+                final result = await FilePicker.pickFiles(
                   type: FileType.custom,
                   allowedExtensions: [
                     'pdf',
@@ -103,16 +103,15 @@ class _IngestionCardState extends ConsumerState<IngestionCard> {
                     'tiff',
                     'bmp',
                   ],
-                  withData: true,
                 );
-                if (result != null && mounted) {
+                if (result.isNotEmpty && mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('Uploading file...')));
                   final viewModel =
                       ref.read(controlPanelViewModelProvider.notifier);
-                  final fileBytes = result.files.first.bytes;
-                  final fileName = result.files.first.name;
-                  if (fileBytes != null) {
+                  final fileBytes = await result.first.readAsBytes();
+                  final fileName = result.first.name;
+                  if (fileBytes.isNotEmpty) {
                     await viewModel.ingestUpload(
                       fileBytes,
                       fileName,
@@ -427,8 +426,8 @@ class _IngestionCardState extends ConsumerState<IngestionCard> {
                                         value: 'de', child: Text('German')),
                                   ],
                                   onChanged: (val) {
-                                    if (val != null) {
-                                      setState(() => _selectedLanguage = val);
+                                    if ((val ?? '').isNotEmpty) {
+                                      setState(() => _selectedLanguage = val!);
                                     }
                                   },
                                 ),
