@@ -95,8 +95,8 @@ class ControlPanelViewModel extends StateNotifier<ControlPanelState> {
       schema: state.schema,
       error: null,
       successMessage: null,
-        requiresPayment: state.requiresPayment,
-      );
+      requiresPayment: state.requiresPayment,
+    );
     try {
       final schema = await repository.autoGenerateSchema(text);
       await saveSchema(schema);
@@ -167,8 +167,8 @@ class ControlPanelViewModel extends StateNotifier<ControlPanelState> {
             error: null,
             successMessage:
                 'Ingestion complete: $nodes nodes and $vectors vectors inserted.',
-        requiresPayment: state.requiresPayment,
-      );
+            requiresPayment: state.requiresPayment,
+          );
           await fetchStats();
           return;
         } else if (status == 'error' || status == 'not_found') {
@@ -198,8 +198,8 @@ class ControlPanelViewModel extends StateNotifier<ControlPanelState> {
       schema: state.schema,
       error: null,
       successMessage: null,
-        requiresPayment: state.requiresPayment,
-      );
+      requiresPayment: state.requiresPayment,
+    );
 
     try {
       final result = await repository.triggerIngestion(text);
@@ -230,8 +230,8 @@ class ControlPanelViewModel extends StateNotifier<ControlPanelState> {
       schema: state.schema,
       error: null,
       successMessage: null,
-        requiresPayment: state.requiresPayment,
-      );
+      requiresPayment: state.requiresPayment,
+    );
 
     try {
       final result = await repository.ingestUpload(
@@ -269,8 +269,8 @@ class ControlPanelViewModel extends StateNotifier<ControlPanelState> {
       schema: state.schema,
       error: null,
       successMessage: null,
-        requiresPayment: state.requiresPayment,
-      );
+      requiresPayment: state.requiresPayment,
+    );
 
     try {
       final result = await repository.ingestUrl(

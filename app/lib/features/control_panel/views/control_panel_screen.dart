@@ -487,8 +487,8 @@ class _ControlPanelScreenState extends ConsumerState<ControlPanelScreen> {
                   height: 56,
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   decoration: const BoxDecoration(
-                    border: Border(
-                        bottom: BorderSide(color: Color(0xFF2A2A2A))),
+                    border:
+                        Border(bottom: BorderSide(color: Color(0xFF2A2A2A))),
                   ),
                   child: ListView(
                     scrollDirection: Axis.horizontal,
@@ -572,8 +572,8 @@ class _ControlPanelScreenState extends ConsumerState<ControlPanelScreen> {
                                     child: SizedBox(
                                       width: 24,
                                       height: 24,
-                                      child:
-                                          Center(child: _buildSidebarToggleIcon()),
+                                      child: Center(
+                                          child: _buildSidebarToggleIcon()),
                                     ),
                                   ),
                                 ),
@@ -594,11 +594,11 @@ class _ControlPanelScreenState extends ConsumerState<ControlPanelScreen> {
                         _buildMenuItem('Infrastructure', Icons.dns_outlined,
                             _selectedIndex == 3, 3),
                         SizedBox(height: 8),
-                        _buildMenuItem('Security & Logs', Icons.security_outlined,
-                            _selectedIndex == 4, 4),
+                        _buildMenuItem('Security & Logs',
+                            Icons.security_outlined, _selectedIndex == 4, 4),
                         SizedBox(height: 8),
-                        _buildMenuItem('Agent Skills', Icons.psychology_outlined,
-                            _selectedIndex == 5, 5),
+                        _buildMenuItem('Agent Skills',
+                            Icons.psychology_outlined, _selectedIndex == 5, 5),
                       ],
                     ),
                   ),

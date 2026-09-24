@@ -154,8 +154,7 @@ class _AgentSkillsViewState extends State<AgentSkillsView> {
       setState(() {
         _skills.add({
           'id': DateTime.now().millisecondsSinceEpoch.toString(),
-          'name':
-              result.first.name.replaceAll(RegExp(r'\.(md|txt)$'), ''),
+          'name': result.first.name.replaceAll(RegExp(r'\.(md|txt)$'), ''),
           'description': 'Uploaded via file',
           'instructions': 'Imported instructions...', // Placeholder
           'enabled': true,
