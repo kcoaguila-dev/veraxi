@@ -200,7 +200,7 @@ class SettingsUI {
 
   static Widget buildTextFieldRow(
       BuildContext context, String label, TextEditingController controller,
-      {Function(String)? onSubmitted}) {
+      {Function(String)? onSubmitted, bool obscureText = false}) {
     return StatefulBuilder(
       builder: (context, setState) {
         bool isSaved = false;
@@ -220,6 +220,7 @@ class SettingsUI {
                   height: 36,
                   child: TextField(
                     controller: controller,
+                    obscureText: obscureText,
                     style: TextStyle(color: Colors.white, fontSize: 13),
                     decoration: InputDecoration(
                       contentPadding:

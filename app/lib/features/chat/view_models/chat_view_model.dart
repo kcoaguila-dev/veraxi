@@ -872,6 +872,19 @@ class ChatViewModel extends StateNotifier<ChatState> {
         return;
       }
 
+      if (engine == 'Fish Audio') {
+        final fishApiKey = await storage.getFishAudioApiKey() ?? '';
+        final fishModel = await storage.getFishAudioModel() ?? 's2.1-pro';
+        final fishRefId = await storage.getFishAudioReferenceId() ?? '';
+
+        final audioBytes = await _ttsRepository.getFishAudioBytes(
+            text, fishApiKey, fishModel, fishRefId);
+        await _audioPlayer.setAudioSource(BytesAudioSource(audioBytes));
+        await _audioPlayer.play();
+        state = state.copyWith(clearError: true);
+        return;
+      }
+
       // Fallback to Web Speech API
       if (!WebSpeechService.instance.isSupported) {
         state = state.copyWith(

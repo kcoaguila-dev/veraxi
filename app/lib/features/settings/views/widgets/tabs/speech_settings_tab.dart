@@ -11,6 +11,7 @@ class SpeechSettingsTab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final ttsState = ref.watch(ttsSettingsViewModelProvider);
     final isBrowser = ttsState.selectedEngine == 'Browser';
+    final isFishAudio = ttsState.selectedEngine == 'Fish Audio';
 
     String voiceDisplay;
     List<String> voiceOptions;
@@ -18,6 +19,9 @@ class SpeechSettingsTab extends ConsumerWidget {
     if (isBrowser) {
       voiceDisplay = 'Default (System)';
       voiceOptions = ['Default (System)'];
+    } else if (isFishAudio) {
+      voiceDisplay = 'Not applicable';
+      voiceOptions = ['Not applicable'];
     } else {
       if (ttsState.isLoading) {
         voiceDisplay = 'Loading...';
@@ -55,12 +59,12 @@ class SpeechSettingsTab extends ConsumerWidget {
             context,
             'Engine',
             ttsState.selectedEngine,
-            ['Browser', 'GPT-SoVITS'],
+            ['Browser', 'GPT-SoVITS', 'Fish Audio'],
             (value) {
               ref.read(ttsSettingsViewModelProvider.notifier).setEngine(value);
             },
           ),
-          if (!isBrowser)
+          if (ttsState.selectedEngine == 'GPT-SoVITS')
             SettingsUI.buildTextFieldRow(
               context,
               'API Base URL',
@@ -71,20 +75,51 @@ class SpeechSettingsTab extends ConsumerWidget {
                     .setGptSovitsUrl(value);
               },
             ),
-          SettingsUI.buildRealDropdownRow(
-            context,
-            'Voice',
-            voiceDisplay,
-            voiceOptions,
-            (value) {
-              if (isBrowser ||
-                  value == 'Loading...' ||
-                  value == 'No voices available') return;
-              final voiceId =
-                  ttsState.voices.firstWhere((v) => v['name'] == value)['id']!;
-              ref.read(ttsSettingsViewModelProvider.notifier).setVoice(voiceId);
-            },
-          ),
+          if (isFishAudio) ...[
+            SettingsUI.buildTextFieldRow(
+              context,
+              'Reference ID',
+              TextEditingController(text: ttsState.fishAudioReferenceId),
+              onSubmitted: (value) {
+                ref
+                    .read(ttsSettingsViewModelProvider.notifier)
+                    .setFishAudioReferenceId(value);
+              },
+            ),
+            SettingsUI.buildRealDropdownRow(
+              context,
+              'Tier',
+              ttsState.fishAudioModel == 's2.1-pro-free'
+                  ? 'Free (s2.1-pro-free)'
+                  : 'Pro (s2.1-pro)',
+              ['Pro (s2.1-pro)', 'Free (s2.1-pro-free)'],
+              (value) {
+                final model = value == 'Free (s2.1-pro-free)'
+                    ? 's2.1-pro-free'
+                    : 's2.1-pro';
+                ref
+                    .read(ttsSettingsViewModelProvider.notifier)
+                    .setFishAudioModel(model);
+              },
+            ),
+          ],
+          if (!isFishAudio)
+            SettingsUI.buildRealDropdownRow(
+              context,
+              'Voice',
+              voiceDisplay,
+              voiceOptions,
+              (value) {
+                if (isBrowser ||
+                    value == 'Loading...' ||
+                    value == 'No voices available') return;
+                final voiceId = ttsState.voices
+                    .firstWhere((v) => v['name'] == value)['id']!;
+                ref
+                    .read(ttsSettingsViewModelProvider.notifier)
+                    .setVoice(voiceId);
+              },
+            ),
           SettingsUI.buildDropdownRow(context, 'Playback speed', '1.0x'),
           if (ttsState.selectedEngine == 'GPT-SoVITS')
             SettingsUI.buildActionRow(

@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:veraxi_app/features/settings/view_models/api_keys_view_model.dart';
+import 'package:veraxi_app/features/settings/view_models/tts_settings_view_model.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
+import 'tabs/settings_shared_ui.dart';
 
 /// Renders the "API Keys" tab content inside [SettingsDialog].
 class ApiKeysTab extends ConsumerStatefulWidget {
@@ -305,6 +307,22 @@ class _ApiKeysTabState extends ConsumerState<ApiKeysTab> {
                       .toList(),
                 ),
         ),
+        SizedBox(height: 32),
+        SettingsUI.buildSectionHeader(context, 'EXTERNAL SERVICES'),
+        SettingsUI.buildSettingsGroup(context, [
+          SettingsUI.buildTextFieldRow(
+            context,
+            'Fish Audio API Key',
+            TextEditingController(
+                text: ref.watch(ttsSettingsViewModelProvider).fishAudioApiKey),
+            obscureText: true,
+            onSubmitted: (value) {
+              ref
+                  .read(ttsSettingsViewModelProvider.notifier)
+                  .setFishAudioApiKey(value);
+            },
+          ),
+        ]),
       ],
     );
   }
