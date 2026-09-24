@@ -79,10 +79,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: theme.colorScheme.onSurface),
-          onPressed: () => context.go('/'),
-        ),
+        automaticallyImplyLeading: false,
         actions: [
           IconButton(
             icon: Icon(
@@ -114,9 +111,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             ).animate().fadeIn(duration: const Duration(seconds: 1)).scale(),
           ),
           Center(
-            child: Container(
-              constraints: const BoxConstraints(maxWidth: 400),
-              margin: EdgeInsets.symmetric(horizontal: 24),
+            child: SingleChildScrollView(
+              child: Container(
+                constraints: const BoxConstraints(maxWidth: 400),
+                margin: EdgeInsets.symmetric(horizontal: 24, vertical: 24),
               padding: EdgeInsets.all(24),
               decoration: BoxDecoration(
                 color: theme.colorScheme.surface.withValues(alpha: 0.5),
@@ -288,6 +286,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 ),
               ),
             ),
+          ),
           ),
         ],
       ),
