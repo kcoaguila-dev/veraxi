@@ -136478,15 +136478,18 @@ A.aHz.prototype={
 $2(a,b){this.a.l(0,a,A.dI(b,!0,t.N))},
 $S:49}
 A.bkQ.prototype={
-$2(a,b){var s,r,q,p,o,n=!1
+$2(a,b){var s,r,q,p,o,n,m=!1
 try{s=$.iQ().b
 s===$&&A.c()
-n=s.gfv().e.a!=null}catch(r){n=!1}q=n
+m=s.gfv().e.a!=null}catch(r){m=!1}q=m
 s=b.c
 p=s==="/login"
-o=B.c.a9(s,"/share")
-if(!q&&!p&&s!=="/"&&s!=="/docs"&&!o)return"/login"
-if(q&&p)return"/chat"
+o=s==="/"
+n=B.c.a9(s,"/share")
+if(!q&&!p&&!o&&s!=="/docs"&&!n)return"/login"
+if(q)s=p||o
+else s=!1
+if(s)return"/chat"
 return null},
 $S:943}
 A.bkJ.prototype={
