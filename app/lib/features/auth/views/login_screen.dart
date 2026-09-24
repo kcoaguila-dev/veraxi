@@ -20,6 +20,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isSignUp = false;
+  bool _obscurePassword = true;
 
   void _submit() async {
     final email = _emailController.text.trim();
@@ -115,178 +116,191 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               child: Container(
                 constraints: const BoxConstraints(maxWidth: 400),
                 margin: EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-              padding: EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.surface.withValues(alpha: 0.5),
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: theme.colorScheme.outlineVariant),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.2),
-                    blurRadius: 40,
-                    offset: const Offset(0, 20),
-                  )
-                ],
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(24),
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const VeraxiLogo(size: 48),
-                      SizedBox(height: 24),
-                      Text(
-                        _isSignUp ? 'Create Account' : 'Welcome Back',
-                        style: GoogleFonts.inter(
-                          color: theme.colorScheme.onSurface,
-                          fontSize: 28,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: -0.5,
-                        ),
-                      ),
-                      SizedBox(height: 8),
-                      Text(
-                        _isSignUp
-                            ? 'Join Veraxi today.'
-                            : 'Sign in to access your agents.',
-                        style: GoogleFonts.inter(
-                          color: theme.colorScheme.onSurfaceVariant,
-                          fontSize: 14,
-                        ),
-                      ),
-                      SizedBox(height: 32),
-                      TextField(
-                        controller: _emailController,
-                        style: TextStyle(color: theme.colorScheme.onSurface),
-                        decoration: InputDecoration(
-                          hintText: 'Email Address',
-                          prefixIcon: Icon(Icons.email_outlined,
-                              color: theme.colorScheme.onSurfaceVariant),
-                        ),
-                      ),
-                      SizedBox(height: 16),
-                      TextField(
-                        controller: _passwordController,
-                        obscureText: true,
-                        style: TextStyle(color: theme.colorScheme.onSurface),
-                        decoration: InputDecoration(
-                          hintText: 'Password',
-                          prefixIcon: Icon(Icons.lock_outline,
-                              color: theme.colorScheme.onSurfaceVariant),
-                        ),
-                      ),
-                      SizedBox(height: 32),
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed: authState.isLoading ? null : _submit,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: theme.colorScheme.primary,
-                            foregroundColor: theme.colorScheme.onPrimary,
-                            padding: EdgeInsets.symmetric(vertical: 20),
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12)),
-                            elevation: 0,
+                padding: EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surface.withValues(alpha: 0.5),
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(color: theme.colorScheme.outlineVariant),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.2),
+                      blurRadius: 40,
+                      offset: const Offset(0, 20),
+                    )
+                  ],
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(24),
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const VeraxiLogo(size: 48),
+                        SizedBox(height: 24),
+                        Text(
+                          _isSignUp ? 'Create Account' : 'Welcome Back',
+                          style: GoogleFonts.inter(
+                            color: theme.colorScheme.onSurface,
+                            fontSize: 28,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: -0.5,
                           ),
-                          child: authState.isLoading
-                              ? SizedBox(
-                                  width: 24,
-                                  height: 24,
-                                  child: CircularProgressIndicator(
-                                      color: theme.colorScheme.onPrimary,
-                                      strokeWidth: 2),
-                                )
-                              : Text(
-                                  _isSignUp ? 'Sign Up' : 'Sign In',
-                                  style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 16),
-                                ),
                         ),
-                      ),
-                      SizedBox(height: 24),
-                      TextButton(
-                        onPressed: () {
-                          setState(() {
-                            _isSignUp = !_isSignUp;
-                          });
-                        },
-                        child: Text(
+                        SizedBox(height: 8),
+                        Text(
                           _isSignUp
-                              ? 'Already have an account? Sign in'
-                              : "Don't have an account? Sign up",
-                          style: TextStyle(
-                              color: theme.colorScheme.onSurfaceVariant),
-                        ),
-                      ),
-                      SizedBox(height: 16),
-                      Row(
-                        children: [
-                          Expanded(
-                              child: Divider(
-                                  color: theme.colorScheme.outlineVariant)),
-                          Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 16),
-                            child: Text('OR',
-                                style: TextStyle(
-                                    color: theme.colorScheme.onSurfaceVariant,
-                                    fontSize: 12)),
+                              ? 'Join Veraxi today.'
+                              : 'Sign in to access your agents.',
+                          style: GoogleFonts.inter(
+                            color: theme.colorScheme.onSurfaceVariant,
+                            fontSize: 14,
                           ),
-                          Expanded(
-                              child: Divider(
-                                  color: theme.colorScheme.outlineVariant)),
-                        ],
-                      ),
-                      SizedBox(height: 16),
-                      SizedBox(
-                        width: double.infinity,
-                        child: OutlinedButton.icon(
+                        ),
+                        SizedBox(height: 32),
+                        TextField(
+                          controller: _emailController,
+                          style: TextStyle(color: theme.colorScheme.onSurface),
+                          decoration: InputDecoration(
+                            hintText: 'Email Address',
+                            prefixIcon: Icon(Icons.email_outlined,
+                                color: theme.colorScheme.onSurfaceVariant),
+                          ),
+                        ),
+                        SizedBox(height: 16),
+                        TextField(
+                          controller: _passwordController,
+                          obscureText: _obscurePassword,
+                          style: TextStyle(color: theme.colorScheme.onSurface),
+                          decoration: InputDecoration(
+                            hintText: 'Password',
+                            prefixIcon: Icon(Icons.lock_outline,
+                                color: theme.colorScheme.onSurfaceVariant),
+                            suffixIcon: IconButton(
+                              icon: Icon(
+                                _obscurePassword
+                                    ? Icons.visibility_outlined
+                                    : Icons.visibility_off_outlined,
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                              onPressed: () {
+                                setState(() {
+                                  _obscurePassword = !_obscurePassword;
+                                });
+                              },
+                            ),
+                          ),
+                        ),
+                        SizedBox(height: 32),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            onPressed: authState.isLoading ? null : _submit,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: theme.colorScheme.primary,
+                              foregroundColor: theme.colorScheme.onPrimary,
+                              padding: EdgeInsets.symmetric(vertical: 20),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12)),
+                              elevation: 0,
+                            ),
+                            child: authState.isLoading
+                                ? SizedBox(
+                                    width: 24,
+                                    height: 24,
+                                    child: CircularProgressIndicator(
+                                        color: theme.colorScheme.onPrimary,
+                                        strokeWidth: 2),
+                                  )
+                                : Text(
+                                    _isSignUp ? 'Sign Up' : 'Sign In',
+                                    style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 16),
+                                  ),
+                          ),
+                        ),
+                        SizedBox(height: 24),
+                        TextButton(
                           onPressed: () {
-                            ref
-                                .read(authViewModelProvider.notifier)
-                                .signInWithOAuth(OAuthProvider.google);
+                            setState(() {
+                              _isSignUp = !_isSignUp;
+                            });
                           },
-                          icon: Icon(Icons.g_mobiledata, size: 24),
-                          label: Text('Continue with Google'),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: theme.colorScheme.onSurface,
-                            side: BorderSide(
-                                color: theme.colorScheme.outlineVariant),
-                            padding: EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12)),
+                          child: Text(
+                            _isSignUp
+                                ? 'Already have an account? Sign in'
+                                : "Don't have an account? Sign up",
+                            style: TextStyle(
+                                color: theme.colorScheme.onSurfaceVariant),
                           ),
                         ),
-                      ),
-                      SizedBox(height: 12),
-                      SizedBox(
-                        width: double.infinity,
-                        child: OutlinedButton.icon(
-                          onPressed: () {
-                            ref
-                                .read(authViewModelProvider.notifier)
-                                .signInWithOAuth(OAuthProvider.github);
-                          },
-                          icon: Icon(Icons.code, size: 20),
-                          label: Text('Continue with GitHub'),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: theme.colorScheme.onSurface,
-                            side: BorderSide(
-                                color: theme.colorScheme.outlineVariant),
-                            padding: EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12)),
+                        SizedBox(height: 16),
+                        Row(
+                          children: [
+                            Expanded(
+                                child: Divider(
+                                    color: theme.colorScheme.outlineVariant)),
+                            Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 16),
+                              child: Text('OR',
+                                  style: TextStyle(
+                                      color: theme.colorScheme.onSurfaceVariant,
+                                      fontSize: 12)),
+                            ),
+                            Expanded(
+                                child: Divider(
+                                    color: theme.colorScheme.outlineVariant)),
+                          ],
+                        ),
+                        SizedBox(height: 16),
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            onPressed: () {
+                              ref
+                                  .read(authViewModelProvider.notifier)
+                                  .signInWithOAuth(OAuthProvider.google);
+                            },
+                            icon: Icon(Icons.g_mobiledata, size: 24),
+                            label: Text('Continue with Google'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: theme.colorScheme.onSurface,
+                              side: BorderSide(
+                                  color: theme.colorScheme.outlineVariant),
+                              padding: EdgeInsets.symmetric(vertical: 16),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12)),
+                            ),
                           ),
                         ),
-                      )
-                    ],
+                        SizedBox(height: 12),
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            onPressed: () {
+                              ref
+                                  .read(authViewModelProvider.notifier)
+                                  .signInWithOAuth(OAuthProvider.github);
+                            },
+                            icon: Icon(Icons.code, size: 20),
+                            label: Text('Continue with GitHub'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: theme.colorScheme.onSurface,
+                              side: BorderSide(
+                                  color: theme.colorScheme.outlineVariant),
+                              padding: EdgeInsets.symmetric(vertical: 16),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12)),
+                            ),
+                          ),
+                        )
+                      ],
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
           ),
         ],
       ),
