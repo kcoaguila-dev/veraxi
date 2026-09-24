@@ -16,6 +16,9 @@ class TTSSettingsState {
   final String selectedVoiceId;
   final String selectedEngine;
   final String gptSovitsUrl;
+  final String fishAudioApiKey;
+  final String fishAudioModel;
+  final String fishAudioReferenceId;
 
   TTSSettingsState({
     this.isLoading = false,
@@ -24,6 +27,9 @@ class TTSSettingsState {
     this.selectedVoiceId = 'default_system',
     this.selectedEngine = 'Browser',
     this.gptSovitsUrl = 'http://localhost:9880',
+    this.fishAudioApiKey = '',
+    this.fishAudioModel = 's2.1-pro',
+    this.fishAudioReferenceId = '',
   });
 
   TTSSettingsState copyWith({
@@ -34,6 +40,9 @@ class TTSSettingsState {
     String? selectedVoiceId,
     String? selectedEngine,
     String? gptSovitsUrl,
+    String? fishAudioApiKey,
+    String? fishAudioModel,
+    String? fishAudioReferenceId,
   }) {
     return TTSSettingsState(
       isLoading: isLoading ?? this.isLoading,
@@ -42,6 +51,9 @@ class TTSSettingsState {
       selectedVoiceId: selectedVoiceId ?? this.selectedVoiceId,
       selectedEngine: selectedEngine ?? this.selectedEngine,
       gptSovitsUrl: gptSovitsUrl ?? this.gptSovitsUrl,
+      fishAudioApiKey: fishAudioApiKey ?? this.fishAudioApiKey,
+      fishAudioModel: fishAudioModel ?? this.fishAudioModel,
+      fishAudioReferenceId: fishAudioReferenceId ?? this.fishAudioReferenceId,
     );
   }
 }
@@ -61,6 +73,9 @@ class TTSSettingsViewModel extends StateNotifier<TTSSettingsState> {
       final savedEngine = await _storage.getEngine() ?? 'Browser';
       final savedUrl =
           await _storage.getGptSovitsUrl() ?? 'http://localhost:9880';
+      final fishKey = await _storage.getFishAudioApiKey() ?? '';
+      final fishModel = await _storage.getFishAudioModel() ?? 's2.1-pro';
+      final fishRefId = await _storage.getFishAudioReferenceId() ?? '';
       final voices = await _repository.getVoices(gptSovitsUrl: savedUrl);
 
       String activeVoiceId = savedVoiceId;
@@ -79,6 +94,9 @@ class TTSSettingsViewModel extends StateNotifier<TTSSettingsState> {
         selectedVoiceId: activeVoiceId,
         selectedEngine: savedEngine,
         gptSovitsUrl: savedUrl,
+        fishAudioApiKey: fishKey,
+        fishAudioModel: fishModel,
+        fishAudioReferenceId: fishRefId,
       );
     } catch (e, st) {
       await Sentry.captureException(e, stackTrace: st);
@@ -133,6 +151,21 @@ class TTSSettingsViewModel extends StateNotifier<TTSSettingsState> {
     state = state.copyWith(gptSovitsUrl: url);
     // Reload voices when URL changes
     _init();
+  }
+
+  Future<void> setFishAudioApiKey(String apiKey) async {
+    await _storage.saveFishAudioApiKey(apiKey);
+    state = state.copyWith(fishAudioApiKey: apiKey);
+  }
+
+  Future<void> setFishAudioModel(String model) async {
+    await _storage.saveFishAudioModel(model);
+    state = state.copyWith(fishAudioModel: model);
+  }
+
+  Future<void> setFishAudioReferenceId(String refId) async {
+    await _storage.saveFishAudioReferenceId(refId);
+    state = state.copyWith(fishAudioReferenceId: refId);
   }
 
   Future<void> saveVoices(List<Map<String, dynamic>> newVoices) async {
