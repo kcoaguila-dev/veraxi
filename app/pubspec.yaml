@@ -41,8 +41,15 @@ dev_dependencies:
   import_lint: ^0.1.6
   integration_test:
     sdk: flutter
+  flutter_launcher_icons: ^0.14.4
 flutter:
   uses-material-design: true
   assets:
     - assets/
     - assets/icons/
+
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/veraxi_logo.png"
+  min_sdk_android: 21
