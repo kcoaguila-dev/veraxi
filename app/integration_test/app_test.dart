@@ -27,9 +27,9 @@ void main() {
       } catch (e) {
         // Ignore if already initialized
       }
-      
+
       runApp(const ProviderScope(child: app.VeraxiApp()));
-      
+
       // Wait for the app to fully load and settle.
       await tester.pumpAndSettle(const Duration(seconds: 3));
 

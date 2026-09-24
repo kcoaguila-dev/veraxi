@@ -405,7 +405,8 @@ class _VoiceEditorFormState extends State<_VoiceEditorForm> {
                 );
                 if (txtResult.isNotEmpty) {
                   try {
-                    final text = utf8.decode(await txtResult.first.readAsBytes());
+                    final text =
+                        utf8.decode(await txtResult.first.readAsBytes());
                     _promptController.text = text;
                     _update();
                   } catch (e, st) {

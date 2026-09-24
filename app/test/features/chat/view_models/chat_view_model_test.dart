@@ -11,16 +11,22 @@ import 'package:just_audio/just_audio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class MockChatRepository extends Mock implements ChatRepository {}
+
 class MockMemoryRepository extends Mock implements MemoryRepository {}
+
 class MockModelConfigRepository extends Mock implements ModelConfigRepository {}
+
 class MockTTSRepository extends Mock implements TTSRepository {}
+
 class MockTTSSettingsStorage extends Mock implements TTSSettingsStorage {}
+
 class MockApiKeyStorage extends Mock implements ApiKeyStorage {}
+
 class MockAudioPlayer extends Mock implements AudioPlayer {}
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
-  
+
   group('ChatViewModel', () {
     late MockChatRepository mockChatRepository;
     late MockMemoryRepository mockMemoryRepository;
@@ -44,7 +50,7 @@ void main() {
         mockTTSRepository,
         mockMemoryRepository,
       );
-      
+
       expect(viewModel.state.isLoadingThreads, isFalse);
       expect(viewModel.state.pastThreads, isEmpty);
     });
