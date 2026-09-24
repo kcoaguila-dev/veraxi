@@ -28,8 +28,11 @@ class NavBar extends ConsumerWidget {
         children: [
           Row(
             children: [
-              Icon(Icons.change_history,
-                  color: theme.colorScheme.primary, size: 28),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(6),
+                child: Image.asset('assets/veraxi_logo.png',
+                    width: 28, height: 28),
+              ),
               const SizedBox(width: 8),
               Text(
                 'Veraxi',
