@@ -117600,7 +117600,6 @@ case 3:o=g
 n=t.N
 m=A.t(n,n)
 m.l(0,"provider",a.a)
-m.l(0,"redirect_to",c)
 if(o!=null)m.D(0,A.u(["flow_type",p.cx.b,"code_challenge",o,"code_challenge_method","s256"],n,n))
 n=A.f7(null,null,null,null,null,null,m,null,null).f
 if(n==null)n=""
@@ -137329,7 +137328,7 @@ o9(a){return this.aoi(a)},
 aoi(a){var s=0,r=A.q(t.H),q=this
 var $async$o9=A.m(function(b,c){if(b===1)return A.n(c,r)
 for(;;)switch(s){case 0:s=2
-return A.f(A.aA1(q.a.gfv(),a,"veraxi://login-callback"),$async$o9)
+return A.f(A.aA1(q.a.gfv(),a,null),$async$o9)
 case 2:return A.o(null,r)}})
 return A.p($async$o9,r)},
 GN(a,b){return this.aoo(a,b)},
