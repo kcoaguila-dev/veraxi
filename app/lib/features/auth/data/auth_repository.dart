@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter/foundation.dart';
 
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
   return AuthRepository(Supabase.instance.client);
@@ -21,7 +22,7 @@ class AuthRepository {
   Future<void> signInWithOAuth(OAuthProvider provider) async {
     await _supabase.auth.signInWithOAuth(
       provider,
-      redirectTo: 'veraxi://login-callback',
+      redirectTo: kIsWeb ? null : 'veraxi://login-callback',
     );
   }
 
