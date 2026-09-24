@@ -6,6 +6,9 @@ build-backend = "setuptools.build_meta"
 where = [".."]
 include = ["backend*"]
 
+[tool.setuptools.package-data]
+"*" = ["*.txt", "*.json", "*.yaml", "*.yml"]
+
 
 [project]
 name = "veraxi-backend"
