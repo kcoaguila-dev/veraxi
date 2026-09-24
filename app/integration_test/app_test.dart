@@ -19,7 +19,7 @@ void main() {
             'SUPABASE_URL',
             defaultValue: 'https://zjtqrwxyoswzlvtetjzi.supabase.co',
           ),
-          anonKey: const String.fromEnvironment(
+          publishableKey: const String.fromEnvironment(
             'SUPABASE_ANON_KEY',
             defaultValue: 'sb_publishable_6j3NNIfgI5V209p9QGL-DA_GyEsz9jI',
           ),

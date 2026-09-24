@@ -30,10 +30,7 @@ void main() {
   group('ChatViewModel', () {
     late MockChatRepository mockChatRepository;
     late MockMemoryRepository mockMemoryRepository;
-    late MockModelConfigRepository mockModelConfigRepository;
     late MockTTSRepository mockTTSRepository;
-    late MockTTSSettingsStorage mockTTSSettingsStorage;
-    late MockApiKeyStorage mockApiKeyStorage;
 
     setUp(() {
       mockChatRepository = MockChatRepository();
