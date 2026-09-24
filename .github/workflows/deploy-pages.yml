@@ -36,6 +36,7 @@ jobs:
 
       - name: Build Flutter Web (release)
         run: |
+          flutter clean
           flutter build web --release \
             --dart-define=API_URL=${{ secrets.API_URL }} \
             --dart-define=SUPABASE_URL=${{ secrets.SUPABASE_URL }} \
