@@ -9,6 +9,7 @@ import 'package:veraxi_app/features/settings/views/widgets/my_files_dialog.dart'
 import 'package:veraxi_app/features/settings/views/widgets/archived_chats_dialog.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
+import 'package:go_router/go_router.dart';
 
 // Resolved at compile time via --dart-define=IS_SELF_HOSTED=true
 // Defaults to true so local dev / self-hosted builds work without Supabase auth.
@@ -279,7 +280,10 @@ class _ProfileMenuButtonState extends ConsumerState<ProfileMenuButton> {
             height: 1),
         MenuItemButton(
           style: itemStyle,
-          onPressed: () {},
+          onPressed: () async {
+            await Supabase.instance.client.auth.signOut();
+            if (context.mounted) context.go('/login');
+          },
           child: Row(
             children: [
               Icon(Icons.logout_outlined, color: Color(0xFFECECEC), size: 16),
