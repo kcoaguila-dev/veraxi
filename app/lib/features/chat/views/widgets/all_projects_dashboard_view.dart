@@ -41,8 +41,11 @@ class _AllProjectsDashboardViewState
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Top Header Row
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                Wrap(
+                  alignment: WrapAlignment.spaceBetween,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 16,
+                  runSpacing: 16,
                   children: [
                     Text(
                       'Projects',
@@ -52,7 +55,10 @@ class _AllProjectsDashboardViewState
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                    Row(
+                    Wrap(
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 8,
+                      runSpacing: 8,
                       children: [
                         Text(
                           'Sort by',
@@ -63,7 +69,6 @@ class _AllProjectsDashboardViewState
                             fontSize: 14,
                           ),
                         ),
-                        SizedBox(width: 8),
                         Container(
                           padding:
                               EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -74,6 +79,7 @@ class _AllProjectsDashboardViewState
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Row(
+                            mainAxisSize: MainAxisSize.min,
                             children: [
                               Icon(Icons.swap_vert,
                                   color: Colors.white, size: 16),
@@ -89,7 +95,6 @@ class _AllProjectsDashboardViewState
                             ],
                           ),
                         ),
-                        SizedBox(width: 16),
                         InkWell(
                           onTap: () {
                             showDialog(
@@ -107,6 +112,7 @@ class _AllProjectsDashboardViewState
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Row(
+                              mainAxisSize: MainAxisSize.min,
                               children: [
                                 Icon(Icons.add, color: Colors.white, size: 16),
                                 SizedBox(width: 8),

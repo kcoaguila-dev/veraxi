@@ -79,9 +79,9 @@ class _ControlPanelScreenState extends ConsumerState<ControlPanelScreen> {
   Future<void> _loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
     final settingsJson = prefs.getString('tool_settings');
-    if (settingsJson != null) {
+    if ((settingsJson ?? '').isNotEmpty) {
       try {
-        final settings = jsonDecode(settingsJson) as Map<String, dynamic>;
+        final settings = jsonDecode(settingsJson!) as Map<String, dynamic>;
         if (settings['mcp_servers'] != null) {
           final servers = settings['mcp_servers'] as List<dynamic>;
           _mcpServers = servers
@@ -123,9 +123,9 @@ class _ControlPanelScreenState extends ConsumerState<ControlPanelScreen> {
     final prefs = await SharedPreferences.getInstance();
     final currentSettingsJson = prefs.getString('tool_settings');
     Map<String, dynamic> settings = {};
-    if (currentSettingsJson != null) {
+    if ((currentSettingsJson ?? '').isNotEmpty) {
       try {
-        settings = jsonDecode(currentSettingsJson) as Map<String, dynamic>;
+        settings = jsonDecode(currentSettingsJson!) as Map<String, dynamic>;
       } catch (e, st) {
         Sentry.captureException(e, stackTrace: st);
       }
@@ -353,11 +353,11 @@ class _ControlPanelScreenState extends ConsumerState<ControlPanelScreen> {
               children: [
                 InkWell(
                   onTap: () async {
-                    final result = await FilePicker.platform.pickFiles(
+                    final result = await FilePicker.pickFiles(
                       type: FileType.custom,
                       allowedExtensions: ['md', 'zip'],
                     );
-                    if (result != null && mounted) {
+                    if (result.isNotEmpty && mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
                           content: Text('Skill uploaded successfully!')));
                       Navigator.pop(context);
@@ -424,6 +424,31 @@ class _ControlPanelScreenState extends ConsumerState<ControlPanelScreen> {
     );
   }
 
+  Widget _buildMobileMenuItem(String title, int index) {
+    final isSelected = _selectedIndex == index;
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(right: 8.0, top: 8.0, bottom: 8.0),
+      child: ChoiceChip(
+        label: Text(title,
+            style: TextStyle(
+                color: isSelected ? Colors.white : Colors.grey.shade400,
+                fontSize: 12)),
+        selected: isSelected,
+        selectedColor: theme.colorScheme.primary,
+        backgroundColor: const Color(0xFF2A2A2A),
+        showCheckmark: false,
+        onSelected: (bool selected) {
+          if (selected) {
+            setState(() {
+              _selectedIndex = index;
+            });
+          }
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -452,108 +477,160 @@ class _ControlPanelScreenState extends ConsumerState<ControlPanelScreen> {
     });
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      body: Row(
-        children: [
-          // Inner Navigation Sidebar
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 250),
-            curve: Curves.easeInOut,
-            width: isSidebarOpen ? 260 : 0,
-            child: ClipRect(
-              child: Container(
-                width: 260,
-                color: Theme.of(context)
-                    .extension<AppThemeExtension>()!
-                    .sidebarBackground,
-                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    SizedBox(
-                      height: 24,
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          Text(
-                            'Control Panel',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          Tooltip(
-                            message: 'Close sidebar',
-                            child: Material(
-                              color: Colors.transparent,
-                              child: InkWell(
-                                borderRadius: BorderRadius.circular(6),
-                                onTap: () {
-                                  ref
-                                      .read(sidebarStateProvider.notifier)
-                                      .state = false;
-                                },
-                                child: SizedBox(
-                                  width: 24,
-                                  height: 24,
-                                  child:
-                                      Center(child: _buildSidebarToggleIcon()),
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final isMobile = constraints.maxWidth < 800;
+          if (isMobile) {
+            return Column(
+              children: [
+                Container(
+                  height: 56,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  decoration: const BoxDecoration(
+                    border: Border(
+                        bottom: BorderSide(color: Color(0xFF2A2A2A))),
+                  ),
+                  child: ListView(
+                    scrollDirection: Axis.horizontal,
+                    children: [
+                      _buildMobileMenuItem('MCP Integrations', 0),
+                      _buildMobileMenuItem('Knowledge Base', 1),
+                      _buildMobileMenuItem('Billing', 2),
+                      _buildMobileMenuItem('Infrastructure', 3),
+                      _buildMobileMenuItem('Security & Logs', 4),
+                      _buildMobileMenuItem('Agent Skills', 5),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: SafeArea(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.all(16.0),
+                      child: _isLoading
+                          ? Center(child: CircularProgressIndicator())
+                          : state.requiresPayment
+                              ? _buildUpgradeRequiredCard(theme)
+                              : (_selectedIndex == 0
+                                  ? _buildMcpIntegrations(theme)
+                                  : _selectedIndex == 1
+                                      ? _buildDataPipeline(theme)
+                                      : _selectedIndex == 2
+                                          ? const BillingView()
+                                          : _selectedIndex == 3
+                                              ? const ApiKeysView()
+                                              : _selectedIndex == 4
+                                                  ? _buildSecurityLogs(theme)
+                                                  : _buildAgentSkills(theme)),
+                    ),
+                  ),
+                ),
+              ],
+            );
+          }
+          return Row(
+            children: [
+              // Inner Navigation Sidebar
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 250),
+                curve: Curves.easeInOut,
+                width: isSidebarOpen ? 260 : 0,
+                child: ClipRect(
+                  child: Container(
+                    width: 260,
+                    color: Theme.of(context)
+                        .extension<AppThemeExtension>()!
+                        .sidebarBackground,
+                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SizedBox(
+                          height: 24,
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              Text(
+                                'Control Panel',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
                                 ),
                               ),
-                            ),
+                              Tooltip(
+                                message: 'Close sidebar',
+                                child: Material(
+                                  color: Colors.transparent,
+                                  child: InkWell(
+                                    borderRadius: BorderRadius.circular(6),
+                                    onTap: () {
+                                      ref
+                                          .read(sidebarStateProvider.notifier)
+                                          .state = false;
+                                    },
+                                    child: SizedBox(
+                                      width: 24,
+                                      height: 24,
+                                      child:
+                                          Center(child: _buildSidebarToggleIcon()),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
+                        ),
+                        SizedBox(height: 18),
+                        _buildMenuItem('MCP Integrations', Icons.hub_outlined,
+                            _selectedIndex == 0, 0),
+                        SizedBox(height: 8),
+                        _buildMenuItem('Knowledge Base', Icons.dataset_outlined,
+                            _selectedIndex == 1, 1),
+                        SizedBox(height: 8),
+                        _buildMenuItem('Billing', Icons.credit_card_outlined,
+                            _selectedIndex == 2, 2),
+                        SizedBox(height: 8),
+                        _buildMenuItem('Infrastructure', Icons.dns_outlined,
+                            _selectedIndex == 3, 3),
+                        SizedBox(height: 8),
+                        _buildMenuItem('Security & Logs', Icons.security_outlined,
+                            _selectedIndex == 4, 4),
+                        SizedBox(height: 8),
+                        _buildMenuItem('Agent Skills', Icons.psychology_outlined,
+                            _selectedIndex == 5, 5),
+                      ],
                     ),
-                    SizedBox(height: 18),
-                    _buildMenuItem('MCP Integrations', Icons.hub_outlined,
-                        _selectedIndex == 0, 0),
-                    SizedBox(height: 8),
-                    _buildMenuItem('Knowledge Base', Icons.dataset_outlined,
-                        _selectedIndex == 1, 1),
-                    SizedBox(height: 8),
-                    _buildMenuItem('Billing', Icons.credit_card_outlined,
-                        _selectedIndex == 2, 2),
-                    SizedBox(height: 8),
-                    _buildMenuItem('Infrastructure', Icons.dns_outlined,
-                        _selectedIndex == 3, 3),
-                    SizedBox(height: 8),
-                    _buildMenuItem('Security & Logs', Icons.security_outlined,
-                        _selectedIndex == 4, 4),
-                    SizedBox(height: 8),
-                    _buildMenuItem('Agent Skills', Icons.psychology_outlined,
-                        _selectedIndex == 5, 5),
-                  ],
+                  ),
                 ),
               ),
-            ),
-          ),
 
-          // Main Content
-          Expanded(
-            child: SafeArea(
-              child: SingleChildScrollView(
-                padding: EdgeInsets.all(40.0),
-                child: _isLoading
-                    ? Center(child: CircularProgressIndicator())
-                    : state.requiresPayment
-                        ? _buildUpgradeRequiredCard(theme)
-                        : (_selectedIndex == 0
-                            ? _buildMcpIntegrations(theme)
-                            : _selectedIndex == 1
-                                ? _buildDataPipeline(theme)
-                                : _selectedIndex == 2
-                                    ? const BillingView()
-                                    : _selectedIndex == 3
-                                        ? const ApiKeysView()
-                                        : _selectedIndex == 4
-                                            ? _buildSecurityLogs(theme)
-                                            : _buildAgentSkills(theme)),
+              // Main Content
+              Expanded(
+                child: SafeArea(
+                  child: SingleChildScrollView(
+                    padding: EdgeInsets.all(40.0),
+                    child: _isLoading
+                        ? Center(child: CircularProgressIndicator())
+                        : state.requiresPayment
+                            ? _buildUpgradeRequiredCard(theme)
+                            : (_selectedIndex == 0
+                                ? _buildMcpIntegrations(theme)
+                                : _selectedIndex == 1
+                                    ? _buildDataPipeline(theme)
+                                    : _selectedIndex == 2
+                                        ? const BillingView()
+                                        : _selectedIndex == 3
+                                            ? const ApiKeysView()
+                                            : _selectedIndex == 4
+                                                ? _buildSecurityLogs(theme)
+                                                : _buildAgentSkills(theme)),
+                  ),
+                ),
               ),
-            ),
-          ),
-        ],
+            ],
+          );
+        },
       ),
     );
   }
@@ -962,7 +1039,7 @@ class _ControlPanelScreenState extends ConsumerState<ControlPanelScreen> {
           InkWell(
             onTap: () async {
               try {
-                final result = await FilePicker.platform.pickFiles(
+                final result = await FilePicker.pickFiles(
                   type: FileType.custom,
                   allowedExtensions: [
                     'pdf',
@@ -982,16 +1059,15 @@ class _ControlPanelScreenState extends ConsumerState<ControlPanelScreen> {
                     'tiff',
                     'bmp',
                   ],
-                  withData: true,
                 );
-                if (result != null && mounted) {
+                if (result.isNotEmpty && mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('Uploading file...')));
                   final viewModel =
                       ref.read(controlPanelViewModelProvider.notifier);
-                  final fileBytes = result.files.first.bytes;
-                  final fileName = result.files.first.name;
-                  if (fileBytes != null) {
+                  final fileBytes = await result.first.readAsBytes();
+                  final fileName = result.first.name;
+                  if (fileBytes.isNotEmpty) {
                     await viewModel.ingestUpload(
                       fileBytes,
                       fileName,
@@ -1304,8 +1380,8 @@ class _ControlPanelScreenState extends ConsumerState<ControlPanelScreen> {
                                         value: 'de', child: Text('German')),
                                   ],
                                   onChanged: (val) {
-                                    if (val != null) {
-                                      setState(() => _selectedLanguage = val);
+                                    if ((val ?? '').isNotEmpty) {
+                                      setState(() => _selectedLanguage = val!);
                                     }
                                   },
                                 ),

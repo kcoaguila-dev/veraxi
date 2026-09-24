@@ -7,8 +7,14 @@ plugins {
 
 android {
     namespace = "com.example.veraxi_app"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 37
     ndkVersion = flutter.ndkVersion
+
+    externalNativeBuild {
+        cmake {
+            version = "3.28.3"
+        }
+    }
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17

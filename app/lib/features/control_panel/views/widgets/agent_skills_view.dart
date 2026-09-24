@@ -25,9 +25,9 @@ class _AgentSkillsViewState extends State<AgentSkillsView> {
   Future<void> _loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
     final settingsJson = prefs.getString('tool_settings');
-    if (settingsJson != null) {
+    if ((settingsJson ?? '').isNotEmpty) {
       try {
-        final settings = jsonDecode(settingsJson) as Map<String, dynamic>;
+        final settings = jsonDecode(settingsJson!) as Map<String, dynamic>;
         if (settings['skills'] != null) {
           final skills = settings['skills'] as List<dynamic>;
           _skills = skills
@@ -51,9 +51,9 @@ class _AgentSkillsViewState extends State<AgentSkillsView> {
     final prefs = await SharedPreferences.getInstance();
     final currentJson = prefs.getString('tool_settings');
     Map<String, dynamic> settings = {};
-    if (currentJson != null) {
+    if ((currentJson ?? '').isNotEmpty) {
       try {
-        settings = jsonDecode(currentJson) as Map<String, dynamic>;
+        settings = jsonDecode(currentJson!) as Map<String, dynamic>;
       } catch (e, st) {
         Sentry.captureException(e, stackTrace: st);
       }
@@ -145,17 +145,17 @@ class _AgentSkillsViewState extends State<AgentSkillsView> {
   }
 
   Future<void> _handleUploadSkill() async {
-    FilePickerResult? result = await FilePicker.platform.pickFiles(
+    final result = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['md', 'txt'],
     );
-    if (result != null && result.files.single.path != null) {
+    if (result.isNotEmpty && result.isNotEmpty) {
       // In a real implementation we would read the file
       setState(() {
         _skills.add({
           'id': DateTime.now().millisecondsSinceEpoch.toString(),
           'name':
-              result.files.single.name.replaceAll(RegExp(r'\.(md|txt)$'), ''),
+              result.first.name.replaceAll(RegExp(r'\.(md|txt)$'), ''),
           'description': 'Uploaded via file',
           'instructions': 'Imported instructions...', // Placeholder
           'enabled': true,
