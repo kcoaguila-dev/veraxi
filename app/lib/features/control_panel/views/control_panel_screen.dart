@@ -508,19 +508,19 @@ class _ControlPanelScreenState extends ConsumerState<ControlPanelScreen> {
                       padding: const EdgeInsets.all(16.0),
                       child: _isLoading
                           ? Center(child: CircularProgressIndicator())
-                          : state.requiresPayment
-                              ? _buildUpgradeRequiredCard(theme)
-                              : (_selectedIndex == 0
-                                  ? _buildMcpIntegrations(theme)
-                                  : _selectedIndex == 1
-                                      ? _buildDataPipeline(theme)
-                                      : _selectedIndex == 2
-                                          ? const BillingView()
-                                          : _selectedIndex == 3
-                                              ? const ApiKeysView()
-                                              : _selectedIndex == 4
-                                                  ? _buildSecurityLogs(theme)
-                                                  : _buildAgentSkills(theme)),
+                          : (_selectedIndex == 0
+                              ? _buildMcpIntegrations(theme)
+                              : _selectedIndex == 1
+                                  ? (state.requiresPayment
+                                      ? _buildUpgradeRequiredCard(theme)
+                                      : _buildDataPipeline(theme))
+                                  : _selectedIndex == 2
+                                      ? const BillingView()
+                                      : _selectedIndex == 3
+                                          ? const ApiKeysView()
+                                          : _selectedIndex == 4
+                                              ? _buildSecurityLogs(theme)
+                                              : _buildAgentSkills(theme)),
                     ),
                   ),
                 ),
@@ -612,19 +612,19 @@ class _ControlPanelScreenState extends ConsumerState<ControlPanelScreen> {
                     padding: EdgeInsets.all(40.0),
                     child: _isLoading
                         ? Center(child: CircularProgressIndicator())
-                        : state.requiresPayment
-                            ? _buildUpgradeRequiredCard(theme)
-                            : (_selectedIndex == 0
-                                ? _buildMcpIntegrations(theme)
-                                : _selectedIndex == 1
-                                    ? _buildDataPipeline(theme)
-                                    : _selectedIndex == 2
-                                        ? const BillingView()
-                                        : _selectedIndex == 3
-                                            ? const ApiKeysView()
-                                            : _selectedIndex == 4
-                                                ? _buildSecurityLogs(theme)
-                                                : _buildAgentSkills(theme)),
+                        : (_selectedIndex == 0
+                            ? _buildMcpIntegrations(theme)
+                            : _selectedIndex == 1
+                                ? (state.requiresPayment
+                                    ? _buildUpgradeRequiredCard(theme)
+                                    : _buildDataPipeline(theme))
+                                : _selectedIndex == 2
+                                    ? const BillingView()
+                                    : _selectedIndex == 3
+                                        ? const ApiKeysView()
+                                        : _selectedIndex == 4
+                                            ? _buildSecurityLogs(theme)
+                                            : _buildAgentSkills(theme)),
                   ),
                 ),
               ),

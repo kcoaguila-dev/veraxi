@@ -21,6 +21,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _passwordController = TextEditingController();
   bool _isSignUp = false;
   bool _obscurePassword = true;
+  bool _isLoading = false;
 
   void _submit() async {
     final email = _emailController.text.trim();
@@ -29,10 +30,23 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     if (email.isEmpty || password.isEmpty) return;
 
     final authVm = ref.read(authViewModelProvider.notifier);
-    if (_isSignUp) {
-      await authVm.signUp(email, password);
-    } else {
-      await authVm.signIn(email, password);
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      if (_isSignUp) {
+        await authVm.signUp(email, password);
+      } else {
+        await authVm.signIn(email, password);
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
 
     final authState = ref.read(authViewModelProvider);
@@ -195,7 +209,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         SizedBox(
                           width: double.infinity,
                           child: ElevatedButton(
-                            onPressed: authState.isLoading ? null : _submit,
+                            onPressed: _isLoading ? null : _submit,
                             style: ElevatedButton.styleFrom(
                               backgroundColor: theme.colorScheme.primary,
                               foregroundColor: theme.colorScheme.onPrimary,
@@ -204,7 +218,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                   borderRadius: BorderRadius.circular(12)),
                               elevation: 0,
                             ),
-                            child: authState.isLoading
+                            child: _isLoading
                                 ? SizedBox(
                                     width: 24,
                                     height: 24,
