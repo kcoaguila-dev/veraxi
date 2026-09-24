@@ -78,7 +78,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final authState = ref.watch(authViewModelProvider);
     final theme = Theme.of(context);
 
     // If authenticated successfully, the router redirect will automatically handle it,
