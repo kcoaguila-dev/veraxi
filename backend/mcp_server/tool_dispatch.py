@@ -422,8 +422,12 @@ def _execute_single_tool(
 
     elif tool_name == "web_browser":
         from backend.mcp_server.tools.web_browser import mcp_web_browser
-        from backend.mcp_server.orchestrator import _create_chat_llm, _request_api_key, _request_model, _request_base_url
-
+        from backend.mcp_server.orchestrator import (
+            _create_chat_llm,
+            _request_api_key,
+            _request_base_url,
+            _request_model,
+        )
         from backend.config import get_config
 
         config = get_config()

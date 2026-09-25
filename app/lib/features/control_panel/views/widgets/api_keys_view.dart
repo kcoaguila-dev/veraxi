@@ -51,7 +51,13 @@ class _ApiKeysViewState extends ConsumerState<ApiKeysView> {
     final config = await _apiKeyStorage.getByodConfig();
 
     // Load intelligence provider keys
-    for (final provider in ['openai', 'anthropic', 'google', 'groq']) {
+    for (final provider in [
+      'openai',
+      'anthropic',
+      'google',
+      'groq',
+      'browserbase'
+    ]) {
       _providerKeys[provider] = await _apiKeyStorage.getKey(provider);
       _providerExpirations[provider] =
           await _apiKeyStorage.getKeyExpirationDate(provider);
@@ -127,6 +133,7 @@ class _ApiKeysViewState extends ConsumerState<ApiKeysView> {
           _buildProviderRow('Anthropic', 'anthropic'),
           _buildProviderRow('Google', 'google'),
           _buildProviderRow('Groq', 'groq'),
+          _buildProviderRow('Browserbase', 'browserbase'),
           _buildFishAudioRow(),
 
           SizedBox(height: 48),
