@@ -134,10 +134,12 @@ class _ApiKeysViewState extends ConsumerState<ApiKeysView> {
                 child: Consumer(
                   builder: (context, ref, child) {
                     final ttsState = ref.watch(ttsSettingsViewModelProvider);
-                    if (_fishAudioController.text.isEmpty && ttsState.fishAudioApiKey.isNotEmpty) {
-                       _fishAudioController.text = ttsState.fishAudioApiKey;
+                    if (_fishAudioController.text.isEmpty &&
+                        ttsState.fishAudioApiKey.isNotEmpty) {
+                      _fishAudioController.text = ttsState.fishAudioApiKey;
                     }
-                    return _buildKeyInput('Fish Audio API Key', '••••••••', 'fish_audio',
+                    return _buildKeyInput(
+                        'Fish Audio API Key', '••••••••', 'fish_audio',
                         controller: _fishAudioController);
                   },
                 ),
