@@ -39,6 +39,29 @@ async def get_tools(tool_settings: dict | None = None) -> list:
 
     all_tools = []
 
+    if web_search_enabled:
+        all_tools.extend(
+            [
+                {
+                    "type": "function",
+                    "function": {
+                        "name": "web_browser",
+                        "description": "Navigate the web to answer the user's question or perform an action.",
+                        "parameters": {
+                            "type": "object",
+                            "properties": {
+                                "task": {
+                                    "type": "string",
+                                    "description": "The goal or task for the browser to achieve.",
+                                }
+                            },
+                            "required": ["task"],
+                        },
+                    },
+                },
+            ]
+        )
+
     if file_search_enabled:
         all_tools.extend(
             [
@@ -211,6 +234,7 @@ def _execute_single_tool(
     tool_name: str, tool_input: dict, tenant_id: str, tool_settings: dict | None = None
 ) -> tuple[list[Any], list[Any]]:
     """Execute a built-in Python tool."""
+    from backend.config import get_config
     config = get_config()
     settings = tool_settings or {}
 
@@ -395,6 +419,30 @@ def _execute_single_tool(
                 self.sources = ["System Clock"]
 
         return [TimeHit()], []
+
+    elif tool_name == "web_browser":
+        from backend.mcp_server.tools.web_browser import mcp_web_browser
+        from backend.mcp_server.orchestrator import _create_chat_llm, _request_api_key, _request_model, _request_base_url
+
+        from backend.config import get_config
+
+        config = get_config()
+        effective_model = _request_model.get() or config.llm_model_name
+        effective_api_key = _request_api_key.get() or config.llm_api_key
+        effective_base_url = _request_base_url.get() or None
+        llm = _create_chat_llm(effective_model, effective_api_key, effective_base_url)
+
+        # We need to run the async web browser tool here but this method is called within a threadpool by loop.run_in_executor
+        # So we can safely use asyncio.run
+        result = asyncio.run(mcp_web_browser(tool_input["task"], llm))
+
+        class BrowserHit:
+            def __init__(self, res):
+                self.id = "browser_action"
+                self.payload = res
+                self.sources = ["Browser"]
+
+        return [BrowserHit(result)], []
 
     elif tool_name == "fetch_url":
         import requests

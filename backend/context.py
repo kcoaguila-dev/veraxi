@@ -16,3 +16,6 @@ request_qdrant_url: ContextVar[str | None] = ContextVar(
 request_qdrant_key: ContextVar[str | None] = ContextVar(
     "request_qdrant_key", default=None
 )
+request_browserbase_key: ContextVar[str | None] = ContextVar(
+    "request_browserbase_key", default=None
+)

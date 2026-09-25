@@ -44,6 +44,8 @@ dependencies = [
     "langgraph-checkpoint-postgres",
     "psycopg[binary]",
     "opentimelineio",
+    "browser-use",
+    "playwright",
 ]
 
 [project.optional-dependencies]
