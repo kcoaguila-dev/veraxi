@@ -26,7 +26,7 @@ def generate_answer(query: str, context: str) -> str:
             messages=[{"role": "user", "content": prompt}],
             temperature=0.0,
         )
-        return response.choices[0].message.content
+        return response.choices[0].message.content or ""
     except Exception as e:
         return f"[Answer Generation Skipped: Missing LLM_API_KEY ({e!s})]"
 

@@ -85,11 +85,11 @@ def _lookup_hash(key_hash: str, supabase: Client) -> str:
         raise HTTPException(status_code=401, detail="Invalid or revoked API key")
 
     row = response.data
-    if not row:
+    if not row or not isinstance(row, dict):
         raise HTTPException(status_code=401, detail="Invalid or revoked API key")
 
     _check_expiry(row.get("expires_at"))
-    return row["tenant_id"]
+    return str(row.get("tenant_id", ""))
 
 
 def _check_expiry(expires_at: str | None) -> None:

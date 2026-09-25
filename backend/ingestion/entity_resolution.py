@@ -87,7 +87,7 @@ def resolve_entities(
         return [], {}
 
     type_groups = _group_entities_by_type(entities)
-    resolved_entities = []
+    resolved_entities: list[dict[str, Any]] = []
     alias_to_canonical: dict[str, str] = {}
 
     for group in type_groups.values():

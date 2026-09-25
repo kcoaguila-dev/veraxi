@@ -79,49 +79,7 @@ def _finalize_metrics(metrics: dict[str, Any]) -> dict[str, Any]:
     return finalized
 
 
-def _finalize_metrics(metrics: dict[str, Any]) -> dict[str, Any]:
-    """Derive display-ready metric fields from raw telemetry collected during generation."""
-    finalized = dict(metrics)
 
-    # --- Context Adherence (grounding) ---
-    grounding_score = finalized.get("grounding_score")
-    if isinstance(grounding_score, (int, float)):
-        finalized["context_adherence"] = round(float(grounding_score), 3)
-
-    # --- Retrieval Relevance (cosine similarity, query ↔ context) ---
-    retrieval_relevance: float | None = None
-    query_emb = finalized.pop("query_embedding", None)
-    context_emb = finalized.pop("context_embedding", None)
-    if isinstance(query_emb, list) and isinstance(context_emb, list):
-        retrieval_relevance = round(
-            max(0.0, min(1.0, _cosine_similarity(query_emb, context_emb))), 3
-        )
-        finalized["retrieval_relevance"] = retrieval_relevance
-
-    # --- Confidence (mean of available scores) ---
-    score_candidates = [
-        value
-        for value in [finalized.get("context_adherence"), retrieval_relevance]
-        if isinstance(value, (int, float))
-    ]
-    if score_candidates:
-        finalized["confidence"] = round(
-            sum(score_candidates) / len(score_candidates), 3
-        )
-
-    # --- Precision (harmonic mean / F1 of adherence & relevance) ---
-    adherence = finalized.get("context_adherence")
-    if isinstance(adherence, (int, float)) and isinstance(
-        retrieval_relevance, (int, float)
-    ):
-        denom = float(adherence) + retrieval_relevance
-        finalized["precision"] = (
-            round((2 * float(adherence) * retrieval_relevance) / denom, 3)
-            if denom > 0
-            else 0.0
-        )
-
-    return finalized
 
 
 def _sanitize_thread_title(raw_title: str) -> str:

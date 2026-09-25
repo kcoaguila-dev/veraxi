@@ -183,7 +183,7 @@ def register_ingestion_routes(
             check_tenant_hard_cap(tenant_id, get_config())
             MAX_FILE_SIZE = 50 * 1024 * 1024
             size = 0
-            _, file_extension = os.path.splitext(file.filename)
+            _, file_extension = os.path.splitext(file.filename or "")
             with tempfile.NamedTemporaryFile(
                 delete=False, suffix=file_extension
             ) as tmp_file:
@@ -351,7 +351,7 @@ def register_ingestion_routes(
                 response_format={"type": "json_object"},
                 temperature=data.temperature,
             )
-            return json.loads(response.choices[0].message.content)
+            return json.loads(response.choices[0].message.content or "{}")
         except Exception as e:
             sentry_sdk.capture_exception(e)
             raise HTTPException(

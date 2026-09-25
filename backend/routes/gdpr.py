@@ -33,7 +33,7 @@ def register_gdpr_routes(
             titles = await request.app.state.redis.hgetall(
                 f"tenant:{tenant_id}:thread_titles"
             )
-            export_data = {
+            export_data: dict = {
                 "tenant_id": tenant_id,
                 "export_date": datetime.datetime.now(datetime.UTC).isoformat(),
                 "threads": [],

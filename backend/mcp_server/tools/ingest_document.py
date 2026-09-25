@@ -100,7 +100,8 @@ def mcp_ingest_document(
 
         return result
     except httpx.HTTPError as e:
-        response_text = e.response.text if getattr(e, "response", None) else None
+        resp = getattr(e, "response", None)
+        response_text = resp.text if resp else None
         return {
             "error": f"HTTP Error during ingestion: {e!s}",
             "details": response_text,

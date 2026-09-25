@@ -92,7 +92,7 @@ def get_auth_token_key(request: Request) -> str:
 test_storage = "memory://" if "pytest" in sys.modules else config.redis_url
 limiter = Limiter(key_func=get_auth_token_key, storage_uri=test_storage)
 app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore[arg-type]
 
 # ---------------------------------------------------------------------------
 # CORS
