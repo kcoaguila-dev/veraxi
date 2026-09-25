@@ -13,7 +13,7 @@ from mcp.client.sse import sse_client
 
 logger = logging.getLogger(__name__)
 
-_MCP_TOOL_CACHE = {}  # Cache tool schemas to avoid frequent handshakes
+_MCP_TOOL_CACHE: dict[str, Any] = {}  # Cache tool schemas to avoid frequent handshakes
 
 
 async def get_tools(tool_settings: dict | None = None) -> list:
@@ -267,7 +267,7 @@ def _execute_single_tool(
         web_search = settings.get("web_search", {})
         if not web_search.get("enabled", False):
 
-            class ErrorHit:
+            class WebSearchErrorHit:
                 def __init__(self):
                     self.id = "tool_err"
                     self.payload = {
@@ -275,7 +275,7 @@ def _execute_single_tool(
                     }
                     self.sources = ["System Error"]
 
-            return [ErrorHit()], []
+            return [WebSearchErrorHit()], []
 
         if web_search.get("high_accuracy", False):
             from backend.mcp_server.tools.deep_research import mcp_deep_research
@@ -319,20 +319,20 @@ def _execute_single_tool(
     elif tool_name == "deep_research":
         web_search = settings.get("web_search", {})
         if not web_search.get("enabled", False):
-            class ErrorHit:
+            class DRErrorHit:
                 def __init__(self):
                     self.id = "tool_err"
                     self.payload = {
                         "error": "Tool deep_research is currently disabled by the user."
                     }
                     self.sources = ["System Error"]
-            return [ErrorHit()], []
+            return [DRErrorHit()], []
 
         from backend.mcp_server.tools.deep_research import mcp_deep_research
         
         dr_results = mcp_deep_research(tool_input["query"], tenant_id=tenant_id, tool_settings=tool_settings)
         
-        class DeepHit:
+        class DeepResHit:
             def __init__(self, res):
                 self.id = res.get("id", str(uuid.uuid4()))
                 self.payload = {
@@ -343,19 +343,19 @@ def _execute_single_tool(
                 self.sources = res.get("sources", [""])
 
         hits = dr_results.get("results", [])
-        return [DeepHit(r) for r in hits], []
+        return [DeepResHit(r) for r in hits], []
 
     elif tool_name == "agentic_debate":
         web_search = settings.get("web_search", {})
         if not web_search.get("enabled", False):
-            class ErrorHit:
+            class DebateErrorHit:
                 def __init__(self):
                     self.id = "tool_err"
                     self.payload = {
                         "error": "Tool agentic_debate is currently disabled by the user."
                     }
                     self.sources = ["System Error"]
-            return [ErrorHit()], []
+            return [DebateErrorHit()], []
 
         from backend.mcp_server.orchestrator_multi_agent import mcp_agentic_debate
         
@@ -399,13 +399,13 @@ def _execute_single_tool(
             return [CodeHit(data)], []
         except Exception as e:
 
-            class ErrorHit:
+            class CodeErrorHit:
                 def __init__(self, err):
                     self.id = "code_err"
                     self.payload = {"error": str(err)}
                     self.sources = ["Python Sandbox Error"]
 
-            return [ErrorHit(e)], []
+            return [CodeErrorHit(e)], []
 
     elif tool_name == "get_current_time":
         import datetime
