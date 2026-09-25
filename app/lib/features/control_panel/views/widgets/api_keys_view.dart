@@ -5,6 +5,7 @@ import 'package:veraxi_app/core/api_key_storage.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
 import 'package:veraxi_app/features/settings/view_models/tts_settings_view_model.dart';
 import 'package:veraxi_app/features/chat/views/widgets/api_key_dialog.dart';
+import 'package:veraxi_app/features/settings/views/widgets/manage_voices_dialog.dart';
 
 class ApiKeysView extends ConsumerStatefulWidget {
   const ApiKeysView({super.key});
@@ -125,8 +126,47 @@ class _ApiKeysViewState extends ConsumerState<ApiKeysView> {
           _buildProviderRow('Anthropic', 'anthropic', Icons.psychology),
           _buildProviderRow('Google', 'google', Icons.public),
           _buildProviderRow('Groq', 'groq', Icons.bolt),
-          _buildKeyInput('Fish Audio API Key', '••••••••', 'fish_audio',
-              controller: _fishAudioController),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Expanded(
+                child: Consumer(
+                  builder: (context, ref, child) {
+                    final ttsState = ref.watch(ttsSettingsViewModelProvider);
+                    if (_fishAudioController.text.isEmpty && ttsState.fishAudioApiKey.isNotEmpty) {
+                       _fishAudioController.text = ttsState.fishAudioApiKey;
+                    }
+                    return _buildKeyInput('Fish Audio API Key', '••••••••', 'fish_audio',
+                        controller: _fishAudioController);
+                  },
+                ),
+              ),
+              SizedBox(width: 16),
+              ElevatedButton(
+                onPressed: () {
+                  showDialog(
+                    context: context,
+                    builder: (context) => const ManageVoicesDialog(),
+                  );
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Theme.of(context)
+                      .extension<AppThemeExtension>()!
+                      .dialogBackground,
+                  side: BorderSide(
+                      color: Theme.of(context)
+                          .extension<AppThemeExtension>()!
+                          .borderColor),
+                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  minimumSize: Size(0, 52),
+                ),
+                child: Text(
+                  'Manage Voices',
+                  style: TextStyle(color: Colors.white, fontSize: 13),
+                ),
+              ),
+            ],
+          ),
 
           SizedBox(height: 48),
           Divider(
