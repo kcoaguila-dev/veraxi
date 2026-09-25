@@ -15,7 +15,7 @@ from browser_use.browser.browser import BrowserConfig
 logger = logging.getLogger(__name__)
 
 
-async def mcp_web_browser(task: str, llm: Any) -> dict:
+async def mcp_web_browser(task: str, llm: Any) -> dict[str, Any]:
     """Execute a task in a web browser.
 
     If context.request_browserbase_key has a key, it connects to Browserbase's CDP.
@@ -30,15 +30,15 @@ async def mcp_web_browser(task: str, llm: Any) -> dict:
             wss_url = f"wss://connect.browserbase.com?apiKey={browserbase_key}"
             config = BrowserConfig(
                 wss_url=wss_url,
-                headless=True
+                headless=True,
             )
-            browser = Browser(config=config)
+            browser = Browser(config=config) # type: ignore[call-arg]
         else:
             # Use local headless browser
             config = BrowserConfig(headless=True)
-            browser = Browser(config=config)
+            browser = Browser(config=config) # type: ignore[call-arg]
 
-        agent = Agent(
+        agent: Agent = Agent(
             task=task,
             llm=llm,
             browser=browser
