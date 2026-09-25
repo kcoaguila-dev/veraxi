@@ -251,6 +251,68 @@ class _ApiKeysViewState extends ConsumerState<ApiKeysView> {
             ),
           ),
 
+          SizedBox(height: 24),
+
+          // GPT-SoVITS Config
+          Container(
+            padding: EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Theme.of(context)
+                  .extension<AppThemeExtension>()!
+                  .dialogBackground,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                  color: Theme.of(context)
+                      .extension<AppThemeExtension>()!
+                      .borderColor),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.record_voice_over_outlined,
+                            color: Colors.greenAccent, size: 24),
+                        SizedBox(width: 12),
+                        Text('Local Speech Synthesis',
+                            style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600)),
+                      ],
+                    ),
+                    ElevatedButton(
+                      onPressed: () {
+                        showDialog(
+                          context: context,
+                          builder: (context) => const ManageVoicesDialog(),
+                        );
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Theme.of(context).colorScheme.secondary,
+                        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      ),
+                      child: Text('Manage Voices',
+                          style: TextStyle(color: Colors.white)),
+                    ),
+                  ],
+                ),
+                SizedBox(height: 16),
+                Text(
+                  'Manage your self-hosted GPT-SoVITS voices. Audio paths must point to valid files inside your TTS container.',
+                  style: TextStyle(
+                      color: Theme.of(context)
+                          .extension<AppThemeExtension>()!
+                          .textTertiary,
+                      fontSize: 13),
+                ),
+              ],
+            ),
+          ),
+
           SizedBox(height: 48),
           Divider(
               color: Theme.of(context)
@@ -292,9 +354,6 @@ class _ApiKeysViewState extends ConsumerState<ApiKeysView> {
                   qdrantUrl: _qdrantUrlController.text,
                   qdrantKey: _qdrantKeyController.text,
                 );
-                ref
-                    .read(ttsSettingsViewModelProvider.notifier)
-                    .setFishAudioApiKey(_fishAudioController.text);
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
@@ -677,31 +736,6 @@ class _ApiKeysViewState extends ConsumerState<ApiKeysView> {
                     style: TextStyle(color: Colors.white, fontSize: 13),
                   ),
                 ),
-                if (isConfigured) SizedBox(width: 8),
-                if (isConfigured)
-                  ElevatedButton(
-                    onPressed: () {
-                      showDialog(
-                        context: context,
-                        builder: (context) => const ManageVoicesDialog(),
-                      );
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Theme.of(context)
-                          .extension<AppThemeExtension>()!
-                          .dialogBackground,
-                      side: BorderSide(
-                          color: Theme.of(context)
-                              .extension<AppThemeExtension>()!
-                              .borderColor),
-                      padding:
-                          EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    ),
-                    child: Text(
-                      'Manage Voices',
-                      style: TextStyle(color: Colors.white, fontSize: 13),
-                    ),
-                  ),
               ],
             ),
           ),
@@ -713,47 +747,65 @@ class _ApiKeysViewState extends ConsumerState<ApiKeysView> {
   Future<void> _showFishAudioApiKeyDialog() async {
     final keyController = TextEditingController(
         text: ref.read(ttsSettingsViewModelProvider).fishAudioApiKey);
+    bool obscureText = true;
+
     return showDialog(
       context: context,
       builder: (context) {
-        return AlertDialog(
-          backgroundColor:
-              Theme.of(context).extension<AppThemeExtension>()!.cardBackground,
-          title:
-              Text('Fish Audio API Key', style: TextStyle(color: Colors.white)),
-          content: TextField(
-            controller: keyController,
-            style: TextStyle(color: Colors.white),
-            decoration: InputDecoration(
-              hintText: 'Enter your Fish Audio API Key',
-              hintStyle: TextStyle(color: Colors.grey),
-              filled: true,
-              fillColor: Theme.of(context)
-                  .extension<AppThemeExtension>()!
-                  .dialogBackground,
-              border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide.none),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text('Cancel', style: TextStyle(color: Colors.grey)),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Theme.of(context).colorScheme.secondary,
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              backgroundColor:
+                  Theme.of(context).extension<AppThemeExtension>()!.cardBackground,
+              title:
+                  Text('Fish Audio API Key', style: TextStyle(color: Colors.white)),
+              content: TextField(
+                controller: keyController,
+                obscureText: obscureText,
+                style: TextStyle(color: Colors.white),
+                decoration: InputDecoration(
+                  hintText: 'Enter your Fish Audio API Key',
+                  hintStyle: TextStyle(color: Colors.grey),
+                  filled: true,
+                  fillColor: Theme.of(context)
+                      .extension<AppThemeExtension>()!
+                      .dialogBackground,
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide.none),
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      obscureText ? Icons.visibility_off : Icons.visibility,
+                      color: Colors.grey,
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        obscureText = !obscureText;
+                      });
+                    },
+                  ),
+                ),
               ),
-              onPressed: () {
-                ref
-                    .read(ttsSettingsViewModelProvider.notifier)
-                    .setFishAudioApiKey(keyController.text);
-                Navigator.pop(context);
-              },
-              child: Text('Save', style: TextStyle(color: Colors.white)),
-            ),
-          ],
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: Text('Cancel', style: TextStyle(color: Colors.grey)),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Theme.of(context).colorScheme.secondary,
+                  ),
+                  onPressed: () {
+                    ref
+                        .read(ttsSettingsViewModelProvider.notifier)
+                        .setFishAudioApiKey(keyController.text);
+                    Navigator.pop(context);
+                  },
+                  child: Text('Save', style: TextStyle(color: Colors.white)),
+                ),
+              ],
+            );
+          }
         );
       },
     );

@@ -31,13 +31,13 @@ def write_to_graph(
     neo4j_client: Neo4jStorageClient,
     payload: IngestionPayload,
     tenant_id: str = "default",
-) -> dict[str, str]:
+) -> tuple[dict[str, str], dict[str, list[str]]]:
     """
     Write entities and relations to Neo4j, linking to Qdrant point IDs.
     Returns a tuple of (entity_name_to_node_id, qdrant_id_to_neo4j_ids).
     """
-    entity_name_to_node_id = {}
-    qdrant_id_to_neo4j_ids = {}
+    entity_name_to_node_id: dict[str, str] = {}
+    qdrant_id_to_neo4j_ids: dict[str, list[str]] = {}
 
     if not payload.qdrant_point_ids:
         raise ValueError("Must provide at least one qdrant_point_id to link nodes.")
