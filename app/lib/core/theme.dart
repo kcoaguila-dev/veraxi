@@ -74,6 +74,9 @@ class AppTheme {
         contentPadding:
             const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       ),
+      textSelectionTheme: const TextSelectionThemeData(
+        cursorColor: Colors.white,
+      ),
     );
   }
 
@@ -141,6 +144,9 @@ class AppTheme {
         ),
         contentPadding:
             const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      ),
+      textSelectionTheme: const TextSelectionThemeData(
+        cursorColor: textPrimary,
       ),
     );
   }
