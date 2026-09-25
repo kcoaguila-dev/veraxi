@@ -28,6 +28,12 @@ class AudioRequest(BaseModel):
     message_id: str | None = None
 
 
+class FishAudioRequest(BaseModel):
+    text: str
+    reference_id: str | None = None
+    message_id: str | None = None
+
+
 def register_tts_routes(
     app_router, get_tenant_id, verify_infrastructure_access, limiter, config
 ):
@@ -165,3 +171,68 @@ def register_tts_routes(
             )
         finally:
             await client.close()
+
+    @app_router.post("/api/chat/audio/fish")
+    async def chat_audio_fish(request: FishAudioRequest, req: Request):
+        import httpx
+        import asyncio
+        from pathlib import Path
+        
+        fish_api_key = req.headers.get("x-fish-audio-key")
+        if not fish_api_key:
+            raise HTTPException(status_code=401, detail="Fish Audio API key missing")
+
+        if request.message_id:
+            cache_dir = os.path.join(
+                os.path.dirname(os.path.dirname(__file__)), "tts", "cache"
+            )
+            os.makedirs(cache_dir, exist_ok=True)
+            cached_file_path = os.path.join(cache_dir, f"{request.message_id}.wav")
+            if os.path.exists(cached_file_path):
+                return FileResponse(
+                    cached_file_path, media_type="audio/wav", filename="audio.wav"
+                )
+
+        payload = {"text": request.text, "format": "wav"}
+        if request.reference_id:
+            payload["reference_id"] = request.reference_id
+
+        try:
+            async with httpx.AsyncClient() as client:
+                resp = await client.post(
+                    "https://api.fish.audio/v1/tts",
+                    headers={
+                        "Authorization": f"Bearer {fish_api_key}",
+                        "Content-Type": "application/json"
+                    },
+                    json=payload,
+                    timeout=30.0
+                )
+                if resp.status_code != 200:
+                    raise HTTPException(status_code=resp.status_code, detail=resp.text)
+                
+                audio_bytes = resp.content
+
+                if request.message_id:
+                    cache_dir = os.path.join(
+                        os.path.dirname(os.path.dirname(__file__)), "tts", "cache"
+                    )
+                    os.makedirs(cache_dir, exist_ok=True)
+                    cached_file_path = os.path.join(cache_dir, f"{request.message_id}.wav")
+                    await asyncio.to_thread(Path(cached_file_path).write_bytes, audio_bytes)
+                    from backend.tts.cache_manager import cleanup_audio_cache
+                    cleanup_audio_cache(cache_dir, max_files=100, max_age_hours=24)
+                    return FileResponse(
+                        cached_file_path, media_type="audio/wav", filename="audio.wav"
+                    )
+                return StreamingResponse(
+                    iter([audio_bytes]),
+                    media_type="audio/wav",
+                    headers={"Content-Disposition": "attachment; filename=audio.wav"},
+                )
+        except Exception as e:
+            sentry_sdk.capture_exception(e)
+            logger.error(f"Failed to synthesize Fish audio: {e}")
+            raise HTTPException(
+                status_code=500, detail=f"Failed to synthesize Fish audio: {e!s}"
+            )
