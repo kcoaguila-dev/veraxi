@@ -6,6 +6,7 @@ import 'package:veraxi_app/core/theme_extension.dart';
 import 'package:veraxi_app/features/settings/view_models/tts_settings_view_model.dart';
 import 'package:veraxi_app/features/chat/views/widgets/api_key_dialog.dart';
 import 'package:veraxi_app/features/settings/views/widgets/manage_voices_dialog.dart';
+import 'package:veraxi_app/core/widgets/models/model_provider_styles.dart';
 
 class ApiKeysView extends ConsumerStatefulWidget {
   const ApiKeysView({super.key});
@@ -122,10 +123,10 @@ class _ApiKeysViewState extends ConsumerState<ApiKeysView> {
                 fontSize: 13),
           ),
           SizedBox(height: 24),
-          _buildProviderRow('OpenAI', 'openai', Icons.auto_awesome),
-          _buildProviderRow('Anthropic', 'anthropic', Icons.psychology),
-          _buildProviderRow('Google', 'google', Icons.public),
-          _buildProviderRow('Groq', 'groq', Icons.bolt),
+          _buildProviderRow('OpenAI', 'openai'),
+          _buildProviderRow('Anthropic', 'anthropic'),
+          _buildProviderRow('Google', 'google'),
+          _buildProviderRow('Groq', 'groq'),
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
@@ -541,7 +542,7 @@ class _ApiKeysViewState extends ConsumerState<ApiKeysView> {
     );
   }
 
-  Widget _buildProviderRow(String label, String providerId, IconData icon) {
+  Widget _buildProviderRow(String label, String providerId) {
     final key = _providerKeys[providerId];
     final expires = _providerExpirations[providerId];
     final isConfigured = key != null && key.isNotEmpty;
@@ -569,7 +570,7 @@ class _ApiKeysViewState extends ConsumerState<ApiKeysView> {
                     .dialogBackground,
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Icon(icon, color: Colors.blueAccent, size: 24),
+              child: ModelProviderStyles.getProviderCircle(label, size: 24),
             ),
             SizedBox(width: 16),
             Expanded(
