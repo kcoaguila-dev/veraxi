@@ -6,6 +6,8 @@ from backend.mcp_server.tools.get_schema import get_graph_schema
 from backend.mcp_server.tools.get_stats import get_database_stats
 from backend.prompts import CRAG_ORCHESTRATOR_PROMPT, INGEST_KNOWLEDGE_PROMPT
 from mcp.server import Server
+
+mcp_server = Server("veraxi_mcp")
 from mcp.types import (
     CallToolResult,
     GetPromptResult,
@@ -21,6 +23,7 @@ from mcp.types import (
 )
 
 
+@mcp_server.list_resources()
 async def handle_list_resources(ctx, params) -> ListResourcesResult:
     """List available resources."""
     return ListResourcesResult(
@@ -41,6 +44,7 @@ async def handle_list_resources(ctx, params) -> ListResourcesResult:
     )
 
 
+@mcp_server.read_resource()
 async def handle_read_resource(ctx, params) -> ReadResourceResult:
     """Read a specific resource."""
     uri = params.uri
@@ -69,6 +73,7 @@ async def handle_read_resource(ctx, params) -> ReadResourceResult:
         raise ValueError(f"Resource not found: {uri}")
 
 
+@mcp_server.list_prompts()
 async def handle_list_prompts(ctx, params) -> ListPromptsResult:
     """List available prompts."""
     return ListPromptsResult(
@@ -87,6 +92,7 @@ async def handle_list_prompts(ctx, params) -> ListPromptsResult:
     )
 
 
+@mcp_server.get_prompt()
 async def handle_get_prompt(ctx, params) -> GetPromptResult:
     """Get a specific prompt."""
     name = params.name
@@ -116,11 +122,13 @@ async def handle_get_prompt(ctx, params) -> GetPromptResult:
 from backend.mcp_server.handlers.tool_registry import REGISTERED_TOOLS, TOOL_HANDLERS
 
 
+@mcp_server.list_tools()
 async def handle_list_tools(ctx, params) -> ListToolsResult:
     """List available tools."""
     return ListToolsResult(tools=REGISTERED_TOOLS)
 
 
+@mcp_server.call_tool()
 async def handle_call_tool(ctx, params) -> CallToolResult:
     """Handle tool execution requests dynamically via TOOL_HANDLERS registry."""
     name = params.name
@@ -152,13 +160,3 @@ async def handle_call_tool(ctx, params) -> CallToolResult:
             ]
         )
 
-
-mcp_server = Server(
-    "veraxi_mcp",
-    on_list_resources=handle_list_resources,
-    on_read_resource=handle_read_resource,
-    on_list_prompts=handle_list_prompts,
-    on_get_prompt=handle_get_prompt,
-    on_list_tools=handle_list_tools,
-    on_call_tool=handle_call_tool,
-)  # type: ignore[call-arg]
