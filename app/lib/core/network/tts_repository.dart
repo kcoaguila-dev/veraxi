@@ -99,8 +99,8 @@ class TTSRepository {
       payload['message_id'] = messageId;
     }
 
-    final response =
-        await apiClient.client.post(uri, headers: headers, body: jsonEncode(payload));
+    final response = await apiClient.client
+        .post(uri, headers: headers, body: jsonEncode(payload));
     if (response.statusCode == 200) {
       return response.bodyBytes;
     } else {

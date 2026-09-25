@@ -174,9 +174,10 @@ def register_tts_routes(
 
     @app_router.post("/api/chat/audio/fish")
     async def chat_audio_fish(request: FishAudioRequest, req: Request):
-        import httpx
         import asyncio
         from pathlib import Path
+
+        import httpx
         
         fish_api_key = req.headers.get("x-fish-audio-key")
         if not fish_api_key:

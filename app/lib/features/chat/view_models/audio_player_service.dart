@@ -110,11 +110,14 @@ class AudioPlayerService extends StateNotifier<AudioPlayerState> {
 
       if (engine == 'Fish Audio') {
         final fishApiKey = await _ttsSettingsStorage.getFishAudioApiKey() ?? '';
-        final fishModel = await _ttsSettingsStorage.getFishAudioModel() ?? 's2.1-pro';
-        final fishRefId = await _ttsSettingsStorage.getFishAudioReferenceId() ?? '';
-        
+        final fishModel =
+            await _ttsSettingsStorage.getFishAudioModel() ?? 's2.1-pro';
+        final fishRefId =
+            await _ttsSettingsStorage.getFishAudioReferenceId() ?? '';
+
         bytes = await _ttsRepository.getFishAudioBytes(
-            text, fishApiKey, fishModel, fishRefId, messageId: messageId);
+            text, fishApiKey, fishModel, fishRefId,
+            messageId: messageId);
       } else if (engine == 'GPT-SoVITS') {
         final voiceId = await _ttsSettingsStorage.getVoiceId() ?? 'default';
         final gptSovitsUrl = await _ttsSettingsStorage.getGptSovitsUrl();
@@ -129,7 +132,8 @@ class AudioPlayerService extends StateNotifier<AudioPlayerState> {
         // Fallback to Web Speech API or fail
         // Since we are in the unified player, WebSpeech doesn't give us bytes.
         // We throw an exception and let the catch block handle it or just do nothing.
-        throw Exception('Browser TTS selected, cannot play via unified audio player.');
+        throw Exception(
+            'Browser TTS selected, cannot play via unified audio player.');
       }
 
       if (kIsWeb) {

@@ -292,8 +292,10 @@ class _ApiKeysViewState extends ConsumerState<ApiKeysView> {
                         );
                       },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Theme.of(context).colorScheme.secondary,
-                        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        backgroundColor:
+                            Theme.of(context).colorScheme.secondary,
+                        padding:
+                            EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                       ),
                       child: Text('Manage Voices',
                           style: TextStyle(color: Colors.white)),
@@ -752,61 +754,60 @@ class _ApiKeysViewState extends ConsumerState<ApiKeysView> {
     return showDialog(
       context: context,
       builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            return AlertDialog(
-              backgroundColor:
-                  Theme.of(context).extension<AppThemeExtension>()!.cardBackground,
-              title:
-                  Text('Fish Audio API Key', style: TextStyle(color: Colors.white)),
-              content: TextField(
-                controller: keyController,
-                obscureText: obscureText,
-                style: TextStyle(color: Colors.white),
-                decoration: InputDecoration(
-                  hintText: 'Enter your Fish Audio API Key',
-                  hintStyle: TextStyle(color: Colors.grey),
-                  filled: true,
-                  fillColor: Theme.of(context)
-                      .extension<AppThemeExtension>()!
-                      .dialogBackground,
-                  border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide.none),
-                  suffixIcon: IconButton(
-                    icon: Icon(
-                      obscureText ? Icons.visibility_off : Icons.visibility,
-                      color: Colors.grey,
-                    ),
-                    onPressed: () {
-                      setState(() {
-                        obscureText = !obscureText;
-                      });
-                    },
-                  ),
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: Text('Cancel', style: TextStyle(color: Colors.grey)),
-                ),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Theme.of(context).colorScheme.secondary,
+        return StatefulBuilder(builder: (context, setState) {
+          return AlertDialog(
+            backgroundColor: Theme.of(context)
+                .extension<AppThemeExtension>()!
+                .cardBackground,
+            title: Text('Fish Audio API Key',
+                style: TextStyle(color: Colors.white)),
+            content: TextField(
+              controller: keyController,
+              obscureText: obscureText,
+              style: TextStyle(color: Colors.white),
+              decoration: InputDecoration(
+                hintText: 'Enter your Fish Audio API Key',
+                hintStyle: TextStyle(color: Colors.grey),
+                filled: true,
+                fillColor: Theme.of(context)
+                    .extension<AppThemeExtension>()!
+                    .dialogBackground,
+                border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide.none),
+                suffixIcon: IconButton(
+                  icon: Icon(
+                    obscureText ? Icons.visibility_off : Icons.visibility,
+                    color: Colors.grey,
                   ),
                   onPressed: () {
-                    ref
-                        .read(ttsSettingsViewModelProvider.notifier)
-                        .setFishAudioApiKey(keyController.text);
-                    Navigator.pop(context);
+                    setState(() {
+                      obscureText = !obscureText;
+                    });
                   },
-                  child: Text('Save', style: TextStyle(color: Colors.white)),
                 ),
-              ],
-            );
-          }
-        );
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text('Cancel', style: TextStyle(color: Colors.grey)),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Theme.of(context).colorScheme.secondary,
+                ),
+                onPressed: () {
+                  ref
+                      .read(ttsSettingsViewModelProvider.notifier)
+                      .setFishAudioApiKey(keyController.text);
+                  Navigator.pop(context);
+                },
+                child: Text('Save', style: TextStyle(color: Colors.white)),
+              ),
+            ],
+          );
+        });
       },
     );
   }
