@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:veraxi_app/features/settings/views/widgets/tabs/speech_settings_tab.dart';
-import 'package:veraxi_app/features/settings/view_models/tts_settings_view_model.dart';
 import 'package:veraxi_app/core/network/tts_repository.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
 import 'package:mocktail/mocktail.dart';

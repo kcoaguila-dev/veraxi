@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:veraxi_app/core/api_key_storage.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
 import 'package:veraxi_app/features/settings/view_models/tts_settings_view_model.dart';
+import 'package:veraxi_app/features/chat/views/widgets/api_key_dialog.dart';
 
 class ApiKeysView extends ConsumerStatefulWidget {
   const ApiKeysView({super.key});
@@ -14,6 +15,10 @@ class ApiKeysView extends ConsumerStatefulWidget {
 
 class _ApiKeysViewState extends ConsumerState<ApiKeysView> {
   final _apiKeyStorage = ApiKeyStorage();
+
+  // Intelligence Provider State
+  final Map<String, String?> _providerKeys = {};
+  final Map<String, String?> _providerExpirations = {};
 
   // Controllers for BYOD
   final _neo4jUriController = TextEditingController();
@@ -42,15 +47,25 @@ class _ApiKeysViewState extends ConsumerState<ApiKeysView> {
 
   Future<void> _loadByodSettings() async {
     final config = await _apiKeyStorage.getByodConfig();
-    setState(() {
-      _neo4jUriController.text = config['neo4j_uri'] ?? '';
-      _neo4jUserController.text = config['neo4j_user'] ?? '';
-      _neo4jPassController.text = config['neo4j_pass'] ?? '';
-      _qdrantUrlController.text = config['qdrant_url'] ?? '';
-      _qdrantKeyController.text = config['qdrant_key'] ?? '';
-      _fishAudioController.text =
-          ref.read(ttsSettingsViewModelProvider).fishAudioApiKey;
-    });
+
+    // Load intelligence provider keys
+    for (final provider in ['openai', 'anthropic', 'google', 'groq']) {
+      _providerKeys[provider] = await _apiKeyStorage.getKey(provider);
+      _providerExpirations[provider] =
+          await _apiKeyStorage.getKeyExpirationDate(provider);
+    }
+
+    if (mounted) {
+      setState(() {
+        _neo4jUriController.text = config['neo4j_uri'] ?? '';
+        _neo4jUserController.text = config['neo4j_user'] ?? '';
+        _neo4jPassController.text = config['neo4j_pass'] ?? '';
+        _qdrantUrlController.text = config['qdrant_url'] ?? '';
+        _qdrantKeyController.text = config['qdrant_key'] ?? '';
+        _fishAudioController.text =
+            ref.read(ttsSettingsViewModelProvider).fishAudioApiKey;
+      });
+    }
   }
 
   @override
@@ -106,10 +121,10 @@ class _ApiKeysViewState extends ConsumerState<ApiKeysView> {
                 fontSize: 13),
           ),
           SizedBox(height: 24),
-          _buildKeyInput('OpenAI API Key', 'sk-...', 'openai'),
-          _buildKeyInput('Anthropic API Key', 'sk-ant-...', 'anthropic'),
-          _buildKeyInput('Google Gemini API Key', 'AIza...', 'gemini'),
-          _buildKeyInput('Groq API Key', 'gsk_...', 'groq'),
+          _buildProviderRow('OpenAI', 'openai', Icons.auto_awesome),
+          _buildProviderRow('Anthropic', 'anthropic', Icons.psychology),
+          _buildProviderRow('Google', 'google', Icons.public),
+          _buildProviderRow('Groq', 'groq', Icons.bolt),
           _buildKeyInput('Fish Audio API Key', '••••••••', 'fish_audio',
               controller: _fishAudioController),
 
@@ -482,6 +497,96 @@ class _ApiKeysViewState extends ConsumerState<ApiKeysView> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildProviderRow(String label, String providerId, IconData icon) {
+    final key = _providerKeys[providerId];
+    final expires = _providerExpirations[providerId];
+    final isConfigured = key != null && key.isNotEmpty;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16.0),
+      child: Container(
+        padding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        decoration: BoxDecoration(
+          color:
+              Theme.of(context).extension<AppThemeExtension>()!.cardBackground,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+              color: Theme.of(context)
+                  .extension<AppThemeExtension>()!
+                  .borderColor),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Theme.of(context)
+                    .extension<AppThemeExtension>()!
+                    .dialogBackground,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(icon, color: Colors.blueAccent, size: 24),
+            ),
+            SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600),
+                  ),
+                  SizedBox(height: 4),
+                  Text(
+                    isConfigured
+                        ? (expires != null
+                            ? 'Expires: $expires'
+                            : 'Configured • No expiration')
+                        : 'Not configured',
+                    style: TextStyle(
+                        color: isConfigured
+                            ? Colors.greenAccent
+                            : Theme.of(context)
+                                .extension<AppThemeExtension>()!
+                                .textTertiary,
+                        fontSize: 13),
+                  ),
+                ],
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                await showDialog(
+                  context: context,
+                  builder: (context) => ApiKeyDialog(providerName: providerId),
+                );
+                // Reload keys after dialog closes
+                _loadByodSettings();
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Theme.of(context)
+                    .extension<AppThemeExtension>()!
+                    .dialogBackground,
+                side: BorderSide(
+                    color: Theme.of(context)
+                        .extension<AppThemeExtension>()!
+                        .borderColor),
+                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              ),
+              child: Text(
+                isConfigured ? 'Manage' : 'Configure',
+                style: TextStyle(color: Colors.white, fontSize: 13),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

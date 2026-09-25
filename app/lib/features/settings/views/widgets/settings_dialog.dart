@@ -3,8 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:veraxi_app/core/widgets/veraxi_logo.dart';
-import 'package:veraxi_app/features/settings/view_models/tts_settings_view_model.dart';
-import 'manage_voices_dialog.dart';
 import 'api_keys_tab.dart';
 import 'tabs/speech_settings_tab.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -296,100 +294,6 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
       _buildSettingsGroup([
         _buildToggleRow('Wrap code blocks', false),
         _buildDropdownRow('Code block theme', 'Default'),
-      ]),
-    ];
-  }
-
-  List<Widget> _buildSpeechTab() {
-    final ttsState = ref.watch(ttsSettingsViewModelProvider);
-    final isBrowser = ttsState.selectedEngine == 'Browser';
-
-    String voiceDisplay;
-    List<String> voiceOptions;
-
-    if (isBrowser) {
-      voiceDisplay = 'Default (System)';
-      voiceOptions = ['Default (System)'];
-    } else {
-      if (ttsState.isLoading) {
-        voiceDisplay = 'Loading...';
-        voiceOptions = ['Loading...'];
-      } else if (ttsState.error != null ||
-          ttsState.voices.isEmpty ||
-          (ttsState.voices.length == 1 &&
-              ttsState.voices.first['id'] == 'default_system')) {
-        voiceDisplay = 'No voices available';
-        voiceOptions = ['No voices available'];
-      } else {
-        final customVoices =
-            ttsState.voices.where((v) => v['id'] != 'default_system').toList();
-        if (customVoices.isEmpty) {
-          voiceDisplay = 'No voices available';
-          voiceOptions = ['No voices available'];
-        } else {
-          final selected = customVoices.firstWhere(
-              (v) => v['id'] == ttsState.selectedVoiceId,
-              orElse: () => customVoices.first);
-          voiceDisplay = selected['name'] ?? 'Unknown';
-          voiceOptions = customVoices.map((v) => v['name'].toString()).toList();
-        }
-      }
-    }
-
-    final urlController = TextEditingController(text: ttsState.gptSovitsUrl);
-
-    return [
-      _buildSectionHeader('TEXT TO SPEECH'),
-      _buildSettingsGroup([
-        _buildRealDropdownRow(
-          'Engine',
-          ttsState.selectedEngine,
-          ['Browser', 'GPT-SoVITS'],
-          (value) {
-            ref.read(ttsSettingsViewModelProvider.notifier).setEngine(value);
-          },
-        ),
-        if (!isBrowser)
-          _buildTextFieldRow(
-            'API Base URL',
-            urlController,
-            onSubmitted: (value) {
-              ref
-                  .read(ttsSettingsViewModelProvider.notifier)
-                  .setGptSovitsUrl(value);
-            },
-          ),
-        _buildRealDropdownRow(
-          'Voice',
-          voiceDisplay,
-          voiceOptions,
-          (value) {
-            if (isBrowser ||
-                value == 'Loading...' ||
-                value == 'No voices available') return;
-            final voiceId =
-                ttsState.voices.firstWhere((v) => v['name'] == value)['id']!;
-            ref.read(ttsSettingsViewModelProvider.notifier).setVoice(voiceId);
-          },
-        ),
-        _buildDropdownRow('Playback speed', '1.0x'),
-        if (ttsState.selectedEngine == 'GPT-SoVITS')
-          _buildActionRow(
-            'Manage Voices',
-            'Add or configure GPT-SoVITS personas',
-            'Manage',
-            onTap: () {
-              showDialog(
-                context: context,
-                builder: (context) => const ManageVoicesDialog(),
-              );
-            },
-          ),
-      ]),
-      SizedBox(height: 32),
-      _buildSectionHeader('SPEECH TO TEXT'),
-      _buildSettingsGroup([
-        _buildDropdownRow('Language', 'Auto-detect'),
       ]),
     ];
   }
