@@ -508,7 +508,11 @@ def register_chat_routes(
                         target_msg = msg
                         break
                 if target_msg:
-                    await memory.aupdate_state(
+                    from backend.mcp_server.orchestrator import _get_workflow
+
+                    workflow = _get_workflow()
+                    app = workflow.compile(checkpointer=memory)
+                    await app.aupdate_state(
                         {"configurable": {"thread_id": payload.thread_id}},
                         {"messages": [target_msg]},
                     )
@@ -640,7 +644,11 @@ def register_chat_routes(
                                 and "id" in msg.additional_kwargs
                             ):
                                 msg.additional_kwargs["id"] = msg.id
-                        await memory.aupdate_state(
+                        from backend.mcp_server.orchestrator import _get_workflow
+
+                        workflow = _get_workflow()
+                        app = workflow.compile(checkpointer=memory)
+                        await app.aupdate_state(
                             {"configurable": {"thread_id": new_thread_id}},
                             {"messages": copied_messages},
                         )

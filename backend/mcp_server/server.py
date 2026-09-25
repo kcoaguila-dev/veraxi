@@ -26,13 +26,13 @@ async def handle_list_resources(ctx, params) -> ListResourcesResult:
     return ListResourcesResult(
         resources=[
             Resource(
-                uri="veraxi://schema",
+                uri="veraxi://schema",  # type: ignore[arg-type]
                 name="Database Schema",
                 description="The current schema of node labels and relationship types in the Neo4j Graph.",
                 mimeType="application/json",
             ),
             Resource(
-                uri="veraxi://stats",
+                uri="veraxi://stats",  # type: ignore[arg-type]
                 name="Database Statistics",
                 description="Live counts of nodes, vectors, and relationships for the current tenant.",
                 mimeType="application/json",
@@ -161,4 +161,4 @@ mcp_server = Server(
     on_get_prompt=handle_get_prompt,
     on_list_tools=handle_list_tools,
     on_call_tool=handle_call_tool,
-)
+)  # type: ignore[call-arg]

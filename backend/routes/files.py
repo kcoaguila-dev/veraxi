@@ -29,7 +29,7 @@ def register_file_routes(
         try:
             os.makedirs("uploads", exist_ok=True)
             file_id = str(uuid.uuid4())
-            _, file_extension = os.path.splitext(file.filename)
+            _, file_extension = os.path.splitext(file.filename or "")
             file_path = os.path.join("uploads", f"{file_id}{file_extension}")
             content = await file.read()
             with open(file_path, "wb") as f:  # noqa: ASYNC230

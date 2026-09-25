@@ -4,7 +4,7 @@ import os
 import pytest
 from backend.mcp_server.llm_loop import answer_question
 from backend.tests.custom_openai_eval import OpenAIDeepEvalModel
-from deepeval import assert_test
+from deepeval import assert_test  # type: ignore[attr-defined]
 from deepeval.metrics import (
     AnswerRelevancyMetric,
     ContextualPrecisionMetric,

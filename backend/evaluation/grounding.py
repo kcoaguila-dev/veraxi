@@ -45,7 +45,7 @@ def _call_llm_for_grounding(
     response_text: str,
     api_key: str | None = None,
     model_name: str | None = None,
-) -> float:
+) -> float | None:
     user_message = f"Context:\n{context_text}\n\nResponse:\n{response_text}"
 
     effective_model = model_name or config.llm_model_name
@@ -67,7 +67,7 @@ def _call_llm_for_grounding(
         temperature=0.0,
     )
 
-    return _parse_grounding_score(response.choices[0].message.content)
+    return _parse_grounding_score(response.choices[0].message.content or "")
 
 
 def evaluate_groundedness(

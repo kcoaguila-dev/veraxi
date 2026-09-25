@@ -33,9 +33,12 @@ def _validate_single_relation(
     if not isinstance(rel, dict):
         return None
 
-    from_ent = rel.get("from_entity")
-    to_ent = rel.get("to_entity")
-    rel_type = rel.get("type")
+    from_ent = str(rel.get("from_entity", ""))
+    to_ent = str(rel.get("to_entity", ""))
+    rel_type = str(rel.get("type", ""))
+
+    if not from_ent or not to_ent or not rel_type:
+        return None
 
     if from_ent not in entity_name_to_type or to_ent not in entity_name_to_type:
         return None
@@ -88,8 +91,8 @@ def _validate_entities(
         if not isinstance(ent, dict):
             continue
 
-        ent_type = ent.get("type")
-        name = ent.get("name")
+        ent_type = str(ent.get("type", ""))
+        name = str(ent.get("name", ""))
         props = ent.get("properties", {})
 
         if _is_valid_entity(ent_type, name, allowed_entities):
@@ -160,7 +163,7 @@ def extract_entities_and_relations(
             temperature=0.0,
         )
 
-        output = _clean_llm_json_output(response.choices[0].message.content)
+        output = _clean_llm_json_output(response.choices[0].message.content or "")
         data = json.loads(output)
 
         raw_entities = data.get("entities", [])

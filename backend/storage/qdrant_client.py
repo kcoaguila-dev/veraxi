@@ -97,7 +97,7 @@ class QdrantStorageClient:
             point_ids.append(point_id)
 
             # Combine dense and sparse into a dictionary for Qdrant
-            qdrant_vector = {
+            qdrant_vector: dict[str, list[float] | SparseVector] = {
                 "": vector,
                 "text-sparse": SparseVector(
                     indices=sparse["indices"], values=sparse["values"]
@@ -105,7 +105,7 @@ class QdrantStorageClient:
             }
 
             points.append(
-                PointStruct(id=point_id, vector=qdrant_vector, payload=payload)
+                PointStruct(id=point_id, vector=qdrant_vector, payload=payload)  # type: ignore[arg-type]
             )
 
         self.client.upsert(collection_name=collection_name, points=points)
@@ -182,7 +182,7 @@ class QdrantStorageClient:
 
         self.client.delete(
             collection_name=collection_name,
-            points_selector=models.PointIdsList(points=point_ids),
+            points_selector=models.PointIdsList(points=point_ids),  # type: ignore[arg-type]
         )
 
     def delete_tenant(self, collection_name: str, tenant_id: str):

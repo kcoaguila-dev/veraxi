@@ -185,6 +185,9 @@ async def call_model(state: AgentState):
                 response = await llm.ainvoke(modified_messages)
                 break
 
+    if not response:
+        raise RuntimeError("Failed to get response from LLM")
+    
     # Inject the model name into the response so it gets saved to history and sent to frontend
     response.additional_kwargs["model_name"] = effective_model
 
@@ -220,10 +223,11 @@ async def execute_tools(state: AgentState):
     tenant_id = state["tenant_id"]
 
     last_message = messages[-1]
+    tool_calls = getattr(last_message, "tool_calls", [])
     tool_messages = []
 
     context_str, merged = await execute_tools_internal(
-        last_message.tool_calls, tenant_id, state.get("tool_settings") or {}
+        tool_calls, tenant_id, state.get("tool_settings") or {}
     )
 
     query_emb = None
@@ -258,7 +262,7 @@ async def execute_tools(state: AgentState):
 
             sentry_sdk.capture_exception(e)
 
-    for tool_call in last_message.tool_calls:
+    for tool_call in tool_calls:
         tool_messages.append(
             ToolMessage(
                 content=f"Here is the context retrieved from the database:\\n{context_str}\\n\\n",
@@ -288,7 +292,7 @@ def should_continue(state: AgentState) -> str:
     last_message = messages[-1]
 
     # If the LLM made a tool call, route to tools
-    if last_message.tool_calls:
+    if getattr(last_message, "tool_calls", []):
         return "tools"
 
     # Otherwise, we are done
@@ -450,7 +454,7 @@ async def evaluate_context(state: AgentState):
 
     try:
         res = await structured_llm_grader.ainvoke(grade_prompt)
-        score = res.binary_score
+        score = getattr(res, "binary_score", "no")
     except Exception as e:
         sentry_sdk.capture_exception(e)
         logger.error(f"CRAG Evaluation failed: {e}. Defaulting to 'no'.")

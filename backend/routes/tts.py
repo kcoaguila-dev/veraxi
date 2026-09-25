@@ -73,7 +73,7 @@ def register_tts_routes(
                 os.path.dirname(os.path.dirname(__file__)), "tts", "voices"
             )
             os.makedirs(voices_dir, exist_ok=True)
-            safe_filename = file.filename.replace(" ", "_")
+            safe_filename = (file.filename or "audio.wav").replace(" ", "_")
             file_path = os.path.join(voices_dir, safe_filename)
             with open(file_path, "wb") as buffer:  # noqa: ASYNC230
                 shutil.copyfileobj(file.file, buffer)

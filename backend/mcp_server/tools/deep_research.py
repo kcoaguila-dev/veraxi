@@ -68,10 +68,10 @@ def mcp_deep_research(
     # Clone schema to ephemeral tenant
     r = redis.Redis.from_url(config.redis_url)
     schema_data = r.get(f"tenant:{tenant_id}:schema")
-    if schema_data:
-        r.set(f"tenant:{ephemeral_tenant_id}:schema", schema_data)
+    if schema_data is not None:
+        r.set(f"tenant:{ephemeral_tenant_id}:schema", schema_data)  # type: ignore[arg-type]
 
-    ingestion_results = []
+    ingestion_results: list[dict] = []
 
     try:
         # 3. Concurrently Ingest URLs
