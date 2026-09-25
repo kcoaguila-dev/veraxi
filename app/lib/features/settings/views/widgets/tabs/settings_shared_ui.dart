@@ -201,88 +201,114 @@ class SettingsUI {
   static Widget buildTextFieldRow(
       BuildContext context, String label, TextEditingController controller,
       {Function(String)? onSubmitted, bool obscureText = false}) {
-    return StatefulBuilder(
-      builder: (context, setState) {
-        bool isSaved = false;
+    return SettingsTextFieldRow(
+      label: label,
+      controller: controller,
+      onSubmitted: onSubmitted,
+      obscureText: obscureText,
+    );
+  }
+}
 
-        return Padding(
-          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: Row(
-            children: [
-              Expanded(
-                flex: 2,
-                child: Text(label,
-                    style: TextStyle(color: Color(0xFFECECEC), fontSize: 13)),
-              ),
-              Expanded(
-                flex: 3,
-                child: SizedBox(
-                  height: 36,
-                  child: TextField(
-                    controller: controller,
-                    obscureText: obscureText,
-                    style: TextStyle(color: Colors.white, fontSize: 13),
-                    decoration: InputDecoration(
-                      contentPadding:
-                          EdgeInsets.symmetric(horizontal: 12, vertical: 0),
-                      filled: true,
-                      fillColor: Theme.of(context)
-                          .extension<AppThemeExtension>()!
-                          .borderColor,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(6),
-                        borderSide: BorderSide.none,
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(6),
-                        borderSide: BorderSide.none,
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(6),
-                        borderSide: BorderSide.none,
-                      ),
-                    ),
-                    onSubmitted: (value) {
-                      if (onSubmitted != null) {
-                        onSubmitted(value);
-                        setState(() => isSaved = true);
-                        Future.delayed(const Duration(seconds: 2), () {
-                          if (context.mounted) setState(() => isSaved = false);
-                        });
-                      }
-                    },
+class SettingsTextFieldRow extends StatefulWidget {
+  final String label;
+  final TextEditingController controller;
+  final Function(String)? onSubmitted;
+  final bool obscureText;
+
+  const SettingsTextFieldRow({
+    super.key,
+    required this.label,
+    required this.controller,
+    this.onSubmitted,
+    this.obscureText = false,
+  });
+
+  @override
+  State<SettingsTextFieldRow> createState() => _SettingsTextFieldRowState();
+}
+
+class _SettingsTextFieldRowState extends State<SettingsTextFieldRow> {
+  bool isSaved = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Row(
+        children: [
+          Expanded(
+            flex: 2,
+            child: Text(widget.label,
+                style: TextStyle(color: Color(0xFFECECEC), fontSize: 13)),
+          ),
+          Expanded(
+            flex: 3,
+            child: SizedBox(
+              height: 36,
+              child: TextField(
+                controller: widget.controller,
+                obscureText: widget.obscureText,
+                style: TextStyle(color: Colors.white, fontSize: 13),
+                decoration: InputDecoration(
+                  contentPadding:
+                      EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+                  filled: true,
+                  fillColor: Theme.of(context)
+                      .extension<AppThemeExtension>()!
+                      .borderColor,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(6),
+                    borderSide: BorderSide.none,
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(6),
+                    borderSide: BorderSide.none,
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(6),
+                    borderSide: BorderSide.none,
                   ),
                 ),
-              ),
-              SizedBox(width: 8),
-              ElevatedButton(
-                onPressed: () {
-                  if (onSubmitted != null) {
-                    onSubmitted(controller.text);
+                onSubmitted: (value) {
+                  if (widget.onSubmitted != null) {
+                    widget.onSubmitted!(value);
                     setState(() => isSaved = true);
                     Future.delayed(const Duration(seconds: 2), () {
-                      if (context.mounted) setState(() => isSaved = false);
+                      if (mounted) setState(() => isSaved = false);
                     });
                   }
                 },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: isSaved
-                      ? Theme.of(context).colorScheme.secondary
-                      : Theme.of(context)
-                          .extension<AppThemeExtension>()!
-                          .surfaceHighlight,
-                  foregroundColor: Colors.white,
-                  padding: EdgeInsets.symmetric(horizontal: 12),
-                  minimumSize: const Size(0, 36),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(6)),
-                ),
-                child: Text(isSaved ? 'Saved' : 'Apply'),
               ),
-            ],
+            ),
           ),
-        );
-      },
+          SizedBox(width: 8),
+          ElevatedButton(
+            onPressed: () {
+              if (widget.onSubmitted != null) {
+                widget.onSubmitted!(widget.controller.text);
+                setState(() => isSaved = true);
+                Future.delayed(const Duration(seconds: 2), () {
+                  if (mounted) setState(() => isSaved = false);
+                });
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: isSaved
+                  ? Theme.of(context).colorScheme.secondary
+                  : Theme.of(context)
+                      .extension<AppThemeExtension>()!
+                      .surfaceHighlight,
+              foregroundColor: Colors.white,
+              padding: EdgeInsets.symmetric(horizontal: 12),
+              minimumSize: const Size(0, 36),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(6)),
+            ),
+            child: Text(isSaved ? 'Saved' : 'Apply'),
+          ),
+        ],
+      ),
     );
   }
 
