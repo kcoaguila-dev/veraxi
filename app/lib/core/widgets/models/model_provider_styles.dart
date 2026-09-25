@@ -24,6 +24,8 @@ class ModelProviderStyles {
       assetPath = 'assets/icons/local.svg';
     } else if (lower.contains('fish')) {
       return Icon(Icons.headphones, color: Colors.cyanAccent, size: size);
+    } else if (lower == 'browserbase') {
+      return Icon(Icons.language, color: Colors.blueAccent, size: size);
     }
 
     final colors = {
@@ -38,6 +40,7 @@ class ModelProviderStyles {
       'cohere': const Color(0xFF81C784),
       'Kimi': Colors.white,
       'Local': Colors.white,
+      'browserbase': Colors.blueAccent,
     };
 
     if (assetPath != null) {

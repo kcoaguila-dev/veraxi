@@ -74,6 +74,11 @@ class ApiClient {
     if (byod['qdrant_key']!.isNotEmpty)
       headers['X-BYOD-Qdrant-Key'] = byod['qdrant_key']!;
 
+    final browserbaseKey = await _apiKeyStorage.getKey('browserbase');
+    if (browserbaseKey != null && browserbaseKey.isNotEmpty) {
+      headers['X-BYOD-Browserbase-Key'] = browserbaseKey;
+    }
+
     return headers;
   }
 
