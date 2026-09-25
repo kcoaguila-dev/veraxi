@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 class ModelProviderStyles {
-  static Widget getProviderCircle(String provider) {
+  static Widget getProviderCircle(String provider, {double size = 16}) {
     String? assetPath;
     final lower = provider.toLowerCase();
 
@@ -46,13 +46,13 @@ class ModelProviderStyles {
       final iconColor = colors[colorKey] ?? Colors.white;
 
       return SizedBox(
-        width: 16,
-        height: 16,
+        width: size,
+        height: size,
         child: Center(
           child: SvgPicture.asset(
             assetPath,
-            width: 16,
-            height: 16,
+            width: size,
+            height: size,
             colorFilter: ColorFilter.mode(iconColor, BlendMode.srcIn),
           ),
         ),
@@ -60,12 +60,12 @@ class ModelProviderStyles {
     }
 
     final color = colors[provider];
-    if (color == null) return const SizedBox(width: 16);
+    if (color == null) return SizedBox(width: size);
 
     return Container(
-      width: 12,
-      height: 12,
-      margin: const EdgeInsets.symmetric(horizontal: 2),
+      width: size * 0.75,
+      height: size * 0.75,
+      margin: EdgeInsets.symmetric(horizontal: size * 0.125),
       decoration: BoxDecoration(color: color, shape: BoxShape.circle),
     );
   }
