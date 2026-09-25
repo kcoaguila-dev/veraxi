@@ -104,22 +104,39 @@ class AudioPlayerService extends StateNotifier<AudioPlayerState> {
         duration: Duration.zero);
 
     try {
-      final voiceId = await _ttsSettingsStorage.getVoiceId() ?? 'default';
-      final gptSovitsUrl = await _ttsSettingsStorage.getGptSovitsUrl();
+      final engine = await _ttsSettingsStorage.getEngine() ?? 'Browser';
 
-      // Get audio bytes (cached by backend)
-      final bytes = await _ttsRepository.getAudioBytes(
-        text,
-        voiceId,
-        gptSovitsUrl: gptSovitsUrl,
-        messageId: messageId,
-      );
+      List<int> bytes = [];
+
+      if (engine == 'Fish Audio') {
+        final fishApiKey = await _ttsSettingsStorage.getFishAudioApiKey() ?? '';
+        final fishModel = await _ttsSettingsStorage.getFishAudioModel() ?? 's2.1-pro';
+        final fishRefId = await _ttsSettingsStorage.getFishAudioReferenceId() ?? '';
+        
+        bytes = await _ttsRepository.getFishAudioBytes(
+            text, fishApiKey, fishModel, fishRefId);
+      } else if (engine == 'GPT-SoVITS') {
+        final voiceId = await _ttsSettingsStorage.getVoiceId() ?? 'default';
+        final gptSovitsUrl = await _ttsSettingsStorage.getGptSovitsUrl();
+
+        bytes = await _ttsRepository.getAudioBytes(
+          text,
+          voiceId,
+          gptSovitsUrl: gptSovitsUrl,
+          messageId: messageId,
+        );
+      } else {
+        // Fallback to Web Speech API or fail
+        // Since we are in the unified player, WebSpeech doesn't give us bytes.
+        // We throw an exception and let the catch block handle it or just do nothing.
+        throw Exception('Browser TTS selected, cannot play via unified audio player.');
+      }
 
       if (kIsWeb) {
-        final url = '${_ttsRepository.apiClient.baseUrl}/chat/audio/$messageId';
-        await _player.setUrl(url);
+        // Instead of hardcoding the URL which ignores Fish Audio, we use BytesAudioSource for web.
+        await _player.setAudioSource(BytesAudioSource(bytes));
       } else {
-        // Save to temp file
+        // Save to temp file on mobile
         final tempDir = await getTemporaryDirectory();
         final file = File('${tempDir.path}/$messageId.wav');
         await file.writeAsBytes(bytes);
