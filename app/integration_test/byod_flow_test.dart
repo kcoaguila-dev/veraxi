@@ -96,7 +96,18 @@ void main() {
     await tester.pumpAndSettle();
 
     // Bypass hit-testing in headless CI by invoking the callback directly
-    final button = tester.widget<ElevatedButton>(find.byType(ElevatedButton));
+    // Find all ElevatedButtons and identify the "Save Configuration" one.
+    final buttonFinder = find.byWidgetPredicate((widget) {
+      if (widget is ElevatedButton) {
+        final textWidget = widget.child;
+        if (textWidget is Text && textWidget.data == 'Save Configuration') {
+          return true;
+        }
+      }
+      return false;
+    });
+
+    final button = tester.widget<ElevatedButton>(buttonFinder.first);
     button.onPressed!();
 
     // Allow animations and async saves to settle
