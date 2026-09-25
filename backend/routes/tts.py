@@ -119,7 +119,7 @@ def register_tts_routes(
                     cached_file_path, media_type="audio/wav", filename="audio.wav"
                 )
 
-        payload = {"text": request.text, "format": "wav"}
+        payload = {"text": request.text, "format": "wav", "model": "s2.1-pro-free"}
         if request.reference_id:
             payload["reference_id"] = request.reference_id
 
@@ -156,13 +156,14 @@ def register_tts_routes(
                     media_type="audio/wav",
                     headers={"Content-Disposition": "attachment; filename=audio.wav"},
                 )
+        except HTTPException as e:
+            raise e
         except Exception as e:
             sentry_sdk.capture_exception(e)
             logger.error(f"Failed to synthesize Fish audio: {e}")
             raise HTTPException(
                 status_code=500, detail=f"Failed to synthesize Fish audio: {e!s}"
             )
-
     @app_router.get("/api/chat/audio/{message_id}")
     async def get_audio(message_id: str):
         cache_dir = os.path.join(
