@@ -114,7 +114,7 @@ class AudioPlayerService extends StateNotifier<AudioPlayerState> {
         final fishRefId = await _ttsSettingsStorage.getFishAudioReferenceId() ?? '';
         
         bytes = await _ttsRepository.getFishAudioBytes(
-            text, fishApiKey, fishModel, fishRefId);
+            text, fishApiKey, fishModel, fishRefId, messageId: messageId);
       } else if (engine == 'GPT-SoVITS') {
         final voiceId = await _ttsSettingsStorage.getVoiceId() ?? 'default';
         final gptSovitsUrl = await _ttsSettingsStorage.getGptSovitsUrl();

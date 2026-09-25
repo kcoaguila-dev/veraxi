@@ -82,22 +82,25 @@ class TTSRepository {
   }
 
   Future<List<int>> getFishAudioBytes(
-      String text, String apiKey, String model, String referenceId) async {
-    final uri = Uri.parse('https://api.fish.audio/v1/tts');
-    final headers = {
-      'Authorization': 'Bearer $apiKey',
-      'Content-Type': 'application/json',
-    };
+      String text, String apiKey, String model, String referenceId,
+      {String? messageId}) async {
+    final uri = Uri.parse('${apiClient.baseUrl}/chat/audio/fish');
+    final headers = await apiClient.getDefaultHeaders();
+    headers['Content-Type'] = 'application/json';
+    headers['x-fish-audio-key'] = apiKey;
+
     final payload = {
       'text': text,
-      'model': model,
     };
     if (referenceId.isNotEmpty) {
       payload['reference_id'] = referenceId;
     }
+    if (messageId != null) {
+      payload['message_id'] = messageId;
+    }
 
     final response =
-        await http.post(uri, headers: headers, body: jsonEncode(payload));
+        await apiClient.client.post(uri, headers: headers, body: jsonEncode(payload));
     if (response.statusCode == 200) {
       return response.bodyBytes;
     } else {
