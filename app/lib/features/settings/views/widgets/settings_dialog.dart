@@ -6,6 +6,7 @@ import 'package:veraxi_app/core/widgets/veraxi_logo.dart';
 import 'package:veraxi_app/features/settings/view_models/tts_settings_view_model.dart';
 import 'manage_voices_dialog.dart';
 import 'api_keys_tab.dart';
+import 'tabs/speech_settings_tab.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
 
@@ -238,7 +239,7 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
       case 'Chat':
         return _buildChatTab();
       case 'Speech':
-        return _buildSpeechTab();
+        return const [SpeechSettingsTab()];
       case 'Data & Privacy':
         return _buildDataPrivacyTab();
       case 'Account':
