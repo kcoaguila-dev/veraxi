@@ -52,6 +52,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "pytest",
+    "pytest-asyncio",
     "import-linter",
     "testcontainers[neo4j,qdrant]",
     "deepeval",
