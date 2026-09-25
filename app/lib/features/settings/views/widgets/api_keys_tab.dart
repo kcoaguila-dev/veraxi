@@ -308,21 +308,6 @@ class _ApiKeysTabState extends ConsumerState<ApiKeysTab> {
                 ),
         ),
         SizedBox(height: 32),
-        SettingsUI.buildSectionHeader(context, 'EXTERNAL SERVICES'),
-        SettingsUI.buildSettingsGroup(context, [
-          SettingsUI.buildTextFieldRow(
-            context,
-            'Fish Audio API Key',
-            TextEditingController(
-                text: ref.watch(ttsSettingsViewModelProvider).fishAudioApiKey),
-            obscureText: true,
-            onSubmitted: (value) {
-              ref
-                  .read(ttsSettingsViewModelProvider.notifier)
-                  .setFishAudioApiKey(value);
-            },
-          ),
-        ]),
       ],
     );
   }

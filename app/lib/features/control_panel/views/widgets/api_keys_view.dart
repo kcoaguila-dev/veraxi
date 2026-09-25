@@ -1,16 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:veraxi_app/core/api_key_storage.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
+import 'package:veraxi_app/features/settings/view_models/tts_settings_view_model.dart';
 
-class ApiKeysView extends StatefulWidget {
-  const ApiKeysView({Key? key}) : super(key: key);
+class ApiKeysView extends ConsumerStatefulWidget {
+  const ApiKeysView({super.key});
 
   @override
-  State<ApiKeysView> createState() => _ApiKeysViewState();
+  ConsumerState<ApiKeysView> createState() => _ApiKeysViewState();
 }
 
-class _ApiKeysViewState extends State<ApiKeysView> {
+class _ApiKeysViewState extends ConsumerState<ApiKeysView> {
   final _apiKeyStorage = ApiKeyStorage();
 
   // Controllers for BYOD
@@ -19,6 +21,7 @@ class _ApiKeysViewState extends State<ApiKeysView> {
   final _neo4jPassController = TextEditingController();
   final _qdrantUrlController = TextEditingController();
   final _qdrantKeyController = TextEditingController();
+  final _fishAudioController = TextEditingController();
 
   // We'll manage local visibility state for passwords/keys here.
   final Map<String, bool> _obscuredFields = {
@@ -28,6 +31,7 @@ class _ApiKeysViewState extends State<ApiKeysView> {
     'groq': true,
     'neo4j_pass': true,
     'qdrant_key': true,
+    'fish_audio': true,
   };
 
   @override
@@ -44,6 +48,8 @@ class _ApiKeysViewState extends State<ApiKeysView> {
       _neo4jPassController.text = config['neo4j_pass'] ?? '';
       _qdrantUrlController.text = config['qdrant_url'] ?? '';
       _qdrantKeyController.text = config['qdrant_key'] ?? '';
+      _fishAudioController.text =
+          ref.read(ttsSettingsViewModelProvider).fishAudioApiKey;
     });
   }
 
@@ -54,6 +60,7 @@ class _ApiKeysViewState extends State<ApiKeysView> {
     _neo4jPassController.dispose();
     _qdrantUrlController.dispose();
     _qdrantKeyController.dispose();
+    _fishAudioController.dispose();
     super.dispose();
   }
 
@@ -103,6 +110,8 @@ class _ApiKeysViewState extends State<ApiKeysView> {
           _buildKeyInput('Anthropic API Key', 'sk-ant-...', 'anthropic'),
           _buildKeyInput('Google Gemini API Key', 'AIza...', 'gemini'),
           _buildKeyInput('Groq API Key', 'gsk_...', 'groq'),
+          _buildKeyInput('Fish Audio API Key', '••••••••', 'fish_audio',
+              controller: _fishAudioController),
 
           SizedBox(height: 48),
           Divider(
@@ -260,6 +269,9 @@ class _ApiKeysViewState extends State<ApiKeysView> {
                   qdrantUrl: _qdrantUrlController.text,
                   qdrantKey: _qdrantKeyController.text,
                 );
+                ref
+                    .read(ttsSettingsViewModelProvider.notifier)
+                    .setFishAudioApiKey(_fishAudioController.text);
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(

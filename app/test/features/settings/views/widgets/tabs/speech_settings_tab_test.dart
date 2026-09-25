@@ -17,8 +17,8 @@ void main() {
   setUp(() {
     FlutterSecureStorage.setMockInitialValues({});
     mockRepository = MockTTSRepository();
-    when(() => mockRepository.getVoices(
-            gptSovitsUrl: any(named: 'gptSovitsUrl')))
+    when(() =>
+            mockRepository.getVoices(gptSovitsUrl: any(named: 'gptSovitsUrl')))
         .thenAnswer((_) async => [
               {'id': 'default_system', 'name': 'Default (System)'}
             ]);
@@ -81,7 +81,7 @@ void main() {
 
     // Verify that Reference ID input appears
     expect(find.text('Reference ID'), findsOneWidget);
-    
+
     // Verify that Tier dropdown appears
     expect(find.text('Tier'), findsOneWidget);
     expect(find.text('Pro (s2.1-pro)'), findsOneWidget);
