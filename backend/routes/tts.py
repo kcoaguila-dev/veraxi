@@ -43,9 +43,7 @@ def register_tts_routes(
             try:
                 await client.check_connection()
             except Exception as e:
-                raise HTTPException(
-                    status_code=503, detail=f"GPT-SoVITS instance unreachable: {e!s}"
-                )
+                logger.warning(f"GPT-SoVITS instance unreachable: {e!s}")
             finally:
                 await client.close()
         return {"voices": get_all_voices()}

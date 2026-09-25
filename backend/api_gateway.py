@@ -200,7 +200,8 @@ async def verify_infrastructure_access(
 ) -> str:
     if not config.is_enterprise or not config.auth_enabled:
         return tenant_id
-    if tenant_id in config.admin_tenant_ids:
+    admin_ids = config.admin_tenant_ids
+    if tenant_id in admin_ids or tenant_id.replace("user_", "") in admin_ids or f"user_{tenant_id}" in admin_ids:
         return tenant_id
     uri = byod_context.request_neo4j_uri.get()
     qdrant = byod_context.request_qdrant_url.get()
