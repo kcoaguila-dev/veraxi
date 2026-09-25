@@ -127,49 +127,7 @@ class _ApiKeysViewState extends ConsumerState<ApiKeysView> {
           _buildProviderRow('Anthropic', 'anthropic'),
           _buildProviderRow('Google', 'google'),
           _buildProviderRow('Groq', 'groq'),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Expanded(
-                child: Consumer(
-                  builder: (context, ref, child) {
-                    final ttsState = ref.watch(ttsSettingsViewModelProvider);
-                    if (_fishAudioController.text.isEmpty &&
-                        ttsState.fishAudioApiKey.isNotEmpty) {
-                      _fishAudioController.text = ttsState.fishAudioApiKey;
-                    }
-                    return _buildKeyInput(
-                        'Fish Audio API Key', '••••••••', 'fish_audio',
-                        controller: _fishAudioController);
-                  },
-                ),
-              ),
-              SizedBox(width: 16),
-              ElevatedButton(
-                onPressed: () {
-                  showDialog(
-                    context: context,
-                    builder: (context) => const ManageVoicesDialog(),
-                  );
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Theme.of(context)
-                      .extension<AppThemeExtension>()!
-                      .dialogBackground,
-                  side: BorderSide(
-                      color: Theme.of(context)
-                          .extension<AppThemeExtension>()!
-                          .borderColor),
-                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                  minimumSize: Size(0, 52),
-                ),
-                child: Text(
-                  'Manage Voices',
-                  style: TextStyle(color: Colors.white, fontSize: 13),
-                ),
-              ),
-            ],
-          ),
+          _buildFishAudioRow(),
 
           SizedBox(height: 48),
           Divider(
@@ -631,6 +589,166 @@ class _ApiKeysViewState extends ConsumerState<ApiKeysView> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildFishAudioRow() {
+    return Consumer(
+      builder: (context, ref, child) {
+        final ttsState = ref.watch(ttsSettingsViewModelProvider);
+        final isConfigured = ttsState.fishAudioApiKey.isNotEmpty;
+
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 16.0),
+          child: Container(
+            padding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            decoration: BoxDecoration(
+              color: Theme.of(context)
+                  .extension<AppThemeExtension>()!
+                  .cardBackground,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                  color: Theme.of(context)
+                      .extension<AppThemeExtension>()!
+                      .borderColor),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context)
+                        .extension<AppThemeExtension>()!
+                        .dialogBackground,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: ModelProviderStyles.getProviderCircle('Fish Audio',
+                      size: 24),
+                ),
+                SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Fish Audio',
+                        style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600),
+                      ),
+                      SizedBox(height: 4),
+                      Text(
+                        isConfigured
+                            ? 'Configured • No expiration'
+                            : 'Not configured',
+                        style: TextStyle(
+                            color: isConfigured
+                                ? Colors.greenAccent
+                                : Theme.of(context)
+                                    .extension<AppThemeExtension>()!
+                                    .textTertiary,
+                            fontSize: 13),
+                      ),
+                    ],
+                  ),
+                ),
+                ElevatedButton(
+                  onPressed: _showFishAudioApiKeyDialog,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Theme.of(context)
+                        .extension<AppThemeExtension>()!
+                        .dialogBackground,
+                    side: BorderSide(
+                        color: Theme.of(context)
+                            .extension<AppThemeExtension>()!
+                            .borderColor),
+                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  ),
+                  child: Text(
+                    isConfigured ? 'Edit Key' : 'Configure',
+                    style: TextStyle(color: Colors.white, fontSize: 13),
+                  ),
+                ),
+                if (isConfigured) SizedBox(width: 8),
+                if (isConfigured)
+                  ElevatedButton(
+                    onPressed: () {
+                      showDialog(
+                        context: context,
+                        builder: (context) => const ManageVoicesDialog(),
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Theme.of(context)
+                          .extension<AppThemeExtension>()!
+                          .dialogBackground,
+                      side: BorderSide(
+                          color: Theme.of(context)
+                              .extension<AppThemeExtension>()!
+                              .borderColor),
+                      padding:
+                          EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    ),
+                    child: Text(
+                      'Manage Voices',
+                      style: TextStyle(color: Colors.white, fontSize: 13),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _showFishAudioApiKeyDialog() async {
+    final keyController = TextEditingController(
+        text: ref.read(ttsSettingsViewModelProvider).fishAudioApiKey);
+    return showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor:
+              Theme.of(context).extension<AppThemeExtension>()!.cardBackground,
+          title:
+              Text('Fish Audio API Key', style: TextStyle(color: Colors.white)),
+          content: TextField(
+            controller: keyController,
+            style: TextStyle(color: Colors.white),
+            decoration: InputDecoration(
+              hintText: 'Enter your Fish Audio API Key',
+              hintStyle: TextStyle(color: Colors.grey),
+              filled: true,
+              fillColor: Theme.of(context)
+                  .extension<AppThemeExtension>()!
+                  .dialogBackground,
+              border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide.none),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text('Cancel', style: TextStyle(color: Colors.grey)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.secondary,
+              ),
+              onPressed: () {
+                ref
+                    .read(ttsSettingsViewModelProvider.notifier)
+                    .setFishAudioApiKey(keyController.text);
+                Navigator.pop(context);
+              },
+              child: Text('Save', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        );
+      },
     );
   }
 }

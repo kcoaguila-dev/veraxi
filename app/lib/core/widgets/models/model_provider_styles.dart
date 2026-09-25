@@ -22,6 +22,8 @@ class ModelProviderStyles {
       assetPath = 'assets/icons/kimi.svg';
     } else if (lower == 'local') {
       assetPath = 'assets/icons/local.svg';
+    } else if (lower.contains('fish')) {
+      return Icon(Icons.headphones, color: Colors.cyanAccent, size: size);
     }
 
     final colors = {
