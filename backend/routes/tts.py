@@ -121,7 +121,7 @@ def register_tts_routes(
                     cached_file_path, media_type="audio/wav", filename="audio.wav"
                 )
 
-        payload = {"text": request.text, "format": "wav"}
+        payload = {"text": request.text, "format": "wav", "model": "s2.1-pro-free"}
         if request.reference_id:
             payload["reference_id"] = request.reference_id
 
