@@ -375,7 +375,7 @@ def _execute_single_tool(
         return [DebateHit(r) for r in hits], []
 
     elif tool_name == "run_python_code":
-        import requests # type: ignore[import-untyped]
+        import requests  # type: ignore[import-untyped]
 
         try:
             resp = requests.post(
@@ -449,7 +449,7 @@ def _execute_single_tool(
         return [BrowserHit(result)], []
 
     elif tool_name == "fetch_url":
-        import requests # type: ignore[import-untyped]
+        import requests  # type: ignore[import-untyped]
 
         try:
             resp = requests.get(tool_input["url"], timeout=10)
