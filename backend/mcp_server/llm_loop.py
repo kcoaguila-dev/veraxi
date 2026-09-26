@@ -182,7 +182,6 @@ def _handle_chain_end_langgraph(event: dict) -> list[dict]:
     return events
 
 
-
 async def stream_answer_question(
     question: str,
     tenant_id: str = "default",

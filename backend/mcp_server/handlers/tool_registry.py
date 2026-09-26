@@ -209,7 +209,6 @@ REGISTERED_TOOLS = [
             },
         },
     ),
-
     Tool(
         name="mcp_skills",
         description="Lists available agentic skills for tool augmentation.",
@@ -467,7 +466,9 @@ def _handle_web_search(args: dict, tenant_id: str) -> list[TextContent]:
 
     tool_settings = args.get("_tool_settings", {})
     results = mcp_web_search(
-        args["query"], max_results=args.get("max_results", 3), tool_settings=tool_settings
+        args["query"],
+        max_results=args.get("max_results", 3),
+        tool_settings=tool_settings,
     )
     return [TextContent(type="text", text=json.dumps(results))]
 
@@ -558,6 +559,7 @@ async def _handle_agentic_debate(args: dict, tenant_id: str) -> list[TextContent
     logger.info(f"mcp_agentic_debate called for tenant: {tenant_id}")
     res = await mcp_agentic_debate(args["query"], tenant_id=tenant_id)
     return [TextContent(type="text", text=json.dumps(res, indent=2))]
+
 
 TOOL_HANDLERS = {
     "mcp_search_vectors": _handle_search_vectors,

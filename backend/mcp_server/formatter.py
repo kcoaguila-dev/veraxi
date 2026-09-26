@@ -79,9 +79,6 @@ def _finalize_metrics(metrics: dict[str, Any]) -> dict[str, Any]:
     return finalized
 
 
-
-
-
 def _sanitize_thread_title(raw_title: str) -> str:
     """Normalize model output into a sidebar-safe thread title."""
     title = raw_title.strip().strip("\"'").strip()

@@ -60,6 +60,7 @@ def generate_graphrag_bench(num_samples: int):
 
         # Group by question type for true stratified sampling
         from typing import Any
+
         strata: dict[str, list[dict[str, Any]]] = {}
         for item in dataset_list:
             q_type = item.get("question_type", "unknown")

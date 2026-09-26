@@ -32,17 +32,13 @@ async def mcp_web_browser(task: str, llm: Any) -> dict[str, Any]:
                 wss_url=wss_url,
                 headless=True,
             )
-            browser = Browser(config=config) # type: ignore[call-arg, call-overload]
+            browser = Browser(config=config)  # type: ignore[call-arg, call-overload]
         else:
             # Use local headless browser
             config = BrowserConfig(headless=True)
-            browser = Browser(config=config) # type: ignore[call-arg, call-overload]
+            browser = Browser(config=config)  # type: ignore[call-arg, call-overload]
 
-        agent: Agent = Agent(
-            task=task,
-            llm=llm,
-            browser=browser
-        )
+        agent: Agent = Agent(task=task, llm=llm, browser=browser)
 
         result = await agent.run()
         return {"status": "success", "result": result.final_result()}
@@ -50,10 +46,12 @@ async def mcp_web_browser(task: str, llm: Any) -> dict[str, Any]:
     except Exception as e:
         logger.error(f"Browser action failed: {e}")
         error_msg = str(e).lower()
-        if not browserbase_key and ("cloudflare" in error_msg or "datadome" in error_msg or "bot" in error_msg):
+        if not browserbase_key and (
+            "cloudflare" in error_msg or "datadome" in error_msg or "bot" in error_msg
+        ):
             return {
                 "status": "error",
-                "error": "Web page blocked by bot protection. Please configure a Browserbase API key in the Infrastructure panel to bypass this."
+                "error": "Web page blocked by bot protection. Please configure a Browserbase API key in the Infrastructure panel to bypass this.",
             }
         return {"status": "error", "error": str(e)}
     finally:

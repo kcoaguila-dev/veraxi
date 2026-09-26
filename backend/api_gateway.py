@@ -118,7 +118,9 @@ async def byod_context_middleware(request: Request, call_next):
     byod_context.request_neo4j_pass.set(request.headers.get("x-byod-neo4j-pass"))
     byod_context.request_qdrant_url.set(request.headers.get("x-byod-qdrant-url"))
     byod_context.request_qdrant_key.set(request.headers.get("x-byod-qdrant-key"))
-    byod_context.request_browserbase_key.set(request.headers.get("x-byod-browserbase-key"))
+    byod_context.request_browserbase_key.set(
+        request.headers.get("x-byod-browserbase-key")
+    )
     response = await call_next(request)
     return response
 
@@ -202,7 +204,11 @@ async def verify_infrastructure_access(
     if not config.is_enterprise or not config.auth_enabled:
         return tenant_id
     admin_ids = config.admin_tenant_ids
-    if tenant_id in admin_ids or tenant_id.replace("user_", "") in admin_ids or f"user_{tenant_id}" in admin_ids:
+    if (
+        tenant_id in admin_ids
+        or tenant_id.replace("user_", "") in admin_ids
+        or f"user_{tenant_id}" in admin_ids
+    ):
         return tenant_id
     uri = byod_context.request_neo4j_uri.get()
     qdrant = byod_context.request_qdrant_url.get()
