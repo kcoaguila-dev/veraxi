@@ -4,14 +4,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:veraxi_app/features/settings/views/widgets/tabs/speech_settings_tab.dart';
 import 'package:veraxi_app/core/network/tts_repository.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
+import 'package:veraxi_app/features/settings/data/voices_repository.dart';
+import 'package:veraxi_app/features/settings/view_models/saved_voices_view_model.dart';
 import 'package:mocktail/mocktail.dart';
 
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class MockTTSRepository extends Mock implements TTSRepository {}
+class MockVoicesRepository extends Mock implements VoicesRepository {}
 
 void main() {
   late MockTTSRepository mockRepository;
+  late MockVoicesRepository mockVoicesRepository;
 
   setUp(() {
     FlutterSecureStorage.setMockInitialValues({});
@@ -21,6 +25,9 @@ void main() {
         .thenAnswer((_) async => [
               {'id': 'default_system', 'name': 'Default (System)'}
             ]);
+
+    mockVoicesRepository = MockVoicesRepository();
+    when(() => mockVoicesRepository.getSavedVoices()).thenAnswer((_) async => []);
   });
 
   testWidgets('SpeechSettingsTab shows Fish Audio in Engine dropdown',
@@ -29,6 +36,7 @@ void main() {
       ProviderScope(
         overrides: [
           ttsRepositoryProvider.overrideWithValue(mockRepository),
+          voicesRepositoryProvider.overrideWithValue(mockVoicesRepository),
         ],
         child: MaterialApp(
           theme: ThemeData().copyWith(
