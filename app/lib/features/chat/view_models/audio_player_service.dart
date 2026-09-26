@@ -92,7 +92,7 @@ class AudioPlayerService extends StateNotifier<AudioPlayerState> {
       return;
     }
 
-    if (state.playingMessageId != messageId && state.isPlaying) {
+    if (state.playingMessageId != messageId) {
       await _player.stop();
     }
 
@@ -137,8 +137,8 @@ class AudioPlayerService extends StateNotifier<AudioPlayerState> {
       }
 
       if (kIsWeb) {
-        // Instead of hardcoding the URL which ignores Fish Audio, we use BytesAudioSource for web.
-        await _player.setAudioSource(BytesAudioSource(bytes));
+        await _player.setAudioSource(AudioSource.uri(
+            Uri.dataFromBytes(bytes, mimeType: 'audio/wav')));
       } else {
         // Save to temp file on mobile
         final tempDir = await getTemporaryDirectory();
