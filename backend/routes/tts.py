@@ -105,7 +105,9 @@ def register_tts_routes(
         import httpx
         
         fish_api_key = req.headers.get("x-fish-audio-key")
-        if not fish_api_key:
+        fish_speech_url = req.headers.get("x-fish-speech-url")
+
+        if not fish_speech_url and not fish_api_key:
             raise HTTPException(status_code=401, detail="Fish Audio API key missing")
 
         if request.message_id:
@@ -123,14 +125,16 @@ def register_tts_routes(
         if request.reference_id:
             payload["reference_id"] = request.reference_id
 
+        target_url = fish_speech_url if fish_speech_url else "https://api.fish.audio/v1/tts"
+        headers = {"Content-Type": "application/json"}
+        if not fish_speech_url:
+            headers["Authorization"] = f"Bearer {fish_api_key}"
+
         try:
             async with httpx.AsyncClient() as client:
                 resp = await client.post(
-                    "https://api.fish.audio/v1/tts",
-                    headers={
-                        "Authorization": f"Bearer {fish_api_key}",
-                        "Content-Type": "application/json"
-                    },
+                    target_url,
+                    headers=headers,
                     json=payload,
                     timeout=30.0
                 )
@@ -156,6 +160,8 @@ def register_tts_routes(
                     media_type="audio/wav",
                     headers={"Content-Disposition": "attachment; filename=audio.wav"},
                 )
+        except HTTPException:
+            raise
         except Exception as e:
             sentry_sdk.capture_exception(e)
             logger.error(f"Failed to synthesize Fish audio: {e}")

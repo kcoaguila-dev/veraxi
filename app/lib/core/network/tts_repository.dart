@@ -83,11 +83,14 @@ class TTSRepository {
 
   Future<List<int>> getFishAudioBytes(
       String text, String apiKey, String model, String referenceId,
-      {String? messageId}) async {
+      {String? messageId, String? fishSpeechUrl}) async {
     final uri = Uri.parse('${apiClient.baseUrl}/chat/audio/fish');
     final headers = await apiClient.getDefaultHeaders();
     headers['Content-Type'] = 'application/json';
     headers['x-fish-audio-key'] = apiKey;
+    if (fishSpeechUrl != null && fishSpeechUrl.isNotEmpty) {
+      headers['x-fish-speech-url'] = fishSpeechUrl;
+    }
 
     final payload = {
       'text': text,
