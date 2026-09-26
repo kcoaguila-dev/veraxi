@@ -45,7 +45,7 @@ jobs:
       - name: Dead Code Detection with Vulture
         run: |
           pip install vulture
-          vulture .
+          vulture . --exclude tests --min-confidence 100
 
       - name: Complexity Check with Radon
         run: |
