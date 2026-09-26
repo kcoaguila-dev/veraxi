@@ -160,6 +160,8 @@ def register_tts_routes(
                     media_type="audio/wav",
                     headers={"Content-Disposition": "attachment; filename=audio.wav"},
                 )
+        except HTTPException:
+            raise
         except Exception as e:
             sentry_sdk.capture_exception(e)
             logger.error(f"Failed to synthesize Fish audio: {e}")
