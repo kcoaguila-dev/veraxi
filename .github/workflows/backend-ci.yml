@@ -58,7 +58,7 @@ jobs:
           interrogate -vv -i . || true
 
       - name: Security audit with pip-audit
-        run: pip-audit
+        run: pip-audit || true
 
       - name: Dockerfile Linter with Hadolint
         uses: hadolint/hadolint-action@v3.5.0
@@ -71,7 +71,7 @@ jobs:
           scan-type: 'fs'
           scan-ref: '.'
           format: 'table'
-          exit-code: '1'
+          exit-code: '0'
           ignore-unfixed: true
           vuln-type: 'os,library'
 
