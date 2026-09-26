@@ -201,7 +201,7 @@ def mcp_read_artifact(artifact_name: str) -> str:
     # The old handler returns list[TextContent]. FastMCP expects str.
     return res[0].text
 
-@mcp_server.tool(name='mcp_ingest_document', description='Submits a document or URL to Veraxi's native ingestion pipeline (OCR -> Graph extraction -> Insertion).')
+@mcp_server.tool(name='mcp_ingest_document', description="Submits a document or URL to Veraxi's native ingestion pipeline (OCR -> Graph extraction -> Insertion).")
 def mcp_ingest_document(file_path: str | None = None, url: str | None = None, fast_extraction: bool = False, language: str = "en", chunk_size: int = 200, chunk_overlap: int = 50, wait_for_completion: bool = False) -> str:
     tenant_id = tenant_context.get()
     args = {k: v for k, v in locals().items() if k != 'tenant_id'}
@@ -228,7 +228,7 @@ def mcp_dynamic_web_graph(query: str, language: str = "en", max_results: int = 5
     # The old handler returns list[TextContent]. FastMCP expects str.
     return res[0].text
 
-@mcp_server.tool(name='mcp_deep_research', description='Performs deep web research. Searches the internet, dynamically ingests the top results into your Hybrid RAG database, and returns mathematically ranked facts. Use this for complex research where standard web search lacks depth or relational accuracy. If you already have URLs to research, provide them in the 'urls' array.')
+@mcp_server.tool(name='mcp_deep_research', description="Performs deep web research. Searches the internet, dynamically ingests the top results into your Hybrid RAG database, and returns mathematically ranked facts. Use this for complex research where standard web search lacks depth or relational accuracy. If you already have URLs to research, provide them in the 'urls' array.")
 def mcp_deep_research(query: str | None = None, max_results: int = 3, urls: list | None = None) -> str:
     tenant_id = tenant_context.get()
     args = {k: v for k, v in locals().items() if k != 'tenant_id'}
