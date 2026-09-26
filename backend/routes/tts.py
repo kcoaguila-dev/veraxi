@@ -121,7 +121,7 @@ def register_tts_routes(
                     cached_file_path, media_type="audio/wav", filename="audio.wav"
                 )
 
-        payload = {"text": request.text, "format": "wav"}
+        payload = {"text": request.text, "format": "wav", "model": "s2.1-pro-free"}
         if request.reference_id:
             payload["reference_id"] = request.reference_id
 
@@ -168,7 +168,6 @@ def register_tts_routes(
             raise HTTPException(
                 status_code=500, detail=f"Failed to synthesize Fish audio: {e!s}"
             )
-
     @app_router.get("/api/chat/audio/{message_id}")
     async def get_audio(message_id: str):
         cache_dir = os.path.join(
