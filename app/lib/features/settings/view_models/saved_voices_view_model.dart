@@ -6,7 +6,9 @@ final voicesRepositoryProvider = Provider<VoicesRepository>((ref) {
   return VoicesRepository(Supabase.instance.client);
 });
 
-final savedVoicesProvider = StateNotifierProvider<SavedVoicesNotifier, AsyncValue<List<SavedVoice>>>((ref) {
+final savedVoicesProvider =
+    StateNotifierProvider<SavedVoicesNotifier, AsyncValue<List<SavedVoice>>>(
+        (ref) {
   final repository = ref.watch(voicesRepositoryProvider);
   return SavedVoicesNotifier(repository);
 });
@@ -40,7 +42,8 @@ class SavedVoicesNotifier extends StateNotifier<AsyncValue<List<SavedVoice>>> {
   Future<void> deleteVoice(String id) async {
     try {
       await _repository.deleteVoice(id);
-      state = state.whenData((voices) => voices.where((v) => v.id != id).toList());
+      state =
+          state.whenData((voices) => voices.where((v) => v.id != id).toList());
     } catch (e, st) {
       state = AsyncValue.error(e, st);
     }
