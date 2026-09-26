@@ -79,7 +79,7 @@ jobs:
       - name: Check License Compliance
         run: |
           pip install pip-licenses
-          pip-licenses --fail-on="GPL;AGPL;LGPL" --partial-match || true
+          pip-licenses --fail-on="GPL;AGPL" --partial-match
 
       - name: Run tests with pytest
         run: pytest
