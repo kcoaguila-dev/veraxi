@@ -17,7 +17,7 @@ requires-python = ">=3.12"
 dependencies = [
     "neo4j",
     "qdrant-client",
-    "mcp<2",
+    "mcp",
     "openai",
     "fastapi",
     "uvicorn",

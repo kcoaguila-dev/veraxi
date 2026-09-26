@@ -4,9 +4,9 @@ from backend.mcp_server.context import tenant_context
 from backend.mcp_server.tools.get_schema import get_graph_schema
 from backend.mcp_server.tools.get_stats import get_database_stats
 from backend.prompts import CRAG_ORCHESTRATOR_PROMPT, INGEST_KNOWLEDGE_PROMPT
-from mcp.server.fastmcp import FastMCP
+from mcp.server.mcpserver import MCPServer
 
-mcp_server = FastMCP("veraxi_mcp")
+mcp_server = MCPServer("veraxi_mcp")
 
 
 @mcp_server.resource("veraxi://schema")
@@ -44,7 +44,7 @@ def mcp_search_vectors(query_text: str, limit: int = 10) -> str:
     from backend.mcp_server.handlers.tool_registry import _handle_search_vectors
 
     res = _handle_search_vectors(args, tenant_id)
-    # The old handler returns list[TextContent]. FastMCP expects str.
+    # The old handler returns list[TextContent]. MCPServer expects str.
     return res[0].text
 
 
@@ -55,7 +55,7 @@ def mcp_query_graph(entity_name: str, max_hops: int = 2) -> str:
     from backend.mcp_server.handlers.tool_registry import _handle_query_graph
 
     res = _handle_query_graph(args, tenant_id)
-    # The old handler returns list[TextContent]. FastMCP expects str.
+    # The old handler returns list[TextContent]. MCPServer expects str.
     return res[0].text
 
 
@@ -69,7 +69,7 @@ def mcp_insert_graph_nodes(nodes: list, relations: list) -> str:
     from backend.mcp_server.handlers.tool_registry import _handle_insert_graph_nodes
 
     res = _handle_insert_graph_nodes(args, tenant_id)
-    # The old handler returns list[TextContent]. FastMCP expects str.
+    # The old handler returns list[TextContent]. MCPServer expects str.
     return res[0].text
 
 
@@ -83,7 +83,7 @@ def mcp_insert_vectors(texts: list) -> str:
     from backend.mcp_server.handlers.tool_registry import _handle_insert_vectors
 
     res = _handle_insert_vectors(args, tenant_id)
-    # The old handler returns list[TextContent]. FastMCP expects str.
+    # The old handler returns list[TextContent]. MCPServer expects str.
     return res[0].text
 
 
@@ -99,7 +99,7 @@ def mcp_merge_rank(
     from backend.mcp_server.handlers.tool_registry import _handle_merge_rank
 
     res = _handle_merge_rank(args, tenant_id)
-    # The old handler returns list[TextContent]. FastMCP expects str.
+    # The old handler returns list[TextContent]. MCPServer expects str.
     return res[0].text
 
 
@@ -113,7 +113,7 @@ def mcp_get_graph_schema() -> str:
     from backend.mcp_server.handlers.tool_registry import _handle_get_graph_schema
 
     res = _handle_get_graph_schema(args, tenant_id)
-    # The old handler returns list[TextContent]. FastMCP expects str.
+    # The old handler returns list[TextContent]. MCPServer expects str.
     return res[0].text
 
 
@@ -127,7 +127,7 @@ def mcp_delete_entity(entity_name: str) -> str:
     from backend.mcp_server.handlers.tool_registry import _handle_delete_entity
 
     res = _handle_delete_entity(args, tenant_id)
-    # The old handler returns list[TextContent]. FastMCP expects str.
+    # The old handler returns list[TextContent]. MCPServer expects str.
     return res[0].text
 
 
@@ -141,7 +141,7 @@ def mcp_delete_document(document_id: str) -> str:
     from backend.mcp_server.handlers.tool_registry import _handle_delete_document
 
     res = _handle_delete_document(args, tenant_id)
-    # The old handler returns list[TextContent]. FastMCP expects str.
+    # The old handler returns list[TextContent]. MCPServer expects str.
     return res[0].text
 
 
@@ -155,7 +155,7 @@ def mcp_update_entity(entity_name: str, properties: dict) -> str:
     from backend.mcp_server.handlers.tool_registry import _handle_update_entity
 
     res = _handle_update_entity(args, tenant_id)
-    # The old handler returns list[TextContent]. FastMCP expects str.
+    # The old handler returns list[TextContent]. MCPServer expects str.
     return res[0].text
 
 
@@ -169,7 +169,7 @@ def mcp_get_database_stats() -> str:
     from backend.mcp_server.handlers.tool_registry import _handle_get_database_stats
 
     res = _handle_get_database_stats(args, tenant_id)
-    # The old handler returns list[TextContent]. FastMCP expects str.
+    # The old handler returns list[TextContent]. MCPServer expects str.
     return res[0].text
 
 
@@ -185,7 +185,7 @@ def mcp_run_community_detection(min_size: int = 2) -> str:
     )
 
     res = _handle_run_community_detection(args, tenant_id)
-    # The old handler returns list[TextContent]. FastMCP expects str.
+    # The old handler returns list[TextContent]. MCPServer expects str.
     return res[0].text
 
 
@@ -199,7 +199,7 @@ def mcp_delete_relationship(from_entity: str, to_entity: str, rel_type: str) -> 
     from backend.mcp_server.handlers.tool_registry import _handle_delete_relationship
 
     res = _handle_delete_relationship(args, tenant_id)
-    # The old handler returns list[TextContent]. FastMCP expects str.
+    # The old handler returns list[TextContent]. MCPServer expects str.
     return res[0].text
 
 
@@ -215,7 +215,7 @@ def mcp_update_document_metadata(document_id: str, payload: dict) -> str:
     )
 
     res = _handle_update_document_metadata(args, tenant_id)
-    # The old handler returns list[TextContent]. FastMCP expects str.
+    # The old handler returns list[TextContent]. MCPServer expects str.
     return res[0].text
 
 
@@ -229,7 +229,7 @@ def mcp_evaluate_grounding(response_text: str, context_text: str) -> str:
     from backend.mcp_server.handlers.tool_registry import _handle_evaluate_grounding
 
     res = _handle_evaluate_grounding(args, tenant_id)
-    # The old handler returns list[TextContent]. FastMCP expects str.
+    # The old handler returns list[TextContent]. MCPServer expects str.
     return res[0].text
 
 
@@ -243,7 +243,7 @@ def mcp_web_search(query: str | None = None, max_results: int = 3) -> str:
     from backend.mcp_server.handlers.tool_registry import _handle_web_search
 
     res = _handle_web_search(args, tenant_id)
-    # The old handler returns list[TextContent]. FastMCP expects str.
+    # The old handler returns list[TextContent]. MCPServer expects str.
     return res[0].text
 
 
@@ -257,7 +257,7 @@ def mcp_skills() -> str:
     from backend.mcp_server.handlers.tool_registry import _handle_skills
 
     res = _handle_skills(args, tenant_id)
-    # The old handler returns list[TextContent]. FastMCP expects str.
+    # The old handler returns list[TextContent]. MCPServer expects str.
     return res[0].text
 
 
@@ -271,7 +271,7 @@ def mcp_run_code(code: str) -> str:
     from backend.mcp_server.handlers.tool_registry import _handle_run_code
 
     res = _handle_run_code(args, tenant_id)
-    # The old handler returns list[TextContent]. FastMCP expects str.
+    # The old handler returns list[TextContent]. MCPServer expects str.
     return res[0].text
 
 
@@ -285,7 +285,7 @@ def mcp_list_artifacts() -> str:
     from backend.mcp_server.handlers.tool_registry import _handle_list_artifacts
 
     res = _handle_list_artifacts(args, tenant_id)
-    # The old handler returns list[TextContent]. FastMCP expects str.
+    # The old handler returns list[TextContent]. MCPServer expects str.
     return res[0].text
 
 
@@ -299,7 +299,7 @@ def mcp_read_artifact(artifact_name: str) -> str:
     from backend.mcp_server.handlers.tool_registry import _handle_read_artifact
 
     res = _handle_read_artifact(args, tenant_id)
-    # The old handler returns list[TextContent]. FastMCP expects str.
+    # The old handler returns list[TextContent]. MCPServer expects str.
     return res[0].text
 
 
@@ -321,7 +321,7 @@ def mcp_ingest_document(
     from backend.mcp_server.handlers.tool_registry import _handle_ingest_document
 
     res = _handle_ingest_document(args, tenant_id)
-    # The old handler returns list[TextContent]. FastMCP expects str.
+    # The old handler returns list[TextContent]. MCPServer expects str.
     return res[0].text
 
 
@@ -335,7 +335,7 @@ def mcp_get_ingest_status(job_id: str) -> str:
     from backend.mcp_server.handlers.tool_registry import _handle_get_ingest_status
 
     res = _handle_get_ingest_status(args, tenant_id)
-    # The old handler returns list[TextContent]. FastMCP expects str.
+    # The old handler returns list[TextContent]. MCPServer expects str.
     return res[0].text
 
 
@@ -351,7 +351,7 @@ def mcp_dynamic_web_graph(
     from backend.mcp_server.handlers.tool_registry import _handle_dynamic_web_graph
 
     res = _handle_dynamic_web_graph(args, tenant_id)
-    # The old handler returns list[TextContent]. FastMCP expects str.
+    # The old handler returns list[TextContent]. MCPServer expects str.
     return res[0].text
 
 
@@ -367,7 +367,7 @@ def mcp_deep_research(
     from backend.mcp_server.handlers.tool_registry import _handle_deep_research
 
     res = _handle_deep_research(args, tenant_id)
-    # The old handler returns list[TextContent]. FastMCP expects str.
+    # The old handler returns list[TextContent]. MCPServer expects str.
     return res[0].text
 
 
@@ -383,5 +383,5 @@ def mcp_export_data(
     from backend.mcp_server.handlers.tool_registry import _handle_export_data
 
     res = _handle_export_data(args, tenant_id)
-    # The old handler returns list[TextContent]. FastMCP expects str.
+    # The old handler returns list[TextContent]. MCPServer expects str.
     return res[0].text

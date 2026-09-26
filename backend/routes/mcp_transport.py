@@ -25,7 +25,7 @@ def register_mcp_transport_routes(
         logger.info(f"Opening MCP SSE stream for tenant: {tenant_id}")
         tenant_context.set(tenant_id)
 
-        # FastMCP lazily registers tools, so we force initialization here
+        # MCPServer lazily registers tools, so we force initialization here
         mcp_server._setup_handlers()
 
         async with sse.connect_sse(request.scope, request.receive, request._send) as (
