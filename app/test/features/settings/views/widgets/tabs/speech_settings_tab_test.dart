@@ -11,6 +11,7 @@ import 'package:mocktail/mocktail.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class MockTTSRepository extends Mock implements TTSRepository {}
+
 class MockVoicesRepository extends Mock implements VoicesRepository {}
 
 void main() {
@@ -27,7 +28,8 @@ void main() {
             ]);
 
     mockVoicesRepository = MockVoicesRepository();
-    when(() => mockVoicesRepository.getSavedVoices()).thenAnswer((_) async => []);
+    when(() => mockVoicesRepository.getSavedVoices())
+        .thenAnswer((_) async => []);
   });
 
   testWidgets('SpeechSettingsTab shows Fish Audio in Engine dropdown',
