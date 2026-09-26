@@ -22,6 +22,7 @@ dependencies = [
     "fastapi",
     "uvicorn",
     "sentry-sdk[fastapi]",
+    "emoji",
     "docling",
     "python-multipart",
     "sentence-transformers",

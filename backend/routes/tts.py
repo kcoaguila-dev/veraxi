@@ -4,6 +4,9 @@ import logging
 import os
 import shutil
 
+import re
+
+import emoji
 import sentry_sdk
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, StreamingResponse
@@ -12,6 +15,17 @@ from pydantic import BaseModel
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api", tags=["tts"])
+
+
+def clean_text_for_tts(text: str) -> str:
+    """Remove emojis and kaomojis that confuse TTS engines."""
+    # Remove common kaomojis
+    kaomojis = r'(>[wW]<|[uU]w[uU]|[oO]w[oO]|\^_\^|~_\~|>_>|<_<|T_T|;_;|\^\^|;w;|-_-)'
+    text = re.sub(kaomojis, '', text)
+    # Remove all standard emojis
+    text = emoji.replace_emoji(text, replace='')
+    # Clean up double spaces
+    return re.sub(r'\s+', ' ', text).strip()
 
 
 class VoiceListResponse(BaseModel):
@@ -121,7 +135,8 @@ def register_tts_routes(
                     cached_file_path, media_type="audio/wav", filename="audio.wav"
                 )
 
-        payload = {"text": request.text, "format": "wav"}
+        cleaned_text = clean_text_for_tts(request.text)
+        payload = {"text": cleaned_text, "format": "wav"}
         if request.reference_id:
             payload["reference_id"] = request.reference_id
 
@@ -211,9 +226,10 @@ def register_tts_routes(
             )
         gpt_sovits_url = req.headers.get("x-gpt-sovits-url")
         client = GPTSoVITSClient(base_url=gpt_sovits_url)
+        cleaned_text = clean_text_for_tts(request.text)
         try:
             audio_bytes = await client.synthesize(
-                text=request.text,
+                text=cleaned_text,
                 ref_audio_path=voice["ref_audio_path"],
                 prompt_text=voice["prompt_text"],
                 prompt_lang=voice.get("prompt_lang", "en"),
