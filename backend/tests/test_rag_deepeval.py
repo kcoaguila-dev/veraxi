@@ -3,6 +3,7 @@ import os
 
 import pytest
 from backend.mcp_server.llm_loop import answer_question
+
 try:
     from backend.tests.custom_openai_eval import OpenAIDeepEvalModel
     from deepeval import assert_test  # type: ignore[attr-defined]
@@ -13,7 +14,9 @@ try:
     )
     from deepeval.test_case import LLMTestCase
 except ImportError:
-    pytest.skip("deepeval is not installed, skipping evaluation tests", allow_module_level=True)
+    pytest.skip(
+        "deepeval is not installed, skipping evaluation tests", allow_module_level=True
+    )
 
 
 def get_test_cases():
