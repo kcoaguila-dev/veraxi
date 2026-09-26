@@ -32,11 +32,11 @@ async def mcp_web_browser(task: str, llm: Any) -> dict[str, Any]:
                 wss_url=wss_url,
                 headless=True,
             )
-            browser = Browser(config=config) # type: ignore[call-arg]
+            browser = Browser(config=config) # type: ignore[call-arg, call-overload]
         else:
             # Use local headless browser
             config = BrowserConfig(headless=True)
-            browser = Browser(config=config) # type: ignore[call-arg]
+            browser = Browser(config=config) # type: ignore[call-arg, call-overload]
 
         agent: Agent = Agent(
             task=task,

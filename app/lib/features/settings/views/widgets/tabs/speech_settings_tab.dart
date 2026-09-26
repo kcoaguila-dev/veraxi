@@ -76,6 +76,27 @@ class SpeechSettingsTab extends ConsumerWidget {
               },
             ),
           if (isFishAudio) ...[
+            SettingsUI.buildToggleRow(
+              context,
+              'Self-Hosted Fish Speech',
+              ttsState.isSelfHostedFish,
+              onChanged: (value) {
+                ref
+                    .read(ttsSettingsViewModelProvider.notifier)
+                    .setIsSelfHostedFish(value);
+              },
+            ),
+            if (ttsState.isSelfHostedFish)
+              SettingsUI.buildTextFieldRow(
+                context,
+                'Local Server URL',
+                TextEditingController(text: ttsState.fishSpeechUrl),
+                onSubmitted: (value) {
+                  ref
+                      .read(ttsSettingsViewModelProvider.notifier)
+                      .setFishSpeechUrl(value);
+                },
+              ),
             SettingsUI.buildTextFieldRow(
               context,
               'Reference ID',

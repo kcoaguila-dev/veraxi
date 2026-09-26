@@ -42,6 +42,7 @@ def mock_config():
         auth_enabled=False,
         cors_origins="*",
         gpt_sovits_base_url="x",
+            fish_speech_base_url="x",
         code_interpreter_url="x",
         is_enterprise=False,
         help_faq_url="x",
