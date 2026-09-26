@@ -187,7 +187,7 @@ async def call_model(state: AgentState):
 
     if not response:
         raise RuntimeError("Failed to get response from LLM")
-    
+
     # Inject the model name into the response so it gets saved to history and sent to frontend
     response.additional_kwargs["model_name"] = effective_model
 

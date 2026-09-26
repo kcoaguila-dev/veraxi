@@ -103,7 +103,7 @@ def register_tts_routes(
         from pathlib import Path
 
         import httpx
-        
+
         fish_api_key = req.headers.get("x-fish-audio-key")
         fish_speech_url = req.headers.get("x-fish-speech-url")
 
@@ -125,23 +125,22 @@ def register_tts_routes(
         if request.reference_id:
             payload["reference_id"] = request.reference_id
 
-        target_url = fish_speech_url if fish_speech_url else "https://api.fish.audio/v1/tts"
+        target_url = (
+            fish_speech_url if fish_speech_url else "https://api.fish.audio/v1/tts"
+        )
         headers = {"Content-Type": "application/json"}
         if not fish_speech_url:
             headers["Authorization"] = f"Bearer {fish_api_key}"
-            payload["model"] = "s2.1-pro-free"
+            headers["model"] = "s2.1-pro-free"
 
         try:
             async with httpx.AsyncClient() as client:
                 resp = await client.post(
-                    target_url,
-                    headers=headers,
-                    json=payload,
-                    timeout=30.0
+                    target_url, headers=headers, json=payload, timeout=30.0
                 )
                 if resp.status_code != 200:
                     raise HTTPException(status_code=resp.status_code, detail=resp.text)
-                
+
                 audio_bytes = resp.content
 
                 if request.message_id:
@@ -149,9 +148,14 @@ def register_tts_routes(
                         os.path.dirname(os.path.dirname(__file__)), "tts", "cache"
                     )
                     os.makedirs(cache_dir, exist_ok=True)
-                    cached_file_path = os.path.join(cache_dir, f"{request.message_id}.wav")
-                    await asyncio.to_thread(Path(cached_file_path).write_bytes, audio_bytes)
+                    cached_file_path = os.path.join(
+                        cache_dir, f"{request.message_id}.wav"
+                    )
+                    await asyncio.to_thread(
+                        Path(cached_file_path).write_bytes, audio_bytes
+                    )
                     from backend.tts.cache_manager import cleanup_audio_cache
+
                     cleanup_audio_cache(cache_dir, max_files=100, max_age_hours=24)
                     return FileResponse(
                         cached_file_path, media_type="audio/wav", filename="audio.wav"
@@ -244,4 +248,3 @@ def register_tts_routes(
             )
         finally:
             await client.close()
-

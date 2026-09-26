@@ -131,7 +131,9 @@ def main():
     )
     if not os.path.exists(corpus_path):
         path1 = os.path.join(os.getcwd(), "tests", "data", "graphrag_test_corpus.txt")
-        path2 = os.path.join(os.getcwd(), "backend", "tests", "data", "graphrag_test_corpus.txt")
+        path2 = os.path.join(
+            os.getcwd(), "backend", "tests", "data", "graphrag_test_corpus.txt"
+        )
         if os.path.exists(path1):
             corpus_path = path1
         elif os.path.exists(path2):

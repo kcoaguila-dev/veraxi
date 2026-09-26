@@ -13,7 +13,10 @@ def test_grounding_success(mock_openai_class, mock_get_config):
     mock_config.llm_api_key = "fake_key"
     mock_config.llm_base_url = "http://fake_url"
     mock_config.llm_model_name = "fake-model"
-    mock_config.get_llm_client_args.return_value = {"api_key": "fake_key", "base_url": "http://fake_url"}
+    mock_config.get_llm_client_args.return_value = {
+        "api_key": "fake_key",
+        "base_url": "http://fake_url",
+    }
     mock_get_config.return_value = mock_config
 
     # Mock OpenAI client and response

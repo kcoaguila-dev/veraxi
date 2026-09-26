@@ -14,7 +14,9 @@ def override_dependencies():
         return "test_tenant_id"
 
     app.dependency_overrides[get_tenant_id] = override_get_tenant_id_local
-    app.dependency_overrides[verify_infrastructure_access] = override_verify_infrastructure_access
+    app.dependency_overrides[verify_infrastructure_access] = (
+        override_verify_infrastructure_access
+    )
     yield
     app.dependency_overrides.clear()
 

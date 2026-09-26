@@ -24,16 +24,18 @@ def register_mcp_transport_routes(
         The Bearer token defines the tenant_id, which is locked into ContextVars."""
         logger.info(f"Opening MCP SSE stream for tenant: {tenant_id}")
         tenant_context.set(tenant_id)
-        
+
         # FastMCP lazily registers tools, so we force initialization here
         mcp_server._setup_handlers()
-        
+
         async with sse.connect_sse(request.scope, request.receive, request._send) as (
             read_stream,
             write_stream,
         ):
             await mcp_server._mcp_server.run(
-                read_stream, write_stream, mcp_server._mcp_server.create_initialization_options()
+                read_stream,
+                write_stream,
+                mcp_server._mcp_server.create_initialization_options(),
             )
 
     @app_router.post("/messages")

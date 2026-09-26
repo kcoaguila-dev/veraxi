@@ -235,6 +235,7 @@ def _execute_single_tool(
 ) -> tuple[list[Any], list[Any]]:
     """Execute a built-in Python tool."""
     from backend.config import get_config
+
     config = get_config()
     settings = tool_settings or {}
 
@@ -319,6 +320,7 @@ def _execute_single_tool(
     elif tool_name == "deep_research":
         web_search = settings.get("web_search", {})
         if not web_search.get("enabled", False):
+
             class DRErrorHit:
                 def __init__(self):
                     self.id = "tool_err"
@@ -326,12 +328,15 @@ def _execute_single_tool(
                         "error": "Tool deep_research is currently disabled by the user."
                     }
                     self.sources = ["System Error"]
+
             return [DRErrorHit()], []
 
         from backend.mcp_server.tools.deep_research import mcp_deep_research
-        
-        dr_results = mcp_deep_research(tool_input["query"], tenant_id=tenant_id, tool_settings=tool_settings)
-        
+
+        dr_results = mcp_deep_research(
+            tool_input["query"], tenant_id=tenant_id, tool_settings=tool_settings
+        )
+
         class DeepResHit:
             def __init__(self, res):
                 self.id = res.get("id", str(uuid.uuid4()))
@@ -348,6 +353,7 @@ def _execute_single_tool(
     elif tool_name == "agentic_debate":
         web_search = settings.get("web_search", {})
         if not web_search.get("enabled", False):
+
             class DebateErrorHit:
                 def __init__(self):
                     self.id = "tool_err"
@@ -355,12 +361,15 @@ def _execute_single_tool(
                         "error": "Tool agentic_debate is currently disabled by the user."
                     }
                     self.sources = ["System Error"]
+
             return [DebateErrorHit()], []
 
         from backend.mcp_server.orchestrator_multi_agent import mcp_agentic_debate
-        
-        debate_results = mcp_agentic_debate(tool_input["query"], tenant_id=tenant_id, tool_settings=tool_settings)
-        
+
+        debate_results = mcp_agentic_debate(
+            tool_input["query"], tenant_id=tenant_id, tool_settings=tool_settings
+        )
+
         class DebateHit:
             def __init__(self, res):
                 self.id = res.get("id", str(uuid.uuid4()))
