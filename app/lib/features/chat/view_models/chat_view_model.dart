@@ -866,7 +866,12 @@ class ChatViewModel extends StateNotifier<ChatState> {
         // Use custom backend synthesis
         final audioBytes = await _ttsRepository.getAudioBytes(text, voiceId,
             gptSovitsUrl: gptSovitsUrl);
-        await _audioPlayer.setAudioSource(BytesAudioSource(audioBytes));
+        if (kIsWeb) {
+          await _audioPlayer.setAudioSource(AudioSource.uri(
+              Uri.dataFromBytes(audioBytes, mimeType: 'audio/wav')));
+        } else {
+          await _audioPlayer.setAudioSource(BytesAudioSource(audioBytes));
+        }
         await _audioPlayer.play();
         state = state.copyWith(clearError: true);
         return;
@@ -879,7 +884,12 @@ class ChatViewModel extends StateNotifier<ChatState> {
 
         final audioBytes = await _ttsRepository.getFishAudioBytes(
             text, fishApiKey, fishModel, fishRefId);
-        await _audioPlayer.setAudioSource(BytesAudioSource(audioBytes));
+        if (kIsWeb) {
+          await _audioPlayer.setAudioSource(AudioSource.uri(
+              Uri.dataFromBytes(audioBytes, mimeType: 'audio/wav')));
+        } else {
+          await _audioPlayer.setAudioSource(BytesAudioSource(audioBytes));
+        }
         await _audioPlayer.play();
         state = state.copyWith(clearError: true);
         return;

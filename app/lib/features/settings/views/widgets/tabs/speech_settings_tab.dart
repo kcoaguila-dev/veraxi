@@ -100,7 +100,7 @@ class SpeechSettingsTab extends ConsumerWidget {
               ),
             SettingsUI.buildTextFieldRow(
               context,
-              'Reference ID',
+              'Model ID',
               TextEditingController(text: ttsState.fishAudioReferenceId),
               onSubmitted: (value) {
                 ref
