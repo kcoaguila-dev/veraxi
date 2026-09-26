@@ -82,4 +82,4 @@ jobs:
           pip-licenses --fail-on="GPL;AGPL" --partial-match || true
 
       - name: Run tests with pytest
-        run: pytest -p no:deepeval --ignore=tests/test_rag_deepeval.py --ignore=tests/custom_openai_eval.py
+        run: pytest -p no:deepeval --ignore=tests/test_rag_deepeval.py --ignore=tests/custom_openai_eval.py --ignore=evaluation/
