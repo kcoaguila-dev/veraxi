@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:veraxi_app/features/settings/view_models/tts_settings_view_model.dart';
+import 'package:veraxi_app/features/settings/view_models/saved_voices_view_model.dart';
 import '../manage_voices_dialog.dart';
 import 'settings_shared_ui.dart';
 
@@ -107,6 +108,75 @@ class SpeechSettingsTab extends ConsumerWidget {
                     .setFishAudioReferenceId(value);
               },
             ),
+            Consumer(builder: (context, ref, _) {
+              final savedVoices = ref.watch(savedVoicesProvider);
+              return savedVoices.when(
+                data: (voices) {
+                  return Column(
+                    children: [
+                      if (voices.isNotEmpty)
+                        SettingsUI.buildRealDropdownRow(
+                          context,
+                          'Saved Voices',
+                          voices.any((v) => v.referenceId == ttsState.fishAudioReferenceId) 
+                              ? voices.firstWhere((v) => v.referenceId == ttsState.fishAudioReferenceId).name
+                              : 'Custom...',
+                          ['Custom...', ...voices.map((v) => v.name)],
+                          (value) {
+                            if (value == 'Custom...') return;
+                            final selected = voices.firstWhere((v) => v.name == value);
+                            ref.read(ttsSettingsViewModelProvider.notifier).setFishAudioReferenceId(selected.referenceId);
+                          },
+                        ),
+                      SettingsUI.buildActionRow(
+                        context,
+                        'Save Current Voice',
+                        'Save this reference ID to your account',
+                        'Save',
+                        onTap: () async {
+                          if (ttsState.fishAudioReferenceId.isEmpty) return;
+                          String? name = await showDialog<String>(
+                            context: context,
+                            builder: (context) {
+                              final nameController = TextEditingController();
+                              return AlertDialog(
+                                title: const Text('Save Voice', style: TextStyle(color: Colors.white)),
+                                backgroundColor: const Color(0xFF1E1E1E),
+                                content: TextField(
+                                  controller: nameController,
+                                  style: const TextStyle(color: Colors.white),
+                                  decoration: const InputDecoration(
+                                    hintText: 'Voice Name',
+                                    hintStyle: TextStyle(color: Colors.white54),
+                                    enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
+                                    focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.blueAccent)),
+                                  ),
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(context),
+                                    child: const Text('Cancel', style: TextStyle(color: Colors.white70)),
+                                  ),
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(context, nameController.text),
+                                    child: const Text('Save', style: TextStyle(color: Colors.blueAccent)),
+                                  ),
+                                ],
+                              );
+                            },
+                          );
+                          if (name != null && name.isNotEmpty) {
+                            ref.read(savedVoicesProvider.notifier).saveVoice(name, ttsState.fishAudioReferenceId);
+                          }
+                        },
+                      ),
+                    ],
+                  );
+                },
+                loading: () => const SizedBox(),
+                error: (e, _) => const SizedBox(),
+              );
+            }),
             SettingsUI.buildRealDropdownRow(
               context,
               'Tier',
