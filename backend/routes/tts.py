@@ -2,9 +2,8 @@
 
 import logging
 import os
-import shutil
-
 import re
+import shutil
 
 import emoji
 import sentry_sdk
