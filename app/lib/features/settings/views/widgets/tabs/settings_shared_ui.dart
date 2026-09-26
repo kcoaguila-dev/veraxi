@@ -209,7 +209,8 @@ class SettingsUI {
     );
   }
 
-  static Widget buildToggleRow(BuildContext context, String label, bool value) {
+  static Widget buildToggleRow(BuildContext context, String label, bool value,
+      {ValueChanged<bool>? onChanged}) {
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       child: Row(
@@ -221,7 +222,7 @@ class SettingsUI {
           ),
           CupertinoSwitch(
             value: value,
-            onChanged: (v) {},
+            onChanged: onChanged ?? (v) {},
             activeTrackColor: Theme.of(context).colorScheme.secondary,
             inactiveTrackColor: const Color(0xFF3A3A3A),
           ),

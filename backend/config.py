@@ -39,6 +39,7 @@ class Config:
     auth_enabled: bool
     cors_origins: str
     gpt_sovits_base_url: str
+    fish_speech_base_url: str
     code_interpreter_url: str
     is_enterprise: bool
     help_faq_url: str
@@ -88,6 +89,9 @@ class Config:
             cors_origins=os.environ.get("CORS_ORIGINS", "*"),
             gpt_sovits_base_url=os.environ.get(
                 "GPT_SOVITS_BASE_URL", "http://localhost:9880"
+            ),
+            fish_speech_base_url=os.environ.get(
+                "FISH_SPEECH_BASE_URL", "http://localhost:8080"
             ),
             code_interpreter_url=os.environ.get(
                 "CODE_INTERPRETER_URL", "http://code_interpreter:8000/execute"
