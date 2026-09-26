@@ -129,6 +129,7 @@ def register_tts_routes(
         headers = {"Content-Type": "application/json"}
         if not fish_speech_url:
             headers["Authorization"] = f"Bearer {fish_api_key}"
+            payload["model"] = "s2.1-pro-free"
 
         try:
             async with httpx.AsyncClient() as client:
