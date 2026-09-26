@@ -55,6 +55,8 @@ dev = [
     "pytest-asyncio",
     "import-linter",
     "testcontainers[neo4j,qdrant]",
+]
+eval = [
     "deepeval",
     "datasets",
 ]
