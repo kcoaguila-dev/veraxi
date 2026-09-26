@@ -5,6 +5,8 @@ class TTSSettingsStorage {
   static const String _fishAudioApiKeyKey = 'tts_fish_audio_api_key';
   static const String _fishAudioModelKey = 'tts_fish_audio_model';
   static const String _fishAudioRefIdKey = 'tts_fish_audio_ref_id';
+  static const String _fishSpeechUrlKey = 'tts_fish_speech_url';
+  static const String _isSelfHostedFishKey = 'tts_is_self_hosted_fish';
   final _storage = const FlutterSecureStorage();
 
   Future<void> saveVoiceId(String voiceId) async {
@@ -57,5 +59,23 @@ class TTSSettingsStorage {
 
   Future<String?> getFishAudioReferenceId() async {
     return await _storage.read(key: _fishAudioRefIdKey);
+  }
+
+  Future<void> saveFishSpeechUrl(String url) async {
+    await _storage.write(key: _fishSpeechUrlKey, value: url);
+  }
+
+  Future<String?> getFishSpeechUrl() async {
+    return await _storage.read(key: _fishSpeechUrlKey);
+  }
+
+  Future<void> saveIsSelfHostedFish(bool isSelfHosted) async {
+    await _storage.write(
+        key: _isSelfHostedFishKey, value: isSelfHosted.toString());
+  }
+
+  Future<bool> getIsSelfHostedFish() async {
+    final value = await _storage.read(key: _isSelfHostedFishKey);
+    return value == 'true';
   }
 }

@@ -19,6 +19,8 @@ class TTSSettingsState {
   final String fishAudioApiKey;
   final String fishAudioModel;
   final String fishAudioReferenceId;
+  final String fishSpeechUrl;
+  final bool isSelfHostedFish;
 
   TTSSettingsState({
     this.isLoading = false,
@@ -30,6 +32,8 @@ class TTSSettingsState {
     this.fishAudioApiKey = '',
     this.fishAudioModel = 's2.1-pro',
     this.fishAudioReferenceId = '',
+    this.fishSpeechUrl = 'http://localhost:8080',
+    this.isSelfHostedFish = false,
   });
 
   TTSSettingsState copyWith({
@@ -43,6 +47,8 @@ class TTSSettingsState {
     String? fishAudioApiKey,
     String? fishAudioModel,
     String? fishAudioReferenceId,
+    String? fishSpeechUrl,
+    bool? isSelfHostedFish,
   }) {
     return TTSSettingsState(
       isLoading: isLoading ?? this.isLoading,
@@ -54,6 +60,8 @@ class TTSSettingsState {
       fishAudioApiKey: fishAudioApiKey ?? this.fishAudioApiKey,
       fishAudioModel: fishAudioModel ?? this.fishAudioModel,
       fishAudioReferenceId: fishAudioReferenceId ?? this.fishAudioReferenceId,
+      fishSpeechUrl: fishSpeechUrl ?? this.fishSpeechUrl,
+      isSelfHostedFish: isSelfHostedFish ?? this.isSelfHostedFish,
     );
   }
 }
@@ -76,6 +84,9 @@ class TTSSettingsViewModel extends StateNotifier<TTSSettingsState> {
       final fishKey = await _storage.getFishAudioApiKey() ?? '';
       final fishModel = await _storage.getFishAudioModel() ?? 's2.1-pro';
       final fishRefId = await _storage.getFishAudioReferenceId() ?? '';
+      final fishUrl =
+          await _storage.getFishSpeechUrl() ?? 'http://localhost:8080';
+      final isSelfHostedFish = await _storage.getIsSelfHostedFish();
       final voices = await _repository.getVoices(gptSovitsUrl: savedUrl);
 
       String activeVoiceId = savedVoiceId;
@@ -97,6 +108,8 @@ class TTSSettingsViewModel extends StateNotifier<TTSSettingsState> {
         fishAudioApiKey: fishKey,
         fishAudioModel: fishModel,
         fishAudioReferenceId: fishRefId,
+        fishSpeechUrl: fishUrl,
+        isSelfHostedFish: isSelfHostedFish,
       );
     } catch (e, st) {
       await Sentry.captureException(e, stackTrace: st);
@@ -166,6 +179,16 @@ class TTSSettingsViewModel extends StateNotifier<TTSSettingsState> {
   Future<void> setFishAudioReferenceId(String refId) async {
     await _storage.saveFishAudioReferenceId(refId);
     state = state.copyWith(fishAudioReferenceId: refId);
+  }
+
+  Future<void> setFishSpeechUrl(String url) async {
+    await _storage.saveFishSpeechUrl(url);
+    state = state.copyWith(fishSpeechUrl: url);
+  }
+
+  Future<void> setIsSelfHostedFish(bool isSelfHosted) async {
+    await _storage.saveIsSelfHostedFish(isSelfHosted);
+    state = state.copyWith(isSelfHostedFish: isSelfHosted);
   }
 
   Future<void> saveVoices(List<Map<String, dynamic>> newVoices) async {
