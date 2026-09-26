@@ -137,8 +137,8 @@ class AudioPlayerService extends StateNotifier<AudioPlayerState> {
       }
 
       if (kIsWeb) {
-        await _player.setAudioSource(AudioSource.uri(
-            Uri.dataFromBytes(bytes, mimeType: 'audio/wav')));
+        await _player.setAudioSource(
+            AudioSource.uri(Uri.dataFromBytes(bytes, mimeType: 'audio/wav')));
       } else {
         // Save to temp file on mobile
         final tempDir = await getTemporaryDirectory();
