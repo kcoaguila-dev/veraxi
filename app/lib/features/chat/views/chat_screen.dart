@@ -11,6 +11,7 @@ import 'package:veraxi_app/features/chat/views/widgets/project_dashboard_view.da
 import 'package:veraxi_app/features/chat/views/widgets/all_projects_dashboard_view.dart';
 import 'package:veraxi_app/core/widgets/model_selector_menu.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:veraxi_app/features/chat/view_models/audio_player_service.dart';
 
 import 'package:veraxi_app/core/theme_extension.dart';
 import 'package:veraxi_app/features/chat/views/widgets/sources_sidebar.dart';
@@ -81,6 +82,19 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_isScrolledUp) {
         _scrollToBottom();
+      }
+    });
+
+    ref.listen(audioPlayerServiceProvider, (previous, next) {
+      if (next.errorMessage != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(next.errorMessage!),
+            backgroundColor: Colors.red.shade900,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        ref.read(audioPlayerServiceProvider.notifier).clearErrorMessage();
       }
     });
 
