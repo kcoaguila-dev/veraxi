@@ -88,8 +88,8 @@ void main() {
     await tester.tap(find.text('Fish Audio'));
     await tester.pumpAndSettle();
 
-    // Verify that Reference ID input appears
-    expect(find.text('Reference ID'), findsOneWidget);
+    // Verify that Model ID input appears
+    expect(find.text('Model ID'), findsOneWidget);
 
     // Verify that Tier dropdown appears
     expect(find.text('Tier'), findsOneWidget);
