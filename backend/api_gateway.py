@@ -183,7 +183,7 @@ def get_tenant_id(
     request: Request,
     credentials: HTTPAuthorizationCredentials | None = Depends(security),  # noqa: B008
 ) -> str:
-    if request.headers.get("x-guest") == "true" or request.query_params.get("guest") == "true":
+    if not config.supabase_url and (request.headers.get("x-guest") == "true" or request.query_params.get("guest") == "true"):
         return "local_guest"
 
     if not config.auth_enabled:

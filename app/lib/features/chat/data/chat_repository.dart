@@ -18,9 +18,11 @@ final chatRepositoryProvider = Provider<IChatRepository>((ref) {
 
   // Also check if Supabase has a valid session to avoid returning Cloud repo when logged out
   bool isLoggedIn = apiClient.tenantId != null;
-  try {
-    isLoggedIn = Supabase.instance.client.auth.currentSession != null;
-  } catch (_) {}
+  if (!isLoggedIn) {
+    try {
+      isLoggedIn = Supabase.instance.client.auth.currentSession != null;
+    } catch (_) {}
+  }
 
   if (!isLoggedIn) {
     return LocalChatRepository(

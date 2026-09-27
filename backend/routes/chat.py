@@ -332,6 +332,9 @@ def register_chat_routes(
     ):
         """Returns the message history for a specific thread."""
         try:
+            if tenant_id == "local_guest":
+                return {"messages": []}
+
             is_owner = await request.app.state.redis.sismember(
                 f"tenant:{tenant_id}:threads", thread_id
             )
@@ -340,13 +343,10 @@ def register_chat_routes(
                     status_code=403, detail="Thread not found or access denied."
                 )
 
-            if tenant_id == "local_guest":
-                return {"messages": []}
-
             from backend.config import get_config as _get_config
             config_obj = _get_config()
 
-            if not config_obj.postgres_url or config_obj.postgres_url == "postgresql://postgres:postgres@localhost:5432/postgres":
+            if not config_obj.postgres_url:
                 return {"messages": []}
 
             from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
@@ -387,6 +387,9 @@ def register_chat_routes(
     async def share_thread(
         thread_id: str, request: Request, tenant_id: str = Depends(get_tenant_id)
     ):
+        if tenant_id == "local_guest":
+            raise HTTPException(status_code=501, detail="Sharing not supported in stateless mode")
+
         is_owner = await request.app.state.redis.sismember(
             f"tenant:{tenant_id}:threads", thread_id
         )
@@ -394,23 +397,22 @@ def register_chat_routes(
             raise HTTPException(status_code=403, detail="Access denied")
         try:
             messages_out = []
-            if tenant_id != "local_guest":
-                from backend.config import get_config as _get_config
-                config_obj = _get_config()
-                if config_obj.postgres_url and config_obj.postgres_url != "postgresql://postgres:postgres@localhost:5432/postgres":
-                    from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
-                    async with AsyncPostgresSaver.from_conn_string(
-                        config_obj.postgres_url
-                    ) as memory:
-                        await memory.setup()
-                        state = await memory.aget_tuple(
-                            {"configurable": {"thread_id": thread_id}}
-                        )
-                    if state:
-                        raw_messages = state.checkpoint.get("channel_values", {}).get(
-                            "messages", []
-                        )
-                        messages_out = _extract_messages_from_state(raw_messages)
+            from backend.config import get_config as _get_config
+            config_obj = _get_config()
+            if config_obj.postgres_url:
+                from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+                async with AsyncPostgresSaver.from_conn_string(
+                    config_obj.postgres_url
+                ) as memory:
+                    await memory.setup()
+                    state = await memory.aget_tuple(
+                        {"configurable": {"thread_id": thread_id}}
+                    )
+                if state:
+                    raw_messages = state.checkpoint.get("channel_values", {}).get(
+                        "messages", []
+                    )
+                    messages_out = _extract_messages_from_state(raw_messages)
             share_id = str(uuid.uuid4())
             titles = await request.app.state.redis.hgetall(
                 f"tenant:{tenant_id}:thread_titles"
@@ -619,6 +621,10 @@ def register_chat_routes(
         thread_id: str, request: Request, tenant_id: str = Depends(get_tenant_id)
     ):
         new_thread_id = str(uuid.uuid4())
+
+        if tenant_id == "local_guest":
+            return {"status": "ok", "new_thread_id": new_thread_id}
+
         titles = await request.app.state.redis.hgetall(
             f"tenant:{tenant_id}:thread_titles"
         )
@@ -629,14 +635,11 @@ def register_chat_routes(
         )
         await request.app.state.redis.sadd(f"tenant:{tenant_id}:threads", new_thread_id)
 
-        if tenant_id == "local_guest":
-            return {"status": "ok", "new_thread_id": new_thread_id}
-
         try:
             from backend.config import get_config as _get_config
             config_obj = _get_config()
 
-            if config_obj.postgres_url and config_obj.postgres_url != "postgresql://postgres:postgres@localhost:5432/postgres":
+            if config_obj.postgres_url:
                 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
                 async with AsyncPostgresSaver.from_conn_string(
                     config_obj.postgres_url
