@@ -154,7 +154,11 @@ class AudioPlayerService extends StateNotifier<AudioPlayerState> {
     } catch (e, stackTrace) {
       state = state.copyWith(isLoading: false);
       debugPrint('Error playing audio: $e');
-      Sentry.captureException(e, stackTrace: stackTrace);
+      try {
+        Sentry.captureException(e, stackTrace: stackTrace);
+      } catch (sentryError) {
+        debugPrint('Sentry failed to capture exception: $sentryError');
+      }
     }
   }
 
