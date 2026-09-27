@@ -5,6 +5,19 @@ on:
     tags:
       - 'v*'
   workflow_dispatch:
+    inputs:
+      api_url:
+        description: 'Backend API base URL (e.g. https://your-server.com/api)'
+        required: true
+        default: 'https://your-oracle-server.com/api'
+      supabase_url:
+        description: 'Supabase project URL (leave blank to use self-hosted/local mode)'
+        required: false
+        default: ''
+      supabase_anon_key:
+        description: 'Supabase anon key (leave blank to use self-hosted/local mode)'
+        required: false
+        default: ''
 
 jobs:
   build-apk:
@@ -33,17 +46,34 @@ jobs:
         working-directory: app
         run: flutter pub get
 
+      - name: Resolve build config
+        id: config
+        run: |
+          # When triggered via workflow_dispatch, use the typed-in input.
+          # When triggered by a git tag push, fall back to repo secrets.
+          echo "api_url=${{ github.event.inputs.api_url || secrets.API_URL || 'https://your-oracle-server.com/api' }}" >> $GITHUB_OUTPUT
+          echo "supabase_url=${{ github.event.inputs.supabase_url || secrets.SUPABASE_URL || '' }}" >> $GITHUB_OUTPUT
+          echo "supabase_anon_key=${{ github.event.inputs.supabase_anon_key || secrets.SUPABASE_ANON_KEY || '' }}" >> $GITHUB_OUTPUT
+
       - name: Run unit tests
         working-directory: app
         run: flutter test test/
 
       - name: Build release APK (split per ABI for smaller size)
         working-directory: app
-        run: flutter build apk --release --split-per-abi
+        run: |
+          flutter build apk --release --split-per-abi \
+            --dart-define=API_URL="${{ steps.config.outputs.api_url }}" \
+            --dart-define=SUPABASE_URL="${{ steps.config.outputs.supabase_url }}" \
+            --dart-define=SUPABASE_ANON_KEY="${{ steps.config.outputs.supabase_anon_key }}"
 
       - name: Build debug APK (universal)
         working-directory: app
-        run: flutter build apk --debug
+        run: |
+          flutter build apk --debug \
+            --dart-define=API_URL="${{ steps.config.outputs.api_url }}" \
+            --dart-define=SUPABASE_URL="${{ steps.config.outputs.supabase_url }}" \
+            --dart-define=SUPABASE_ANON_KEY="${{ steps.config.outputs.supabase_anon_key }}"
 
       - name: Upload APK artifacts
         uses: actions/upload-artifact@v4

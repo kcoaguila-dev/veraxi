@@ -114,7 +114,7 @@ class ChatInputToolsMenu extends StatelessWidget {
             onToggleHighAccuracy(highAccuracyEnabled);
           },
           child: Container(
-            width: 165,
+            width: 200,
             padding:
                 const EdgeInsets.only(left: 14, right: 10, top: 4, bottom: 4),
             child: Row(

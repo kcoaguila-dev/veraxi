@@ -481,29 +481,29 @@ class _ControlPanelScreenState extends ConsumerState<ControlPanelScreen> {
         builder: (context, constraints) {
           final isMobile = constraints.maxWidth < 800;
           if (isMobile) {
-            return Column(
-              children: [
-                Container(
-                  height: 56,
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  decoration: const BoxDecoration(
-                    border:
-                        Border(bottom: BorderSide(color: Color(0xFF2A2A2A))),
+            return SafeArea(
+              child: Column(
+                children: [
+                  Container(
+                    height: 56,
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    decoration: const BoxDecoration(
+                      border:
+                          Border(bottom: BorderSide(color: Color(0xFF2A2A2A))),
+                    ),
+                    child: ListView(
+                      scrollDirection: Axis.horizontal,
+                      children: [
+                        _buildMobileMenuItem('MCP Integrations', 0),
+                        _buildMobileMenuItem('Knowledge Base', 1),
+                        _buildMobileMenuItem('Billing', 2),
+                        _buildMobileMenuItem('Infrastructure', 3),
+                        _buildMobileMenuItem('Security & Logs', 4),
+                        _buildMobileMenuItem('Agent Skills', 5),
+                      ],
+                    ),
                   ),
-                  child: ListView(
-                    scrollDirection: Axis.horizontal,
-                    children: [
-                      _buildMobileMenuItem('MCP Integrations', 0),
-                      _buildMobileMenuItem('Knowledge Base', 1),
-                      _buildMobileMenuItem('Billing', 2),
-                      _buildMobileMenuItem('Infrastructure', 3),
-                      _buildMobileMenuItem('Security & Logs', 4),
-                      _buildMobileMenuItem('Agent Skills', 5),
-                    ],
-                  ),
-                ),
-                Expanded(
-                  child: SafeArea(
+                  Expanded(
                     child: SingleChildScrollView(
                       padding: const EdgeInsets.all(16.0),
                       child: _isLoading
@@ -523,8 +523,8 @@ class _ControlPanelScreenState extends ConsumerState<ControlPanelScreen> {
                                               : _buildAgentSkills(theme)),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             );
           }
           return Row(
