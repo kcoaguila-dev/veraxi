@@ -432,15 +432,17 @@ class _ModelSelectorMenuState extends ConsumerState<ModelSelectorMenu> {
                                               height: 1),
                                         ),
                                       ],
-                                      Padding(
-                                        padding: EdgeInsets.symmetric(
-                                            horizontal: 12, vertical: 4),
-                                        child: Text('Providers',
-                                            style: TextStyle(
-                                                color: Color(0xFF6E6E6E),
-                                                fontSize: 11,
-                                                fontWeight: FontWeight.w600)),
-                                      ),
+                                      if (allProviderModels.isNotEmpty) ...[
+                                        Padding(
+                                          padding: EdgeInsets.symmetric(
+                                              horizontal: 12, vertical: 4),
+                                          child: Text('Providers',
+                                              style: TextStyle(
+                                                  color: Color(0xFF6E6E6E),
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.w600)),
+                                        ),
+                                      ],
                                       for (final providerEntry
                                           in allProviderModels.entries)
                                         _HoverableProviderRow(

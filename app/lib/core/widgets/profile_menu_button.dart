@@ -18,8 +18,6 @@ const bool _isSelfHosted =
 
 /// Returns the display name for the current user.
 String resolveDisplayName() {
-  if (_isSelfHosted) return 'Local User';
-
   try {
     final user = Supabase.instance.client.auth.currentUser;
     if (user != null) {
@@ -35,7 +33,7 @@ String resolveDisplayName() {
     Sentry.captureException(e, stackTrace: st);
     // Supabase not initialised (auth disabled)
   }
-  return kDebugMode ? 'Local User' : 'Guest';
+  return _isSelfHosted ? 'Local User' : (kDebugMode ? 'Local User' : 'Guest');
 }
 
 class ProfileMenuButton extends ConsumerStatefulWidget {
