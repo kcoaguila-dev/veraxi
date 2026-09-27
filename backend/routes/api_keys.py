@@ -23,9 +23,12 @@ def register_api_key_routes(app_router, get_tenant_id, _get_supabase):
     @app_router.get("/api/user/api-keys")
     async def list_api_keys(tenant_id: str = Depends(get_tenant_id)):
         """List all API keys for the current tenant (names, prefixes, dates — never hashes)."""
+        sb = _get_supabase()
+        if not sb:
+            return {"api_keys": []}
         try:
             response = (
-                _get_supabase()
+                sb
                 .table("api_keys")
                 .select(
                     "id, name, key_prefix, is_active, created_at, last_used_at, expires_at"
@@ -46,6 +49,10 @@ def register_api_key_routes(app_router, get_tenant_id, _get_supabase):
         payload: ApiKeyCreateRequest, tenant_id: str = Depends(get_tenant_id)
     ):
         """Generate a new personal API key. Returns the raw key ONCE — it cannot be retrieved again."""
+        sb = _get_supabase()
+        if not sb:
+            raise HTTPException(status_code=501, detail="API keys are not supported in stateless local mode")
+
         raw_key, key_hash = generate_api_key()
         key_prefix = raw_key[:10]
         insert_data = {
@@ -56,7 +63,7 @@ def register_api_key_routes(app_router, get_tenant_id, _get_supabase):
             "expires_at": payload.expires_at,
         }
         try:
-            response = _get_supabase().table("api_keys").insert(insert_data).execute()
+            response = sb.table("api_keys").insert(insert_data).execute()
             key_id = response.data[0]["id"]
             logger.info(f"New API key created for tenant {tenant_id}: {key_prefix}…")
             return {
@@ -74,9 +81,12 @@ def register_api_key_routes(app_router, get_tenant_id, _get_supabase):
     @app_router.delete("/api/user/api-keys/{key_id}")
     async def revoke_api_key(key_id: str, tenant_id: str = Depends(get_tenant_id)):
         """Revoke (soft-delete) an API key. The key is immediately invalid."""
+        sb = _get_supabase()
+        if not sb:
+            raise HTTPException(status_code=501, detail="API keys are not supported in stateless local mode")
         try:
             result = (
-                _get_supabase()
+                sb
                 .table("api_keys")
                 .update({"is_active": False})
                 .eq("id", key_id)

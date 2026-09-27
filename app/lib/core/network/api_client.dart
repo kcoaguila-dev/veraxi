@@ -49,6 +49,9 @@ class ApiClient {
     };
 
     String? token = tenantId;
+    if (token == null) {
+      headers['X-Guest'] = 'true';
+    }
     try {
       final session = Supabase.instance.client.auth.currentSession;
       if (session != null) {
