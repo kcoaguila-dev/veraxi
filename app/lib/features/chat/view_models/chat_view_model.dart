@@ -195,7 +195,7 @@ class ChatViewModel extends StateNotifier<ChatState> {
   @visibleForTesting
   void setStateForTesting(ChatState s) => state = s;
 
-  final ChatRepository _repository;
+  final IChatRepository _repository;
   final TTSRepository _ttsRepository;
   final MemoryRepository _memoryRepository;
   final AudioPlayer _audioPlayer = AudioPlayer();

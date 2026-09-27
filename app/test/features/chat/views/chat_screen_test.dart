@@ -50,7 +50,7 @@ void main() {
   });
 }
 
-class MockChatRepository extends Mock implements ChatRepository {}
+class MockChatRepository extends Mock implements IChatRepository {}
 
 class MockTTSRepository extends Mock implements TTSRepository {}
 

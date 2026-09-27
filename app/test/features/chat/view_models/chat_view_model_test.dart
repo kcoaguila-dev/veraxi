@@ -10,7 +10,7 @@ import 'package:veraxi_app/core/api_key_storage.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-class MockChatRepository extends Mock implements ChatRepository {}
+class MockChatRepository extends Mock implements IChatRepository {}
 
 class MockMemoryRepository extends Mock implements MemoryRepository {}
 
