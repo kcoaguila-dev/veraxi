@@ -14,14 +14,14 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   late MockHttpClient mockHttpClient;
   late ApiClient apiClient;
-  late ChatRepository repository;
+  late CloudChatRepository repository;
 
   setUp(() {
     FlutterSecureStorage.setMockInitialValues({});
     mockHttpClient = MockHttpClient();
     apiClient = ApiClient(client: mockHttpClient, baseUrl: 'http://test.com');
-    repository =
-        ChatRepository(apiClient: apiClient, apiKeyStorage: ApiKeyStorage());
+    repository = CloudChatRepository(
+        apiClient: apiClient, apiKeyStorage: ApiKeyStorage());
     registerFallbackValue(Uri.parse('http://test.com'));
   });
 
