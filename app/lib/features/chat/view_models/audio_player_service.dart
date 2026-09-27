@@ -16,6 +16,7 @@ class AudioPlayerState {
   final String? playingText;
   final double speed;
   final bool isLoading;
+  final String? errorMessage;
 
   AudioPlayerState({
     this.isPlaying = false,
@@ -25,6 +26,7 @@ class AudioPlayerState {
     this.playingText,
     this.speed = 1.0,
     this.isLoading = false,
+    this.errorMessage,
   });
 
   AudioPlayerState copyWith({
@@ -35,6 +37,7 @@ class AudioPlayerState {
     String? playingText,
     double? speed,
     bool? isLoading,
+    String? errorMessage,
   }) {
     return AudioPlayerState(
       isPlaying: isPlaying ?? this.isPlaying,
@@ -44,6 +47,20 @@ class AudioPlayerState {
       playingText: playingText ?? this.playingText,
       speed: speed ?? this.speed,
       isLoading: isLoading ?? this.isLoading,
+      errorMessage: errorMessage ?? this.errorMessage,
+    );
+  }
+
+  AudioPlayerState clearError() {
+    return AudioPlayerState(
+      isPlaying: isPlaying,
+      position: position,
+      duration: duration,
+      playingMessageId: playingMessageId,
+      playingText: playingText,
+      speed: speed,
+      isLoading: isLoading,
+      errorMessage: null,
     );
   }
 }
@@ -100,6 +117,7 @@ class AudioPlayerService extends StateNotifier<AudioPlayerState> {
         playingMessageId: messageId,
         playingText: text,
         isLoading: true,
+        errorMessage: null, // Clear any previous errors
         position: Duration.zero,
         duration: Duration.zero);
 
@@ -153,12 +171,42 @@ class AudioPlayerService extends StateNotifier<AudioPlayerState> {
       state = state.copyWith(isLoading: false);
     } catch (e, stackTrace) {
       state = state.copyWith(isLoading: false);
+      state = AudioPlayerState(
+        isPlaying: state.isPlaying,
+        position: state.position,
+        duration: state.duration,
+        playingMessageId: state.playingMessageId,
+        playingText: state.playingText,
+        speed: state.speed,
+        isLoading: false,
+        errorMessage: _getFriendlyErrorMessage(e),
+      );
       debugPrint('Error playing audio: $e');
       try {
         Sentry.captureException(e, stackTrace: stackTrace);
       } catch (sentryError) {
         debugPrint('Sentry failed to capture exception: $sentryError');
       }
+    }
+  }
+
+  String _getFriendlyErrorMessage(dynamic e) {
+    final str = e.toString();
+    if (str.contains('Fish Audio API key missing')) {
+      return 'Missing Fish Audio API Key. Please add it in Settings.';
+    }
+    if (str.contains('AuthRetryableFetchException') || str.contains('ERR_NETWORK_CHANGED')) {
+      return 'Network connection dropped. Please check your internet and try again.';
+    }
+    if (str.contains('Failed to fetch')) {
+      return 'Failed to connect to the server. An adblocker might be blocking the request.';
+    }
+    return 'An unexpected error occurred while loading audio.';
+  }
+
+  void clearErrorMessage() {
+    if (state.errorMessage != null) {
+      state = state.clearError();
     }
   }
 
