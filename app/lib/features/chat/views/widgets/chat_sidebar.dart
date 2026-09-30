@@ -12,6 +12,7 @@ import 'package:veraxi_app/core/providers/project_view_model.dart';
 import 'package:veraxi_app/features/chat/views/widgets/pinned_models_widget.dart';
 import 'package:veraxi_app/features/project/views/widgets/project_list_widget.dart';
 import 'package:veraxi_app/core/widgets/profile_menu_button.dart';
+import 'package:veraxi_app/core/widgets/veraxi_logo.dart' as veraxi_logo;
 
 class ChatSidebar extends ConsumerStatefulWidget {
   final bool isSidebarOpen;
@@ -307,13 +308,19 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    Text(
-                      'Veraxi',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                      ),
+                    Row(
+                      children: [
+                        const veraxi_logo.VeraxiLogo(size: 16),
+                        const SizedBox(width: 8),
+                        const Text(
+                          'Veraxi',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
                     ),
                     Tooltip(
                       message: 'Close sidebar',
