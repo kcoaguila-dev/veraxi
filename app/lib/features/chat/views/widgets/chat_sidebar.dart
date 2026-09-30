@@ -540,10 +540,11 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
                 ),
               ),
               SizedBox(height: 12),
-              if (_chatsExpanded)
-                Expanded(
-                  child: Builder(
-                    builder: (context) {
+              Expanded(
+                child: !_chatsExpanded
+                    ? SizedBox.shrink()
+                    : Builder(
+                        builder: (context) {
                       if (state.isLoadingThreads) {
                         return Center(
                           child: Padding(
