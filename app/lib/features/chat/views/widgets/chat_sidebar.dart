@@ -83,7 +83,7 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
                 size: 20),
             onPressed: () {
               ref
-                  .read(projectViewModelProvider.notifier)
+                  .read(chatViewModelProvider.notifier)
                   .openAllProjectsDashboard();
               context.go('/chat');
             },
@@ -459,7 +459,7 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
                           child: InkWell(
                             borderRadius: BorderRadius.circular(6),
                             onTap: () {
-                              projectViewModel.openAllProjectsDashboard();
+                              viewModel.openAllProjectsDashboard();
                               context.go('/chat');
                             },
                             child: Padding(
