@@ -314,7 +314,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
                         // Temporary Chat Toggle
                         Positioned(
-                          top: 16,
+                          top: 12,
                           right: 16,
                           child: Tooltip(
                             message: state.isTemporary
