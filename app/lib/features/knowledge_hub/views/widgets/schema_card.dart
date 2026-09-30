@@ -53,75 +53,90 @@ class _SchemaCardState extends ConsumerState<SchemaCard> {
                       .iconColor,
                   fontSize: 14)),
           SizedBox(height: 16),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                flex: 1,
-                child: Column(
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final isMobile = constraints.maxWidth < 600;
+              
+              final autoGenerateSection = Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Auto-Generate from Sample',
+                      style: TextStyle(
+                          color: Colors.white, fontWeight: FontWeight.w500)),
+                  SizedBox(height: 8),
+                  TextField(
+                    controller: _schemaSampleTextController,
+                    maxLines: 7,
+                    style: TextStyle(color: Colors.white, fontSize: 14),
+                    decoration: InputDecoration(
+                      hintText:
+                          'Paste a sample of your text here (e.g., an abstract or executive summary). The AI will auto-generate an appropriate schema.',
+                      hintStyle: TextStyle(color: Colors.white38),
+                      filled: true,
+                      fillColor: Theme.of(context)
+                          .extension<AppThemeExtension>()!
+                          .cardBackground,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                  ),
+                  SizedBox(height: 12),
+                  ElevatedButton.icon(
+                    onPressed: state.isIngesting
+                        ? null
+                        : () {
+                            if (_schemaSampleTextController.text
+                                .trim()
+                                .isNotEmpty) {
+                              viewModel.autoGenerateSchema(
+                                  _schemaSampleTextController.text.trim());
+                            }
+                          },
+                    icon: state.isIngesting
+                        ? SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2))
+                        : Icon(Icons.auto_awesome, size: 18),
+                    label: Text('Auto-Generate'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.purple.shade600,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                ],
+              );
+
+              final schemaVisualSection = SchemaVisualBuilder(
+                initialSchema: state.schema,
+                isSaving: state.isIngesting,
+                onSave: (schema) {
+                  viewModel.saveSchema(schema);
+                },
+              );
+
+              if (isMobile) {
+                return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Auto-Generate from Sample',
-                        style: TextStyle(
-                            color: Colors.white, fontWeight: FontWeight.w500)),
-                    SizedBox(height: 8),
-                    TextField(
-                      controller: _schemaSampleTextController,
-                      maxLines: 7,
-                      style: TextStyle(color: Colors.white, fontSize: 14),
-                      decoration: InputDecoration(
-                        hintText:
-                            'Paste a sample of your text here (e.g., an abstract or executive summary). The AI will auto-generate an appropriate schema.',
-                        hintStyle: TextStyle(color: Colors.white38),
-                        filled: true,
-                        fillColor: Theme.of(context)
-                            .extension<AppThemeExtension>()!
-                            .cardBackground,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: BorderSide.none,
-                        ),
-                      ),
-                    ),
-                    SizedBox(height: 12),
-                    ElevatedButton.icon(
-                      onPressed: state.isIngesting
-                          ? null
-                          : () {
-                              if (_schemaSampleTextController.text
-                                  .trim()
-                                  .isNotEmpty) {
-                                viewModel.autoGenerateSchema(
-                                    _schemaSampleTextController.text.trim());
-                              }
-                            },
-                      icon: state.isIngesting
-                          ? SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(strokeWidth: 2))
-                          : Icon(Icons.auto_awesome, size: 18),
-                      label: Text('Auto-Generate'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.purple.shade600,
-                        foregroundColor: Colors.white,
-                      ),
-                    ),
+                    autoGenerateSection,
+                    SizedBox(height: 32),
+                    schemaVisualSection,
                   ],
-                ),
-              ),
-              SizedBox(width: 24),
-              Expanded(
-                flex: 1,
-                child: SchemaVisualBuilder(
-                  initialSchema: state.schema,
-                  isSaving: state.isIngesting,
-                  onSave: (schema) {
-                    viewModel.saveSchema(schema);
-                  },
-                ),
-              ),
-            ],
+                );
+              } else {
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(flex: 1, child: autoGenerateSection),
+                    SizedBox(width: 24),
+                    Expanded(flex: 1, child: schemaVisualSection),
+                  ],
+                );
+              }
+            },
           ),
         ],
       ),
