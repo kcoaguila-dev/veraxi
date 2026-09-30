@@ -402,13 +402,17 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
                 child: IgnorePointer(
                   ignoring: !isSidebarOpen,
                   child: Container(
-                    width: 260,
-                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+                    width: widget.isMobile ? double.infinity : 260,
+                    padding: EdgeInsets.only(
+                        top: widget.isMobile ? 48 : 20,
+                        bottom: 20,
+                        left: 20,
+                        right: 20),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         SizedBox(
-                          height: 24,
+                          height: 28,
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             crossAxisAlignment: CrossAxisAlignment.center,
@@ -417,7 +421,7 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
                                 'Veraxi',
                                 style: TextStyle(
                                   color: Colors.white,
-                                  fontSize: 14,
+                                  fontSize: 18,
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
