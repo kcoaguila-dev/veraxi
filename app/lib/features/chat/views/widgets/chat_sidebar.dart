@@ -11,7 +11,7 @@ import 'package:veraxi_app/features/chat/view_models/chat_view_model.dart';
 import 'package:veraxi_app/core/providers/model_selection_provider.dart';
 import 'package:veraxi_app/core/providers/project_view_model.dart';
 import 'package:veraxi_app/features/chat/views/widgets/pinned_models_widget.dart';
-import 'package:veraxi_app/features/project/views/widgets/project_list_widget.dart';
+
 import 'package:veraxi_app/core/widgets/profile_menu_button.dart';
 
 class ChatSidebar extends ConsumerStatefulWidget {
@@ -360,7 +360,6 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
   Widget _buildSidebarContentActual(BuildContext context) {
     final state = ref.watch(chatViewModelProvider);
     final viewModel = ref.read(chatViewModelProvider.notifier);
-    final projectState = ref.watch(projectViewModelProvider);
     final projectViewModel = ref.read(projectViewModelProvider.notifier);
     final modelSelection = ref.watch(modelSelectionProvider);
     final isSidebarOpen = widget.isSidebarOpen;
@@ -455,14 +454,36 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
                                 .unpinModel(model);
                           },
                         ),
-                        ProjectListWidget(
-                          chatState: state,
-                          chatViewModel: viewModel,
-                          projectState: projectState,
-                          projectViewModel: projectViewModel,
-                          showShareDialog: _showShareDialog,
-                          showRenameDialog: _showRenameDialog,
-                          showChangeProjectDialog: _showChangeProjectDialog,
+                        Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(6),
+                            onTap: () {
+                              projectViewModel.openAllProjectsDashboard();
+                              context.go('/chat');
+                            },
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              child: Row(
+                                children: [
+                                  Icon(Icons.folder_outlined,
+                                      color: Theme.of(context)
+                                          .extension<AppThemeExtension>()!
+                                          .iconColor,
+                                      size: 18),
+                                  const SizedBox(width: 12),
+                                  const Text(
+                                    'Projects',
+                                    style: TextStyle(
+                                      color: Color(0xFFE0E0E0),
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
                         ),
                         SizedBox(height: 12),
                         Material(
