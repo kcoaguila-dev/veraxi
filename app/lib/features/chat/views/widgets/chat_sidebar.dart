@@ -447,7 +447,9 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
                                       height: 24,
                                       child: Center(
                                           child: widget.isMobile
-                                              ? const Icon(Icons.close, color: Color(0xFFB4B4B4), size: 20)
+                                              ? const Icon(Icons.close,
+                                                  color: Color(0xFFB4B4B4),
+                                                  size: 20)
                                               : _buildSidebarToggleIcon()),
                                     ),
                                   ),
