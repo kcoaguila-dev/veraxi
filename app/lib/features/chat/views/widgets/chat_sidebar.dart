@@ -78,7 +78,8 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
           message: 'New project',
           child: IconButton(
             icon: Icon(Icons.create_new_folder_outlined,
-                color: Theme.of(context).extension<AppThemeExtension>()!.iconColor,
+                color:
+                    Theme.of(context).extension<AppThemeExtension>()!.iconColor,
                 size: 20),
             onPressed: () {
               // Creating a new project requires a dialog, for now we open the change project dialog
@@ -93,7 +94,8 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
           message: 'New chat',
           child: IconButton(
             icon: Icon(Icons.edit_square,
-                color: Theme.of(context).extension<AppThemeExtension>()!.iconColor,
+                color:
+                    Theme.of(context).extension<AppThemeExtension>()!.iconColor,
                 size: 20),
             onPressed: () {
               viewModel.startNewChat();
@@ -105,7 +107,8 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
           message: 'Knowledge Hub',
           child: IconButton(
             icon: Icon(Icons.library_books_outlined,
-                color: Theme.of(context).extension<AppThemeExtension>()!.iconColor,
+                color:
+                    Theme.of(context).extension<AppThemeExtension>()!.iconColor,
                 size: 20),
             onPressed: () {
               context.go('/knowledge-hub');
@@ -120,7 +123,6 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
       ],
     );
   }
-
 
   PopupMenuItem<String> _buildPopupMenuItem(String title, IconData icon,
       {bool isDestructive = false}) {
@@ -365,7 +367,8 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
       duration: const Duration(milliseconds: 250),
       curve: Curves.easeInOut,
       width: isSidebarOpen ? 260 : 64,
-      color: Theme.of(context).extension<AppThemeExtension>()!.sidebarBackground,
+      color:
+          Theme.of(context).extension<AppThemeExtension>()!.sidebarBackground,
       child: ClipRect(
         child: Stack(
           children: [
@@ -399,429 +402,504 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-              SizedBox(
-                height: 24,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    const Text(
-                      'Veraxi',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    Tooltip(
-                      message: 'Close sidebar',
-                      child: Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(6),
-                          onTap: () {
-                            ref.read(sidebarStateProvider.notifier).state =
-                                false;
-                          },
-                          child: SizedBox(
-                            width: 24,
-                            height: 24,
-                            child: Center(child: _buildSidebarToggleIcon()),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              SizedBox(height: 18),
-              PinnedModelsWidget(
-                pinnedModels: modelSelection.pinnedModels.toList(),
-                selectedModel: modelSelection.selectedModel,
-                onModelSelected: (model, provider) {
-                  ref
-                      .read(modelSelectionProvider.notifier)
-                      .selectModel(model, provider: provider);
-                },
-                onModelUnpinned: (model) {
-                  ref.read(modelSelectionProvider.notifier).unpinModel(model);
-                },
-              ),
-              ProjectListWidget(
-                chatState: state,
-                chatViewModel: viewModel,
-                projectState: projectState,
-                projectViewModel: projectViewModel,
-                showShareDialog: _showShareDialog,
-                showRenameDialog: _showRenameDialog,
-                showChangeProjectDialog: _showChangeProjectDialog,
-              ),
-              SizedBox(height: 12),
-              Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(6),
-                  onTap: () {
-                    viewModel.startNewChat();
-                  },
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    child: Row(
-                      children: [
-                        Icon(Icons.edit_square,
-                            color: Theme.of(context).extension<AppThemeExtension>()!.iconColor,
-                            size: 18),
-                        const SizedBox(width: 12),
-                        const Text(
-                          'New chat',
-                          style: TextStyle(
-                            color: Color(0xFFE0E0E0),
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              SizedBox(height: 4),
-              Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(6),
-                  onTap: () {
-                    context.go('/knowledge-hub');
-                  },
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    child: Row(
-                      children: [
-                        Icon(Icons.library_books_outlined,
-                            color: Theme.of(context).extension<AppThemeExtension>()!.iconColor,
-                            size: 18),
-                        const SizedBox(width: 12),
-                        const Text(
-                          'Knowledge Hub',
-                          style: TextStyle(
-                            color: Color(0xFFE0E0E0),
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              SizedBox(height: 12),
-              InkWell(
-                onTap: () =>
-                    setState(() => _chatsExpanded = !_chatsExpanded),
-                child: Row(
-                  children: [
-                    Text('Chats',
-                        style: TextStyle(
-                            color: Theme.of(context)
-                                .extension<AppThemeExtension>()!
-                                .textTertiary,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600)),
-                    SizedBox(width: 4),
-                    Icon(
-                        _chatsExpanded
-                            ? Icons.keyboard_arrow_down
-                            : Icons.keyboard_arrow_right,
-                        color: Theme.of(context)
-                            .extension<AppThemeExtension>()!
-                            .textTertiary,
-                        size: 16),
-                  ],
-                ),
-              ),
-              SizedBox(height: 12),
-              Expanded(
-                child: !_chatsExpanded
-                    ? SizedBox.shrink()
-                    : Builder(
-                        builder: (context) {
-                      if (state.isLoadingThreads) {
-                        return Center(
-                          child: Padding(
-                            padding: EdgeInsets.only(top: 24.0),
-                            child: CupertinoActivityIndicator(radius: 10),
-                          ),
-                        );
-                      }
-
-                      final timelineChats = state.pastThreads
-                          .where((t) => t['is_archived'] != true)
-                          .toList();
-                      if (timelineChats.isEmpty) {
-                        return SizedBox.shrink();
-                      }
-
-                      final now = DateTime.now();
-                      final today = DateTime(now.year, now.month, now.day);
-                      final yesterday = today.subtract(const Duration(days: 1));
-                      final lastWeek = today.subtract(const Duration(days: 7));
-
-                      final todayChats = <Map<String, dynamic>>[];
-                      final yesterdayChats = <Map<String, dynamic>>[];
-                      final lastWeekChats = <Map<String, dynamic>>[];
-                      final olderChats = <Map<String, dynamic>>[];
-
-                      for (final chat in timelineChats) {
-                        final tsRaw = chat['_timestamp'];
-                        final tsSec = tsRaw is num ? tsRaw.toDouble() : 0.0;
-                        final date = tsSec > 0
-                            ? DateTime.fromMillisecondsSinceEpoch(
-                                (tsSec * 1000).toInt())
-                            : DateTime.now();
-                        final justDate =
-                            DateTime(date.year, date.month, date.day);
-
-                        if (!justDate.isBefore(today)) {
-                          todayChats.add(chat);
-                        } else if (!justDate.isBefore(yesterday)) {
-                          yesterdayChats.add(chat);
-                        } else if (!justDate.isBefore(lastWeek)) {
-                          lastWeekChats.add(chat);
-                        } else {
-                          olderChats.add(chat);
-                        }
-                      }
-
-                      final flatItems = <dynamic>[];
-                      if (todayChats.isNotEmpty) {
-                        flatItems.add('Today');
-                        flatItems.addAll(todayChats);
-                      }
-                      if (yesterdayChats.isNotEmpty) {
-                        flatItems.add('Yesterday');
-                        flatItems.addAll(yesterdayChats);
-                      }
-                      if (lastWeekChats.isNotEmpty) {
-                        flatItems.add('Previous 7 days');
-                        flatItems.addAll(lastWeekChats);
-                      }
-                      if (olderChats.isNotEmpty) {
-                        flatItems.add('Older');
-                        flatItems.addAll(olderChats);
-                      }
-
-                      return ListView.builder(
-                        itemCount: flatItems.length,
-                        itemBuilder: (context, index) {
-                          final item = flatItems[index];
-                          if (item is String) {
-                            return Padding(
-                              padding: EdgeInsets.only(
-                                  top: 16.0, bottom: 8.0, left: 8.0),
-                              child: Text(
-                                item,
+                        SizedBox(
+                          height: 24,
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              const Text(
+                                'Veraxi',
                                 style: TextStyle(
-                                  color: Color(0xFF676767),
-                                  fontSize: 11,
+                                  color: Colors.white,
+                                  fontSize: 14,
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
-                            );
-                          }
-
-                          final threadData = item as Map<String, dynamic>;
-                          final threadId =
-                              threadData['thread_id'] as String? ?? '';
-                          final title = threadData['title'] as String? ??
-                              (threadId.length > 8
-                                  ? threadId.substring(0, 8) + '...'
-                                  : threadId);
-                          final isSelected = state.threadId == threadId;
-                          bool isHovered = false;
-
-                          return StatefulBuilder(builder: (context, setState) {
-                            return MouseRegion(
-                              onEnter: (_) => setState(() => isHovered = true),
-                              onExit: (_) => setState(() => isHovered = false),
-                              child: InkWell(
-                                onTap: () {
-                                  viewModel.selectThread(threadId);
-                                },
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    color: isSelected
-                                        ? Theme.of(context)
-                                            .extension<AppThemeExtension>()!
-                                            .borderColor
-                                        : Colors.transparent,
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  padding: EdgeInsets.symmetric(
-                                      vertical: 8.0, horizontal: 8.0),
-                                  child: Row(
-                                    children: [
-                                      Expanded(
-                                        child: Text(
-                                          title,
-                                          style: TextStyle(
-                                            color: isSelected
-                                                ? Colors.white
-                                                : Theme.of(context)
-                                                    .extension<
-                                                        AppThemeExtension>()!
-                                                    .iconColor,
-                                            fontSize: 13,
-                                            fontWeight: isSelected
-                                                ? FontWeight.w500
-                                                : FontWeight.normal,
-                                          ),
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                      Visibility(
-                                        visible: isHovered || isSelected,
-                                        maintainSize: true,
-                                        maintainAnimation: true,
-                                        maintainState: true,
-                                        child: Theme(
-                                          data: Theme.of(context).copyWith(
-                                            hoverColor: Colors.transparent,
-                                            splashColor: Colors.transparent,
-                                            highlightColor: Colors.transparent,
-                                          ),
-                                          child: SizedBox(
-                                            width: 24,
-                                            height: 24,
-                                            child: PopupMenuButton<String>(
-                                              icon: Icon(Icons.more_horiz,
-                                                  color: isSelected
-                                                      ? Colors.white
-                                                      : Theme.of(context)
-                                                          .extension<
-                                                              AppThemeExtension>()!
-                                                          .iconColor,
-                                                  size: 16),
-                                              color: Theme.of(context)
-                                                  .extension<
-                                                      AppThemeExtension>()!
-                                                  .borderColor,
-                                              shape: RoundedRectangleBorder(
-                                                  borderRadius:
-                                                      BorderRadius.circular(8)),
-                                              padding: EdgeInsets.zero,
-                                              itemBuilder: (context) {
-                                                final isPinned =
-                                                    threadData['is_pinned'] ==
-                                                        true;
-                                                final isArchived =
-                                                    threadData['is_archived'] ==
-                                                        true;
-                                                return [
-                                                  _buildPopupMenuItem(
-                                                      'Share', Icons.share),
-                                                  _buildPopupMenuItem(
-                                                      isPinned
-                                                          ? 'Unpin'
-                                                          : 'Pin',
-                                                      isPinned
-                                                          ? Icons.push_pin
-                                                          : Icons
-                                                              .push_pin_outlined),
-                                                  _buildPopupMenuItem('Rename',
-                                                      Icons.edit_outlined),
-                                                  _buildPopupMenuItem(
-                                                      'Duplicate',
-                                                      Icons.copy_outlined),
-                                                  _buildPopupMenuItem(
-                                                      'Change project',
-                                                      Icons.folder_outlined),
-                                                  _buildPopupMenuItem(
-                                                      isArchived
-                                                          ? 'Unarchive'
-                                                          : 'Archive',
-                                                      isArchived
-                                                          ? Icons.unarchive
-                                                          : Icons
-                                                              .archive_outlined),
-                                                  _buildPopupMenuItem('Delete',
-                                                      Icons.delete_outline,
-                                                      isDestructive: true),
-                                                ];
-                                              },
-                                              onSelected: (value) async {
-                                                final viewModel = ref.read(
-                                                    chatViewModelProvider
-                                                        .notifier);
-                                                if (value == 'Share') {
-                                                  _showShareDialog(context,
-                                                      viewModel, threadId);
-                                                } else if (value == 'Pin' ||
-                                                    value == 'Unpin') {
-                                                  await viewModel
-                                                      .togglePinThread(
-                                                          threadId);
-                                                } else if (value == 'Rename') {
-                                                  _showRenameDialog(
-                                                      context,
-                                                      viewModel,
-                                                      threadId,
-                                                      title);
-                                                } else if (value ==
-                                                    'Duplicate') {
-                                                  await viewModel
-                                                      .duplicateThread(
-                                                          threadId);
-                                                } else if (value ==
-                                                    'Change project') {
-                                                  _showChangeProjectDialog(
-                                                      context,
-                                                      viewModel,
-                                                      threadId);
-                                                } else if (value == 'Archive' ||
-                                                    value == 'Unarchive') {
-                                                  await viewModel
-                                                      .toggleArchiveThread(
-                                                          threadId);
-                                                } else if (value == 'Delete') {
-                                                  await viewModel
-                                                      .deleteThread(threadId);
-                                                }
-                                              },
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ],
+                              Tooltip(
+                                message: 'Close sidebar',
+                                child: Material(
+                                  color: Colors.transparent,
+                                  child: InkWell(
+                                    borderRadius: BorderRadius.circular(6),
+                                    onTap: () {
+                                      ref
+                                          .read(sidebarStateProvider.notifier)
+                                          .state = false;
+                                    },
+                                    child: SizedBox(
+                                      width: 24,
+                                      height: 24,
+                                      child: Center(
+                                          child: _buildSidebarToggleIcon()),
+                                    ),
                                   ),
                                 ),
                               ),
-                            );
-                          });
-                        },
-                      );
-                    },
-                  ),
-                ),
-              SizedBox(height: 16),
-              Row(
-                children: [
-                  ProfileMenuButton(
-                    onDeleteAllChats: () => viewModel.deleteAllChats(),
-                  ),
-                  SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      resolveDisplayName(),
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
-              ),
+                            ],
+                          ),
+                        ),
+                        SizedBox(height: 18),
+                        PinnedModelsWidget(
+                          pinnedModels: modelSelection.pinnedModels.toList(),
+                          selectedModel: modelSelection.selectedModel,
+                          onModelSelected: (model, provider) {
+                            ref
+                                .read(modelSelectionProvider.notifier)
+                                .selectModel(model, provider: provider);
+                          },
+                          onModelUnpinned: (model) {
+                            ref
+                                .read(modelSelectionProvider.notifier)
+                                .unpinModel(model);
+                          },
+                        ),
+                        ProjectListWidget(
+                          chatState: state,
+                          chatViewModel: viewModel,
+                          projectState: projectState,
+                          projectViewModel: projectViewModel,
+                          showShareDialog: _showShareDialog,
+                          showRenameDialog: _showRenameDialog,
+                          showChangeProjectDialog: _showChangeProjectDialog,
+                        ),
+                        SizedBox(height: 12),
+                        Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(6),
+                            onTap: () {
+                              viewModel.startNewChat();
+                            },
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              child: Row(
+                                children: [
+                                  Icon(Icons.edit_square,
+                                      color: Theme.of(context)
+                                          .extension<AppThemeExtension>()!
+                                          .iconColor,
+                                      size: 18),
+                                  const SizedBox(width: 12),
+                                  const Text(
+                                    'New chat',
+                                    style: TextStyle(
+                                      color: Color(0xFFE0E0E0),
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        SizedBox(height: 4),
+                        Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(6),
+                            onTap: () {
+                              context.go('/knowledge-hub');
+                            },
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              child: Row(
+                                children: [
+                                  Icon(Icons.library_books_outlined,
+                                      color: Theme.of(context)
+                                          .extension<AppThemeExtension>()!
+                                          .iconColor,
+                                      size: 18),
+                                  const SizedBox(width: 12),
+                                  const Text(
+                                    'Knowledge Hub',
+                                    style: TextStyle(
+                                      color: Color(0xFFE0E0E0),
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        SizedBox(height: 12),
+                        InkWell(
+                          onTap: () =>
+                              setState(() => _chatsExpanded = !_chatsExpanded),
+                          child: Row(
+                            children: [
+                              Text('Chats',
+                                  style: TextStyle(
+                                      color: Theme.of(context)
+                                          .extension<AppThemeExtension>()!
+                                          .textTertiary,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600)),
+                              SizedBox(width: 4),
+                              Icon(
+                                  _chatsExpanded
+                                      ? Icons.keyboard_arrow_down
+                                      : Icons.keyboard_arrow_right,
+                                  color: Theme.of(context)
+                                      .extension<AppThemeExtension>()!
+                                      .textTertiary,
+                                  size: 16),
+                            ],
+                          ),
+                        ),
+                        SizedBox(height: 12),
+                        Expanded(
+                          child: !_chatsExpanded
+                              ? SizedBox.shrink()
+                              : Builder(
+                                  builder: (context) {
+                                    if (state.isLoadingThreads) {
+                                      return Center(
+                                        child: Padding(
+                                          padding: EdgeInsets.only(top: 24.0),
+                                          child: CupertinoActivityIndicator(
+                                              radius: 10),
+                                        ),
+                                      );
+                                    }
+
+                                    final timelineChats = state.pastThreads
+                                        .where((t) => t['is_archived'] != true)
+                                        .toList();
+                                    if (timelineChats.isEmpty) {
+                                      return SizedBox.shrink();
+                                    }
+
+                                    final now = DateTime.now();
+                                    final today =
+                                        DateTime(now.year, now.month, now.day);
+                                    final yesterday =
+                                        today.subtract(const Duration(days: 1));
+                                    final lastWeek =
+                                        today.subtract(const Duration(days: 7));
+
+                                    final todayChats = <Map<String, dynamic>>[];
+                                    final yesterdayChats =
+                                        <Map<String, dynamic>>[];
+                                    final lastWeekChats =
+                                        <Map<String, dynamic>>[];
+                                    final olderChats = <Map<String, dynamic>>[];
+
+                                    for (final chat in timelineChats) {
+                                      final tsRaw = chat['_timestamp'];
+                                      final tsSec =
+                                          tsRaw is num ? tsRaw.toDouble() : 0.0;
+                                      final date = tsSec > 0
+                                          ? DateTime.fromMillisecondsSinceEpoch(
+                                              (tsSec * 1000).toInt())
+                                          : DateTime.now();
+                                      final justDate = DateTime(
+                                          date.year, date.month, date.day);
+
+                                      if (!justDate.isBefore(today)) {
+                                        todayChats.add(chat);
+                                      } else if (!justDate
+                                          .isBefore(yesterday)) {
+                                        yesterdayChats.add(chat);
+                                      } else if (!justDate.isBefore(lastWeek)) {
+                                        lastWeekChats.add(chat);
+                                      } else {
+                                        olderChats.add(chat);
+                                      }
+                                    }
+
+                                    final flatItems = <dynamic>[];
+                                    if (todayChats.isNotEmpty) {
+                                      flatItems.add('Today');
+                                      flatItems.addAll(todayChats);
+                                    }
+                                    if (yesterdayChats.isNotEmpty) {
+                                      flatItems.add('Yesterday');
+                                      flatItems.addAll(yesterdayChats);
+                                    }
+                                    if (lastWeekChats.isNotEmpty) {
+                                      flatItems.add('Previous 7 days');
+                                      flatItems.addAll(lastWeekChats);
+                                    }
+                                    if (olderChats.isNotEmpty) {
+                                      flatItems.add('Older');
+                                      flatItems.addAll(olderChats);
+                                    }
+
+                                    return ListView.builder(
+                                      itemCount: flatItems.length,
+                                      itemBuilder: (context, index) {
+                                        final item = flatItems[index];
+                                        if (item is String) {
+                                          return Padding(
+                                            padding: EdgeInsets.only(
+                                                top: 16.0,
+                                                bottom: 8.0,
+                                                left: 8.0),
+                                            child: Text(
+                                              item,
+                                              style: TextStyle(
+                                                color: Color(0xFF676767),
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                          );
+                                        }
+
+                                        final threadData =
+                                            item as Map<String, dynamic>;
+                                        final threadId = threadData['thread_id']
+                                                as String? ??
+                                            '';
+                                        final title =
+                                            threadData['title'] as String? ??
+                                                (threadId.length > 8
+                                                    ? threadId.substring(0, 8) +
+                                                        '...'
+                                                    : threadId);
+                                        final isSelected =
+                                            state.threadId == threadId;
+                                        bool isHovered = false;
+
+                                        return StatefulBuilder(
+                                            builder: (context, setState) {
+                                          return MouseRegion(
+                                            onEnter: (_) => setState(
+                                                () => isHovered = true),
+                                            onExit: (_) => setState(
+                                                () => isHovered = false),
+                                            child: InkWell(
+                                              onTap: () {
+                                                viewModel
+                                                    .selectThread(threadId);
+                                              },
+                                              child: Container(
+                                                decoration: BoxDecoration(
+                                                  color: isSelected
+                                                      ? Theme.of(context)
+                                                          .extension<
+                                                              AppThemeExtension>()!
+                                                          .borderColor
+                                                      : Colors.transparent,
+                                                  borderRadius:
+                                                      BorderRadius.circular(8),
+                                                ),
+                                                padding: EdgeInsets.symmetric(
+                                                    vertical: 8.0,
+                                                    horizontal: 8.0),
+                                                child: Row(
+                                                  children: [
+                                                    Expanded(
+                                                      child: Text(
+                                                        title,
+                                                        style: TextStyle(
+                                                          color: isSelected
+                                                              ? Colors.white
+                                                              : Theme.of(
+                                                                      context)
+                                                                  .extension<
+                                                                      AppThemeExtension>()!
+                                                                  .iconColor,
+                                                          fontSize: 13,
+                                                          fontWeight: isSelected
+                                                              ? FontWeight.w500
+                                                              : FontWeight
+                                                                  .normal,
+                                                        ),
+                                                        overflow: TextOverflow
+                                                            .ellipsis,
+                                                      ),
+                                                    ),
+                                                    Visibility(
+                                                      visible: isHovered ||
+                                                          isSelected,
+                                                      maintainSize: true,
+                                                      maintainAnimation: true,
+                                                      maintainState: true,
+                                                      child: Theme(
+                                                        data: Theme.of(context)
+                                                            .copyWith(
+                                                          hoverColor: Colors
+                                                              .transparent,
+                                                          splashColor: Colors
+                                                              .transparent,
+                                                          highlightColor: Colors
+                                                              .transparent,
+                                                        ),
+                                                        child: SizedBox(
+                                                          width: 24,
+                                                          height: 24,
+                                                          child:
+                                                              PopupMenuButton<
+                                                                  String>(
+                                                            icon: Icon(
+                                                                Icons
+                                                                    .more_horiz,
+                                                                color: isSelected
+                                                                    ? Colors
+                                                                        .white
+                                                                    : Theme.of(
+                                                                            context)
+                                                                        .extension<
+                                                                            AppThemeExtension>()!
+                                                                        .iconColor,
+                                                                size: 16),
+                                                            color: Theme.of(
+                                                                    context)
+                                                                .extension<
+                                                                    AppThemeExtension>()!
+                                                                .borderColor,
+                                                            shape: RoundedRectangleBorder(
+                                                                borderRadius:
+                                                                    BorderRadius
+                                                                        .circular(
+                                                                            8)),
+                                                            padding:
+                                                                EdgeInsets.zero,
+                                                            itemBuilder:
+                                                                (context) {
+                                                              final isPinned =
+                                                                  threadData[
+                                                                          'is_pinned'] ==
+                                                                      true;
+                                                              final isArchived =
+                                                                  threadData[
+                                                                          'is_archived'] ==
+                                                                      true;
+                                                              return [
+                                                                _buildPopupMenuItem(
+                                                                    'Share',
+                                                                    Icons
+                                                                        .share),
+                                                                _buildPopupMenuItem(
+                                                                    isPinned
+                                                                        ? 'Unpin'
+                                                                        : 'Pin',
+                                                                    isPinned
+                                                                        ? Icons
+                                                                            .push_pin
+                                                                        : Icons
+                                                                            .push_pin_outlined),
+                                                                _buildPopupMenuItem(
+                                                                    'Rename',
+                                                                    Icons
+                                                                        .edit_outlined),
+                                                                _buildPopupMenuItem(
+                                                                    'Duplicate',
+                                                                    Icons
+                                                                        .copy_outlined),
+                                                                _buildPopupMenuItem(
+                                                                    'Change project',
+                                                                    Icons
+                                                                        .folder_outlined),
+                                                                _buildPopupMenuItem(
+                                                                    isArchived
+                                                                        ? 'Unarchive'
+                                                                        : 'Archive',
+                                                                    isArchived
+                                                                        ? Icons
+                                                                            .unarchive
+                                                                        : Icons
+                                                                            .archive_outlined),
+                                                                _buildPopupMenuItem(
+                                                                    'Delete',
+                                                                    Icons
+                                                                        .delete_outline,
+                                                                    isDestructive:
+                                                                        true),
+                                                              ];
+                                                            },
+                                                            onSelected:
+                                                                (value) async {
+                                                              final viewModel =
+                                                                  ref.read(
+                                                                      chatViewModelProvider
+                                                                          .notifier);
+                                                              if (value ==
+                                                                  'Share') {
+                                                                _showShareDialog(
+                                                                    context,
+                                                                    viewModel,
+                                                                    threadId);
+                                                              } else if (value ==
+                                                                      'Pin' ||
+                                                                  value ==
+                                                                      'Unpin') {
+                                                                await viewModel
+                                                                    .togglePinThread(
+                                                                        threadId);
+                                                              } else if (value ==
+                                                                  'Rename') {
+                                                                _showRenameDialog(
+                                                                    context,
+                                                                    viewModel,
+                                                                    threadId,
+                                                                    title);
+                                                              } else if (value ==
+                                                                  'Duplicate') {
+                                                                await viewModel
+                                                                    .duplicateThread(
+                                                                        threadId);
+                                                              } else if (value ==
+                                                                  'Change project') {
+                                                                _showChangeProjectDialog(
+                                                                    context,
+                                                                    viewModel,
+                                                                    threadId);
+                                                              } else if (value ==
+                                                                      'Archive' ||
+                                                                  value ==
+                                                                      'Unarchive') {
+                                                                await viewModel
+                                                                    .toggleArchiveThread(
+                                                                        threadId);
+                                                              } else if (value ==
+                                                                  'Delete') {
+                                                                await viewModel
+                                                                    .deleteThread(
+                                                                        threadId);
+                                                              }
+                                                            },
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ),
+                                          );
+                                        });
+                                      },
+                                    );
+                                  },
+                                ),
+                        ),
+                        SizedBox(height: 16),
+                        Row(
+                          children: [
+                            ProfileMenuButton(
+                              onDeleteAllChats: () =>
+                                  viewModel.deleteAllChats(),
+                            ),
+                            SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                resolveDisplayName(),
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
                       ],
                     ),
                   ),
