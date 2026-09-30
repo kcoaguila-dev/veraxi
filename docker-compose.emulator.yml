@@ -1,0 +1,34 @@
+version: '3'
+
+# Android emulator for local UI testing of the Veraxi APK.
+#
+# Usage:
+#   1. Start:   docker compose -f docker-compose.emulator.yml up -d
+#   2. Wait ~60s for Android to boot, then install the APK:
+#              adb connect localhost:5555
+#              adb -s localhost:5555 install /path/to/veraxi.apk
+#   3. Open browser at http://localhost:8081 (or https://android.veraxi.me)
+#      to see and interact with the full Android UI.
+#   4. Stop:    docker compose -f docker-compose.emulator.yml down
+
+services:
+  redroid:
+    image: redroid/redroid:13.0.0-latest
+    privileged: true
+    volumes:
+      - redroid-data:/data
+      - /dev/binderfs:/dev/binderfs
+    ports:
+      - "5555:5555"
+    command:
+      - "androidboot.redroid_gpu_mode=guest"
+
+  ws-scrcpy:
+    image: smanx/ws-scrcpy
+    ports:
+      - "8081:8000"
+    depends_on:
+      - redroid
+
+volumes:
+  redroid-data:
