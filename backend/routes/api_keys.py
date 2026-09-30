@@ -65,7 +65,7 @@ def register_api_key_routes(app_router, get_tenant_id, _get_supabase):
         try:
             response = sb.table("api_keys").insert(insert_data).execute()
             key_id = response.data[0]["id"]
-            logger.info(f"New API key created for tenant {tenant_id}: {key_prefix}…")
+            logger.info(f"New API key created for tenant {tenant_id}")
             return {
                 "id": key_id,
                 "name": payload.name,
