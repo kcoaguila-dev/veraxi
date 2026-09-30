@@ -366,7 +366,6 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
   Widget _buildSidebarContentActual(BuildContext context) {
     final state = ref.watch(chatViewModelProvider);
     final viewModel = ref.read(chatViewModelProvider.notifier);
-    final projectViewModel = ref.read(projectViewModelProvider.notifier);
     final modelSelection = ref.watch(modelSelectionProvider);
     final isSidebarOpen = widget.isSidebarOpen;
     return AnimatedContainer(
