@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:veraxi_app/features/chat/view_models/chat_view_model.dart';
 import 'package:veraxi_app/core/providers/project_view_model.dart';
-import 'package:veraxi_app/features/project/views/widgets/create_project_dialog.dart';
+
 import 'package:veraxi_app/core/theme_extension.dart';
 
 class ProjectListWidget extends ConsumerStatefulWidget {
