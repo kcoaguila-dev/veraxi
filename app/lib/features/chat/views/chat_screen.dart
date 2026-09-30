@@ -282,12 +282,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                 ),
                               ),
                             ),
-                            // Web Search toggle — flush next to the model pill
+                            // Metrics toggle — flush next to the model pill
                             const SizedBox(width: 12),
                             Tooltip(
                               message: state.showTelemetry
-                                  ? 'Web Search (On)'
-                                  : 'Enable Web Search',
+                                  ? 'Metrics (On)'
+                                  : 'Show Metrics',
                               child: InkWell(
                                 borderRadius: BorderRadius.circular(6),
                                 onTap: () => viewModel.toggleTelemetry(),
@@ -297,7 +297,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
                                       Text(
-                                        'Web Search',
+                                        'Metrics',
                                         style: TextStyle(
                                           color: state.showTelemetry
                                               ? ext.primaryGradientStart

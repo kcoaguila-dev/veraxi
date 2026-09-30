@@ -12,7 +12,6 @@ import 'package:veraxi_app/core/providers/project_view_model.dart';
 import 'package:veraxi_app/features/chat/views/widgets/pinned_models_widget.dart';
 import 'package:veraxi_app/features/project/views/widgets/project_list_widget.dart';
 import 'package:veraxi_app/core/widgets/profile_menu_button.dart';
-import 'package:veraxi_app/core/widgets/veraxi_logo.dart' as veraxi_logo;
 
 class ChatSidebar extends ConsumerStatefulWidget {
   final bool isSidebarOpen;
@@ -30,7 +29,6 @@ class ChatSidebar extends ConsumerStatefulWidget {
 
 class _ChatSidebarState extends ConsumerState<ChatSidebar> {
   bool _chatsExpanded = true;
-  bool _isLogoHovered = false;
 
   static const String _sidebarToggleSvg = '''
 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -55,26 +53,20 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         const SizedBox(height: 20),
-        MouseRegion(
-          onEnter: (_) => setState(() => _isLogoHovered = true),
-          onExit: (_) => setState(() => _isLogoHovered = false),
-          child: Tooltip(
-            message: 'Open sidebar',
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                borderRadius: BorderRadius.circular(8),
-                onTap: () {
-                  ref.read(sidebarStateProvider.notifier).state = true;
-                },
-                child: SizedBox(
-                  width: 36,
-                  height: 36,
-                  child: Center(
-                    child: _isLogoHovered
-                        ? _buildSidebarToggleIcon()
-                        : const veraxi_logo.VeraxiLogo(size: 20),
-                  ),
+        Tooltip(
+          message: 'Open sidebar',
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(8),
+              onTap: () {
+                ref.read(sidebarStateProvider.notifier).state = true;
+              },
+              child: SizedBox(
+                width: 36,
+                height: 36,
+                child: Center(
+                  child: _buildSidebarToggleIcon(),
                 ),
               ),
             ),
@@ -400,19 +392,13 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    Row(
-                      children: [
-                        const veraxi_logo.VeraxiLogo(size: 16),
-                        const SizedBox(width: 8),
-                        const Text(
-                          'Veraxi',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
+                    const Text(
+                      'Veraxi',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                     Tooltip(
                       message: 'Close sidebar',
