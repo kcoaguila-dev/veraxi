@@ -1,6 +1,7 @@
 import 'package:flutter/services.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:veraxi_app/features/chat/view_models/chat_history_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -96,6 +97,18 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
                 size: 20),
             onPressed: () {
               viewModel.startNewChat();
+            },
+          ),
+        ),
+        const SizedBox(height: 16),
+        Tooltip(
+          message: 'My Library',
+          child: IconButton(
+            icon: Icon(Icons.library_books_outlined,
+                color: Theme.of(context).extension<AppThemeExtension>()!.iconColor,
+                size: 20),
+            onPressed: () {
+              context.go('/admin');
             },
           ),
         ),
@@ -461,6 +474,35 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
                         const SizedBox(width: 12),
                         const Text(
                           'New chat',
+                          style: TextStyle(
+                            color: Color(0xFFE0E0E0),
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              SizedBox(height: 4),
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(6),
+                  onTap: () {
+                    context.go('/admin');
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Row(
+                      children: [
+                        Icon(Icons.library_books_outlined,
+                            color: Theme.of(context).extension<AppThemeExtension>()!.iconColor,
+                            size: 18),
+                        const SizedBox(width: 12),
+                        const Text(
+                          'My Library',
                           style: TextStyle(
                             color: Color(0xFFE0E0E0),
                             fontSize: 14,
