@@ -99,6 +99,7 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
                 size: 20),
             onPressed: () {
               viewModel.startNewChat();
+              context.go('/chat');
             },
           ),
         ),
@@ -470,6 +471,7 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
                             borderRadius: BorderRadius.circular(6),
                             onTap: () {
                               viewModel.startNewChat();
+                              context.go('/chat');
                             },
                             child: Padding(
                               padding: const EdgeInsets.symmetric(vertical: 8),
@@ -676,6 +678,7 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
                                               onTap: () {
                                                 viewModel
                                                     .selectThread(threadId);
+                                                context.go('/chat');
                                               },
                                               child: Container(
                                                 decoration: BoxDecoration(
