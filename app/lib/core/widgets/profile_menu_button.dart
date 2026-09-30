@@ -96,7 +96,7 @@ class _ProfileMenuButtonState extends ConsumerState<ProfileMenuButton> {
     );
 
     return MenuAnchor(
-      alignmentOffset: const Offset(40, -320),
+      alignmentOffset: const Offset(40, 0),
       style: menuStyle,
       builder:
           (BuildContext context, MenuController controller, Widget? child) {
