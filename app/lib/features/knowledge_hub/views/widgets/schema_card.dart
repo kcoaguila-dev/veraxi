@@ -56,7 +56,7 @@ class _SchemaCardState extends ConsumerState<SchemaCard> {
           LayoutBuilder(
             builder: (context, constraints) {
               final isMobile = constraints.maxWidth < 600;
-              
+
               final autoGenerateSection = Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [

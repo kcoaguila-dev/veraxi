@@ -107,7 +107,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           width: MediaQuery.sizeOf(context).width,
           child: Drawer(
             backgroundColor: const Color(0xFF171717),
-            shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+            shape:
+                const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
             child: const ChatSidebar(isSidebarOpen: true, isMobile: true),
           ),
         );
@@ -135,7 +136,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       // Main Content
                       Column(
                         children: [
-
                           Expanded(
                             child: state.showAllProjectsDashboard
                                 ? const AllProjectsDashboardView()
@@ -183,7 +183,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                         ],
                       ),
 
-
                       // Top Bar Background to prevent text overlap
                       if (!state.showAllProjectsDashboard &&
                           !state.showProjectDashboard) ...[
@@ -226,7 +225,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                   });
                                   final prefs =
                                       await SharedPreferences.getInstance();
-                                  await prefs.setString('selected_model', model);
+                                  await prefs.setString(
+                                      'selected_model', model);
                                 },
                                 onModelPinned: (model) {
                                   setState(() => _pinnedModels.add(model));
@@ -246,7 +246,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      if (_selectedModel != 'Select a model') ...[
+                                      if (_selectedModel !=
+                                          'Select a model') ...[
                                         const Icon(Icons.psychology,
                                             size: 16, color: Colors.white),
                                         const SizedBox(width: 8),
@@ -339,7 +340,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                           top: 12,
                           left: 8,
                           child: IconButton(
-                            icon: const Icon(Icons.menu, color: Color(0xFFB4B4B4)),
+                            icon: const Icon(Icons.menu,
+                                color: Color(0xFFB4B4B4)),
                             onPressed: () => Scaffold.of(context).openDrawer(),
                           ),
                         ),
@@ -397,7 +399,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                             child: ConstrainedBox(
                               constraints: const BoxConstraints(maxWidth: 800),
                               child: Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 16),
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 16),
                                 child: ChatInput(
                                   projectName: state.activeProjectName,
                                   isLoading: state.isLoading,

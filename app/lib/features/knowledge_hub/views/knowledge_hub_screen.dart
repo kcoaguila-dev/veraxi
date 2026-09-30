@@ -764,7 +764,8 @@ class _KnowledgeHubScreenState extends ConsumerState<KnowledgeHubScreen> {
           width: MediaQuery.sizeOf(context).width,
           child: Drawer(
             backgroundColor: const Color(0xFF171717),
-            shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+            shape:
+                const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
             child: const ChatSidebar(isSidebarOpen: true, isMobile: true),
           ),
         );
@@ -782,12 +783,15 @@ class _KnowledgeHubScreenState extends ConsumerState<KnowledgeHubScreen> {
                     children: [
                       if (isMobile)
                         Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 4),
                           child: Row(
                             children: [
                               IconButton(
-                                icon: const Icon(Icons.menu, color: Color(0xFFB4B4B4)),
-                                onPressed: () => Scaffold.of(context).openDrawer(),
+                                icon: const Icon(Icons.menu,
+                                    color: Color(0xFFB4B4B4)),
+                                onPressed: () =>
+                                    Scaffold.of(context).openDrawer(),
                               ),
                               const SizedBox(width: 8),
                               const Text('Knowledge Hub',
