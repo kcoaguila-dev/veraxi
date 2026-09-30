@@ -371,7 +371,7 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 250),
       curve: Curves.easeInOut,
-      width: isSidebarOpen ? 260 : 64,
+      width: isSidebarOpen ? (widget.isMobile ? double.infinity : 260) : 64,
       color:
           Theme.of(context).extension<AppThemeExtension>()!.sidebarBackground,
       child: ClipRect(
@@ -395,7 +395,8 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
               top: 0,
               bottom: 0,
               left: 0,
-              width: 260,
+              right: widget.isMobile ? 0 : null,
+              width: widget.isMobile ? null : 260,
               child: AnimatedOpacity(
                 opacity: isSidebarOpen ? 1.0 : 0.0,
                 duration: const Duration(milliseconds: 250),
