@@ -495,7 +495,7 @@ class _ControlPanelScreenState extends ConsumerState<ControlPanelScreen> {
                       scrollDirection: Axis.horizontal,
                       children: [
                         _buildMobileMenuItem('MCP Integrations', 0),
-                        _buildMobileMenuItem('Knowledge Base', 1),
+                        _buildMobileMenuItem('My Library', 1),
                         _buildMobileMenuItem('Billing', 2),
                         _buildMobileMenuItem('Infrastructure', 3),
                         _buildMobileMenuItem('Security & Logs', 4),
@@ -585,7 +585,7 @@ class _ControlPanelScreenState extends ConsumerState<ControlPanelScreen> {
                         _buildMenuItem('MCP Integrations', Icons.hub_outlined,
                             _selectedIndex == 0, 0),
                         SizedBox(height: 8),
-                        _buildMenuItem('Knowledge Base', Icons.dataset_outlined,
+                        _buildMenuItem('My Library', Icons.dataset_outlined,
                             _selectedIndex == 1, 1),
                         SizedBox(height: 8),
                         _buildMenuItem('Billing', Icons.credit_card_outlined,
@@ -766,12 +766,12 @@ class _ControlPanelScreenState extends ConsumerState<ControlPanelScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Knowledge Base',
+        Text('My Library',
             style: theme.textTheme.headlineMedium
                 ?.copyWith(color: Colors.white, fontWeight: FontWeight.bold)),
         SizedBox(height: 8),
         Text(
-          'Manage your custom knowledge base.',
+          'Manage your custom library and reference materials.',
           style: TextStyle(
               color:
                   Theme.of(context).extension<AppThemeExtension>()!.iconColor,
@@ -912,7 +912,7 @@ class _ControlPanelScreenState extends ConsumerState<ControlPanelScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Knowledge Graph Schema (Ontology)',
+          Text('Information Extraction Rules',
               style: TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.w600,

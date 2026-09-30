@@ -39,7 +39,7 @@ class _SchemaCardState extends ConsumerState<SchemaCard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Knowledge Graph Schema (Ontology)',
+          Text('Information Extraction Rules',
               style: TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.w600,
