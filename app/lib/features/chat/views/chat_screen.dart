@@ -418,12 +418,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
                       // Footer Legal Text
                       Positioned(
-                        bottom: 12,
-                        left: 0,
-                        right: 0,
+                        bottom: 16,
+                        left: 16,
+                        right: 16,
                         child: Center(
                           child: Text(
                             'Veraxi v0.1.0 - Sovereign Intelligence. Privacy policy | Terms of service',
+                            textAlign: TextAlign.center,
                             style: TextStyle(
                                 color: const Color(0xFF878787), fontSize: 12),
                           ),
