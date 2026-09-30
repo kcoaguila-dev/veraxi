@@ -235,7 +235,7 @@ class _AgentSkillsTabState extends ConsumerState<AgentSkillsTab> {
               Switch(
                 value: isOn,
                 onChanged: onToggle,
-                activeColor: Theme.of(context).colorScheme.primary,
+                activeThumbColor: Theme.of(context).colorScheme.primary,
               ),
             ],
           ),

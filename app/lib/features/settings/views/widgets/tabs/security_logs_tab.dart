@@ -126,7 +126,7 @@ class _SecurityLogsTabState extends ConsumerState<SecurityLogsTab> {
                       setState(() => _langsmithEnabled = val);
                       _saveSettings();
                     },
-                    activeColor: theme.colorScheme.primary,
+                    activeThumbColor: theme.colorScheme.primary,
                   ),
                 ],
               ),

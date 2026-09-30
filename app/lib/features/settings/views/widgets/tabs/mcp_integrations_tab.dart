@@ -213,7 +213,7 @@ class _McpIntegrationsTabState extends ConsumerState<McpIntegrationsTab> {
               Switch(
                 value: isOn,
                 onChanged: onToggle,
-                activeColor: Theme.of(context).colorScheme.primary,
+                activeThumbColor: Theme.of(context).colorScheme.primary,
               ),
             ],
           ),
