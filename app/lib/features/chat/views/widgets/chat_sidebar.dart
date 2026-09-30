@@ -30,6 +30,7 @@ class ChatSidebar extends ConsumerStatefulWidget {
 
 class _ChatSidebarState extends ConsumerState<ChatSidebar> {
   bool _chatsExpanded = true;
+  bool _isLogoHovered = false;
 
   static const String _sidebarToggleSvg = '''
 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -48,6 +49,73 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
           BlendMode.srcIn),
     );
   }
+
+  Widget _buildNarrowUI(BuildContext context, ChatViewModel viewModel) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        const SizedBox(height: 20),
+        MouseRegion(
+          onEnter: (_) => setState(() => _isLogoHovered = true),
+          onExit: (_) => setState(() => _isLogoHovered = false),
+          child: Tooltip(
+            message: 'Open sidebar',
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(8),
+                onTap: () {
+                  ref.read(sidebarStateProvider.notifier).state = true;
+                },
+                child: SizedBox(
+                  width: 36,
+                  height: 36,
+                  child: Center(
+                    child: _isLogoHovered
+                        ? _buildSidebarToggleIcon()
+                        : const veraxi_logo.VeraxiLogo(size: 20),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 32),
+        Tooltip(
+          message: 'New project',
+          child: IconButton(
+            icon: Icon(Icons.create_new_folder_outlined,
+                color: Theme.of(context).extension<AppThemeExtension>()!.iconColor,
+                size: 20),
+            onPressed: () {
+              // Creating a new project requires a dialog, for now we open the change project dialog
+              // since it will have "create" if we add it, but normally we just start a new chat.
+              // We'll leave it as startNewChat for now.
+              viewModel.startNewChat();
+            },
+          ),
+        ),
+        const SizedBox(height: 16),
+        Tooltip(
+          message: 'New chat',
+          child: IconButton(
+            icon: Icon(Icons.edit_square,
+                color: Theme.of(context).extension<AppThemeExtension>()!.iconColor,
+                size: 20),
+            onPressed: () {
+              viewModel.startNewChat();
+            },
+          ),
+        ),
+        const Spacer(),
+        ProfileMenuButton(
+          onDeleteAllChats: () => viewModel.deleteAllChats(),
+        ),
+        const SizedBox(height: 16),
+      ],
+    );
+  }
+
 
   PopupMenuItem<String> _buildPopupMenuItem(String title, IconData icon,
       {bool isDestructive = false}) {
@@ -291,17 +359,41 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 250),
       curve: Curves.easeInOut,
-      width: isSidebarOpen ? 260 : 0,
+      width: isSidebarOpen ? 260 : 64,
+      color: Theme.of(context).extension<AppThemeExtension>()!.sidebarBackground,
       child: ClipRect(
-        child: Container(
-          width: 260,
-          color: Theme.of(context)
-              .extension<AppThemeExtension>()!
-              .sidebarBackground,
-          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+        child: Stack(
+          children: [
+            Positioned(
+              top: 0,
+              bottom: 0,
+              left: 0,
+              width: 64,
+              child: AnimatedOpacity(
+                opacity: isSidebarOpen ? 0.0 : 1.0,
+                duration: const Duration(milliseconds: 150),
+                child: IgnorePointer(
+                  ignoring: isSidebarOpen,
+                  child: _buildNarrowUI(context, viewModel),
+                ),
+              ),
+            ),
+            Positioned(
+              top: 0,
+              bottom: 0,
+              left: 0,
+              width: 260,
+              child: AnimatedOpacity(
+                opacity: isSidebarOpen ? 1.0 : 0.0,
+                duration: const Duration(milliseconds: 250),
+                child: IgnorePointer(
+                  ignoring: !isSidebarOpen,
+                  child: Container(
+                    width: 260,
+                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
               SizedBox(
                 height: 24,
                 child: Row(
@@ -691,8 +783,13 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
                   ),
                 ],
               ),
-            ],
-          ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
