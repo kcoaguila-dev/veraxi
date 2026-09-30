@@ -103,9 +103,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       key: _scaffoldKey, // Add a key to access the scaffold
       backgroundColor: theme.scaffoldBackgroundColor,
       drawer: Builder(builder: (context) {
-        return Drawer(
-          backgroundColor: const Color(0xFF171717),
-          child: const ChatSidebar(isSidebarOpen: true, isMobile: true),
+        return SizedBox(
+          width: MediaQuery.sizeOf(context).width,
+          child: Drawer(
+            backgroundColor: const Color(0xFF171717),
+            shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+            child: const ChatSidebar(isSidebarOpen: true, isMobile: true),
+          ),
         );
       }),
       endDrawer: Consumer(
@@ -131,33 +135,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       // Main Content
                       Column(
                         children: [
-                          if (isMobile)
-                            Container(
-                              height: 56,
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 16),
-                              decoration: const BoxDecoration(
-                                border: Border(
-                                    bottom:
-                                        BorderSide(color: Color(0xFF2A2A2A))),
-                              ),
-                              child: Row(
-                                children: [
-                                  IconButton(
-                                    icon: const Icon(Icons.menu,
-                                        color: Colors.white),
-                                    onPressed: () =>
-                                        Scaffold.of(context).openDrawer(),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  const Text('Veraxi',
-                                      style: TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w600)),
-                                ],
-                              ),
-                            ),
+
                           Expanded(
                             child: state.showAllProjectsDashboard
                                 ? const AllProjectsDashboardView()
@@ -205,152 +183,166 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                         ],
                       ),
 
+
                       // Top Bar Background to prevent text overlap
-                      Positioned(
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        height: 60,
-                        child: Container(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                              colors: [
-                                theme.scaffoldBackgroundColor,
-                                theme.scaffoldBackgroundColor
-                                    .withValues(alpha: 0.9),
-                                theme.scaffoldBackgroundColor
-                                    .withValues(alpha: 0.0),
-                              ],
-                              stops: const [0.6, 0.9, 1.0],
+                      if (!state.showAllProjectsDashboard &&
+                          !state.showProjectDashboard) ...[
+                        Positioned(
+                          top: 0,
+                          left: 0,
+                          right: 0,
+                          height: 60,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [
+                                  theme.scaffoldBackgroundColor,
+                                  theme.scaffoldBackgroundColor
+                                      .withValues(alpha: 0.9),
+                                  theme.scaffoldBackgroundColor
+                                      .withValues(alpha: 0.0),
+                                ],
+                                stops: const [0.6, 0.9, 1.0],
+                              ),
                             ),
                           ),
                         ),
-                      ),
 
-                      // Top Bar: Model Selector (like LibreChat)
-                      Positioned(
-                        top: 12,
-                        left: 16,
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            ModelSelectorMenu(
-                              selectedModel: _selectedModel,
-                              pinnedModels: _pinnedModels.toList(),
-                              onModelSelected: (model) async {
-                                setState(() {
-                                  _selectedModel = model;
-                                });
-                                final prefs =
-                                    await SharedPreferences.getInstance();
-                                await prefs.setString('selected_model', model);
-                              },
-                              onModelPinned: (model) {
-                                setState(() => _pinnedModels.add(model));
-                              },
-                              onModelUnpinned: (model) {
-                                setState(() => _pinnedModels.remove(model));
-                              },
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 12, vertical: 6),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFF1E1E1E),
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(
-                                      color: const Color(0xFF2A2A2A)),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    if (_selectedModel != 'Select a model') ...[
-                                      const Icon(Icons.psychology,
-                                          size: 16, color: Colors.white),
-                                      const SizedBox(width: 8),
-                                    ],
-                                    Text(_selectedModel,
-                                        style: const TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.w500)),
-                                    const SizedBox(width: 4),
-                                    const Icon(Icons.keyboard_arrow_down,
-                                        size: 16, color: Colors.white),
-                                  ],
-                                ),
-                              ),
-                            ),
-                            // Metrics toggle — flush next to the model pill
-                            const SizedBox(width: 12),
-                            Tooltip(
-                              message: state.showTelemetry
-                                  ? 'Metrics (On)'
-                                  : 'Show Metrics',
-                              child: InkWell(
-                                borderRadius: BorderRadius.circular(6),
-                                onTap: () => viewModel.toggleTelemetry(),
-                                child: Padding(
+                        // Top Bar: Model Selector (like LibreChat)
+                        Positioned(
+                          top: 12,
+                          left: isMobile ? 56 : 16,
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              ModelSelectorMenu(
+                                selectedModel: _selectedModel,
+                                pinnedModels: _pinnedModels.toList(),
+                                onModelSelected: (model) async {
+                                  setState(() {
+                                    _selectedModel = model;
+                                  });
+                                  final prefs =
+                                      await SharedPreferences.getInstance();
+                                  await prefs.setString('selected_model', model);
+                                },
+                                onModelPinned: (model) {
+                                  setState(() => _pinnedModels.add(model));
+                                },
+                                onModelUnpinned: (model) {
+                                  setState(() => _pinnedModels.remove(model));
+                                },
+                                child: Container(
                                   padding: const EdgeInsets.symmetric(
-                                      horizontal: 8, vertical: 4),
+                                      horizontal: 12, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF1E1E1E),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                        color: const Color(0xFF2A2A2A)),
+                                  ),
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      Text(
-                                        'Metrics',
-                                        style: TextStyle(
-                                          color: const Color(0xFF878787),
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      SizedBox(
-                                        height: 20,
-                                        width: 34,
-                                        child: Transform.scale(
-                                          scale: 0.7,
-                                          child: CupertinoSwitch(
-                                            value: state.showTelemetry,
-                                            onChanged: (val) =>
-                                                viewModel.toggleTelemetry(),
-                                            activeTrackColor:
-                                                ext.primaryGradientStart,
-                                            inactiveTrackColor:
-                                                const Color(0xFF3A3A3A),
-                                          ),
-                                        ),
-                                      ),
+                                      if (_selectedModel != 'Select a model') ...[
+                                        const Icon(Icons.psychology,
+                                            size: 16, color: Colors.white),
+                                        const SizedBox(width: 8),
+                                      ],
+                                      Text(_selectedModel,
+                                          style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w500)),
+                                      const SizedBox(width: 4),
+                                      const Icon(Icons.keyboard_arrow_down,
+                                          size: 16, color: Colors.white),
                                     ],
                                   ),
                                 ),
                               ),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      // Temporary Chat Toggle
-                      Positioned(
-                        top: 16,
-                        right: 16,
-                        child: Tooltip(
-                          message: state.isTemporary
-                              ? 'Temporary Chat (Enabled)'
-                              : 'Temporary Chat',
-                          child: IconButton(
-                            icon: Icon(
-                              Icons.data_usage,
-                              color: state.isTemporary
-                                  ? ext.primaryGradientStart
-                                  : const Color(0xFF878787),
-                              size: 20,
-                            ),
-                            onPressed: () => viewModel.toggleTemporaryChat(),
+                              // Metrics toggle — flush next to the model pill
+                              const SizedBox(width: 12),
+                              Tooltip(
+                                message: state.showTelemetry
+                                    ? 'Metrics (On)'
+                                    : 'Show Metrics',
+                                child: InkWell(
+                                  borderRadius: BorderRadius.circular(6),
+                                  onTap: () => viewModel.toggleTelemetry(),
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 8, vertical: 4),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                          'Metrics',
+                                          style: TextStyle(
+                                            color: const Color(0xFF878787),
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        SizedBox(
+                                          height: 20,
+                                          width: 34,
+                                          child: Transform.scale(
+                                            scale: 0.7,
+                                            child: CupertinoSwitch(
+                                              value: state.showTelemetry,
+                                              onChanged: (val) =>
+                                                  viewModel.toggleTelemetry(),
+                                              activeTrackColor:
+                                                  ext.primaryGradientStart,
+                                              inactiveTrackColor:
+                                                  const Color(0xFF3A3A3A),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                      ),
+
+                        // Temporary Chat Toggle
+                        Positioned(
+                          top: 16,
+                          right: 16,
+                          child: Tooltip(
+                            message: state.isTemporary
+                                ? 'Temporary Chat (Enabled)'
+                                : 'Temporary Chat',
+                            child: IconButton(
+                              icon: Icon(
+                                Icons.data_usage,
+                                color: state.isTemporary
+                                    ? ext.primaryGradientStart
+                                    : const Color(0xFF878787),
+                                size: 20,
+                              ),
+                              onPressed: () => viewModel.toggleTemporaryChat(),
+                            ),
+                          ),
+                        ),
+                      ],
+
+                      if (isMobile)
+                        Positioned(
+                          top: 12,
+                          left: 8,
+                          child: IconButton(
+                            icon: const Icon(Icons.menu, color: Color(0xFFB4B4B4)),
+                            onPressed: () => Scaffold.of(context).openDrawer(),
+                          ),
+                        ),
 
                       // Solid background at bottom behind input
                       if (state.messages.isNotEmpty)

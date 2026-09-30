@@ -202,27 +202,6 @@ class _ScaffoldWithNavBarState extends ConsumerState<ScaffoldWithNavBar> {
           ),
         ],
       ),
-      bottomNavigationBar: isWideScreen
-          ? null
-          : BottomNavigationBar(
-              selectedItemColor: theme.colorScheme.primary,
-              unselectedItemColor:
-                  theme.colorScheme.onSurface.withValues(alpha: 0.5),
-              items: const <BottomNavigationBarItem>[
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.chat_bubble_outline),
-                  activeIcon: Icon(Icons.chat_bubble),
-                  label: 'Chat',
-                ),
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.admin_panel_settings_outlined),
-                  activeIcon: Icon(Icons.admin_panel_settings),
-                  label: 'Control Panel',
-                ),
-              ],
-              currentIndex: widget.navigationShell.currentIndex,
-              onTap: _onItemTapped,
-            ),
     );
   }
 }

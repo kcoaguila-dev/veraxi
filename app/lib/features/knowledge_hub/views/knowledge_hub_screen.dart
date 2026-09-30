@@ -759,7 +759,16 @@ class _KnowledgeHubScreenState extends ConsumerState<KnowledgeHubScreen> {
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      drawer: const ChatSidebar(isSidebarOpen: true, isMobile: true),
+      drawer: Builder(builder: (context) {
+        return SizedBox(
+          width: MediaQuery.sizeOf(context).width,
+          child: Drawer(
+            backgroundColor: const Color(0xFF171717),
+            shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+            child: const ChatSidebar(isSidebarOpen: true, isMobile: true),
+          ),
+        );
+      }),
       body: LayoutBuilder(
         builder: (context, constraints) {
           final isMobile = constraints.maxWidth < 800;
@@ -772,25 +781,18 @@ class _KnowledgeHubScreenState extends ConsumerState<KnowledgeHubScreen> {
                   child: Column(
                     children: [
                       if (isMobile)
-                        Container(
-                          height: 56,
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          decoration: const BoxDecoration(
-                            border: Border(
-                                bottom: BorderSide(color: Color(0xFF2A2A2A))),
-                          ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                           child: Row(
                             children: [
                               IconButton(
-                                icon:
-                                    const Icon(Icons.menu, color: Colors.white),
-                                onPressed: () =>
-                                    Scaffold.of(context).openDrawer(),
+                                icon: const Icon(Icons.menu, color: Color(0xFFB4B4B4)),
+                                onPressed: () => Scaffold.of(context).openDrawer(),
                               ),
                               const SizedBox(width: 8),
-                              const Text('Veraxi',
+                              const Text('Knowledge Hub',
                                   style: TextStyle(
-                                      color: Colors.white,
+                                      color: Color(0xFFE0E0E0),
                                       fontSize: 16,
                                       fontWeight: FontWeight.w600)),
                             ],

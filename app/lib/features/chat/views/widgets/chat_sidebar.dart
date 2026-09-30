@@ -428,15 +428,21 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
                                   child: InkWell(
                                     borderRadius: BorderRadius.circular(6),
                                     onTap: () {
-                                      ref
-                                          .read(sidebarStateProvider.notifier)
-                                          .state = false;
+                                      if (widget.isMobile) {
+                                        Navigator.of(context).pop();
+                                      } else {
+                                        ref
+                                            .read(sidebarStateProvider.notifier)
+                                            .state = false;
+                                      }
                                     },
                                     child: SizedBox(
                                       width: 24,
                                       height: 24,
                                       child: Center(
-                                          child: _buildSidebarToggleIcon()),
+                                          child: widget.isMobile
+                                              ? const Icon(Icons.close, color: Color(0xFFB4B4B4), size: 20)
+                                              : _buildSidebarToggleIcon()),
                                     ),
                                   ),
                                 ),
