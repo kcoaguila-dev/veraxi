@@ -202,7 +202,7 @@ async def _stream_events(
     except Exception as e:
         sentry_sdk.capture_exception(e)
         logger.error(f"Error in streaming: {e}")
-        yield f"data: {json.dumps({'error': str(e)})}\n\n"
+        yield f"data: {json.dumps({'error': 'An internal error occurred.'})}\n\n"
         yield "data: [DONE]\n\n"
 
 
