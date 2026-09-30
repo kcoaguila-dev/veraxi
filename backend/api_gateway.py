@@ -183,7 +183,14 @@ def get_tenant_id(
     request: Request,
     credentials: HTTPAuthorizationCredentials | None = Depends(security),  # noqa: B008
 ) -> str:
-    if not config.supabase_url and (request.headers.get("x-guest") == "true" or request.query_params.get("guest") == "true"):
+    # Allow unauthenticated "guest" requests through — the chat endpoint enforces
+    # that these requests MUST supply their own API key (BYOK), so the server
+    # never bears the inference cost for guest sessions.
+    is_guest_request = (
+        request.headers.get("x-guest") == "true"
+        or request.query_params.get("guest") == "true"
+    )
+    if is_guest_request and not credentials:
         return "local_guest"
 
     if not config.auth_enabled:

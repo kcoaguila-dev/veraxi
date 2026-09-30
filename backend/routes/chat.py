@@ -223,6 +223,15 @@ def register_chat_routes(
         )
         if not chat_request.model:
             raise HTTPException(status_code=400, detail="No AI model selected")
+
+        # Guest (unauthenticated) users MUST supply their own API key.
+        # This guarantees the server never pays for guest inference costs.
+        if tenant_id == "local_guest" and not chat_request.api_key:
+            raise HTTPException(
+                status_code=403,
+                detail="Guest users must provide their own API key. Add your key in Settings → API Keys.",
+            )
+
         api_key_override = chat_request.api_key or None
         is_flagged = await moderate_text(
             chat_request.question, api_key=api_key_override
@@ -297,6 +306,9 @@ def register_chat_routes(
     async def list_threads(request: Request, tenant_id: str = Depends(get_tenant_id)):
         """Returns a list of all thread IDs belonging to the tenant."""
         logger.info(f"LIST THREADS CALLED FOR TENANT: {tenant_id}")
+        # Guest users store threads locally on-device — nothing to return from the server.
+        if tenant_id == "local_guest":
+            return {"threads": []}
         try:
             threads = await request.app.state.redis.smembers(
                 f"tenant:{tenant_id}:threads"
