@@ -35,7 +35,7 @@ dependencies = [
     "stripe",
     "langgraph",
     "langchain<0.3.0",
-    "langchain-core<0.3.0",
+    "langchain-core<1.7.0",
     "langchain-openai",
     "arq",
     "redis",
