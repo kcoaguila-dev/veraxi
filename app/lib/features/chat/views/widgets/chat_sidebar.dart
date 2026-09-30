@@ -11,6 +11,7 @@ import 'package:veraxi_app/core/providers/model_selection_provider.dart';
 import 'package:veraxi_app/core/providers/project_view_model.dart';
 import 'package:veraxi_app/features/chat/views/widgets/pinned_models_widget.dart';
 import 'package:veraxi_app/features/project/views/widgets/project_list_widget.dart';
+import 'package:veraxi_app/core/widgets/profile_menu_button.dart';
 
 class ChatSidebar extends ConsumerStatefulWidget {
   final bool isSidebarOpen;
@@ -663,6 +664,26 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
                     },
                   ),
                 ),
+              SizedBox(height: 16),
+              Row(
+                children: [
+                  ProfileMenuButton(
+                    onDeleteAllChats: () => viewModel.deleteAllChats(),
+                  ),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      resolveDisplayName(),
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
             ],
           ),
         ),

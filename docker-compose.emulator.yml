@@ -22,6 +22,9 @@ services:
       - "5555:5555"
     command:
       - "androidboot.redroid_gpu_mode=guest"
+      - "redroid.width=1080"
+      - "redroid.height=2400"
+      - "redroid.dpi=420"
 
   ws-scrcpy:
     image: smanx/ws-scrcpy
