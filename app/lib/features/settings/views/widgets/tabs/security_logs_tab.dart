@@ -37,7 +37,8 @@ class _SecurityLogsTabState extends ConsumerState<SecurityLogsTab> {
           final obs = settings['observability'] as Map<String, dynamic>;
           setState(() {
             _langsmithEnabled = (obs['langsmith_enabled'] as bool?) ?? false;
-            _langsmithKeyController.text = (obs['langsmith_api_key'] as String?) ?? '';
+            _langsmithKeyController.text =
+                (obs['langsmith_api_key'] as String?) ?? '';
           });
         }
       } catch (e) {
@@ -73,17 +74,27 @@ class _SecurityLogsTabState extends ConsumerState<SecurityLogsTab> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Security & Logs', style: theme.textTheme.headlineMedium?.copyWith(color: Colors.white, fontWeight: FontWeight.bold)),
+        Text('Security & Logs',
+            style: theme.textTheme.headlineMedium
+                ?.copyWith(color: Colors.white, fontWeight: FontWeight.bold)),
         SizedBox(height: 8),
-        Text('Configure audit logging, trace exports, and data privacy policies.', style: theme.textTheme.bodyLarge?.copyWith(color: theme.extension<AppThemeExtension>()!.textTertiary)),
+        Text(
+            'Configure audit logging, trace exports, and data privacy policies.',
+            style: theme.textTheme.bodyLarge?.copyWith(
+                color: theme.extension<AppThemeExtension>()!.textTertiary)),
         SizedBox(height: 40),
-        Text('Observability & Tracing', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600)),
+        Text('Observability & Tracing',
+            style: TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.w600)),
         SizedBox(height: 16),
         Container(
           decoration: BoxDecoration(
             color: theme.extension<AppThemeExtension>()!.sidebarBackground,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: theme.extension<AppThemeExtension>()!.borderColorStrong),
+            border: Border.all(
+                color: theme.extension<AppThemeExtension>()!.borderColorStrong),
           ),
           padding: EdgeInsets.all(24),
           child: Column(
@@ -95,9 +106,18 @@ class _SecurityLogsTabState extends ConsumerState<SecurityLogsTab> {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Enable LangSmith Tracing', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w500)),
+                      Text('Enable LangSmith Tracing',
+                          style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w500)),
                       SizedBox(height: 4),
-                      Text('Export detailed execution traces for debugging and compliance.', style: TextStyle(color: theme.extension<AppThemeExtension>()!.textTertiary, fontSize: 13)),
+                      Text(
+                          'Export detailed execution traces for debugging and compliance.',
+                          style: TextStyle(
+                              color: theme
+                                  .extension<AppThemeExtension>()!
+                                  .textTertiary,
+                              fontSize: 13)),
                     ],
                   ),
                   Switch(
@@ -117,9 +137,14 @@ class _SecurityLogsTabState extends ConsumerState<SecurityLogsTab> {
                   style: TextStyle(color: Colors.white),
                   decoration: InputDecoration(
                     labelText: 'LangSmith API Key',
-                    labelStyle: TextStyle(color: theme.extension<AppThemeExtension>()!.textTertiary),
+                    labelStyle: TextStyle(
+                        color:
+                            theme.extension<AppThemeExtension>()!.textTertiary),
                     enabledBorder: UnderlineInputBorder(
-                      borderSide: BorderSide(color: theme.extension<AppThemeExtension>()!.textTertiary),
+                      borderSide: BorderSide(
+                          color: theme
+                              .extension<AppThemeExtension>()!
+                              .textTertiary),
                     ),
                   ),
                   onSubmitted: (_) => _saveSettings(),
@@ -132,7 +157,8 @@ class _SecurityLogsTabState extends ConsumerState<SecurityLogsTab> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: theme.colorScheme.primary,
                       foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8)),
                     ),
                     child: Text('Save Key'),
                   ),

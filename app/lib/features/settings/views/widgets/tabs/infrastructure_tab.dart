@@ -5,12 +5,14 @@ import 'package:veraxi_app/core/theme_extension.dart';
 class InfrastructureTab extends ConsumerWidget {
   const InfrastructureTab({super.key});
 
-  Widget _buildDatabaseMonitorCard(ThemeData theme, String title, String status, Color statusColor, IconData icon) {
+  Widget _buildDatabaseMonitorCard(ThemeData theme, String title, String status,
+      Color statusColor, IconData icon) {
     return Container(
       decoration: BoxDecoration(
         color: theme.extension<AppThemeExtension>()!.sidebarBackground,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: theme.extension<AppThemeExtension>()!.borderColorStrong),
+        border: Border.all(
+            color: theme.extension<AppThemeExtension>()!.borderColorStrong),
       ),
       padding: EdgeInsets.all(24),
       child: Column(
@@ -32,13 +34,25 @@ class InfrastructureTab extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(title, style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600)),
+                    Text(title,
+                        style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600)),
                     SizedBox(height: 4),
                     Row(
                       children: [
-                        Container(width: 8, height: 8, decoration: BoxDecoration(color: statusColor, shape: BoxShape.circle)),
+                        Container(
+                            width: 8,
+                            height: 8,
+                            decoration: BoxDecoration(
+                                color: statusColor, shape: BoxShape.circle)),
                         SizedBox(width: 6),
-                        Text(status, style: TextStyle(color: statusColor, fontSize: 13, fontWeight: FontWeight.w500)),
+                        Text(status,
+                            style: TextStyle(
+                                color: statusColor,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500)),
                       ],
                     ),
                   ],
@@ -51,8 +65,10 @@ class InfrastructureTab extends ConsumerWidget {
             alignment: Alignment.centerRight,
             child: TextButton.icon(
               onPressed: () {},
-              icon: Icon(Icons.open_in_new, size: 16, color: theme.colorScheme.primary),
-              label: Text('Open Dashboard', style: TextStyle(color: theme.colorScheme.primary)),
+              icon: Icon(Icons.open_in_new,
+                  size: 16, color: theme.colorScheme.primary),
+              label: Text('Open Dashboard',
+                  style: TextStyle(color: theme.colorScheme.primary)),
             ),
           ),
         ],
@@ -65,27 +81,42 @@ class InfrastructureTab extends ConsumerWidget {
       decoration: BoxDecoration(
         color: theme.extension<AppThemeExtension>()!.sidebarBackground,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: theme.extension<AppThemeExtension>()!.borderColorStrong),
+        border: Border.all(
+            color: theme.extension<AppThemeExtension>()!.borderColorStrong),
       ),
       padding: EdgeInsets.all(32),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Icon(Icons.lock_outline, size: 48, color: theme.extension<AppThemeExtension>()!.textTertiary),
+          Icon(Icons.lock_outline,
+              size: 48,
+              color: theme.extension<AppThemeExtension>()!.textTertiary),
           SizedBox(height: 24),
-          Text('Enterprise Feature', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w600)),
+          Text('Enterprise Feature',
+              style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w600)),
           SizedBox(height: 12),
-          Text('Advanced infrastructure management and custom database provisioning are available on the Enterprise plan.', textAlign: TextAlign.center, style: TextStyle(color: theme.extension<AppThemeExtension>()!.textTertiary, fontSize: 14)),
+          Text(
+              'Advanced infrastructure management and custom database provisioning are available on the Enterprise plan.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                  color: theme.extension<AppThemeExtension>()!.textTertiary,
+                  fontSize: 14)),
           SizedBox(height: 24),
           ElevatedButton(
             onPressed: () {},
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.white,
-              foregroundColor: theme.extension<AppThemeExtension>()!.sidebarBackground,
+              foregroundColor:
+                  theme.extension<AppThemeExtension>()!.sidebarBackground,
               padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8)),
             ),
-            child: Text('Contact Sales', style: TextStyle(fontWeight: FontWeight.w600)),
+            child: Text('Contact Sales',
+                style: TextStyle(fontWeight: FontWeight.w600)),
           ),
         ],
       ),
@@ -98,9 +129,14 @@ class InfrastructureTab extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Infrastructure & Self-Hosting', style: theme.textTheme.headlineMedium?.copyWith(color: Colors.white, fontWeight: FontWeight.bold)),
+        Text('Infrastructure & Self-Hosting',
+            style: theme.textTheme.headlineMedium
+                ?.copyWith(color: Colors.white, fontWeight: FontWeight.bold)),
         SizedBox(height: 8),
-        Text('Manage the underlying Neo4j and Qdrant clusters powering your Sovereign Intelligence.', style: theme.textTheme.bodyLarge?.copyWith(color: theme.extension<AppThemeExtension>()!.textTertiary)),
+        Text(
+            'Manage the underlying Neo4j and Qdrant clusters powering your Sovereign Intelligence.',
+            style: theme.textTheme.bodyLarge?.copyWith(
+                color: theme.extension<AppThemeExtension>()!.textTertiary)),
         SizedBox(height: 40),
         LayoutBuilder(
           builder: (context, constraints) {
@@ -113,8 +149,18 @@ class InfrastructureTab extends ConsumerWidget {
               mainAxisSpacing: 24,
               childAspectRatio: isWide ? 2.5 : 2.0,
               children: [
-                _buildDatabaseMonitorCard(theme, 'Neo4j Graph Database', 'Healthy (Managed Cloud)', const Color(0xFF10B981), Icons.hub_outlined),
-                _buildDatabaseMonitorCard(theme, 'Qdrant Vector Database', 'Healthy (Managed Cloud)', const Color(0xFF10B981), Icons.blur_on),
+                _buildDatabaseMonitorCard(
+                    theme,
+                    'Neo4j Graph Database',
+                    'Healthy (Managed Cloud)',
+                    const Color(0xFF10B981),
+                    Icons.hub_outlined),
+                _buildDatabaseMonitorCard(
+                    theme,
+                    'Qdrant Vector Database',
+                    'Healthy (Managed Cloud)',
+                    const Color(0xFF10B981),
+                    Icons.blur_on),
               ],
             );
           },

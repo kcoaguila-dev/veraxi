@@ -279,7 +279,8 @@ class _ProfileMenuButtonState extends ConsumerState<ProfileMenuButton> {
           },
           child: Row(
             children: [
-              Icon(Icons.admin_panel_settings_outlined, color: Color(0xFFECECEC), size: 16),
+              Icon(Icons.admin_panel_settings_outlined,
+                  color: Color(0xFFECECEC), size: 16),
               SizedBox(width: 12),
               Text('Control Panel'),
             ],

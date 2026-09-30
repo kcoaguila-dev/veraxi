@@ -19,8 +19,10 @@ class KnowledgeHubScreen extends ConsumerStatefulWidget {
 
 class _KnowledgeHubScreenState extends ConsumerState<KnowledgeHubScreen> {
   final TextEditingController _textController = TextEditingController();
-  final TextEditingController _customStopWordsController = TextEditingController();
-  final TextEditingController _schemaSampleTextController = TextEditingController();
+  final TextEditingController _customStopWordsController =
+      TextEditingController();
+  final TextEditingController _schemaSampleTextController =
+      TextEditingController();
   final TextEditingController _urlController = TextEditingController();
   bool _fastExtractionEnabled = false;
   String _selectedLanguage = 'English';
@@ -28,7 +30,9 @@ class _KnowledgeHubScreenState extends ConsumerState<KnowledgeHubScreen> {
 
   void _submitUrl() {
     if (_urlController.text.isNotEmpty) {
-      ref.read(knowledgeHubViewModelProvider.notifier).autoGenerateSchema(_urlController.text);
+      ref
+          .read(knowledgeHubViewModelProvider.notifier)
+          .autoGenerateSchema(_urlController.text);
       _urlController.clear();
     }
   }
@@ -42,7 +46,7 @@ class _KnowledgeHubScreenState extends ConsumerState<KnowledgeHubScreen> {
     super.dispose();
   }
 
-Widget _buildSchemaCard(ThemeData theme) {
+  Widget _buildSchemaCard(ThemeData theme) {
     final state = ref.watch(knowledgeHubViewModelProvider);
     final viewModel = ref.read(knowledgeHubViewModelProvider.notifier);
 
@@ -149,7 +153,7 @@ Widget _buildSchemaCard(ThemeData theme) {
     );
   }
 
-Widget _buildIngestionCard(ThemeData theme) {
+  Widget _buildIngestionCard(ThemeData theme) {
     return Container(
       padding: EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -601,7 +605,7 @@ Widget _buildIngestionCard(ThemeData theme) {
     );
   }
 
-Widget _buildDatabaseMonitorCard(ThemeData theme, String title,
+  Widget _buildDatabaseMonitorCard(ThemeData theme, String title,
       String subtitle, String url, IconData icon) {
     return Container(
       padding: EdgeInsets.all(20),
@@ -670,7 +674,7 @@ Widget _buildDatabaseMonitorCard(ThemeData theme, String title,
     );
   }
 
-Widget _buildDataPipeline(ThemeData theme) {
+  Widget _buildDataPipeline(ThemeData theme) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -738,12 +742,18 @@ Widget _buildDataPipeline(ThemeData theme) {
     final theme = Theme.of(context);
     final isSidebarOpen = ref.watch(sidebarStateProvider);
 
-    ref.listen<KnowledgeHubState>(knowledgeHubViewModelProvider, (previous, next) {
-      if (previous?.successMessage != next.successMessage && next.successMessage != null) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(next.successMessage!), backgroundColor: Colors.green.shade800));
+    ref.listen<KnowledgeHubState>(knowledgeHubViewModelProvider,
+        (previous, next) {
+      if (previous?.successMessage != next.successMessage &&
+          next.successMessage != null) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(next.successMessage!),
+            backgroundColor: Colors.green.shade800));
       }
       if (previous?.error != next.error && next.error != null) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: ${next.error}'), backgroundColor: Colors.red.shade800));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('Error: ${next.error}'),
+            backgroundColor: Colors.red.shade800));
       }
     });
 
@@ -755,7 +765,8 @@ Widget _buildDataPipeline(ThemeData theme) {
           final isMobile = constraints.maxWidth < 800;
           return Row(
             children: [
-              if (!isMobile) ChatSidebar(isSidebarOpen: isSidebarOpen, isMobile: false),
+              if (!isMobile)
+                ChatSidebar(isSidebarOpen: isSidebarOpen, isMobile: false),
               Expanded(
                 child: SafeArea(
                   child: Column(
@@ -765,16 +776,23 @@ Widget _buildDataPipeline(ThemeData theme) {
                           height: 56,
                           padding: const EdgeInsets.symmetric(horizontal: 16),
                           decoration: const BoxDecoration(
-                            border: Border(bottom: BorderSide(color: Color(0xFF2A2A2A))),
+                            border: Border(
+                                bottom: BorderSide(color: Color(0xFF2A2A2A))),
                           ),
                           child: Row(
                             children: [
                               IconButton(
-                                icon: const Icon(Icons.menu, color: Colors.white),
-                                onPressed: () => Scaffold.of(context).openDrawer(),
+                                icon:
+                                    const Icon(Icons.menu, color: Colors.white),
+                                onPressed: () =>
+                                    Scaffold.of(context).openDrawer(),
                               ),
                               const SizedBox(width: 8),
-                              const Text('Veraxi', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600)),
+                              const Text('Veraxi',
+                                  style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600)),
                             ],
                           ),
                         ),

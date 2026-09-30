@@ -9,7 +9,6 @@ import 'package:veraxi_app/features/docs/views/docs_screen.dart';
 import 'package:veraxi_app/features/landing/views/landing_screen.dart';
 import 'package:veraxi_app/core/local_mode_storage.dart';
 
-
 final GlobalKey<NavigatorState> _rootNavigatorKey =
     GlobalKey<NavigatorState>(debugLabel: 'root');
 
@@ -36,7 +35,8 @@ final goRouter = GoRouter(
     }
 
     final isLocalMode = await LocalModeStorage().isLocalMode();
-    final isAuth = mockIsAuth ?? (!isAuthEnabled || isSessionValid || isLocalMode);
+    final isAuth =
+        mockIsAuth ?? (!isAuthEnabled || isSessionValid || isLocalMode);
 
     final isLoggingIn = state.matchedLocation == '/login';
     final isLanding = state.matchedLocation == '/';
