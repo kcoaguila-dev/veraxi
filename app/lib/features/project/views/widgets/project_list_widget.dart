@@ -132,75 +132,38 @@ class _ProjectListWidgetState extends ConsumerState<ProjectListWidget> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            InkWell(
-              onTap: () => setState(
-                  () => _projectsListExpanded = !_projectsListExpanded),
+        // Clickable "Projects" row — opens the All Projects dashboard directly
+        Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () => widget.projectViewModel.openAllProjectsDashboard(),
+            borderRadius: BorderRadius.circular(6),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4.0),
               child: Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text('Projects',
-                      style: TextStyle(
-                          color: Theme.of(context)
-                              .extension<AppThemeExtension>()!
-                              .textTertiary,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600)),
-                  SizedBox(width: 4),
                   Icon(
-                      _projectsListExpanded
-                          ? Icons.keyboard_arrow_down
-                          : Icons.keyboard_arrow_right,
-                      color: Theme.of(context)
-                          .extension<AppThemeExtension>()!
-                          .textTertiary,
-                      size: 16),
+                    LucideIcons.folder,
+                    color: Theme.of(context)
+                        .extension<AppThemeExtension>()!
+                        .textTertiary,
+                    size: 14,
+                  ),
+                  SizedBox(width: 6),
+                  Text(
+                    'Projects',
+                    style: TextStyle(
+                        color: Theme.of(context)
+                            .extension<AppThemeExtension>()!
+                            .textTertiary,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600),
+                  ),
                 ],
               ),
             ),
-            Row(
-              children: [
-                Tooltip(
-                  message: 'All Projects',
-                  child: InkWell(
-                    onTap: () =>
-                        widget.projectViewModel.openAllProjectsDashboard(),
-                    borderRadius: BorderRadius.circular(4),
-                    child: Padding(
-                      padding: EdgeInsets.all(4.0),
-                      child: Icon(LucideIcons.folder,
-                          color: Theme.of(context)
-                              .extension<AppThemeExtension>()!
-                              .iconColor,
-                          size: 16),
-                    ),
-                  ),
-                ),
-                SizedBox(width: 8),
-                Tooltip(
-                  message: 'New Project',
-                  child: InkWell(
-                    onTap: () {
-                      showDialog(
-                        context: context,
-                        builder: (context) => const CreateProjectDialog(),
-                      );
-                    },
-                    borderRadius: BorderRadius.circular(4),
-                    child: Padding(
-                      padding: EdgeInsets.all(4.0),
-                      child: Icon(LucideIcons.folderPlus,
-                          color: Theme.of(context)
-                              .extension<AppThemeExtension>()!
-                              .iconColor,
-                          size: 16),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
+          ),
         ),
         SizedBox(height: 8),
         if (widget.projectState.projects.isNotEmpty && _projectsListExpanded)

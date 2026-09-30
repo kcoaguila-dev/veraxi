@@ -75,17 +75,17 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
         ),
         const SizedBox(height: 32),
         Tooltip(
-          message: 'New project',
+          message: 'Projects',
           child: IconButton(
-            icon: Icon(Icons.create_new_folder_outlined,
+            icon: Icon(Icons.folder_outlined,
                 color:
                     Theme.of(context).extension<AppThemeExtension>()!.iconColor,
                 size: 20),
             onPressed: () {
-              // Creating a new project requires a dialog, for now we open the change project dialog
-              // since it will have "create" if we add it, but normally we just start a new chat.
-              // We'll leave it as startNewChat for now.
-              viewModel.startNewChat();
+              ref
+                  .read(projectViewModelProvider.notifier)
+                  .openAllProjectsDashboard();
+              context.go('/chat');
             },
           ),
         ),
