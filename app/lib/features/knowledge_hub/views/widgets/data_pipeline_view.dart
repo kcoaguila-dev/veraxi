@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:veraxi_app/features/control_panel/views/widgets/schema_card.dart';
-import 'package:veraxi_app/features/control_panel/views/widgets/ingestion_card.dart';
-import 'package:veraxi_app/features/control_panel/views/widgets/database_monitor_card.dart';
+import 'package:veraxi_app/features/knowledge_hub/views/widgets/schema_card.dart';
+import 'package:veraxi_app/features/knowledge_hub/views/widgets/ingestion_card.dart';
+import 'package:veraxi_app/features/knowledge_hub/views/widgets/database_monitor_card.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
 
 class DataPipelineView extends StatelessWidget {

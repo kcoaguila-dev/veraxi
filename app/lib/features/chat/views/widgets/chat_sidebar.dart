@@ -102,13 +102,13 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
         ),
         const SizedBox(height: 16),
         Tooltip(
-          message: 'My Library',
+          message: 'Knowledge Hub',
           child: IconButton(
             icon: Icon(Icons.library_books_outlined,
                 color: Theme.of(context).extension<AppThemeExtension>()!.iconColor,
                 size: 20),
             onPressed: () {
-              context.go('/admin');
+              context.go('/knowledge-hub');
             },
           ),
         ),
@@ -491,7 +491,7 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
                 child: InkWell(
                   borderRadius: BorderRadius.circular(6),
                   onTap: () {
-                    context.go('/admin');
+                    context.go('/knowledge-hub');
                   },
                   child: Padding(
                     padding: const EdgeInsets.symmetric(vertical: 8),
@@ -502,7 +502,7 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
                             size: 18),
                         const SizedBox(width: 12),
                         const Text(
-                          'My Library',
+                          'Knowledge Hub',
                           style: TextStyle(
                             color: Color(0xFFE0E0E0),
                             fontSize: 14,

@@ -8,6 +8,12 @@ import 'tabs/speech_settings_tab.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
 
+import 'tabs/mcp_integrations_tab.dart';
+import 'tabs/billing_tab.dart';
+import 'tabs/infrastructure_tab.dart';
+import 'tabs/security_logs_tab.dart';
+import 'tabs/agent_skills_tab.dart';
+
 class SettingsDialog extends ConsumerStatefulWidget {
   final VoidCallback? onDeleteAllChats;
   const SettingsDialog({super.key, this.onDeleteAllChats});
@@ -26,6 +32,11 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
     'Data & Privacy',
     'Account',
     'API Keys',
+    'MCP Integrations',
+    'Agent Skills',
+    'Infrastructure',
+    'Security & Logs',
+    'Billing',
     'About',
   ];
 
@@ -36,6 +47,11 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
     'Data & Privacy': Icons.dataset_outlined,
     'Account': Icons.person_outline,
     'API Keys': Icons.key_outlined,
+    'MCP Integrations': Icons.hub_outlined,
+    'Agent Skills': Icons.psychology_outlined,
+    'Infrastructure': Icons.dns_outlined,
+    'Security & Logs': Icons.security_outlined,
+    'Billing': Icons.credit_card_outlined,
     'About': Icons.info_outline,
   };
 
@@ -244,6 +260,16 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
         return _buildAccountTab();
       case 'API Keys':
         return [const ApiKeysTab()];
+      case 'MCP Integrations':
+        return [const McpIntegrationsTab()];
+      case 'Agent Skills':
+        return [const AgentSkillsTab()];
+      case 'Infrastructure':
+        return [const InfrastructureTab()];
+      case 'Security & Logs':
+        return [const SecurityLogsTab()];
+      case 'Billing':
+        return [const BillingTab()];
       case 'About':
         return _buildAboutTab();
       default:

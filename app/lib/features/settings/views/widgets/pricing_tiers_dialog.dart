@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:veraxi_app/features/control_panel/views/checkout_screen.dart';
+import 'package:veraxi_app/features/knowledge_hub/views/checkout_screen.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
 
 class PricingTiersDialog extends StatefulWidget {

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:veraxi_app/features/control_panel/data/payment_repository.dart';
+import 'package:veraxi_app/features/knowledge_hub/data/payment_repository.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
 
 class CheckoutScreen extends ConsumerStatefulWidget {

@@ -1,17 +1,17 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:veraxi_app/core/network/api_client.dart';
-import 'package:veraxi_app/features/control_panel/data/control_panel_repository.dart';
+import 'package:veraxi_app/features/knowledge_hub/data/knowledge_hub_repository.dart';
 
 class MockApiClient extends Mock implements ApiClient {}
 
 void main() {
   late MockApiClient mockApiClient;
-  late ControlPanelRepository repository;
+  late KnowledgeHubRepository repository;
 
   setUp(() {
     mockApiClient = MockApiClient();
-    repository = ControlPanelRepository(apiClient: mockApiClient);
+    repository = KnowledgeHubRepository(apiClient: mockApiClient);
   });
 
   test('fetchStats calls apiClient correctly', () async {
