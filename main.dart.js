@@ -145393,46 +145393,45 @@ $C:"$3",
 $R:3,
 $S:1041}
 A.b6x.prototype={
-$2(a,a0){var s,r,q,p,o,n,m,l,k,j,i,h,g=this,f=null,e=a0.b<800,d=e?B.aD:new A.ER(g.b,f),c=t.p,b=A.b([],c)
-if(e)b.push(A.az(f,A.ak(A.b([A.d3(f,f,f,f,f,B.XF,f,f,new A.b6j(a),f,f,f,f,f),B.cT,B.ah4],c),B.k,B.i,B.j,0,f),B.m,f,f,B.ti,f,56,f,B.ij,f,f,f))
-s=g.c
+$2(a,b){var s,r,q,p,o,n,m,l,k,j,i,h=this,g=null,f=b.b<800,e=f?B.aD:new A.ER(h.b,g),d=t.p,c=A.b([],d)
+if(f)c.push(A.az(g,A.ak(A.b([A.d3(g,g,g,g,g,B.XF,g,g,new A.b6j(a),g,g,g,g,g),B.cT,B.ah4],d),B.k,B.i,B.j,0,g),B.m,g,g,B.ti,g,56,g,B.ij,g,g,g))
+s=h.c
 if(s.d)s=B.OA
 else{r=s.b.length
-q=g.a
-p=g.d
-o=g.e
-s=r===0?q.azF(p,o,s,g.f):A.AZ(q.x,new A.b6k(s,p,o),r,B.UZ,f,!1)}b.push(A.bo(s,1,f))
-b=A.aO(b,B.k,B.i,B.j)
-s=g.d.fx
-r=A.hP(f,A.az(f,f,B.m,f,f,new A.ay(f,f,f,f,f,new A.wV(B.js,B.mM,B.eb,A.b([s,s.bM(0.9),s.bM(0)],t.t_),B.a0W,f),B.q),f,f,f,f,f,f,f),60,f,0,0,0,f)
-q=g.a
+q=h.a
+p=h.d
+o=h.e
+s=r===0?q.azF(p,o,s,h.f):A.AZ(q.x,new A.b6k(s,p,o),r,B.UZ,g,!1)}c.push(A.bo(s,1,g))
+c=A.aO(c,B.k,B.i,B.j)
+s=h.d.fx
+r=A.hP(g,A.az(g,g,B.m,g,g,new A.ay(g,g,g,g,g,new A.wV(B.js,B.mM,B.eb,A.b([s,s.bM(0.9),s.bM(0)],t.t_),B.a0W,g),B.q),g,g,g,g,g,g,g),60,g,0,0,0,g)
+q=h.a
 p=q.y
 o=q.z
 o=A.X(o,A.v(o).c)
 n=A.ab(8)
 m=A.bU(B.i0,B.l,1)
-l=A.b([],c)
-if(q.y!=="Select a model")B.b.C(l,A.b([B.XH,B.cT],c))
-l.push(A.H(q.y,f,f,f,B.afa,f,f))
+l=A.b([],d)
+if(q.y!=="Select a model")B.b.C(l,A.b([B.XH,B.cT],d))
+l.push(A.H(q.y,g,g,g,B.afa,g,g))
 l.push(B.aaa)
 l.push(B.XL)
-n=A.az(f,A.ak(l,B.k,B.i,B.X,0,f),B.m,f,f,new A.ay(B.nz,f,m,n,f,f,B.q),f,f,f,B.UT,f,f,f)
-m=g.c
+n=A.az(g,A.ak(l,B.k,B.i,B.X,0,g),B.m,g,g,new A.ay(B.nz,g,m,n,g,g,B.q),g,g,g,B.UT,g,g,g)
+m=h.c
 l=m.w
 k=l?"Metrics (On)":"Show Metrics"
-j=A.ab(6)
-i=g.f
-h=g.e.a
-k=A.hP(f,A.ak(A.b([new A.Qj(p,new A.b6l(q),o,new A.b6m(q),new A.b6n(q),n,f),B.aa8,A.iH(A.di(!1,j,!0,new A.aJ(B.vi,A.ak(A.b([A.H("Metrics",f,f,f,A.D(f,f,l?g.e.a:B.ex,f,f,f,f,f,f,f,f,13,f,f,B.E,f,f,!0,f,f,f,f,f,f,f,f),f,f),B.cT,A.E(A.b0_(B.af,A.bv5(h,B.co,new A.b6o(i),l),0.7,f,f,!0),20,34)],c),B.k,B.i,B.X,0,f),f),f,!0,f,f,f,f,f,f,f,f,new A.b6p(i),f,f,f,f,f,f,f),k)],c),B.k,B.i,B.j,0,f),f,f,16,f,12,f)
+j=h.f
+i=h.e.a
+k=A.hP(g,A.ak(A.b([new A.Qj(p,new A.b6l(q),o,new A.b6m(q),new A.b6n(q),n,g),B.aa8,A.iH(A.di(!1,A.ab(6),!0,new A.aJ(B.vi,A.ak(A.b([A.H("Metrics",g,g,g,A.D(g,g,B.ex,g,g,g,g,g,g,g,g,13,g,g,B.E,g,g,!0,g,g,g,g,g,g,g,g),g,g),B.cT,A.E(A.b0_(B.af,A.bv5(i,B.co,new A.b6o(j),l),0.7,g,g,!0),20,34)],d),B.k,B.i,B.X,0,g),g),g,!0,g,g,g,g,g,g,g,g,new A.b6p(j),g,g,g,g,g,g,g),k)],d),B.k,B.i,B.j,0,g),g,g,16,g,12,g)
 p=m.r
 o=p?"Temporary Chat (Enabled)":"Temporary Chat"
-b=A.b([b,r,k,A.hP(f,A.iH(A.d3(f,f,f,f,f,A.ao(B.Wt,p?h:B.ex,f,20),f,f,new A.b6q(i),f,f,f,f,f),o),f,f,f,16,16,f)],c)
+c=A.b([c,r,k,A.hP(g,A.iH(A.d3(g,g,g,g,g,A.ao(B.Wt,p?i:B.ex,g,20),g,g,new A.b6q(j),g,g,g,g,g),o),g,g,g,16,16,g)],d)
 r=m.b
-if(r.length!==0)b.push(A.hP(0,A.az(f,f,B.m,s,f,f,f,f,f,f,f,f,f),160,f,0,0,f,f))
-if(q.Q&&r.length!==0)b.push(A.hP(120,A.dV(f,A.az(f,B.XM,B.m,f,f,new A.ay(B.i0,f,A.bU(B.T2,B.l,1),f,A.b([new A.cd(0,B.a2,B.v.bM(0.2),B.iQ,4)],t.V),f,B.bC),f,32,f,f,f,f,32),B.y,!1,f,f,f,f,f,f,f,f,f,f,f,f,f,f,f,new A.b6r(q),f,f,f,f,f,f),f,f,f,32,f,f))
-if(r.length!==0)b.push(A.hP(40,A.cT(new A.eT(B.hH,new A.EP(m.f,m.Q,new A.b6s(q,i),m.x,new A.b6t(i),f),f),f,f),f,f,0,0,f,f))
-b.push(A.hP(12,A.cT(A.H("Veraxi v0.1.0 - Sovereign Intelligence. Privacy policy | Terms of service",f,f,f,A.D(f,f,B.ex,f,f,f,f,f,f,f,f,12,f,f,f,f,f,!0,f,f,f,f,f,f,f,f),f,f),f,f),f,f,0,0,f,f))
-return A.ak(A.b([d,A.bo(A.ui(!0,A.ic(B.bt,b,B.r,B.bf,f),B.L,!0),1,f)],c),B.k,B.i,B.j,0,f)},
+if(r.length!==0)c.push(A.hP(0,A.az(g,g,B.m,s,g,g,g,g,g,g,g,g,g),160,g,0,0,g,g))
+if(q.Q&&r.length!==0)c.push(A.hP(120,A.dV(g,A.az(g,B.XM,B.m,g,g,new A.ay(B.i0,g,A.bU(B.T2,B.l,1),g,A.b([new A.cd(0,B.a2,B.v.bM(0.2),B.iQ,4)],t.V),g,B.bC),g,32,g,g,g,g,32),B.y,!1,g,g,g,g,g,g,g,g,g,g,g,g,g,g,g,new A.b6r(q),g,g,g,g,g,g),g,g,g,32,g,g))
+if(r.length!==0)c.push(A.hP(40,A.cT(new A.eT(B.hH,new A.EP(m.f,m.Q,new A.b6s(q,j),m.x,new A.b6t(j),g),g),g,g),g,g,0,0,g,g))
+c.push(A.hP(12,A.cT(A.H("Veraxi v0.1.0 - Sovereign Intelligence. Privacy policy | Terms of service",g,g,g,A.D(g,g,B.ex,g,g,g,g,g,g,g,g,12,g,g,g,g,g,!0,g,g,g,g,g,g,g,g),g,g),g,g),g,g,0,0,g,g))
+return A.ak(A.b([e,A.bo(A.ui(!0,A.ic(B.bt,c,B.r,B.bf,g),B.L,!0),1,g)],d),B.k,B.i,B.j,0,g)},
 $S:1042}
 A.b6j.prototype={
 $0(){return A.St(this.a).alD()},
