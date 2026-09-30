@@ -15,15 +15,15 @@ class BackendStats {
   }
 }
 
-final controlPanelRepositoryProvider = Provider<ControlPanelRepository>((ref) {
+final knowledgeHubRepositoryProvider = Provider<KnowledgeHubRepository>((ref) {
   final apiClient = ref.watch(apiClientProvider);
-  return ControlPanelRepository(apiClient: apiClient);
+  return KnowledgeHubRepository(apiClient: apiClient);
 });
 
-class ControlPanelRepository {
+class KnowledgeHubRepository {
   final ApiClient apiClient;
 
-  ControlPanelRepository({required this.apiClient});
+  KnowledgeHubRepository({required this.apiClient});
 
   Future<BackendStats> fetchStats() async {
     final data = await apiClient.get('/admin/stats');

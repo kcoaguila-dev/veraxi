@@ -1,51 +1,155 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:veraxi_app/core/theme_extension.dart';
+import 'package:veraxi_app/features/knowledge_hub/view_models/knowledge_hub_view_model.dart';
+
+import 'package:veraxi_app/features/chat/views/widgets/chat_sidebar.dart';
+import 'package:veraxi_app/core/sidebar_provider.dart';
+import 'widgets/schema_visual_builder.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:veraxi_app/core/widgets/model_selector_popup.dart';
-import 'package:veraxi_app/features/control_panel/view_models/control_panel_view_model.dart';
-import 'package:veraxi_app/core/theme_extension.dart';
 
-class IngestionCard extends ConsumerStatefulWidget {
-  const IngestionCard({super.key});
+class KnowledgeHubScreen extends ConsumerStatefulWidget {
+  const KnowledgeHubScreen({super.key});
 
   @override
-  ConsumerState<IngestionCard> createState() => _IngestionCardState();
+  ConsumerState<KnowledgeHubScreen> createState() => _KnowledgeHubScreenState();
 }
 
-class _IngestionCardState extends ConsumerState<IngestionCard> {
-  bool _fastExtractionEnabled = false;
-  String _selectedLanguage = 'en';
-  String _selectedModel = 'gemini-2.5-flash-lite';
-  final TextEditingController _customStopWordsController =
-      TextEditingController();
+class _KnowledgeHubScreenState extends ConsumerState<KnowledgeHubScreen> {
+  final TextEditingController _textController = TextEditingController();
+  final TextEditingController _customStopWordsController = TextEditingController();
+  final TextEditingController _schemaSampleTextController = TextEditingController();
   final TextEditingController _urlController = TextEditingController();
-
-  @override
-  void dispose() {
-    _urlController.dispose();
-    _customStopWordsController.dispose();
-    super.dispose();
-  }
+  bool _fastExtractionEnabled = false;
+  String _selectedLanguage = 'English';
+  String _selectedModel = 'gemini-1.5-pro-002';
 
   void _submitUrl() {
-    final url = _urlController.text.trim();
-    if (url.isNotEmpty) {
-      final viewModel = ref.read(controlPanelViewModelProvider.notifier);
-      viewModel.ingestUrl(
-        url,
-        fastExtraction: _fastExtractionEnabled,
-        language: _selectedLanguage,
-        model: _selectedModel,
-        customStopWords: _customStopWordsController.text.trim(),
-      );
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('URL queued for ingestion!')));
+    if (_urlController.text.isNotEmpty) {
+      ref.read(knowledgeHubViewModelProvider.notifier).autoGenerateSchema(_urlController.text);
       _urlController.clear();
     }
   }
 
   @override
-  Widget build(BuildContext context) {
+  void dispose() {
+    _textController.dispose();
+    _customStopWordsController.dispose();
+    _schemaSampleTextController.dispose();
+    _urlController.dispose();
+    super.dispose();
+  }
+
+Widget _buildSchemaCard(ThemeData theme) {
+    final state = ref.watch(knowledgeHubViewModelProvider);
+    final viewModel = ref.read(knowledgeHubViewModelProvider.notifier);
+
+    return Container(
+      padding: EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color:
+            Theme.of(context).extension<AppThemeExtension>()!.surfaceHighlight,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+            color: Theme.of(context)
+                .extension<AppThemeExtension>()!
+                .borderColorStrong),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Information Extraction Rules',
+              style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 18)),
+          SizedBox(height: 4),
+          Text(
+              'Define the entities and relationships that the AI should extract during ingestion.',
+              style: TextStyle(
+                  color: Theme.of(context)
+                      .extension<AppThemeExtension>()!
+                      .iconColor,
+                  fontSize: 14)),
+          SizedBox(height: 16),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                flex: 1,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Auto-Generate from Sample',
+                        style: TextStyle(
+                            color: Colors.white, fontWeight: FontWeight.w500)),
+                    SizedBox(height: 8),
+                    TextField(
+                      controller: _schemaSampleTextController,
+                      maxLines: 7,
+                      style: TextStyle(color: Colors.white, fontSize: 14),
+                      decoration: InputDecoration(
+                        hintText:
+                            'Paste a sample of your text here (e.g., an abstract or executive summary). The AI will auto-generate an appropriate schema.',
+                        hintStyle: TextStyle(color: Colors.white38),
+                        filled: true,
+                        fillColor: Theme.of(context)
+                            .extension<AppThemeExtension>()!
+                            .cardBackground,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide.none,
+                        ),
+                      ),
+                    ),
+                    SizedBox(height: 12),
+                    ElevatedButton.icon(
+                      onPressed: state.isIngesting
+                          ? null
+                          : () {
+                              if (_schemaSampleTextController.text
+                                  .trim()
+                                  .isNotEmpty) {
+                                viewModel.autoGenerateSchema(
+                                    _schemaSampleTextController.text.trim());
+                              }
+                            },
+                      icon: state.isIngesting
+                          ? SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2))
+                          : Icon(Icons.auto_awesome, size: 18),
+                      label: Text('Auto-Generate'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.purple.shade600,
+                        foregroundColor: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(width: 24),
+              Expanded(
+                flex: 1,
+                child: SchemaVisualBuilder(
+                  initialSchema: state.schema,
+                  isSaving: state.isIngesting,
+                  onSave: (schema) {
+                    viewModel.saveSchema(schema);
+                  },
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+Widget _buildIngestionCard(ThemeData theme) {
     return Container(
       padding: EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -108,7 +212,7 @@ class _IngestionCardState extends ConsumerState<IngestionCard> {
                   ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('Uploading file...')));
                   final viewModel =
-                      ref.read(controlPanelViewModelProvider.notifier);
+                      ref.read(knowledgeHubViewModelProvider.notifier);
                   final fileBytes = await result.first.readAsBytes();
                   final fileName = result.first.name;
                   if (fileBytes.isNotEmpty) {
@@ -120,17 +224,15 @@ class _IngestionCardState extends ConsumerState<IngestionCard> {
                       model: _selectedModel,
                       customStopWords: _customStopWordsController.text.trim(),
                     );
-                    if (mounted) {
+                    if (mounted)
                       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
                           content: Text('File queued for ingestion!')));
-                    }
                   }
                 }
               } catch (e) {
-                if (mounted) {
+                if (mounted)
                   ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(content: Text('Upload failed: $e')));
-                }
               }
             },
             child: Container(
@@ -495,6 +597,200 @@ class _IngestionCardState extends ConsumerState<IngestionCard> {
             ),
           ],
         ],
+      ),
+    );
+  }
+
+Widget _buildDatabaseMonitorCard(ThemeData theme, String title,
+      String subtitle, String url, IconData icon) {
+    return Container(
+      padding: EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color:
+            Theme.of(context).extension<AppThemeExtension>()!.surfaceHighlight,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+            color: Theme.of(context)
+                .extension<AppThemeExtension>()!
+                .borderColorStrong),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon,
+                  color: Theme.of(context).colorScheme.primary, size: 24),
+              SizedBox(width: 12),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title,
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 16)),
+                  Text(subtitle,
+                      style: TextStyle(
+                          color: Theme.of(context)
+                              .extension<AppThemeExtension>()!
+                              .textTertiary,
+                          fontSize: 12)),
+                ],
+              ),
+            ],
+          ),
+          SizedBox(height: 16),
+          ElevatedButton.icon(
+            onPressed: () async {
+              final uri = Uri.parse(url);
+              if (await canLaunchUrl(uri)) {
+                await launchUrl(uri);
+              } else {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                      content: Text('Could not launch dashboard')));
+                }
+              }
+            },
+            icon: Icon(Icons.open_in_new, size: 16, color: Colors.white),
+            label:
+                Text('Open Dashboard', style: TextStyle(color: Colors.white)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.primary,
+              foregroundColor: Colors.white,
+              elevation: 0,
+              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+Widget _buildDataPipeline(ThemeData theme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Knowledge Hub',
+            style: theme.textTheme.headlineMedium
+                ?.copyWith(color: Colors.white, fontWeight: FontWeight.bold)),
+        SizedBox(height: 8),
+        Text(
+          'Manage your custom library and reference materials.',
+          style: TextStyle(
+              color:
+                  Theme.of(context).extension<AppThemeExtension>()!.iconColor,
+              fontSize: 14),
+        ),
+        SizedBox(height: 32),
+        _buildSchemaCard(theme),
+        SizedBox(height: 32),
+        _buildIngestionCard(theme),
+        SizedBox(height: 48),
+        Text('Database Monitors',
+            style: theme.textTheme.headlineMedium?.copyWith(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 20)),
+        SizedBox(height: 8),
+        Text(
+          'Launch web dashboards to inspect the raw databases.',
+          style: TextStyle(
+              color:
+                  Theme.of(context).extension<AppThemeExtension>()!.iconColor,
+              fontSize: 14),
+        ),
+        SizedBox(height: 16),
+        Row(
+          children: [
+            Expanded(
+              child: _buildDatabaseMonitorCard(
+                theme,
+                'Qdrant',
+                'Vector Database',
+                const String.fromEnvironment('QDRANT_DASHBOARD_URL',
+                    defaultValue: 'http://localhost:6333/dashboard'),
+                Icons.data_array,
+              ),
+            ),
+            SizedBox(width: 16),
+            Expanded(
+              child: _buildDatabaseMonitorCard(
+                theme,
+                'Neo4j',
+                'Knowledge Graph',
+                const String.fromEnvironment('NEO4J_DASHBOARD_URL',
+                    defaultValue: 'http://localhost:7474'),
+                Icons.hub,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isSidebarOpen = ref.watch(sidebarStateProvider);
+
+    ref.listen<KnowledgeHubState>(knowledgeHubViewModelProvider, (previous, next) {
+      if (previous?.successMessage != next.successMessage && next.successMessage != null) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(next.successMessage!), backgroundColor: Colors.green.shade800));
+      }
+      if (previous?.error != next.error && next.error != null) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: ${next.error}'), backgroundColor: Colors.red.shade800));
+      }
+    });
+
+    return Scaffold(
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      drawer: const ChatSidebar(isSidebarOpen: true, isMobile: true),
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final isMobile = constraints.maxWidth < 800;
+          return Row(
+            children: [
+              if (!isMobile) ChatSidebar(isSidebarOpen: isSidebarOpen, isMobile: false),
+              Expanded(
+                child: SafeArea(
+                  child: Column(
+                    children: [
+                      if (isMobile)
+                        Container(
+                          height: 56,
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          decoration: const BoxDecoration(
+                            border: Border(bottom: BorderSide(color: Color(0xFF2A2A2A))),
+                          ),
+                          child: Row(
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.menu, color: Colors.white),
+                                onPressed: () => Scaffold.of(context).openDrawer(),
+                              ),
+                              const SizedBox(width: 8),
+                              const Text('Veraxi', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600)),
+                            ],
+                          ),
+                        ),
+                      Expanded(
+                        child: SingleChildScrollView(
+                          padding: EdgeInsets.all(isMobile ? 16.0 : 48.0),
+                          child: _buildDataPipeline(theme),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }

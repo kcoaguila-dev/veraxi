@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:veraxi_app/features/control_panel/view_models/control_panel_view_model.dart';
-import 'package:veraxi_app/features/control_panel/views/widgets/schema_visual_builder.dart';
+import 'package:veraxi_app/features/knowledge_hub/view_models/knowledge_hub_view_model.dart';
+import 'package:veraxi_app/features/knowledge_hub/views/widgets/schema_visual_builder.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
 
 class SchemaCard extends ConsumerStatefulWidget {
@@ -22,8 +22,8 @@ class _SchemaCardState extends ConsumerState<SchemaCard> {
 
   @override
   Widget build(BuildContext context) {
-    final state = ref.watch(controlPanelViewModelProvider);
-    final viewModel = ref.read(controlPanelViewModelProvider.notifier);
+    final state = ref.watch(knowledgeHubViewModelProvider);
+    final viewModel = ref.read(knowledgeHubViewModelProvider.notifier);
 
     return Container(
       padding: EdgeInsets.all(24),

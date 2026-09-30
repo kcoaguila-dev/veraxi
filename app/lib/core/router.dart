@@ -4,7 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:veraxi_app/features/auth/views/login_screen.dart';
 import 'package:veraxi_app/features/chat/views/chat_screen.dart';
 import 'package:veraxi_app/features/chat/views/shared_chat_screen.dart';
-import 'package:veraxi_app/features/control_panel/views/control_panel_screen.dart';
+import 'package:veraxi_app/features/knowledge_hub/views/knowledge_hub_screen.dart';
 import 'package:veraxi_app/features/docs/views/docs_screen.dart';
 import 'package:veraxi_app/features/landing/views/landing_screen.dart';
 import 'package:veraxi_app/core/local_mode_storage.dart';
@@ -87,9 +87,9 @@ final goRouter = GoRouter(
           const ChatScreen(),
     ),
     GoRoute(
-      path: '/admin',
+      path: '/knowledge-hub',
       builder: (BuildContext context, GoRouterState state) =>
-          const ControlPanelScreen(),
+          const KnowledgeHubScreen(),
     ),
   ],
 );

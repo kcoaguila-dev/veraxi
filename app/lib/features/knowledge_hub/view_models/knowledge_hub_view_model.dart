@@ -1,9 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../data/control_panel_repository.dart';
+import '../data/knowledge_hub_repository.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import '../../../core/network/api_client.dart';
 
-class ControlPanelState {
+class KnowledgeHubState {
   final bool isIngesting;
   final String? error;
   final String? successMessage;
@@ -11,7 +11,7 @@ class ControlPanelState {
   final Map<String, dynamic>? schema;
   final bool requiresPayment;
 
-  const ControlPanelState({
+  const KnowledgeHubState({
     this.isIngesting = false,
     this.error,
     this.successMessage,
@@ -21,16 +21,16 @@ class ControlPanelState {
   });
 }
 
-final controlPanelViewModelProvider =
-    StateNotifierProvider<ControlPanelViewModel, ControlPanelState>((ref) {
-  final repository = ref.watch(controlPanelRepositoryProvider);
-  return ControlPanelViewModel(repository);
+final knowledgeHubViewModelProvider =
+    StateNotifierProvider<KnowledgeHubViewModel, KnowledgeHubState>((ref) {
+  final repository = ref.watch(knowledgeHubRepositoryProvider);
+  return KnowledgeHubViewModel(repository);
 });
 
-class ControlPanelViewModel extends StateNotifier<ControlPanelState> {
-  final ControlPanelRepository repository;
+class KnowledgeHubViewModel extends StateNotifier<KnowledgeHubState> {
+  final KnowledgeHubRepository repository;
 
-  ControlPanelViewModel(this.repository) : super(const ControlPanelState()) {
+  KnowledgeHubViewModel(this.repository) : super(const KnowledgeHubState()) {
     fetchStats();
     fetchSchema();
   }
@@ -38,7 +38,7 @@ class ControlPanelViewModel extends StateNotifier<ControlPanelState> {
   Future<void> fetchSchema() async {
     try {
       final schema = await repository.getSchema();
-      state = ControlPanelState(
+      state = KnowledgeHubState(
         isIngesting: state.isIngesting,
         stats: state.stats,
         schema: schema,
@@ -47,7 +47,7 @@ class ControlPanelViewModel extends StateNotifier<ControlPanelState> {
         requiresPayment: state.requiresPayment,
       );
     } on PaymentRequiredException catch (_) {
-      state = ControlPanelState(
+      state = KnowledgeHubState(
         isIngesting: state.isIngesting,
         stats: state.stats,
         schema: state.schema,
@@ -61,7 +61,7 @@ class ControlPanelViewModel extends StateNotifier<ControlPanelState> {
   Future<void> saveSchema(Map<String, dynamic> newSchema) async {
     try {
       await repository.setSchema(newSchema);
-      state = ControlPanelState(
+      state = KnowledgeHubState(
         isIngesting: state.isIngesting,
         stats: state.stats,
         schema: newSchema,
@@ -70,7 +70,7 @@ class ControlPanelViewModel extends StateNotifier<ControlPanelState> {
         requiresPayment: state.requiresPayment,
       );
     } on PaymentRequiredException catch (_) {
-      state = ControlPanelState(
+      state = KnowledgeHubState(
         isIngesting: state.isIngesting,
         stats: state.stats,
         schema: state.schema,
@@ -78,7 +78,7 @@ class ControlPanelViewModel extends StateNotifier<ControlPanelState> {
       );
     } catch (e, st) {
       Sentry.captureException(e, stackTrace: st);
-      state = ControlPanelState(
+      state = KnowledgeHubState(
         isIngesting: state.isIngesting,
         stats: state.stats,
         schema: state.schema,
@@ -89,7 +89,7 @@ class ControlPanelViewModel extends StateNotifier<ControlPanelState> {
   }
 
   Future<void> autoGenerateSchema(String text) async {
-    state = ControlPanelState(
+    state = KnowledgeHubState(
       isIngesting: true, // Reuse for spinner
       stats: state.stats,
       schema: state.schema,
@@ -101,7 +101,7 @@ class ControlPanelViewModel extends StateNotifier<ControlPanelState> {
       final schema = await repository.autoGenerateSchema(text);
       await saveSchema(schema);
     } on PaymentRequiredException catch (_) {
-      state = ControlPanelState(
+      state = KnowledgeHubState(
         isIngesting: false,
         stats: state.stats,
         schema: state.schema,
@@ -109,7 +109,7 @@ class ControlPanelViewModel extends StateNotifier<ControlPanelState> {
       );
     } catch (e, st) {
       Sentry.captureException(e, stackTrace: st);
-      state = ControlPanelState(
+      state = KnowledgeHubState(
         isIngesting: false,
         stats: state.stats,
         schema: state.schema,
@@ -122,7 +122,7 @@ class ControlPanelViewModel extends StateNotifier<ControlPanelState> {
   Future<void> fetchStats() async {
     try {
       final stats = await repository.fetchStats();
-      state = ControlPanelState(
+      state = KnowledgeHubState(
         isIngesting: state.isIngesting,
         stats: stats,
         schema: state.schema,
@@ -131,7 +131,7 @@ class ControlPanelViewModel extends StateNotifier<ControlPanelState> {
         requiresPayment: state.requiresPayment,
       );
     } on PaymentRequiredException catch (_) {
-      state = ControlPanelState(
+      state = KnowledgeHubState(
         isIngesting: state.isIngesting,
         stats: state.stats,
         schema: state.schema,
@@ -139,7 +139,7 @@ class ControlPanelViewModel extends StateNotifier<ControlPanelState> {
       );
     } catch (e, st) {
       Sentry.captureException(e, stackTrace: st);
-      state = ControlPanelState(
+      state = KnowledgeHubState(
         isIngesting: state.isIngesting,
         stats: state.stats,
         schema: state.schema,
@@ -160,7 +160,7 @@ class ControlPanelViewModel extends StateNotifier<ControlPanelState> {
           final res = statusResult['result'] ?? {};
           final nodes = res['nodes_inserted'] ?? 0;
           final vectors = res['vectors_inserted'] ?? 0;
-          state = ControlPanelState(
+          state = KnowledgeHubState(
             isIngesting: false,
             stats: state.stats,
             schema: state.schema,
@@ -179,7 +179,7 @@ class ControlPanelViewModel extends StateNotifier<ControlPanelState> {
       await fetchStats();
       final nodes = result['nodes_inserted'] ?? 0;
       final vectors = result['vectors_inserted'] ?? 0;
-      state = ControlPanelState(
+      state = KnowledgeHubState(
         isIngesting: false,
         stats: state.stats,
         schema: state.schema,
@@ -192,7 +192,7 @@ class ControlPanelViewModel extends StateNotifier<ControlPanelState> {
   }
 
   Future<void> triggerIngestion(String text) async {
-    state = ControlPanelState(
+    state = KnowledgeHubState(
       isIngesting: true,
       stats: state.stats,
       schema: state.schema,
@@ -206,7 +206,7 @@ class ControlPanelViewModel extends StateNotifier<ControlPanelState> {
       await _handleJobResult(result);
     } catch (e, st) {
       Sentry.captureException(e, stackTrace: st);
-      state = ControlPanelState(
+      state = KnowledgeHubState(
         isIngesting: false,
         stats: state.stats,
         schema: state.schema,
@@ -224,7 +224,7 @@ class ControlPanelViewModel extends StateNotifier<ControlPanelState> {
     String customStopWords = '',
     String model = 'gemini-2.5-flash-lite',
   }) async {
-    state = ControlPanelState(
+    state = KnowledgeHubState(
       isIngesting: true,
       stats: state.stats,
       schema: state.schema,
@@ -245,7 +245,7 @@ class ControlPanelViewModel extends StateNotifier<ControlPanelState> {
       await _handleJobResult(result);
     } catch (e, st) {
       Sentry.captureException(e, stackTrace: st);
-      state = ControlPanelState(
+      state = KnowledgeHubState(
         isIngesting: false,
         stats: state.stats,
         schema: state.schema,
@@ -263,7 +263,7 @@ class ControlPanelViewModel extends StateNotifier<ControlPanelState> {
     String customStopWords = '',
     String model = 'gemini-2.5-flash-lite',
   }) async {
-    state = ControlPanelState(
+    state = KnowledgeHubState(
       isIngesting: true,
       stats: state.stats,
       schema: state.schema,
@@ -283,7 +283,7 @@ class ControlPanelViewModel extends StateNotifier<ControlPanelState> {
       await _handleJobResult(result);
     } catch (e, st) {
       Sentry.captureException(e, stackTrace: st);
-      state = ControlPanelState(
+      state = KnowledgeHubState(
         isIngesting: false,
         stats: state.stats,
         schema: state.schema,

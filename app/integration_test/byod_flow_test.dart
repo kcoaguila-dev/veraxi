@@ -5,7 +5,7 @@ import 'package:integration_test/integration_test.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:veraxi_app/core/api_key_storage.dart';
-import 'package:veraxi_app/features/control_panel/views/widgets/api_keys_view.dart';
+import 'package:veraxi_app/features/settings/views/widgets/api_keys_tab.dart';
 import 'package:veraxi_app/core/theme.dart';
 
 void main() {
@@ -43,7 +43,7 @@ void main() {
         child: MaterialApp(
           theme: AppTheme.darkTheme,
           home: const Scaffold(
-            body: ApiKeysView(),
+            body: ApiKeysTab(),
           ),
         ),
       ),
