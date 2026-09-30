@@ -443,49 +443,59 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
                 showRenameDialog: _showRenameDialog,
                 showChangeProjectDialog: _showChangeProjectDialog,
               ),
-              SizedBox(height: 24),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  InkWell(
-                    onTap: () =>
-                        setState(() => _chatsExpanded = !_chatsExpanded),
+              SizedBox(height: 12),
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(6),
+                  onTap: () {
+                    viewModel.startNewChat();
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
                     child: Row(
                       children: [
-                        Text('Chats',
-                            style: TextStyle(
-                                color: Theme.of(context)
-                                    .extension<AppThemeExtension>()!
-                                    .textTertiary,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600)),
-                        SizedBox(width: 4),
-                        Icon(
-                            _chatsExpanded
-                                ? Icons.keyboard_arrow_down
-                                : Icons.keyboard_arrow_right,
-                            color: Theme.of(context)
-                                .extension<AppThemeExtension>()!
-                                .textTertiary,
-                            size: 16),
+                        Icon(Icons.edit_square,
+                            color: Theme.of(context).extension<AppThemeExtension>()!.iconColor,
+                            size: 18),
+                        const SizedBox(width: 12),
+                        const Text(
+                          'New chat',
+                          style: TextStyle(
+                            color: Color(0xFFE0E0E0),
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
                       ],
                     ),
                   ),
-                  InkWell(
-                    onTap: () {
-                      viewModel.startNewChat();
-                    },
-                    borderRadius: BorderRadius.circular(4),
-                    child: Padding(
-                      padding: EdgeInsets.all(4.0),
-                      child: Icon(Icons.edit_square,
-                          color: Theme.of(context)
-                              .extension<AppThemeExtension>()!
-                              .iconColor,
-                          size: 16),
-                    ),
-                  ),
-                ],
+                ),
+              ),
+              SizedBox(height: 12),
+              InkWell(
+                onTap: () =>
+                    setState(() => _chatsExpanded = !_chatsExpanded),
+                child: Row(
+                  children: [
+                    Text('Chats',
+                        style: TextStyle(
+                            color: Theme.of(context)
+                                .extension<AppThemeExtension>()!
+                                .textTertiary,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600)),
+                    SizedBox(width: 4),
+                    Icon(
+                        _chatsExpanded
+                            ? Icons.keyboard_arrow_down
+                            : Icons.keyboard_arrow_right,
+                        color: Theme.of(context)
+                            .extension<AppThemeExtension>()!
+                            .textTertiary,
+                        size: 16),
+                  ],
+                ),
               ),
               SizedBox(height: 12),
               if (_chatsExpanded)
