@@ -133,8 +133,6 @@ class _ScaffoldWithNavBarState extends ConsumerState<ScaffoldWithNavBar> {
     final bool isWideScreen = MediaQuery.of(context).size.width >= 600;
     final isSidebarOpen = ref.watch(sidebarStateProvider);
 
-    final theme = Theme.of(context);
-
     return Scaffold(
       body: Stack(
         children: [
