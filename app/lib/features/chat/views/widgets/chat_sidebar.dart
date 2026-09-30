@@ -73,14 +73,16 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
             ),
           ),
         ),
-        const SizedBox(height: 32),
+        const SizedBox(height: 18),
         Tooltip(
           message: 'Projects',
           child: IconButton(
+            padding: const EdgeInsets.all(8),
+            constraints: const BoxConstraints(minHeight: 34, minWidth: 34),
             icon: Icon(Icons.folder_outlined,
                 color:
                     Theme.of(context).extension<AppThemeExtension>()!.iconColor,
-                size: 20),
+                size: 18),
             onPressed: () {
               ref
                   .read(chatViewModelProvider.notifier)
@@ -89,28 +91,32 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
             },
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
         Tooltip(
           message: 'New chat',
           child: IconButton(
+            padding: const EdgeInsets.all(8),
+            constraints: const BoxConstraints(minHeight: 34, minWidth: 34),
             icon: Icon(Icons.edit_square,
                 color:
                     Theme.of(context).extension<AppThemeExtension>()!.iconColor,
-                size: 20),
+                size: 18),
             onPressed: () {
               viewModel.startNewChat();
               context.go('/chat');
             },
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 4),
         Tooltip(
           message: 'Knowledge Hub',
           child: IconButton(
+            padding: const EdgeInsets.all(8),
+            constraints: const BoxConstraints(minHeight: 34, minWidth: 34),
             icon: Icon(Icons.library_books_outlined,
                 color:
                     Theme.of(context).extension<AppThemeExtension>()!.iconColor,
-                size: 20),
+                size: 18),
             onPressed: () {
               context.go('/knowledge-hub');
             },
