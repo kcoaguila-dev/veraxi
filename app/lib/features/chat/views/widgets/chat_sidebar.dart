@@ -501,7 +501,7 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
                             ),
                           ),
                         ),
-                        SizedBox(height: 12),
+                        SizedBox(height: 4),
                         Material(
                           color: Colors.transparent,
                           child: InkWell(
