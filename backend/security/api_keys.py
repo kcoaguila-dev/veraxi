@@ -61,8 +61,8 @@ def resolve_api_key(raw_key: str, supabase: Client) -> str:
 
 
 def _hash_key(raw_key: str) -> str:
-    """Return the hex SHA-256 digest of a raw key string."""
-    return hashlib.sha256(raw_key.encode()).hexdigest()
+    """Return a strong PBKDF2 hash of a raw key string."""
+    return hashlib.pbkdf2_hmac("sha256", raw_key.encode(), b"veraxi_api_key_salt", 100000).hex()
 
 
 def _lookup_hash(key_hash: str, supabase: Client) -> str:

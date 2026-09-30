@@ -300,7 +300,7 @@ def register_chat_routes(
         except Exception as e:
             sentry_sdk.capture_exception(e)
             logger.error(f"Error processing question: {e}")
-            raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=500, detail="An internal error occurred.")
 
     @app_router.get("/api/chat/threads")
     async def list_threads(request: Request, tenant_id: str = Depends(get_tenant_id)):
@@ -336,7 +336,7 @@ def register_chat_routes(
         except Exception as e:
             sentry_sdk.capture_exception(e)
             logger.error(f"Error listing threads: {e}")
-            raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=500, detail="An internal error occurred.")
 
     @app_router.get("/api/chat/threads/{thread_id}")
     async def get_thread_history(
@@ -393,7 +393,7 @@ def register_chat_routes(
         except Exception as e:
             sentry_sdk.capture_exception(e)
             logger.error(f"Error fetching thread {thread_id}: {e}")
-            raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=500, detail="An internal error occurred.")
 
     @app_router.post("/api/chat/threads/{thread_id}/share")
     async def share_thread(
@@ -440,7 +440,7 @@ def register_chat_routes(
             raise
         except Exception as e:
             sentry_sdk.capture_exception(e)
-            raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=500, detail="An internal error occurred.")
 
     @app_router.get("/share/{share_id}")
     async def get_shared_thread(share_id: str, request: Request):
@@ -475,7 +475,7 @@ def register_chat_routes(
             raise
         except Exception as e:
             sentry_sdk.capture_exception(e)
-            raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=500, detail="An internal error occurred.")
 
     @app_router.post("/api/chat/messages/{message_id}/feedback")
     async def submit_feedback(
@@ -496,7 +496,7 @@ def register_chat_routes(
             return {"status": "ok"}
         except Exception as e:
             sentry_sdk.capture_exception(e)
-            raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=500, detail="An internal error occurred.")
 
     @app_router.put("/api/chat/messages/{message_id}")
     async def edit_message(
@@ -544,7 +544,7 @@ def register_chat_routes(
             raise
         except Exception as e:
             sentry_sdk.capture_exception(e)
-            raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=500, detail="An internal error occurred.")
 
     @app_router.post("/api/chat/threads/{thread_id}/regenerate")
     async def regenerate_response(

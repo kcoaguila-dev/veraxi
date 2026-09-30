@@ -31,9 +31,9 @@ class TestGenerateApiKey:
         raw_key, key_hash = generate_api_key()
         assert raw_key != key_hash
 
-    def test_hash_is_sha256_of_raw_key(self):
+    def test_hash_is_strong_pbkdf2(self):
         raw_key, key_hash = generate_api_key()
-        expected = hashlib.sha256(raw_key.encode()).hexdigest()
+        expected = hashlib.pbkdf2_hmac("sha256", raw_key.encode(), b"veraxi_api_key_salt", 100000).hex()
         assert key_hash == expected
 
     def test_each_call_produces_unique_key(self):

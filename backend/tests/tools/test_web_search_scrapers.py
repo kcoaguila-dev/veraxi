@@ -214,7 +214,6 @@ class TestTrafilaturaScraper:
             scraper = TrafilaturaScraper()
             result = scraper.fetch_batch(["https://example.com"], timeout_per_url=5.0)
 
-        assert "https://example.com" in result
         assert result["https://example.com"] == _LONG_TEXT
 
     def test_short_content_excluded(self):
