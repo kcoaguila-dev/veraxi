@@ -354,7 +354,7 @@ class _ChatInputState extends State<ChatInput> {
                 .surfaceHighlight,
             borderRadius: BorderRadius.circular(24),
           ),
-          padding: EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+          padding: EdgeInsets.symmetric(horizontal: 12.0, vertical: 4.0),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -418,7 +418,7 @@ class _ChatInputState extends State<ChatInput> {
                       filled: false,
                       isDense: true,
                       contentPadding: EdgeInsets.only(
-                          left: 4, right: 32, top: 12, bottom: 12),
+                          left: 4, right: 32, top: 8, bottom: 8),
                     ),
                     onSubmitted: (_) => _handleSend(),
                     enabled: !widget.isLoading,
