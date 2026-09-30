@@ -8,6 +8,7 @@ import 'package:veraxi_app/core/theme_provider.dart';
 import 'package:veraxi_app/features/auth/view_models/auth_view_model.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:veraxi_app/core/widgets/veraxi_logo.dart';
+import 'package:veraxi_app/core/local_mode_storage.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -90,25 +91,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        automaticallyImplyLeading: false,
-        actions: [
-          IconButton(
-            icon: Icon(
-              theme.brightness == Brightness.dark
-                  ? Icons.light_mode
-                  : Icons.dark_mode,
-              color: theme.colorScheme.onSurface,
-            ),
-            onPressed: () {
-              ref.read(themeProvider.notifier).toggle();
-            },
-          ),
-          SizedBox(width: 8),
-        ],
-      ),
+
       body: Stack(
         children: [
           // Background Gradient Orbs
@@ -124,11 +107,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               ),
             ).animate().fadeIn(duration: const Duration(seconds: 1)).scale(),
           ),
-          Center(
-            child: SingleChildScrollView(
-              child: Container(
-                constraints: const BoxConstraints(maxWidth: 400),
-                margin: EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              return SingleChildScrollView(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    minHeight: constraints.maxHeight,
+                  ),
+                  child: Center(
+                    child: Container(
+                      constraints: const BoxConstraints(maxWidth: 400),
+                      margin: EdgeInsets.symmetric(horizontal: 24, vertical: 24),
                 padding: EdgeInsets.all(24),
                 decoration: BoxDecoration(
                   color: theme.colorScheme.surface.withValues(alpha: 0.5),
@@ -149,7 +138,29 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const VeraxiLogo(size: 48),
+                        Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            const Align(
+                              alignment: Alignment.center,
+                              child: VeraxiLogo(size: 48),
+                            ),
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: IconButton(
+                                icon: Icon(
+                                  theme.brightness == Brightness.dark
+                                      ? Icons.light_mode
+                                      : Icons.dark_mode,
+                                  color: theme.colorScheme.onSurface,
+                                ),
+                                onPressed: () {
+                                  ref.read(themeProvider.notifier).toggle();
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
                         SizedBox(height: 24),
                         Text(
                           _isSignUp ? 'Create Account' : 'Welcome Back',
@@ -308,6 +319,28 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             ),
                           ),
                         ),
+                        SizedBox(height: 12),
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            onPressed: () async {
+                              await LocalModeStorage().setLocalMode(true);
+                              if (context.mounted) {
+                                context.go('/chat');
+                              }
+                            },
+                            icon: Icon(Icons.offline_bolt_outlined, size: 20),
+                            label: Text('Use Local Mode (BYOK)'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: theme.colorScheme.onSurface,
+                              side: BorderSide(
+                                  color: theme.colorScheme.outlineVariant),
+                              padding: EdgeInsets.symmetric(vertical: 16),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12)),
+                            ),
+                          ),
+                        ),
                         SizedBox(height: 24),
                       ],
                     ),
@@ -316,6 +349,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               ),
             ),
           ),
+        );
+      },
+    ),
         ],
       ),
     );

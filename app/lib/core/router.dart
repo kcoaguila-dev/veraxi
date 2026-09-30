@@ -7,7 +7,8 @@ import 'package:veraxi_app/features/chat/views/shared_chat_screen.dart';
 import 'package:veraxi_app/features/control_panel/views/control_panel_screen.dart';
 import 'package:veraxi_app/features/docs/views/docs_screen.dart';
 import 'package:veraxi_app/features/landing/views/landing_screen.dart';
-import 'package:veraxi_app/core/widgets/app_shell.dart';
+import 'package:veraxi_app/core/local_mode_storage.dart';
+
 
 final GlobalKey<NavigatorState> _rootNavigatorKey =
     GlobalKey<NavigatorState>(debugLabel: 'root');
@@ -23,7 +24,7 @@ bool? mockIsAuth;
 final goRouter = GoRouter(
   navigatorKey: _rootNavigatorKey,
   initialLocation: isSelfHosted ? '/login' : '/',
-  redirect: (context, state) {
+  redirect: (context, state) async {
     bool isSessionValid = false;
     try {
       if (isAuthEnabled) {
@@ -34,7 +35,8 @@ final goRouter = GoRouter(
       isSessionValid = false;
     }
 
-    final isAuth = mockIsAuth ?? (!isAuthEnabled || isSessionValid);
+    final isLocalMode = await LocalModeStorage().isLocalMode();
+    final isAuth = mockIsAuth ?? (!isAuthEnabled || isSessionValid || isLocalMode);
 
     final isLoggingIn = state.matchedLocation == '/login';
     final isLanding = state.matchedLocation == '/';
@@ -79,31 +81,15 @@ final goRouter = GoRouter(
       builder: (BuildContext context, GoRouterState state) =>
           const LoginScreen(),
     ),
-    StatefulShellRoute.indexedStack(
-      builder: (BuildContext context, GoRouterState state,
-          StatefulNavigationShell navigationShell) {
-        return ScaffoldWithNavBar(navigationShell: navigationShell);
-      },
-      branches: <StatefulShellBranch>[
-        StatefulShellBranch(
-          routes: <RouteBase>[
-            GoRoute(
-              path: '/chat',
-              builder: (BuildContext context, GoRouterState state) =>
-                  const ChatScreen(),
-            ),
-          ],
-        ),
-        StatefulShellBranch(
-          routes: <RouteBase>[
-            GoRoute(
-              path: '/admin',
-              builder: (BuildContext context, GoRouterState state) =>
-                  const ControlPanelScreen(),
-            ),
-          ],
-        ),
-      ],
+    GoRoute(
+      path: '/chat',
+      builder: (BuildContext context, GoRouterState state) =>
+          const ChatScreen(),
+    ),
+    GoRoute(
+      path: '/admin',
+      builder: (BuildContext context, GoRouterState state) =>
+          const ControlPanelScreen(),
     ),
   ],
 );

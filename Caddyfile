@@ -9,3 +9,12 @@ api.veraxi.me {
     # Route everything else to the Flutter Web (Nginx) container
     reverse_proxy /* web:80
 }
+
+# Android emulator viewer — ws-scrcpy streams the Redroid container to the browser
+android.veraxi.me {
+    log {
+        output stdout
+    }
+
+    reverse_proxy localhost:8081
+}
