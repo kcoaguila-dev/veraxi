@@ -396,18 +396,21 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                           child: Center(
                             child: ConstrainedBox(
                               constraints: const BoxConstraints(maxWidth: 800),
-                              child: ChatInput(
-                                projectName: state.activeProjectName,
-                                isLoading: state.isLoading,
-                                onSend: (text, {attachments}) =>
-                                    viewModel.sendMessage(text,
-                                        model:
-                                            _selectedModel == 'Select a model'
-                                                ? null
-                                                : _selectedModel,
-                                        attachments: attachments),
-                                errorText: state.error,
-                                onDismissError: () => viewModel.clearError(),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 16),
+                                child: ChatInput(
+                                  projectName: state.activeProjectName,
+                                  isLoading: state.isLoading,
+                                  onSend: (text, {attachments}) =>
+                                      viewModel.sendMessage(text,
+                                          model:
+                                              _selectedModel == 'Select a model'
+                                                  ? null
+                                                  : _selectedModel,
+                                          attachments: attachments),
+                                  errorText: state.error,
+                                  onDismissError: () => viewModel.clearError(),
+                                ),
                               ),
                             ),
                           ),
@@ -453,12 +456,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           const SizedBox(height: 32),
           ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 800),
-            child: ChatInput(
-              projectName: state.activeProjectName,
-              isLoading: state.isLoading,
-              onSend: (text, {attachments}) => viewModel.sendMessage(text,
-                  model: _selectedModel, attachments: attachments),
-              errorText: state.error,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: ChatInput(
+                projectName: state.activeProjectName,
+                isLoading: state.isLoading,
+                onSend: (text, {attachments}) => viewModel.sendMessage(text,
+                    model: _selectedModel, attachments: attachments),
+                errorText: state.error,
+              ),
             ),
           )
               .animate()
