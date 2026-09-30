@@ -299,9 +299,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                       Text(
                                         'Metrics',
                                         style: TextStyle(
-                                          color: state.showTelemetry
-                                              ? ext.primaryGradientStart
-                                              : const Color(0xFF878787),
+                                          color: const Color(0xFF878787),
                                           fontSize: 13,
                                           fontWeight: FontWeight.w500,
                                         ),
