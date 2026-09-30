@@ -27,11 +27,12 @@ def clean_text_for_tts(text: str) -> str:
     return re.sub(r'\s+', ' ', text).strip()
 
 
-def _safe_filename(name: str) -> str:
-    """Sanitize filename to prevent path traversal."""
-    if not name:
-        return "audio.wav"
-    return os.path.basename(name)
+def safe_join(directory: str, *pathnames: str) -> str:
+    """Safely join zero or more untrusted path components to a base directory."""
+    final_path = os.path.abspath(os.path.join(directory, *pathnames))
+    if not final_path.startswith(os.path.abspath(directory) + os.sep):
+        raise HTTPException(status_code=400, detail="Path traversal detected")
+    return final_path
 
 
 class VoiceListResponse(BaseModel):
@@ -99,8 +100,8 @@ def register_tts_routes(
                 os.path.dirname(os.path.dirname(__file__)), "tts", "voices"
             )
             os.makedirs(voices_dir, exist_ok=True)
-            safe_filename = _safe_filename((file.filename or "audio.wav").replace(" ", "_"))
-            file_path = os.path.join(voices_dir, safe_filename)
+            safe_filename = (file.filename or "audio.wav").replace(" ", "_")
+            file_path = safe_join(voices_dir, safe_filename)
             with open(file_path, "wb") as buffer:  # noqa: ASYNC230
                 shutil.copyfileobj(file.file, buffer)
             voice_id = safe_filename.rsplit(".", 1)[0].lower()
@@ -135,8 +136,7 @@ def register_tts_routes(
                 os.path.dirname(os.path.dirname(__file__)), "tts", "cache"
             )
             os.makedirs(cache_dir, exist_ok=True)
-            safe_msg_id = _safe_filename(request.message_id)
-            cached_file_path = os.path.join(cache_dir, f"{safe_msg_id}.wav")
+            cached_file_path = safe_join(cache_dir, f"{request.message_id}.wav")
             if os.path.exists(cached_file_path):
                 return FileResponse(
                     cached_file_path, media_type="audio/wav", filename="audio.wav"
@@ -170,9 +170,8 @@ def register_tts_routes(
                         os.path.dirname(os.path.dirname(__file__)), "tts", "cache"
                     )
                     os.makedirs(cache_dir, exist_ok=True)
-                    safe_msg_id = _safe_filename(request.message_id)
-                    cached_file_path = os.path.join(
-                        cache_dir, f"{safe_msg_id}.wav"
+                    cached_file_path = safe_join(
+                        cache_dir, f"{request.message_id}.wav"
                     )
                     await asyncio.to_thread(
                         Path(cached_file_path).write_bytes, audio_bytes
@@ -202,8 +201,7 @@ def register_tts_routes(
         cache_dir = os.path.join(
             os.path.dirname(os.path.dirname(__file__)), "tts", "cache"
         )
-        safe_msg_id = _safe_filename(message_id)
-        cached_file_path = os.path.join(cache_dir, f"{safe_msg_id}.wav")
+        cached_file_path = safe_join(cache_dir, f"{message_id}.wav")
         if os.path.exists(cached_file_path):
             return FileResponse(
                 cached_file_path, media_type="audio/wav", filename="audio.wav"
@@ -220,8 +218,7 @@ def register_tts_routes(
                 os.path.dirname(os.path.dirname(__file__)), "tts", "cache"
             )
             os.makedirs(cache_dir, exist_ok=True)
-            safe_msg_id = _safe_filename(request.message_id)
-            cached_file_path = os.path.join(cache_dir, f"{safe_msg_id}.wav")
+            cached_file_path = safe_join(cache_dir, f"{request.message_id}.wav")
             if os.path.exists(cached_file_path):
                 logger.info(f"Returning cached audio for message {request.message_id}")
                 return FileResponse(
@@ -253,8 +250,7 @@ def register_tts_routes(
                     os.path.dirname(os.path.dirname(__file__)), "tts", "cache"
                 )
                 os.makedirs(cache_dir, exist_ok=True)
-                safe_msg_id = _safe_filename(request.message_id)
-                cached_file_path = os.path.join(cache_dir, f"{safe_msg_id}.wav")
+                cached_file_path = safe_join(cache_dir, f"{request.message_id}.wav")
                 await asyncio.to_thread(Path(cached_file_path).write_bytes, audio_bytes)
                 from backend.tts.cache_manager import cleanup_audio_cache
 
