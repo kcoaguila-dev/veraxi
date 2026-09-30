@@ -36,7 +36,7 @@ dependencies:
   lucide_icons_flutter: ^3.1.20
   drift: ^2.22.1
   sqlite3_flutter_libs: ^0.5.25
-  sqlite3: ^2.4.6
+  sqlite3: ^3.6.0
 dev_dependencies:
   build_runner: ^2.4.13
   drift_dev: ^2.22.1
