@@ -27,16 +27,15 @@ class ModelConfigRepository {
 
   Future<Map<String, List<String>>> getProviderModels() async {
     final url = '/models?_=' + DateTime.now().millisecondsSinceEpoch.toString();
-    try {
-      final data = await apiClient.get(url);
-      Map<String, List<String>> result = {};
-      data.forEach((key, value) {
-        result[key] = List<String>.from(value);
-      });
-      return result;
-    } catch (e) {
-      debugPrint('[ModelConfigRepository] getProviderModels error: $e');
-      return {};
+    final data = await apiClient.get(url);
+    if (data is! Map) {
+      throw Exception('Expected Map but got ${data.runtimeType}');
     }
+
+    Map<String, List<String>> result = {};
+    for (var entry in data.entries) {
+      result[entry.key.toString()] = List<String>.from(entry.value as Iterable);
+    }
+    return result;
   }
 }

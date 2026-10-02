@@ -25,6 +25,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.0.0"
+  android_intent_plus:
+    dependency: "direct main"
+    description:
+      name: android_intent_plus
+      sha256: "2329378af63f49b985cb2e110ac784d08374f1e2b1984be77ba9325b1c8cce11"
+      url: "https://pub.dev"
+    source: hosted
+    version: "5.3.1"
   app_links:
     dependency: transitive
     description:
@@ -225,6 +233,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.0.7"
+  cryptography:
+    dependency: "direct main"
+    description:
+      name: cryptography
+      sha256: "3eda3029d34ec9095a27a198ac9785630fe525c0eb6a49f3d575272f8e792ef0"
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.9.0"
   dart_jsonwebtoken:
     dependency: transitive
     description:
@@ -345,6 +361,22 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.1.1"
+  flat_buffers:
+    dependency: transitive
+    description:
+      name: flat_buffers
+      sha256: "7c1de2d6eb5f3e61e5c50040841109f509deaaf2b12ec0d57b92456d9ea50345"
+      url: "https://pub.dev"
+    source: hosted
+    version: "25.9.23"
+  fllama:
+    dependency: "direct main"
+    description:
+      name: fllama
+      sha256: a58f9163013f7d0956a0685ddc1ea97cc3f2790939320eed969533fc9031de3b
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.0.1"
   flutter:
     dependency: "direct main"
     description: flutter
@@ -751,6 +783,30 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.0.5"
+  objectbox:
+    dependency: "direct main"
+    description:
+      name: objectbox
+      sha256: f68d74bfdfa6758cebf4cd319db1f4a4386c79ba8896d19e2e999faf041bac78
+      url: "https://pub.dev"
+    source: hosted
+    version: "5.3.2"
+  objectbox_flutter_libs:
+    dependency: "direct main"
+    description:
+      name: objectbox_flutter_libs
+      sha256: "604d26fac4548693449c9ea802e007d4adf7f31e361ae3ebf362ac142295078d"
+      url: "https://pub.dev"
+    source: hosted
+    version: "5.3.2"
+  objectbox_generator:
+    dependency: "direct dev"
+    description:
+      name: objectbox_generator
+      sha256: b5f6b9e6062635689d777ba2b3a16548991eb1e61007baf607022537e3bc0436
+      url: "https://pub.dev"
+    source: hosted
+    version: "5.3.2"
   objective_c:
     dependency: transitive
     description:
@@ -935,6 +991,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.6.0"
+  quiver:
+    dependency: transitive
+    description:
+      name: quiver
+      sha256: ea0b925899e64ecdfbf9c7becb60d5b50e706ade44a85b2363be2a22d88117d2
+      url: "https://pub.dev"
+    source: hosted
+    version: "3.2.2"
   realtime_client:
     dependency: transitive
     description:
@@ -1276,6 +1340,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.7.9"
+  tflite_flutter:
+    dependency: "direct main"
+    description:
+      name: tflite_flutter
+      sha256: "0bba9040d8decda0960d7abf8eabf32243bf092bc7d0084e8e19681866b0bdbe"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.12.1"
   typed_data:
     dependency: transitive
     description:

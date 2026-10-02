@@ -219,7 +219,8 @@ async def test_ensure_schema_exists_present():
 def test_guest_without_api_key_is_rejected(mock_redis):
     """local_guest requests with no api_key must be refused (403) so the server
     never bears the inference cost for unauthenticated users."""
-    # Override verify_infrastructure_access (what chat_endpoint Depends on).
+    # Override verify_infrastructure_access and get_tenant_id (what chat_endpoint Depends on).
+    app.dependency_overrides[get_tenant_id] = lambda: "local_guest"
     app.dependency_overrides[verify_infrastructure_access] = lambda: "local_guest"
 
     with TestClient(app) as client:
@@ -244,7 +245,8 @@ def test_guest_with_api_key_is_allowed(
     mock_answer.return_value = ("Hello from guest", "ctx", {"grounding_score": 0.9, "duration": 1.0})
     mock_gen_title.return_value = "Guest Chat"
 
-    # Override verify_infrastructure_access (what chat_endpoint Depends on).
+    # Override verify_infrastructure_access and get_tenant_id (what chat_endpoint Depends on).
+    app.dependency_overrides[get_tenant_id] = lambda: "local_guest"
     app.dependency_overrides[verify_infrastructure_access] = lambda: "local_guest"
 
     with TestClient(app) as client:

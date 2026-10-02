@@ -126,4 +126,5 @@ DEFAULT_PROVIDER_MODELS = {
         "openai/gpt-oss-120b",
         "qwen/qwen3.6-27b",
     ],
+    "Local": [],
 }

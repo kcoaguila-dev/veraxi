@@ -62,6 +62,10 @@ async def get_tools(tool_settings: dict | None = None) -> list:
             ]
         )
 
+    # Inject native Android tools passed from the frontend
+    if tool_settings and "agent_tools" in tool_settings:
+        all_tools.extend(tool_settings["agent_tools"])
+
     if file_search_enabled:
         all_tools.extend(
             [
@@ -238,6 +242,15 @@ def _execute_single_tool(
 
     config = get_config()
     settings = tool_settings or {}
+
+    # 1. Native Android tools (executed locally on the phone, backend just acknowledges them)
+    if tool_name in ["read_file", "write_file", "list_files", "run_shell", "open_app"]:
+        class ClientToolHit:
+            def __init__(self):
+                self.id = "client_tool"
+                self.payload = {"status": "Tool delegated to Android client"}
+                self.sources = ["Android Client"]
+        return [ClientToolHit()], []
 
     if tool_name == "search_vectors":
         if not settings.get("file_search_enabled", False):

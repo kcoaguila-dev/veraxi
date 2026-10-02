@@ -208,39 +208,7 @@ class _ModelSelectorPopupState extends ConsumerState<ModelSelectorPopup> {
   @override
   Widget build(BuildContext context) {
     final isSearching = _globalSearchQuery.isNotEmpty;
-    final asyncModels = ref.watch(providerModelsProvider);
-
-    return asyncModels.when(
-      loading: () => const Material(
-        color: Colors.transparent,
-        child: SizedBox(
-          width: 360,
-          height: 100,
-          child: Center(
-            child: CircularProgressIndicator(color: Colors.white54),
-          ),
-        ),
-      ),
-      error: (err, stack) => Material(
-        color: Colors.transparent,
-        child: Container(
-          width: 360,
-          padding: EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Theme.of(context)
-                .extension<AppThemeExtension>()!
-                .sidebarBackground,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-                color: Theme.of(context)
-                    .extension<AppThemeExtension>()!
-                    .borderColor),
-          ),
-          child: Text('Failed to load models: $err',
-              style: TextStyle(color: Colors.red)),
-        ),
-      ),
-      data: (allProviderModels) {
+    final allProviderModels = ref.watch(providerModelsProvider);
         // Build the unified list of models, grouped by provider.
         Widget buildUnifiedList() {
           final results = <Widget>[];
@@ -430,7 +398,5 @@ class _ModelSelectorPopupState extends ConsumerState<ModelSelectorPopup> {
             ),
           ),
         );
-      },
-    );
   }
 }

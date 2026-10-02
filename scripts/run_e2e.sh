@@ -22,7 +22,9 @@ export AUTH_ENABLED=true
 export REDIS_URL="redis://localhost:6380"
 export PORT=8001
 export OPENAI_API_KEY="dummy_key_for_e2e"
+export LLM_BASE_URL="http://127.0.0.1:8002"
 export OPENAI_BASE_URL="http://127.0.0.1:8002"
+export IS_ENTERPRISE=false
 
 # Run the mock LLM server in the background
 cd backend
@@ -30,7 +32,7 @@ cd backend
 MOCK_LLM_PID=$!
 
 # Run the backend in the background
-.venv/bin/uvicorn api_gateway:app --port $PORT &
+.venv/bin/uvicorn api_gateway:app --host 0.0.0.0 --port $PORT &
 BACKEND_PID=$!
 cd ..
 
@@ -42,12 +44,14 @@ sleep 5
 echo "-> Running Flutter Integration Test..."
 cd app
 set +e # Don't exit immediately if test fails so we can teardown
-xvfb-run /home/ubuntu/development/flutter/bin/flutter test integration_test/true_e2e_test.dart --dart-define=API_URL=http://localhost:$PORT/api
+adb reverse tcp:$PORT tcp:$PORT || true
+xvfb-run /home/ubuntu/development/flutter/bin/flutter test integration_test/true_e2e_test.dart --dart-define=API_URL=http://127.0.0.1:$PORT/api
 TEST_EXIT_CODE=$?
 set -e
 cleanup() {
   echo "======================================"
   echo "-> Tearing down E2E environment..."
+  adb reverse --remove tcp:$PORT 2>/dev/null || true
   kill $BACKEND_PID 2>/dev/null || true
   kill $MOCK_LLM_PID 2>/dev/null || true
   docker rm -f veraxi_e2e_redis >/dev/null 2>&1 || true

@@ -216,13 +216,24 @@ def register_chat_routes(
     async def chat_endpoint(
         request: Request,
         chat_request: ChatRequest,
-        tenant_id: str = Depends(verify_infrastructure_access),
+        tenant_id: str = Depends(get_tenant_id),
     ):
         logger.warning(
             f"Received question: {chat_request.question} for tenant: {tenant_id} | tool_settings: {chat_request.tool_settings}"
         )
         if not chat_request.model:
             raise HTTPException(status_code=400, detail="No AI model selected")
+
+        if chat_request.calculate_grounding:
+            await verify_infrastructure_access(request, tenant_id)
+
+        # Override the base_url if a local model is chosen and a local url is provided
+        from backend.routes.admin import _models_cache
+        local_url_header = request.headers.get("x-byod-local-url")
+        if local_url_header and chat_request.model in _models_cache.get("Local", []):
+            chat_request.base_url = local_url_header
+            # Local endpoints don't need a real API key, but we provide a dummy one to pass checks
+            chat_request.api_key = "dummy"
 
         # Guest (unauthenticated) users MUST supply their own API key.
         # This guarantees the server never pays for guest inference costs.
