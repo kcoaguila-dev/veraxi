@@ -273,7 +273,6 @@ async def verify_infrastructure_access(
 # ---------------------------------------------------------------------------
 from backend.routes.admin import register_admin_routes
 from backend.routes.api_keys import register_api_key_routes
-from backend.routes.sync import register_sync_routes
 from backend.routes.chat import register_chat_routes
 from backend.routes.files import register_file_routes
 from backend.routes.gdpr import register_gdpr_routes
@@ -281,6 +280,7 @@ from backend.routes.ingestion import register_ingestion_routes
 from backend.routes.mcp_transport import register_mcp_transport_routes
 from backend.routes.payments import register_payment_routes
 from backend.routes.projects import register_project_routes
+from backend.routes.sync import register_sync_routes
 from backend.routes.tts import register_tts_routes
 
 register_chat_routes(app, get_tenant_id, verify_infrastructure_access, limiter, config)

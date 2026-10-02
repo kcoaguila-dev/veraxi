@@ -31,7 +31,9 @@ class LocalLlmEngine {
       controller.close();
     });
 
-    Fllama.instance()?.completion(_contextId!, prompt: prompt, emitRealtimeCompletion: true).then((_) {
+    Fllama.instance()
+        ?.completion(_contextId!, prompt: prompt, emitRealtimeCompletion: true)
+        .then((_) {
       controller.close();
       sub?.cancel();
     }).catchError((e) {

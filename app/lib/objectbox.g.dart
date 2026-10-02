@@ -127,9 +127,8 @@ obx_int.ModelDefinition getObjectBoxModel() {
         final embeddingOffset = object.embedding == null
             ? null
             : fbb.writeListFloat32(object.embedding!);
-        final metadataOffset = object.metadata == null
-            ? null
-            : fbb.writeString(object.metadata!);
+        final metadataOffset =
+            object.metadata == null ? null : fbb.writeString(object.metadata!);
         fbb.startTable(5);
         fbb.addInt64(0, object.id);
         fbb.addOffset(1, textOffset);

@@ -16,11 +16,7 @@ void main() {
       expect(tools.length, 3);
 
       final names = tools.map((t) => t['function']['name']).toList();
-      expect(names, containsAll([
-        'read_file',
-        'write_file',
-        'list_files'
-      ]));
+      expect(names, containsAll(['read_file', 'write_file', 'list_files']));
     });
 
     test('dispatch handles missing tool gracefully', () async {

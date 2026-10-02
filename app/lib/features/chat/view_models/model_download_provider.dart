@@ -142,7 +142,8 @@ class ModelDownloadNotifier extends StateNotifier<ModelDownloadState> {
           if (totalBytes > 0) {
             state = state.copyWith(
               progress: receivedBytes / totalBytes,
-              status: 'Downloading: ${(receivedBytes / 1024 / 1024).toStringAsFixed(1)} MB',
+              status:
+                  'Downloading: ${(receivedBytes / 1024 / 1024).toStringAsFixed(1)} MB',
             );
           }
         }

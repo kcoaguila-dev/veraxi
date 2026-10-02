@@ -18,7 +18,16 @@ class LocalChatDataSource {
         _vectorDb = vectorDb,
         _embeddingEngine = embeddingEngine;
 
-  Stream<Map<String, dynamic>> streamChat(String question, String modelName) async* {
+  static LocalChatDataSource forModel() {
+    return LocalChatDataSource(
+      llmEngine: LocalLlmEngine(),
+      vectorDb: LocalVectorDb(),
+      embeddingEngine: LocalEmbeddingEngine(),
+    );
+  }
+
+  Stream<Map<String, dynamic>> streamChat(
+      String question, String modelName) async* {
     final appDocsDir = await getApplicationDocumentsDirectory();
     final modelPath = p.join(appDocsDir.path, modelName);
 
@@ -27,7 +36,8 @@ class LocalChatDataSource {
         'event': 'on_chat_model_stream',
         'data': {
           'chunk': {
-            'content': 'Error: Model file $modelName not found on device. Please download it from the Local API Key settings.'
+            'content':
+                'Error: Model file $modelName not found on device. Please download it from the Local API Key settings.'
           }
         }
       };
@@ -59,9 +69,7 @@ $question
       yield {
         'event': 'on_chat_model_stream',
         'data': {
-          'chunk': {
-            'content': chunk
-          }
+          'chunk': {'content': chunk}
         }
       };
     }

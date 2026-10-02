@@ -63,7 +63,9 @@ class _ToolEventCardState extends State<ToolEventCard>
 
     final Widget statusIcon = isComplete
         ? Icon(
-            isError ? Icons.error_outline_rounded : Icons.check_circle_outline_rounded,
+            isError
+                ? Icons.error_outline_rounded
+                : Icons.check_circle_outline_rounded,
             size: 14,
             color: accentColor,
           )
@@ -95,10 +97,12 @@ class _ToolEventCardState extends State<ToolEventCard>
             children: [
               // ── Header row (always visible) ───────────────────────────────
               InkWell(
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
+                borderRadius:
+                    const BorderRadius.vertical(top: Radius.circular(8)),
                 onTap: isComplete && result != null ? _toggle : null,
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
                   child: Row(
                     children: [
                       statusIcon,
@@ -197,7 +201,8 @@ class _ResultPanel extends StatelessWidget {
                     Text(
                       'Copy',
                       style: TextStyle(
-                          fontSize: 11, color: Colors.white.withValues(alpha: 0.5)),
+                          fontSize: 11,
+                          color: Colors.white.withValues(alpha: 0.5)),
                     ),
                   ],
                 ),

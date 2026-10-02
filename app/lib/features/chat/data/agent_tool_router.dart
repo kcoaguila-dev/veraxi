@@ -92,32 +92,45 @@ class AgentToolRouter {
       final result = await FilePicker.pickFiles(
         type: FileType.custom,
         allowedExtensions: [
-          'txt', 'md', 'py', 'js', 'ts', 'dart', 'json', 'yaml',
-          'yml', 'csv', 'sh', 'bash', 'html', 'css', 'xml', 'log',
+          'txt',
+          'md',
+          'py',
+          'js',
+          'ts',
+          'dart',
+          'json',
+          'yaml',
+          'yml',
+          'csv',
+          'sh',
+          'bash',
+          'html',
+          'css',
+          'xml',
+          'log',
         ],
       );
 
+      if (result.isEmpty) {
+        return ToolResult.error('No file selected.');
+      }
 
-    if (result.isEmpty) {
-      return ToolResult.error('No file selected.');
-    }
+      final file = result.first;
+      final path = file.path;
+      if (path == null) {
+        return ToolResult.error('Could not read file path.');
+      }
 
-    final file = result.first;
-    final path = file.path;
-    if (path == null) {
-      return ToolResult.error('Could not read file path.');
-    }
+      final bytes = await File(path).readAsBytes();
+      final content = utf8.decode(bytes, allowMalformed: true);
+      final truncated = content.length > 8000
+          ? '${content.substring(0, 8000)}\n\n[…truncated, ${content.length} chars total]'
+          : content;
 
-    final bytes = await File(path).readAsBytes();
-    final content = utf8.decode(bytes, allowMalformed: true);
-    final truncated = content.length > 8000
-        ? '${content.substring(0, 8000)}\n\n[…truncated, ${content.length} chars total]'
-        : content;
-
-    return ToolResult(
-      summary: '📄 Read "${file.name}" (${_humanSize(bytes.length)})',
-      content: '--- File: ${file.name} ---\n$truncated',
-    );
+      return ToolResult(
+        summary: '📄 Read "${file.name}" (${_humanSize(bytes.length)})',
+        content: '--- File: ${file.name} ---\n$truncated',
+      );
     } catch (e) {
       return ToolResult.error('Failed to read file: $e');
     }
@@ -220,7 +233,8 @@ class AgentToolRouter {
 
       final output = result ?? '(no output)';
       return ToolResult(
-        summary: '⚡ Shell: ${command.length > 40 ? '${command.substring(0, 40)}…' : command}',
+        summary:
+            '⚡ Shell: ${command.length > 40 ? '${command.substring(0, 40)}…' : command}',
         content: '\$ $command\n\n$output',
       );
     } on PlatformException catch (e) {
@@ -345,7 +359,7 @@ const List<Map<String, dynamic>> kAndroidAgentTools = [
       'name': 'read_file',
       'description':
           'Prompts the user to pick a file from their device and returns its text content. '
-          'Use this when the user asks you to read, analyze, or process a file.',
+              'Use this when the user asks you to read, analyze, or process a file.',
       'parameters': {
         'type': 'object',
         'properties': {},
@@ -359,7 +373,7 @@ const List<Map<String, dynamic>> kAndroidAgentTools = [
       'name': 'write_file',
       'description':
           'Saves text content to a file in Downloads/Veraxi/ on the device. '
-          'Use this when the user asks you to create, save, or export a file.',
+              'Use this when the user asks you to create, save, or export a file.',
       'parameters': {
         'type': 'object',
         'properties': {
@@ -381,8 +395,7 @@ const List<Map<String, dynamic>> kAndroidAgentTools = [
     'type': 'function',
     'function': {
       'name': 'list_files',
-      'description':
-          'Lists all files saved in the Downloads/Veraxi/ directory. '
+      'description': 'Lists all files saved in the Downloads/Veraxi/ directory. '
           'Use this to show the user what files the agent has previously created.',
       'parameters': {
         'type': 'object',
@@ -395,8 +408,7 @@ const List<Map<String, dynamic>> kAndroidAgentTools = [
     'type': 'function',
     'function': {
       'name': 'run_shell',
-      'description':
-          'Executes a shell command in Termux on the Android device. '
+      'description': 'Executes a shell command in Termux on the Android device. '
           'Requires Termux and Termux:API to be installed from F-Droid. '
           'Always prefer safe, non-destructive commands. The user must confirm before execution.',
       'parameters': {
@@ -404,7 +416,8 @@ const List<Map<String, dynamic>> kAndroidAgentTools = [
         'properties': {
           'command': {
             'type': 'string',
-            'description': 'The bash shell command to execute, e.g. "ls ~/storage/downloads".',
+            'description':
+                'The bash shell command to execute, e.g. "ls ~/storage/downloads".',
           },
         },
         'required': ['command'],
@@ -417,7 +430,7 @@ const List<Map<String, dynamic>> kAndroidAgentTools = [
       'name': 'open_app',
       'description':
           'Opens an Android app by its package name (e.g. "com.google.android.youtube") '
-          'or opens a URL in the browser.',
+              'or opens a URL in the browser.',
       'parameters': {
         'type': 'object',
         'properties': {

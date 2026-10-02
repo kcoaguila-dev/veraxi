@@ -5,10 +5,8 @@ import 'package:veraxi_app/core/api_key_storage.dart';
 import 'package:veraxi_app/features/chat/data/chat_repository.dart';
 import 'package:veraxi_app/features/chat/data/local_chat_database.dart';
 import 'package:uuid/uuid.dart';
-import 'package:veraxi_app/core/local_ai/local_llm_engine.dart';
-import 'package:veraxi_app/core/local_ai/local_vector_db.dart';
-import 'package:veraxi_app/core/local_ai/local_embedding_engine.dart';
-import 'package:veraxi_app/features/chat/data/local_chat_data_source.dart';
+import 'package:veraxi_app/features/chat/data/local_chat_data_source.dart'
+    if (dart.library.html) 'package:veraxi_app/features/chat/data/local_chat_data_source_web.dart';
 
 class LocalChatRepository implements IChatRepository {
   final ApiClient apiClient;
@@ -114,15 +112,11 @@ class LocalChatRepository implements IChatRepository {
 
     Stream<Map<String, dynamic>> stream;
     if (model != null && model.endsWith('.gguf')) {
-      final localDataSource = LocalChatDataSource(
-        llmEngine: LocalLlmEngine(),
-        vectorDb: LocalVectorDb(),
-        embeddingEngine: LocalEmbeddingEngine(),
-      );
+      final localDataSource = LocalChatDataSource.forModel();
       stream = localDataSource.streamChat(question, model);
     } else {
-      final cloudRepo =
-          CloudChatRepository(apiClient: apiClient, apiKeyStorage: apiKeyStorage);
+      final cloudRepo = CloudChatRepository(
+          apiClient: apiClient, apiKeyStorage: apiKeyStorage);
       stream = cloudRepo.streamChat(
         question,
         threadId: effectiveThreadId,
