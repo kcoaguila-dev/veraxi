@@ -678,8 +678,8 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
                                         if (item is String) {
                                           return Padding(
                                             padding: EdgeInsets.only(
-                                                top: 16.0,
-                                                bottom: 8.0,
+                                                top: 12.0,
+                                                bottom: 4.0,
                                                 left: 8.0),
                                             child: Text(
                                               item,
@@ -719,6 +719,10 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
                                                 viewModel
                                                     .selectThread(threadId);
                                                 context.go('/chat');
+                                                if (widget.isMobile &&
+                                                    context.mounted) {
+                                                  Navigator.of(context).pop();
+                                                }
                                               },
                                               child: Container(
                                                 decoration: BoxDecoration(
@@ -732,7 +736,7 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
                                                       BorderRadius.circular(8),
                                                 ),
                                                 padding: EdgeInsets.symmetric(
-                                                    vertical: 8.0,
+                                                    vertical: 4.0,
                                                     horizontal: 8.0),
                                                 child: Row(
                                                   children: [

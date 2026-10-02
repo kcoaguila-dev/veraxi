@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:flutter/foundation.dart';
 import 'package:veraxi_app/core/api_key_storage.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
@@ -33,11 +34,29 @@ class ApiClient {
   final String? tenantId;
 
   ApiClient({
-    this.baseUrl =
+    String baseUrl =
         const String.fromEnvironment('API_URL', defaultValue: '/api'),
     http.Client? client,
     this.tenantId,
-  }) : client = client ?? http.Client();
+  })  : baseUrl = _normalizeBaseUrl(baseUrl),
+        client = client ?? http.Client();
+
+  static String _normalizeBaseUrl(String url) {
+    if (url.startsWith('/')) {
+      // In Flutter Web, relative URLs are resolved automatically.
+      // On native platforms (Android, iOS, Desktop), they throw 'No host specified'.
+      // Native Android uses adb reverse for local emulator and scrcpy access.
+      // Physical devices should provide API_URL with their desktop's LAN IP.
+      if (kIsWeb) {
+        return url;
+      }
+      if (defaultTargetPlatform == TargetPlatform.android) {
+        return 'http://127.0.0.1:8000$url';
+      }
+      return 'http://localhost:8000$url';
+    }
+    return url;
+  }
 
   final _apiKeyStorage = ApiKeyStorage();
 
@@ -80,6 +99,11 @@ class ApiClient {
     final browserbaseKey = await _apiKeyStorage.getKey('browserbase');
     if (browserbaseKey != null && browserbaseKey.isNotEmpty) {
       headers['X-BYOD-Browserbase-Key'] = browserbaseKey;
+    }
+
+    final localUrl = await _apiKeyStorage.getValue('local_base_url');
+    if (localUrl != null && localUrl.isNotEmpty) {
+      headers['X-BYOD-Local-URL'] = localUrl;
     }
 
     return headers;

@@ -398,7 +398,7 @@ class _ChatInputState extends State<ChatInput> {
                   TextField(
                     controller: _controller,
                     minLines: 1,
-                    maxLines: _isExpanded ? 20 : 5,
+                    maxLines: _isExpanded ? 20 : 1,
                     style: TextStyle(color: Colors.white, fontSize: 16),
                     cursorColor: Colors.white,
                     decoration: InputDecoration(
@@ -422,7 +422,9 @@ class _ChatInputState extends State<ChatInput> {
                     ),
                     onSubmitted: (_) => _handleSend(),
                     enabled: !widget.isLoading,
-                    textInputAction: TextInputAction.send,
+                    textInputAction: _isExpanded
+                        ? TextInputAction.newline
+                        : TextInputAction.send,
                   ),
                   if (_showExpandIcon)
                     Positioned(

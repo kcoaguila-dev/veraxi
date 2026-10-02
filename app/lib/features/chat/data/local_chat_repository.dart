@@ -5,6 +5,10 @@ import 'package:veraxi_app/core/api_key_storage.dart';
 import 'package:veraxi_app/features/chat/data/chat_repository.dart';
 import 'package:veraxi_app/features/chat/data/local_chat_database.dart';
 import 'package:uuid/uuid.dart';
+import 'package:veraxi_app/core/local_ai/local_llm_engine.dart';
+import 'package:veraxi_app/core/local_ai/local_vector_db.dart';
+import 'package:veraxi_app/core/local_ai/local_embedding_engine.dart';
+import 'package:veraxi_app/features/chat/data/local_chat_data_source.dart';
 
 class LocalChatRepository implements IChatRepository {
   final ApiClient apiClient;
@@ -108,17 +112,26 @@ class LocalChatRepository implements IChatRepository {
           ));
     }
 
-    // Call API with guest=true to bypass auth, and is_temporary=true to bypass backend DB
-    final cloudRepo =
-        CloudChatRepository(apiClient: apiClient, apiKeyStorage: apiKeyStorage);
-    final stream = cloudRepo.streamChat(
-      question,
-      threadId: effectiveThreadId,
-      isTemporary: true, // Force backend to not save
-      model: model,
-      calculateGrounding: calculateGrounding,
-      toolSettings: toolSettings,
-    );
+    Stream<Map<String, dynamic>> stream;
+    if (model != null && model.endsWith('.gguf')) {
+      final localDataSource = LocalChatDataSource(
+        llmEngine: LocalLlmEngine(),
+        vectorDb: LocalVectorDb(),
+        embeddingEngine: LocalEmbeddingEngine(),
+      );
+      stream = localDataSource.streamChat(question, model);
+    } else {
+      final cloudRepo =
+          CloudChatRepository(apiClient: apiClient, apiKeyStorage: apiKeyStorage);
+      stream = cloudRepo.streamChat(
+        question,
+        threadId: effectiveThreadId,
+        isTemporary: true, // Force backend to not save
+        model: model,
+        calculateGrounding: calculateGrounding,
+        toolSettings: toolSettings,
+      );
+    }
 
     String aiResponseContent = '';
     Map<String, dynamic>? finalMetrics;

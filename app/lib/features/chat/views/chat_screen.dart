@@ -11,6 +11,7 @@ import 'package:veraxi_app/features/chat/views/widgets/chat_message_list_item.da
 import 'package:veraxi_app/features/chat/views/widgets/project_dashboard_view.dart';
 import 'package:veraxi_app/features/chat/views/widgets/all_projects_dashboard_view.dart';
 import 'package:veraxi_app/core/widgets/model_selector_menu.dart';
+import 'package:veraxi_app/core/widgets/provider_icon.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:veraxi_app/features/chat/view_models/audio_player_service.dart';
 
@@ -53,6 +54,17 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
+    _loadSavedModel();
+  }
+
+  Future<void> _loadSavedModel() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedModel = prefs.getString('selected_model');
+    if (savedModel != null && mounted) {
+      setState(() {
+        _selectedModel = savedModel;
+      });
+    }
   }
 
   @override
@@ -78,6 +90,17 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final viewModel = ref.read(chatViewModelProvider.notifier);
     final theme = Theme.of(context);
     final ext = theme.extension<AppThemeExtension>()!;
+    final allProviderModels = ref.watch(providerModelsProvider);
+
+    String? currentProvider;
+    if (_selectedModel != 'Select a model') {
+      for (final entry in allProviderModels.entries) {
+        if (entry.value.contains(_selectedModel)) {
+          currentProvider = entry.key;
+          break;
+        }
+      }
+    }
 
     // Auto-scroll when messages change
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -248,8 +271,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                     children: [
                                       if (_selectedModel !=
                                           'Select a model') ...[
-                                        const Icon(Icons.psychology,
-                                            size: 16, color: Colors.white),
+                                        currentProvider != null
+                                            ? buildProviderIcon(currentProvider)
+                                            : const Icon(Icons.psychology,
+                                                size: 16, color: Colors.white),
                                         const SizedBox(width: 8),
                                       ],
                                       Text(_selectedModel,
@@ -313,23 +338,32 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                           ),
                         ),
 
-                        // Temporary Chat Toggle
+                        // Temporary Chat before the first message; afterward,
+                        // this becomes the action for starting a new thread.
                         Positioned(
                           top: 12,
                           right: 16,
                           child: Tooltip(
-                            message: state.isTemporary
-                                ? 'Temporary Chat (Enabled)'
-                                : 'Temporary Chat',
+                            message: state.messages.isNotEmpty
+                                ? 'New chat'
+                                : state.isTemporary
+                                    ? 'Temporary Chat (Enabled)'
+                                    : 'Temporary Chat',
                             child: IconButton(
                               icon: Icon(
-                                Icons.data_usage,
-                                color: state.isTemporary
-                                    ? ext.primaryGradientStart
-                                    : const Color(0xFF878787),
+                                state.messages.isNotEmpty
+                                    ? Icons.edit_square
+                                    : Icons.data_usage,
+                                color: state.messages.isNotEmpty
+                                    ? const Color(0xFF878787)
+                                    : state.isTemporary
+                                        ? ext.primaryGradientStart
+                                        : const Color(0xFF878787),
                                 size: 20,
                               ),
-                              onPressed: () => viewModel.toggleTemporaryChat(),
+                              onPressed: state.messages.isNotEmpty
+                                  ? viewModel.startNewChat
+                                  : viewModel.toggleTemporaryChat,
                             ),
                           ),
                         ),
@@ -420,19 +454,20 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                         ),
 
                       // Footer Legal Text
-                      Positioned(
-                        bottom: 16,
-                        left: 16,
-                        right: 16,
-                        child: Center(
-                          child: Text(
-                            'Veraxi v0.1.0 - Sovereign Intelligence. Privacy policy | Terms of service',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                                color: const Color(0xFF878787), fontSize: 12),
+                      if (MediaQuery.of(context).size.width > 600)
+                        Positioned(
+                          bottom: 16,
+                          left: 16,
+                          right: 16,
+                          child: Center(
+                            child: Text(
+                              'Veraxi v0.1.0 - Sovereign Intelligence. Privacy policy | Terms of service',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                  color: const Color(0xFF878787), fontSize: 12),
+                            ),
                           ),
                         ),
-                      ),
                     ],
                   ),
                 ),
@@ -447,34 +482,40 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   Widget _buildEmptyState(ThemeData theme, AppThemeExtension ext,
       ChatState state, ChatViewModel viewModel) {
     return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            'Good afternoon, ${resolveDisplayName()}',
-            style: theme.textTheme.headlineMedium?.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.w600,
-            ),
-          ).animate().fade(duration: 800.ms).slideY(begin: 0.1, end: 0),
-          const SizedBox(height: 32),
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 800),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: ChatInput(
-                projectName: state.activeProjectName,
-                isLoading: state.isLoading,
-                onSend: (text, {attachments}) => viewModel.sendMessage(text,
-                    model: _selectedModel, attachments: attachments),
-                errorText: state.error,
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Good afternoon, ${resolveDisplayName()}',
+              style: theme.textTheme.headlineMedium?.copyWith(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
               ),
-            ),
-          )
-              .animate()
-              .fade(duration: 800.ms, delay: 100.ms)
-              .slideY(begin: 0.1, end: 0),
-        ],
+            ).animate().fade(duration: 800.ms).slideY(begin: 0.1, end: 0),
+            const SizedBox(height: 32),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 800),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: ChatInput(
+                  projectName: state.activeProjectName,
+                  isLoading: state.isLoading,
+                  onSend: (text, {attachments}) => viewModel.sendMessage(text,
+                      model: _selectedModel == 'Select a model'
+                          ? null
+                          : _selectedModel,
+                      attachments: attachments),
+                  errorText: state.error,
+                  onDismissError: () => viewModel.clearError(),
+                ),
+              ),
+            )
+                .animate()
+                .fade(duration: 800.ms, delay: 100.ms)
+                .slideY(begin: 0.1, end: 0),
+          ],
+        ),
       ),
     );
   }

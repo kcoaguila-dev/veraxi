@@ -113,4 +113,16 @@ class ApiKeyStorage {
       'qdrant_key': await getValue('byod_qdrant_key') ?? '',
     };
   }
+
+  // --- Bulk Export/Import for Sync ---
+
+  Future<Map<String, String>> exportAll() async {
+    return await _storage.readAll();
+  }
+
+  Future<void> importAll(Map<String, String> data) async {
+    for (final entry in data.entries) {
+      await _storage.write(key: entry.key, value: entry.value);
+    }
+  }
 }

@@ -10,7 +10,7 @@ from backend.config import get_config
 from backend.models_config import DEFAULT_PROVIDER_MODELS
 from backend.storage.neo4j_client import Neo4jStorageClient
 from backend.storage.qdrant_client import QdrantStorageClient
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 
 logger = logging.getLogger(__name__)
 
@@ -75,54 +75,72 @@ def register_admin_routes(
             raise HTTPException(status_code=500, detail=str(e))
 
     @app_router.get("/api/models")
-    async def get_models():
+    async def get_models(request: Request):
         """Returns available models, dynamically fetching from providers when possible."""
         global _models_cache, _models_cache_time
         import time
 
-        if time.time() - _models_cache_time < 300 and _models_cache:
-            return _models_cache
-        config = get_config()
-        models_dict = dict(DEFAULT_PROVIDER_MODELS)
-        if config.llm_api_key and (
-            not config.llm_base_url or "openai" in config.llm_base_url.lower()
-        ):
+        if time.time() - _models_cache_time > 300 or not _models_cache:
+            config = get_config()
+            models_dict = dict(DEFAULT_PROVIDER_MODELS)
+            if config.llm_api_key and (
+                not config.llm_base_url or "openai" in config.llm_base_url.lower()
+            ):
+                try:
+                    async with httpx.AsyncClient() as client:
+                        headers = {"Authorization": f"Bearer {config.llm_api_key}"}
+                        if os.environ.get("OPENAI_ORGANIZATION"):
+                            headers["OpenAI-Organization"] = os.environ.get(
+                                "OPENAI_ORGANIZATION"
+                            )
+                        base_url = (
+                            config.llm_base_url or "https://api.openai.com/v1"
+                        ).rstrip("/")
+                        response = await client.get(
+                            f"{base_url}/models", headers=headers, timeout=5.0
+                        )
+                        if response.status_code == 200:
+                            data = response.json()
+                            fetched_models = [m["id"] for m in data.get("data", [])]
+                            regex = re.compile(r"(text-davinci-003|gpt-|o\d+|chat-latest)")
+                            exclude_regex = re.compile(r"audio|realtime")
+                            filtered = [
+                                m
+                                for m in fetched_models
+                                if regex.search(m) and not exclude_regex.search(m)
+                            ]
+                            instruct_models = [m for m in filtered if "instruct" in m]
+                            other_models = [m for m in filtered if "instruct" not in m]
+                            if other_models or instruct_models:
+                                fetched_list = other_models + instruct_models
+                                combined = list(
+                                    dict.fromkeys(models_dict["OpenAI"] + fetched_list)
+                                )
+                                models_dict["OpenAI"] = combined
+                except Exception as e:
+                    logging.warning(f"Failed to fetch dynamic OpenAI models: {e}")  # noqa: LOG015
+            _models_cache = models_dict
+            _models_cache_time = time.time()
+
+        # Copy the cached models to append local ones for this request
+        final_models_dict = dict(_models_cache)
+
+        # Fetch Local models if BYOD header is provided
+        local_url = request.headers.get("x-byod-local-url")
+        if local_url:
+            base_local = local_url.rstrip("/")
             try:
                 async with httpx.AsyncClient() as client:
-                    headers = {"Authorization": f"Bearer {config.llm_api_key}"}
-                    if os.environ.get("OPENAI_ORGANIZATION"):
-                        headers["OpenAI-Organization"] = os.environ.get(
-                            "OPENAI_ORGANIZATION"
-                        )
-                    base_url = (
-                        config.llm_base_url or "https://api.openai.com/v1"
-                    ).rstrip("/")
-                    response = await client.get(
-                        f"{base_url}/models", headers=headers, timeout=5.0
-                    )
-                    if response.status_code == 200:
-                        data = response.json()
-                        fetched_models = [m["id"] for m in data.get("data", [])]
-                        regex = re.compile(r"(text-davinci-003|gpt-|o\d+|chat-latest)")
-                        exclude_regex = re.compile(r"audio|realtime")
-                        filtered = [
-                            m
-                            for m in fetched_models
-                            if regex.search(m) and not exclude_regex.search(m)
-                        ]
-                        instruct_models = [m for m in filtered if "instruct" in m]
-                        other_models = [m for m in filtered if "instruct" not in m]
-                        if other_models or instruct_models:
-                            fetched_list = other_models + instruct_models
-                            combined = list(
-                                dict.fromkeys(models_dict["OpenAI"] + fetched_list)
-                            )
-                            models_dict["OpenAI"] = combined
+                    resp = await client.get(f"{base_local}/models", timeout=3.0)
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        fetched = [m["id"] for m in data.get("data", [])]
+                        if fetched:
+                            final_models_dict["Local"] = fetched
             except Exception as e:
-                logging.warning(f"Failed to fetch dynamic OpenAI models: {e}")  # noqa: LOG015
-        _models_cache = models_dict
-        _models_cache_time = time.time()
-        return models_dict
+                logging.warning(f"Failed to fetch dynamic Local models: {e}")  # noqa: LOG015
+
+        return final_models_dict
 
     @app_router.get("/api/config/ui")
     async def get_ui_config():
