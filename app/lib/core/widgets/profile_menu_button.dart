@@ -9,6 +9,7 @@ import 'package:veraxi_app/features/settings/views/widgets/my_files_dialog.dart'
 import 'package:veraxi_app/features/settings/views/widgets/archived_chats_dialog.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
+import 'package:veraxi_app/core/local_mode_storage.dart';
 import 'package:go_router/go_router.dart';
 
 // Resolved at compile time via --dart-define=IS_SELF_HOSTED=true
@@ -46,6 +47,21 @@ class ProfileMenuButton extends ConsumerStatefulWidget {
 
 class _ProfileMenuButtonState extends ConsumerState<ProfileMenuButton> {
   Map<String, dynamic> _uiConfig = {};
+
+  Future<void> _logOut() async {
+    try {
+      await Supabase.instance.client.auth.signOut();
+      await LocalModeStorage().setLocalMode(false);
+      if (mounted) context.go('/login');
+    } catch (error, stackTrace) {
+      Sentry.captureException(error, stackTrace: stackTrace);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Unable to log out. Please try again.')),
+        );
+      }
+    }
+  }
 
   @override
   void initState() {
@@ -292,10 +308,7 @@ class _ProfileMenuButtonState extends ConsumerState<ProfileMenuButton> {
             height: 1),
         MenuItemButton(
           style: itemStyle,
-          onPressed: () async {
-            await Supabase.instance.client.auth.signOut();
-            if (context.mounted) context.go('/login');
-          },
+          onPressed: _logOut,
           child: Row(
             children: [
               Icon(Icons.logout_outlined, color: Color(0xFFECECEC), size: 16),

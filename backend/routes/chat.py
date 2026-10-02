@@ -6,6 +6,7 @@ import json
 import logging
 import time
 import uuid
+from typing import Literal
 
 import sentry_sdk
 from backend.mcp_server.llm_loop import (
@@ -13,10 +14,12 @@ from backend.mcp_server.llm_loop import (
     generate_chat_title,
     stream_answer_question,
 )
+from backend.mcp_server.orchestrator import _get_workflow
 from backend.security.moderation import moderate_text
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
+from langchain_core.messages import AIMessage, HumanMessage
+from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 
@@ -54,6 +57,29 @@ class EditRequest(BaseModel):
 
 class TitleRequest(BaseModel):
     title: str
+
+
+class ImportedMessage(BaseModel):
+    id: str
+    role: Literal["user", "assistant"]
+    content: str
+    feedback: int = 0
+    model_name: str | None = None
+    metrics: dict | None = None
+
+
+class ImportedThread(BaseModel):
+    thread_id: str
+    title: str
+    is_pinned: bool = False
+    is_archived: bool = False
+    project_id: str | None = None
+    timestamp: float | None = None
+    messages: list[ImportedMessage] = Field(default_factory=list)
+
+
+class ImportThreadsRequest(BaseModel):
+    threads: list[ImportedThread]
 
 
 async def _generate_and_save_title(
@@ -166,6 +192,25 @@ def _build_thread_list(threads, titles, pinned, archived, projects, timestamps):
     return thread_list
 
 
+def _to_imported_langchain_messages(messages: list[ImportedMessage]):
+    imported = []
+    for message in messages:
+        message_kwargs = {"id": message.id}
+        if message.model_name:
+            message_kwargs["model_name"] = message.model_name
+        if message.metrics:
+            message_kwargs["metrics"] = message.metrics
+        message_type = HumanMessage if message.role == "user" else AIMessage
+        imported.append(
+            message_type(
+                content=message.content,
+                id=message.id,
+                additional_kwargs=message_kwargs,
+            )
+        )
+    return imported
+
+
 async def _stream_events(
     chat_request, tenant_id, thread_id, api_key_override, title_task
 ):
@@ -210,6 +255,98 @@ def register_chat_routes(
     app_router, get_tenant_id, verify_infrastructure_access, limiter, config
 ):
     """Register all chat routes with injected auth dependencies."""
+
+    @app_router.post("/api/chat/threads/import")
+    async def import_threads(
+        payload: ImportThreadsRequest,
+        request: Request,
+        tenant_id: str = Depends(get_tenant_id),
+    ):
+        """Merge device-local threads into the authenticated tenant.
+
+        Existing tenant threads are never overwritten. A checkpoint already
+        present for a thread makes retries idempotent after partial failures.
+        """
+        if tenant_id == "local_guest":
+            raise HTTPException(status_code=401, detail="Authentication required")
+
+        from backend.config import get_config as _get_config
+        from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+
+        config_obj = _get_config()
+        if not config_obj.postgres_url:
+            raise HTTPException(
+                status_code=503, detail="Chat migration is temporarily unavailable"
+            )
+
+        imported_count = 0
+        skipped_count = 0
+        async with AsyncPostgresSaver.from_conn_string(
+            config_obj.postgres_url
+        ) as memory:
+            await memory.setup()
+            workflow = _get_workflow()
+            app = workflow.compile(checkpointer=memory)
+            for thread in payload.threads:
+                thread_key = f"tenant:{tenant_id}:threads"
+                if await request.app.state.redis.sismember(thread_key, thread.thread_id):
+                    skipped_count += 1
+                    continue
+
+                checkpoint = await memory.aget_tuple(
+                    {"configurable": {"thread_id": thread.thread_id}}
+                )
+                if checkpoint:
+                    skipped_count += 1
+                    continue
+
+                await app.aupdate_state(
+                    {"configurable": {"thread_id": thread.thread_id}},
+                    {"messages": _to_imported_langchain_messages(thread.messages)},
+                )
+                await request.app.state.redis.sadd(thread_key, thread.thread_id)
+                await request.app.state.redis.hset(
+                    f"tenant:{tenant_id}:thread_titles",
+                    thread.thread_id,
+                    thread.title[:200] or "Imported Chat",
+                )
+                await request.app.state.redis.hset(
+                    f"tenant:{tenant_id}:thread_timestamps",
+                    thread.thread_id,
+                    str(thread.timestamp or time.time()),
+                )
+                for message in thread.messages:
+                    if message.feedback:
+                        await request.app.state.redis.hset(
+                            f"tenant:{tenant_id}:message_feedback",
+                            message.id,
+                            message.feedback,
+                        )
+                if thread.is_pinned:
+                    await request.app.state.redis.sadd(
+                        f"tenant:{tenant_id}:pinned_threads", thread.thread_id
+                    )
+                if thread.is_archived:
+                    await request.app.state.redis.sadd(
+                        f"tenant:{tenant_id}:archived_threads", thread.thread_id
+                    )
+                project_exists = False
+                if thread.project_id:
+                    project_exists = (
+                        await request.app.state.redis.hget(
+                            f"tenant:{tenant_id}:projects", thread.project_id
+                        )
+                        is not None
+                    )
+                if project_exists:
+                    await request.app.state.redis.hset(
+                        f"tenant:{tenant_id}:thread_projects",
+                        thread.thread_id,
+                        thread.project_id,
+                    )
+                imported_count += 1
+
+        return {"imported": imported_count, "skipped": skipped_count}
 
     @app_router.post("/api/chat", response_model=ChatResponse)
     @limiter.limit(config.rate_limit_chat)

@@ -152,6 +152,132 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
     );
   }
 
+  List<({String label, IconData icon, bool destructive})> _threadActions(
+      Map<String, dynamic> threadData) {
+    final isPinned = threadData['is_pinned'] == true;
+    final isArchived = threadData['is_archived'] == true;
+    return [
+      (label: 'Share', icon: Icons.share, destructive: false),
+      (
+        label: isPinned ? 'Unpin' : 'Pin',
+        icon: isPinned ? Icons.push_pin : Icons.push_pin_outlined,
+        destructive: false
+      ),
+      (label: 'Rename', icon: Icons.edit_outlined, destructive: false),
+      (label: 'Duplicate', icon: Icons.copy_outlined, destructive: false),
+      (
+        label: 'Change project',
+        icon: Icons.folder_outlined,
+        destructive: false
+      ),
+      (
+        label: isArchived ? 'Unarchive' : 'Archive',
+        icon: isArchived ? Icons.unarchive : Icons.archive_outlined,
+        destructive: false
+      ),
+      (label: 'Delete', icon: Icons.delete_outline, destructive: true),
+    ];
+  }
+
+  List<PopupMenuEntry<String>> _threadMenuItems(
+      Map<String, dynamic> threadData) {
+    return _threadActions(threadData)
+        .map((action) => _buildPopupMenuItem(action.label, action.icon,
+            isDestructive: action.destructive))
+        .toList();
+  }
+
+  Future<void> _handleThreadMenuSelection(
+      BuildContext context, String value, String threadId, String title) async {
+    final viewModel = ref.read(chatViewModelProvider.notifier);
+    if (value == 'Share') {
+      _showShareDialog(context, viewModel, threadId);
+    } else if (value == 'Pin' || value == 'Unpin') {
+      await viewModel.togglePinThread(threadId);
+    } else if (value == 'Rename') {
+      _showRenameDialog(context, viewModel, threadId, title);
+    } else if (value == 'Duplicate') {
+      await viewModel.duplicateThread(threadId);
+    } else if (value == 'Change project') {
+      _showChangeProjectDialog(context, viewModel, threadId);
+    } else if (value == 'Archive' || value == 'Unarchive') {
+      await viewModel.toggleArchiveThread(threadId);
+    } else if (value == 'Delete') {
+      await viewModel.deleteThread(threadId);
+    }
+  }
+
+  Future<void> _showThreadMenu(BuildContext context,
+      Map<String, dynamic> threadData, String threadId, String title) async {
+    if (widget.isMobile) {
+      final value = await showModalBottomSheet<String>(
+        context: context,
+        showDragHandle: true,
+        backgroundColor:
+            Theme.of(context).extension<AppThemeExtension>()!.cardBackground,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        builder: (sheetContext) {
+          final actions = _threadActions(threadData);
+          return SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: actions
+                    .map(
+                      (action) => ListTile(
+                        leading: Icon(
+                          action.icon,
+                          color: action.destructive
+                              ? Colors.red
+                              : Theme.of(sheetContext)
+                                  .extension<AppThemeExtension>()!
+                                  .iconColor,
+                        ),
+                        title: Text(
+                          action.label,
+                          style: TextStyle(
+                            color:
+                                action.destructive ? Colors.red : Colors.white,
+                          ),
+                        ),
+                        onTap: () => Navigator.of(sheetContext).pop(
+                          action.label,
+                        ),
+                      ),
+                    )
+                    .toList(),
+              ),
+            ),
+          );
+        },
+      );
+      if (value != null && context.mounted) {
+        await _handleThreadMenuSelection(context, value, threadId, title);
+      }
+      return;
+    }
+
+    final box = context.findRenderObject() as RenderBox;
+    final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+    final topLeft = box.localToGlobal(Offset.zero, ancestor: overlay);
+    final bottomRight =
+        box.localToGlobal(box.size.bottomRight(Offset.zero), ancestor: overlay);
+    final value = await showMenu<String>(
+      context: context,
+      position: RelativeRect.fromRect(
+        Rect.fromPoints(topLeft, bottomRight),
+        Offset.zero & overlay.size,
+      ),
+      items: _threadMenuItems(threadData),
+    );
+    if (value != null && context.mounted) {
+      await _handleThreadMenuSelection(context, value, threadId, title);
+    }
+  }
+
   void _showShareDialog(
       BuildContext context, ChatViewModel viewModel, String threadId) async {
     final shareId = await viewModel.shareThread(threadId);
@@ -724,6 +850,13 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
                                                   Navigator.of(context).pop();
                                                 }
                                               },
+                                              onLongPress: widget.isMobile
+                                                  ? () => _showThreadMenu(
+                                                      context,
+                                                      threadData,
+                                                      threadId,
+                                                      title)
+                                                  : null,
                                               child: Container(
                                                 decoration: BoxDecoration(
                                                   color: isSelected
@@ -762,8 +895,10 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
                                                       ),
                                                     ),
                                                     Visibility(
-                                                      visible: isHovered ||
-                                                          isSelected,
+                                                      visible:
+                                                          !widget.isMobile &&
+                                                              (isHovered ||
+                                                                  isSelected),
                                                       maintainSize: true,
                                                       maintainAnimation: true,
                                                       maintainState: true,
@@ -807,110 +942,15 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
                                                                             8)),
                                                             padding:
                                                                 EdgeInsets.zero,
-                                                            itemBuilder:
-                                                                (context) {
-                                                              final isPinned =
-                                                                  threadData[
-                                                                          'is_pinned'] ==
-                                                                      true;
-                                                              final isArchived =
-                                                                  threadData[
-                                                                          'is_archived'] ==
-                                                                      true;
-                                                              return [
-                                                                _buildPopupMenuItem(
-                                                                    'Share',
-                                                                    Icons
-                                                                        .share),
-                                                                _buildPopupMenuItem(
-                                                                    isPinned
-                                                                        ? 'Unpin'
-                                                                        : 'Pin',
-                                                                    isPinned
-                                                                        ? Icons
-                                                                            .push_pin
-                                                                        : Icons
-                                                                            .push_pin_outlined),
-                                                                _buildPopupMenuItem(
-                                                                    'Rename',
-                                                                    Icons
-                                                                        .edit_outlined),
-                                                                _buildPopupMenuItem(
-                                                                    'Duplicate',
-                                                                    Icons
-                                                                        .copy_outlined),
-                                                                _buildPopupMenuItem(
-                                                                    'Change project',
-                                                                    Icons
-                                                                        .folder_outlined),
-                                                                _buildPopupMenuItem(
-                                                                    isArchived
-                                                                        ? 'Unarchive'
-                                                                        : 'Archive',
-                                                                    isArchived
-                                                                        ? Icons
-                                                                            .unarchive
-                                                                        : Icons
-                                                                            .archive_outlined),
-                                                                _buildPopupMenuItem(
-                                                                    'Delete',
-                                                                    Icons
-                                                                        .delete_outline,
-                                                                    isDestructive:
-                                                                        true),
-                                                              ];
-                                                            },
-                                                            onSelected:
-                                                                (value) async {
-                                                              final viewModel =
-                                                                  ref.read(
-                                                                      chatViewModelProvider
-                                                                          .notifier);
-                                                              if (value ==
-                                                                  'Share') {
-                                                                _showShareDialog(
+                                                            itemBuilder: (_) =>
+                                                                _threadMenuItems(
+                                                                    threadData),
+                                                            onSelected: (value) =>
+                                                                _handleThreadMenuSelection(
                                                                     context,
-                                                                    viewModel,
-                                                                    threadId);
-                                                              } else if (value ==
-                                                                      'Pin' ||
-                                                                  value ==
-                                                                      'Unpin') {
-                                                                await viewModel
-                                                                    .togglePinThread(
-                                                                        threadId);
-                                                              } else if (value ==
-                                                                  'Rename') {
-                                                                _showRenameDialog(
-                                                                    context,
-                                                                    viewModel,
+                                                                    value,
                                                                     threadId,
-                                                                    title);
-                                                              } else if (value ==
-                                                                  'Duplicate') {
-                                                                await viewModel
-                                                                    .duplicateThread(
-                                                                        threadId);
-                                                              } else if (value ==
-                                                                  'Change project') {
-                                                                _showChangeProjectDialog(
-                                                                    context,
-                                                                    viewModel,
-                                                                    threadId);
-                                                              } else if (value ==
-                                                                      'Archive' ||
-                                                                  value ==
-                                                                      'Unarchive') {
-                                                                await viewModel
-                                                                    .toggleArchiveThread(
-                                                                        threadId);
-                                                              } else if (value ==
-                                                                  'Delete') {
-                                                                await viewModel
-                                                                    .deleteThread(
-                                                                        threadId);
-                                                              }
-                                                            },
+                                                                    title),
                                                           ),
                                                         ),
                                                       ),

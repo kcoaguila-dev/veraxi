@@ -9,8 +9,10 @@ import 'package:just_audio/just_audio.dart';
 import 'package:veraxi_app/core/api_key_storage.dart';
 import 'package:veraxi_app/core/tts_settings_storage.dart';
 import 'package:veraxi_app/core/web_speech_service.dart';
+import 'package:veraxi_app/core/network/api_client.dart';
 import 'package:veraxi_app/core/network/tts_repository.dart';
 import 'package:veraxi_app/features/chat/data/chat_repository.dart';
+import 'package:veraxi_app/features/chat/data/local_chat_migration_service.dart';
 import 'package:veraxi_app/core/repositories/memory_repository.dart';
 
 class ToolEvent {
@@ -181,7 +183,10 @@ final chatViewModelProvider =
   final repo = ref.watch(chatRepositoryProvider);
   final ttsRepo = ref.watch(ttsRepositoryProvider);
   final memoryRepo = ref.watch(memoryRepositoryProvider);
-  return ChatViewModel(repo, ttsRepo, memoryRepo);
+  final migrationService = LocalChatMigrationService(
+    apiClient: ref.watch(apiClientProvider),
+  );
+  return ChatViewModel(repo, ttsRepo, memoryRepo, migrationService);
 });
 
 final providerModelsProvider = Provider<Map<String, List<String>>>((ref) {
@@ -329,11 +334,13 @@ class ChatViewModel extends StateNotifier<ChatState> {
   final IChatRepository _repository;
   final TTSRepository _ttsRepository;
   final MemoryRepository _memoryRepository;
+  final LocalChatMigrationService? _localChatMigrationService;
   final AudioPlayer _audioPlayer = AudioPlayer();
   DateTime? _currentRequestStartTime;
   StreamSubscription<AuthState>? _authSubscription;
 
-  ChatViewModel(this._repository, this._ttsRepository, this._memoryRepository)
+  ChatViewModel(this._repository, this._ttsRepository, this._memoryRepository,
+      [this._localChatMigrationService])
       : super(ChatState()) {
     _init();
     _audioPlayer.playerStateStream.listen((playerState) {
@@ -369,7 +376,19 @@ class ChatViewModel extends StateNotifier<ChatState> {
     await prefs.remove('tool_settings');
 
     state = state.copyWith(showTelemetry: savedTelemetry);
+    await _migrateLocalChats();
     await loadThreads();
+  }
+
+  Future<void> _migrateLocalChats() async {
+    try {
+      if (Supabase.instance.client.auth.currentSession == null) return;
+      await _localChatMigrationService?.migrate();
+    } catch (error, stackTrace) {
+      Sentry.captureException(error, stackTrace: stackTrace);
+      debugPrint(
+          'Local chat migration failed; local records remain on the device: $error');
+    }
   }
 
   /// Toggle the response telemetry panel on/off and persist the preference.

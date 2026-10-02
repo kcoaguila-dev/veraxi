@@ -483,38 +483,38 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       ChatState state, ChatViewModel viewModel) {
     return Center(
       child: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'Good afternoon, ${resolveDisplayName()}',
-              style: theme.textTheme.headlineMedium?.copyWith(
-                color: Colors.white,
-                fontWeight: FontWeight.w600,
-              ),
-            ).animate().fade(duration: 800.ms).slideY(begin: 0.1, end: 0),
-            const SizedBox(height: 32),
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 800),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: ChatInput(
-                  projectName: state.activeProjectName,
-                  isLoading: state.isLoading,
-                  onSend: (text, {attachments}) => viewModel.sendMessage(text,
-                      model: _selectedModel == 'Select a model'
-                          ? null
-                          : _selectedModel,
-                      attachments: attachments),
-                  errorText: state.error,
-                  onDismissError: () => viewModel.clearError(),
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 800),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Good afternoon, ${resolveDisplayName()}',
+                textAlign: TextAlign.center,
+                style: theme.textTheme.headlineMedium?.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
                 ),
-              ),
-            )
-                .animate()
-                .fade(duration: 800.ms, delay: 100.ms)
-                .slideY(begin: 0.1, end: 0),
-          ],
+              ).animate().fade(duration: 800.ms).slideY(begin: 0.1, end: 0),
+              const SizedBox(height: 32),
+              ChatInput(
+                projectName: state.activeProjectName,
+                isLoading: state.isLoading,
+                onSend: (text, {attachments}) => viewModel.sendMessage(text,
+                    model: _selectedModel == 'Select a model'
+                        ? null
+                        : _selectedModel,
+                    attachments: attachments),
+                errorText: state.error,
+                onDismissError: () => viewModel.clearError(),
+              )
+                  .animate()
+                  .fade(duration: 800.ms, delay: 100.ms)
+                  .slideY(begin: 0.1, end: 0),
+            ],
+          ),
         ),
       ),
     );
