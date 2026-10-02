@@ -43,7 +43,8 @@ void main() async {
         defaultValue: 'sb_publishable_6j3NNIfgI5V209p9QGL-DA_GyEsz9jI'),
   );
 
-  testWidgets('True E2E Test: Login -> Verify Models -> Send Message -> Verify History',
+  testWidgets(
+      'True E2E Test: Login -> Verify Models -> Send Message -> Verify History',
       (WidgetTester tester) async {
     // Start App normally, using real Riverpod providers (NO mocks!)
     await tester.pumpWidget(
@@ -108,7 +109,8 @@ void main() async {
     // Tap Send Button (Send icon)
     await tester.testTextInput.receiveAction(TextInputAction.send);
     await tester.pumpAndSettle();
-    await tester.tap(find.byIcon(Icons.arrow_upward).first, warnIfMissed: false);
+    await tester.tap(find.byIcon(Icons.arrow_upward).first,
+        warnIfMissed: false);
 
     // 5. Wait for the stream to finish.
     // We loop pump because streams break pumpAndSettle if they take a while.

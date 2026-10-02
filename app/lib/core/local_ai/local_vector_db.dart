@@ -24,9 +24,11 @@ class LocalVectorDb {
     chunkBox.put(chunk);
   }
 
-  List<LocalDocumentChunk> searchSimilar(List<double> queryVector, {int maxResults = 3}) {
+  List<LocalDocumentChunk> searchSimilar(List<double> queryVector,
+      {int maxResults = 3}) {
     final query = chunkBox
-        .query(LocalDocumentChunk_.embedding.nearestNeighborsF32(queryVector, maxResults))
+        .query(LocalDocumentChunk_.embedding
+            .nearestNeighborsF32(queryVector, maxResults))
         .build();
 
     final results = query.find();

@@ -4,6 +4,7 @@ import logging
 import os
 import re
 import shutil
+from html import unescape
 
 import emoji
 import sentry_sdk
@@ -17,7 +18,27 @@ router = APIRouter(prefix="/api", tags=["tts"])
 
 
 def clean_text_for_tts(text: str) -> str:
-    """Remove emojis and kaomojis that confuse TTS engines."""
+    """Convert assistant Markdown into natural speech text.
+
+    TTS engines should receive what the user sees, not Markdown syntax such as
+    emphasis markers, link destinations, or code fences.
+    """
+    # Keep code content readable while removing fenced-block decoration.
+    text = re.sub(r"```(?:[\w+-]+)?\s*", "", text)
+    text = text.replace("```", "")
+    text = re.sub(r"`([^`]+)`", r"\1", text)
+    # Keep link text and discard destinations; images are omitted entirely.
+    text = re.sub(r"!\[[^\]]*\]\([^)]*\)", "", text)
+    text = re.sub(r"\[([^\]]+)\]\([^)]*\)", r"\1", text)
+    text = re.sub(r"<https?://[^>]+>", "", text)
+    # Remove block-level and emphasis syntax without altering the words.
+    text = re.sub(r"^\s{0,3}#{1,6}\s+", "", text, flags=re.MULTILINE)
+    text = re.sub(r"^\s{0,3}>\s?", "", text, flags=re.MULTILINE)
+    text = re.sub(r"^\s*[-*+]\s+", "", text, flags=re.MULTILINE)
+    text = re.sub(r"^\s*\d+[.)]\s+", "", text, flags=re.MULTILINE)
+    text = re.sub(r"\*{1,3}|_{1,3}|~~", "", text)
+    text = re.sub(r"^\s*[-|:]{3,}\s*$", "", text, flags=re.MULTILINE)
+    text = unescape(text)
     # Remove common kaomojis
     kaomojis = r'(>[wW]<|[uU]w[uU]|[oO]w[oO]|\^_\^|~_\~|>_>|<_<|T_T|;_;|\^\^|;w;|-_-)'
     text = re.sub(kaomojis, '', text)

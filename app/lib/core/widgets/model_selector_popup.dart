@@ -209,194 +209,193 @@ class _ModelSelectorPopupState extends ConsumerState<ModelSelectorPopup> {
   Widget build(BuildContext context) {
     final isSearching = _globalSearchQuery.isNotEmpty;
     final allProviderModels = ref.watch(providerModelsProvider);
-        // Build the unified list of models, grouped by provider.
-        Widget buildUnifiedList() {
-          final results = <Widget>[];
-          allProviderModels.forEach((provider, models) {
-            List<String> matched = models;
-            if (isSearching) {
-              final providerMatches =
-                  provider.toLowerCase().contains(_globalSearchQuery);
-              matched = models
-                  .where((m) =>
-                      providerMatches ||
-                      m.toLowerCase().contains(_globalSearchQuery))
-                  .toList();
-            }
-            if (matched.isEmpty) return;
-
-            // Provider header
-            results.add(
-              Padding(
-                padding: EdgeInsets.fromLTRB(12, 12, 12, 8),
-                child: Row(
-                  children: [
-                    _providerCircle(provider),
-                    SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        provider,
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                    GestureDetector(
-                      onTap: () {
-                        widget.onClose?.call();
-                        showDialog(
-                          context: context,
-                          builder: (context) =>
-                              ApiKeyDialog(providerName: provider),
-                        );
-                      },
-                      child: Tooltip(
-                        message: 'Set API Key for $provider',
-                        child: Icon(
-                          Icons.settings_outlined,
-                          color: Color(0xFF6E6E6E),
-                          size: 16,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-            for (final model in matched) {
-              results.add(_buildSubModelRow(model,
-                  isSelected: model == widget.selectedModel));
-            }
-          });
-
-          if (results.isEmpty) {
-            results.add(Padding(
-              padding: EdgeInsets.all(16),
-              child: Text('No models found',
-                  style: TextStyle(
-                      color: Theme.of(context)
-                          .extension<AppThemeExtension>()!
-                          .textTertiary,
-                      fontSize: 13)),
-            ));
-          }
-
-          return ListView(
-              shrinkWrap: true,
-              padding: EdgeInsets.symmetric(vertical: 4, horizontal: 8),
-              children: results);
+    // Build the unified list of models, grouped by provider.
+    Widget buildUnifiedList() {
+      final results = <Widget>[];
+      allProviderModels.forEach((provider, models) {
+        List<String> matched = models;
+        if (isSearching) {
+          final providerMatches =
+              provider.toLowerCase().contains(_globalSearchQuery);
+          matched = models
+              .where((m) =>
+                  providerMatches ||
+                  m.toLowerCase().contains(_globalSearchQuery))
+              .toList();
         }
+        if (matched.isEmpty) return;
 
-        return Dialog(
-          backgroundColor: Colors.transparent,
-          insetPadding: EdgeInsets.all(24),
-          child: Container(
-            width: 600,
-            constraints: const BoxConstraints(maxHeight: 700),
-            decoration: BoxDecoration(
-              color: Theme.of(context)
-                  .extension<AppThemeExtension>()!
-                  .sidebarBackground,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                  color: Theme.of(context)
-                      .extension<AppThemeExtension>()!
-                      .borderColor),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.5),
-                  blurRadius: 16,
-                  offset: const Offset(0, 8),
-                ),
-              ],
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
+        // Provider header
+        results.add(
+          Padding(
+            padding: EdgeInsets.fromLTRB(12, 12, 12, 8),
+            child: Row(
               children: [
-                // Modal Header
-                Padding(
-                  padding: EdgeInsets.fromLTRB(20, 20, 20, 16),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Select AI Model',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      IconButton(
-                        icon: Icon(Icons.close,
-                            color: Theme.of(context)
-                                .extension<AppThemeExtension>()!
-                                .textTertiary,
-                            size: 20),
-                        onPressed: () {
-                          widget.onClose?.call();
-                          Navigator.of(context).pop();
-                        },
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                        splashRadius: 20,
-                      ),
-                    ],
-                  ),
-                ),
-                // Global search field
-                Padding(
-                  padding: EdgeInsets.fromLTRB(20, 0, 20, 12),
-                  child: TextField(
-                    controller: _globalSearchController,
-                    style: TextStyle(color: Colors.white, fontSize: 14),
-                    cursorColor: Colors.white,
-                    onChanged: (val) => setState(() {
-                      _globalSearchQuery = val.toLowerCase();
-                    }),
-                    decoration: InputDecoration(
-                      hintText: 'Search models...',
-                      hintStyle:
-                          TextStyle(color: Color(0xFF6E6E6E), fontSize: 14),
-                      prefixIcon: Icon(Icons.search,
-                          color: Color(0xFF6E6E6E), size: 18),
-                      prefixIconConstraints:
-                          const BoxConstraints(minWidth: 40, minHeight: 40),
-                      filled: true,
-                      fillColor: Theme.of(context)
-                          .extension<AppThemeExtension>()!
-                          .cardBackground,
-                      contentPadding: EdgeInsets.symmetric(vertical: 12),
-                      border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          borderSide: BorderSide(
-                              color: Theme.of(context)
-                                  .extension<AppThemeExtension>()!
-                                  .borderColor)),
-                      enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          borderSide: BorderSide(
-                              color: Theme.of(context)
-                                  .extension<AppThemeExtension>()!
-                                  .borderColor)),
-                      focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          borderSide: BorderSide(color: Color(0xFF3A3A3A))),
+                _providerCircle(provider),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    provider,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ),
-                Flexible(
-                  child: Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 12),
-                    child: buildUnifiedList(),
+                GestureDetector(
+                  onTap: () {
+                    widget.onClose?.call();
+                    showDialog(
+                      context: context,
+                      builder: (context) =>
+                          ApiKeyDialog(providerName: provider),
+                    );
+                  },
+                  child: Tooltip(
+                    message: 'Set API Key for $provider',
+                    child: Icon(
+                      Icons.settings_outlined,
+                      color: Color(0xFF6E6E6E),
+                      size: 16,
+                    ),
                   ),
                 ),
-                SizedBox(height: 12),
               ],
             ),
           ),
         );
+        for (final model in matched) {
+          results.add(_buildSubModelRow(model,
+              isSelected: model == widget.selectedModel));
+        }
+      });
+
+      if (results.isEmpty) {
+        results.add(Padding(
+          padding: EdgeInsets.all(16),
+          child: Text('No models found',
+              style: TextStyle(
+                  color: Theme.of(context)
+                      .extension<AppThemeExtension>()!
+                      .textTertiary,
+                  fontSize: 13)),
+        ));
+      }
+
+      return ListView(
+          shrinkWrap: true,
+          padding: EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+          children: results);
+    }
+
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: EdgeInsets.all(24),
+      child: Container(
+        width: 600,
+        constraints: const BoxConstraints(maxHeight: 700),
+        decoration: BoxDecoration(
+          color: Theme.of(context)
+              .extension<AppThemeExtension>()!
+              .sidebarBackground,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+              color: Theme.of(context)
+                  .extension<AppThemeExtension>()!
+                  .borderColor),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.5),
+              blurRadius: 16,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Modal Header
+            Padding(
+              padding: EdgeInsets.fromLTRB(20, 20, 20, 16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Select AI Model',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.close,
+                        color: Theme.of(context)
+                            .extension<AppThemeExtension>()!
+                            .textTertiary,
+                        size: 20),
+                    onPressed: () {
+                      widget.onClose?.call();
+                      Navigator.of(context).pop();
+                    },
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    splashRadius: 20,
+                  ),
+                ],
+              ),
+            ),
+            // Global search field
+            Padding(
+              padding: EdgeInsets.fromLTRB(20, 0, 20, 12),
+              child: TextField(
+                controller: _globalSearchController,
+                style: TextStyle(color: Colors.white, fontSize: 14),
+                cursorColor: Colors.white,
+                onChanged: (val) => setState(() {
+                  _globalSearchQuery = val.toLowerCase();
+                }),
+                decoration: InputDecoration(
+                  hintText: 'Search models...',
+                  hintStyle: TextStyle(color: Color(0xFF6E6E6E), fontSize: 14),
+                  prefixIcon:
+                      Icon(Icons.search, color: Color(0xFF6E6E6E), size: 18),
+                  prefixIconConstraints:
+                      const BoxConstraints(minWidth: 40, minHeight: 40),
+                  filled: true,
+                  fillColor: Theme.of(context)
+                      .extension<AppThemeExtension>()!
+                      .cardBackground,
+                  contentPadding: EdgeInsets.symmetric(vertical: 12),
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: BorderSide(
+                          color: Theme.of(context)
+                              .extension<AppThemeExtension>()!
+                              .borderColor)),
+                  enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: BorderSide(
+                          color: Theme.of(context)
+                              .extension<AppThemeExtension>()!
+                              .borderColor)),
+                  focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: BorderSide(color: Color(0xFF3A3A3A))),
+                ),
+              ),
+            ),
+            Flexible(
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: 12),
+                child: buildUnifiedList(),
+              ),
+            ),
+            SizedBox(height: 12),
+          ],
+        ),
+      ),
+    );
   }
 }

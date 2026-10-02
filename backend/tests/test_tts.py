@@ -2,6 +2,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 from backend.api_gateway import app, get_tenant_id, verify_infrastructure_access
+from backend.routes.tts import clean_text_for_tts
 from fastapi.testclient import TestClient
 
 
@@ -22,6 +23,21 @@ def override_dependencies():
 
 
 client = TestClient(app)
+
+
+def test_clean_text_for_tts_removes_markdown_syntax():
+    text = """# **Quarterly update**
+
+    See [the report](https://example.com/report) and `revenue = 42`.
+
+    - Growth was **strong**.
+    - `**markers are code**` stay readable.
+    """
+
+    assert clean_text_for_tts(text) == (
+        "Quarterly update See the report and revenue = 42. "
+        "Growth was strong. markers are code stay readable."
+    )
 
 
 @pytest.mark.asyncio

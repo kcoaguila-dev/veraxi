@@ -16,12 +16,13 @@ void main() async {
       ProviderScope(
         overrides: [
           providerModelsProvider.overrideWith((ref) => {
-            'Local': ['Llama 3.2 1B (curated)'],
-            'Ollama': ['llama3.1:8b'],
-          }),
+                'Local': ['Llama 3.2 1B (curated)'],
+                'Ollama': ['llama3.1:8b'],
+              }),
           localGgufModelsProvider.overrideWith((ref) => []),
         ],
-        child: MaterialApp(theme: AppTheme.darkTheme,
+        child: MaterialApp(
+          theme: AppTheme.darkTheme,
           home: Scaffold(
             body: Center(
               child: ModelSelectorMenu(
@@ -62,7 +63,6 @@ void main() async {
     // 6. Verify ApiKeyDialog appears with 'Local' properties
     final dialogTitle = find.text('Set API Key for Local');
     expect(dialogTitle, findsOneWidget);
-
 
     // 7. Verify the "Model Manager" section is visible
     final modelManagerTitle = find.text('Model Manager (Download & Pull)');

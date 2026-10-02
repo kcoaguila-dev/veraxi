@@ -39,7 +39,9 @@ void main() {
     );
   }
 
-  testWidgets('HoverableProviderRow displays settings gear icon for provider without needing hover', (WidgetTester tester) async {
+  testWidgets(
+      'HoverableProviderRow displays settings gear icon for provider without needing hover',
+      (WidgetTester tester) async {
     await tester.pumpWidget(createTestWidget());
 
     // We should immediately see the settings icon without having to hover.
