@@ -60,12 +60,14 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final screenSize = MediaQuery.sizeOf(context);
+    final isMobile = screenSize.width < 700;
     return Dialog(
       backgroundColor: Colors.transparent,
-      insetPadding: EdgeInsets.all(24),
+      insetPadding: EdgeInsets.all(isMobile ? 12 : 24),
       child: Container(
-        width: 800,
-        height: 600,
+        width: isMobile ? double.infinity : 800,
+        height: isMobile ? screenSize.height * 0.9 : 600,
         decoration: BoxDecoration(
           color: Theme.of(context)
               .extension<AppThemeExtension>()!
@@ -119,133 +121,191 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
                     .borderColor),
             // Body
             Expanded(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Sidebar
-                  Container(
-                    width: 240,
-                    padding: EdgeInsets.all(16),
-                    child: Column(
+              child: isMobile
+                  ? _buildMobileBody(context)
+                  : Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Search
+                        // Sidebar
                         Container(
-                          height: 36,
-                          decoration: BoxDecoration(
-                            color: Theme.of(context)
-                                .extension<AppThemeExtension>()!
-                                .borderColor,
-                            borderRadius: BorderRadius.circular(18),
-                            border: Border.all(color: const Color(0xFF3A3A3A)),
-                          ),
-                          child: Row(
+                          width: 240,
+                          padding: EdgeInsets.all(16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              SizedBox(width: 12),
-                              Icon(Icons.search,
+                              // Search
+                              Container(
+                                height: 36,
+                                decoration: BoxDecoration(
                                   color: Theme.of(context)
                                       .extension<AppThemeExtension>()!
-                                      .textTertiary,
-                                  size: 16),
-                              SizedBox(width: 8),
-                              Expanded(
-                                child: TextField(
-                                  style: TextStyle(
-                                      color: Colors.white, fontSize: 13),
-                                  cursorColor: Colors.white,
-                                  decoration: InputDecoration.collapsed(
-                                    hintText: 'Search settings',
-                                    hintStyle: TextStyle(
+                                      .borderColor,
+                                  borderRadius: BorderRadius.circular(18),
+                                  border: Border.all(
+                                      color: const Color(0xFF3A3A3A)),
+                                ),
+                                child: Row(
+                                  children: [
+                                    SizedBox(width: 12),
+                                    Icon(Icons.search,
                                         color: Theme.of(context)
                                             .extension<AppThemeExtension>()!
                                             .textTertiary,
-                                        fontSize: 13),
-                                  ),
+                                        size: 16),
+                                    SizedBox(width: 8),
+                                    Expanded(
+                                      child: TextField(
+                                        style: TextStyle(
+                                            color: Colors.white, fontSize: 13),
+                                        cursorColor: Colors.white,
+                                        decoration: InputDecoration.collapsed(
+                                          hintText: 'Search settings',
+                                          hintStyle: TextStyle(
+                                              color: Theme.of(context)
+                                                  .extension<
+                                                      AppThemeExtension>()!
+                                                  .textTertiary,
+                                              fontSize: 13),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              SizedBox(height: 16),
+                              // Tabs
+                              Expanded(
+                                child: ListView.builder(
+                                  itemCount: _tabs.length,
+                                  itemBuilder: (context, index) {
+                                    final tab = _tabs[index];
+                                    final isSelected = tab == _selectedTab;
+                                    return Padding(
+                                      padding: EdgeInsets.only(bottom: 4),
+                                      child: InkWell(
+                                        onTap: () {
+                                          setState(() {
+                                            _selectedTab = tab;
+                                          });
+                                        },
+                                        borderRadius: BorderRadius.circular(8),
+                                        hoverColor: Theme.of(context)
+                                            .extension<AppThemeExtension>()!
+                                            .surfaceHighlight,
+                                        child: Container(
+                                          padding: EdgeInsets.symmetric(
+                                              horizontal: 12, vertical: 10),
+                                          decoration: BoxDecoration(
+                                            color: isSelected
+                                                ? Theme.of(context)
+                                                    .extension<
+                                                        AppThemeExtension>()!
+                                                    .surfaceHighlight
+                                                : Colors.transparent,
+                                            borderRadius:
+                                                BorderRadius.circular(8),
+                                          ),
+                                          child: Row(
+                                            children: [
+                                              Icon(
+                                                _tabIcons[tab],
+                                                color: const Color(0xFFECECEC),
+                                                size: 16,
+                                              ),
+                                              SizedBox(width: 12),
+                                              Expanded(
+                                                child: Text(
+                                                  tab,
+                                                  style: TextStyle(
+                                                    color: Color(0xFFECECEC),
+                                                    fontSize: 13,
+                                                  ),
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  },
                                 ),
                               ),
                             ],
                           ),
                         ),
-                        SizedBox(height: 16),
-                        // Tabs
+                        // Vertical Divider
+                        Container(
+                          width: 1,
+                          color: Theme.of(context)
+                              .extension<AppThemeExtension>()!
+                              .borderColor,
+                        ),
+                        // Content
                         Expanded(
-                          child: ListView.builder(
-                            itemCount: _tabs.length,
-                            itemBuilder: (context, index) {
-                              final tab = _tabs[index];
-                              final isSelected = tab == _selectedTab;
-                              return Padding(
-                                padding: EdgeInsets.only(bottom: 4),
-                                child: InkWell(
-                                  onTap: () {
-                                    setState(() {
-                                      _selectedTab = tab;
-                                    });
-                                  },
-                                  borderRadius: BorderRadius.circular(8),
-                                  hoverColor: Theme.of(context)
-                                      .extension<AppThemeExtension>()!
-                                      .surfaceHighlight,
-                                  child: Container(
-                                    padding: EdgeInsets.symmetric(
-                                        horizontal: 12, vertical: 10),
-                                    decoration: BoxDecoration(
-                                      color: isSelected
-                                          ? Theme.of(context)
-                                              .extension<AppThemeExtension>()!
-                                              .surfaceHighlight
-                                          : Colors.transparent,
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        Icon(
-                                          _tabIcons[tab],
-                                          color: const Color(0xFFECECEC),
-                                          size: 16,
-                                        ),
-                                        SizedBox(width: 12),
-                                        Expanded(
-                                          child: Text(
-                                            tab,
-                                            style: TextStyle(
-                                              color: Color(0xFFECECEC),
-                                              fontSize: 13,
-                                            ),
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              );
-                            },
+                          child: ListView(
+                            padding: EdgeInsets.all(32),
+                            children: _buildTabContent(),
                           ),
                         ),
                       ],
                     ),
-                  ),
-                  // Vertical Divider
-                  Container(
-                    width: 1,
-                    color: Theme.of(context)
-                        .extension<AppThemeExtension>()!
-                        .borderColor,
-                  ),
-                  // Content
-                  Expanded(
-                    child: ListView(
-                      padding: EdgeInsets.all(32),
-                      children: _buildTabContent(),
-                    ),
-                  ),
-                ],
-              ),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildMobileBody(BuildContext context) {
+    final ext = Theme.of(context).extension<AppThemeExtension>()!;
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+          child: Container(
+            height: 42,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            decoration: BoxDecoration(
+              color: ext.borderColor,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<String>(
+                value: _selectedTab,
+                isExpanded: true,
+                dropdownColor: ext.cardBackground,
+                icon: Icon(Icons.keyboard_arrow_down, color: ext.textTertiary),
+                style: const TextStyle(color: Colors.white, fontSize: 13),
+                items: _tabs
+                    .map((tab) => DropdownMenuItem<String>(
+                          value: tab,
+                          child: Row(
+                            children: [
+                              Icon(_tabIcons[tab],
+                                  color: const Color(0xFFECECEC), size: 16),
+                              const SizedBox(width: 10),
+                              Text(tab),
+                            ],
+                          ),
+                        ))
+                    .toList(),
+                onChanged: (tab) {
+                  if (tab != null) setState(() => _selectedTab = tab);
+                },
+              ),
+            ),
+          ),
+        ),
+        Divider(height: 1, color: ext.borderColor),
+        Expanded(
+          child: ListView(
+            padding: const EdgeInsets.all(16),
+            children: _buildTabContent(),
+          ),
+        ),
+      ],
     );
   }
 

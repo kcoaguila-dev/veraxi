@@ -34,7 +34,8 @@ class _SyncTabState extends ConsumerState<SyncTab> {
       final syncService = ref.read(syncServiceProvider);
       if (isPush) {
         await syncService.pushSync(passphrase);
-        setState(() => _success = 'Successfully pushed encrypted keys to cloud.');
+        setState(
+            () => _success = 'Successfully pushed encrypted keys to cloud.');
       } else {
         await syncService.pullSync(passphrase);
         setState(() => _success = 'Successfully downloaded and restored keys.');
@@ -63,6 +64,7 @@ class _SyncTabState extends ConsumerState<SyncTab> {
   @override
   Widget build(BuildContext context) {
     final ext = Theme.of(context).extension<AppThemeExtension>()!;
+    final isMobile = MediaQuery.sizeOf(context).width < 460;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -73,11 +75,7 @@ class _SyncTabState extends ConsumerState<SyncTab> {
           style: TextStyle(color: Colors.grey, fontSize: 12),
         ),
         const SizedBox(height: 24),
-        SettingsTextFieldRow(
-          label: 'Sync Passphrase',
-          controller: _passphraseController,
-          obscureText: true,
-        ),
+        _buildPassphraseField(context, isMobile),
         const SizedBox(height: 16),
         if (_error != null)
           Padding(
@@ -89,32 +87,92 @@ class _SyncTabState extends ConsumerState<SyncTab> {
             padding: const EdgeInsets.only(bottom: 16),
             child: Text(_success!, style: const TextStyle(color: Colors.green)),
           ),
-        Row(
-          children: [
-            ElevatedButton(
-              onPressed: _isLoading ? null : () => _handleSync(isPush: true),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Theme.of(context).colorScheme.primary,
-                foregroundColor: Colors.white,
+        isMobile
+            ? Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _buildSyncButton(context, ext, isPush: true, fullWidth: true),
+                  const SizedBox(height: 10),
+                  _buildSyncButton(context, ext,
+                      isPush: false, fullWidth: true),
+                ],
+              )
+            : Row(
+                children: [
+                  _buildSyncButton(context, ext, isPush: true),
+                  const SizedBox(width: 16),
+                  _buildSyncButton(context, ext, isPush: false),
+                ],
               ),
-              child: _isLoading
-                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                  : const Text('Push Keys to Cloud'),
-            ),
-            const SizedBox(width: 16),
-            ElevatedButton(
-              onPressed: _isLoading ? null : () => _handleSync(isPush: false),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: ext.surfaceHighlight,
-                foregroundColor: Colors.white,
-              ),
-              child: _isLoading
-                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                  : const Text('Pull Keys from Cloud'),
-            ),
-          ],
-        ),
       ],
+    );
+  }
+
+  Widget _buildPassphraseField(BuildContext context, bool isMobile) {
+    final ext = Theme.of(context).extension<AppThemeExtension>()!;
+    final field = TextField(
+      controller: _passphraseController,
+      obscureText: true,
+      style: const TextStyle(color: Colors.white, fontSize: 13),
+      decoration: InputDecoration(
+        hintText: 'Enter a sync passphrase',
+        hintStyle: TextStyle(color: ext.textTertiary, fontSize: 13),
+        filled: true,
+        fillColor: ext.borderColor,
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(6),
+          borderSide: BorderSide.none,
+        ),
+      ),
+    );
+
+    if (isMobile) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Sync Passphrase',
+              style: TextStyle(color: Color(0xFFECECEC), fontSize: 13)),
+          const SizedBox(height: 8),
+          field,
+        ],
+      );
+    }
+
+    return Row(
+      children: [
+        const SizedBox(
+          width: 120,
+          child: Text('Sync Passphrase',
+              style: TextStyle(color: Color(0xFFECECEC), fontSize: 13)),
+        ),
+        Expanded(child: field),
+      ],
+    );
+  }
+
+  Widget _buildSyncButton(BuildContext context, AppThemeExtension ext,
+      {required bool isPush, bool fullWidth = false}) {
+    return SizedBox(
+      width: fullWidth ? double.infinity : null,
+      child: ElevatedButton(
+        onPressed: _isLoading ? null : () => _handleSync(isPush: isPush),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: isPush
+              ? Theme.of(context).colorScheme.primary
+              : ext.surfaceHighlight,
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(vertical: 12),
+        ),
+        child: _isLoading
+            ? const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(
+                    color: Colors.white, strokeWidth: 2))
+            : Text(isPush ? 'Push Keys to Cloud' : 'Pull Keys from Cloud'),
+      ),
     );
   }
 }
