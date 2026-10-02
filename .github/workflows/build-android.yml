@@ -46,7 +46,7 @@ jobs:
         run: |
           SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
           yes | "$SDKMANAGER" --licenses >/dev/null || true
-          "$SDKMANAGER" "ndk;28.0.12433566"
+          "$SDKMANAGER" "ndk;28.0.12433566" "cmake;3.31.0"
 
       - name: Install Flutter dependencies
         working-directory: app
