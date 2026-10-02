@@ -30,6 +30,10 @@ android {
         versionName = flutter.versionName
     }
 
+    dependencies {
+        implementation("com.google.android.play:core:1.10.3")
+    }
+
     buildTypes {
         release {
             // TODO: Add your own signing config for the release build.
