@@ -36,7 +36,7 @@ dependencies:
   flutter_svg: ^2.3.0
   lucide_icons_flutter: ^3.1.20
   drift: ^2.22.1
-  sqlite3_flutter_libs: ^0.5.25
+  sqlite3_flutter_libs: ^0.6.0+eol
   sqlite3: ^2.4.6
   cryptography: ^2.9.0
   objectbox: ^5.3.2
