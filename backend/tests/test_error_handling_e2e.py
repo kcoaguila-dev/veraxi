@@ -11,7 +11,6 @@ import pytest
 from backend.api_gateway import app, get_tenant_id, verify_infrastructure_access
 from fastapi.testclient import TestClient
 
-
 # Global test client - same pattern as test_api_chat.py
 client = TestClient(app)
 
