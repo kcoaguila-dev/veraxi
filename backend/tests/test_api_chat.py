@@ -297,3 +297,104 @@ async def test_chat_endpoint_tool_events(override_redis):
             lines[2]
             == 'data: {"event": "on_tool_end", "name": "mcp_web_search", "run_id": "123", "data": {"output": "search results"}}'
         )
+
+
+# ============================================================================
+# Error Handling Tests - Verify specific error messages are returned
+# ============================================================================
+
+
+@pytest.mark.asyncio
+async def test_error_handling_non_stream(override_redis):
+    """Test that non-streaming errors return specific error details."""
+    with patch(
+        "backend.routes.chat.answer_question",
+        side_effect=ValueError("Test error message")
+    ):
+        response = client.post(
+            "/api/chat",
+            json={
+                "question": "What is testing?",
+                "stream": False,
+                "model": "test-model",
+            },
+        )
+
+        assert response.status_code == 500
+        data = response.json()
+        # Error detail should contain the exception type and message
+        assert "Internal server error" in data["detail"]
+        assert "ValueError" in data["detail"]
+        assert "Test error message" in data["detail"]
+
+
+@pytest.mark.asyncio
+async def test_error_handling_stream(override_redis):
+    """Test that streaming errors return specific error details in SSE."""
+    async def mock_stream_with_error(*args, **kwargs):
+        raise RuntimeError("Stream failed with context")
+
+    with patch(
+        "backend.routes.chat.stream_answer_question",
+        side_effect=mock_stream_with_error
+    ):
+        response = client.post(
+            "/api/chat",
+            json={"question": "Stream error?", "stream": True, "model": "test-model"},
+        )
+
+        assert response.status_code == 200  # SSE uses 200
+        lines = response.text.strip().split("\n\n")
+        # Should have error event and DONE
+        assert any("Internal server error" in line for line in lines)
+        assert any("RuntimeError" in line for line in lines)
+        assert any("Stream failed with context" in line for line in lines)
+        assert any('"data: [DONE]"' in line for line in lines)
+
+
+@pytest.mark.asyncio
+async def test_error_handling_timeout(override_redis):
+    """Test that timeout errors return 504 with timeout message."""
+    import asyncio
+    async def mock_timeout(*args, **kwargs):
+        raise asyncio.TimeoutError("Request timed out")
+
+    with patch(
+        "backend.routes.chat.answer_question",
+        side_effect=mock_timeout
+    ):
+        response = client.post(
+            "/api/chat",
+            json={
+                "question": "Timeout test?",
+                "stream": False,
+                "model": "test-model",
+            },
+        )
+
+        assert response.status_code == 504
+        data = response.json()
+        assert "timeout" in data["detail"].lower()
+        assert "TimeoutError" in data["detail"]
+
+
+@pytest.mark.asyncio
+async def test_error_handling_httpexception_passthrough(override_redis):
+    """Test that HTTPException errors are passed through unchanged."""
+    from fastapi import HTTPException
+    with patch(
+        "backend.routes.chat.answer_question",
+        side_effect=HTTPException(status_code=400, detail="Custom bad request")
+    ):
+        response = client.post(
+            "/api/chat",
+            json={
+                "question": "HTTPException test?",
+                "stream": False,
+                "model": "test-model",
+            },
+        )
+
+        assert response.status_code == 400
+        data = response.json()
+        assert data["detail"] == "Custom bad request"
