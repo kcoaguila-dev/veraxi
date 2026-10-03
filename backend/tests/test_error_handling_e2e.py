@@ -5,15 +5,44 @@ scenarios return specific, actionable error messages instead of generic
 "An internal error occurred" messages.
 """
 
+from unittest.mock import AsyncMock, patch
+
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
-from fastapi.testclient import TestClient
 from backend.api_gateway import app, get_tenant_id, verify_infrastructure_access
+from fastapi.testclient import TestClient
+
+
+# Global test client - same pattern as test_api_chat.py
+client = TestClient(app)
+
+
+# Mock Redis class - extended from test_api_chat.py to include all needed methods
+class MockRedis:
+    async def sadd(self, key, value):
+        return 1
+
+    async def hset(self, *args, **kwargs):
+        return 1
+
+    async def hgetall(self, *args, **kwargs):
+        return {}
+
+    async def hdel(self, *args, **kwargs):
+        return 1
+    
+    async def get(self, *args, **kwargs):
+        return None
+    
+    async def smembers(self, *args, **kwargs):
+        return set()
+    
+    async def sismember(self, *args, **kwargs):
+        return True
 
 
 @pytest.fixture(autouse=True)
 def override_dependencies():
-    """Override auth dependencies for testing."""
+    """Override auth dependencies for testing - same as test_api_chat.py."""
     async def override_get_tenant_id_local():
         return "test_tenant_id"
 
@@ -29,31 +58,16 @@ def override_dependencies():
 
 
 @pytest.fixture
-def mock_redis():
-    """Mock Redis for the app state."""
-    mock = AsyncMock()
-    mock.sadd.return_value = 1
-    mock.hset.return_value = None
-    mock.hgetall.return_value = {}
-    mock.close = AsyncMock()
-    mock.get.return_value = None
-    return mock
-
-
-@pytest.fixture
-def client(mock_redis):
-    """Test client with mocked dependencies."""
-    with patch("backend.api_gateway.create_pool", new_callable=AsyncMock) as mock_create_pool:
-        mock_create_pool.return_value = mock_redis
-        with TestClient(app) as client:
-            yield client
+def override_redis(monkeypatch):
+    """Mock Redis for the app state - same as test_api_chat.py."""
+    monkeypatch.setattr(app.state, "redis", MockRedis(), raising=False)
 
 
 class TestMultiTurnConversationErrors:
     """Test error handling in multi-turn conversations."""
 
     @patch("backend.routes.chat.answer_question")
-    def test_multiturn_error_non_streaming(self, mock_answer, client):
+    def test_multiturn_error_non_streaming(self, mock_answer, override_redis):
         """Test that errors in second turn of conversation return specific details."""
         # First message succeeds
         mock_answer.return_value = ("First response", "context", {})
@@ -82,20 +96,12 @@ class TestMultiTurnConversationErrors:
         assert "ValueError" in data["detail"]
         assert "Database connection failed" in data["detail"]
 
-    # Note: Streaming multi-turn test is complex to mock because stream_answer_question
-    # is an async generator. The non-streaming multi-turn test below verifies the logic.
-    # In production, streaming errors will also show specific details.
-    # @patch("backend.routes.chat.stream_answer_question")
-    # def test_multiturn_error_streaming(self, mock_stream, client):
-    #     """Test that errors in streaming second turn return specific details."""
-    #     pass
-
 
 class TestErrorMessageSpecificity:
     """Test that different error types return appropriate messages."""
 
     @patch("backend.routes.chat.answer_question")
-    def test_key_error_returns_details(self, mock_answer, client):
+    def test_key_error_returns_details(self, mock_answer, override_redis):
         """Test that KeyError returns the missing key in error message."""
         mock_answer.side_effect = KeyError("messages")
         response = client.post(
@@ -109,7 +115,7 @@ class TestErrorMessageSpecificity:
         assert "messages" in data["detail"]
 
     @patch("backend.routes.chat.answer_question")
-    def test_type_error_returns_details(self, mock_answer, client):
+    def test_type_error_returns_details(self, mock_answer, override_redis):
         """Test that TypeError returns the type mismatch in error message."""
         mock_answer.side_effect = TypeError("Expected str, got NoneType")
         response = client.post(
@@ -123,7 +129,7 @@ class TestErrorMessageSpecificity:
         assert "Expected str, got NoneType" in data["detail"]
 
     @patch("backend.routes.chat.answer_question")
-    def test_attribute_error_returns_details(self, mock_answer, client):
+    def test_attribute_error_returns_details(self, mock_answer, override_redis):
         """Test that AttributeError returns the missing attribute in error message."""
         mock_answer.side_effect = AttributeError("'NoneType' object has no attribute 'content'")
         response = client.post(
@@ -140,10 +146,11 @@ class TestErrorMessageSpecificity:
 class TestThreadOperationsErrorHandling:
     """Test error handling in thread-related operations."""
 
-    def test_list_threads_error(self, client, mock_redis):
+    def test_list_threads_error(self, override_redis):
         """Test that list threads endpoint returns specific errors."""
-        # Mock the redis smembers to raise an error
-        mock_redis.smembers.side_effect = ConnectionError("Redis connection failed")
+        # Get the mock Redis instance from app.state
+        mock_redis = app.state.redis
+        mock_redis.smembers = AsyncMock(side_effect=ConnectionError("Redis connection failed"))
         
         response = client.get("/api/chat/threads")
 
@@ -152,10 +159,11 @@ class TestThreadOperationsErrorHandling:
         assert "Internal server error" in data["detail"]
         assert "ConnectionError" in data["detail"]
 
-    def test_get_thread_history_error(self, client, mock_redis):
+    def test_get_thread_history_error(self, override_redis):
         """Test that get thread history endpoint returns specific errors."""
-        # Mock the redis sismember to raise an error
-        mock_redis.sismember.side_effect = ValueError("Invalid thread ID format")
+        # Get the mock Redis instance from app.state
+        mock_redis = app.state.redis
+        mock_redis.sismember = AsyncMock(side_effect=ValueError("Invalid thread ID format"))
         
         response = client.get("/api/chat/threads/nonexistent-thread")
 
