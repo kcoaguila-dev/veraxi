@@ -5,6 +5,7 @@ scenarios return specific, actionable error messages instead of generic
 "An internal error occurred" messages.
 """
 
+
 import pytest
 from unittest.mock import AsyncMock, patch
 
