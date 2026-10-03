@@ -34,7 +34,7 @@ dependencies = [
     "supabase",
     "stripe",
     "langgraph",
-    "langchain<0.3.0",
+    "langchain<1.5.0",
     "langchain-core<0.3.0",
     "langchain-openai",
     "arq",
