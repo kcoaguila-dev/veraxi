@@ -340,9 +340,8 @@ async def test_error_handling_non_stream(override_redis):
 @pytest.mark.asyncio
 async def test_error_handling_timeout(override_redis):
     """Test that timeout errors return 504 with timeout message."""
-    import asyncio
     async def mock_timeout(*args, **kwargs):
-        raise asyncio.TimeoutError("Request timed out")
+        raise TimeoutError("Request timed out")
 
     with patch(
         "backend.routes.chat.answer_question",
