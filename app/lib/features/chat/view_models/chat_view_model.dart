@@ -694,6 +694,10 @@ class ChatViewModel extends StateNotifier<ChatState> {
             errorStr.contains("Payment Required")) {
           uiError =
               "Payment Required: Free tier users must configure Bring Your Own Database (BYOD) in Control Panel (Gear Icon) -> Infrastructure.";
+        } else if (errorStr.contains("Guest users must provide") ||
+            errorStr.contains("API key")) {
+          uiError =
+              "Please add your API key in Settings -> API Keys to use this feature.";
         }
 
         String finalContent = uiError;
