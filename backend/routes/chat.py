@@ -246,8 +246,8 @@ async def _stream_events(
         yield "data: [DONE]\n\n"
     except Exception as e:
         sentry_sdk.capture_exception(e)
-        logger.error(f"Error in streaming: {e}", exc_info=True)
-        yield f"data: {json.dumps({'error': f'Internal server error: {type(e).__name__}: {str(e)}'})}\n\n"
+        logger.exception(f"Error in streaming: {e}")
+        yield f"data: {json.dumps({'error': f'Internal server error: {type(e).__name__}: {e!s}'})}\n\n"
         yield "data: [DONE]\n\n"
 
 
@@ -447,19 +447,19 @@ def register_chat_routes(
             )
         except HTTPException:
             raise  # Re-raise FastAPI errors with their original details
-        except asyncio.TimeoutError as e:
+        except TimeoutError as e:
             sentry_sdk.capture_exception(e)
-            logger.error(f"Timeout error processing question: {e}", exc_info=True)
+            logger.exception(f"Timeout error processing question: {e}")
             raise HTTPException(
                 status_code=504,
-                detail=f"Request timeout: {str(e)}"
+                detail=f"Request timeout: {e!s}"
             )
         except Exception as e:
             sentry_sdk.capture_exception(e)
-            logger.error(f"Error processing question: {e}", exc_info=True)
+            logger.exception(f"Error processing question: {e}")
             raise HTTPException(
                 status_code=500,
-                detail=f"Internal server error: {type(e).__name__}: {str(e)}"
+                detail=f"Internal server error: {type(e).__name__}: {e!s}"
             )
 
     @app_router.get("/api/chat/threads")
@@ -497,10 +497,10 @@ def register_chat_routes(
             raise
         except Exception as e:
             sentry_sdk.capture_exception(e)
-            logger.error(f"Error listing threads: {e}", exc_info=True)
+            logger.exception(f"Error listing threads: {e}")
             raise HTTPException(
                 status_code=500,
-                detail=f"Internal server error: {type(e).__name__}: {str(e)}"
+                detail=f"Internal server error: {type(e).__name__}: {e!s}"
             )
 
     @app_router.get("/api/chat/threads/{thread_id}")
@@ -557,10 +557,10 @@ def register_chat_routes(
             raise
         except Exception as e:
             sentry_sdk.capture_exception(e)
-            logger.error(f"Error fetching thread {thread_id}: {e}", exc_info=True)
+            logger.exception(f"Error fetching thread {thread_id}: {e}")
             raise HTTPException(
                 status_code=500,
-                detail=f"Internal server error: {type(e).__name__}: {str(e)}"
+                detail=f"Internal server error: {type(e).__name__}: {e!s}"
             )
 
     @app_router.post("/api/chat/threads/{thread_id}/share")
@@ -608,10 +608,10 @@ def register_chat_routes(
             raise
         except Exception as e:
             sentry_sdk.capture_exception(e)
-            logger.error(f"Error sharing thread: {e}", exc_info=True)
+            logger.exception(f"Error sharing thread: {e}")
             raise HTTPException(
                 status_code=500,
-                detail=f"Internal server error: {type(e).__name__}: {str(e)}"
+                detail=f"Internal server error: {type(e).__name__}: {e!s}"
             )
 
     @app_router.get("/share/{share_id}")
@@ -647,10 +647,10 @@ def register_chat_routes(
             raise
         except Exception as e:
             sentry_sdk.capture_exception(e)
-            logger.error(f"Error: {e}", exc_info=True)
+            logger.exception(f"Error: {e}")
             raise HTTPException(
                 status_code=500,
-                detail=f"Internal server error: {type(e).__name__}: {str(e)}"
+                detail=f"Internal server error: {type(e).__name__}: {e!s}"
             )
 
     @app_router.post("/api/chat/messages/{message_id}/feedback")
@@ -724,10 +724,10 @@ def register_chat_routes(
             raise
         except Exception as e:
             sentry_sdk.capture_exception(e)
-            logger.error(f"Error: {e}", exc_info=True)
+            logger.exception(f"Error: {e}")
             raise HTTPException(
                 status_code=500,
-                detail=f"Internal server error: {type(e).__name__}: {str(e)}"
+                detail=f"Internal server error: {type(e).__name__}: {e!s}"
             )
 
     @app_router.post("/api/chat/threads/{thread_id}/regenerate")
