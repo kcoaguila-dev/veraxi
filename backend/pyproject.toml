@@ -67,3 +67,4 @@ explicit_package_bases = true
 namespace_packages = true
 [tool.ruff]
 lint.ignore = ["E402", "BLE001"]
+lint.exclude = ["build/**"]
