@@ -698,6 +698,17 @@ class ChatViewModel extends StateNotifier<ChatState> {
             errorStr.contains("API key")) {
           uiError =
               "Please add your API key in Settings -> API Keys to use this feature.";
+        } else if (errorStr.contains("Internal server error:")) {
+          // Extract the actual error details for debugging
+          // Format: "Internal server error: ExceptionType: error message"
+          final match = RegExp(r"Internal server error: ([^:]+): (.+)").firstMatch(errorStr);
+          if (match != null) {
+            uiError = "Error: ${match.group(2)}";
+          } else {
+            uiError = errorStr;
+          }
+        } else if (errorStr.contains("timeout") || errorStr.contains("Timeout")) {
+          uiError = "Request timed out. Please try again.";
         }
 
         String finalContent = uiError;
