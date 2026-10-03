@@ -246,7 +246,7 @@ async def _stream_events(
         yield "data: [DONE]\n\n"
     except Exception as e:
         sentry_sdk.capture_exception(e)
-        logger.exception(f"Error in streaming: {e}")
+        logger.exception("Error in streaming")
         yield f"data: {json.dumps({'error': f'Internal server error: {type(e).__name__}: {e!s}'})}\n\n"
         yield "data: [DONE]\n\n"
 
@@ -449,14 +449,14 @@ def register_chat_routes(
             raise  # Re-raise FastAPI errors with their original details
         except TimeoutError as e:
             sentry_sdk.capture_exception(e)
-            logger.exception(f"Timeout error processing question: {e}")
+            logger.exception("Timeout error processing question")
             raise HTTPException(
                 status_code=504,
                 detail=f"Request timeout: {e!s}"
             )
         except Exception as e:
             sentry_sdk.capture_exception(e)
-            logger.exception(f"Error processing question: {e}")
+            logger.exception("Error processing question")
             raise HTTPException(
                 status_code=500,
                 detail=f"Internal server error: {type(e).__name__}: {e!s}"
@@ -497,7 +497,7 @@ def register_chat_routes(
             raise
         except Exception as e:
             sentry_sdk.capture_exception(e)
-            logger.exception(f"Error listing threads: {e}")
+            logger.exception("Error listing threads")
             raise HTTPException(
                 status_code=500,
                 detail=f"Internal server error: {type(e).__name__}: {e!s}"
@@ -557,7 +557,7 @@ def register_chat_routes(
             raise
         except Exception as e:
             sentry_sdk.capture_exception(e)
-            logger.exception(f"Error fetching thread {thread_id}: {e}")
+            logger.exception(f"Error fetching thread {thread_id}")
             raise HTTPException(
                 status_code=500,
                 detail=f"Internal server error: {type(e).__name__}: {e!s}"
@@ -608,7 +608,7 @@ def register_chat_routes(
             raise
         except Exception as e:
             sentry_sdk.capture_exception(e)
-            logger.exception(f"Error sharing thread: {e}")
+            logger.exception("Error sharing thread")
             raise HTTPException(
                 status_code=500,
                 detail=f"Internal server error: {type(e).__name__}: {e!s}"
@@ -647,7 +647,7 @@ def register_chat_routes(
             raise
         except Exception as e:
             sentry_sdk.capture_exception(e)
-            logger.exception(f"Error: {e}")
+            logger.exception("Error")
             raise HTTPException(
                 status_code=500,
                 detail=f"Internal server error: {type(e).__name__}: {e!s}"
@@ -672,10 +672,10 @@ def register_chat_routes(
             return {"status": "ok"}
         except Exception as e:
             sentry_sdk.capture_exception(e)
-            logger.error(f"Error: {e}", exc_info=True)
+            logger.exception("Error")
             raise HTTPException(
                 status_code=500,
-                detail=f"Internal server error: {type(e).__name__}: {str(e)}"
+                detail=f"Internal server error: {type(e).__name__}: {e!s}"
             )
 
     @app_router.put("/api/chat/messages/{message_id}")
@@ -724,7 +724,7 @@ def register_chat_routes(
             raise
         except Exception as e:
             sentry_sdk.capture_exception(e)
-            logger.exception(f"Error: {e}")
+            logger.exception("Error")
             raise HTTPException(
                 status_code=500,
                 detail=f"Internal server error: {type(e).__name__}: {e!s}"
