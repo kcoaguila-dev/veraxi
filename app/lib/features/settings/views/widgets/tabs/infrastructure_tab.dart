@@ -319,44 +319,44 @@ class _InfrastructureTabState extends ConsumerState<InfrastructureTab> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-        Text('Infrastructure & Self-Hosting',
-            style: theme.textTheme.headlineMedium
-                ?.copyWith(color: Colors.white, fontWeight: FontWeight.bold)),
-        SizedBox(height: 8),
-        Text(
-            'Manage the underlying Neo4j and Qdrant clusters powering your Sovereign Intelligence.',
-            style: theme.textTheme.bodyLarge?.copyWith(
-                color: theme.extension<AppThemeExtension>()!.textTertiary)),
-        const SizedBox(height: 28),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final isWide = constraints.maxWidth > 800;
-            return GridView.count(
-              crossAxisCount: isWide ? 2 : 1,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              crossAxisSpacing: 24,
-              mainAxisSpacing: 24,
-              childAspectRatio: isWide ? 2.5 : 2.0,
-              children: [
-                _buildDatabaseMonitorCard(
-                    theme,
-                    'Neo4j Graph Database',
-                    'Healthy (Managed Cloud)',
-                    const Color(0xFF10B981),
-                    Icons.hub_outlined),
-                _buildDatabaseMonitorCard(
-                    theme,
-                    'Qdrant Vector Database',
-                    'Healthy (Managed Cloud)',
-                    const Color(0xFF10B981),
-                    Icons.blur_on),
-              ],
-            );
-          },
-        ),
-        const SizedBox(height: 28),
-        _buildByodSection(theme),
+          Text('Infrastructure & Self-Hosting',
+              style: theme.textTheme.headlineMedium
+                  ?.copyWith(color: Colors.white, fontWeight: FontWeight.bold)),
+          SizedBox(height: 8),
+          Text(
+              'Manage the underlying Neo4j and Qdrant clusters powering your Sovereign Intelligence.',
+              style: theme.textTheme.bodyLarge?.copyWith(
+                  color: theme.extension<AppThemeExtension>()!.textTertiary)),
+          const SizedBox(height: 28),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final isWide = constraints.maxWidth > 800;
+              return GridView.count(
+                crossAxisCount: isWide ? 2 : 1,
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                crossAxisSpacing: 24,
+                mainAxisSpacing: 24,
+                childAspectRatio: isWide ? 2.5 : 2.0,
+                children: [
+                  _buildDatabaseMonitorCard(
+                      theme,
+                      'Neo4j Graph Database',
+                      'Healthy (Managed Cloud)',
+                      const Color(0xFF10B981),
+                      Icons.hub_outlined),
+                  _buildDatabaseMonitorCard(
+                      theme,
+                      'Qdrant Vector Database',
+                      'Healthy (Managed Cloud)',
+                      const Color(0xFF10B981),
+                      Icons.blur_on),
+                ],
+              );
+            },
+          ),
+          const SizedBox(height: 28),
+          _buildByodSection(theme),
         ],
       ),
     );
