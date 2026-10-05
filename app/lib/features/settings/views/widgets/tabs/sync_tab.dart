@@ -14,6 +14,7 @@ class SyncTab extends ConsumerStatefulWidget {
 class _SyncTabState extends ConsumerState<SyncTab> {
   final _passphraseController = TextEditingController();
   bool _isLoading = false;
+  bool _obscurePassphrase = true;
   String? _error;
   String? _success;
 
@@ -112,7 +113,7 @@ class _SyncTabState extends ConsumerState<SyncTab> {
     final ext = Theme.of(context).extension<AppThemeExtension>()!;
     final field = TextField(
       controller: _passphraseController,
-      obscureText: true,
+      obscureText: _obscurePassphrase,
       style: const TextStyle(color: Colors.white, fontSize: 13),
       decoration: InputDecoration(
         hintText: 'Enter a sync passphrase',
@@ -124,6 +125,16 @@ class _SyncTabState extends ConsumerState<SyncTab> {
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(6),
           borderSide: BorderSide.none,
+        ),
+        suffixIcon: IconButton(
+          icon: Icon(
+            _obscurePassphrase ? Icons.visibility_off : Icons.visibility,
+            size: 18,
+            color: ext.textTertiary,
+          ),
+          splashRadius: 18,
+          tooltip: _obscurePassphrase ? 'Show passphrase' : 'Hide passphrase',
+          onPressed: () => setState(() => _obscurePassphrase = !_obscurePassphrase),
         ),
       ),
     );
