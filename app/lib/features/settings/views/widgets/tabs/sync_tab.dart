@@ -134,7 +134,8 @@ class _SyncTabState extends ConsumerState<SyncTab> {
           ),
           splashRadius: 18,
           tooltip: _obscurePassphrase ? 'Show passphrase' : 'Hide passphrase',
-          onPressed: () => setState(() => _obscurePassphrase = !_obscurePassphrase),
+          onPressed: () =>
+              setState(() => _obscurePassphrase = !_obscurePassphrase),
         ),
       ),
     );
