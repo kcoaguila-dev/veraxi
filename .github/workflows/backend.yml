@@ -44,15 +44,20 @@ jobs:
 
   # -------------------------------------------------------------------------
   # Deploy to Cloud Run — only on direct pushes to main (not PRs).
-  # Requires one repository secret:
-  #   GCP_SA_KEY  — JSON key for a GCP service account with these roles:
-  #                 Cloud Run Admin, Storage Admin, Artifact Registry Writer,
-  #                 Service Account User
+  # Uses keyless Workload Identity Federation (no JSON key stored).
+  # Requires two repository secrets:
+  #   GCP_WORKLOAD_IDENTITY_PROVIDER — full provider resource name
+  #   GCP_SERVICE_ACCOUNT            — SA email (github-deploy@...)
   # -------------------------------------------------------------------------
   deploy:
     needs: test
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    # Required for Workload Identity Federation token exchange
+    permissions:
+      contents: read
+      id-token: write
 
     steps:
     - uses: actions/checkout@v4
@@ -60,7 +65,8 @@ jobs:
     - name: Authenticate to Google Cloud
       uses: google-github-actions/auth@v2
       with:
-        credentials_json: ${{ secrets.GCP_SA_KEY }}
+        workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+        service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
 
     - name: Set up Cloud SDK
       uses: google-github-actions/setup-gcloud@v2
