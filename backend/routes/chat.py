@@ -6,7 +6,7 @@ import json
 import logging
 import time
 import uuid
-from typing import Literal, Any
+from typing import Any, Literal
 
 import sentry_sdk
 from backend.mcp_server.llm_loop import (
