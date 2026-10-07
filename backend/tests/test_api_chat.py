@@ -69,7 +69,7 @@ async def test_chat_endpoint_no_stream(override_redis):
             json={
                 "question": "What is testing?",
                 "stream": False,
-                "model": "test-model",
+                "model": "test-model", "api_key": "dummy",
             },
         )
 
@@ -280,7 +280,7 @@ async def test_chat_endpoint_tool_events(override_redis):
             json={
                 "question": "search something",
                 "stream": True,
-                "model": "test-model",
+                "model": "test-model", "api_key": "dummy",
             },
         )
 
@@ -316,7 +316,7 @@ async def test_error_handling_non_stream(override_redis):
             json={
                 "question": "What is testing?",
                 "stream": False,
-                "model": "test-model",
+                "model": "test-model", "api_key": "dummy",
             },
         )
 
@@ -352,7 +352,7 @@ async def test_error_handling_timeout(override_redis):
             json={
                 "question": "Timeout test?",
                 "stream": False,
-                "model": "test-model",
+                "model": "test-model", "api_key": "dummy",
             },
         )
 
@@ -375,7 +375,7 @@ async def test_error_handling_httpexception_passthrough(override_redis):
             json={
                 "question": "HTTPException test?",
                 "stream": False,
-                "model": "test-model",
+                "model": "test-model", "api_key": "dummy",
             },
         )
 

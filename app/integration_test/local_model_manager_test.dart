@@ -44,20 +44,22 @@ void main() async {
     await tester.tap(modelSelector);
     await tester.pumpAndSettle();
 
-    // 3. Find 'Local' provider and open its submenu
+    // 3. Find 'Local' provider row
     final localProviderText = find.text('Local');
     expect(localProviderText, findsWidgets);
 
-    // Tap the 'Local' text to trigger the submenu
-    await tester.tap(localProviderText.last);
-    await tester.pumpAndSettle();
+    // 4. Tap the settings icon on the Local provider row to open ApiKeyDialog
+    final settingsIcon = find.descendant(
+      of: find.ancestor(
+        of: localProviderText.last,
+        matching: find.byType(Row),
+      ),
+      matching: find.byIcon(Icons.settings_outlined),
+    );
+    expect(settingsIcon, findsOneWidget);
 
-    // 4. Verify that "Manage / Download Models" button appears in the submenu
-    final manageButton = find.text('Manage / Download Models');
-    expect(manageButton, findsOneWidget);
-
-    // 5. Tap the Manage button
-    await tester.tap(manageButton);
+    // 5. Tap the settings icon
+    await tester.tap(settingsIcon);
     await tester.pumpAndSettle();
 
     // 6. Verify ApiKeyDialog appears with 'Local' properties

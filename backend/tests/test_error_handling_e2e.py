@@ -84,7 +84,7 @@ class TestMultiTurnConversationErrors:
             json={
                 "question": "Second message",
                 "stream": False,
-                "model": "gpt-4o",
+                "model": "gpt-4o", "api_key": "dummy",
                 "thread_id": thread_id,
             },
         )
