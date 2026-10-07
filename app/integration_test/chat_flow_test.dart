@@ -184,8 +184,8 @@ void main() {
     await tester.tap(find.byType(ModelSelectorMenu));
     await tester.pumpAndSettle();
 
-    // Tap the 'Anthropic' provider row to reveal models
-    await tester.tap(find.text('Anthropic').last);
+    // Tap the 'anthropic' provider row to reveal models
+    await tester.tap(find.text('anthropic').last);
     await tester.pumpAndSettle();
 
     // Select Anthropic model
