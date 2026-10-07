@@ -226,7 +226,7 @@ def test_guest_without_api_key_is_rejected(mock_redis):
     with TestClient(app) as client:
         response = client.post(
             "/api/chat",
-            json={"question": "Hello", "stream": False, "model": "gpt-4o", "api_key": "dummy"},
+            json={"question": "Hello", "stream": False, "model": "gpt-4o"},
             # Deliberately no api_key field
         )
 
