@@ -71,7 +71,7 @@ void main() async {
     expect(modelManagerTitle, findsOneWidget);
 
     // 8. Verify the presence of Llama 3.2 1B curated option
-    final llama1B = find.text('Llama 3.2 1B (1.3 GB)');
+    final llama1B = find.text('Llama 3.2 1B');
     expect(llama1B, findsOneWidget);
   });
 }
