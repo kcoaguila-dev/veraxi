@@ -310,7 +310,7 @@ async def test_error_handling_non_stream(override_redis):
     with patch(
         "backend.routes.chat.answer_question",
         side_effect=ValueError("Test error message")
-    ):
+    ), patch('backend.routes.chat.sentry_sdk.capture_exception') as mock_sentry, patch('backend.routes.chat.logger.exception') as mock_logger:
         response = client.post(
             "/api/chat",
             json={
@@ -324,6 +324,10 @@ async def test_error_handling_non_stream(override_redis):
         data = response.json()
         # Error detail should contain the exception type and message
         assert "Internal server error" in data["detail"]
+        mock_sentry.assert_called_once()
+        mock_logger.assert_called_once()
+        mock_sentry.assert_called_once()
+        mock_logger.assert_called_once()
         assert "ValueError" in data["detail"]
         assert "Test error message" in data["detail"]
 
