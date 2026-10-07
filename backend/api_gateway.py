@@ -212,26 +212,7 @@ def get_tenant_id(
     return _decode_and_validate_jwt(token)
 
 
-async def verify_infrastructure_access(
-    request: Request,
-    tenant_id: str = Depends(get_tenant_id),
-) -> str:
-    if tenant_id == "local_guest":
-        return tenant_id
-
-    if not config.is_enterprise or not config.auth_enabled:
-        return tenant_id
-    admin_ids = config.admin_tenant_ids
-    if (
-        tenant_id in admin_ids
-        or tenant_id.replace("user_", "") in admin_ids
-        or f"user_{tenant_id}" in admin_ids
-    ):
-        return tenant_id
-    uri = byod_context.request_neo4j_uri.get()
-    qdrant = byod_context.request_qdrant_url.get()
-    if uri and qdrant:
-        return tenant_id
+async def is_tenant_subscribed(request: Request, tenant_id: str) -> bool:
     cache_key = f"tenant:{tenant_id}:subscription_status"
     cached = await request.app.state.redis.get(cache_key)
     if cached is not None:
@@ -260,6 +241,31 @@ async def verify_infrastructure_access(
         await request.app.state.redis.setex(
             cache_key, 86400, "true" if is_subscribed else "false"
         )
+    return is_subscribed
+
+
+async def verify_infrastructure_access(
+    request: Request,
+    tenant_id: str = Depends(get_tenant_id),
+) -> str:
+    if tenant_id == "local_guest":
+        return tenant_id
+
+    if not config.is_enterprise or not config.auth_enabled:
+        return tenant_id
+    admin_ids = config.admin_tenant_ids
+    if (
+        tenant_id in admin_ids
+        or tenant_id.replace("user_", "") in admin_ids
+        or f"user_{tenant_id}" in admin_ids
+    ):
+        return tenant_id
+    uri = byod_context.request_neo4j_uri.get()
+    qdrant = byod_context.request_qdrant_url.get()
+    if uri and qdrant:
+        return tenant_id
+
+    is_subscribed = await is_tenant_subscribed(request, tenant_id)
     if is_subscribed:
         return tenant_id
     raise HTTPException(

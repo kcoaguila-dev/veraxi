@@ -77,7 +77,6 @@ def register_payment_routes(
                 else "Veraxi Pro Monthly"
             )
             session = stripe.checkout.Session.create(
-                payment_method_types=["card"],
                 line_items=[
                     {
                         "price_data": {

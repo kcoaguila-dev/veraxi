@@ -72,7 +72,7 @@ class TestMultiTurnConversationErrors:
         mock_answer.return_value = ("First response", "context", {})
         response1 = client.post(
             "/api/chat",
-            json={"question": "First message", "stream": False, "model": "gpt-4o"},
+            json={"question": "First message", "stream": False, "model": "gpt-4o", "api_key": "dummy"},
         )
         assert response1.status_code == 200
         thread_id = response1.json()["thread_id"]
@@ -105,7 +105,7 @@ class TestErrorMessageSpecificity:
         mock_answer.side_effect = KeyError("messages")
         response = client.post(
             "/api/chat",
-            json={"question": "Test", "stream": False, "model": "gpt-4o"},
+            json={"question": "Test", "stream": False, "model": "gpt-4o", "api_key": "dummy"},
         )
 
         assert response.status_code == 500
@@ -119,7 +119,7 @@ class TestErrorMessageSpecificity:
         mock_answer.side_effect = TypeError("Expected str, got NoneType")
         response = client.post(
             "/api/chat",
-            json={"question": "Test", "stream": False, "model": "gpt-4o"},
+            json={"question": "Test", "stream": False, "model": "gpt-4o", "api_key": "dummy"},
         )
 
         assert response.status_code == 500
@@ -133,7 +133,7 @@ class TestErrorMessageSpecificity:
         mock_answer.side_effect = AttributeError("'NoneType' object has no attribute 'content'")
         response = client.post(
             "/api/chat",
-            json={"question": "Test", "stream": False, "model": "gpt-4o"},
+            json={"question": "Test", "stream": False, "model": "gpt-4o", "api_key": "dummy"},
         )
 
         assert response.status_code == 500

@@ -35,7 +35,7 @@ def _require_premium(sb: Client, tenant_id: str) -> None:
     level (guard-clause pattern, zero-cognitive-complexity policy).
     """
     user_res = sb.table("users").select("is_subscribed").eq("id", tenant_id).execute()
-    if not user_res.data or not user_res.data[0].get("is_subscribed"):
+    if not user_res.data or not user_res.data[0].get("is_subscribed"): # type: ignore
         raise HTTPException(status_code=403, detail="Sync is a premium feature.")
 
 
@@ -57,9 +57,10 @@ def register_sync_routes(app_router, get_tenant_id, get_supabase, config):
         if not res.data:
             raise HTTPException(status_code=404, detail="No sync data found.")
 
+        data_list = res.data # type: ignore
         return {
-            "encrypted_blob": res.data[0]["encrypted_blob"],
-            "salt": res.data[0]["salt"],
+            "encrypted_blob": data_list[0]["encrypted_blob"],
+            "salt": data_list[0]["salt"],
         }
 
     @app_router.put("/api/sync/byod")
