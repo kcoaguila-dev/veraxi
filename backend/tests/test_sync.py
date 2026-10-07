@@ -14,10 +14,8 @@ from http import HTTPStatus
 from unittest.mock import MagicMock, patch
 
 import pytest
-from fastapi.testclient import TestClient
-
 from backend.api_gateway import app, get_tenant_id
-
+from fastapi.testclient import TestClient
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -58,8 +56,6 @@ def _mock_supabase(is_subscribed: bool = True) -> MagicMock:
 class TestPutByod:
     """Push (encrypt + upload) endpoint."""
 
-    _payload = {"encrypted_blob": "abc123", "salt": "seasalt"}
-
     def test_503_when_supabase_unavailable(self, client):
         """Regression: used to crash with AttributeError → 500.
 
@@ -68,11 +64,12 @@ class TestPutByod:
         """
         from fastapi import HTTPException
 
+        payload = {"encrypted_blob": "abc123", "salt": "seasalt"}
         with patch(
             "backend.routes.sync._require_supabase",
             side_effect=HTTPException(status_code=503, detail="unavailable"),
         ):
-            resp = client.put("/api/sync/byod", json=self._payload)
+            resp = client.put("/api/sync/byod", json=payload)
 
         assert resp.status_code == HTTPStatus.SERVICE_UNAVAILABLE, (
             "Expected 503 when Supabase is unavailable, "
@@ -84,6 +81,7 @@ class TestPutByod:
         """Non-subscribed users must be rejected before any data is written."""
         from fastapi import HTTPException
 
+        payload = {"encrypted_blob": "abc123", "salt": "seasalt"}
         sb = _mock_supabase()
         with (
             patch("backend.routes.sync._require_supabase", return_value=sb),
@@ -92,13 +90,14 @@ class TestPutByod:
                 side_effect=HTTPException(status_code=403, detail="Sync is a premium feature."),
             ),
         ):
-            resp = client.put("/api/sync/byod", json=self._payload)
+            resp = client.put("/api/sync/byod", json=payload)
 
         assert resp.status_code == HTTPStatus.FORBIDDEN
         assert "premium" in resp.json()["detail"].lower()
 
     def test_200_for_premium_user(self, client):
         """Premium user with valid payload must receive success."""
+        payload = {"encrypted_blob": "abc123", "salt": "seasalt"}
         sb = _mock_supabase(is_subscribed=True)
         sb.table.return_value.upsert.return_value.execute.return_value = MagicMock()
 
@@ -106,7 +105,7 @@ class TestPutByod:
             patch("backend.routes.sync._require_supabase", return_value=sb),
             patch("backend.routes.sync._require_premium"),  # no-op = premium OK
         ):
-            resp = client.put("/api/sync/byod", json=self._payload)
+            resp = client.put("/api/sync/byod", json=payload)
 
         assert resp.status_code == HTTPStatus.OK
         assert resp.json() == {"status": "success"}
