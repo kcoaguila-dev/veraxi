@@ -57,7 +57,7 @@ def test_chat_endpoint_non_streaming(
 
     response = client.post(
         "/api/chat",
-        json={"question": "What is AI?", "stream": False, "model": "gpt-4o"},
+        json={"question": "What is AI?", "stream": False, "model": "gpt-4o", "api_key": "dummy"},
     )
 
     assert response.status_code == 200
@@ -72,7 +72,7 @@ def test_chat_endpoint_flagged_content(mock_moderate, client):
     mock_moderate.return_value = True
 
     response = client.post(
-        "/api/chat", json={"question": "Bad stuff", "stream": False, "model": "gpt-4o"}
+        "/api/chat", json={"question": "Bad stuff", "stream": False, "model": "gpt-4o", "api_key": "dummy"}
     )
 
     assert response.status_code == 400
@@ -91,7 +91,7 @@ def test_chat_endpoint_streaming(mock_stream, mock_moderate, client):
     mock_stream.side_effect = mock_stream_gen
 
     response = client.post(
-        "/api/chat", json={"question": "Hello?", "stream": True, "model": "gpt-4o"}
+        "/api/chat", json={"question": "Hello?", "stream": True, "model": "gpt-4o", "api_key": "dummy"}
     )
 
     assert response.status_code == 200
@@ -226,7 +226,7 @@ def test_guest_without_api_key_is_rejected(mock_redis):
     with TestClient(app) as client:
         response = client.post(
             "/api/chat",
-            json={"question": "Hello", "stream": False, "model": "gpt-4o"},
+            json={"question": "Hello", "stream": False, "model": "gpt-4o", "api_key": "dummy"},
             # Deliberately no api_key field
         )
 

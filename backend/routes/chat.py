@@ -6,7 +6,7 @@ import json
 import logging
 import time
 import uuid
-from typing import Literal
+from typing import Literal, Any
 
 import sentry_sdk
 from backend.mcp_server.llm_loop import (
@@ -195,7 +195,7 @@ def _build_thread_list(threads, titles, pinned, archived, projects, timestamps):
 def _to_imported_langchain_messages(messages: list[ImportedMessage]):
     imported = []
     for message in messages:
-        message_kwargs = {"id": message.id}
+        message_kwargs: dict[str, Any] = {"id": message.id}
         if message.model_name:
             message_kwargs["model_name"] = message.model_name
         if message.metrics:
@@ -372,12 +372,13 @@ def register_chat_routes(
             # Local endpoints don't need a real API key, but we provide a dummy one to pass checks
             chat_request.api_key = "dummy"
 
-        # Guest (unauthenticated) users MUST supply their own API key.
-        # This guarantees the server never pays for guest inference costs.
-        if tenant_id == "local_guest" and not chat_request.api_key:
+        # This is a pure Bring Your Own Key (BYOK) service.
+        # ALL users (guest, free, and paid) MUST supply their own API key.
+        # This guarantees the server never pays for inference costs.
+        if not chat_request.api_key:
             raise HTTPException(
                 status_code=403,
-                detail="Guest users must provide their own API key. Add your key in Settings → API Keys.",
+                detail="You must provide your own LLM API key. Add your key in Settings → API Keys.",
             )
 
         api_key_override = chat_request.api_key or None

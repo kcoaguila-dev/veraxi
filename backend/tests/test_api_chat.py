@@ -96,7 +96,7 @@ async def test_chat_endpoint_stream(override_redis):
     ):
         response = client.post(
             "/api/chat",
-            json={"question": "Stream me?", "stream": True, "model": "test-model"},
+            json={"question": "Stream me?", "stream": True, "model": "test-model", "api_key": "dummy"},
         )
 
         assert response.status_code == 200

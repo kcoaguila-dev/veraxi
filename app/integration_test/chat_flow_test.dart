@@ -189,7 +189,7 @@ void main() {
     await tester.pumpAndSettle();
 
     // Select Anthropic model
-    await tester.tap(find.text('Claude 3.5 Sonnet').last);
+    await tester.tap(find.text('claude-3-5-sonnet-latest').last);
     await tester.pumpAndSettle();
 
     // 5. Test Sending a message
