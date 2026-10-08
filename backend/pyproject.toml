@@ -17,7 +17,7 @@ requires-python = ">=3.12"
 dependencies = [
     "neo4j",
     "qdrant-client",
-    "mcp",
+    "mcp>=1.2.0",
     "openai",
     "fastapi>=0.142.2",
     "uvicorn>=0.54.0",
@@ -46,8 +46,9 @@ dependencies = [
     "langgraph-checkpoint-postgres",
     "psycopg[binary]",
     "opentimelineio",
-    "browser-use",
-    "playwright",
+    "browser-use>=0.11.0",
+    "playwright>=1.40.0",
+    "mcp-types>=2.2.0",
 ]
 
 [project.optional-dependencies]

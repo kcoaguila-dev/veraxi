@@ -66,7 +66,8 @@ class TestMultiTurnConversationErrors:
     """Test error handling in multi-turn conversations."""
 
     @patch("backend.routes.chat.answer_question")
-    def test_multiturn_error_non_streaming(self, mock_answer, override_redis):
+    @patch('backend.routes.chat.sentry_sdk.capture_exception')
+    def test_multiturn_error_non_streaming(self, mock_sentry, mock_answer, override_redis):
         """Test that errors in second turn of conversation return specific details."""
         # First message succeeds
         mock_answer.return_value = ("First response", "context", {})
@@ -92,6 +93,8 @@ class TestMultiTurnConversationErrors:
         assert response2.status_code == 500
         data = response2.json()
         assert "Internal server error" in data["detail"]
+        mock_sentry.assert_called_once()
+        mock_sentry.assert_called_once()
         assert "ValueError" in data["detail"]
         assert "Database connection failed" in data["detail"]
 
@@ -100,7 +103,8 @@ class TestErrorMessageSpecificity:
     """Test that different error types return appropriate messages."""
 
     @patch("backend.routes.chat.answer_question")
-    def test_key_error_returns_details(self, mock_answer, override_redis):
+    @patch('backend.routes.chat.sentry_sdk.capture_exception')
+    def test_key_error_returns_details(self, mock_sentry, mock_answer, override_redis):
         """Test that KeyError returns the missing key in error message."""
         mock_answer.side_effect = KeyError("messages")
         response = client.post(
@@ -114,7 +118,8 @@ class TestErrorMessageSpecificity:
         assert "messages" in data["detail"]
 
     @patch("backend.routes.chat.answer_question")
-    def test_type_error_returns_details(self, mock_answer, override_redis):
+    @patch('backend.routes.chat.sentry_sdk.capture_exception')
+    def test_type_error_returns_details(self, mock_sentry, mock_answer, override_redis):
         """Test that TypeError returns the type mismatch in error message."""
         mock_answer.side_effect = TypeError("Expected str, got NoneType")
         response = client.post(
@@ -128,7 +133,8 @@ class TestErrorMessageSpecificity:
         assert "Expected str, got NoneType" in data["detail"]
 
     @patch("backend.routes.chat.answer_question")
-    def test_attribute_error_returns_details(self, mock_answer, override_redis):
+    @patch('backend.routes.chat.sentry_sdk.capture_exception')
+    def test_attribute_error_returns_details(self, mock_sentry, mock_answer, override_redis):
         """Test that AttributeError returns the missing attribute in error message."""
         mock_answer.side_effect = AttributeError("'NoneType' object has no attribute 'content'")
         response = client.post(
@@ -145,7 +151,8 @@ class TestErrorMessageSpecificity:
 class TestThreadOperationsErrorHandling:
     """Test error handling in thread-related operations."""
 
-    def test_list_threads_error(self, override_redis):
+    @patch('backend.routes.chat.sentry_sdk.capture_exception')
+    def test_list_threads_error(self, mock_sentry, override_redis):
         """Test that list threads endpoint returns specific errors."""
         # Get the mock Redis instance from app.state
         mock_redis = app.state.redis
@@ -156,9 +163,12 @@ class TestThreadOperationsErrorHandling:
         assert response.status_code == 500
         data = response.json()
         assert "Internal server error" in data["detail"]
+        mock_sentry.assert_called_once()
+        mock_sentry.assert_called_once()
         assert "ConnectionError" in data["detail"]
 
-    def test_get_thread_history_error(self, override_redis):
+    @patch('backend.routes.chat.sentry_sdk.capture_exception')
+    def test_get_thread_history_error(self, mock_sentry, override_redis):
         """Test that get thread history endpoint returns specific errors."""
         # Get the mock Redis instance from app.state
         mock_redis = app.state.redis
@@ -169,4 +179,6 @@ class TestThreadOperationsErrorHandling:
         assert response.status_code == 500
         data = response.json()
         assert "Internal server error" in data["detail"]
+        mock_sentry.assert_called_once()
+        mock_sentry.assert_called_once()
         assert "ValueError" in data["detail"]

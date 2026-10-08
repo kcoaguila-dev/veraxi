@@ -28,9 +28,9 @@ def clean_text_for_tts(text: str) -> str:
     text = text.replace("```", "")
     text = re.sub(r"`([^`]+)`", r"\1", text)
     # Keep link text and discard destinations; images are omitted entirely.
-    text = re.sub(r"!\[[^\]]*\]\([^)]*\)", "", text)
-    text = re.sub(r"\[([^\]]+)\]\([^)]*\)", r"\1", text)
-    text = re.sub(r"<https?://[^>]+>", "", text)
+    text = re.sub(r"!\[[^\]]{0,1000}\]\([^)]{0,1000}\)", "", text)
+    text = re.sub(r"\[([^\]]{1,1000})\]\([^)]{0,1000}\)", r"\1", text)
+    text = re.sub(r"<https?://[^>]{1,1000}>", "", text)
     # Remove block-level and emphasis syntax without altering the words.
     text = re.sub(r"^\s{0,3}#{1,6}\s+", "", text, flags=re.MULTILINE)
     text = re.sub(r"^\s{0,3}>\s?", "", text, flags=re.MULTILINE)
