@@ -221,7 +221,7 @@ async def get_tools(tool_settings: dict | None = None) -> list:
                                         "name": f"mcp__{server_name}__{t.name}",
                                         "description": t.description
                                         or "MCP Dynamic Tool",
-                                        "parameters": t.inputSchema
+                                        "parameters": t.input_schema
                                         or {"type": "object", "properties": {}},
                                     },
                                 }
