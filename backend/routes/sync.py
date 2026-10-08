@@ -57,10 +57,15 @@ def register_sync_routes(app_router, get_tenant_id, get_supabase, config):
         if not res.data:
             raise HTTPException(status_code=404, detail="No sync data found.")
 
-        data_list = res.data # type: ignore
+        data_list = res.data
+        if not isinstance(data_list, list) or len(data_list) == 0:
+            raise HTTPException(status_code=404, detail="No sync data found.")
+        first_item = data_list[0]
+        if not isinstance(first_item, dict):
+            raise HTTPException(status_code=500, detail="Invalid sync data format.")
         return {
-            "encrypted_blob": data_list[0]["encrypted_blob"],
-            "salt": data_list[0]["salt"],
+            "encrypted_blob": first_item.get("encrypted_blob"),
+            "salt": first_item.get("salt"),
         }
 
     @app_router.put("/api/sync/byod")
