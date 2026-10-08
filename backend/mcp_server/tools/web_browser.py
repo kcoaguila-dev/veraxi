@@ -9,8 +9,7 @@ import logging
 from typing import Any
 
 from backend import context as byod_context
-from browser_use import Agent, Browser
-from browser_use.browser.profile import BrowserProfile
+from browser_use import Agent, Browser, BrowserProfile
 
 logger = logging.getLogger(__name__)
 
