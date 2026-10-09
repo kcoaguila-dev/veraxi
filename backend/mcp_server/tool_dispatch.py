@@ -3,6 +3,9 @@
 import asyncio
 import logging
 import uuid
+import subprocess
+import tempfile
+import os
 from typing import Any
 
 from backend.config import get_config
@@ -514,19 +517,59 @@ async def _execute_mcp_tool(
     if not url:
         return [], []
 
+    # Check for destructive actions
+    destructive_keywords = ["write", "edit", "replace", "sed", "refactor", "run", "execute", "shell", "bash", "command"]
+    is_destructive = any(k in actual_tool_name.lower() for k in destructive_keywords)
+
+    worktree_path = None
+    branch_name = None
+    if is_destructive:
+        branch_name = f"veraxi_agent_{uuid.uuid4().hex[:8]}"
+        worktree_path = os.path.join(tempfile.gettempdir(), branch_name)
+
+        try:
+            # Spin up a temporary Git Worktree isolated from the main branch
+            subprocess.run(["git", "worktree", "add", "-b", branch_name, str(worktree_path)], check=True, capture_output=True)
+
+            # Rewrite tool_input generically to force execution in the worktree
+            # For shell commands (e.g. command)
+            if "command" in tool_input:
+                tool_input["command"] = f"cd {worktree_path} && " + tool_input["command"]
+            # For file system commands (e.g. path, filepath, file)
+            for path_key in ["path", "filepath", "file", "dir", "directory"]:
+                if path_key in tool_input and isinstance(tool_input[path_key], str):
+                    if not tool_input[path_key].startswith(worktree_path):
+                        # Force it to be relative to the worktree path if it was relative or absolute
+                        if os.path.isabs(tool_input[path_key]):
+                            tool_input[path_key] = os.path.join(worktree_path, os.path.basename(tool_input[path_key]))
+                        else:
+                            tool_input[path_key] = os.path.join(worktree_path, tool_input[path_key])
+        except subprocess.CalledProcessError as e:
+            logger.error(f"Failed to create git worktree: {e}")
+            is_destructive = False
+
     try:
         async with sse_client(url) as (read, write):  # noqa: SIM117
             async with ClientSession(read, write) as session:
                 await session.initialize()
                 result = await session.call_tool(actual_tool_name, tool_input)
 
+                diff_output = ""
+                if is_destructive and worktree_path:
+                    try:
+                        diff_proc = subprocess.run(["git", "diff"], cwd=worktree_path, capture_output=True, text=True)
+                        if diff_proc.stdout:
+                            diff_output = "\n\n[Git Worktree Diff]:\n" + diff_proc.stdout
+                    except Exception as e:
+                        logger.error(f"Failed to get git diff: {e}")
+
                 class McpHit:
-                    def __init__(self, res):
+                    def __init__(self, res, diff):
                         self.id = "mcp_tool"
-                        self.payload = {"content": str(res)}
+                        self.payload = {"content": str(res) + diff}
                         self.sources = [f"MCP Server ({server_name})"]
 
-                return [McpHit(result)], []
+                return [McpHit(result, diff_output)], []
     except Exception as e:
         logger.error(f"Failed to execute MCP tool {tool_name} on {url}: {e}")
 
@@ -537,6 +580,14 @@ async def _execute_mcp_tool(
                 self.sources = [f"MCP Server ({server_name})"]
 
         return [McpErrorHit(e)], []
+    finally:
+        if is_destructive and worktree_path and os.path.exists(worktree_path):
+            try:
+                subprocess.run(["git", "worktree", "remove", "--force", str(worktree_path)], check=False, capture_output=True)
+                subprocess.run(["git", "branch", "-D", str(branch_name)], check=False, capture_output=True)
+            except Exception as e:
+                logger.error(f"Failed to cleanup git worktree: {e}")
+
 
 
 def _build_context_string(merged_results: list[Any]) -> str:

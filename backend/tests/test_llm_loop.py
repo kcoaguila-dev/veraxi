@@ -126,7 +126,7 @@ async def test_evaluate_context(mock_config):
     mock_llm = AsyncMock()
     mock_llm.ainvoke.return_value = GradeDocuments(binary_score="yes")
 
-    with patch("backend.mcp_server.orchestrator.ChatOpenAI") as mock_chat:
+    with patch("backend.mcp_server.orchestrator.ChatLiteLLM") as mock_chat:
         mock_chat.return_value.with_structured_output.return_value = mock_llm
         res = await evaluate_context(
             {

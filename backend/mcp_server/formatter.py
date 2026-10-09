@@ -1,3 +1,4 @@
+from langchain_community.chat_models import ChatLiteLLM
 import re
 from collections.abc import Sequence
 from typing import Any
@@ -5,7 +6,6 @@ from typing import Any
 from backend.config import get_config
 from backend.prompts import CHAT_SYSTEM_PROMPT
 from langchain_core.messages import BaseMessage, SystemMessage
-from langchain_openai import ChatOpenAI
 
 
 def _extract_metrics_from_state(state: dict) -> dict[str, Any]:
@@ -90,7 +90,7 @@ def _sanitize_thread_title(raw_title: str) -> str:
 
 
 def _create_chat_llm(model_name: str, api_key: str | None, base_url: str | None = None):
-    """Build the configured chat LLM client for the active provider."""
+    """Build the configured chat LLM client via unified LiteLLM routing."""
     config = get_config()
 
     if config.is_enterprise:
@@ -103,22 +103,12 @@ def _create_chat_llm(model_name: str, api_key: str | None, base_url: str | None 
     if base_url:
         llm_args["base_url"] = base_url
 
-    base_url = llm_args.get("base_url", "")
-    import urllib.parse
-    parsed_url = urllib.parse.urlparse(base_url)
-    if parsed_url.hostname and (parsed_url.hostname == "api.groq.com" or parsed_url.hostname.endswith(".api.groq.com")):
-        from langchain_groq import ChatGroq
+    # Convert api_base to the format litellm expects if necessary
+    if "base_url" in llm_args:
+        llm_args["api_base"] = llm_args.pop("base_url")
 
-        groq_api_key = llm_args.pop("api_key", None)
-        llm_args.pop("base_url", None)
-        return ChatGroq(
-            model=model_name,
-            temperature=0,
-            api_key=groq_api_key,
-            **llm_args,
-        )
-
-    return ChatOpenAI(
+    # LiteLLM routing directly via ChatLiteLLM
+    return ChatLiteLLM(
         model=model_name,
         temperature=0,
         **llm_args,

@@ -37,6 +37,8 @@ dependencies = [
     "langchain<0.3.0",
     "langchain-core<0.3.0",
     "langchain-openai",
+    "litellm",
+    "langchain-community",
     "arq",
     "redis",
     "langgraph-checkpoint-redis",
@@ -48,6 +50,10 @@ dependencies = [
     "opentimelineio",
     "browser-use",
     "playwright",
+    "python-dotenv>=1.2.3",
+    "pytest-asyncio>=1.4.0",
+    "testcontainers>=4.15.0",
+    "import-linter>=2.15",
 ]
 
 [project.optional-dependencies]
