@@ -32,7 +32,8 @@ class _ApiKeysTabState extends ConsumerState<ApiKeysTab> {
     final storage = ref.read(apiKeyStorageProvider);
     for (final provider in ['openai', 'anthropic', 'google', 'groq']) {
       _providerKeys[provider] = await storage.getKey(provider);
-      _providerExpirations[provider] = await storage.getKeyExpirationDate(provider);
+      _providerExpirations[provider] =
+          await storage.getKeyExpirationDate(provider);
     }
     if (mounted) {
       setState(() {
@@ -289,7 +290,6 @@ class _ApiKeysTabState extends ConsumerState<ApiKeysTab> {
 
         SettingsUI.buildSectionHeader(context, 'MCP CLIENT KEYS'),
 
-
         // ── MCP Config snippet ─────────────────────────────────────────────
         Container(
           padding: EdgeInsets.all(12),
@@ -367,7 +367,11 @@ class _ApiKeysTabState extends ConsumerState<ApiKeysTab> {
         // ── Intelligence Providers ─────────────────────────────────────────
         SettingsUI.buildSectionHeader(context, 'INTELLIGENCE PROVIDERS'),
         _isLoadingKeys
-            ? Center(child: Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF10B981))))
+            ? Center(
+                child: Padding(
+                    padding: EdgeInsets.all(16),
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: Color(0xFF10B981))))
             : SettingsUI.buildSettingsGroup(context, [
                 _buildProviderRow('OpenAI', 'openai'),
                 _buildProviderRow('Anthropic', 'anthropic'),
