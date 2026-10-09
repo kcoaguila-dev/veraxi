@@ -28,7 +28,7 @@ async def mcp_web_browser(task: str, llm: Any) -> dict[str, Any]:
             # Use Browserbase via remote CDP
             wss_url = f"wss://connect.browserbase.com?apiKey={browserbase_key}"
             config = BrowserProfile(
-                wss_url=wss_url,
+                wss_url=wss_url, # type: ignore[call-arg]
                 headless=True,
             )
             browser = Browser(config=config)  # type: ignore[call-arg, call-overload]

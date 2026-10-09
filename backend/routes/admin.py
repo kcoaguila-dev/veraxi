@@ -89,10 +89,8 @@ def register_admin_routes(
                 try:
                     async with httpx.AsyncClient() as client:
                         headers = {"Authorization": f"Bearer {config.llm_api_key}"}
-                        if os.environ.get("OPENAI_ORGANIZATION"):
-                            headers["OpenAI-Organization"] = os.environ.get(
-                                "OPENAI_ORGANIZATION"
-                            )
+                        if org_id := os.environ.get("OPENAI_ORGANIZATION"):
+                            headers["OpenAI-Organization"] = org_id
                         base_url = (
                             config.llm_base_url or "https://api.openai.com/v1"
                         ).rstrip("/")

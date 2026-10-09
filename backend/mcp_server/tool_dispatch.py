@@ -224,7 +224,7 @@ async def get_tools(tool_settings: dict | None = None) -> list:
                                         "name": f"mcp__{server_name}__{t.name}",
                                         "description": t.description
                                         or "MCP Dynamic Tool",
-                                        "parameters": t.inputSchema
+                                        "parameters": t.input_schema
                                         or {"type": "object", "properties": {}},
                                     },
                                 }
@@ -536,7 +536,7 @@ async def _execute_mcp_tool(
             )
             stdout, stderr = await proc.communicate()
             if proc.returncode != 0:
-                raise subprocess.CalledProcessError(proc.returncode, "git worktree add", stdout, stderr)
+                raise subprocess.CalledProcessError(proc.returncode or 1, "git worktree add", stdout, stderr)
 
             # Rewrite tool_input generically to force execution in the worktree
             # For shell commands (e.g. command)

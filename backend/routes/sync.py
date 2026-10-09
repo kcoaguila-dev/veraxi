@@ -57,7 +57,8 @@ def register_sync_routes(app_router, get_tenant_id, get_supabase, config):
         if not res.data:
             raise HTTPException(status_code=404, detail="No sync data found.")
 
-        data_list = res.data # type: ignore
+        from typing import Any
+        data_list: Any = res.data
         return {
             "encrypted_blob": data_list[0]["encrypted_blob"],
             "salt": data_list[0]["salt"],
