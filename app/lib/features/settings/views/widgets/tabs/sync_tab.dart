@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:veraxi_app/core/sync/sync_service.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
+import 'package:veraxi_app/core/api_key_storage.dart';
+import 'package:zxcvbnm/zxcvbnm.dart';
+import 'package:zxcvbnm/languages/en.dart' as en;
 import 'settings_shared_ui.dart';
 
 class SyncTab extends ConsumerStatefulWidget {
@@ -13,10 +16,44 @@ class SyncTab extends ConsumerStatefulWidget {
 
 class _SyncTabState extends ConsumerState<SyncTab> {
   final _passphraseController = TextEditingController();
+  late final Zxcvbnm _zxcvbnm;
   bool _isLoading = false;
   bool _obscurePassphrase = true;
   String? _error;
   String? _success;
+  int _passwordScore = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _zxcvbnm = Zxcvbnm(dictionaries: en.dictionaries);
+    _passphraseController.addListener(_evaluateStrength);
+    _loadCachedPassphrase();
+  }
+
+  Future<void> _loadCachedPassphrase() async {
+    final storage = ref.read(apiKeyStorageProvider);
+    final cached = await storage.getValue('sync_passphrase');
+    if (cached != null && cached.isNotEmpty) {
+      _passphraseController.text = cached;
+    }
+  }
+
+  void _evaluateStrength() {
+    final text = _passphraseController.text;
+    if (text.isEmpty) {
+      if (_passwordScore != 0) {
+        setState(() => _passwordScore = 0);
+      }
+      return;
+    }
+    final result = _zxcvbnm(text);
+    if (_passwordScore != result.score.toInt()) {
+      setState(() {
+        _passwordScore = result.score.toInt();
+      });
+    }
+  }
 
   Future<void> _handleSync({required bool isPush}) async {
     final passphrase = _passphraseController.text;
@@ -41,6 +78,11 @@ class _SyncTabState extends ConsumerState<SyncTab> {
         await syncService.pullSync(passphrase);
         setState(() => _success = 'Successfully downloaded and restored keys.');
       }
+      
+      // Save it securely after successful sync
+      final storage = ref.read(apiKeyStorageProvider);
+      await storage.saveValue('sync_passphrase', passphrase);
+      
     } catch (e) {
       setState(() {
         if (e.toString().contains('403')) {
@@ -52,12 +94,15 @@ class _SyncTabState extends ConsumerState<SyncTab> {
         }
       });
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
   @override
   void dispose() {
+    _passphraseController.removeListener(_evaluateStrength);
     _passphraseController.dispose();
     super.dispose();
   }
@@ -140,6 +185,17 @@ class _SyncTabState extends ConsumerState<SyncTab> {
       ),
     );
 
+    final fieldWithMeter = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        field,
+        if (_passphraseController.text.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          _buildStrengthMeter(),
+        ]
+      ],
+    );
+
     if (isMobile) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -147,43 +203,98 @@ class _SyncTabState extends ConsumerState<SyncTab> {
           const Text('Sync Passphrase',
               style: TextStyle(color: Color(0xFFECECEC), fontSize: 13)),
           const SizedBox(height: 8),
-          field,
+          fieldWithMeter,
         ],
       );
     }
 
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SizedBox(
-          width: 120,
-          child: Text('Sync Passphrase',
-              style: TextStyle(color: Color(0xFFECECEC), fontSize: 13)),
+        const Padding(
+          padding: EdgeInsets.only(top: 10),
+          child: SizedBox(
+            width: 120,
+            child: Text('Sync Passphrase',
+                style: TextStyle(color: Color(0xFFECECEC), fontSize: 13)),
+          ),
         ),
-        Expanded(child: field),
+        Expanded(child: fieldWithMeter),
+      ],
+    );
+  }
+
+  Widget _buildStrengthMeter() {
+    Color color;
+    String label;
+    switch (_passwordScore) {
+      case 0:
+      case 1:
+        color = Colors.red;
+        label = 'Weak';
+        break;
+      case 2:
+        color = Colors.orange;
+        label = 'Fair';
+        break;
+      case 3:
+        color = Colors.lightGreen;
+        label = 'Good';
+        break;
+      case 4:
+      default:
+        color = Colors.green;
+        label = 'Strong';
+        break;
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        LinearProgressIndicator(
+          value: (_passwordScore + 1) / 5,
+          backgroundColor: Colors.grey[800],
+          valueColor: AlwaysStoppedAnimation<Color>(color),
+          borderRadius: BorderRadius.circular(2),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          label,
+          style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.bold),
+        ),
       ],
     );
   }
 
   Widget _buildSyncButton(BuildContext context, AppThemeExtension ext,
       {required bool isPush, bool fullWidth = false}) {
+    // Disable push if score < 3, unless pulling (allow pulling with weak passwords for backwards compatibility)
+    final bool isPushDisabled = isPush && _passwordScore < 3;
+    final bool isDisabled = _isLoading || isPushDisabled;
+
     return SizedBox(
       width: fullWidth ? double.infinity : null,
-      child: ElevatedButton(
-        onPressed: _isLoading ? null : () => _handleSync(isPush: isPush),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: isPush
-              ? Theme.of(context).colorScheme.primary
-              : ext.surfaceHighlight,
-          foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(vertical: 12),
+      child: Tooltip(
+        message: isPushDisabled ? 'Passphrase must be Good or Strong to push.' : '',
+        child: ElevatedButton(
+          onPressed: isDisabled ? null : () => _handleSync(isPush: isPush),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: isPush
+                ? Theme.of(context).colorScheme.primary
+                : ext.surfaceHighlight,
+            foregroundColor: Colors.white,
+            disabledBackgroundColor: ext.borderColor,
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+            minimumSize: const Size(140, 44),
+          ),
+          child: _isLoading
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                      color: Colors.white, strokeWidth: 2))
+              : Text(isPush ? 'Push Keys to Cloud' : 'Pull Keys from Cloud'),
         ),
-        child: _isLoading
-            ? const SizedBox(
-                width: 16,
-                height: 16,
-                child: CircularProgressIndicator(
-                    color: Colors.white, strokeWidth: 2))
-            : Text(isPush ? 'Push Keys to Cloud' : 'Pull Keys from Cloud'),
       ),
     );
   }

@@ -117,7 +117,10 @@ class ApiKeyStorage {
   // --- Bulk Export/Import for Sync ---
 
   Future<Map<String, String>> exportAll() async {
-    return await _storage.readAll();
+    final data = await _storage.readAll();
+    // Exclude the sync passphrase itself from being uploaded
+    data.remove('sync_passphrase');
+    return data;
   }
 
   Future<void> importAll(Map<String, String> data) async {
