@@ -14,7 +14,6 @@ import 'tabs/infrastructure_tab.dart';
 import 'tabs/security_logs_tab.dart';
 import 'tabs/agent_skills_tab.dart';
 import 'tabs/sync_tab.dart';
-import 'tabs/ai_providers_tab.dart';
 
 class SettingsDialog extends ConsumerStatefulWidget {
   final VoidCallback? onDeleteAllChats;
@@ -34,7 +33,6 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
     'Data & Privacy',
     'Account',
     'API Keys',
-    'AI Providers',
     'MCP Integrations',
     'Agent Skills',
     'Sync',
@@ -51,7 +49,6 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
     'Data & Privacy': Icons.dataset_outlined,
     'Account': Icons.person_outline,
     'API Keys': Icons.key_outlined,
-    'AI Providers': Icons.smart_toy_outlined,
     'MCP Integrations': Icons.hub_outlined,
     'Agent Skills': Icons.psychology_outlined,
     'Sync': Icons.sync_outlined,
@@ -326,8 +323,6 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
         return _buildAccountTab();
       case 'API Keys':
         return [const ApiKeysTab()];
-      case 'AI Providers':
-        return [const AiProvidersTab()];
       case 'MCP Integrations':
         return [const McpIntegrationsTab()];
       case 'Agent Skills':

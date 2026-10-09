@@ -3,6 +3,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:veraxi_app/features/settings/view_models/api_keys_view_model.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
+import 'package:veraxi_app/core/api_key_storage.dart';
+import 'package:veraxi_app/features/chat/views/widgets/api_key_dialog.dart';
+import 'package:veraxi_app/features/settings/views/widgets/tabs/settings_shared_ui.dart';
 
 /// Renders the "API Keys" tab content inside [SettingsDialog].
 class ApiKeysTab extends ConsumerStatefulWidget {
@@ -13,11 +16,62 @@ class ApiKeysTab extends ConsumerStatefulWidget {
 }
 
 class _ApiKeysTabState extends ConsumerState<ApiKeysTab> {
+  final Map<String, String?> _providerKeys = {};
+  final Map<String, String?> _providerExpirations = {};
+  bool _isLoadingKeys = true;
+
   @override
   void initState() {
     super.initState();
+    _loadKeys();
     // Show the one-time reveal dialog if a key was just created
     WidgetsBinding.instance.addPostFrameCallback((_) => _checkNewKey());
+  }
+
+  Future<void> _loadKeys() async {
+    final storage = ref.read(apiKeyStorageProvider);
+    for (final provider in ['openai', 'anthropic', 'google', 'groq']) {
+      _providerKeys[provider] = await storage.getKey(provider);
+      _providerExpirations[provider] = await storage.getKeyExpirationDate(provider);
+    }
+    if (mounted) {
+      setState(() {
+        _isLoadingKeys = false;
+      });
+    }
+  }
+
+  Future<void> _openApiKeyDialog(String providerId) async {
+    await showDialog(
+      context: context,
+      builder: (context) => ApiKeyDialog(providerName: providerId),
+    );
+    _loadKeys();
+  }
+
+  Widget _buildProviderRow(String label, String providerId) {
+    final key = _providerKeys[providerId];
+    final expires = _providerExpirations[providerId];
+    final isConfigured = key != null && key.isNotEmpty;
+
+    final String subtitle;
+    if (isConfigured) {
+      if (expires != null) {
+        subtitle = 'Expires: $expires';
+      } else {
+        subtitle = 'Configured • No expiration';
+      }
+    } else {
+      subtitle = 'Not configured';
+    }
+
+    return SettingsUI.buildActionRow(
+      context,
+      label,
+      subtitle,
+      isConfigured ? 'Manage' : 'Configure',
+      onTap: () => _openApiKeyDialog(providerId),
+    );
   }
 
   @override
@@ -232,6 +286,21 @@ class _ApiKeysTabState extends ConsumerState<ApiKeysTab> {
           ],
         ),
         SizedBox(height: 20),
+
+        // ── Intelligence Providers ─────────────────────────────────────────
+        SettingsUI.buildSectionHeader(context, 'INTELLIGENCE PROVIDERS'),
+        _isLoadingKeys
+            ? Center(child: Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF10B981))))
+            : SettingsUI.buildSettingsGroup(context, [
+                _buildProviderRow('OpenAI', 'openai'),
+                _buildProviderRow('Anthropic', 'anthropic'),
+                _buildProviderRow('Google Gemini', 'google'),
+                _buildProviderRow('Groq', 'groq'),
+              ]),
+        SizedBox(height: 32),
+
+        SettingsUI.buildSectionHeader(context, 'MCP CLIENT KEYS'),
+
 
         // ── MCP Config snippet ─────────────────────────────────────────────
         Container(
