@@ -89,10 +89,8 @@ def register_admin_routes(
                 try:
                     async with httpx.AsyncClient() as client:
                         headers = {"Authorization": f"Bearer {config.llm_api_key}"}
-                        if str(os.environ.get("OPENAI_ORGANIZATION")):
-                            org = os.environ.get("OPENAI_ORGANIZATION")
-                            if org is not None:
-                                headers["OpenAI-Organization"] = org
+                        if org_id := os.environ.get("OPENAI_ORGANIZATION"):
+                            headers["OpenAI-Organization"] = org_id
                         base_url = (
                             config.llm_base_url or "https://api.openai.com/v1"
                         ).rstrip("/")
@@ -102,9 +100,7 @@ def register_admin_routes(
                         if response.status_code == 200:
                             data = response.json()
                             fetched_models = [m["id"] for m in data.get("data", [])]
-                            regex = re.compile(
-                                r"(text-davinci-003|gpt-|o\d+|chat-latest)"
-                            )
+                            regex = re.compile(r"(text-davinci-003|gpt-|o\d+|chat-latest)")
                             exclude_regex = re.compile(r"audio|realtime")
                             filtered = [
                                 m

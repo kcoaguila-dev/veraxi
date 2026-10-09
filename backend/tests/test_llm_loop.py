@@ -126,8 +126,8 @@ async def test_evaluate_context(mock_config):
     mock_llm = AsyncMock()
     mock_llm.ainvoke.return_value = GradeDocuments(binary_score="yes")
 
-    with patch("backend.mcp_server.orchestrator.ChatOpenAI") as mock_chat:
-        mock_chat.return_value.with_structured_output.return_value = mock_llm
+    with patch("backend.mcp_server.orchestrator._create_chat_llm") as mock_create_chat:
+        mock_create_chat.return_value.with_structured_output.return_value.with_config.return_value = mock_llm
         res = await evaluate_context(
             {
                 "messages": [HumanMessage(content="Hello")],
@@ -136,7 +136,18 @@ async def test_evaluate_context(mock_config):
         )
         assert res["context_relevance"] == "yes"
 
-
+def test_grader_construction():
+    from backend.mcp_server.orchestrator import _create_chat_llm, GradeDocuments
+    from unittest.mock import patch
+    # Test that constructing the grader does not raise an error
+    with patch("backend.mcp_server.orchestrator.get_config") as mock_get_config:
+        mock_get_config.return_value.is_enterprise = False
+        mock_get_config.return_value.get_llm_client_args.return_value = {}
+        llm = _create_chat_llm("gpt-4o", "fake-key")
+        structured_llm_grader = llm.with_structured_output(
+            GradeDocuments, method="function_calling"
+        ).with_config(tags=["crag_evaluator"])
+        assert structured_llm_grader is not None
 @pytest.mark.asyncio
 async def test_web_search_fallback(mock_config):
     import io
