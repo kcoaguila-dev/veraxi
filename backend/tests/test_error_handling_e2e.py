@@ -94,7 +94,6 @@ class TestMultiTurnConversationErrors:
         data = response2.json()
         assert "Internal server error" in data["detail"]
         mock_sentry.assert_called_once()
-        mock_sentry.assert_called_once()
         assert "ValueError" in data["detail"]
         assert "Database connection failed" in data["detail"]
 
@@ -164,7 +163,6 @@ class TestThreadOperationsErrorHandling:
         data = response.json()
         assert "Internal server error" in data["detail"]
         mock_sentry.assert_called_once()
-        mock_sentry.assert_called_once()
         assert "ConnectionError" in data["detail"]
 
     @patch('backend.routes.chat.sentry_sdk.capture_exception')
@@ -179,6 +177,5 @@ class TestThreadOperationsErrorHandling:
         assert response.status_code == 500
         data = response.json()
         assert "Internal server error" in data["detail"]
-        mock_sentry.assert_called_once()
         mock_sentry.assert_called_once()
         assert "ValueError" in data["detail"]

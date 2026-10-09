@@ -326,8 +326,6 @@ async def test_error_handling_non_stream(override_redis):
         assert "Internal server error" in data["detail"]
         mock_sentry.assert_called_once()
         mock_logger.assert_called_once()
-        mock_sentry.assert_called_once()
-        mock_logger.assert_called_once()
         assert "ValueError" in data["detail"]
         assert "Test error message" in data["detail"]
 

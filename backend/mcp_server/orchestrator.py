@@ -22,7 +22,7 @@ from langchain_core.messages import (
     SystemMessage,
     ToolMessage,
 )
-from langchain_openai import ChatOpenAI
+from langchain_litellm import ChatLiteLLM
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.message import add_messages
 from pydantic import BaseModel, Field
@@ -39,7 +39,7 @@ _request_base_url: ContextVar[str | None] = ContextVar(
 
 
 def _create_chat_llm(model_name: str, api_key: str | None, base_url: str | None = None):
-    """Build the configured chat LLM client for the active provider."""
+    """Build the configured chat LLM client via unified LiteLLM routing."""
     config = get_config()
 
     if config.is_enterprise:
@@ -52,24 +52,12 @@ def _create_chat_llm(model_name: str, api_key: str | None, base_url: str | None 
     if base_url:
         llm_args["base_url"] = base_url
 
-    base_url = llm_args.get("base_url", "")
-    parsed_url = urllib.parse.urlparse(base_url)
-    if parsed_url.hostname and (
-        parsed_url.hostname == "api.groq.com"
-        or parsed_url.hostname.endswith(".api.groq.com")
-    ):
-        from langchain_groq import ChatGroq
+    # Convert api_base to the format litellm expects if necessary
+    if "base_url" in llm_args:
+        llm_args["api_base"] = llm_args.pop("base_url")
 
-        groq_api_key = llm_args.pop("api_key", None)
-        llm_args.pop("base_url", None)
-        return ChatGroq(
-            model=model_name,
-            temperature=0,
-            api_key=groq_api_key,
-            **llm_args,
-        )
-
-    return ChatOpenAI(
+    # LiteLLM routing directly via ChatLiteLLM
+    return ChatLiteLLM(
         model=model_name,
         temperature=0,
         **llm_args,
@@ -431,23 +419,13 @@ async def evaluate_context(state: AgentState):
     config = get_config()
 
     effective_model = _request_model.get() or config.llm_model_name
-    llm_args = config.get_llm_client_args(model_name=effective_model)
     effective_api_key = _request_api_key.get() or config.llm_api_key
     effective_base_url = _request_base_url.get() or None
 
-    # We can just reuse _create_chat_llm if we want, or initialize directly.
-    # _create_chat_llm handles kwargs like api_key, base_url.
     llm = _create_chat_llm(effective_model, effective_api_key, effective_base_url)
-    llm = llm.bind(tags=["crag_evaluator"])
-    if effective_api_key:
-        llm_args["api_key"] = effective_api_key
-
-    llm = ChatOpenAI(
-        model=effective_model, temperature=0, tags=["crag_evaluator"], **llm_args
-    )
     structured_llm_grader = llm.with_structured_output(
         GradeDocuments, method="function_calling"
-    )
+    ).with_config(tags=["crag_evaluator"])
 
     system = """You are a grader assessing relevance of a retrieved document to a user question. \n 
     It does not need to be a stringent test. The goal is to filter out erroneous retrievals. \n

@@ -28,14 +28,14 @@ async def mcp_web_browser(task: str, llm: Any) -> dict[str, Any]:
             # Use Browserbase via remote CDP
             wss_url = f"wss://connect.browserbase.com?apiKey={browserbase_key}"
             config = BrowserProfile(
-                cdp_url=wss_url,
+                wss_url=wss_url, # type: ignore[call-arg]
                 headless=True,
             )
-            browser = Browser(browser_profile=config)  # type: ignore[call-arg, call-overload]
+            browser = Browser(config=config)  # type: ignore[call-arg, call-overload]
         else:
             # Use local headless browser
             config = BrowserProfile(headless=True)
-            browser = Browser(browser_profile=config)  # type: ignore[call-arg, call-overload]
+            browser = Browser(config=config)  # type: ignore[call-arg, call-overload]
 
         agent: Agent = Agent(task=task, llm=llm, browser=browser)
 
@@ -55,8 +55,4 @@ async def mcp_web_browser(task: str, llm: Any) -> dict[str, Any]:
         return {"status": "error", "error": str(e)}
     finally:
         if browser:
-            # Browser object might not have close method directly depending on version
-            try:
-                pass
-            except AttributeError:
-                pass
+            await browser.stop()
