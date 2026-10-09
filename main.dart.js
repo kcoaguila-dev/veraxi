@@ -41802,17 +41802,18 @@ Vh:function Vh(a){this.a=a},
 a0c:function a0c(a){var _=this
 _.w=a
 _.x=$
-_.y=!1
-_.z=!0
-_.as=_.Q=null
-_.at=0
+_.z=_.y=!1
+_.Q=!0
+_.at=_.as=null
+_.ax=0
 _.d=$
 _.c=_.a=null},
 bqR:function bqR(a){this.a=a},
 bqS:function bqS(a,b){this.a=a
 this.b=b},
 bqT:function bqT(a){this.a=a},
-bqU:function bqU(a){this.a=a},
+bqU:function bqU(a,b){this.a=a
+this.b=b},
 bqV:function bqV(a){this.a=a},
 bqW:function bqW(a){this.a=a},
 bqX:function bqX(a,b){this.a=a
@@ -153967,16 +153968,16 @@ if(p!=null&&p.length!==0)q.w.sc6(0,p)
 return A.k(null,r)}})
 return A.l($async$Kz,r)},
 aFO(){var s,r=this,q=r.w.a.a
-if(q.length===0){if(r.at!==0)r.L(new A.bqR(r))
+if(q.length===0){if(r.ax!==0)r.L(new A.bqR(r))
 return}s=r.aY9(q)
-if(r.at!==B.d.ct(s.d))r.L(new A.bqS(r,s))},
+if(r.ax!==B.d.ct(s.d))r.L(new A.bqS(r,s))},
 ze(a){return this.aLo(a)},
 aLo(a){var s=0,r=A.m(t.H),q,p=2,o=[],n=[],m=this,l,k,j,i,h,g,f
 var $async$ze=A.i(function(b,c){if(b===1){o.push(c)
 s=p}for(;;)switch(s){case 0:g=m.w.a.a
 if(J.aC(g)===0){m.L(new A.bqT(m))
 s=1
-break}m.L(new A.bqU(m))
+break}m.L(new A.bqU(m,a))
 p=4
 i=m.gcI()
 l=i.bF(0,$.bX_(),t.iL)
@@ -154021,13 +154022,13 @@ m.toString
 s=A.bN(a,B.ds,t.w).w.a.a<460
 r=t.p
 q=A.b([A.ady(a,"Secure API Key Sync (E2EE)"),B.am7,B.r5,o.aBO(a,s),B.dM],r)
-p=o.Q
-if(p!=null)q.push(new A.aO(B.vW,A.H(p,n,n,n,B.akv,n,n),n))
 p=o.as
+if(p!=null)q.push(new A.aO(B.vW,A.H(p,n,n,n,B.akv,n,n),n))
+p=o.at
 if(p!=null)q.push(new A.aO(B.vW,A.H(p,n,n,n,B.akf,n,n),n))
 q.push(s?A.aJ(A.b([o.T9(a,m,!0,!0),B.afj,o.T9(a,m,!0,!1)],r),B.aP,B.i,B.j):A.an(A.b([o.a72(a,m,!0),B.jj,o.a72(a,m,!1)],r),B.k,B.i,B.j,0,n))
 return A.aJ(q,B.x,B.i,B.j)},
-aBO(a,b){var s,r,q=this,p=null,o=t.e.a(A.q(a).c.h(0,A.z(t.v))),n=q.w,m=q.z,l=o.x,k=A.G(p,p,l,p,p,p,p,p,p,p,p,13,p,p,p,p,p,!0,p,p,p,p,p,p,p,p),j=o.r,i=A.af(6),h=q.z
+aBO(a,b){var s,r,q=this,p=null,o=t.e.a(A.q(a).c.h(0,A.z(t.v))),n=q.w,m=q.Q,l=o.x,k=A.G(p,p,l,p,p,p,p,p,p,p,p,13,p,p,p,p,p,!0,p,p,p,p,p,p,p,p),j=o.r,i=A.af(6),h=q.Q
 l=A.aq(h?B.a05:B.a04,l,p,18)
 h=h?"Show passphrase":"Hide passphrase"
 s=t.p
@@ -154036,7 +154037,7 @@ if(n.a.a.length!==0)B.b.C(m,A.b([B.mj,q.aBW()],s))
 r=A.aJ(m,B.aP,B.i,B.j)
 if(b)return A.aJ(A.b([B.M8,B.mj,r],s),B.x,B.i,B.j)
 return A.an(A.b([B.ab7,A.bm(r,1,p)],s),B.x,B.i,B.j,0,p)},
-aBW(){var s,r,q=null,p=this.at
+aBW(){var s,r,q=null,p=this.ax
 switch(p){case 0:case 1:s=B.bY
 r="Weak"
 break
@@ -154049,42 +154050,44 @@ break
 case 4:default:s=B.FS
 r="Strong"
 break}return A.aJ(A.b([A.bzG(B.cN,A.af(2),q,q,(p+1)/5,new A.wd(s,t.ZU)),B.r7,A.H(r,q,q,q,A.G(q,q,s,q,q,q,q,q,q,q,q,11,q,q,B.ag,q,q,!0,q,q,q,q,q,q,q,q),q,q)],t.p),B.eJ,B.i,B.j)},
-T9(a,b,c,d){var s,r=this,q=null,p=d&&r.at<3,o=r.y||p,n=c?1/0:q,m=p?"Passphrase must be Good or Strong to push.":"",l=o?q:new A.bqQ(r,d),k=d?A.q(a).ax.b:b.c
-k=A.hI(q,q,k,b.r,q,q,q,q,q,B.f,q,B.qZ,B.Z6,q,q,q,q,q,q,q)
-if(r.y)s=B.afg
+T9(a,b,c,d){var s,r=this,q=null,p=d&&r.ax<3,o=d?r.y:r.z,n=r.y||r.z||p,m=c?1/0:q,l=p?"Passphrase must be Good or Strong to push.":"",k=n?q:new A.bqQ(r,d),j=d?A.q(a).ax.b:b.c
+j=A.hI(q,q,j,b.r,q,q,q,q,q,B.f,q,B.qZ,B.Z6,q,q,q,q,q,q,q)
+if(o)s=B.afg
 else s=A.H(d?"Push Keys to Cloud":"Pull Keys from Cloud",q,q,q,q,q,q)
-return A.I(A.jl(A.jF(s,l,k),m),q,n)},
+return A.I(A.jl(A.jF(s,k,j),l),q,m)},
 a72(a,b,c){return this.T9(a,b,!1,c)},
 aY9(a){return this.gaY8().$1(a)}}
 A.bqR.prototype={
-$0(){return this.a.at=0},
+$0(){return this.a.ax=0},
 $S:0}
 A.bqS.prototype={
-$0(){this.a.at=B.d.ct(this.b.d)},
+$0(){this.a.ax=B.d.ct(this.b.d)},
 $S:0}
 A.bqT.prototype={
-$0(){return this.a.Q="Passphrase is required."},
+$0(){return this.a.as="Passphrase is required."},
 $S:0}
 A.bqU.prototype={
 $0(){var s=this.a
-s.y=!0
-s.as=s.Q=null},
+if(this.b)s.y=!0
+else s.z=!0
+s.at=s.as=null},
 $S:0}
 A.bqV.prototype={
-$0(){return this.a.as="Successfully pushed encrypted keys to cloud."},
+$0(){return this.a.at="Successfully pushed encrypted keys to cloud."},
 $S:0}
 A.bqW.prototype={
-$0(){return this.a.as="Successfully downloaded and restored keys."},
+$0(){return this.a.at="Successfully downloaded and restored keys."},
 $S:0}
 A.bqX.prototype={
 $0(){var s,r=this.b,q=J.jv(r)
-if(B.c.p(q.j(r),"403"))this.a.Q="Sync is a premium feature. Please upgrade to Pro."
+if(B.c.p(q.j(r),"403"))this.a.as="Sync is a premium feature. Please upgrade to Pro."
 else{s=this.a
-if(B.c.p(q.j(r),"404"))s.Q="No sync data found on the server."
-else s.Q="Error during sync: "+A.r(r)}},
+if(B.c.p(q.j(r),"404"))s.as="No sync data found on the server."
+else s.as="Error during sync: "+A.r(r)}},
 $S:0}
 A.bqY.prototype={
-$0(){return this.a.y=!1},
+$0(){var s=this.a
+s.z=s.y=!1},
 $S:0}
 A.bqP.prototype={
 $0(){var s=this.a
@@ -154092,7 +154095,7 @@ return s.L(new A.bqO(s))},
 $S:0}
 A.bqO.prototype={
 $0(){var s=this.a
-return s.z=!s.z},
+return s.Q=!s.Q},
 $S:0}
 A.bqQ.prototype={
 $0(){return this.a.ze(this.b)},
