@@ -10,12 +10,12 @@ def check(p, text):
     return time.time() - start
 
 # Markdown link format regex testing
-p1 = r"!\[[^\]]*\]\([^)]*\)"
-p2 = r"\[([^\]]+)\]\([^)]*\)"
+p1 = r"!\[[^\]]{0,1000}\]\([^)]{0,1000}\)"
+p2 = r"\[([^\]]{1,1000})\]\([^)]{0,1000}\)"
 p3 = r"<https?://[^>]+>"
 
-text = "![" + "]" * 100000
+text = "![](" + "a" * 100000
 print(f"p1: {check(p1, text):.5f}")
 
-text = "[" + "]" * 100000
+text = "[](" + "a" * 100000
 print(f"p2: {check(p2, text):.5f}")
