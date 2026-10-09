@@ -40,12 +40,12 @@ def clean_text_for_tts(text: str) -> str:
     text = re.sub(r"^\s*[-|:]{3,}\s*$", "", text, flags=re.MULTILINE)
     text = unescape(text)
     # Remove common kaomojis
-    kaomojis = r'(>[wW]<|[uU]w[uU]|[oO]w[oO]|\^_\^|~_\~|>_>|<_<|T_T|;_;|\^\^|;w;|-_-)'
-    text = re.sub(kaomojis, '', text)
+    kaomojis = r"(>[wW]<|[uU]w[uU]|[oO]w[oO]|\^_\^|~_\~|>_>|<_<|T_T|;_;|\^\^|;w;|-_-)"
+    text = re.sub(kaomojis, "", text)
     # Remove all standard emojis
-    text = emoji.replace_emoji(text, replace='')
+    text = emoji.replace_emoji(text, replace="")
     # Clean up double spaces
-    return re.sub(r'\s+', ' ', text).strip()
+    return re.sub(r"\s+", " ", text).strip()
 
 
 def safe_join(directory: str, *pathnames: str) -> str:
@@ -191,9 +191,7 @@ def register_tts_routes(
                         os.path.dirname(os.path.dirname(__file__)), "tts", "cache"
                     )
                     os.makedirs(cache_dir, exist_ok=True)
-                    cached_file_path = safe_join(
-                        cache_dir, f"{request.message_id}.wav"
-                    )
+                    cached_file_path = safe_join(cache_dir, f"{request.message_id}.wav")
                     await asyncio.to_thread(
                         Path(cached_file_path).write_bytes, audio_bytes
                     )
