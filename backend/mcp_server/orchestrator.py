@@ -423,16 +423,8 @@ async def evaluate_context(state: AgentState):
     effective_api_key = _request_api_key.get() or config.llm_api_key
     effective_base_url = _request_base_url.get() or None
 
-    # We can just reuse _create_chat_llm if we want, or initialize directly.
-    # _create_chat_llm handles kwargs like api_key, base_url.
     llm = _create_chat_llm(effective_model, effective_api_key, effective_base_url)
     llm = llm.bind(tags=["crag_evaluator"])
-    if effective_api_key:
-        llm_args["api_key"] = effective_api_key
-
-    llm = ChatLiteLLM(
-        model=effective_model, temperature=0, tags=["crag_evaluator"], **llm_args
-    )
     structured_llm_grader = llm.with_structured_output(
         GradeDocuments, method="function_calling"
     )
