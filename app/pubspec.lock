@@ -9,6 +9,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "93.0.0"
+  algorithmic:
+    dependency: transitive
+    description:
+      name: algorithmic
+      sha256: "306e203894ad5a1b03b45483f2c912bb20d8aaa312907f1381db922eedbc331d"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.0.11"
   analyzer:
     dependency: transitive
     description:
@@ -1588,6 +1596,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.1.1"
+  zxcvbnm:
+    dependency: "direct main"
+    description:
+      name: zxcvbnm
+      sha256: "3fba979d79ceac5e5505f6d35575d0d75da99e75e30cb768d14117d87d10d142"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.1.1"
 sdks:
   dart: ">=3.11.0 <4.0.0"
   flutter: ">=3.41.0"

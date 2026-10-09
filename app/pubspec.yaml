@@ -43,6 +43,7 @@ dependencies:
   objectbox_flutter_libs: ^5.3.2
   tflite_flutter: ^0.12.1
   fllama: ^0.0.1
+  zxcvbnm: ^1.1.1
 dev_dependencies:
   build_runner: ^2.15.1
   drift_dev: ^2.22.1

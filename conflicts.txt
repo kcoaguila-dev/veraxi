@@ -1,0 +1,101 @@
+=== backend/mcp_server/formatter.py ===
+<<<<<<< HEAD
+    # Convert api_base to the format litellm expects if necessary
+    if "base_url" in llm_args:
+        llm_args["api_base"] = llm_args.pop("base_url")
+=======
+    base_url = llm_args.get("base_url", "")
+    import urllib.parse
+
+    parsed_url = urllib.parse.urlparse(base_url)
+    if parsed_url.hostname and (
+        parsed_url.hostname == "api.groq.com"
+        or parsed_url.hostname.endswith(".api.groq.com")
+    ):
+        from langchain_groq import ChatGroq
+>>>>>>> origin/main
+----------------------------------------
+=== backend/mcp_server/orchestrator.py ===
+<<<<<<< HEAD
+    # Convert api_base to the format litellm expects if necessary
+    if "base_url" in llm_args:
+        llm_args["api_base"] = llm_args.pop("base_url")
+=======
+    base_url = llm_args.get("base_url", "")
+    parsed_url = urllib.parse.urlparse(base_url)
+    if parsed_url.hostname and (
+        parsed_url.hostname == "api.groq.com"
+        or parsed_url.hostname.endswith(".api.groq.com")
+    ):
+        from langchain_groq import ChatGroq
+>>>>>>> origin/main
+----------------------------------------
+=== backend/mcp_server/tools/web_browser.py ===
+<<<<<<< HEAD
+                wss_url=wss_url, # type: ignore[call-arg]
+=======
+                cdp_url=wss_url,
+>>>>>>> origin/main
+----------------------------------------
+<<<<<<< HEAD
+            browser = Browser(config=config)  # type: ignore[call-arg, call-overload]
+=======
+            browser = Browser(browser_profile=config)  # type: ignore[call-arg, call-overload]
+>>>>>>> origin/main
+----------------------------------------
+<<<<<<< HEAD
+            await browser.stop()
+=======
+            # Browser object might not have close method directly depending on version
+            try:
+                pass
+            except AttributeError:
+                pass
+>>>>>>> origin/main
+----------------------------------------
+=== backend/pyproject.toml ===
+<<<<<<< HEAD
+    "langchain",
+    "langchain-core",
+=======
+    "langchain<1.5.0",
+    "langchain-core<1.7.0",
+>>>>>>> origin/main
+----------------------------------------
+<<<<<<< HEAD
+    "browser-use>=0.11",
+    "playwright",
+    "python-dotenv",
+    "pytest-asyncio>=1.4.0",
+    "testcontainers>=4.15.0",
+    "import-linter>=2.15",
+=======
+    "browser-use>=0.11.0",
+    "playwright>=1.40.0",
+    "mcp-types>=2.2.0",
+>>>>>>> origin/main
+----------------------------------------
+=== backend/routes/admin.py ===
+<<<<<<< HEAD
+                        if org_id := os.environ.get("OPENAI_ORGANIZATION"):
+                            headers["OpenAI-Organization"] = org_id
+=======
+                        if str(os.environ.get("OPENAI_ORGANIZATION")):
+                            org = os.environ.get("OPENAI_ORGANIZATION")
+                            if org is not None:
+                                headers["OpenAI-Organization"] = org
+>>>>>>> origin/main
+----------------------------------------
+=== backend/routes/sync.py ===
+<<<<<<< HEAD
+        from typing import Any
+        data_list: Any = res.data
+=======
+        data_list = res.data
+        if not isinstance(data_list, list) or len(data_list) == 0:
+            raise HTTPException(status_code=404, detail="No sync data found.")
+        first_item = data_list[0]
+        if not isinstance(first_item, dict):
+            raise HTTPException(status_code=500, detail="Invalid sync data format.")
+>>>>>>> origin/main
+----------------------------------------
