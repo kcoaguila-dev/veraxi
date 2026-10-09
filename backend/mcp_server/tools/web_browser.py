@@ -55,4 +55,4 @@ async def mcp_web_browser(task: str, llm: Any) -> dict[str, Any]:
         return {"status": "error", "error": str(e)}
     finally:
         if browser:
-            await browser.close()
+            await browser.stop()

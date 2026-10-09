@@ -511,20 +511,18 @@ async def _execute_mcp_tool(
     server_name = parts[1]
     actual_tool_name = parts[2]
 
-    mcp_servers = tool_settings.get("mcp_servers", [])
-    url = next(
-        (s.get("url") for s in mcp_servers if s.get("name") == server_name), None
+    server_config = next(
+        (s for s in mcp_servers if s.get("name") == server_name), None
     )
-    if not url:
+    if not server_config or not server_config.get("url"):
         return [], []
-
-    # Check for destructive actions
-    destructive_keywords = ["write", "edit", "replace", "sed", "refactor", "run", "execute", "shell", "bash", "command"]
-    is_destructive = any(k in actual_tool_name.lower() for k in destructive_keywords)
+    
+    url = server_config["url"]
 
     worktree_path = None
     branch_name = None
-    if is_destructive:
+    # Only apply worktree wrapper to servers with an explicit shared-filesystem contract
+    if server_config.get("supports_worktree", False):
         branch_name = f"veraxi_agent_{uuid.uuid4().hex[:8]}"
         worktree_path = os.path.join(tempfile.gettempdir(), branch_name)
 
