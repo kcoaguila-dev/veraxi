@@ -419,7 +419,6 @@ async def evaluate_context(state: AgentState):
     config = get_config()
 
     effective_model = _request_model.get() or config.llm_model_name
-    llm_args = config.get_llm_client_args(model_name=effective_model)
     effective_api_key = _request_api_key.get() or config.llm_api_key
     effective_base_url = _request_base_url.get() or None
 

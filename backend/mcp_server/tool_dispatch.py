@@ -2,10 +2,10 @@
 
 import asyncio
 import logging
-import uuid
+import os
 import subprocess
 import tempfile
-import os
+import uuid
 from typing import Any
 
 from backend.config import get_config
@@ -529,7 +529,14 @@ async def _execute_mcp_tool(
 
         try:
             # Spin up a temporary Git Worktree isolated from the main branch
-            subprocess.run(["git", "worktree", "add", "-b", branch_name, str(worktree_path)], check=True, capture_output=True)
+            proc = await asyncio.create_subprocess_exec(
+                "git", "worktree", "add", "-b", branch_name, str(worktree_path),
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            stdout, stderr = await proc.communicate()
+            if proc.returncode != 0:
+                raise subprocess.CalledProcessError(proc.returncode, "git worktree add", stdout, stderr)
 
             # Rewrite tool_input generically to force execution in the worktree
             # For shell commands (e.g. command)
@@ -537,8 +544,7 @@ async def _execute_mcp_tool(
                 tool_input["command"] = f"cd {worktree_path} && " + tool_input["command"]
             # For file system commands (e.g. path, filepath, file)
             for path_key in ["path", "filepath", "file", "dir", "directory"]:
-                if path_key in tool_input and isinstance(tool_input[path_key], str):
-                    if not tool_input[path_key].startswith(worktree_path):
+                if path_key in tool_input and isinstance(tool_input[path_key], str) and not tool_input[path_key].startswith(worktree_path):
                         # Force it to be relative to the worktree path if it was relative or absolute
                         if os.path.isabs(tool_input[path_key]):
                             tool_input[path_key] = os.path.join(worktree_path, os.path.basename(tool_input[path_key]))
@@ -557,9 +563,16 @@ async def _execute_mcp_tool(
                 diff_output = ""
                 if is_destructive and worktree_path:
                     try:
-                        diff_proc = subprocess.run(["git", "diff"], cwd=worktree_path, capture_output=True, text=True)
-                        if diff_proc.stdout:
-                            diff_output = "\n\n[Git Worktree Diff]:\n" + diff_proc.stdout
+                        diff_proc = await asyncio.create_subprocess_exec(
+                            "git", "diff",
+                            cwd=worktree_path,
+                            stdout=asyncio.subprocess.PIPE,
+                            stderr=asyncio.subprocess.PIPE
+                        )
+                        diff_stdout, _ = await diff_proc.communicate()
+                        diff_text = diff_stdout.decode("utf-8") if diff_stdout else ""
+                        if diff_text:
+                            diff_output = "\n\n[Git Worktree Diff]:\n" + diff_text
                     except Exception as e:
                         logger.error(f"Failed to get git diff: {e}")
 
@@ -583,8 +596,18 @@ async def _execute_mcp_tool(
     finally:
         if is_destructive and worktree_path and os.path.exists(worktree_path):
             try:
-                subprocess.run(["git", "worktree", "remove", "--force", str(worktree_path)], check=False, capture_output=True)
-                subprocess.run(["git", "branch", "-D", str(branch_name)], check=False, capture_output=True)
+                proc1 = await asyncio.create_subprocess_exec(
+                    "git", "worktree", "remove", "--force", str(worktree_path),
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE
+                )
+                await proc1.communicate()
+                proc2 = await asyncio.create_subprocess_exec(
+                    "git", "branch", "-D", str(branch_name),
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE
+                )
+                await proc2.communicate()
             except Exception as e:
                 logger.error(f"Failed to cleanup git worktree: {e}")
 
