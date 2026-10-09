@@ -41,7 +41,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   void _onScroll() {
     if (_scrollController.hasClients) {
       final isUp = _scrollController.position.pixels <
-          _scrollController.position.maxScrollExtent - 50;
+          _scrollController.position.maxScrollExtent - 400;
       if (isUp != _isScrolledUp) {
         setState(() {
           _isScrolledUp = isUp;
@@ -392,6 +392,39 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                           ),
                         ),
 
+                      // Floating scroll to bottom button
+                      if (_isScrolledUp && state.messages.isNotEmpty)
+                        Positioned(
+                          bottom: 130,
+                          left: 0,
+                          right: 0,
+                          child: Center(
+                            child: GestureDetector(
+                              onTap: () {
+                                _scrollToBottom();
+                              },
+                              child: Container(
+                                width: 32,
+                                height: 32,
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF2A2A2A),
+                                  shape: BoxShape.circle,
+                                  border:
+                                      Border.all(color: const Color(0xFF3F3F3F)),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withValues(alpha: 0.2),
+                                      blurRadius: 4,
+                                      offset: const Offset(0, 2),
+                                    )
+                                  ],
+                                ),
+                                child: const Icon(Icons.arrow_downward,
+                                    color: Colors.white, size: 16),
+                              ),
+                            ),
+                          ),
+                        ),
 
                       // Floating Input Area at Bottom (only if messages exist)
                       if (state.messages.isNotEmpty)
