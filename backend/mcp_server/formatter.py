@@ -105,8 +105,12 @@ def _create_chat_llm(model_name: str, api_key: str | None, base_url: str | None 
 
     base_url = llm_args.get("base_url", "")
     import urllib.parse
+
     parsed_url = urllib.parse.urlparse(base_url)
-    if parsed_url.hostname and (parsed_url.hostname == "api.groq.com" or parsed_url.hostname.endswith(".api.groq.com")):
+    if parsed_url.hostname and (
+        parsed_url.hostname == "api.groq.com"
+        or parsed_url.hostname.endswith(".api.groq.com")
+    ):
         from langchain_groq import ChatGroq
 
         groq_api_key = llm_args.pop("api_key", None)

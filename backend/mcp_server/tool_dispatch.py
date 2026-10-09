@@ -245,11 +245,13 @@ def _execute_single_tool(
 
     # 1. Native Android tools (executed locally on the phone, backend just acknowledges them)
     if tool_name in ["read_file", "write_file", "list_files", "run_shell", "open_app"]:
+
         class ClientToolHit:
             def __init__(self):
                 self.id = "client_tool"
                 self.payload = {"status": "Tool delegated to Android client"}
                 self.sources = ["Android Client"]
+
         return [ClientToolHit()], []
 
     if tool_name == "search_vectors":

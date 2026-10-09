@@ -57,7 +57,12 @@ def test_chat_endpoint_non_streaming(
 
     response = client.post(
         "/api/chat",
-        json={"question": "What is AI?", "stream": False, "model": "gpt-4o", "api_key": "dummy"},
+        json={
+            "question": "What is AI?",
+            "stream": False,
+            "model": "gpt-4o",
+            "api_key": "dummy",
+        },
     )
 
     assert response.status_code == 200
@@ -72,7 +77,13 @@ def test_chat_endpoint_flagged_content(mock_moderate, client):
     mock_moderate.return_value = True
 
     response = client.post(
-        "/api/chat", json={"question": "Bad stuff", "stream": False, "model": "gpt-4o", "api_key": "dummy"}
+        "/api/chat",
+        json={
+            "question": "Bad stuff",
+            "stream": False,
+            "model": "gpt-4o",
+            "api_key": "dummy",
+        },
     )
 
     assert response.status_code == 400
@@ -91,7 +102,13 @@ def test_chat_endpoint_streaming(mock_stream, mock_moderate, client):
     mock_stream.side_effect = mock_stream_gen
 
     response = client.post(
-        "/api/chat", json={"question": "Hello?", "stream": True, "model": "gpt-4o", "api_key": "dummy"}
+        "/api/chat",
+        json={
+            "question": "Hello?",
+            "stream": True,
+            "model": "gpt-4o",
+            "api_key": "dummy",
+        },
     )
 
     assert response.status_code == 200
@@ -242,7 +259,11 @@ def test_guest_with_api_key_is_allowed(
 ):
     """local_guest requests that include their own api_key must be allowed through."""
     mock_moderate.return_value = False
-    mock_answer.return_value = ("Hello from guest", "ctx", {"grounding_score": 0.9, "duration": 1.0})
+    mock_answer.return_value = (
+        "Hello from guest",
+        "ctx",
+        {"grounding_score": 0.9, "duration": 1.0},
+    )
     mock_gen_title.return_value = "Guest Chat"
 
     # Override verify_infrastructure_access and get_tenant_id (what chat_endpoint Depends on).
