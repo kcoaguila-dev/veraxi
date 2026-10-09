@@ -1,6 +1,7 @@
 """Tool definitions and dispatch logic for the LangGraph agent."""
 
 import asyncio
+import copy
 import logging
 import os
 import shlex
@@ -532,6 +533,7 @@ async def _execute_mcp_tool(
     preserve_worktree = False
     try:
         if supports_worktree:
+            tool_input = copy.deepcopy(tool_input)
             # Spin up a temporary Git Worktree isolated from the main branch
             proc = await asyncio.create_subprocess_exec(
                 "git", "worktree", "add", "-b", branch_name, str(worktree_path),
@@ -627,13 +629,18 @@ async def _execute_mcp_tool(
     except Exception as e:
         logger.error(f"Failed to execute MCP tool {tool_name} on {url}: {e}")
 
+        err_msg = str(e)
+        if supports_worktree and worktree_path:
+            preserve_worktree = True
+            err_msg += f" (Worktree preserved at {worktree_path} for recovery)"
+
         class McpErrorHit:
             def __init__(self, err):
                 self.id = "mcp_err"
                 self.payload = {"error": str(err)}
                 self.sources = [f"MCP Server ({server_name})"]
 
-        return [McpErrorHit(e)], []
+        return [McpErrorHit(err_msg)], []
     finally:
         if supports_worktree and worktree_path and os.path.exists(worktree_path) and not preserve_worktree:
             try:
