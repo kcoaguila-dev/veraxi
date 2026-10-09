@@ -187,7 +187,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                                     left: 16,
                                                     right: 16,
                                                     top: 80,
-                                                    bottom: 300),
+                                                    bottom: 160),
                                                 itemCount:
                                                     state.messages.length,
                                                 itemBuilder: (context, index) {
@@ -392,36 +392,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                           ),
                         ),
 
-                      // Floating scroll to bottom button
-                      if (_isScrolledUp && state.messages.isNotEmpty)
-                        Positioned(
-                          bottom: 120,
-                          right: 32,
-                          child: GestureDetector(
-                            onTap: () {
-                              _scrollToBottom();
-                            },
-                            child: Container(
-                              width: 32,
-                              height: 32,
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF2A2A2A),
-                                shape: BoxShape.circle,
-                                border:
-                                    Border.all(color: const Color(0xFF3F3F3F)),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withValues(alpha: 0.2),
-                                    blurRadius: 4,
-                                    offset: const Offset(0, 2),
-                                  )
-                                ],
-                              ),
-                              child: const Icon(Icons.arrow_downward,
-                                  color: Colors.white, size: 16),
-                            ),
-                          ),
-                        ),
 
                       // Floating Input Area at Bottom (only if messages exist)
                       if (state.messages.isNotEmpty)
