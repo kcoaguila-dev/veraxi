@@ -29,7 +29,7 @@ REGISTERED_TOOLS = [
     Tool(
         name="mcp_search_vectors",
         description="Semantic search over documents",
-        input_schema={
+        inputSchema={
             "type": "object",
             "properties": {
                 "query_text": {"type": "string"},
@@ -41,7 +41,7 @@ REGISTERED_TOOLS = [
     Tool(
         name="mcp_query_graph",
         description="Find exact entity relationships",
-        input_schema={
+        inputSchema={
             "type": "object",
             "properties": {
                 "entity_name": {"type": "string"},
@@ -53,7 +53,7 @@ REGISTERED_TOOLS = [
     Tool(
         name="mcp_insert_graph_nodes",
         description="Insert structured nodes and relations into the Neo4j Knowledge Graph. The Host AI should extract these from unstructured text first.",
-        input_schema={
+        inputSchema={
             "type": "object",
             "properties": {
                 "nodes": {
@@ -87,7 +87,7 @@ REGISTERED_TOOLS = [
     Tool(
         name="mcp_insert_vectors",
         description="Generate embeddings and insert text chunks into the Qdrant Vector Database.",
-        input_schema={
+        inputSchema={
             "type": "object",
             "properties": {"texts": {"type": "array", "items": {"type": "string"}}},
             "required": ["texts"],
@@ -96,7 +96,7 @@ REGISTERED_TOOLS = [
     Tool(
         name="mcp_merge_rank",
         description="Perform a unified GraphRAG search. It searches vectors using query_text and traverses the graph from entity_name, then fuses the results using Reciprocal Rank Fusion.",
-        input_schema={
+        inputSchema={
             "type": "object",
             "properties": {
                 "query_text": {"type": "string"},
@@ -110,7 +110,7 @@ REGISTERED_TOOLS = [
     Tool(
         name="mcp_get_graph_schema",
         description="Retrieves all unique Node Labels and Relationship Types currently in the Neo4j database. Call this before inserting data to understand the current schema.",
-        input_schema={
+        inputSchema={
             "type": "object",
             "properties": {},
         },
@@ -118,7 +118,7 @@ REGISTERED_TOOLS = [
     Tool(
         name="mcp_delete_entity",
         description="Deletes a specific entity and all its relationships from Neo4j.",
-        input_schema={
+        inputSchema={
             "type": "object",
             "properties": {"entity_name": {"type": "string"}},
             "required": ["entity_name"],
@@ -127,7 +127,7 @@ REGISTERED_TOOLS = [
     Tool(
         name="mcp_delete_document",
         description="Deletes a specific document chunk from Qdrant using its document ID.",
-        input_schema={
+        inputSchema={
             "type": "object",
             "properties": {"document_id": {"type": "string"}},
             "required": ["document_id"],
@@ -136,7 +136,7 @@ REGISTERED_TOOLS = [
     Tool(
         name="mcp_update_entity",
         description="Updates the properties of an existing Neo4j entity. Only provide the properties you want to add or overwrite.",
-        input_schema={
+        inputSchema={
             "type": "object",
             "properties": {
                 "entity_name": {"type": "string"},
@@ -148,7 +148,7 @@ REGISTERED_TOOLS = [
     Tool(
         name="mcp_get_database_stats",
         description="Retrieves high-level statistics about the size of the database (nodes, relationships, vectors).",
-        input_schema={
+        inputSchema={
             "type": "object",
             "properties": {},
         },
@@ -156,7 +156,7 @@ REGISTERED_TOOLS = [
     Tool(
         name="mcp_run_community_detection",
         description="Runs a Graph Data Science community detection algorithm to find clusters of connected entities.",
-        input_schema={
+        inputSchema={
             "type": "object",
             "properties": {"min_size": {"type": "integer", "default": 2}},
         },
@@ -164,7 +164,7 @@ REGISTERED_TOOLS = [
     Tool(
         name="mcp_delete_relationship",
         description="Deletes a specific relationship edge between two entities without deleting the entities themselves.",
-        input_schema={
+        inputSchema={
             "type": "object",
             "properties": {
                 "from_entity": {"type": "string"},
@@ -177,7 +177,7 @@ REGISTERED_TOOLS = [
     Tool(
         name="mcp_update_document_metadata",
         description="Updates or adds metadata properties to an existing vector document chunk in Qdrant.",
-        input_schema={
+        inputSchema={
             "type": "object",
             "properties": {
                 "document_id": {"type": "string"},
@@ -189,7 +189,7 @@ REGISTERED_TOOLS = [
     Tool(
         name="mcp_evaluate_grounding",
         description="Evaluates what percentage of a generated response is mathematically supported by the retrieved context. Returns a float between 0.0 and 1.0.",
-        input_schema={
+        inputSchema={
             "type": "object",
             "properties": {
                 "response_text": {"type": "string"},
@@ -201,7 +201,7 @@ REGISTERED_TOOLS = [
     Tool(
         name="mcp_web_search",
         description="Fallback mechanism to search the live web when internal retrieval yields insufficient context. Returns a list of JSON snippets.",
-        input_schema={
+        inputSchema={
             "type": "object",
             "properties": {
                 "query": {"type": "string"},
@@ -212,7 +212,7 @@ REGISTERED_TOOLS = [
     Tool(
         name="mcp_skills",
         description="Lists available agentic skills for tool augmentation.",
-        input_schema={
+        inputSchema={
             "type": "object",
             "properties": {},
         },
@@ -220,7 +220,7 @@ REGISTERED_TOOLS = [
     Tool(
         name="mcp_run_code",
         description="Executes Python code in a secure sandbox and returns the stdout/stderr.",
-        input_schema={
+        inputSchema={
             "type": "object",
             "properties": {
                 "code": {"type": "string"},
@@ -231,7 +231,7 @@ REGISTERED_TOOLS = [
     Tool(
         name="mcp_list_artifacts",
         description="Lists all artifacts stored in the workspace for the current tenant.",
-        input_schema={
+        inputSchema={
             "type": "object",
             "properties": {},
         },
@@ -239,7 +239,7 @@ REGISTERED_TOOLS = [
     Tool(
         name="mcp_read_artifact",
         description="Reads the content of a specific artifact by its name.",
-        input_schema={
+        inputSchema={
             "type": "object",
             "properties": {
                 "artifact_name": {"type": "string"},
@@ -250,7 +250,7 @@ REGISTERED_TOOLS = [
     Tool(
         name="mcp_ingest_document",
         description="Submits a document or URL to Veraxi's native ingestion pipeline (OCR -> Graph extraction -> Insertion).",
-        input_schema={
+        inputSchema={
             "type": "object",
             "properties": {
                 "file_path": {
@@ -276,7 +276,7 @@ REGISTERED_TOOLS = [
     Tool(
         name="mcp_get_ingest_status",
         description="Polls the status of an active ingestion job.",
-        input_schema={
+        inputSchema={
             "type": "object",
             "properties": {
                 "job_id": {
@@ -290,7 +290,7 @@ REGISTERED_TOOLS = [
     Tool(
         name="mcp_dynamic_web_graph",
         description="Dynamic Web Search GraphRAG - searches the web and returns a structured Knowledge Graph of entities and relations instead of raw text snippets, allowing for high-accuracy multi-hop reasoning over live data.",
-        input_schema={
+        inputSchema={
             "type": "object",
             "properties": {
                 "query": {"type": "string"},
@@ -303,7 +303,7 @@ REGISTERED_TOOLS = [
     Tool(
         name="mcp_deep_research",
         description="Performs deep web research. Searches the internet, dynamically ingests the top results into your Hybrid RAG database, and returns mathematically ranked facts. Use this for complex research where standard web search lacks depth or relational accuracy. If you already have URLs to research, provide them in the 'urls' array.",
-        input_schema={
+        inputSchema={
             "type": "object",
             "properties": {
                 "query": {"type": "string"},
@@ -319,7 +319,7 @@ REGISTERED_TOOLS = [
     Tool(
         name="mcp_export_data",
         description="Serializes and exports dynamically structured datasets into agnostic, interoperable file formats (CSV, OTIO, FCPXML). Facilitates seamless data handoff to external analytical pipelines, data science environments, and professional non-linear editing (NLE) systems without imposing domain-specific schemas.",
-        input_schema={
+        inputSchema={
             "type": "object",
             "properties": {
                 "data": {
