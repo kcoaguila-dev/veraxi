@@ -39,7 +39,6 @@ dependencies = [
     "langchain-openai",
     "litellm",
     "langchain-litellm>=0.6.6",
-    "langchain-community",
     "arq",
     "redis",
     "langgraph-checkpoint-redis",
