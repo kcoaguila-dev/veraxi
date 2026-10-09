@@ -187,7 +187,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                                     left: 16,
                                                     right: 16,
                                                     top: 80,
-                                                    bottom: 160),
+                                                    bottom: 200),
                                                 itemCount:
                                                     state.messages.length,
                                                 itemBuilder: (context, index) {
@@ -395,7 +395,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       // Floating scroll to bottom button
                       if (_isScrolledUp && state.messages.isNotEmpty)
                         Positioned(
-                          bottom: 115,
+                          bottom: 180,
                           left: 0,
                           right: 0,
                           child: Center(
