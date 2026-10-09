@@ -44,6 +44,13 @@ class _ApiKeyDialogState extends ConsumerState<ApiKeyDialog> {
       ApiKeyStorage().getKey(provider).then((key) {
         if (key != null && mounted) {
           _apiKeyController.text = key;
+          ApiKeyStorage().getKeyExpirationDate(provider).then((expires) {
+            if (mounted && expires == null) {
+              setState(() {
+                _expiresIn = 'never';
+              });
+            }
+          });
         }
       });
       if (provider == 'local') {
