@@ -423,10 +423,9 @@ async def evaluate_context(state: AgentState):
     effective_base_url = _request_base_url.get() or None
 
     llm = _create_chat_llm(effective_model, effective_api_key, effective_base_url)
-    llm = llm.bind(tags=["crag_evaluator"])
     structured_llm_grader = llm.with_structured_output(
         GradeDocuments, method="function_calling"
-    )
+    ).with_config(tags=["crag_evaluator"])
 
     system = """You are a grader assessing relevance of a retrieved document to a user question. \n 
     It does not need to be a stringent test. The goal is to filter out erroneous retrievals. \n
