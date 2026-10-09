@@ -10118,7 +10118,7 @@ requires-dist = [
     { name = "langchain-community" },
     { name = "langchain-core" },
     { name = "langchain-groq" },
-    { name = "langchain-litellm", specifier = ">=0.6.4" },
+    { name = "langchain-litellm", specifier = ">=0.6.6" },
     { name = "langchain-openai" },
     { name = "langgraph" },
     { name = "langgraph-checkpoint-postgres" },
