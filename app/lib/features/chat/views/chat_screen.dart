@@ -187,7 +187,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                                     left: 16,
                                                     right: 16,
                                                     top: 80,
-                                                    bottom: 200),
+                                                    bottom: 140),
                                                 itemCount:
                                                     state.messages.length,
                                                 itemBuilder: (context, index) {
@@ -386,7 +386,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                           bottom: 0,
                           left: 0,
                           right: 0,
-                          height: 180,
+                          height: 140,
                           child: Container(
                             decoration: BoxDecoration(
                               gradient: LinearGradient(
@@ -396,7 +396,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                   theme.scaffoldBackgroundColor.withValues(alpha: 0.0),
                                   theme.scaffoldBackgroundColor,
                                 ],
-                                stops: const [0.0, 0.4],
+                                stops: const [0.0, 0.3],
                               ),
                             ),
                           ),
