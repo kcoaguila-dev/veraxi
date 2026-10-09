@@ -3,6 +3,7 @@
 import asyncio
 import logging
 import os
+import shlex
 import subprocess
 import tempfile
 import uuid
@@ -541,7 +542,7 @@ async def _execute_mcp_tool(
             # Rewrite tool_input generically to force execution in the worktree
             # For shell commands (e.g. command)
             if "command" in tool_input:
-                tool_input["command"] = f"cd {worktree_path} && " + tool_input["command"]
+                tool_input["command"] = f"cd {shlex.quote(worktree_path)} && " + tool_input["command"]
             # For file system commands (e.g. path, filepath, file)
             for path_key in ["path", "filepath", "file", "dir", "directory"]:
                 if path_key in tool_input and isinstance(tool_input[path_key], str) and not tool_input[path_key].startswith(worktree_path):

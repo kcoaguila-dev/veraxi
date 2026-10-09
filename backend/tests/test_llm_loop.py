@@ -138,12 +138,16 @@ async def test_evaluate_context(mock_config):
 
 def test_grader_construction():
     from backend.mcp_server.orchestrator import _create_chat_llm, GradeDocuments
+    from unittest.mock import patch
     # Test that constructing the grader does not raise an error
-    llm = _create_chat_llm("gpt-4o", "fake-key")
-    structured_llm_grader = llm.with_structured_output(
-        GradeDocuments, method="function_calling"
-    ).with_config(tags=["crag_evaluator"])
-    assert structured_llm_grader is not None
+    with patch("backend.mcp_server.orchestrator.get_config") as mock_get_config:
+        mock_get_config.return_value.is_enterprise = False
+        mock_get_config.return_value.get_llm_client_args.return_value = {}
+        llm = _create_chat_llm("gpt-4o", "fake-key")
+        structured_llm_grader = llm.with_structured_output(
+            GradeDocuments, method="function_calling"
+        ).with_config(tags=["crag_evaluator"])
+        assert structured_llm_grader is not None
 @pytest.mark.asyncio
 async def test_web_search_fallback(mock_config):
     import io
