@@ -17,7 +17,8 @@ class SyncTab extends ConsumerStatefulWidget {
 class _SyncTabState extends ConsumerState<SyncTab> {
   final _passphraseController = TextEditingController();
   late final Zxcvbnm _zxcvbnm;
-  bool _isLoading = false;
+  bool _isPushLoading = false;
+  bool _isPullLoading = false;
   bool _obscurePassphrase = true;
   String? _error;
   String? _success;
@@ -63,7 +64,11 @@ class _SyncTabState extends ConsumerState<SyncTab> {
     }
 
     setState(() {
-      _isLoading = true;
+      if (isPush) {
+        _isPushLoading = true;
+      } else {
+        _isPullLoading = true;
+      }
       _error = null;
       _success = null;
     });
@@ -94,7 +99,10 @@ class _SyncTabState extends ConsumerState<SyncTab> {
       });
     } finally {
       if (mounted) {
-        setState(() => _isLoading = false);
+        setState(() {
+          _isPushLoading = false;
+          _isPullLoading = false;
+        });
       }
     }
   }
@@ -270,7 +278,8 @@ class _SyncTabState extends ConsumerState<SyncTab> {
       {required bool isPush, bool fullWidth = false}) {
     // Disable push if score < 3, unless pulling (allow pulling with weak passwords for backwards compatibility)
     final bool isPushDisabled = isPush && _passwordScore < 3;
-    final bool isDisabled = _isLoading || isPushDisabled;
+    final bool isLoading = isPush ? _isPushLoading : _isPullLoading;
+    final bool isDisabled = _isPushLoading || _isPullLoading || isPushDisabled;
 
     return SizedBox(
       width: fullWidth ? double.infinity : null,
@@ -288,7 +297,7 @@ class _SyncTabState extends ConsumerState<SyncTab> {
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
             minimumSize: const Size(140, 44),
           ),
-          child: _isLoading
+          child: isLoading
               ? const SizedBox(
                   width: 16,
                   height: 16,
