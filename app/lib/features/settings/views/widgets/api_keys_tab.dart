@@ -287,18 +287,6 @@ class _ApiKeysTabState extends ConsumerState<ApiKeysTab> {
         ),
         SizedBox(height: 20),
 
-        // ── Intelligence Providers ─────────────────────────────────────────
-        SettingsUI.buildSectionHeader(context, 'INTELLIGENCE PROVIDERS'),
-        _isLoadingKeys
-            ? Center(child: Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF10B981))))
-            : SettingsUI.buildSettingsGroup(context, [
-                _buildProviderRow('OpenAI', 'openai'),
-                _buildProviderRow('Anthropic', 'anthropic'),
-                _buildProviderRow('Google Gemini', 'google'),
-                _buildProviderRow('Groq', 'groq'),
-              ]),
-        SizedBox(height: 32),
-
         SettingsUI.buildSectionHeader(context, 'MCP CLIENT KEYS'),
 
 
@@ -374,6 +362,18 @@ class _ApiKeysTabState extends ConsumerState<ApiKeysTab> {
                       .toList(),
                 ),
         ),
+        SizedBox(height: 40),
+
+        // ── Intelligence Providers ─────────────────────────────────────────
+        SettingsUI.buildSectionHeader(context, 'INTELLIGENCE PROVIDERS'),
+        _isLoadingKeys
+            ? Center(child: Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF10B981))))
+            : SettingsUI.buildSettingsGroup(context, [
+                _buildProviderRow('OpenAI', 'openai'),
+                _buildProviderRow('Anthropic', 'anthropic'),
+                _buildProviderRow('Google Gemini', 'google'),
+                _buildProviderRow('Groq', 'groq'),
+              ]),
         SizedBox(height: 32),
       ],
     );
