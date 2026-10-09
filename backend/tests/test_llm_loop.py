@@ -137,8 +137,9 @@ async def test_evaluate_context(mock_config):
         assert res["context_relevance"] == "yes"
 
 def test_grader_construction():
-    from backend.mcp_server.orchestrator import _create_chat_llm, GradeDocuments
     from unittest.mock import patch
+
+    from backend.mcp_server.orchestrator import GradeDocuments, _create_chat_llm
     # Test that constructing the grader does not raise an error
     with patch("backend.mcp_server.orchestrator.get_config") as mock_get_config:
         mock_get_config.return_value.is_enterprise = False
