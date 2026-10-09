@@ -9314,7 +9314,7 @@ requires-dist = [
     { name = "langgraph" },
     { name = "langgraph-checkpoint-postgres" },
     { name = "langgraph-checkpoint-redis" },
-    { name = "mcp", specifier = ">=1.2.0" },
+    { name = "mcp", specifier = ">=2.2.0" },
     { name = "mcp-types", specifier = ">=2.2.0" },
     { name = "neo4j" },
     { name = "openai" },
