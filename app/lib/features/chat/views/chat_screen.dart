@@ -380,15 +380,25 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                           ),
                         ),
 
-                      // Solid background at bottom behind input
+                      // Gradient background at bottom behind input
                       if (state.messages.isNotEmpty)
                         Positioned(
                           bottom: 0,
                           left: 0,
                           right: 0,
-                          height: 160,
+                          height: 180,
                           child: Container(
-                            color: theme.scaffoldBackgroundColor,
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [
+                                  theme.scaffoldBackgroundColor.withValues(alpha: 0.0),
+                                  theme.scaffoldBackgroundColor,
+                                ],
+                                stops: const [0.0, 0.4],
+                              ),
+                            ),
                           ),
                         ),
 
