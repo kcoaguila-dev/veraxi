@@ -27,7 +27,8 @@ class _AiProvidersTabState extends ConsumerState<AiProvidersTab> {
     final storage = ref.read(apiKeyStorageProvider);
     for (final provider in ['openai', 'anthropic', 'google', 'groq']) {
       _providerKeys[provider] = await storage.getKey(provider);
-      _providerExpirations[provider] = await storage.getKeyExpirationDate(provider);
+      _providerExpirations[provider] =
+          await storage.getKeyExpirationDate(provider);
     }
     if (mounted) {
       setState(() {
@@ -73,7 +74,7 @@ class _AiProvidersTabState extends ConsumerState<AiProvidersTab> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    
+
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
