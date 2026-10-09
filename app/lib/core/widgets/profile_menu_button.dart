@@ -288,20 +288,6 @@ class _ProfileMenuButtonState extends ConsumerState<ProfileMenuButton> {
             ],
           ),
         ),
-        MenuItemButton(
-          style: itemStyle,
-          onPressed: () {
-            if (context.mounted) context.push('/admin');
-          },
-          child: Row(
-            children: [
-              Icon(Icons.admin_panel_settings_outlined,
-                  color: Color(0xFFECECEC), size: 16),
-              SizedBox(width: 12),
-              Text('Control Panel'),
-            ],
-          ),
-        ),
         Divider(
             color:
                 Theme.of(context).extension<AppThemeExtension>()!.borderColor,
