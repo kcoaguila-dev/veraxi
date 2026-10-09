@@ -28,8 +28,7 @@ def register_api_key_routes(app_router, get_tenant_id, _get_supabase):
             return {"api_keys": []}
         try:
             response = (
-                sb
-                .table("api_keys")
+                sb.table("api_keys")
                 .select(
                     "id, name, key_prefix, is_active, created_at, last_used_at, expires_at"
                 )
@@ -51,7 +50,10 @@ def register_api_key_routes(app_router, get_tenant_id, _get_supabase):
         """Generate a new personal API key. Returns the raw key ONCE — it cannot be retrieved again."""
         sb = _get_supabase()
         if not sb:
-            raise HTTPException(status_code=501, detail="API keys are not supported in stateless local mode")
+            raise HTTPException(
+                status_code=501,
+                detail="API keys are not supported in stateless local mode",
+            )
 
         raw_key, key_hash = generate_api_key()
         key_prefix = raw_key[:10]
@@ -83,11 +85,13 @@ def register_api_key_routes(app_router, get_tenant_id, _get_supabase):
         """Revoke (soft-delete) an API key. The key is immediately invalid."""
         sb = _get_supabase()
         if not sb:
-            raise HTTPException(status_code=501, detail="API keys are not supported in stateless local mode")
+            raise HTTPException(
+                status_code=501,
+                detail="API keys are not supported in stateless local mode",
+            )
         try:
             result = (
-                sb
-                .table("api_keys")
+                sb.table("api_keys")
                 .update({"is_active": False})
                 .eq("id", key_id)
                 .eq("tenant_id", tenant_id)
