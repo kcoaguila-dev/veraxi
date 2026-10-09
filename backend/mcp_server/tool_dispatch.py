@@ -511,6 +511,7 @@ async def _execute_mcp_tool(
     server_name = parts[1]
     actual_tool_name = parts[2]
 
+    mcp_servers = tool_settings.get("mcp_servers", [])
     server_config = next(
         (s for s in mcp_servers if s.get("name") == server_name), None
     )
@@ -521,8 +522,10 @@ async def _execute_mcp_tool(
 
     worktree_path = None
     branch_name = None
+    supports_worktree = server_config.get("supports_worktree", False)
+    
     # Only apply worktree wrapper to servers with an explicit shared-filesystem contract
-    if server_config.get("supports_worktree", False):
+    if supports_worktree:
         branch_name = f"veraxi_agent_{uuid.uuid4().hex[:8]}"
         worktree_path = os.path.join(tempfile.gettempdir(), branch_name)
 
@@ -540,18 +543,48 @@ async def _execute_mcp_tool(
             # Rewrite tool_input generically to force execution in the worktree
             # For shell commands (e.g. command)
             if "command" in tool_input:
-                tool_input["command"] = f"cd {shlex.quote(worktree_path)} && " + tool_input["command"]
+                cmd = tool_input["command"]
+                if ".." in cmd or " /" in cmd or cmd.startswith("/"):
+                    class McpErrorHit:
+                        def __init__(self, err):
+                            self.id = "mcp_err"
+                            self.payload = {"error": str(err)}
+                            self.sources = [f"MCP Server ({server_name})"]
+                    return [McpErrorHit(ValueError("Commands that can address paths outside the worktree are prohibited"))], []
+                tool_input["command"] = f"cd {shlex.quote(worktree_path)} && " + cmd
             # For file system commands (e.g. path, filepath, file)
             for path_key in ["path", "filepath", "file", "dir", "directory"]:
                 if path_key in tool_input and isinstance(tool_input[path_key], str) and not tool_input[path_key].startswith(worktree_path):
+                        input_path = tool_input[path_key]
                         # Force it to be relative to the worktree path if it was relative or absolute
-                        if os.path.isabs(tool_input[path_key]):
-                            tool_input[path_key] = os.path.join(worktree_path, os.path.basename(tool_input[path_key]))
+                        if os.path.isabs(input_path):
+                            current_cwd = os.getcwd()
+                            if not input_path.startswith(current_cwd):
+                                class McpErrorHit:
+                                    def __init__(self, err):
+                                        self.id = "mcp_err"
+                                        self.payload = {"error": str(err)}
+                                        self.sources = [f"MCP Server ({server_name})"]
+                                return [McpErrorHit(ValueError(f"Absolute path {input_path} is outside the allowed checkout boundary"))], []
+                            rel_path = os.path.relpath(input_path, current_cwd)
+                            tool_input[path_key] = os.path.join(worktree_path, rel_path)
                         else:
-                            tool_input[path_key] = os.path.join(worktree_path, tool_input[path_key])
+                            if input_path.startswith(".."):
+                                class McpErrorHit:
+                                    def __init__(self, err):
+                                        self.id = "mcp_err"
+                                        self.payload = {"error": str(err)}
+                                        self.sources = [f"MCP Server ({server_name})"]
+                                return [McpErrorHit(ValueError(f"Path {input_path} escapes the allowed checkout boundary"))], []
+                            tool_input[path_key] = os.path.join(worktree_path, input_path)
         except subprocess.CalledProcessError as e:
             logger.error(f"Failed to create git worktree: {e}")
-            is_destructive = False
+            class McpErrorHit:
+                def __init__(self, err):
+                    self.id = "mcp_err"
+                    self.payload = {"error": str(err)}
+                    self.sources = [f"MCP Server ({server_name})"]
+            return [McpErrorHit(ValueError(f"Failed to create git worktree: {e}"))], []
 
     try:
         async with sse_client(url) as (read, write):  # noqa: SIM117
@@ -560,7 +593,7 @@ async def _execute_mcp_tool(
                 result = await session.call_tool(actual_tool_name, tool_input)
 
                 diff_output = ""
-                if is_destructive and worktree_path:
+                if supports_worktree and worktree_path:
                     try:
                         diff_proc = await asyncio.create_subprocess_exec(
                             "git", "diff",
@@ -593,7 +626,7 @@ async def _execute_mcp_tool(
 
         return [McpErrorHit(e)], []
     finally:
-        if is_destructive and worktree_path and os.path.exists(worktree_path):
+        if supports_worktree and worktree_path and os.path.exists(worktree_path):
             try:
                 proc1 = await asyncio.create_subprocess_exec(
                     "git", "worktree", "remove", "--force", str(worktree_path),
