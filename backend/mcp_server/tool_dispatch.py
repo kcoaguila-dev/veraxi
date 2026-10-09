@@ -529,7 +529,9 @@ async def _execute_mcp_tool(
         branch_name = f"veraxi_agent_{uuid.uuid4().hex[:8]}"
         worktree_path = os.path.join(tempfile.gettempdir(), branch_name)
 
-        try:
+    preserve_worktree = False
+    try:
+        if supports_worktree:
             # Spin up a temporary Git Worktree isolated from the main branch
             proc = await asyncio.create_subprocess_exec(
                 "git", "worktree", "add", "-b", branch_name, str(worktree_path),
@@ -577,16 +579,7 @@ async def _execute_mcp_tool(
                                         self.sources = [f"MCP Server ({server_name})"]
                                 return [McpErrorHit(ValueError(f"Path {input_path} escapes the allowed checkout boundary"))], []
                             tool_input[path_key] = os.path.join(worktree_path, input_path)
-        except subprocess.CalledProcessError as e:
-            logger.error(f"Failed to create git worktree: {e}")
-            class McpErrorHit:
-                def __init__(self, err):
-                    self.id = "mcp_err"
-                    self.payload = {"error": str(err)}
-                    self.sources = [f"MCP Server ({server_name})"]
-            return [McpErrorHit(ValueError(f"Failed to create git worktree: {e}"))], []
 
-    try:
         async with sse_client(url) as (read, write):  # noqa: SIM117
             async with ClientSession(read, write) as session:
                 await session.initialize()
@@ -601,12 +594,28 @@ async def _execute_mcp_tool(
                             stdout=asyncio.subprocess.PIPE,
                             stderr=asyncio.subprocess.PIPE
                         )
-                        diff_stdout, _ = await diff_proc.communicate()
+                        diff_stdout, diff_stderr = await diff_proc.communicate()
+                        if diff_proc.returncode != 0:
+                            preserve_worktree = True
+                            logger.error(f"Git diff failed: {diff_stderr.decode('utf-8')}")
+                            class McpErrorHit:
+                                def __init__(self, err):
+                                    self.id = "mcp_err"
+                                    self.payload = {"error": str(err)}
+                                    self.sources = [f"MCP Server ({server_name})"]
+                            return [McpErrorHit(RuntimeError(f"Git diff failed in worktree. Preserving worktree at {worktree_path}"))], []
                         diff_text = diff_stdout.decode("utf-8") if diff_stdout else ""
                         if diff_text:
                             diff_output = "\n\n[Git Worktree Diff]:\n" + diff_text
                     except Exception as e:
+                        preserve_worktree = True
                         logger.error(f"Failed to get git diff: {e}")
+                        class McpErrorHit:
+                            def __init__(self, err):
+                                self.id = "mcp_err"
+                                self.payload = {"error": str(err)}
+                                self.sources = [f"MCP Server ({server_name})"]
+                        return [McpErrorHit(RuntimeError(f"Exception during git diff: {e}. Preserving worktree at {worktree_path}"))], []
 
                 class McpHit:
                     def __init__(self, res, diff):
@@ -626,7 +635,7 @@ async def _execute_mcp_tool(
 
         return [McpErrorHit(e)], []
     finally:
-        if supports_worktree and worktree_path and os.path.exists(worktree_path):
+        if supports_worktree and worktree_path and os.path.exists(worktree_path) and not preserve_worktree:
             try:
                 proc1 = await asyncio.create_subprocess_exec(
                     "git", "worktree", "remove", "--force", str(worktree_path),
