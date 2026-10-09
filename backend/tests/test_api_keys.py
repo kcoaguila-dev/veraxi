@@ -33,7 +33,9 @@ class TestGenerateApiKey:
 
     def test_hash_is_strong_pbkdf2(self):
         raw_key, key_hash = generate_api_key()
-        expected = hashlib.pbkdf2_hmac("sha256", raw_key.encode(), b"veraxi_api_key_salt", 100000).hex()
+        expected = hashlib.pbkdf2_hmac(
+            "sha256", raw_key.encode(), b"veraxi_api_key_salt", 100000
+        ).hex()
         assert key_hash == expected
 
     def test_each_call_produces_unique_key(self):

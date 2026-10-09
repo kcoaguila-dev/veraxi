@@ -207,7 +207,9 @@ def get_tenant_id(
     if token.startswith("vx-"):
         sb = _get_supabase()
         if not sb:
-            raise HTTPException(status_code=500, detail="Supabase not configured for API keys")
+            raise HTTPException(
+                status_code=500, detail="Supabase not configured for API keys"
+            )
         return resolve_api_key(token, sb)
     return _decode_and_validate_jwt(token)
 

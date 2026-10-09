@@ -35,7 +35,7 @@ def _require_premium(sb: Client, tenant_id: str) -> None:
     level (guard-clause pattern, zero-cognitive-complexity policy).
     """
     user_res = sb.table("users").select("is_subscribed").eq("id", tenant_id).execute()
-    if not user_res.data or not user_res.data[0].get("is_subscribed"): # type: ignore
+    if not user_res.data or not user_res.data[0].get("is_subscribed"):  # type: ignore
         raise HTTPException(status_code=403, detail="Sync is a premium feature.")
 
 
