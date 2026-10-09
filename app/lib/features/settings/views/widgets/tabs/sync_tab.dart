@@ -78,11 +78,10 @@ class _SyncTabState extends ConsumerState<SyncTab> {
         await syncService.pullSync(passphrase);
         setState(() => _success = 'Successfully downloaded and restored keys.');
       }
-      
+
       // Save it securely after successful sync
       final storage = ref.read(apiKeyStorageProvider);
       await storage.saveValue('sync_passphrase', passphrase);
-      
     } catch (e) {
       setState(() {
         if (e.toString().contains('403')) {
@@ -260,7 +259,8 @@ class _SyncTabState extends ConsumerState<SyncTab> {
         const SizedBox(height: 4),
         Text(
           label,
-          style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.bold),
+          style: TextStyle(
+              color: color, fontSize: 11, fontWeight: FontWeight.bold),
         ),
       ],
     );
@@ -275,7 +275,8 @@ class _SyncTabState extends ConsumerState<SyncTab> {
     return SizedBox(
       width: fullWidth ? double.infinity : null,
       child: Tooltip(
-        message: isPushDisabled ? 'Passphrase must be Good or Strong to push.' : '',
+        message:
+            isPushDisabled ? 'Passphrase must be Good or Strong to push.' : '',
         child: ElevatedButton(
           onPressed: isDisabled ? null : () => _handleSync(isPush: isPush),
           style: ElevatedButton.styleFrom(
