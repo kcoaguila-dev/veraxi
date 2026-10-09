@@ -23,6 +23,7 @@ class AuthRepository {
     await _supabase.auth.signInWithOAuth(
       provider,
       redirectTo: kIsWeb ? null : 'veraxi://login-callback',
+      authScreenLaunchMode: LaunchMode.externalApplication,
     );
   }
 
