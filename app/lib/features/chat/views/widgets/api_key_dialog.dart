@@ -147,11 +147,15 @@ class _ApiKeyDialogState extends ConsumerState<ApiKeyDialog> {
                     children: [
                       if (widget.providerName.toLowerCase() != 'local') ...[
                         Text(
-                          'Your key will never expire',
+                          _expiresIn == 'never'
+                              ? 'Your key will never expire'
+                              : 'Your key will expire ${_expiresIn.toLowerCase()}',
                           style: TextStyle(
-                              color: Color(0xFFEF4444),
+                              color: _expiresIn == 'never'
+                                  ? const Color(0xFFEF4444)
+                                  : const Color(0xFFF59E0B),
                               fontSize: 12,
-                              fontWeight: FontWeight.w500), // Tailwind Red 500
+                              fontWeight: FontWeight.w500),
                         ),
                         SizedBox(height: 12),
 
