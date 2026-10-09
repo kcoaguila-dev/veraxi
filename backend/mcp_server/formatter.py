@@ -1,4 +1,4 @@
-from langchain_community.chat_models import ChatLiteLLM
+from langchain_litellm import ChatLiteLLM
 import re
 from collections.abc import Sequence
 from typing import Any
