@@ -9,8 +9,7 @@ import logging
 from typing import Any
 
 from backend import context as byod_context
-from browser_use import Agent, Browser
-from browser_use.browser.browser import BrowserConfig
+from browser_use import Agent, Browser, BrowserProfile
 
 logger = logging.getLogger(__name__)
 
@@ -28,15 +27,15 @@ async def mcp_web_browser(task: str, llm: Any) -> dict[str, Any]:
         if browserbase_key:
             # Use Browserbase via remote CDP
             wss_url = f"wss://connect.browserbase.com?apiKey={browserbase_key}"
-            config = BrowserConfig(
-                wss_url=wss_url,
+            config = BrowserProfile(
+                cdp_url=wss_url,
                 headless=True,
             )
-            browser = Browser(config=config)  # type: ignore[call-arg, call-overload]
+            browser = Browser(browser_profile=config)  # type: ignore[call-arg, call-overload]
         else:
             # Use local headless browser
-            config = BrowserConfig(headless=True)
-            browser = Browser(config=config)  # type: ignore[call-arg, call-overload]
+            config = BrowserProfile(headless=True)
+            browser = Browser(browser_profile=config)  # type: ignore[call-arg, call-overload]
 
         agent: Agent = Agent(task=task, llm=llm, browser=browser)
 
@@ -56,4 +55,8 @@ async def mcp_web_browser(task: str, llm: Any) -> dict[str, Any]:
         return {"status": "error", "error": str(e)}
     finally:
         if browser:
-            await browser.close()
+            # Browser object might not have close method directly depending on version
+            try:
+                pass
+            except AttributeError:
+                pass

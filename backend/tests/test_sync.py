@@ -40,10 +40,7 @@ def _mock_supabase(is_subscribed: bool = True) -> MagicMock:
     """Return a Supabase mock wired for the premium-check query."""
     sb = MagicMock()
     (
-        sb.table.return_value
-        .select.return_value
-        .eq.return_value
-        .execute.return_value
+        sb.table.return_value.select.return_value.eq.return_value.execute.return_value
     ) = MagicMock(data=[{"is_subscribed": is_subscribed}])
     return sb
 
@@ -87,7 +84,9 @@ class TestPutByod:
             patch("backend.routes.sync._require_supabase", return_value=sb),
             patch(
                 "backend.routes.sync._require_premium",
-                side_effect=HTTPException(status_code=403, detail="Sync is a premium feature."),
+                side_effect=HTTPException(
+                    status_code=403, detail="Sync is a premium feature."
+                ),
             ),
         ):
             resp = client.put("/api/sync/byod", json=payload)
@@ -149,7 +148,9 @@ class TestGetByod:
             patch("backend.routes.sync._require_supabase", return_value=sb),
             patch(
                 "backend.routes.sync._require_premium",
-                side_effect=HTTPException(status_code=403, detail="Sync is a premium feature."),
+                side_effect=HTTPException(
+                    status_code=403, detail="Sync is a premium feature."
+                ),
             ),
         ):
             resp = client.get("/api/sync/byod")
@@ -160,8 +161,8 @@ class TestGetByod:
         """Premium user who has never pushed gets 404."""
         sb = _mock_supabase()
         # user_sync_data query returns empty list
-        sb.table.return_value.select.return_value.eq.return_value.execute.return_value = (
-            MagicMock(data=[])
+        sb.table.return_value.select.return_value.eq.return_value.execute.return_value = MagicMock(
+            data=[]
         )
 
         with (
@@ -175,8 +176,8 @@ class TestGetByod:
     def test_200_returns_blob_and_salt(self, client):
         """Premium user with stored data receives encrypted blob + salt."""
         sb = _mock_supabase()
-        sb.table.return_value.select.return_value.eq.return_value.execute.return_value = (
-            MagicMock(data=[{"encrypted_blob": "enc", "salt": "slt"}])
+        sb.table.return_value.select.return_value.eq.return_value.execute.return_value = MagicMock(
+            data=[{"encrypted_blob": "enc", "salt": "slt"}]
         )
 
         with (

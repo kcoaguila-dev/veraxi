@@ -289,7 +289,9 @@ def register_chat_routes(
             app = workflow.compile(checkpointer=memory)
             for thread in payload.threads:
                 thread_key = f"tenant:{tenant_id}:threads"
-                if await request.app.state.redis.sismember(thread_key, thread.thread_id):
+                if await request.app.state.redis.sismember(
+                    thread_key, thread.thread_id
+                ):
                     skipped_count += 1
                     continue
 
@@ -366,6 +368,7 @@ def register_chat_routes(
 
         # Override the base_url if a local model is chosen and a local url is provided
         from backend.routes.admin import _models_cache
+
         local_url_header = request.headers.get("x-byod-local-url")
         if local_url_header and chat_request.model in _models_cache.get("Local", []):
             chat_request.base_url = local_url_header
@@ -451,16 +454,13 @@ def register_chat_routes(
         except TimeoutError as e:
             sentry_sdk.capture_exception(e)
             logger.exception("Timeout error processing question")
-            raise HTTPException(
-                status_code=504,
-                detail=f"Request timeout: {e!s}"
-            )
+            raise HTTPException(status_code=504, detail=f"Request timeout: {e!s}")
         except Exception as e:
             sentry_sdk.capture_exception(e)
             logger.exception("Error processing question")
             raise HTTPException(
                 status_code=500,
-                detail=f"Internal server error: {type(e).__name__}: {e!s}"
+                detail=f"Internal server error: {type(e).__name__}: {e!s}",
             )
 
     @app_router.get("/api/chat/threads")
@@ -501,7 +501,7 @@ def register_chat_routes(
             logger.exception("Error listing threads")
             raise HTTPException(
                 status_code=500,
-                detail=f"Internal server error: {type(e).__name__}: {e!s}"
+                detail=f"Internal server error: {type(e).__name__}: {e!s}",
             )
 
     @app_router.get("/api/chat/threads/{thread_id}")
@@ -522,6 +522,7 @@ def register_chat_routes(
                 )
 
             from backend.config import get_config as _get_config
+
             config_obj = _get_config()
 
             if not config_obj.postgres_url:
@@ -561,7 +562,7 @@ def register_chat_routes(
             logger.exception(f"Error fetching thread {thread_id}")
             raise HTTPException(
                 status_code=500,
-                detail=f"Internal server error: {type(e).__name__}: {e!s}"
+                detail=f"Internal server error: {type(e).__name__}: {e!s}",
             )
 
     @app_router.post("/api/chat/threads/{thread_id}/share")
@@ -569,7 +570,9 @@ def register_chat_routes(
         thread_id: str, request: Request, tenant_id: str = Depends(get_tenant_id)
     ):
         if tenant_id == "local_guest":
-            raise HTTPException(status_code=501, detail="Sharing not supported in stateless mode")
+            raise HTTPException(
+                status_code=501, detail="Sharing not supported in stateless mode"
+            )
 
         is_owner = await request.app.state.redis.sismember(
             f"tenant:{tenant_id}:threads", thread_id
@@ -579,9 +582,11 @@ def register_chat_routes(
         try:
             messages_out = []
             from backend.config import get_config as _get_config
+
             config_obj = _get_config()
             if config_obj.postgres_url:
                 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+
                 async with AsyncPostgresSaver.from_conn_string(
                     config_obj.postgres_url
                 ) as memory:
@@ -612,7 +617,7 @@ def register_chat_routes(
             logger.exception("Error sharing thread")
             raise HTTPException(
                 status_code=500,
-                detail=f"Internal server error: {type(e).__name__}: {e!s}"
+                detail=f"Internal server error: {type(e).__name__}: {e!s}",
             )
 
     @app_router.get("/share/{share_id}")
@@ -651,7 +656,7 @@ def register_chat_routes(
             logger.exception("Error")
             raise HTTPException(
                 status_code=500,
-                detail=f"Internal server error: {type(e).__name__}: {e!s}"
+                detail=f"Internal server error: {type(e).__name__}: {e!s}",
             )
 
     @app_router.post("/api/chat/messages/{message_id}/feedback")
@@ -676,7 +681,7 @@ def register_chat_routes(
             logger.exception("Error")
             raise HTTPException(
                 status_code=500,
-                detail=f"Internal server error: {type(e).__name__}: {e!s}"
+                detail=f"Internal server error: {type(e).__name__}: {e!s}",
             )
 
     @app_router.put("/api/chat/messages/{message_id}")
@@ -728,7 +733,7 @@ def register_chat_routes(
             logger.exception("Error")
             raise HTTPException(
                 status_code=500,
-                detail=f"Internal server error: {type(e).__name__}: {e!s}"
+                detail=f"Internal server error: {type(e).__name__}: {e!s}",
             )
 
     @app_router.post("/api/chat/threads/{thread_id}/regenerate")
@@ -834,10 +839,12 @@ def register_chat_routes(
 
         try:
             from backend.config import get_config as _get_config
+
             config_obj = _get_config()
 
             if config_obj.postgres_url:
                 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+
                 async with AsyncPostgresSaver.from_conn_string(
                     config_obj.postgres_url
                 ) as memory:

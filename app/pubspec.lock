@@ -1256,10 +1256,10 @@ packages:
     dependency: transitive
     description:
       name: storage_client
-      sha256: b16aaaadcef812fda31fca056f50fb3485afe64f94e5d537d30f485ed55dec5e
+      sha256: b951281b8e2b293460f0e6cc4e866f2546681390f0e37d24fbbd7b4a0deb27a3
       url: "https://pub.dev"
     source: hosted
-    version: "2.8.0"
+    version: "2.8.1"
   stream_channel:
     dependency: transitive
     description:
@@ -1288,10 +1288,10 @@ packages:
     dependency: transitive
     description:
       name: supabase
-      sha256: "0645becf76f49d2633d8ec9bfd78ab98dce42de6899da8fa1f069c2c836d5d23"
+      sha256: "3662449640972335e50d075a1fceb000b9217e403564305d129a4d287ff4b4c9"
       url: "https://pub.dev"
     source: hosted
-    version: "2.16.1"
+    version: "2.16.2"
   supabase_common:
     dependency: transitive
     description:
@@ -1304,10 +1304,10 @@ packages:
     dependency: "direct main"
     description:
       name: supabase_flutter
-      sha256: "26eb3d3b71bcc5651551e64d6b131ba929ea261998570bbcc90356b1b42fd532"
+      sha256: "9698f61e83907b939fd6ee6bbf833d8456541e29cb38e9c08e52ebf88fa9faf4"
       url: "https://pub.dev"
     source: hosted
-    version: "2.17.2"
+    version: "2.18.0"
   sync_http:
     dependency: transitive
     description:
@@ -1360,10 +1360,10 @@ packages:
     dependency: "direct main"
     description:
       name: url_launcher
-      sha256: f6a7e5c4835bb4e3026a04793a4199ca2d14c739ec378fdfe23fc8075d0439f8
+      sha256: e8cc955c97e06df9879140a1fe301f3d493f01b7c62dec7f46834be31d7e9fda
       url: "https://pub.dev"
     source: hosted
-    version: "6.3.2"
+    version: "6.3.3"
   url_launcher_android:
     dependency: transitive
     description:
@@ -1590,4 +1590,4 @@ packages:
     version: "2.1.1"
 sdks:
   dart: ">=3.11.0 <4.0.0"
-  flutter: ">=3.38.4"
+  flutter: ">=3.41.0"
