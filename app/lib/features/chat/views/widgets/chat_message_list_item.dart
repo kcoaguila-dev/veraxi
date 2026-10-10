@@ -421,7 +421,9 @@ class ChatMessageListItem extends ConsumerWidget {
 
   Widget _providerDotFor(String model, {double size = 14}) {
     String? assetPath;
-    if (model.startsWith('gemini')) {
+    if (model.endsWith('.gguf')) {
+      assetPath = 'assets/icons/local.svg';
+    } else if (model.startsWith('gemini')) {
       assetPath = 'assets/icons/google.svg';
     } else if (model.startsWith('gpt') ||
         model.startsWith('o1') ||

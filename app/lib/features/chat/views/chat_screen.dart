@@ -236,8 +236,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                         Positioned(
                           top: 12,
                           left: isMobile ? 56 : 16,
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.center,
+                          right: 16,
+                          child: Wrap(
+                            alignment: WrapAlignment.spaceBetween,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            spacing: 12,
+                            runSpacing: 8,
                             children: [
                               ModelSelectorMenu(
                                 selectedModel: _selectedModel,
@@ -290,7 +294,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                 ),
                               ),
                               // Metrics toggle — flush next to the model pill
-                              const SizedBox(width: 12),
                               Tooltip(
                                 message: state.showTelemetry
                                     ? 'Metrics (On)'
