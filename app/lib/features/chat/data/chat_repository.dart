@@ -295,7 +295,7 @@ class CloudChatRepository implements IChatRepository {
           }
         }
       }
-    } catch (e, stackTrace) {
+    } catch (e) {
       debugPrint('[ChatRepository] streamSyncEvents error: $e');
       // Do not rethrow, let the UI handle reconnection if needed
     }
