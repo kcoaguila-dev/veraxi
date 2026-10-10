@@ -20,7 +20,10 @@ import 'package:veraxi_app/core/repositories/memory_repository.dart';
 
 class MockAuthRepository extends Mock implements AuthRepository {}
 
-class MockChatRepository extends Mock implements IChatRepository {}
+class MockChatRepository extends Mock implements IChatRepository {
+  @override
+  Stream<Map<String, dynamic>> streamSyncEvents() => const Stream.empty();
+}
 
 class MockModelConfigRepository extends Mock implements ModelConfigRepository {}
 
