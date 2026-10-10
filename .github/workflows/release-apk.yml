@@ -46,7 +46,9 @@ jobs:
         run: yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "ndk;28.0.12433566" || true
 
       - name: Configure CMake for Android
-        run: echo "cmake.dir=$(dirname $(dirname $(which cmake)))" >> ./app/android/local.properties
+        run: |
+          mkdir -p $ANDROID_HOME/cmake/3.31.0
+          cp -r $(dirname $(dirname $(which cmake)))/* $ANDROID_HOME/cmake/3.31.0/
 
       - name: Build APK
         working-directory: ./app
