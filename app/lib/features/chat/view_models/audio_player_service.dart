@@ -17,6 +17,7 @@ class AudioPlayerState {
   final double speed;
   final bool isLoading;
   final String? errorMessage;
+  final String? playingVoiceSignature;
 
   AudioPlayerState({
     this.isPlaying = false,
@@ -27,6 +28,7 @@ class AudioPlayerState {
     this.speed = 1.0,
     this.isLoading = false,
     this.errorMessage,
+    this.playingVoiceSignature,
   });
 
   AudioPlayerState copyWith({
@@ -38,6 +40,7 @@ class AudioPlayerState {
     double? speed,
     bool? isLoading,
     String? errorMessage,
+    String? playingVoiceSignature,
   }) {
     return AudioPlayerState(
       isPlaying: isPlaying ?? this.isPlaying,
@@ -48,6 +51,8 @@ class AudioPlayerState {
       speed: speed ?? this.speed,
       isLoading: isLoading ?? this.isLoading,
       errorMessage: errorMessage ?? this.errorMessage,
+      playingVoiceSignature:
+          playingVoiceSignature ?? this.playingVoiceSignature,
     );
   }
 
@@ -61,6 +66,7 @@ class AudioPlayerState {
       speed: speed,
       isLoading: isLoading,
       errorMessage: null,
+      playingVoiceSignature: playingVoiceSignature,
     );
   }
 }
@@ -100,7 +106,22 @@ class AudioPlayerService extends StateNotifier<AudioPlayerState> {
   }
 
   Future<void> playMessage(String messageId, String text) async {
-    if (state.playingMessageId == messageId) {
+    final engine = await _ttsSettingsStorage.getEngine() ?? 'Browser';
+
+    String currentSignature = engine;
+    if (engine == 'Fish Audio') {
+      final fishModel =
+          await _ttsSettingsStorage.getFishAudioModel() ?? 's2.1-pro';
+      final fishRefId =
+          await _ttsSettingsStorage.getFishAudioReferenceId() ?? '';
+      currentSignature = '$engine-$fishModel-$fishRefId';
+    } else if (engine == 'GPT-SoVITS') {
+      final voiceId = await _ttsSettingsStorage.getVoiceId() ?? 'default';
+      currentSignature = '$engine-$voiceId';
+    }
+
+    if (state.playingMessageId == messageId &&
+        state.playingVoiceSignature == currentSignature) {
       if (state.isLoading)
         return; // Ignore click if already loading this message
       if (state.isPlaying) {
@@ -111,9 +132,7 @@ class AudioPlayerService extends StateNotifier<AudioPlayerState> {
       return;
     }
 
-    if (state.playingMessageId != messageId) {
-      await _player.stop();
-    }
+    await _player.stop();
 
     state = state.copyWith(
         playingMessageId: messageId,
@@ -121,7 +140,8 @@ class AudioPlayerService extends StateNotifier<AudioPlayerState> {
         isLoading: true,
         errorMessage: null, // Clear any previous errors
         position: Duration.zero,
-        duration: Duration.zero);
+        duration: Duration.zero,
+        playingVoiceSignature: currentSignature);
 
     try {
       final engine = await _ttsSettingsStorage.getEngine() ?? 'Browser';
@@ -167,7 +187,9 @@ class AudioPlayerService extends StateNotifier<AudioPlayerState> {
       } else {
         // Save to temp file on mobile
         final tempDir = await getTemporaryDirectory();
-        final file = File('${tempDir.path}/$messageId.wav');
+        final safeSignature =
+            currentSignature.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_');
+        final file = File('${tempDir.path}/${messageId}_$safeSignature.wav');
         await file.writeAsBytes(bytes);
         await _player.setFilePath(file.path);
       }

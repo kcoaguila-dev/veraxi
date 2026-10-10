@@ -94,6 +94,7 @@ class TTSRepository {
 
     final payload = {
       'text': text,
+      'model': model,
     };
     if (referenceId.isNotEmpty) {
       payload['reference_id'] = referenceId;
