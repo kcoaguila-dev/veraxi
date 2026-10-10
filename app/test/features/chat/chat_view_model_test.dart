@@ -6,7 +6,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:veraxi_app/features/chat/data/chat_repository.dart';
 import 'package:veraxi_app/features/chat/view_models/chat_view_model.dart';
 
-class MockChatRepository extends Mock implements IChatRepository {}
+class MockChatRepository extends Mock implements IChatRepository {
+  @override
+  Stream<Map<String, dynamic>> streamSyncEvents() => const Stream.empty();
+}
 
 class MockRef extends Mock implements Ref {}
 
