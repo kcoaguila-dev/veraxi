@@ -11,6 +11,7 @@ import 'package:veraxi_app/core/network/api_client.dart';
 import 'package:veraxi_app/core/api_key_storage.dart';
 
 import 'package:veraxi_app/features/chat/data/local_chat_repository.dart';
+import 'package:veraxi_app/features/chat/data/local_chat_data_source.dart';
 import 'package:veraxi_app/features/auth/view_models/auth_view_model.dart';
 
 final chatRepositoryProvider = Provider<IChatRepository>((ref) {
@@ -110,6 +111,8 @@ class CloudChatRepository implements IChatRepository {
     if (model.startsWith('claude')) return 'anthropic';
     if (model.startsWith('deepseek')) return 'deepseek';
     if (model.startsWith('moonshot')) return 'kimi';
+    if (model.endsWith('.gguf')) return 'local';
+    if (model.contains(':')) return 'ollama';
     if (model.startsWith('llama') ||
         model.startsWith('qwen') ||
         model.startsWith('allam') ||
@@ -127,6 +130,12 @@ class CloudChatRepository implements IChatRepository {
       String? model,
       bool calculateGrounding = true,
       Map<String, dynamic>? toolSettings}) async* {
+    if (model != null && model.endsWith('.gguf')) {
+      final localDataSource = LocalChatDataSource.forModel();
+      yield* localDataSource.streamChat(question, model);
+      return;
+    }
+
     try {
       final uri = Uri.parse('${apiClient.baseUrl}/chat');
       final headers = await apiClient.getDefaultHeaders();

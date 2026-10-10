@@ -14,6 +14,7 @@ import 'package:veraxi_app/core/network/tts_repository.dart';
 import 'package:veraxi_app/features/chat/data/chat_repository.dart';
 import 'package:veraxi_app/features/chat/data/local_chat_migration_service.dart';
 import 'package:veraxi_app/core/repositories/memory_repository.dart';
+import 'package:veraxi_app/features/chat/view_models/model_download_provider.dart';
 
 class ToolEvent {
   final String id;
@@ -190,6 +191,9 @@ final chatViewModelProvider =
 });
 
 final providerModelsProvider = Provider<Map<String, List<String>>>((ref) {
+  final localModelsAsync = ref.watch(localGgufModelsProvider);
+  final localModels = localModelsAsync.valueOrNull ?? [];
+
   return {
     'openai': [
       'gpt-5.5',
@@ -323,7 +327,7 @@ final providerModelsProvider = Provider<Map<String, List<String>>>((ref) {
       'openai/gpt-oss-120b',
       'qwen/qwen3.6-27b'
     ],
-    'local': [],
+    'local': localModels,
   };
 });
 
@@ -589,6 +593,8 @@ class ChatViewModel extends StateNotifier<ChatState> {
       if (m.startsWith('claude')) return 'anthropic';
       if (m.startsWith('mistral')) return 'mistral';
       if (m.startsWith('deepseek')) return 'deepseek';
+      if (m.endsWith('.gguf')) return 'local';
+      if (m.contains(':')) return 'ollama';
       if (m.startsWith('llama') ||
           m.startsWith('qwen') ||
           m.startsWith('allam') ||
@@ -697,6 +703,7 @@ class ChatViewModel extends StateNotifier<ChatState> {
         )) {
           _handleStreamEvent(event);
         }
+        _updateLastMessage(isStreaming: false);
         state = state.copyWith(isLoading: false);
         success = true;
       } catch (e, st) {

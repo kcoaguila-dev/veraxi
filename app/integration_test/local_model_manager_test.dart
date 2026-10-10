@@ -11,6 +11,8 @@ void main() async {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
   testWidgets('Local Model Manager Test', (WidgetTester tester) async {
+    String? selectedModelFromCallback;
+
     // 1. Pump the ModelSelectorMenu inside a MaterialApp with ProviderScope
     await tester.pumpWidget(
       ProviderScope(
@@ -19,7 +21,7 @@ void main() async {
                 'Local': ['Llama 3.2 1B (curated)'],
                 'Ollama': ['llama3.1:8b'],
               }),
-          localGgufModelsProvider.overrideWith((ref) => []),
+          localGgufModelsProvider.overrideWith((ref) => ['llama-3.2-1b-instruct-q8_0.gguf']),
         ],
         child: MaterialApp(
           theme: AppTheme.darkTheme,
@@ -27,7 +29,9 @@ void main() async {
             body: Center(
               child: ModelSelectorMenu(
                 selectedModel: 'gpt-4o',
-                onModelSelected: (model) {},
+                onModelSelected: (model) {
+                  selectedModelFromCallback = model;
+                },
                 pinnedModels: const [],
                 child: const Text("Tap me"),
               ),
@@ -73,5 +77,25 @@ void main() async {
     // 8. Verify the presence of Llama 3.2 1B curated option
     final llama1B = find.text('Llama 3.2 1B');
     expect(llama1B, findsOneWidget);
+
+    // 10. Tap the Select button next to the downloaded model
+    // The Select button is in the same Row as the model name
+    final selectButton = find.descendant(
+      of: find.ancestor(
+        of: llama1B,
+        matching: find.byType(Row),
+      ),
+      matching: find.text('Select'),
+    );
+    expect(selectButton, findsOneWidget);
+    await tester.tap(selectButton);
+    await tester.pumpAndSettle();
+
+    // 11. Tap Save
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+
+    // 12. Verify onModelSelected was called with the model name
+    expect(selectedModelFromCallback, 'llama-3.2-1b-instruct-q8_0.gguf');
   });
 }

@@ -46,12 +46,17 @@ class LocalChatDataSource {
 
     await _llmEngine.loadModel(modelPath);
 
-    // 1. Embed user question
-    final queryVector = _embeddingEngine.getEmbedding(question);
+    String contextText = '';
+    try {
+      // 1. Embed user question
+      final queryVector = _embeddingEngine.getEmbedding(question);
 
-    // 2. Search for relevant context
-    final results = _vectorDb.searchSimilar(queryVector);
-    final contextText = results.map((r) => r.text).join('\n\n');
+      // 2. Search for relevant context
+      final results = _vectorDb.searchSimilar(queryVector);
+      contextText = results.map((r) => r.text).join('\n\n');
+    } catch (_) {
+      // Ignore if embedding model isn't loaded (e.g., local model testing)
+    }
 
     // 3. Augment the prompt
     final prompt = '''

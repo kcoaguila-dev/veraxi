@@ -23,9 +23,13 @@ class LocalLlmEngine {
 
     StreamSubscription? sub;
     sub = Fllama.instance()?.onTokenStream?.listen((event) {
-      if (event['contextId'] == _contextId) {
-        final token = event['token'] as String?;
-        if (token != null) controller.add(token);
+      final ctxIdStr = event['contextId']?.toString();
+      if (ctxIdStr == _contextId?.toString()) {
+        final result = event['result'];
+        if (result is Map) {
+          final token = result['token'] as String?;
+          if (token != null) controller.add(token);
+        }
       }
     }, onDone: () {
       controller.close();
