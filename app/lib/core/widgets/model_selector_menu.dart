@@ -478,7 +478,8 @@ class _ModelSelectorMenuState extends ConsumerState<ModelSelectorMenu> {
                                                   ApiKeyDialog(
                                                       providerName:
                                                           providerEntry.key,
-                                                      onModelSaved: widget.onModelSelected),
+                                                      onModelSaved: widget
+                                                          .onModelSelected),
                                             );
                                           },
                                         )

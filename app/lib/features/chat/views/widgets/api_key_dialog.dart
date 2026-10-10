@@ -10,7 +10,8 @@ class ApiKeyDialog extends ConsumerStatefulWidget {
   final String providerName;
   final ValueChanged<String>? onModelSaved;
 
-  const ApiKeyDialog({super.key, required this.providerName, this.onModelSaved});
+  const ApiKeyDialog(
+      {super.key, required this.providerName, this.onModelSaved});
 
   @override
   ConsumerState<ApiKeyDialog> createState() => _ApiKeyDialogState();
@@ -421,9 +422,11 @@ class _ApiKeyDialogState extends ConsumerState<ApiKeyDialog> {
                         SizedBox(height: 16),
                         Builder(builder: (context) {
                           final dlState = ref.watch(modelDownloadProvider);
-                          final localModelsAsync = ref.watch(localGgufModelsProvider);
-                          final localModels = localModelsAsync.valueOrNull ?? [];
-                          
+                          final localModelsAsync =
+                              ref.watch(localGgufModelsProvider);
+                          final localModels =
+                              localModelsAsync.valueOrNull ?? [];
+
                           if (dlState.isDownloading) {
                             return Container(
                               padding: const EdgeInsets.all(16),
@@ -482,28 +485,32 @@ class _ApiKeyDialogState extends ConsumerState<ApiKeyDialog> {
                                       'Meta • 1.3 GB',
                                       'https://huggingface.co/hugging-quants/Llama-3.2-1B-Instruct-Q8_0-GGUF/resolve/main/llama-3.2-1b-instruct-q8_0.gguf',
                                       'llama-3.2-1b-instruct-q8_0.gguf',
-                                      isDownloaded: localModels.contains('llama-3.2-1b-instruct-q8_0.gguf'),
+                                      isDownloaded: localModels.contains(
+                                          'llama-3.2-1b-instruct-q8_0.gguf'),
                                     ),
                                     _buildModelCard(
                                       'Llama 3.1 8B',
                                       'Meta • 4.7 GB',
                                       'https://huggingface.co/QuantFactory/Meta-Llama-3-8B-Instruct-GGUF/resolve/main/Meta-Llama-3-8B-Instruct.Q4_K_M.gguf',
                                       'llama-3.1-8b-instruct-q4_k_m.gguf',
-                                      isDownloaded: localModels.contains('llama-3.1-8b-instruct-q4_k_m.gguf'),
+                                      isDownloaded: localModels.contains(
+                                          'llama-3.1-8b-instruct-q4_k_m.gguf'),
                                     ),
                                     _buildModelCard(
                                       'Phi-3 Mini 4K',
                                       'Microsoft • 2.4 GB',
                                       'https://huggingface.co/microsoft/Phi-3-mini-4k-instruct-gguf/resolve/main/Phi-3-mini-4k-instruct-q4.gguf',
                                       'phi-3-mini-4k-instruct-q4.gguf',
-                                      isDownloaded: localModels.contains('phi-3-mini-4k-instruct-q4.gguf'),
+                                      isDownloaded: localModels.contains(
+                                          'phi-3-mini-4k-instruct-q4.gguf'),
                                     ),
                                     _buildModelCard(
                                       'Gemma-2 2B',
                                       'Google • 1.6 GB',
                                       'https://huggingface.co/bartowski/gemma-2-2b-it-GGUF/resolve/main/gemma-2-2b-it-Q4_K_M.gguf',
                                       'gemma-2-2b-it-q4_k_m.gguf',
-                                      isDownloaded: localModels.contains('gemma-2-2b-it-q4_k_m.gguf'),
+                                      isDownloaded: localModels.contains(
+                                          'gemma-2-2b-it-q4_k_m.gguf'),
                                     ),
                                     _buildModelCard(
                                       'Pixtral 12B',
@@ -511,7 +518,8 @@ class _ApiKeyDialogState extends ConsumerState<ApiKeyDialog> {
                                       'https://huggingface.co/bartowski/Pixtral-12B-2409-GGUF/resolve/main/Pixtral-12B-2409-Q4_K_M.gguf',
                                       'pixtral-12b-2409-q4_k_m.gguf',
                                       isVision: true,
-                                      isDownloaded: localModels.contains('pixtral-12b-2409-q4_k_m.gguf'),
+                                      isDownloaded: localModels.contains(
+                                          'pixtral-12b-2409-q4_k_m.gguf'),
                                     ),
                                   ],
                                 ),
@@ -561,14 +569,19 @@ class _ApiKeyDialogState extends ConsumerState<ApiKeyDialog> {
                                         }
                                       },
                                       style: ElevatedButton.styleFrom(
-                                        backgroundColor: Theme.of(context).colorScheme.secondary,
+                                        backgroundColor: Theme.of(context)
+                                            .colorScheme
+                                            .secondary,
                                         foregroundColor: Colors.white,
                                         shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(6),
+                                          borderRadius:
+                                              BorderRadius.circular(6),
                                         ),
                                         elevation: 0,
                                       ),
-                                      child: Text('Pull', style: TextStyle(fontWeight: FontWeight.w600)),
+                                      child: Text('Pull',
+                                          style: TextStyle(
+                                              fontWeight: FontWeight.w600)),
                                     )
                                   ],
                                 ),
@@ -800,7 +813,8 @@ class _ApiKeyDialogState extends ConsumerState<ApiKeyDialog> {
                             'local_base_url', _baseUrlController.text);
                         await ApiKeyStorage().saveValue(
                             'local_model_name', _modelNameController.text);
-                        if (_modelNameController.text.isNotEmpty && widget.onModelSaved != null) {
+                        if (_modelNameController.text.isNotEmpty &&
+                            widget.onModelSaved != null) {
                           widget.onModelSaved!(_modelNameController.text);
                         }
                       }
@@ -893,7 +907,8 @@ class _ApiKeyDialogState extends ConsumerState<ApiKeyDialog> {
                   ),
                   child: Text(isVision ? 'Vision' : 'Text-only',
                       style: TextStyle(
-                          color: isVision ? Colors.purple[300] : Colors.blue[300],
+                          color:
+                              isVision ? Colors.purple[300] : Colors.blue[300],
                           fontSize: 10,
                           fontWeight: FontWeight.w600)),
                 ),
@@ -911,7 +926,9 @@ class _ApiKeyDialogState extends ConsumerState<ApiKeyDialog> {
                     }
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: isDownloaded ? Theme.of(context).primaryColor : Theme.of(context).colorScheme.secondary,
+                    backgroundColor: isDownloaded
+                        ? Theme.of(context).primaryColor
+                        : Theme.of(context).colorScheme.secondary,
                     foregroundColor: Colors.white,
                     padding: EdgeInsets.symmetric(horizontal: 12, vertical: 0),
                     shape: RoundedRectangleBorder(
@@ -919,7 +936,9 @@ class _ApiKeyDialogState extends ConsumerState<ApiKeyDialog> {
                     ),
                     elevation: 0,
                   ),
-                  child: Text(isDownloaded ? 'Select' : 'Download', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                  child: Text(isDownloaded ? 'Select' : 'Download',
+                      style:
+                          TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
                 ),
               ),
             ],

@@ -45,7 +45,8 @@ void main() {
     expect(savedKey, 'dummy_gemini_key_123');
   });
 
-  testWidgets('ApiKeyDialog triggers onModelSaved for local provider', (WidgetTester tester) async {
+  testWidgets('ApiKeyDialog triggers onModelSaved for local provider',
+      (WidgetTester tester) async {
     tester.view.physicalSize = const Size(1024, 768);
     tester.view.devicePixelRatio = 1.0;
 
@@ -55,7 +56,8 @@ void main() {
       child: MaterialApp(
         theme: AppTheme.lightTheme,
         home: Scaffold(
-          body: Center(child: ApiKeyDialog(
+          body: Center(
+              child: ApiKeyDialog(
             providerName: 'local',
             onModelSaved: (m) => savedModel = m,
           )),

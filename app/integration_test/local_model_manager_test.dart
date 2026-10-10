@@ -21,7 +21,8 @@ void main() async {
                 'Local': ['Llama 3.2 1B (curated)'],
                 'Ollama': ['llama3.1:8b'],
               }),
-          localGgufModelsProvider.overrideWith((ref) => ['llama-3.2-1b-instruct-q8_0.gguf']),
+          localGgufModelsProvider
+              .overrideWith((ref) => ['llama-3.2-1b-instruct-q8_0.gguf']),
         ],
         child: MaterialApp(
           theme: AppTheme.darkTheme,
