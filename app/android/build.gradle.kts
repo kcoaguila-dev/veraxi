@@ -24,6 +24,14 @@ tasks.register<Delete>("clean") {
 }
 
 subprojects {
+    plugins.withId("com.android.library") {
+        val android = project.extensions.getByType(com.android.build.gradle.LibraryExtension::class.java)
+        android.compileOptions {
+            sourceCompatibility = JavaVersion.VERSION_17
+            targetCompatibility = JavaVersion.VERSION_17
+        }
+    }
+    
     project.tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile::class.java).configureEach {
         compilerOptions {
             jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
