@@ -145940,7 +145940,6 @@ break
 case 4:p=3
 a=o.pop()
 e=A.O(a)
-A.a9(a)
 $.iB.$1("[ChatRepository] streamSyncEvents error: "+A.r(e))
 s=6
 break
