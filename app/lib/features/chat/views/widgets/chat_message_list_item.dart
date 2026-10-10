@@ -248,20 +248,7 @@ class ChatMessageListItem extends ConsumerWidget {
                                                 .playMessage(
                                                     msgId, msg.content);
                                           },
-                                          child: Icon(
-                                              ref
-                                                              .watch(
-                                                                  audioPlayerServiceProvider)
-                                                              .playingMessageId ==
-                                                          (msg.id ??
-                                                              msg.hashCode
-                                                                  .toString()) &&
-                                                      ref
-                                                          .watch(
-                                                              audioPlayerServiceProvider)
-                                                          .isPlaying
-                                                  ? Icons.pause_circle_outline
-                                                  : Icons.volume_up_outlined,
+                                          child: Icon(Icons.volume_up_outlined,
                                               size: 16,
                                               color: theme.colorScheme.onSurface
                                                   .withValues(alpha: 0.5)),

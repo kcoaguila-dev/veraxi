@@ -100,7 +100,8 @@ class AudioPlayerService extends StateNotifier<AudioPlayerState> {
   }
 
   Future<void> playMessage(String messageId, String text) async {
-    if (state.playingMessageId == messageId && !state.isLoading) {
+    if (state.playingMessageId == messageId) {
+      if (state.isLoading) return; // Ignore click if already loading this message
       if (state.isPlaying) {
         await _player.pause();
       } else {
@@ -154,6 +155,11 @@ class AudioPlayerService extends StateNotifier<AudioPlayerState> {
             'Browser TTS selected, cannot play via unified audio player.');
       }
 
+      if (state.playingMessageId != messageId) {
+        // Player was closed or another message started while fetching bytes
+        return;
+      }
+
       if (kIsWeb) {
         await _player.setAudioSource(
             AudioSource.uri(Uri.dataFromBytes(bytes, mimeType: 'audio/wav')));
@@ -166,9 +172,11 @@ class AudioPlayerService extends StateNotifier<AudioPlayerState> {
       }
 
       await _player.setSpeed(state.speed);
-      await _player.play();
-
+      
+      // Update loading state before playing, because play() returns a Future that completes when playback ends
       state = state.copyWith(isLoading: false);
+      
+      await _player.play();
     } catch (e, stackTrace) {
       state = state.copyWith(isLoading: false);
       state = AudioPlayerState(
