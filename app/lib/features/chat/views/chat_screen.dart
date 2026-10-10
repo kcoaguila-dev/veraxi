@@ -238,7 +238,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                           left: isMobile ? 56 : 16,
                           right: 16,
                           child: Wrap(
-                            alignment: WrapAlignment.spaceBetween,
+                            alignment: WrapAlignment.start,
                             crossAxisAlignment: WrapCrossAlignment.center,
                             spacing: 12,
                             runSpacing: 8,
