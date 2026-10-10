@@ -248,8 +248,9 @@ class _ModelSelectorPopupState extends ConsumerState<ModelSelectorPopup> {
                     widget.onClose?.call();
                     showDialog(
                       context: context,
-                      builder: (context) =>
-                          ApiKeyDialog(providerName: provider, onModelSaved: widget.onModelSelected),
+                      builder: (context) => ApiKeyDialog(
+                          providerName: provider,
+                          onModelSaved: widget.onModelSelected),
                     );
                   },
                   child: Tooltip(

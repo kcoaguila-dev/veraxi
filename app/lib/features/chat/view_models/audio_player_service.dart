@@ -101,7 +101,8 @@ class AudioPlayerService extends StateNotifier<AudioPlayerState> {
 
   Future<void> playMessage(String messageId, String text) async {
     if (state.playingMessageId == messageId) {
-      if (state.isLoading) return; // Ignore click if already loading this message
+      if (state.isLoading)
+        return; // Ignore click if already loading this message
       if (state.isPlaying) {
         await _player.pause();
       } else {
@@ -172,10 +173,10 @@ class AudioPlayerService extends StateNotifier<AudioPlayerState> {
       }
 
       await _player.setSpeed(state.speed);
-      
+
       // Update loading state before playing, because play() returns a Future that completes when playback ends
       state = state.copyWith(isLoading: false);
-      
+
       await _player.play();
     } catch (e, stackTrace) {
       state = state.copyWith(isLoading: false);
