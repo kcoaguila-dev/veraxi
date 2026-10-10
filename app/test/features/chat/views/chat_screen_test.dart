@@ -50,7 +50,10 @@ void main() {
   });
 }
 
-class MockChatRepository extends Mock implements IChatRepository {}
+class MockChatRepository extends Mock implements IChatRepository {
+  @override
+  Stream<Map<String, dynamic>> streamSyncEvents() => const Stream.empty();
+}
 
 class MockTTSRepository extends Mock implements TTSRepository {}
 

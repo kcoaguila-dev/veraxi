@@ -251,12 +251,45 @@ async def _stream_events(
         yield "data: [DONE]\n\n"
 
 
+
+async def notify_sync_event(redis_client, tenant_id: str, event_type: str, data: dict = None):
+    if tenant_id == "local_guest":
+        return
+    payload = {"event": event_type, "data": data or {}}
+    try:
+        await redis_client.publish(f"tenant:{tenant_id}:sync_events", json.dumps(payload))
+    except Exception as e:
+        logger.error(f"Failed to publish sync event: {e}")
+
 def register_chat_routes(
     app_router, get_tenant_id, verify_infrastructure_access, limiter, config
 ):
     """Register all chat routes with injected auth dependencies."""
 
     @app_router.post("/api/chat/threads/import")
+
+    @app_router.get("/api/chat/sync")
+    async def chat_sync_stream(request: Request, tenant_id: str = Depends(get_tenant_id)):
+        if tenant_id == "local_guest":
+            return StreamingResponse(iter([]))
+            
+        async def event_generator():
+            pubsub = request.app.state.redis.pubsub()
+            await pubsub.subscribe(f"tenant:{tenant_id}:sync_events")
+            try:
+                async for message in pubsub.listen():
+                    if message["type"] == "message":
+                        data = message["data"].decode("utf-8")
+                        yield f"data: {data}\n\n"
+            except asyncio.CancelledError:
+                pass
+            except Exception as e:
+                logger.error(f"SSE error: {e}")
+            finally:
+                await pubsub.unsubscribe()
+                
+        return StreamingResponse(event_generator(), media_type="text/event-stream")
+
     async def import_threads(
         payload: ImportThreadsRequest,
         request: Request,

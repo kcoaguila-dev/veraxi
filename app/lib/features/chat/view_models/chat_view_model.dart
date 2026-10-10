@@ -338,6 +338,7 @@ class ChatViewModel extends StateNotifier<ChatState> {
   final AudioPlayer _audioPlayer = AudioPlayer();
   DateTime? _currentRequestStartTime;
   StreamSubscription<AuthState>? _authSubscription;
+  StreamSubscription<Map<String, dynamic>>? _syncSubscription;
 
   ChatViewModel(this._repository, this._ttsRepository, this._memoryRepository,
       [this._localChatMigrationService])
@@ -378,6 +379,38 @@ class ChatViewModel extends StateNotifier<ChatState> {
     state = state.copyWith(showTelemetry: savedTelemetry);
     await _migrateLocalChats();
     await loadThreads();
+
+    _syncSubscription?.cancel();
+    _syncSubscription = _repository.streamSyncEvents().listen((event) {
+      final type = event['event'] as String?;
+      final data = event['data'] as Map<String, dynamic>?;
+
+      if (type == 'thread_created' ||
+          type == 'thread_renamed' ||
+          type == 'thread_deleted' ||
+          type == 'thread_updated') {
+        loadThreads();
+      }
+
+      if ((type == 'message_updated' ||
+              type == 'message_added' ||
+              type == 'thread_updated') &&
+          data != null) {
+        final threadId = data['thread_id'] as String?;
+        if (threadId != null &&
+            state.threadId == threadId &&
+            !state.isLoading) {
+          _repository.getThreadHistory(threadId).then((history) {
+            if (state.threadId == threadId && !state.isLoading) {
+              final messages = _parseHistory(history);
+              state = state.copyWith(messages: messages);
+            }
+          }).catchError((e) {
+            debugPrint('Failed to sync thread history: $e');
+          });
+        }
+      }
+    });
   }
 
   Future<void> _migrateLocalChats() async {
@@ -402,6 +435,7 @@ class ChatViewModel extends StateNotifier<ChatState> {
   @override
   void dispose() {
     _authSubscription?.cancel();
+    _syncSubscription?.cancel();
     _audioPlayer.dispose();
     super.dispose();
   }
@@ -417,6 +451,38 @@ class ChatViewModel extends StateNotifier<ChatState> {
     }
   }
 
+  List<ChatMessage> _parseHistory(List<Map<String, dynamic>> history) {
+    return history.map((m) {
+      List<ToolEvent> toolEvents = [];
+      if (m['toolEvents'] != null) {
+        final evts = m['toolEvents'] as List;
+        toolEvents = evts
+            .map((e) => ToolEvent(
+                  id: e['id'] as String? ?? '',
+                  name: e['name'] as String? ?? '',
+                  args: e['args'] is Map
+                      ? Map<String, dynamic>.from(e['args'] as Map)
+                      : {},
+                  result: e['result'],
+                  isComplete: e['isComplete'] as bool? ?? true,
+                ))
+            .toList();
+      }
+
+      return ChatMessage(
+        id: m['id'] as String?,
+        role: m['role'] as String,
+        content: m['content'] as String,
+        feedback: m['feedback'] as int? ?? 0,
+        modelName: m['model_name'] as String?,
+        toolEvents: toolEvents,
+        metrics: m['metrics'] is Map
+            ? Map<String, dynamic>.from(m['metrics'] as Map)
+            : null,
+      );
+    }).toList();
+  }
+
   Future<void> selectThread(String threadId) async {
     state = state.copyWith(
         isLoadingHistory: true,
@@ -426,35 +492,7 @@ class ChatViewModel extends StateNotifier<ChatState> {
         showAllProjectsDashboard: false);
     try {
       final history = await _repository.getThreadHistory(threadId);
-      final messages = history.map((m) {
-        List<ToolEvent> toolEvents = [];
-        if (m['toolEvents'] != null) {
-          final evts = m['toolEvents'] as List;
-          toolEvents = evts
-              .map((e) => ToolEvent(
-                    id: e['id'] as String? ?? '',
-                    name: e['name'] as String? ?? '',
-                    args: e['args'] is Map
-                        ? Map<String, dynamic>.from(e['args'] as Map)
-                        : {},
-                    result: e['result'],
-                    isComplete: e['isComplete'] as bool? ?? true,
-                  ))
-              .toList();
-        }
-
-        return ChatMessage(
-          id: m['id'] as String?,
-          role: m['role'] as String,
-          content: m['content'] as String,
-          feedback: m['feedback'] as int? ?? 0,
-          modelName: m['model_name'] as String?,
-          toolEvents: toolEvents,
-          metrics: m['metrics'] is Map
-              ? Map<String, dynamic>.from(m['metrics'] as Map)
-              : null,
-        );
-      }).toList();
+      final messages = _parseHistory(history);
       state = state.copyWith(messages: messages, isLoadingHistory: false);
     } catch (e, st) {
       Sentry.captureException(e, stackTrace: st);

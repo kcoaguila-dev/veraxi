@@ -57,6 +57,7 @@ abstract class IChatRepository {
   Future<void> deleteAllThreads();
   Future<String> duplicateThread(String threadId);
   Future<String> shareThread(String threadId);
+  Stream<Map<String, dynamic>> streamSyncEvents();
 }
 
 class CloudChatRepository implements IChatRepository {
@@ -262,5 +263,41 @@ class CloudChatRepository implements IChatRepository {
     final response =
         await apiClient.post('/chat/threads/$threadId/share', body: {});
     return response['share_id'] as String;
+  }
+
+  @override
+  Stream<Map<String, dynamic>> streamSyncEvents() async* {
+    try {
+      final uri = Uri.parse('${apiClient.baseUrl}/chat/sync');
+      final headers = await apiClient.getDefaultHeaders();
+      
+      final request = http.Request('GET', uri);
+      request.headers.addAll(headers);
+
+      final response = await apiClient.client.send(request);
+
+      if (response.statusCode != 200) {
+        throw Exception('Sync stream error: ${response.statusCode}');
+      }
+
+      await for (final chunk in response.stream
+          .transform(utf8.decoder)
+          .transform(const LineSplitter())) {
+        if (chunk.isEmpty) continue;
+
+        if (chunk.startsWith('data: ')) {
+          final data = chunk.substring(6);
+          try {
+            final parsed = jsonDecode(data);
+            yield parsed;
+          } catch (e) {
+            continue;
+          }
+        }
+      }
+    } catch (e, stackTrace) {
+      debugPrint('[ChatRepository] streamSyncEvents error: $e');
+      // Do not rethrow, let the UI handle reconnection if needed
+    }
   }
 }

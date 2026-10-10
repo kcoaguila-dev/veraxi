@@ -276,4 +276,11 @@ class LocalChatRepository implements IChatRepository {
   Future<String> shareThread(String threadId) async {
     return "local_share_not_supported";
   }
+
+  @override
+  Stream<Map<String, dynamic>> streamSyncEvents() async* {
+    // Local mode does not support cross-device realtime sync.
+    // We just return an empty stream that never emits.
+    yield* const Stream.empty();
+  }
 }
