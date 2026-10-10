@@ -26,8 +26,8 @@ tasks.register<Delete>("clean") {
 subprojects {
     afterEvaluate {
         project.tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile::class.java).configureEach {
-            kotlinOptions {
-                jvmTarget = "17"
+            compilerOptions {
+                jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
             }
         }
         project.tasks.withType(JavaCompile::class.java).configureEach {
