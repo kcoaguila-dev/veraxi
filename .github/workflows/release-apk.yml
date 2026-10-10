@@ -34,6 +34,9 @@ jobs:
         working-directory: ./app
         run: flutter pub get
 
+      - name: Accept Android Licenses
+        run: yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
+
       - name: Build APK
         working-directory: ./app
         run: flutter build apk --release
