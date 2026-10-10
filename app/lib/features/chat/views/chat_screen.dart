@@ -393,7 +393,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                 begin: Alignment.topCenter,
                                 end: Alignment.bottomCenter,
                                 colors: [
-                                  theme.scaffoldBackgroundColor.withValues(alpha: 0.0),
+                                  theme.scaffoldBackgroundColor
+                                      .withValues(alpha: 0.0),
                                   theme.scaffoldBackgroundColor,
                                 ],
                                 stops: const [0.0, 0.3],
@@ -419,11 +420,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                 decoration: BoxDecoration(
                                   color: const Color(0xFF2A2A2A),
                                   shape: BoxShape.circle,
-                                  border:
-                                      Border.all(color: const Color(0xFF3F3F3F)),
+                                  border: Border.all(
+                                      color: const Color(0xFF3F3F3F)),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: Colors.black.withValues(alpha: 0.2),
+                                      color:
+                                          Colors.black.withValues(alpha: 0.2),
                                       blurRadius: 4,
                                       offset: const Offset(0, 2),
                                     )

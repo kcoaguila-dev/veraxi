@@ -270,7 +270,7 @@ class CloudChatRepository implements IChatRepository {
     try {
       final uri = Uri.parse('${apiClient.baseUrl}/chat/sync');
       final headers = await apiClient.getDefaultHeaders();
-      
+
       final request = http.Request('GET', uri);
       request.headers.addAll(headers);
 

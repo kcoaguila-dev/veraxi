@@ -252,7 +252,7 @@ async def _stream_events(
 
 
 
-async def notify_sync_event(redis_client, tenant_id: str, event_type: str, data: dict = None):
+async def notify_sync_event(redis_client, tenant_id: str, event_type: str, data: dict | None = None):
     if tenant_id == "local_guest":
         return
     payload = {"event": event_type, "data": data or {}}
