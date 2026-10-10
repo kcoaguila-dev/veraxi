@@ -11,7 +11,8 @@ import 'package:veraxi_app/core/network/api_client.dart';
 import 'package:veraxi_app/core/api_key_storage.dart';
 
 import 'package:veraxi_app/features/chat/data/local_chat_repository.dart';
-import 'package:veraxi_app/features/chat/data/local_chat_data_source.dart';
+import 'package:veraxi_app/features/chat/data/local_chat_data_source.dart'
+    if (dart.library.html) 'package:veraxi_app/features/chat/data/local_chat_data_source_web.dart';
 import 'package:veraxi_app/features/auth/view_models/auth_view_model.dart';
 
 final chatRepositoryProvider = Provider<IChatRepository>((ref) {
