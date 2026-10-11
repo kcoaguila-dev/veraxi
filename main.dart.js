@@ -146862,6 +146862,7 @@ case 2:return A.j(o.at(-1),r)}})
 return A.l($async$hn,r)},
 aHn(a){var s=J.bb(a)
 if(B.c.n(s,"Fish Audio API key missing"))return"Missing Fish Audio API Key. Please add it in Settings."
+if(B.c.n(s,"402"))return"Fish Audio credits or free quota exhausted. Please check your balance at fish.audio or switch to the Free model in Speech Settings."
 if(B.c.n(s,"AuthRetryableFetchException")||B.c.n(s,"ERR_NETWORK_CHANGED"))return"Network connection dropped. Please check your internet and try again."
 if(B.c.n(s,"Failed to fetch"))return"Failed to connect to the server. An adblocker might be blocking the request."
 return"An unexpected error occurred while loading audio."},
