@@ -188,22 +188,7 @@ def register_tts_routes(
                     target_url, headers=headers, json=payload, timeout=30.0
                 )
                 if resp.status_code != 200:
-                    if (
-                        resp.status_code == 402
-                        and not fish_speech_url
-                        and headers.get("model") != "s2.1-pro-free"
-                    ):
-                        logger.info(
-                            "Fish Audio returned 402 for model %s; retrying with free tier (s2.1-pro-free)",
-                            model,
-                        )
-                        headers["model"] = "s2.1-pro-free"
-                        resp = await client.post(
-                            target_url, headers=headers, json=payload, timeout=30.0
-                        )
-
-                    if resp.status_code != 200:
-                        raise HTTPException(status_code=resp.status_code, detail=resp.text)
+                    raise HTTPException(status_code=resp.status_code, detail=resp.text)
 
                 audio_bytes = resp.content
 
