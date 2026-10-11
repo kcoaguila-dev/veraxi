@@ -226,6 +226,9 @@ class AudioPlayerService extends StateNotifier<AudioPlayerState> {
     if (str.contains('Fish Audio API key missing')) {
       return 'Missing Fish Audio API Key. Please add it in Settings.';
     }
+    if (str.contains('402')) {
+      return 'Fish Audio credits or free quota exhausted. Please check your balance at fish.audio or switch to the Free model in Speech Settings.';
+    }
     if (str.contains('AuthRetryableFetchException') ||
         str.contains('ERR_NETWORK_CHANGED')) {
       return 'Network connection dropped. Please check your internet and try again.';
