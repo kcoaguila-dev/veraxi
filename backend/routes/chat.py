@@ -266,8 +266,6 @@ def register_chat_routes(
 ):
     """Register all chat routes with injected auth dependencies."""
 
-    @app_router.post("/api/chat/threads/import")
-
     @app_router.get("/api/chat/sync")
     async def chat_sync_stream(request: Request, tenant_id: str = Depends(get_tenant_id)):
         if tenant_id == "local_guest":
@@ -290,6 +288,7 @@ def register_chat_routes(
                 
         return StreamingResponse(event_generator(), media_type="text/event-stream")
 
+    @app_router.post("/api/chat/threads/import")
     async def import_threads(
         payload: ImportThreadsRequest,
         request: Request,

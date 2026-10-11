@@ -43,6 +43,7 @@ infra/.terraform/
 # Local TTS Data
 backend/tts/voices.json
 backend/tts/voices/
+backend/tts/cache/
 
 .deepeval/
 *.patch
