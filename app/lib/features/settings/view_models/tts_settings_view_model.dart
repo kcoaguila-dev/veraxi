@@ -21,6 +21,9 @@ class TTSSettingsState {
   final String fishAudioReferenceId;
   final String fishSpeechUrl;
   final bool isSelfHostedFish;
+  // False until the locally saved settings have been read, so the UI never
+  // flashes the default values (e.g. 'Browser') before the real ones load.
+  final bool isSettingsLoaded;
 
   TTSSettingsState({
     this.isLoading = false,
@@ -34,6 +37,7 @@ class TTSSettingsState {
     this.fishAudioReferenceId = '',
     this.fishSpeechUrl = 'http://localhost:8080',
     this.isSelfHostedFish = false,
+    this.isSettingsLoaded = false,
   });
 
   TTSSettingsState copyWith({
@@ -49,6 +53,7 @@ class TTSSettingsState {
     String? fishAudioReferenceId,
     String? fishSpeechUrl,
     bool? isSelfHostedFish,
+    bool? isSettingsLoaded,
   }) {
     return TTSSettingsState(
       isLoading: isLoading ?? this.isLoading,
@@ -62,6 +67,7 @@ class TTSSettingsState {
       fishAudioReferenceId: fishAudioReferenceId ?? this.fishAudioReferenceId,
       fishSpeechUrl: fishSpeechUrl ?? this.fishSpeechUrl,
       isSelfHostedFish: isSelfHostedFish ?? this.isSelfHostedFish,
+      isSettingsLoaded: isSettingsLoaded ?? this.isSettingsLoaded,
     );
   }
 }
@@ -74,22 +80,32 @@ class TTSSettingsViewModel extends StateNotifier<TTSSettingsState> {
     _init();
   }
 
+  /// Applies the locally saved settings to [state] immediately (no network),
+  /// so the UI reflects the user's real choices before voices are fetched.
+  Future<void> _applySavedSettings() async {
+    state = state.copyWith(
+      selectedVoiceId: await _storage.getVoiceId() ?? 'default_system',
+      selectedEngine: await _storage.getEngine() ?? 'Browser',
+      gptSovitsUrl: await _storage.getGptSovitsUrl() ?? 'http://localhost:9880',
+      fishAudioApiKey: await _storage.getFishAudioApiKey() ?? '',
+      fishAudioModel: await _storage.getFishAudioModel() ?? 's2.1-pro',
+      fishAudioReferenceId: await _storage.getFishAudioReferenceId() ?? '',
+      fishSpeechUrl:
+          await _storage.getFishSpeechUrl() ?? 'http://localhost:8080',
+      isSelfHostedFish: await _storage.getIsSelfHostedFish(),
+      isSettingsLoaded: true,
+    );
+  }
+
   Future<void> _init() async {
     state = state.copyWith(isLoading: true, clearError: true);
     try {
-      final savedVoiceId = await _storage.getVoiceId() ?? 'default_system';
-      final savedEngine = await _storage.getEngine() ?? 'Browser';
-      final savedUrl =
-          await _storage.getGptSovitsUrl() ?? 'http://localhost:9880';
-      final fishKey = await _storage.getFishAudioApiKey() ?? '';
-      final fishModel = await _storage.getFishAudioModel() ?? 's2.1-pro';
-      final fishRefId = await _storage.getFishAudioReferenceId() ?? '';
-      final fishUrl =
-          await _storage.getFishSpeechUrl() ?? 'http://localhost:8080';
-      final isSelfHostedFish = await _storage.getIsSelfHostedFish();
-      final voices = await _repository.getVoices(gptSovitsUrl: savedUrl);
+      await _applySavedSettings();
+      final savedEngine = state.selectedEngine;
+      final voices =
+          await _repository.getVoices(gptSovitsUrl: state.gptSovitsUrl);
 
-      String activeVoiceId = savedVoiceId;
+      String activeVoiceId = state.selectedVoiceId;
       if (savedEngine == 'GPT-SoVITS' && activeVoiceId == 'default_system') {
         final customVoices =
             voices.where((v) => v['id'] != 'default_system').toList();
@@ -103,13 +119,6 @@ class TTSSettingsViewModel extends StateNotifier<TTSSettingsState> {
         isLoading: false,
         voices: voices,
         selectedVoiceId: activeVoiceId,
-        selectedEngine: savedEngine,
-        gptSovitsUrl: savedUrl,
-        fishAudioApiKey: fishKey,
-        fishAudioModel: fishModel,
-        fishAudioReferenceId: fishRefId,
-        fishSpeechUrl: fishUrl,
-        isSelfHostedFish: isSelfHostedFish,
       );
     } catch (e, st) {
       await Sentry.captureException(e, stackTrace: st);
@@ -122,6 +131,7 @@ class TTSSettingsViewModel extends StateNotifier<TTSSettingsState> {
           await _storage.getGptSovitsUrl() ?? 'http://localhost:9880';
       state = state.copyWith(
         isLoading: false,
+        isSettingsLoaded: true,
         error: 'Failed to load voices: $e',
         voices: defaultVoices,
         selectedVoiceId: savedVoiceId,
