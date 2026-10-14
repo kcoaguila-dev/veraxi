@@ -11,13 +11,17 @@ class SpeechSettingsTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final ttsState = ref.watch(ttsSettingsViewModelProvider);
-    final isBrowser = ttsState.selectedEngine == 'Browser';
-    final isFishAudio = ttsState.selectedEngine == 'Fish Audio';
+    final isLoaded = ttsState.isSettingsLoaded;
+    final isBrowser = isLoaded && ttsState.selectedEngine == 'Browser';
+    final isFishAudio = isLoaded && ttsState.selectedEngine == 'Fish Audio';
 
     String voiceDisplay;
     List<String> voiceOptions;
 
-    if (isBrowser) {
+    if (!isLoaded) {
+      voiceDisplay = 'Loading...';
+      voiceOptions = ['Loading...'];
+    } else if (isBrowser) {
       voiceDisplay = 'Default (System)';
       voiceOptions = ['Default (System)'];
     } else if (isFishAudio) {
@@ -59,9 +63,10 @@ class SpeechSettingsTab extends ConsumerWidget {
           SettingsUI.buildRealDropdownRow(
             context,
             'Engine',
-            ttsState.selectedEngine,
-            ['Browser', 'GPT-SoVITS', 'Fish Audio'],
+            isLoaded ? ttsState.selectedEngine : 'Loading...',
+            isLoaded ? ['Browser', 'GPT-SoVITS', 'Fish Audio'] : ['Loading...'],
             (value) {
+              if (!isLoaded) return;
               ref.read(ttsSettingsViewModelProvider.notifier).setEngine(value);
             },
           ),
