@@ -11,6 +11,9 @@ class SpeechSettingsTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final ttsState = ref.watch(ttsSettingsViewModelProvider);
+    // Watched here (not inside the Fish Audio section) so the saved voices
+    // start loading immediately instead of after the engine setting resolves.
+    final savedVoices = ref.watch(savedVoicesProvider);
     final isLoaded = ttsState.isSettingsLoaded;
     final isBrowser = isLoaded && ttsState.selectedEngine == 'Browser';
     final isFishAudio = isLoaded && ttsState.selectedEngine == 'Fish Audio';
@@ -114,16 +117,19 @@ class SpeechSettingsTab extends ConsumerWidget {
               },
             ),
             Consumer(builder: (context, ref, _) {
-              final savedVoices = ref.watch(savedVoicesProvider);
-              return savedVoices.when(
-                data: (voices) {
-                  return Column(
-                    children: [
-                      if (voices.isNotEmpty)
-                        SettingsUI.buildRealDropdownRow(
-                          context,
-                          'Saved Voices',
-                          voices.any((v) =>
+              // Rows stay in the layout while loading so nothing below shifts.
+              final voices = savedVoices.valueOrNull ?? [];
+              final isVoicesLoading =
+                  savedVoices.isLoading && !savedVoices.hasValue;
+              return Column(
+                children: [
+                  if (voices.isNotEmpty || isVoicesLoading)
+                    SettingsUI.buildRealDropdownRow(
+                      context,
+                      'Saved Voices',
+                      isVoicesLoading
+                          ? 'Loading...'
+                          : voices.any((v) =>
                                   v.referenceId ==
                                   ttsState.fishAudioReferenceId)
                               ? voices
@@ -132,16 +138,20 @@ class SpeechSettingsTab extends ConsumerWidget {
                                       ttsState.fishAudioReferenceId)
                                   .name
                               : 'Custom...',
-                          ['Custom...', ...voices.map((v) => v.name)],
-                          (value) {
-                            if (value == 'Custom...') return;
-                            final selected =
-                                voices.firstWhere((v) => v.name == value);
-                            ref
-                                .read(ttsSettingsViewModelProvider.notifier)
-                                .setFishAudioReferenceId(selected.referenceId);
-                          },
-                        ),
+                      isVoicesLoading
+                          ? ['Loading...']
+                          : ['Custom...', ...voices.map((v) => v.name)],
+                      (value) {
+                        if (isVoicesLoading || value == 'Custom...') return;
+                        final selected =
+                            voices.firstWhere((v) => v.name == value);
+                        ref
+                            .read(ttsSettingsViewModelProvider.notifier)
+                            .setFishAudioReferenceId(selected.referenceId);
+                      },
+                    ),
+                  Column(
+                    children: [
                       SettingsUI.buildActionRow(
                         context,
                         'Save Current Voice',
@@ -197,10 +207,8 @@ class SpeechSettingsTab extends ConsumerWidget {
                         },
                       ),
                     ],
-                  );
-                },
-                loading: () => const SizedBox(),
-                error: (e, _) => const SizedBox(),
+                  ),
+                ],
               );
             }),
             SettingsUI.buildRealDropdownRow(
