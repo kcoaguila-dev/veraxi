@@ -48,7 +48,7 @@ dependencies = [
     "langgraph-checkpoint-postgres",
     "psycopg[binary]",
     "opentimelineio",
-    "browser-use>=0.11.0",
+    "browser-use>=0.13.11",
     "playwright>=1.40.0",
     "mcp-types>=2.2.0",
 ]
