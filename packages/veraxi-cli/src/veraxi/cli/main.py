@@ -5,6 +5,8 @@ from veraxi.cli.chat import run_interactive_chat
 from veraxi.cli.client_configs import CLIENT_PATH_RESOLVERS, update_mcp_config
 from veraxi.cli.doctor import check_endpoint, run_doctor
 from veraxi.cli.query import run_query
+from veraxi.cli.review import run_review
+from veraxi.cli.ingest import run_ingest
 
 
 def _resolve_tenant_id(tenant_arg: str | None, key_arg: str | None) -> str:
@@ -68,6 +70,19 @@ def main():
     brief_parser.add_argument("--endpoint", default="https://api.veraxi.me/sse", help="MCP endpoint URL")
     brief_parser.add_argument("--json", action="store_true", help="Output raw JSON")
 
+    # --- review ---
+    review_parser = subparsers.add_parser("review", help="1-Command Git Diff Auditor")
+    review_parser.add_argument("--staged", action="store_true", help="Review staged changes")
+    review_parser.add_argument("--commit", help="Review a specific commit hash")
+    review_parser.add_argument("--limit", type=int, default=10, help="Number of evidence chunks to retrieve")
+    review_parser.add_argument("--key", help="Veraxi API key (vx-...)")
+
+    # --- ingest ---
+    ingest_parser = subparsers.add_parser("ingest", help="CLI Document & URL Ingest")
+    ingest_parser.add_argument("target", help="File, directory, or URL to ingest")
+    ingest_parser.add_argument("--key", help="Veraxi API key (vx-...)")
+    ingest_parser.add_argument("--endpoint", default="https://api.veraxi.me", help="Veraxi API endpoint")
+
     # --- mcp ---
     mcp_parser = subparsers.add_parser("mcp", help="Manage MCP configurations and test queries")
     mcp_subparsers = mcp_parser.add_subparsers(dest="command", help="MCP actions")
@@ -128,6 +143,25 @@ def main():
             limit=args.limit,
             endpoint=args.endpoint,
             key=key,
+        )
+
+    elif args.subcommand == "review":
+        tenant_id = _resolve_tenant_id(None, args.key)
+        key = args.key or os.environ.get("VERAXI_API_KEY")
+        run_review(
+            staged=args.staged,
+            commit_hash=args.commit,
+            limit=args.limit,
+            tenant_id=tenant_id,
+            key=key,
+        )
+
+    elif args.subcommand == "ingest":
+        key = args.key or os.environ.get("VERAXI_API_KEY")
+        run_ingest(
+            target=args.target,
+            key=key,
+            endpoint=args.endpoint,
         )
 
     elif args.subcommand == "mcp":
