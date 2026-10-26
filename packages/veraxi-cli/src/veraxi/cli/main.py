@@ -55,13 +55,20 @@ def main():
     chat_parser.add_argument("--limit", type=int, default=5, help="Number of evidence chunks to retrieve")
     chat_parser.add_argument("--endpoint", default="https://api.veraxi.me/sse", help="MCP endpoint URL")
 
+    # --- init ---
+    init_parser = subparsers.add_parser(
+        "init",
+        help="Initialize Veraxi knowledge graph instructions",
+    )
+    init_parser.add_argument("--force", action="store_true", help="Overwrite existing instructions")
+
     # --- brief ---
     brief_parser = subparsers.add_parser(
         "brief",
         aliases=["research"],
         help="Generate a structured briefing doc on a topic with linked entity graph anchors",
     )
-    brief_parser.add_argument("topic", help="Briefing topic or question")
+    brief_parser.add_argument("topic", nargs="?", help="Briefing topic or question")
     brief_parser.add_argument("--key", help="Veraxi API key (vx-...)")
     brief_parser.add_argument("--tenant", help="Tenant ID (defaults to resolving from key or config)")
     brief_parser.add_argument("--limit", type=int, default=10, help="Number of evidence chunks to retrieve")
@@ -91,7 +98,7 @@ def main():
 
     # `veraxi mcp query ...`
     query_parser = mcp_subparsers.add_parser("query", help="Command-line test runner for headless agents")
-    query_parser.add_argument("query_text", help="The query string")
+    query_parser.add_argument("query_text", nargs="?", help="The query string")
     query_parser.add_argument("--key", help="Veraxi API key (vx-...)")
     query_parser.add_argument("--tenant", help="Tenant ID (defaults to resolving from key or config)")
     query_parser.add_argument("--limit", type=int, default=5, help="Number of chunks to retrieve")
@@ -118,11 +125,30 @@ def main():
             key=args.key,
         )
 
+    elif args.subcommand == "init":
+        from veraxi.cli.init_project import init_project
+        init_project(force=args.force)
+
     elif args.subcommand in ("brief", "research"):
+        piped_input = ""
+        if not sys.stdin.isatty():
+            piped_input = sys.stdin.read().strip()
+
+        topic = args.topic
+        if piped_input:
+            if topic:
+                topic = f"{topic}\n\n[Piped Context]:\n{piped_input}"
+            else:
+                topic = piped_input
+        else:
+            if not topic:
+                print("Error: topic is required if no input is piped.", file=sys.stderr)
+                sys.exit(1)
+
         tenant_id = _resolve_tenant_id(args.tenant, args.key)
         key = args.key or os.environ.get("VERAXI_API_KEY")
         run_query(
-            args.topic,
+            topic,
             as_json=args.json,
             tenant_id=tenant_id,
             limit=args.limit,
@@ -178,10 +204,25 @@ def main():
             run_doctor(args.endpoint, key)
 
         elif args.command == "query":
+            piped_input = ""
+            if not sys.stdin.isatty():
+                piped_input = sys.stdin.read().strip()
+
+            query_text = args.query_text
+            if piped_input:
+                if query_text:
+                    query_text = f"{query_text}\n\n[Piped Context]:\n{piped_input}"
+                else:
+                    query_text = piped_input
+            else:
+                if not query_text:
+                    print("Error: query_text is required if no input is piped.", file=sys.stderr)
+                    sys.exit(1)
+
             tenant_id = _resolve_tenant_id(args.tenant, args.key)
             key = args.key or os.environ.get("VERAXI_API_KEY")
             run_query(
-                args.query_text,
+                query_text,
                 as_json=args.json,
                 tenant_id=tenant_id,
                 limit=args.limit,
