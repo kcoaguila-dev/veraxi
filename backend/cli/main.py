@@ -5,6 +5,8 @@ import os
 from backend.cli.client_configs import CLIENT_PATH_RESOLVERS, update_mcp_config
 from backend.cli.doctor import run_doctor, check_endpoint
 from backend.cli.query import run_query
+from backend.cli.review import run_review
+from backend.cli.ingest import run_ingest
 
 
 def _resolve_tenant(tenant_arg: str | None, key_arg: str | None) -> str:
@@ -60,6 +62,19 @@ def main():
     brief_parser.add_argument("--limit", type=int, default=10, help="Number of evidence chunks to retrieve")
     brief_parser.add_argument("--json", action="store_true", help="Output raw JSON")
 
+    # --- review ---
+    review_parser = subparsers.add_parser("review", help="1-Command Git Diff Auditor")
+    review_parser.add_argument("--staged", action="store_true", help="Review staged changes")
+    review_parser.add_argument("--commit", help="Review a specific commit hash")
+    review_parser.add_argument("--limit", type=int, default=10, help="Number of evidence chunks to retrieve")
+    review_parser.add_argument("--key", help="Veraxi API key (vx-...)")
+
+    # --- ingest ---
+    ingest_parser = subparsers.add_parser("ingest", help="CLI Document & URL Ingest")
+    ingest_parser.add_argument("target", help="File, directory, or URL to ingest")
+    ingest_parser.add_argument("--key", help="Veraxi API key (vx-...)")
+    ingest_parser.add_argument("--endpoint", default="http://localhost:8000", help="Veraxi API endpoint")
+
     # "mcp" command group
     mcp_parser = subparsers.add_parser("mcp", help="MCP related commands")
     mcp_subparsers = mcp_parser.add_subparsers(dest="command", required=False)
@@ -94,6 +109,25 @@ def main():
     elif args.mcp_group in ("brief", "research"):
         tenant_id = _resolve_tenant(args.tenant, args.key)
         run_query(args.topic, as_json=args.json, tenant_id=tenant_id, limit=args.limit)
+
+    elif args.mcp_group == "review":
+        tenant_id = _resolve_tenant(None, args.key)
+        key = args.key or os.environ.get("VERAXI_API_KEY")
+        run_review(
+            staged=args.staged,
+            commit_hash=args.commit,
+            limit=args.limit,
+            tenant_id=tenant_id,
+            key=key,
+        )
+
+    elif args.mcp_group == "ingest":
+        key = args.key or os.environ.get("VERAXI_API_KEY")
+        run_ingest(
+            target=args.target,
+            key=key,
+            endpoint=args.endpoint,
+        )
 
     elif args.mcp_group == "mcp":
         if not args.command:
