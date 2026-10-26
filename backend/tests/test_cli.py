@@ -3,9 +3,13 @@ from unittest.mock import patch, MagicMock
 
 import pytest
 
+import os
+import sys
+
 from backend.cli.client_configs import update_mcp_config
 from backend.cli.doctor import check_endpoint
 from backend.cli.main import main
+from backend.cli.init_project import init_project
 
 # 1. test_client_configs_safe_mutation: Mock an existing config containing "github-mcp";
 # verify veraxi is added without deleting "github-mcp".
@@ -85,3 +89,26 @@ def test_doctor_validation_401(mock_urlopen):
     success, msg = check_endpoint("https://api.veraxi.me/sse", None)
     assert success is True
     assert "401 Unauthorized" in msg
+
+def test_init_command_creates_files(tmp_path):
+    with patch("os.getcwd", return_value=str(tmp_path)):
+        init_project()
+
+    claude_md = tmp_path / "CLAUDE.md"
+    cursorrules = tmp_path / ".cursorrules"
+
+    assert claude_md.exists()
+    assert cursorrules.exists()
+
+    assert "AI Agent Instructions for Veraxi Knowledge Graph" in claude_md.read_text()
+    assert "Veraxi Knowledge Graph Rules" in cursorrules.read_text()
+
+@patch("sys.stdin.isatty", return_value=False)
+@patch("sys.stdin.read", return_value="mock pipe error context")
+@patch("sys.argv", ["veraxi", "mcp", "query"])
+@patch("backend.cli.main.run_query")
+def test_main_pipe_handling(mock_run_query, mock_read, mock_isatty):
+    main()
+    mock_run_query.assert_called_once()
+    args, kwargs = mock_run_query.call_args
+    assert "mock pipe error context" in args[0]
