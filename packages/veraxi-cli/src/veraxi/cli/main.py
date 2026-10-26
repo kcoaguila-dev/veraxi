@@ -58,7 +58,7 @@ def main():
     # --- research ---
     research_parser = subparsers.add_parser(
         "research",
-        help="Deep research dossier on a topic with linked entity graph anchors",
+        help="Deep research brief on a topic with linked entity graph anchors",
     )
     research_parser.add_argument("topic", help="Research topic or question")
     research_parser.add_argument("--key", help="Veraxi API key (vx-...)")

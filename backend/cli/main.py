@@ -49,7 +49,7 @@ def main():
     chat_parser.add_argument("--limit", type=int, default=5, help="Number of evidence chunks to retrieve")
 
     # --- research ---
-    research_parser = subparsers.add_parser("research", help="Deep research dossier on a topic with linked entity graph anchors")
+    research_parser = subparsers.add_parser("research", help="Deep research brief on a topic with linked entity graph anchors")
     research_parser.add_argument("topic", help="Research topic or question")
     research_parser.add_argument("--key", help="Veraxi API key (vx-...)")
     research_parser.add_argument("--tenant", help="Tenant ID (defaults to resolving from key or config)")
