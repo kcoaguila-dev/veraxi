@@ -1,19 +1,22 @@
 import argparse
-import os
 import sys
+from veraxi.cli.auth import resolve_credentials, run_login, run_logout, run_whoami
 from veraxi.cli.chat import run_interactive_chat
 from veraxi.cli.client_configs import CLIENT_PATH_RESOLVERS, update_mcp_config
+from veraxi.cli.completion import run_completion
 from veraxi.cli.doctor import check_endpoint, run_doctor
+from veraxi.cli.ingest import run_ingest
+from veraxi.cli.init_project import init_project
 from veraxi.cli.query import run_query
 from veraxi.cli.review import run_review
-from veraxi.cli.ingest import run_ingest
+from veraxi.cli.stats import run_stats
 
 
 def _resolve_tenant_id(tenant_arg: str | None, key_arg: str | None) -> str:
     if tenant_arg:
         return tenant_arg
 
-    key = key_arg or os.environ.get("VERAXI_API_KEY")
+    key, _ = resolve_credentials(key_arg)
     if key and key.startswith("vx-"):
         try:
             from backend.config import get_config
@@ -60,7 +63,7 @@ def main():
     # --- init ---
     init_parser = subparsers.add_parser(
         "init",
-        help="Initialize Veraxi knowledge graph instructions",
+        help="Initialize Veraxi knowledge graph instructions (CLAUDE.md & .cursorrules)",
     )
     init_parser.add_argument("--force", action="store_true", help="Overwrite existing instructions")
 
@@ -89,6 +92,30 @@ def main():
     ingest_parser.add_argument("target", help="File, directory, or URL to ingest")
     ingest_parser.add_argument("--key", help="Veraxi API key (vx-...)")
     ingest_parser.add_argument("--endpoint", default="https://api.veraxi.me", help="Veraxi API endpoint")
+
+    # --- login ---
+    login_parser = subparsers.add_parser("login", help="Authenticate and save API key locally")
+    login_parser.add_argument("--key", help="Veraxi API key (vx-...)")
+    login_parser.add_argument("--endpoint", default="https://api.veraxi.me/sse", help="MCP endpoint URL")
+
+    # --- whoami ---
+    whoami_parser = subparsers.add_parser("whoami", help="Display current active identity & credentials")
+    whoami_parser.add_argument("--key", help="Veraxi API key (vx-...)")
+    whoami_parser.add_argument("--endpoint", default="https://api.veraxi.me/sse", help="MCP endpoint URL")
+
+    # --- logout ---
+    subparsers.add_parser("logout", help="Log out and remove stored credentials")
+
+    # --- stats ---
+    stats_parser = subparsers.add_parser("stats", help="Display database & knowledge graph health dashboard")
+    stats_parser.add_argument("--key", help="Veraxi API key (vx-...)")
+    stats_parser.add_argument("--tenant", help="Tenant ID (defaults to resolving from key or config)")
+    stats_parser.add_argument("--endpoint", default="https://api.veraxi.me", help="Veraxi API endpoint")
+    stats_parser.add_argument("--json", action="store_true", help="Output raw JSON")
+
+    # --- completion ---
+    completion_parser = subparsers.add_parser("completion", help="Generate shell auto-completion script")
+    completion_parser.add_argument("shell", choices=["bash", "zsh"], default="bash", nargs="?", help="Shell type")
 
     # --- mcp ---
     mcp_parser = subparsers.add_parser("mcp", help="Manage MCP configurations and test queries")
@@ -126,22 +153,40 @@ def main():
         # Default to interactive chat if run directly in an interactive shell
         if sys.stdin.isatty():
             tenant_id = _resolve_tenant_id(None, None)
-            run_interactive_chat(tenant_id=tenant_id)
+            key, endpoint = resolve_credentials()
+            run_interactive_chat(tenant_id=tenant_id, endpoint=endpoint, key=key)
         else:
             parser.print_help()
         sys.exit(0)
 
-    if args.subcommand == "chat":
-        tenant_id = _resolve_tenant_id(args.tenant, args.key)
+    if args.subcommand == "login":
+        run_login(key=args.key, endpoint=args.endpoint)
+
+    elif args.subcommand == "whoami":
+        run_whoami(key=args.key, endpoint=args.endpoint)
+
+    elif args.subcommand == "logout":
+        run_logout()
+
+    elif args.subcommand == "stats":
+        key, endpoint = resolve_credentials(args.key, args.endpoint)
+        tenant_id = _resolve_tenant_id(args.tenant, key)
+        run_stats(tenant_id=tenant_id, endpoint=endpoint, key=key, as_json=args.json)
+
+    elif args.subcommand == "completion":
+        run_completion(shell=args.shell)
+
+    elif args.subcommand == "chat":
+        key, endpoint = resolve_credentials(args.key, args.endpoint)
+        tenant_id = _resolve_tenant_id(args.tenant, key)
         run_interactive_chat(
             tenant_id=tenant_id,
             limit=args.limit,
-            endpoint=args.endpoint,
-            key=args.key,
+            endpoint=endpoint,
+            key=key,
         )
 
     elif args.subcommand == "init":
-        from veraxi.cli.init_project import init_project
         init_project(force=args.force)
 
     elif args.subcommand in ("brief", "research"):
@@ -160,20 +205,20 @@ def main():
                 print("Error: topic is required if no input is piped.", file=sys.stderr)
                 sys.exit(1)
 
-        tenant_id = _resolve_tenant_id(args.tenant, args.key)
-        key = args.key or os.environ.get("VERAXI_API_KEY")
+        key, endpoint = resolve_credentials(args.key, args.endpoint)
+        tenant_id = _resolve_tenant_id(args.tenant, key)
         run_query(
             topic,
             as_json=args.json,
             tenant_id=tenant_id,
             limit=args.limit,
-            endpoint=args.endpoint,
+            endpoint=endpoint,
             key=key,
         )
 
     elif args.subcommand == "review":
-        tenant_id = _resolve_tenant_id(None, args.key)
-        key = args.key or os.environ.get("VERAXI_API_KEY")
+        key, _ = resolve_credentials(args.key)
+        tenant_id = _resolve_tenant_id(None, key)
         run_review(
             staged=args.staged,
             commit_hash=args.commit,
@@ -183,11 +228,11 @@ def main():
         )
 
     elif args.subcommand == "ingest":
-        key = args.key or os.environ.get("VERAXI_API_KEY")
+        key, endpoint = resolve_credentials(args.key, args.endpoint)
         run_ingest(
             target=args.target,
             key=key,
-            endpoint=args.endpoint,
+            endpoint=endpoint,
         )
 
     elif args.subcommand == "mcp":
@@ -196,7 +241,7 @@ def main():
             sys.exit(0)
 
         if args.command == "install":
-            key = args.key or os.environ.get("VERAXI_API_KEY")
+            key, endpoint = resolve_credentials(args.key, args.endpoint)
             is_headless = not sys.stdin.isatty()
 
             if not key and not is_headless:
@@ -204,7 +249,7 @@ def main():
 
             if not key and is_headless:
                 print(
-                    "Error: Headless environment detected. Please provide --key or set VERAXI_API_KEY.",
+                    "Error: Headless environment detected. Please provide --key, set VERAXI_API_KEY, or run 'veraxi login'.",
                     file=sys.stderr,
                 )
                 sys.exit(1)
@@ -213,8 +258,8 @@ def main():
                 print("Error: No API key provided.", file=sys.stderr)
                 sys.exit(1)
 
-            print(f"Verifying key with endpoint {args.endpoint}...")
-            success, msg = check_endpoint(args.endpoint, key)
+            print(f"Verifying key with endpoint {endpoint}...")
+            success, msg = check_endpoint(endpoint, key)
             if not success:
                 print(f"Error verifying key: {msg}", file=sys.stderr)
                 sys.exit(1)
@@ -228,14 +273,14 @@ def main():
             for client in clients_to_update:
                 resolver = CLIENT_PATH_RESOLVERS[client]
                 path = resolver()
-                if update_mcp_config(path, key, args.endpoint):
+                if update_mcp_config(path, key, endpoint):
                     print(f"Successfully configured {client} at {path}")
                 else:
                     print(f"Failed to configure {client} at {path}", file=sys.stderr)
 
         elif args.command == "doctor":
-            key = args.key or os.environ.get("VERAXI_API_KEY")
-            run_doctor(args.endpoint, key)
+            key, endpoint = resolve_credentials(args.key, args.endpoint)
+            run_doctor(endpoint, key)
 
         elif args.command == "query":
             piped_input = ""
@@ -253,14 +298,14 @@ def main():
                     print("Error: query_text is required if no input is piped.", file=sys.stderr)
                     sys.exit(1)
 
-            tenant_id = _resolve_tenant_id(args.tenant, args.key)
-            key = args.key or os.environ.get("VERAXI_API_KEY")
+            key, endpoint = resolve_credentials(args.key, args.endpoint)
+            tenant_id = _resolve_tenant_id(args.tenant, key)
             run_query(
                 query_text,
                 as_json=args.json,
                 tenant_id=tenant_id,
                 limit=args.limit,
-                endpoint=args.endpoint,
+                endpoint=endpoint,
                 key=key,
             )
 
