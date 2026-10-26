@@ -243,6 +243,9 @@ def extract_entities_and_relations_fast(
         for word in custom_stop_words:
             nlp.Defaults.stop_words.add(word.lower())
 
+    # Ensure large texts (such as whole books) do not trigger spaCy max_length errors
+    nlp.max_length = max(len(text) + 50000, 5000000)
+
     doc = nlp(text)
 
     entities = []
