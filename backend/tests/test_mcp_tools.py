@@ -155,12 +155,12 @@ def test_extraction_validation_normalizes_nested_properties():
     assert "mixed_array" not in props
 
 
-from backend.mcp_server.tools.insert_graph import insert_graph_nodes
+from backend.storage.graph_operations import insert_graph_nodes
 from backend.mcp_server.tools.insert_vector import insert_vectors
 
 
-@patch("backend.mcp_server.tools.insert_graph.get_config")
-@patch("backend.mcp_server.tools.insert_graph.Neo4jStorageClient")
+@patch("backend.storage.graph_operations.get_config")
+@patch("backend.storage.graph_operations.Neo4jStorageClient")
 def test_insert_graph_nodes_success(mock_neo4j_class, mock_get_config):
     mock_instance = mock_neo4j_class.from_config.return_value
     mock_instance.create_node.return_value = "node-id"
