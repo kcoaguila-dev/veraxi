@@ -1,10 +1,9 @@
-import json
 import os
-import sys
 
 # Enable readline for terminal history and editing if available
 try:
     import readline
+    _ = readline
 except ImportError:
     pass
 
