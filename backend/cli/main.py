@@ -29,6 +29,9 @@ def main():
     # --- query ---
     query_parser = mcp_subparsers.add_parser("query", help="Command-line test runner for headless agents")
     query_parser.add_argument("query_text", help="The query string")
+    query_parser.add_argument("--key", help="Veraxi API key (vx-...)")
+    query_parser.add_argument("--tenant", help="Tenant ID (defaults to resolving from key or config)")
+    query_parser.add_argument("--limit", type=int, default=5, help="Number of chunks to retrieve")
     query_parser.add_argument("--json", action="store_true", help="Output raw JSON for pipeline integration")
 
     args = parser.parse_args()
@@ -75,7 +78,35 @@ def main():
         run_doctor(args.endpoint, key)
 
     elif args.command == "query":
-        run_query(args.query_text, as_json=args.json)
+        tenant_id = args.tenant
+        if not tenant_id:
+            key = args.key or os.environ.get("VERAXI_API_KEY")
+            if key and key.startswith("vx-"):
+                try:
+                    from backend.config import get_config
+                    from supabase import create_client
+                    from backend.security.api_keys import resolve_api_key
+
+                    cfg = get_config()
+                    if cfg.supabase_url and cfg.supabase_service_key:
+                        sb = create_client(cfg.supabase_url, cfg.supabase_service_key)
+                        tenant_id = resolve_api_key(key, sb)
+                except Exception as e:
+                    pass
+
+        if not tenant_id:
+            try:
+                from backend.config import get_config
+                cfg = get_config()
+                if cfg.admin_tenant_ids:
+                    tenant_id = cfg.admin_tenant_ids[0]
+            except Exception:
+                pass
+
+        if not tenant_id:
+            tenant_id = "default"
+
+        run_query(args.query_text, as_json=args.json, tenant_id=tenant_id, limit=args.limit)
 
 if __name__ == "__main__":
     main()

@@ -2,14 +2,19 @@ import json
 import sys
 from backend.retrieval.just_in_time_graph import build_lazy_graph_dossier
 
-def run_query(query: str, as_json: bool = False, tenant_id: str = "default"):
+def run_query(
+    query: str,
+    as_json: bool = False,
+    tenant_id: str = "default",
+    limit: int = 10,
+):
     """
     Executes a query using Just-In-Time retrieval logic directly against the local backend,
     avoiding an HTTP request since the backend code is accessible.
     """
     try:
         # Calls the function discovered in backend/retrieval/just_in_time_graph.py
-        result = build_lazy_graph_dossier(query, tenant_id=tenant_id)
+        result = build_lazy_graph_dossier(query, tenant_id=tenant_id, limit=limit)
 
         if as_json:
             print(json.dumps(result, indent=2))
