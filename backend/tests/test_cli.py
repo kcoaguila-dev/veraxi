@@ -3,8 +3,6 @@ from unittest.mock import patch, MagicMock
 
 import pytest
 
-import os
-import sys
 
 from backend.cli.client_configs import update_mcp_config
 from backend.cli.doctor import check_endpoint
