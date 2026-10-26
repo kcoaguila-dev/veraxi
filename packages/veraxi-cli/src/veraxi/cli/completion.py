@@ -6,7 +6,7 @@ _veraxi_completions() {
     local cur prev words cword
     _init_completion -n : || return
 
-    local commands="chat init brief research review ingest login whoami logout stats hook schema trace check mcp completion"
+    local commands="chat init brief research review ingest login whoami logout stats hook schema trace check context remember resolve memory mcp completion"
     local mcp_commands="install doctor query"
     local hook_commands="install uninstall"
     local clients="claude cursor claude-code cline all"
@@ -67,6 +67,10 @@ _veraxi() {
         'schema:Display knowledge graph ontology and schema'
         'trace:Trace multi-hop causal/dependency paths for an entity'
         'check:Grounding and factual accuracy gatekeeper for CI'
+        'context:Assemble token-efficient grounding context for agents'
+        'remember:Save an architectural rule or constraint to memory'
+        'resolve:Mark an issue or caveat as resolved (prevents re-solving)'
+        'memory:Inspect and list architectural memories'
         'mcp:Manage MCP server configuration'
         'completion:Generate shell auto-completion script'
     )
