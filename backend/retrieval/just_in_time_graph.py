@@ -16,7 +16,7 @@ from typing import Any
 
 from backend.config import get_config
 from backend.ingestion.chunk_embed import embed_text, embed_text_sparse
-from backend.mcp_server.tools.insert_graph import insert_graph_nodes, purge_cooccurrence_relationships
+from backend.storage.graph_operations import insert_graph_nodes, purge_cooccurrence_relationships
 from backend.storage.neo4j_client import Neo4jStorageClient
 from backend.storage.qdrant_client import QdrantStorageClient
 

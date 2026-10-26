@@ -13,7 +13,7 @@ from backend.mcp_server.tools.ingest_document import (
     mcp_get_ingest_status,
     mcp_ingest_document,
 )
-from backend.mcp_server.tools.insert_graph import insert_graph_nodes
+from backend.storage.graph_operations import insert_graph_nodes
 from backend.mcp_server.tools.insert_vector import insert_vectors
 from backend.mcp_server.tools.query_graph import query_graph
 from backend.mcp_server.tools.run_analytics import run_community_detection
