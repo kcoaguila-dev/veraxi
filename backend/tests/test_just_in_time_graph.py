@@ -2,7 +2,6 @@ import uuid
 import pytest
 from backend.config import get_config
 from backend.storage.neo4j_client import Neo4jStorageClient
-from backend.storage.qdrant_client import QdrantStorageClient
 from backend.mcp_server.tools.insert_graph import insert_graph_nodes, purge_cooccurrence_relationships
 from backend.retrieval.just_in_time_graph import build_lazy_graph_dossier
 
