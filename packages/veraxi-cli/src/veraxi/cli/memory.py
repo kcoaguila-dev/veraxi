@@ -193,6 +193,71 @@ def run_resolve(
     print("  This caveat will no longer be treated as an open issue by AI agents.\n")
 
 
+def run_reopen(
+    target: str,
+    note: str | None = None,
+    tenant_id: str = "default",
+    endpoint: str = "https://api.veraxi.me",
+    key: str | None = None,
+    as_json: bool = False,
+) -> None:
+    """
+    Reopens a previously resolved memory (Human-in-the-Loop Override).
+    If an AI agent falsely marked an issue resolved, the human can reopen it with feedback.
+    """
+    if not target or not target.strip():
+        print("Error: Target memory ID or keyword is required.", file=sys.stderr)
+        sys.exit(1)
+
+    target = target.strip()
+    note = (note or "Reopened by engineer: still reproducible or incomplete fix").strip()
+    now_iso = _get_utc_now()
+    reopened_nodes = []
+
+    try:
+        from backend.config import get_config
+        from backend.storage.neo4j_client import Neo4jStorageClient
+
+        config = get_config()
+        neo4j = Neo4jStorageClient.from_config(config)
+
+        update_query = """
+        MATCH (n:Memory)
+        WHERE (n.tenant_id = $tenant_id OR n.tenant_id = 'default')
+          AND (n.id STARTS WITH $target OR toLower(n.name) CONTAINS toLower($target))
+        SET n.status = 'active',
+            n.reopened_at = $now_iso,
+            n.reopen_note = $note
+        RETURN n.id as id, n.name as name
+        """
+        reopened_nodes = neo4j.execute_read(
+            update_query,
+            {"tenant_id": tenant_id, "target": target, "now_iso": now_iso, "note": note},
+        )
+        neo4j.close()
+    except Exception as e:
+        print(f"Warning: Failed to reopen memory ({e}).", file=sys.stderr)
+
+    if as_json:
+        print(json.dumps({"reopened": reopened_nodes, "note": note}, indent=2))
+        return
+
+    bold = "\033[1m"
+    yellow = "\033[33m"
+    cyan = "\033[36m"
+    reset = "\033[0m"
+
+    if not reopened_nodes:
+        print(f"\nNo memory found matching '{target}'.\n")
+        return
+
+    print(f"\n{bold}{yellow}↩ Reopened memory (Marked ACTIVE for AI agents){reset}:")
+    for r in reopened_nodes:
+        print(f"  [{cyan}{r['id']}{reset}] \"{r['name']}\"")
+        print(f"    Reopen Note: {note}")
+    print("  This issue is now active again and will be prioritized by AI agents in 'vx context'.\n")
+
+
 def run_memory_list(
     status_filter: str = "all",
     tenant_id: str = "default",
