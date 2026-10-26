@@ -45,10 +45,11 @@ def test_client_configs_safe_mutation(tmp_path):
     assert veraxi_node["headers"]["Authorization"] == "Bearer vx-testkey123"
 
 # 2. test_mcp_install_headless_error: Verify exit code 1 when no key is provided in a non-interactive shell.
+@patch("backend.cli.auth.load_credentials", return_value={})
 @patch("sys.stdin.isatty", return_value=False)
 @patch("sys.argv", ["veraxi", "mcp", "install"])
 @patch("os.environ.get", return_value=None) # No VERAXI_API_KEY
-def test_mcp_install_headless_error(mock_env_get, mock_isatty):
+def test_mcp_install_headless_error(mock_env_get, mock_isatty, mock_load_creds):
     # Running main should raise SystemExit(1)
     with pytest.raises(SystemExit) as exc_info:
         main()
@@ -188,3 +189,49 @@ def test_ingest_file_401(mock_urlopen, tmp_path):
     run_ingest(str(test_file), key="vx-bad")
 
     mock_urlopen.assert_called_once()
+
+# 8. test_auth_save_and_load: Test credentials lifecycle
+def test_auth_save_and_load(tmp_path):
+    from backend.cli import auth
+
+    cred_file = tmp_path / ".veraxi" / "credentials.json"
+    with patch.object(auth, "get_credentials_path", return_value=cred_file):
+        assert auth.load_credentials() == {}
+        assert auth.save_credentials("vx-sample-key", "https://api.test/sse")
+        loaded = auth.load_credentials()
+        assert loaded.get("api_key") == "vx-sample-key"
+        assert loaded.get("endpoint") == "https://api.test/sse"
+
+        key, endpoint = auth.resolve_credentials()
+        assert key == "vx-sample-key"
+        assert endpoint == "https://api.test/sse"
+
+        assert auth.delete_credentials()
+        assert auth.load_credentials() == {}
+
+# 9. test_stats_json_output: Test stats formatted output
+@patch("backend.mcp_server.tools.get_stats.get_database_stats")
+def test_stats_json_output(mock_get_stats, capsys):
+    from backend.cli.stats import run_stats
+
+    mock_get_stats.return_value = {
+        "qdrant_vectors": 1234,
+        "neo4j_nodes": 5678,
+        "neo4j_relationships": 90,
+    }
+
+    run_stats(tenant_id="test-tenant", as_json=True)
+    captured = capsys.readouterr()
+    data = json.loads(captured.out)
+    assert data["qdrant_vectors"] == 1234
+    assert data["neo4j_nodes"] == 5678
+
+# 10. test_completion_output: Test shell completion output
+def test_completion_output(capsys):
+    from backend.cli.completion import run_completion
+
+    run_completion("bash")
+    captured = capsys.readouterr()
+    assert "_veraxi_completions" in captured.out
+    assert "complete -F _veraxi_completions veraxi" in captured.out
+
