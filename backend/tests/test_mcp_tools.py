@@ -164,6 +164,7 @@ from backend.mcp_server.tools.insert_vector import insert_vectors
 def test_insert_graph_nodes_success(mock_neo4j_class, mock_get_config):
     mock_instance = mock_neo4j_class.from_config.return_value
     mock_instance.create_node.return_value = "node-id"
+    mock_instance.execute_read.return_value = []
 
     nodes = [{"type": "Person", "name": "Alice"}]
     relations = []
@@ -171,7 +172,7 @@ def test_insert_graph_nodes_success(mock_neo4j_class, mock_get_config):
     result = insert_graph_nodes(nodes, relations)
 
     assert result["status"] == "success"
-    assert result["nodes_inserted"] == 1
+    assert result["nodes_new"] == 1
     assert result["relations_inserted"] == 0
     mock_instance.create_node.assert_called_once()
 
