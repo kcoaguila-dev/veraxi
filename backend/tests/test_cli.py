@@ -235,3 +235,76 @@ def test_completion_output(capsys):
     assert "_veraxi_completions" in captured.out
     assert "complete -F _veraxi_completions veraxi" in captured.out
 
+
+# 11. test_hook_lifecycle: Test install and uninstall of git pre-commit hook
+def test_hook_lifecycle(tmp_path):
+    from backend.cli import hook
+
+    fake_git_dir = tmp_path / ".git"
+    fake_git_dir.mkdir()
+
+    with patch.object(hook, "_find_git_dir", return_value=str(fake_git_dir)):
+        hook.run_hook("install")
+        hook_file = fake_git_dir / "hooks" / "pre-commit"
+        assert hook_file.exists()
+        content = hook_file.read_text()
+        assert "veraxi review --staged" in content
+
+        # Idempotent install
+        hook.run_hook("install")
+
+        # Uninstall
+        hook.run_hook("uninstall")
+        assert not hook_file.exists()
+
+
+# 12. test_schema_json_output: Test schema command output
+@patch("backend.mcp_server.tools.get_schema.get_graph_schema")
+def test_schema_json_output(mock_get_schema, capsys):
+    from backend.cli.schema import run_schema
+
+    mock_get_schema.return_value = {
+        "node_labels": ["Concept", "Service"],
+        "relationship_types": ["DEPENDS_ON"],
+    }
+
+    run_schema(as_json=True)
+    captured = capsys.readouterr()
+    data = json.loads(captured.out)
+    assert "Concept" in data["node_labels"]
+    assert "DEPENDS_ON" in data["relationship_types"]
+
+
+# 13. test_trace_json_output: Test trace path traversal
+def test_trace_json_output(capsys):
+    from backend.cli.trace import run_trace
+
+    with patch("backend.storage.neo4j_client.Neo4jStorageClient.from_config") as mock_neo4j:
+        mock_client = MagicMock()
+        mock_neo4j.return_value = mock_client
+        mock_client.execute_read.return_value = [
+            {"nodes": ["ServiceA", "ServiceB"], "rels": ["DEPENDS_ON"]}
+        ]
+
+        run_trace(entity="ServiceA", hops=1, as_json=True)
+        captured = capsys.readouterr()
+        data = json.loads(captured.out)
+        assert len(data) == 1
+        assert data[0]["nodes"] == ["ServiceA", "ServiceB"]
+
+
+# 14. test_check_gate: Test check command grounding threshold
+def test_check_gate():
+    from backend.cli.check import run_check
+
+    with patch("backend.evaluation.grounding.evaluate_groundedness", return_value=0.95):
+        with pytest.raises(SystemExit) as exc_info:
+            run_check(text="True fact", context="True fact", min_score=0.8, as_json=True)
+        assert exc_info.value.code == 0
+
+    with patch("backend.evaluation.grounding.evaluate_groundedness", return_value=0.40):
+        with pytest.raises(SystemExit) as exc_info:
+            run_check(text="Hallucinated fact", context="Other fact", min_score=0.8, as_json=True)
+        assert exc_info.value.code == 1
+
+

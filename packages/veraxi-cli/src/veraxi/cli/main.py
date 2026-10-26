@@ -2,14 +2,18 @@ import argparse
 import sys
 from veraxi.cli.auth import resolve_credentials, run_login, run_logout, run_whoami
 from veraxi.cli.chat import run_interactive_chat
+from veraxi.cli.check import run_check
 from veraxi.cli.client_configs import CLIENT_PATH_RESOLVERS, update_mcp_config
 from veraxi.cli.completion import run_completion
 from veraxi.cli.doctor import check_endpoint, run_doctor
+from veraxi.cli.hook import run_hook
 from veraxi.cli.ingest import run_ingest
 from veraxi.cli.init_project import init_project
 from veraxi.cli.query import run_query
 from veraxi.cli.review import run_review
+from veraxi.cli.schema import run_schema
 from veraxi.cli.stats import run_stats
+from veraxi.cli.trace import run_trace
 
 
 def _resolve_tenant_id(tenant_arg: str | None, key_arg: str | None) -> str:
@@ -117,6 +121,35 @@ def main():
     completion_parser = subparsers.add_parser("completion", help="Generate shell auto-completion script")
     completion_parser.add_argument("shell", choices=["bash", "zsh"], default="bash", nargs="?", help="Shell type")
 
+    # --- hook ---
+    hook_parser = subparsers.add_parser("hook", help="Manage Git pre-commit hooks for architectural review")
+    hook_parser.add_argument("action", choices=["install", "uninstall"], default="install", nargs="?", help="Action to perform (default: install)")
+
+    # --- schema ---
+    schema_parser = subparsers.add_parser("schema", help="Display knowledge graph ontology and schema")
+    schema_parser.add_argument("--key", help="Veraxi API key (vx-...)")
+    schema_parser.add_argument("--endpoint", default="https://api.veraxi.me/sse", help="Veraxi API endpoint")
+    schema_parser.add_argument("--json", action="store_true", help="Output raw JSON")
+
+    # --- trace ---
+    trace_parser = subparsers.add_parser("trace", help="Trace multi-hop causal/dependency paths for an entity")
+    trace_parser.add_argument("entity", help="Entity or symbol name to trace")
+    trace_parser.add_argument("--hops", type=int, default=2, help="Max traversal depth (default: 2)")
+    trace_parser.add_argument("--tenant", help="Tenant ID")
+    trace_parser.add_argument("--key", help="Veraxi API key (vx-...)")
+    trace_parser.add_argument("--endpoint", default="https://api.veraxi.me/sse", help="Veraxi API endpoint")
+    trace_parser.add_argument("--json", action="store_true", help="Output raw JSON")
+
+    # --- check ---
+    check_parser = subparsers.add_parser("check", help="Grounding and factual accuracy gatekeeper for CI")
+    check_parser.add_argument("text", nargs="?", help="Claim or text to verify against knowledge base")
+    check_parser.add_argument("--context", help="Explicit context string or file path")
+    check_parser.add_argument("--min-score", type=float, default=0.8, help="Minimum passing grounding threshold (default: 0.8)")
+    check_parser.add_argument("--tenant", help="Tenant ID")
+    check_parser.add_argument("--key", help="Veraxi API key (vx-...)")
+    check_parser.add_argument("--endpoint", default="https://api.veraxi.me/sse", help="Veraxi API endpoint")
+    check_parser.add_argument("--json", action="store_true", help="Output raw JSON")
+
     # --- mcp ---
     mcp_parser = subparsers.add_parser("mcp", help="Manage MCP configurations and test queries")
     mcp_subparsers = mcp_parser.add_subparsers(dest="command", help="MCP actions")
@@ -175,6 +208,38 @@ def main():
 
     elif args.subcommand == "completion":
         run_completion(shell=args.shell)
+
+    elif args.subcommand == "hook":
+        run_hook(action=args.action)
+
+    elif args.subcommand == "schema":
+        key, endpoint = resolve_credentials(args.key, args.endpoint)
+        run_schema(endpoint=endpoint, key=key, as_json=args.json)
+
+    elif args.subcommand == "trace":
+        key, endpoint = resolve_credentials(args.key, args.endpoint)
+        tenant_id = _resolve_tenant_id(args.tenant, key)
+        run_trace(
+            entity=args.entity,
+            hops=args.hops,
+            tenant_id=tenant_id,
+            endpoint=endpoint,
+            key=key,
+            as_json=args.json,
+        )
+
+    elif args.subcommand == "check":
+        key, endpoint = resolve_credentials(args.key, args.endpoint)
+        tenant_id = _resolve_tenant_id(args.tenant, key)
+        run_check(
+            text=args.text,
+            context=args.context,
+            min_score=args.min_score,
+            tenant_id=tenant_id,
+            endpoint=endpoint,
+            key=key,
+            as_json=args.json,
+        )
 
     elif args.subcommand == "chat":
         key, endpoint = resolve_credentials(args.key, args.endpoint)
