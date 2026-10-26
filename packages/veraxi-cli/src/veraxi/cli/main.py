@@ -10,7 +10,7 @@ from veraxi.cli.doctor import check_endpoint, run_doctor
 from veraxi.cli.hook import run_hook
 from veraxi.cli.ingest import run_ingest
 from veraxi.cli.init_project import init_project
-from veraxi.cli.memory import run_memory_list, run_remember, run_resolve
+from veraxi.cli.memory import run_memory_list, run_remember, run_reopen, run_resolve
 from veraxi.cli.query import run_query
 from veraxi.cli.review import run_review
 from veraxi.cli.schema import run_schema
@@ -182,6 +182,15 @@ def main():
     resolve_parser.add_argument("--endpoint", default="https://api.veraxi.me/sse", help="Veraxi API endpoint")
     resolve_parser.add_argument("--json", action="store_true", help="Output raw JSON")
 
+    # --- reopen ---
+    reopen_parser = subparsers.add_parser("reopen", help="Human override: reopen a prematurely resolved memory")
+    reopen_parser.add_argument("target", help="Memory ID or keyword to reopen")
+    reopen_parser.add_argument("--note", help="Reason for reopening (e.g. still failing)")
+    reopen_parser.add_argument("--tenant", help="Tenant ID")
+    reopen_parser.add_argument("--key", help="Veraxi API key (vx-...)")
+    reopen_parser.add_argument("--endpoint", default="https://api.veraxi.me/sse", help="Veraxi API endpoint")
+    reopen_parser.add_argument("--json", action="store_true", help="Output raw JSON")
+
     # --- memory ---
     memory_parser = subparsers.add_parser("memory", help="Inspect and list architectural memories")
     memory_parser.add_argument("--status", choices=["active", "resolved", "superseded", "all"], default="all", help="Status filter")
@@ -313,6 +322,18 @@ def main():
         run_resolve(
             target=args.target,
             ref=args.ref,
+            note=args.note,
+            tenant_id=tenant_id,
+            endpoint=endpoint,
+            key=key,
+            as_json=args.json,
+        )
+
+    elif args.subcommand == "reopen":
+        key, endpoint = resolve_credentials(args.key, args.endpoint)
+        tenant_id = _resolve_tenant_id(args.tenant, key)
+        run_reopen(
+            target=args.target,
             note=args.note,
             tenant_id=tenant_id,
             endpoint=endpoint,

@@ -330,6 +330,13 @@ def test_remember_and_resolve_lifecycle(capsys):
         res_data = json.loads(captured.out)
         assert res_data["ref"] == "PR#1"
 
+        # Reopen (Human Override)
+        from backend.cli.memory import run_reopen
+        run_reopen(data["id"], note="Still broken in staging", as_json=True)
+        captured = capsys.readouterr()
+        reopen_data = json.loads(captured.out)
+        assert reopen_data["note"] == "Still broken in staging"
+
         # List
         mock_client.execute_read.return_value = [
             {"id": data["id"], "name": "Test rule", "tag": "test", "status": "resolved"}

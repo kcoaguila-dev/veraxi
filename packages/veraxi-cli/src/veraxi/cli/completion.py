@@ -6,7 +6,7 @@ _veraxi_completions() {
     local cur prev words cword
     _init_completion -n : || return
 
-    local commands="chat init brief research review ingest login whoami logout stats hook schema trace check context remember resolve memory mcp completion"
+    local commands="chat init brief research review ingest login whoami logout stats hook schema trace check context remember resolve reopen memory mcp completion"
     local mcp_commands="install doctor query"
     local hook_commands="install uninstall"
     local clients="claude cursor claude-code cline all"
