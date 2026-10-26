@@ -308,3 +308,59 @@ def test_check_gate():
         assert exc_info.value.code == 1
 
 
+# 15. test_remember_and_resolve_lifecycle: Test architectural memory tracking
+def test_remember_and_resolve_lifecycle(capsys):
+    from backend.cli.memory import run_remember, run_resolve, run_memory_list
+
+    with patch("backend.storage.neo4j_client.Neo4jStorageClient.from_config") as mock_neo4j:
+        mock_client = MagicMock()
+        mock_neo4j.return_value = mock_client
+
+        # Remember
+        run_remember("Test rule", tag="test", as_json=True)
+        captured = capsys.readouterr()
+        data = json.loads(captured.out)
+        assert data["insight"] == "Test rule"
+        assert data["status"] == "active"
+
+        # Resolve
+        mock_client.execute_read.return_value = [{"id": data["id"], "name": "Test rule"}]
+        run_resolve(data["id"], ref="PR#1", note="Fixed", as_json=True)
+        captured = capsys.readouterr()
+        res_data = json.loads(captured.out)
+        assert res_data["ref"] == "PR#1"
+
+        # List
+        mock_client.execute_read.return_value = [
+            {"id": data["id"], "name": "Test rule", "tag": "test", "status": "resolved"}
+        ]
+        run_memory_list(as_json=True)
+        captured = capsys.readouterr()
+        list_data = json.loads(captured.out)
+        assert len(list_data) == 1
+        assert list_data[0]["status"] == "resolved"
+
+
+# 16. test_context_packing: Test token-efficient context assembly
+def test_context_packing(capsys):
+    from backend.cli.context import run_context
+
+    with patch("backend.storage.neo4j_client.Neo4jStorageClient.from_config") as mock_neo4j:
+        mock_client = MagicMock()
+        mock_neo4j.return_value = mock_client
+        mock_client.execute_read.side_effect = [
+            [{"id": "mem-1", "name": "Active rule", "tag": "auth"}],  # active rules
+            [{"id": "mem-2", "name": "Old caveat", "tag": "db", "ref": "PR#2", "note": "Solved"}],  # resolved caveats
+        ]
+
+        with patch("backend.mcp_server.tools.search_vectors.search_vectors", return_value=[]):
+            run_context("Auth refactor task")
+            captured = capsys.readouterr()
+            assert "<veraxi-context" in captured.out
+            assert "<active-rules>" in captured.out
+            assert "Active rule" in captured.out
+            assert "DO-NOT-RE-SOLVE" in captured.out
+            assert "Old caveat" in captured.out
+
+
+

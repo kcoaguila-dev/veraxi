@@ -5,10 +5,12 @@ from veraxi.cli.chat import run_interactive_chat
 from veraxi.cli.check import run_check
 from veraxi.cli.client_configs import CLIENT_PATH_RESOLVERS, update_mcp_config
 from veraxi.cli.completion import run_completion
+from veraxi.cli.context import run_context
 from veraxi.cli.doctor import check_endpoint, run_doctor
 from veraxi.cli.hook import run_hook
 from veraxi.cli.ingest import run_ingest
 from veraxi.cli.init_project import init_project
+from veraxi.cli.memory import run_memory_list, run_remember, run_resolve
 from veraxi.cli.query import run_query
 from veraxi.cli.review import run_review
 from veraxi.cli.schema import run_schema
@@ -150,6 +152,44 @@ def main():
     check_parser.add_argument("--endpoint", default="https://api.veraxi.me/sse", help="Veraxi API endpoint")
     check_parser.add_argument("--json", action="store_true", help="Output raw JSON")
 
+    # --- context ---
+    context_parser = subparsers.add_parser("context", help="Assemble token-efficient grounding context for agents")
+    context_parser.add_argument("task", nargs="?", help="Task or prompt description")
+    context_parser.add_argument("--tenant", help="Tenant ID")
+    context_parser.add_argument("--limit", type=int, default=4, help="Max vector chunks to include")
+    context_parser.add_argument("--key", help="Veraxi API key (vx-...)")
+    context_parser.add_argument("--endpoint", default="https://api.veraxi.me/sse", help="Veraxi API endpoint")
+    context_parser.add_argument("--json", action="store_true", help="Output raw JSON")
+
+    # --- remember ---
+    remember_parser = subparsers.add_parser("remember", help="Save an architectural rule or constraint to memory")
+    remember_parser.add_argument("insight", help="The architectural rule, pattern, or constraint")
+    remember_parser.add_argument("--tag", help="Category tag (e.g., auth, perf, db)")
+    remember_parser.add_argument("--type", choices=["rule", "issue", "pattern"], default="rule", help="Type of memory")
+    remember_parser.add_argument("--supersedes", help="ID or keyword of older memory this replaces")
+    remember_parser.add_argument("--tenant", help="Tenant ID")
+    remember_parser.add_argument("--key", help="Veraxi API key (vx-...)")
+    remember_parser.add_argument("--endpoint", default="https://api.veraxi.me/sse", help="Veraxi API endpoint")
+    remember_parser.add_argument("--json", action="store_true", help="Output raw JSON")
+
+    # --- resolve ---
+    resolve_parser = subparsers.add_parser("resolve", help="Mark an issue or caveat as resolved (prevents re-solving)")
+    resolve_parser.add_argument("target", help="Memory ID or keyword to resolve")
+    resolve_parser.add_argument("--ref", help="Commit hash, PR number, or ticket")
+    resolve_parser.add_argument("--note", help="Explanation of resolution")
+    resolve_parser.add_argument("--tenant", help="Tenant ID")
+    resolve_parser.add_argument("--key", help="Veraxi API key (vx-...)")
+    resolve_parser.add_argument("--endpoint", default="https://api.veraxi.me/sse", help="Veraxi API endpoint")
+    resolve_parser.add_argument("--json", action="store_true", help="Output raw JSON")
+
+    # --- memory ---
+    memory_parser = subparsers.add_parser("memory", help="Inspect and list architectural memories")
+    memory_parser.add_argument("--status", choices=["active", "resolved", "superseded", "all"], default="all", help="Status filter")
+    memory_parser.add_argument("--tenant", help="Tenant ID")
+    memory_parser.add_argument("--key", help="Veraxi API key (vx-...)")
+    memory_parser.add_argument("--endpoint", default="https://api.veraxi.me/sse", help="Veraxi API endpoint")
+    memory_parser.add_argument("--json", action="store_true", help="Output raw JSON")
+
     # --- mcp ---
     mcp_parser = subparsers.add_parser("mcp", help="Manage MCP configurations and test queries")
     mcp_subparsers = mcp_parser.add_subparsers(dest="command", help="MCP actions")
@@ -235,6 +275,56 @@ def main():
             text=args.text,
             context=args.context,
             min_score=args.min_score,
+            tenant_id=tenant_id,
+            endpoint=endpoint,
+            key=key,
+            as_json=args.json,
+        )
+
+    elif args.subcommand == "context":
+        key, endpoint = resolve_credentials(args.key, args.endpoint)
+        tenant_id = _resolve_tenant_id(args.tenant, key)
+        run_context(
+            task=args.task,
+            tenant_id=tenant_id,
+            limit=args.limit,
+            endpoint=endpoint,
+            key=key,
+            as_json=args.json,
+        )
+
+    elif args.subcommand == "remember":
+        key, endpoint = resolve_credentials(args.key, args.endpoint)
+        tenant_id = _resolve_tenant_id(args.tenant, key)
+        run_remember(
+            insight=args.insight,
+            tag=args.tag,
+            memory_type=args.type,
+            supersedes=args.supersedes,
+            tenant_id=tenant_id,
+            endpoint=endpoint,
+            key=key,
+            as_json=args.json,
+        )
+
+    elif args.subcommand == "resolve":
+        key, endpoint = resolve_credentials(args.key, args.endpoint)
+        tenant_id = _resolve_tenant_id(args.tenant, key)
+        run_resolve(
+            target=args.target,
+            ref=args.ref,
+            note=args.note,
+            tenant_id=tenant_id,
+            endpoint=endpoint,
+            key=key,
+            as_json=args.json,
+        )
+
+    elif args.subcommand == "memory":
+        key, endpoint = resolve_credentials(args.key, args.endpoint)
+        tenant_id = _resolve_tenant_id(args.tenant, key)
+        run_memory_list(
+            status_filter=args.status,
             tenant_id=tenant_id,
             endpoint=endpoint,
             key=key,
