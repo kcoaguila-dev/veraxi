@@ -6,7 +6,8 @@ Official lightweight client CLI for [Veraxi](https://veraxi.me) — High-precisi
 
 - **1-Click MCP Setup**: Automatically configures Claude Desktop, Cursor, Claude Code, and Cline to connect with Veraxi MCP server over SSE.
 - **MCP Doctor**: Diagnoses endpoint connectivity, authentication validity, and client config files.
-- **Headless Query Runner**: Query knowledge dossiers directly from terminal or autonomous agent pipelines.
+- **Interactive Knowledge Chat**: Talk with your indexed books, research papers, and documents directly in terminal.
+- **Deep Research Briefs**: Compile grounded research briefs with linked knowledge graph entities.
 - **Zero Heavy Dependencies**: Pure Python standard library (< 50 KB download, installs in < 2 seconds).
 
 ## Installation
