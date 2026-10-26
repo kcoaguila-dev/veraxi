@@ -1,5 +1,7 @@
 import datetime
 import json
+import os
+import subprocess
 import sys
 import uuid
 
@@ -8,11 +10,43 @@ def _get_utc_now() -> str:
     return datetime.datetime.now(datetime.timezone.utc).isoformat()
 
 
+def _resolve_project_scope(explicit_project: str | None = None) -> str:
+    if explicit_project and explicit_project.strip():
+        return explicit_project.strip()
+
+    curr = os.getcwd()
+    while curr != os.path.dirname(curr):
+        cfg_file = os.path.join(curr, ".veraxi", "config.json")
+        if os.path.isfile(cfg_file):
+            try:
+                with open(cfg_file, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    if "project" in data and data["project"]:
+                        return str(data["project"]).strip()
+            except Exception:
+                pass
+        curr = os.path.dirname(curr)
+
+    try:
+        toplevel = subprocess.check_output(
+            ["git", "rev-parse", "--show-toplevel"],
+            stderr=subprocess.DEVNULL,
+            text=True,
+        ).strip()
+        return os.path.basename(toplevel)
+    except Exception:
+        pass
+
+    return os.path.basename(os.getcwd())
+
+
 def run_remember(
     insight: str,
     tag: str | None = None,
     memory_type: str = "rule",
     supersedes: str | None = None,
+    project: str | None = None,
+    is_global: bool = False,
     tenant_id: str = "default",
     endpoint: str = "https://api.veraxi.me",
     key: str | None = None,
@@ -20,7 +54,7 @@ def run_remember(
 ) -> None:
     """
     Stores an architectural rule, decision, or known constraint into the knowledge graph.
-    Prevents memory pollution by explicitly marking superseded older memories.
+    Prevents cross-project memory contamination by scoping memories to the local project repository or global.
     """
     if not insight or not insight.strip():
         print("Error: insight text is required.", file=sys.stderr)
@@ -29,6 +63,7 @@ def run_remember(
     insight = insight.strip()
     tag = (tag or "general").strip().lower()
     memory_type = (memory_type or "rule").strip().lower()
+    project_scope = "global" if is_global else _resolve_project_scope(project)
     now_iso = _get_utc_now()
     mem_id = str(uuid.uuid4())[:8]
 
@@ -41,11 +76,12 @@ def run_remember(
         config = get_config()
         neo4j = Neo4jStorageClient.from_config(config)
 
-        # Handle superseding
+        # Handle superseding within project scope or global
         if supersedes:
             find_query = """
             MATCH (old:Memory)
             WHERE (old.tenant_id = $tenant_id OR old.tenant_id = 'default')
+              AND (old.project = $project OR old.project = 'global' OR old.project IS NULL)
               AND old.status = 'active'
               AND (toLower(old.name) CONTAINS toLower($supersedes) OR old.id STARTS WITH $supersedes)
             SET old.status = 'superseded', old.superseded_by = $new_id, old.superseded_at = $now_iso
@@ -53,7 +89,7 @@ def run_remember(
             """
             superseded_nodes = neo4j.execute_read(
                 find_query,
-                {"tenant_id": tenant_id, "supersedes": supersedes, "new_id": mem_id, "now_iso": now_iso},
+                {"tenant_id": tenant_id, "project": project_scope, "supersedes": supersedes, "new_id": mem_id, "now_iso": now_iso},
             )
 
         create_query = """
@@ -64,6 +100,7 @@ def run_remember(
             tag: $tag,
             type: $type,
             status: 'active',
+            project: $project,
             tenant_id: $tenant_id,
             created_at: $created_at,
             resolved_ref: '',
@@ -79,6 +116,7 @@ def run_remember(
                 "name": insight,
                 "tag": tag,
                 "type": memory_type,
+                "project": project_scope,
                 "tenant_id": tenant_id,
                 "created_at": now_iso,
             },
@@ -101,6 +139,7 @@ def run_remember(
         "insight": insight,
         "tag": tag,
         "type": memory_type,
+        "project": project_scope,
         "status": "active",
         "created_at": now_iso,
         "superseded": [s["id"] for s in superseded_nodes],
@@ -118,7 +157,7 @@ def run_remember(
 
     print(f"\n{bold}{green}✓ Saved architectural memory{reset} [{cyan}{mem_id}{reset}]:")
     print(f"  \"{insight}\"")
-    print(f"  Status: {green}active{reset} | Tag: {yellow}{tag}{reset} | Type: {memory_type}")
+    print(f"  Status: {green}active{reset} | Scope: {cyan}{project_scope}{reset} | Tag: {yellow}{tag}{reset} | Type: {memory_type}")
 
     for s in superseded_nodes:
         print(f"  {yellow}↪ Superseded older memory{reset} [{s['id']}]: \"{s['name']}\"")
@@ -260,6 +299,8 @@ def run_reopen(
 
 def run_memory_list(
     status_filter: str = "all",
+    project: str | None = None,
+    all_projects: bool = False,
     tenant_id: str = "default",
     endpoint: str = "https://api.veraxi.me",
     key: str | None = None,
@@ -269,6 +310,7 @@ def run_memory_list(
     Lists memories with active, resolved, and superseded statuses.
     """
     nodes = []
+    project_scope = None if all_projects else _resolve_project_scope(project)
     try:
         from backend.config import get_config
         from backend.storage.neo4j_client import Neo4jStorageClient
@@ -279,17 +321,19 @@ def run_memory_list(
         where_clause = "(n.tenant_id = $tenant_id OR n.tenant_id = 'default')"
         if status_filter != "all":
             where_clause += f" AND n.status = '{status_filter}'"
+        if not all_projects:
+            where_clause += " AND (n.project = $project OR n.project = 'global' OR n.project IS NULL)"
 
         query = f"""
         MATCH (n:Memory)
         WHERE {where_clause}
         RETURN n.id as id, n.name as name, n.tag as tag, n.type as type, n.status as status,
-               n.created_at as created_at, n.resolved_ref as resolved_ref, n.resolved_note as resolved_note,
-               n.superseded_by as superseded_by
+               n.project as project, n.created_at as created_at, n.resolved_ref as resolved_ref,
+               n.resolved_note as resolved_note, n.superseded_by as superseded_by
         ORDER BY n.created_at DESC
         LIMIT 50
         """
-        nodes = neo4j.execute_read(query, {"tenant_id": tenant_id})
+        nodes = neo4j.execute_read(query, {"tenant_id": tenant_id, "project": project_scope})
         neo4j.close()
     except Exception:
         pass
@@ -309,11 +353,12 @@ def run_memory_list(
     print(f"{bold}{cyan}╚════════════════════════════════════════════════════════════════════╝{reset}")
 
     if not nodes:
-        print("\n  No architectural memories recorded yet.")
+        print(f"\n  No architectural memories found for project '{project_scope or 'all'}'.")
         print("  Use 'veraxi remember \"<insight>\" --tag <tag>' to record one.\n")
         return
 
-    print(f"\n  Found {len(nodes)} memory items (Filter: {status_filter}):")
+    scope_str = "All Projects" if all_projects else f"Project: {project_scope}"
+    print(f"\n  Found {len(nodes)} memory items ({scope_str} | Filter: {status_filter}):")
     print("  " + "─" * 68)
 
     for n in nodes:
@@ -326,7 +371,8 @@ def run_memory_list(
             status_badge = f"{yellow}[superseded]{reset}"
 
         tag = n.get("tag", "general")
-        print(f"  {status_badge:<18} {cyan}{n['id']}{reset} • [{tag}] {n['name']}")
+        proj_badge = f"\033[2m[{n.get('project', 'general')}]\033[0m "
+        print(f"  {status_badge:<18} {cyan}{n['id']}{reset} • {proj_badge}[{tag}] {n['name']}")
         if status == "resolved" and n.get("resolved_ref"):
             print(f"               └─ {green}Resolved ({n['resolved_ref']}){reset}: {n.get('resolved_note', '')}")
         elif status == "superseded" and n.get("superseded_by"):

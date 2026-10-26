@@ -1,9 +1,11 @@
 import json
 import sys
+from backend.cli.memory import _resolve_project_scope
 
 
 def run_context(
     task: str | None = None,
+    project: str | None = None,
     tenant_id: str = "default",
     limit: int = 4,
     endpoint: str = "https://api.veraxi.me",
@@ -12,8 +14,8 @@ def run_context(
 ) -> None:
     """
     Assembles a token-efficient, hallucination-resistant XML/Markdown context pack
-    containing active architectural rules, relevant grounding evidence, and
-    resolved caveats (explicitly marked DO-NOT-RE-SOLVE to prevent regressions).
+    scoped to the current project codebase, containing active architectural rules,
+    relevant grounding evidence, and resolved caveats (marked DO-NOT-RE-SOLVE).
     """
     if not task:
         if not sys.stdin.isatty():
@@ -26,11 +28,12 @@ def run_context(
         print("Error: task description is required.", file=sys.stderr)
         sys.exit(1)
 
+    project_scope = _resolve_project_scope(project)
     active_rules = []
     resolved_caveats = []
     vector_chunks = []
 
-    # 1. Fetch active rules and resolved caveats from graph
+    # 1. Fetch active rules and resolved caveats from graph scoped to project or global
     try:
         from backend.config import get_config
         from backend.storage.neo4j_client import Neo4jStorageClient
@@ -43,12 +46,13 @@ def run_context(
             """
             MATCH (n:Memory)
             WHERE (n.tenant_id = $tenant_id OR n.tenant_id = 'default')
+              AND (n.project = $project OR n.project = 'global' OR n.project IS NULL)
               AND n.status = 'active'
             RETURN n.id as id, n.name as name, n.tag as tag, n.type as type
             ORDER BY n.created_at DESC
             LIMIT 10
             """,
-            {"tenant_id": tenant_id},
+            {"tenant_id": tenant_id, "project": project_scope},
         )
         active_rules = rule_rows
 
@@ -57,12 +61,13 @@ def run_context(
             """
             MATCH (n:Memory)
             WHERE (n.tenant_id = $tenant_id OR n.tenant_id = 'default')
+              AND (n.project = $project OR n.project = 'global' OR n.project IS NULL)
               AND n.status = 'resolved'
             RETURN n.id as id, n.name as name, n.tag as tag, n.resolved_ref as ref, n.resolved_note as note
             ORDER BY n.resolved_at DESC
             LIMIT 5
             """,
-            {"tenant_id": tenant_id},
+            {"tenant_id": tenant_id, "project": project_scope},
         )
         resolved_caveats = caveat_rows
         neo4j.close()
@@ -87,6 +92,7 @@ def run_context(
     if as_json:
         result = {
             "task": task,
+            "project": project_scope,
             "tenant_id": tenant_id,
             "active_rules": active_rules,
             "resolved_caveats": resolved_caveats,
@@ -97,7 +103,7 @@ def run_context(
 
     # Render clean XML context block for AI coding agents
     output = []
-    output.append(f'<veraxi-context version="1.0" tenant="{tenant_id}">')
+    output.append(f'<veraxi-context version="1.0" project="{project_scope}" tenant="{tenant_id}">')
     output.append(f"  <task>\n    {task}\n  </task>\n")
 
     if active_rules:
