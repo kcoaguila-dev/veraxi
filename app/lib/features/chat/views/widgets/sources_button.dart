@@ -146,7 +146,8 @@ class SourcesButton extends StatelessWidget {
     return event.name.contains('web_search') ||
         event.name.contains('merge_rank') ||
         event.name.contains('search_vectors') ||
-        event.name.contains('query_graph');
+        event.name.contains('query_graph') ||
+        event.name.contains('build_lazy_dossier');
   }
 
   static List<dynamic> _parseEventResult(dynamic result) {
@@ -154,12 +155,21 @@ class SourcesButton extends StatelessWidget {
       try {
         final decoded = jsonDecode(result);
         if (decoded is List) return decoded;
+        if (decoded is Map &&
+            decoded.containsKey('chunks') &&
+            decoded['chunks'] is List) {
+          return decoded['chunks'] as List;
+        }
       } catch (e, st) {
         Sentry.captureException(e, stackTrace: st);
         // Fallback to empty if json is invalid
       }
     } else if (result is List) {
       return result;
+    } else if (result is Map &&
+        result.containsKey('chunks') &&
+        result['chunks'] is List) {
+      return result['chunks'] as List;
     }
     return [];
   }

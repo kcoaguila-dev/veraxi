@@ -6,6 +6,11 @@ __pycache__/
 backend/.venv/
 venv/
 *.egg-info/
+dist/
+build/
+packages/*/dist/
+packages/*/build/
+packages/*/src/*.egg-info/
 
 # Environment secrets
 .env

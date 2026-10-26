@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:veraxi_app/features/chat/view_models/chat_view_model.dart';
@@ -156,18 +157,45 @@ class _ToolEventCardState extends State<ToolEventCard>
         return '📱 Opening app…';
       case 'web_search':
         return '🌐 Searching the web…';
+      case 'mcp_build_lazy_dossier':
+        return '📑 Generating structured dossier…';
+      case 'mcp_purge_noisy_relationships':
+        return '🧹 Purging noisy graph edges…';
+      case 'mcp_search_vectors':
+        return '🔍 Searching vector database…';
+      case 'mcp_query_graph':
+        return '🕸️ Querying knowledge graph…';
+      case 'mcp_deep_research':
+        return '🔬 Executing deep research…';
+      case 'mcp_agentic_debate':
+        return '⚔️ Multi-agent reasoning debate…';
       default:
         return '🔧 $toolName…';
     }
   }
 }
 
-class _ResultPanel extends StatelessWidget {
+class _ResultPanel extends StatefulWidget {
   const _ResultPanel({required this.result});
   final String result;
 
   @override
+  State<_ResultPanel> createState() => _ResultPanelState();
+}
+
+class _ResultPanelState extends State<_ResultPanel> {
+  bool _showRaw = false;
+
+  @override
   Widget build(BuildContext context) {
+    Map<String, dynamic>? dossier;
+    try {
+      final decoded = jsonDecode(widget.result);
+      if (decoded is Map<String, dynamic> && decoded.containsKey('chunks')) {
+        dossier = decoded;
+      }
+    } catch (_) {}
+
     return Container(
       decoration: BoxDecoration(
         color: Colors.black.withValues(alpha: 0.3),
@@ -177,21 +205,45 @@ class _ResultPanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Copy button
-          Align(
-            alignment: Alignment.topRight,
-            child: GestureDetector(
-              onTap: () {
-                Clipboard.setData(ClipboardData(text: result));
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Copied to clipboard'),
-                    duration: Duration(seconds: 1),
+          // Copy & Toggle Header
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              if (dossier != null)
+                GestureDetector(
+                  onTap: () => setState(() => _showRaw = !_showRaw),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        _showRaw ? Icons.visibility_off_outlined : Icons.code_rounded,
+                        size: 13,
+                        color: Colors.blueAccent.shade100,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        _showRaw ? 'Show Dossier Cards' : 'View Raw JSON',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.blueAccent.shade100,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
                   ),
-                );
-              },
-              child: Padding(
-                padding: const EdgeInsets.only(bottom: 6),
+                )
+              else
+                const SizedBox.shrink(),
+              GestureDetector(
+                onTap: () {
+                  Clipboard.setData(ClipboardData(text: widget.result));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Copied to clipboard'),
+                      duration: Duration(seconds: 1),
+                    ),
+                  );
+                },
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -207,20 +259,161 @@ class _ResultPanel extends StatelessWidget {
                   ],
                 ),
               ),
-            ),
+            ],
           ),
-          // Result content
-          SelectableText(
-            result,
-            style: const TextStyle(
-              fontSize: 11.5,
-              fontFamily: 'monospace',
-              color: Colors.white70,
-              height: 1.5,
+          const SizedBox(height: 8),
+          if (dossier != null && !_showRaw)
+            _DossierView(dossier: dossier)
+          else
+            SelectableText(
+              widget.result,
+              style: const TextStyle(
+                fontSize: 11.5,
+                fontFamily: 'monospace',
+                color: Colors.white70,
+                height: 1.5,
+              ),
             ),
-          ),
         ],
       ),
+    );
+  }
+}
+
+class _DossierView extends StatelessWidget {
+  const _DossierView({required this.dossier});
+  final Map<String, dynamic> dossier;
+
+  @override
+  Widget build(BuildContext context) {
+    final chunks = (dossier['chunks'] as List?) ?? [];
+    final total = dossier['total_chunks_retrieved'] ?? chunks.length;
+
+    // Collect all linked entities
+    final allEntities = <Map<String, dynamic>>[];
+    for (var chunk in chunks) {
+      if (chunk is Map && chunk['linked_entities'] is List) {
+        for (var ent in chunk['linked_entities']) {
+          if (ent is Map && ent.containsKey('name')) {
+            final name = ent['name'].toString();
+            if (!allEntities.any((e) => e['name'] == name)) {
+              allEntities.add({
+                'name': name,
+                'type': ent['type']?.toString() ?? 'Entity',
+              });
+            }
+          }
+        }
+      }
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.blueAccent.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                '$total evidence chunks',
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: Colors.blueAccent,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            if (allEntities.isNotEmpty) ...[
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.greenAccent.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  '${allEntities.length} graph anchors',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Colors.greenAccent.shade200,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+        if (allEntities.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 6,
+            runSpacing: 4,
+            children: allEntities.take(12).map((e) {
+              return Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  '${e['name']} (${e['type']})',
+                  style: const TextStyle(
+                    fontSize: 10,
+                    color: Colors.white70,
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ],
+        const SizedBox(height: 8),
+        ...chunks.take(3).map((ch) {
+          if (ch is! Map) return const SizedBox.shrink();
+          final title = ch['title']?.toString() ?? 'Passage';
+          final text = ch['text']?.toString() ?? '';
+          final preview =
+              text.length > 140 ? '${text.substring(0, 140)}...' : text;
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.04),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.08),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    preview,
+                    style: const TextStyle(
+                      fontSize: 10.5,
+                      color: Colors.white60,
+                      height: 1.3,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }),
+      ],
     );
   }
 }

@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "veraxi"
+version = "0.1.0"
+description = "Veraxi CLI: 1-Click MCP installer, connectivity doctor, and AI agent query interface"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+authors = [
+    {name = "Veraxi Team", email = "support@veraxi.me"}
+]
+keywords = ["mcp", "ai-agents", "graphrag", "claude", "cursor", "veraxi"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Operating System :: OS Independent",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = []
+
+[project.urls]
+Homepage = "https://veraxi.me"
+Documentation = "https://docs.veraxi.me"
+Repository = "https://github.com/kcoaguila-dev/veraxi"
+
+[project.scripts]
+veraxi = "veraxi.cli.main:main"
+vx = "veraxi.cli.main:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
