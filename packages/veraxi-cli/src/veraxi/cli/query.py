@@ -48,7 +48,7 @@ def run_query(
             }
         except urllib.error.HTTPError as e:
             if e.code == 401:
-                print(f"Error: 401 Unauthorized - Please provide a valid Veraxi API key with --key or VERAXI_API_KEY.", file=sys.stderr)
+                print("Error: 401 Unauthorized - Please provide a valid Veraxi API key with --key or VERAXI_API_KEY.", file=sys.stderr)
                 sys.exit(1)
             else:
                 print(f"Error connecting to {endpoint}: {e.code} {e.reason}", file=sys.stderr)

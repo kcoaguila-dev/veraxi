@@ -1,6 +1,4 @@
 import json
-import os
-import sys
 import urllib.error
 import urllib.request
 from veraxi.cli.client_configs import CLIENT_PATH_RESOLVERS
