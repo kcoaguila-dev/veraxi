@@ -158,7 +158,7 @@ class _ToolEventCardState extends State<ToolEventCard>
       case 'web_search':
         return '🌐 Searching the web…';
       case 'mcp_build_lazy_dossier':
-        return '📑 Compiling research brief…';
+        return '📑 Compiling briefing doc…';
       case 'mcp_purge_noisy_relationships':
         return '🧹 Purging noisy graph edges…';
       case 'mcp_search_vectors':
@@ -222,7 +222,7 @@ class _ResultPanelState extends State<_ResultPanel> {
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        _showRaw ? 'Show Evidence Cards' : 'View Raw JSON',
+                        _showRaw ? 'Show Briefing Cards' : 'View Raw JSON',
                         style: TextStyle(
                           fontSize: 11,
                           color: Colors.blueAccent.shade100,
