@@ -55,17 +55,18 @@ def main():
     chat_parser.add_argument("--limit", type=int, default=5, help="Number of evidence chunks to retrieve")
     chat_parser.add_argument("--endpoint", default="https://api.veraxi.me/sse", help="MCP endpoint URL")
 
-    # --- research ---
-    research_parser = subparsers.add_parser(
-        "research",
-        help="Deep research brief on a topic with linked entity graph anchors",
+    # --- brief ---
+    brief_parser = subparsers.add_parser(
+        "brief",
+        aliases=["research"],
+        help="Generate a structured briefing doc on a topic with linked entity graph anchors",
     )
-    research_parser.add_argument("topic", help="Research topic or question")
-    research_parser.add_argument("--key", help="Veraxi API key (vx-...)")
-    research_parser.add_argument("--tenant", help="Tenant ID (defaults to resolving from key or config)")
-    research_parser.add_argument("--limit", type=int, default=10, help="Number of evidence chunks to retrieve")
-    research_parser.add_argument("--endpoint", default="https://api.veraxi.me/sse", help="MCP endpoint URL")
-    research_parser.add_argument("--json", action="store_true", help="Output raw JSON")
+    brief_parser.add_argument("topic", help="Briefing topic or question")
+    brief_parser.add_argument("--key", help="Veraxi API key (vx-...)")
+    brief_parser.add_argument("--tenant", help="Tenant ID (defaults to resolving from key or config)")
+    brief_parser.add_argument("--limit", type=int, default=10, help="Number of evidence chunks to retrieve")
+    brief_parser.add_argument("--endpoint", default="https://api.veraxi.me/sse", help="MCP endpoint URL")
+    brief_parser.add_argument("--json", action="store_true", help="Output raw JSON")
 
     # --- mcp ---
     mcp_parser = subparsers.add_parser("mcp", help="Manage MCP configurations and test queries")
@@ -117,7 +118,7 @@ def main():
             key=args.key,
         )
 
-    elif args.subcommand == "research":
+    elif args.subcommand in ("brief", "research"):
         tenant_id = _resolve_tenant_id(args.tenant, args.key)
         key = args.key or os.environ.get("VERAXI_API_KEY")
         run_query(

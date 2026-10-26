@@ -48,13 +48,17 @@ def main():
     chat_parser.add_argument("--tenant", help="Tenant ID (defaults to resolving from key or config)")
     chat_parser.add_argument("--limit", type=int, default=5, help="Number of evidence chunks to retrieve")
 
-    # --- research ---
-    research_parser = subparsers.add_parser("research", help="Deep research brief on a topic with linked entity graph anchors")
-    research_parser.add_argument("topic", help="Research topic or question")
-    research_parser.add_argument("--key", help="Veraxi API key (vx-...)")
-    research_parser.add_argument("--tenant", help="Tenant ID (defaults to resolving from key or config)")
-    research_parser.add_argument("--limit", type=int, default=10, help="Number of evidence chunks to retrieve")
-    research_parser.add_argument("--json", action="store_true", help="Output raw JSON")
+    # --- brief ---
+    brief_parser = subparsers.add_parser(
+        "brief",
+        aliases=["research"],
+        help="Generate a structured briefing doc on a topic with linked entity graph anchors",
+    )
+    brief_parser.add_argument("topic", help="Briefing topic or question")
+    brief_parser.add_argument("--key", help="Veraxi API key (vx-...)")
+    brief_parser.add_argument("--tenant", help="Tenant ID (defaults to resolving from key or config)")
+    brief_parser.add_argument("--limit", type=int, default=10, help="Number of evidence chunks to retrieve")
+    brief_parser.add_argument("--json", action="store_true", help="Output raw JSON")
 
     # "mcp" command group
     mcp_parser = subparsers.add_parser("mcp", help="MCP related commands")
@@ -87,7 +91,7 @@ def main():
         from backend.cli.chat import run_interactive_chat
         run_interactive_chat(tenant_id=tenant_id, limit=args.limit)
 
-    elif args.mcp_group == "research":
+    elif args.mcp_group in ("brief", "research"):
         tenant_id = _resolve_tenant(args.tenant, args.key)
         run_query(args.topic, as_json=args.json, tenant_id=tenant_id, limit=args.limit)
 
