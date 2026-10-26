@@ -1315,6 +1315,17 @@ wheels = [
 ]
 
 [[package]]
+name = "dotenv"
+version = "0.9.9"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "python-dotenv" },
+]
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/b2/b7/545d2c10c1fc15e48653c91efde329a790f2eecfbbf2bd16003b5db2bab0/dotenv-0.9.9-py2.py3-none-any.whl", hash = "sha256:29cf74a087b31dafdb5a446b6d7e11cbce8ed2741540e2339c69fbef92c94ce9", size = 1892, upload-time = "2025-02-19T22:15:01.647Z" },
+]
+
+[[package]]
 name = "emoji"
 version = "2.16.0"
 source = { registry = "https://pypi.org/simple" }
@@ -9916,6 +9927,7 @@ dependencies = [
     { name = "arq" },
     { name = "browser-use" },
     { name = "docling" },
+    { name = "dotenv" },
     { name = "emoji" },
     { name = "fastapi" },
     { name = "fastembed" },
@@ -9936,6 +9948,7 @@ dependencies = [
     { name = "playwright" },
     { name = "psycopg", extra = ["binary"] },
     { name = "pyjwt" },
+    { name = "python-dotenv" },
     { name = "python-magic" },
     { name = "python-multipart" },
     { name = "qdrant-client", version = "1.12.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.13'" },
@@ -9965,6 +9978,14 @@ eval = [
     { name = "deepeval" },
 ]
 
+[package.dev-dependencies]
+dev = [
+    { name = "import-linter" },
+    { name = "pytest" },
+    { name = "python-dotenv" },
+    { name = "testcontainers" },
+]
+
 [package.metadata]
 requires-dist = [
     { name = "arq" },
@@ -9972,6 +9993,7 @@ requires-dist = [
     { name = "datasets", marker = "extra == 'eval'" },
     { name = "deepeval", marker = "extra == 'eval'" },
     { name = "docling" },
+    { name = "dotenv", specifier = ">=0.9.9" },
     { name = "emoji" },
     { name = "fastapi", specifier = ">=0.142.2" },
     { name = "fastembed" },
@@ -9995,6 +10017,7 @@ requires-dist = [
     { name = "pyjwt" },
     { name = "pytest", marker = "extra == 'dev'" },
     { name = "pytest-asyncio", marker = "extra == 'dev'" },
+    { name = "python-dotenv", specifier = ">=1.2.3" },
     { name = "python-magic" },
     { name = "python-multipart" },
     { name = "qdrant-client" },
@@ -10011,6 +10034,14 @@ requires-dist = [
     { name = "uvicorn", specifier = ">=0.54.0" },
 ]
 provides-extras = ["dev", "eval"]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "import-linter", specifier = ">=2.15" },
+    { name = "pytest", specifier = ">=9.1.1" },
+    { name = "python-dotenv", specifier = ">=1.2.3" },
+    { name = "testcontainers", specifier = ">=4.15.0" },
+]
 
 [[package]]
 name = "wasabi"

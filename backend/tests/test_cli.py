@@ -110,3 +110,81 @@ def test_main_pipe_handling(mock_run_query, mock_read, mock_isatty):
     mock_run_query.assert_called_once()
     args, kwargs = mock_run_query.call_args
     assert "mock pipe error context" in args[0]
+
+# 4. test_review_diff: Test run_review diff handling
+@patch("backend.cli.review.run_query")
+@patch("subprocess.run")
+def test_review_diff(mock_subprocess_run, mock_run_query):
+    from backend.cli.review import run_review
+
+    # Mock unstaged check returning empty, then HEAD~1 returning diff
+    mock_unstaged = MagicMock()
+    mock_unstaged.stdout = ""
+
+    mock_head = MagicMock()
+    mock_head.stdout = "diff --git a/test b/test"
+
+    mock_subprocess_run.side_effect = [mock_unstaged, mock_head]
+
+    run_review()
+
+    # run_query should be called with the diff
+    assert mock_run_query.called
+    args, kwargs = mock_run_query.call_args
+    assert "diff --git a/test b/test" in kwargs["query"]
+
+# 5. test_review_empty_diff: Test run_review exits 0 if no diff
+@patch("subprocess.run")
+def test_review_empty_diff(mock_subprocess_run):
+    from backend.cli.review import run_review
+
+    mock_unstaged = MagicMock()
+    mock_unstaged.stdout = ""
+
+    mock_head = MagicMock()
+    mock_head.stdout = ""
+
+    mock_subprocess_run.side_effect = [mock_unstaged, mock_head]
+
+    with pytest.raises(SystemExit) as exc_info:
+        run_review()
+
+    assert exc_info.value.code == 0
+
+# 6. test_ingest_url_200: Test URL ingestion
+@patch("urllib.request.urlopen")
+def test_ingest_url_200(mock_urlopen):
+    from backend.cli.ingest import run_ingest
+
+    mock_response = MagicMock()
+    mock_response.getcode.return_value = 200
+    mock_urlopen.return_value.__enter__.return_value = mock_response
+
+    run_ingest("https://example.com/doc", key="vx-test")
+
+    mock_urlopen.assert_called_once()
+    req = mock_urlopen.call_args[0][0]
+    assert req.full_url == "http://localhost:8000/api/admin/ingest/url"
+    assert req.headers.get("Authorization") == "Bearer vx-test"
+
+# 7. test_ingest_file_401: Test file ingestion with 401
+@patch("urllib.request.urlopen")
+def test_ingest_file_401(mock_urlopen, tmp_path):
+    from backend.cli.ingest import run_ingest
+    import urllib.error
+
+    test_file = tmp_path / "test.md"
+    test_file.write_text("test content")
+
+    mock_urlopen.side_effect = urllib.error.HTTPError(
+        url="http://localhost:8000/api/admin/ingest/upload",
+        code=401,
+        msg="Unauthorized",
+        hdrs=None,
+        fp=None
+    )
+
+    # Should not raise exception, just print error
+    run_ingest(str(test_file), key="vx-bad")
+
+    mock_urlopen.assert_called_once()
