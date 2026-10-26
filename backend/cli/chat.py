@@ -1,9 +1,8 @@
-import json
 import os
-import sys
 
 try:
     import readline
+    _ = readline
 except ImportError:
     pass
 
