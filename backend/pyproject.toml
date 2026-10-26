@@ -10,6 +10,10 @@ include = ["backend*"]
 "*" = ["*.txt", "*.json", "*.yaml", "*.yml"]
 
 
+[project.scripts]
+veraxi = "backend.cli.main:main"
+vx = "backend.cli.main:main"
+
 [project]
 name = "veraxi-backend"
 version = "0.1.0"

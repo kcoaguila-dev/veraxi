@@ -1,6 +1,5 @@
 """Unit tests for high-speed book extraction and batched embedding."""
 
-import pytest
 from backend.ingestion.chunk_embed import chunk_and_embed, chunk_text
 from backend.ingestion.extract import extract_entities_and_relations_fast
 from backend.scripts.batch_ingest import extract_text
