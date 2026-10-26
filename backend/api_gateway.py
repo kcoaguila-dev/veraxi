@@ -110,19 +110,30 @@ app.add_middleware(
 # ---------------------------------------------------------------------------
 
 
-@app.middleware("http")
-async def byod_context_middleware(request: Request, call_next):
-    # Extract BYOD headers and set them in ContextVars for this request
-    byod_context.request_neo4j_uri.set(request.headers.get("x-byod-neo4j-uri"))
-    byod_context.request_neo4j_user.set(request.headers.get("x-byod-neo4j-user"))
-    byod_context.request_neo4j_pass.set(request.headers.get("x-byod-neo4j-pass"))
-    byod_context.request_qdrant_url.set(request.headers.get("x-byod-qdrant-url"))
-    byod_context.request_qdrant_key.set(request.headers.get("x-byod-qdrant-key"))
-    byod_context.request_browserbase_key.set(
-        request.headers.get("x-byod-browserbase-key")
-    )
-    response = await call_next(request)
-    return response
+class ByodContextMiddleware:
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "http":
+            headers = dict(scope.get("headers", []))
+
+            def get_header(key: str) -> str | None:
+                val = headers.get(key.encode("latin-1"))
+                return val.decode("latin-1") if val else None
+
+            byod_context.request_neo4j_uri.set(get_header("x-byod-neo4j-uri"))
+            byod_context.request_neo4j_user.set(get_header("x-byod-neo4j-user"))
+            byod_context.request_neo4j_pass.set(get_header("x-byod-neo4j-pass"))
+            byod_context.request_qdrant_url.set(get_header("x-byod-qdrant-url"))
+            byod_context.request_qdrant_key.set(get_header("x-byod-qdrant-key"))
+            byod_context.request_browserbase_key.set(
+                get_header("x-byod-browserbase-key")
+            )
+        await self.app(scope, receive, send)
+
+
+app.add_middleware(ByodContextMiddleware)
 
 
 # ---------------------------------------------------------------------------

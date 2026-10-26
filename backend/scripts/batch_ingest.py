@@ -13,11 +13,46 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
 
 
-def extract_text(file_path: str) -> str:
-    """Extracts text from PDF, MD, or TXT files using IBM Docling."""
+def _extract_pdf_pypdf(file_path: str) -> str:
+    """Fast PDF text extraction via pypdf."""
+    try:
+        import pypdf
+
+        reader = pypdf.PdfReader(file_path)
+        pages_text = []
+        for page in reader.pages:
+            t = page.extract_text()
+            if t:
+                pages_text.append(t)
+        return "\n\n".join(pages_text)
+    except Exception as e:
+        logger.warning(f"pypdf extraction failed for {file_path}: {e}")
+        return ""
+
+
+def extract_text(file_path: str, fast: bool = False) -> str:
+    """Extracts text from PDF, MD, or TXT files."""
     ext = os.path.splitext(file_path)[1].lower()
 
-    if ext == ".pdf":
+    # Detect if file is a PDF (by extension or magic bytes %PDF-)
+    is_pdf = ext == ".pdf"
+    if not is_pdf and os.path.exists(file_path):
+        try:
+            with open(file_path, "rb") as f:
+                header = f.read(5)
+                if header.startswith(b"%PDF-"):
+                    is_pdf = True
+        except Exception:
+            pass
+
+    if is_pdf:
+        if fast:
+            logger.info("Extracting PDF text via fast pypdf parser...")
+            text = _extract_pdf_pypdf(file_path)
+            if text.strip():
+                return text
+            logger.info("Fast pypdf returned empty text, falling back to Docling...")
+
         try:
             from docling.document_converter import DocumentConverter
 
@@ -26,38 +61,22 @@ def extract_text(file_path: str) -> str:
             )
             converter = DocumentConverter()
             result = converter.convert(file_path)
-            # Docling natively preserves layout and tables as Markdown
             return result.document.export_to_markdown()
         except Exception as e:
-            logger.error(f"Failed to read PDF {file_path} with Docling: {e}")
-            return ""
+            logger.warning(f"Docling extraction failed for {file_path}: {e}")
+            return _extract_pdf_pypdf(file_path)
 
-    elif ext in [".txt", ".md"]:
-        try:
-            with open(file_path, "r", encoding="utf-8") as f:
-                return f.read()
-        except Exception as e:
-            logger.error(f"Failed to read text file {file_path}: {e}")
-            return ""
-
-    # For binary files without extensions (e.g. some PDFs from Anna's Archive)
+    # For text / markdown or UTF-8 files
     try:
-        from docling.document_converter import DocumentConverter
-
-        logger.info("Parsing binary file with Docling AI models...")
-        converter = DocumentConverter()
-        result = converter.convert(file_path)
-        return result.document.export_to_markdown()
+        with open(file_path, "r", encoding="utf-8") as f:
+            return f.read()
     except Exception:
-        # If it's not a valid PDF, try reading as plain text
-        try:
-            with open(file_path, "r", encoding="utf-8") as f:
-                return f.read()
-        except Exception:
-            logger.warning(
-                f"File {file_path} is neither a valid document nor UTF-8 text."
-            )
-            return ""
+        pass
+
+    logger.warning(
+        f"File {file_path} is neither a valid PDF nor UTF-8 text."
+    )
+    return ""
 
 
 def main():
@@ -154,7 +173,7 @@ def main():
         logger.info("==================================================")
         logger.info(f"Processing: {filename}")
 
-        text = extract_text(file_path)
+        text = extract_text(file_path, fast=args.fast)
         if not text.strip():
             logger.warning(f"No text extracted from {filename}. Skipping.")
             continue
@@ -176,7 +195,7 @@ def main():
             )
             logger.info(f"Successfully ingested {filename}: {result}")
         except Exception as e:
-            logger.error(f"Ingestion failed for {filename}: {e}")
+            logger.error(f"Ingestion failed for {filename}: {e}", exc_info=True)
 
 
 if __name__ == "__main__":

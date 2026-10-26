@@ -52,8 +52,42 @@ Veraxi includes an automated [DeepEval](https://github.com/confident-ai/deepeval
 
 - **Storage:** Neo4j (Graph), Qdrant (Vectors), SQLite (UI Persistence)
 - **Intelligence:** OpenAI-compatible SDK (OpenAI, Gemini, Groq, Local Models via Ollama)
-- **Backend Engine:** FastAPI, Python
+- **Backend Engine:** FastAPI, Python (ASGI SSE / Remote MCP)
 - **Frontend:** Flutter (Dart), Riverpod
+
+### ⚡ Just-In-Time (Lazy) GraphRAG Architecture
+
+To eliminate the prohibitive computational cost and "hairball" graph noise of traditional upfront GraphRAG, Veraxi implements a **two-tier Just-In-Time (Lazy) GraphRAG** pipeline:
+
+1. **Tier 1 — Base Ingestion (CPU-Optimized, Free):**
+   * Raw text (PDFs, Markdown, text files) is chunked and indexed into Qdrant using dual embeddings: **MiniLM (dense semantics)** and **SPLADE (lexical keywords)**.
+   * Lightweight entity anchors (companies, people, metrics, source titles) are mapped into Neo4j with **bidirectional UUID links** (`qdrant_point_id` ↔ `neo4j_node_ids`).
+   * Spurious sentence-level co-occurrence edges (`MENTIONED_WITH`, `WORKS_FOR`) are skipped, keeping ingestion under **2 minutes per 500-page book** on pure CPU with 0 GPU VRAM.
+
+2. **Tier 2 — On-Demand Causal Graph Weaving (Just-In-Time):**
+   * When researching a topic or complex multi-hop question, the Host AI (via Claude Code, Cursor, or Antigravity) retrieves seed chunks via `mcp_build_lazy_dossier`.
+   * The frontier subscription model extracts high-precision, verified **causal relationships** (e.g. `(Einhorn)-[:INVESTIGATED]->(Allied Capital)`) and commits them via `mcp_insert_graph_nodes`.
+   * The graph grows organically into a curated, high-signal knowledge base without upfront API bills.
+
+### 🛠 Core MCP Tools
+
+Veraxi exposes its hybrid engine over standard Model Context Protocol (MCP) endpoints (`/sse`):
+
+| Tool | Purpose |
+| :--- | :--- |
+| `mcp_build_lazy_dossier` | Retrieves ground-truth excerpts via Hybrid Search (Dense + SPLADE) fused with Neo4j entity anchors, returning a structured analytical dossier. |
+| `mcp_insert_graph_nodes` | Upserts/merges structured causal entities and rich relations into Neo4j, preserving Qdrant vector links without duplicates. |
+| `mcp_merge_rank` | Executes 3-way hybrid search: Qdrant dense + sparse vectors combined with Neo4j multi-hop traversals via Reciprocal Rank Fusion (RRF). |
+| `mcp_purge_noisy_relationships` | Purges uncurated co-occurrence edges from Neo4j for a tenant while keeping all entity nodes and vector links intact. |
+| `mcp_get_database_stats` | Live counts of nodes, vectors, and relationships for the current tenant. |
+| `mcp_export_data` | Exports structured timelines and research into CSV, OpenTimelineIO (`.otio`), or Final Cut Pro XML (`.fcpxml`). |
+
+### 📚 Batch Document Ingestion
+
+To ingest folders of books, 10-K filings, or research PDFs in bulk:
+```bash
+python -m backend.scripts.batch_ingest --dir /path/to/documents --tenant <tenant_id> --fast --chunk-size 600 --chunk-overlap 100
+```
 
 See [docs/architecture.md](docs/architecture.md) for a deep dive into the dependency flow and design rules.
 

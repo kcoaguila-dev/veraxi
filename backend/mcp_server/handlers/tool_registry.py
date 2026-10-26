@@ -340,6 +340,33 @@ REGISTERED_TOOLS = [
             "required": ["data"],
         },
     ),
+    Tool(
+        name="mcp_build_lazy_dossier",
+        description="Extracts a comprehensive research dossier from ingested documents using Hybrid Vector Search (Dense + SPLADE) fused with existing Neo4j entity anchors. Generates structured evidence chunks and instructions for Host AI to extract high-precision causal triples.",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "The research query or topic (e.g. 'David Einhorn investigation of Allied Capital loan valuations')",
+                },
+                "limit": {
+                    "type": "integer",
+                    "default": 15,
+                    "description": "Number of evidence chunks to retrieve",
+                },
+            },
+            "required": ["query"],
+        },
+    ),
+    Tool(
+        name="mcp_purge_noisy_relationships",
+        description="Purges all raw sentence-level co-occurrence ('MENTIONED_WITH') relationships from Neo4j for the current tenant. Leaves all entity nodes, book titles, and Qdrant vector links intact to eliminate graph noise.",
+        input_schema={
+            "type": "object",
+            "properties": {},
+        },
+    ),
 ]
 
 
@@ -561,6 +588,24 @@ async def _handle_agentic_debate(args: dict, tenant_id: str) -> list[TextContent
     return [TextContent(type="text", text=json.dumps(res, indent=2))]
 
 
+def _handle_build_lazy_dossier(args: dict, tenant_id: str) -> list[TextContent]:
+    from backend.retrieval.just_in_time_graph import build_lazy_graph_dossier
+
+    results = build_lazy_graph_dossier(
+        query=args["query"],
+        tenant_id=tenant_id,
+        limit=args.get("limit", 15),
+    )
+    return [TextContent(type="text", text=json.dumps(results, indent=2))]
+
+
+def _handle_purge_noisy_relationships(args: dict, tenant_id: str) -> list[TextContent]:
+    from backend.retrieval.just_in_time_graph import purge_noisy_relationships
+
+    results = purge_noisy_relationships(tenant_id=tenant_id)
+    return [TextContent(type="text", text=json.dumps(results, indent=2))]
+
+
 TOOL_HANDLERS = {
     "mcp_search_vectors": _handle_search_vectors,
     "mcp_query_graph": _handle_query_graph,
@@ -586,4 +631,6 @@ TOOL_HANDLERS = {
     "mcp_get_ingest_status": _handle_get_ingest_status,
     "mcp_deep_research": _handle_deep_research,
     "mcp_export_data": _handle_export_data,
+    "mcp_build_lazy_dossier": _handle_build_lazy_dossier,
+    "mcp_purge_noisy_relationships": _handle_purge_noisy_relationships,
 }

@@ -25,23 +25,14 @@ def register_mcp_transport_routes(
         logger.info(f"Opening MCP SSE stream for tenant: {tenant_id}")
         tenant_context.set(tenant_id)
 
-        # MCPServer lazily registers tools, so we force initialization here
-        mcp_server._setup_handlers()
-
         async with sse.connect_sse(request.scope, request.receive, request._send) as (
             read_stream,
             write_stream,
         ):
-            await mcp_server._mcp_server.run(
+            await mcp_server._lowlevel_server.run(
                 read_stream,
                 write_stream,
-                mcp_server._mcp_server.create_initialization_options(),
+                mcp_server._lowlevel_server.create_initialization_options(),
             )
 
-    @app_router.post("/messages")
-    async def handle_messages(
-        request: Request, tenant_id: str = Depends(get_tenant_id)
-    ):
-        """Host AI posts JSON-RPC messages here. They are routed to the active SSE stream."""
-        tenant_context.set(tenant_id)
-        await sse.handle_post_message(request.scope, request.receive, request._send)
+    app_router.mount("/messages", sse.handle_post_message)

@@ -63,8 +63,40 @@ def embed_text_sparse(text: str) -> dict:
 
 
 def chunk_and_embed(
-    text: str, chunk_size: int = 200, chunk_overlap: int = 50
+    text: str, chunk_size: int = 200, chunk_overlap: int = 50, batch_size: int = 64
 ) -> list[tuple[str, list[float], dict]]:
     """Chunks text and returns list of (chunk_text, dense_vector, sparse_vector)."""
     chunks = chunk_text(text, chunk_size=chunk_size, overlap=chunk_overlap)
-    return [(chunk, embed_text(chunk), embed_text_sparse(chunk)) for chunk in chunks]
+    if not chunks:
+        return []
+
+    # Batch dense embeddings
+    dense_model = get_embedding_model()
+    dense_raw = dense_model.encode(chunks, batch_size=batch_size)
+    dense_vectors = (
+        dense_raw.tolist() if hasattr(dense_raw, "tolist") else list(dense_raw)
+    )
+
+    # Batch sparse embeddings
+    sparse_model = get_sparse_embedding_model()
+    sparse_raw = list(sparse_model.embed(chunks, batch_size=batch_size))
+    sparse_vectors = [
+        {
+            "indices": (
+                s.indices.tolist()
+                if hasattr(s.indices, "tolist")
+                else list(s.indices)
+            ),
+            "values": (
+                s.values.tolist()
+                if hasattr(s.values, "tolist")
+                else list(s.values)
+            ),
+        }
+        for s in sparse_raw
+    ]
+
+    return [
+        (chunks[i], dense_vectors[i], sparse_vectors[i])
+        for i in range(len(chunks))
+    ]

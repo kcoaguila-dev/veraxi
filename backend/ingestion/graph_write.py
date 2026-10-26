@@ -71,6 +71,11 @@ def write_to_graph(
         to_node_id = entity_name_to_node_id.get(relation["to_entity"])
 
         if from_node_id and to_node_id:
-            neo4j_client.create_relationship(from_node_id, to_node_id, relation["type"])
+            neo4j_client.create_relationship(
+                from_node_id,
+                to_node_id,
+                relation["type"],
+                properties={"tenant_id": tenant_id},
+            )
 
     return entity_name_to_node_id, qdrant_id_to_neo4j_ids

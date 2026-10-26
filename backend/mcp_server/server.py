@@ -55,8 +55,7 @@ def mcp_query_graph(entity_name: str, max_hops: int = 2) -> str:
     from backend.mcp_server.handlers.tool_registry import _handle_query_graph
 
     res = _handle_query_graph(args, tenant_id)
-    # The old handler returns list[TextContent]. MCPServer expects str.
-    return res[0].text
+    return res[0].text if res else "[]"
 
 
 @mcp_server.tool(
@@ -385,3 +384,30 @@ def mcp_export_data(
     res = _handle_export_data(args, tenant_id)
     # The old handler returns list[TextContent]. MCPServer expects str.
     return res[0].text
+
+
+@mcp_server.tool(
+    name="mcp_build_lazy_dossier",
+    description="Extracts a comprehensive research dossier from ingested documents using Hybrid Vector Search (Dense + SPLADE) fused with existing Neo4j entity anchors. Generates structured evidence chunks and instructions for Host AI to extract high-precision causal triples.",
+)
+def mcp_build_lazy_dossier(query: str, limit: int = 15) -> str:
+    tenant_id = tenant_context.get()
+    args = {k: v for k, v in locals().items() if k != "tenant_id"}
+    from backend.mcp_server.handlers.tool_registry import _handle_build_lazy_dossier
+
+    res = _handle_build_lazy_dossier(args, tenant_id)
+    return res[0].text
+
+
+@mcp_server.tool(
+    name="mcp_purge_noisy_relationships",
+    description="Purges all raw sentence-level co-occurrence ('MENTIONED_WITH') relationships from Neo4j for the current tenant. Leaves all entity nodes, book titles, and Qdrant vector links intact to eliminate graph noise.",
+)
+def mcp_purge_noisy_relationships() -> str:
+    tenant_id = tenant_context.get()
+    args = {k: v for k, v in locals().items() if k != "tenant_id"}
+    from backend.mcp_server.handlers.tool_registry import _handle_purge_noisy_relationships
+
+    res = _handle_purge_noisy_relationships(args, tenant_id)
+    return res[0].text
+
