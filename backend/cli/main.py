@@ -146,6 +146,7 @@ def main():
     # --- context ---
     context_parser = subparsers.add_parser("context", help="Assemble token-efficient grounding context for agents")
     context_parser.add_argument("task", nargs="?", help="Task or prompt description")
+    context_parser.add_argument("--project", help="Project repository scope (defaults to auto-detected git repo)")
     context_parser.add_argument("--tenant", help="Tenant ID")
     context_parser.add_argument("--limit", type=int, default=4, help="Max vector chunks to include")
     context_parser.add_argument("--key", help="Veraxi API key (vx-...)")
@@ -158,6 +159,8 @@ def main():
     remember_parser.add_argument("--tag", help="Category tag (e.g., auth, perf, db)")
     remember_parser.add_argument("--type", choices=["rule", "issue", "pattern"], default="rule", help="Type of memory")
     remember_parser.add_argument("--supersedes", help="ID or keyword of older memory this replaces")
+    remember_parser.add_argument("--project", help="Project repository scope (defaults to auto-detected git repo)")
+    remember_parser.add_argument("--global", dest="is_global", action="store_true", help="Apply across all projects")
     remember_parser.add_argument("--tenant", help="Tenant ID")
     remember_parser.add_argument("--key", help="Veraxi API key (vx-...)")
     remember_parser.add_argument("--endpoint", default="https://api.veraxi.me/sse", help="Veraxi API endpoint")
@@ -185,6 +188,8 @@ def main():
     # --- memory ---
     memory_parser = subparsers.add_parser("memory", help="Inspect and list architectural memories")
     memory_parser.add_argument("--status", choices=["active", "resolved", "superseded", "all"], default="all", help="Status filter")
+    memory_parser.add_argument("--project", help="Project repository filter (defaults to current git repo)")
+    memory_parser.add_argument("--all-projects", action="store_true", help="Display memories across all projects")
     memory_parser.add_argument("--tenant", help="Tenant ID")
     memory_parser.add_argument("--key", help="Veraxi API key (vx-...)")
     memory_parser.add_argument("--endpoint", default="https://api.veraxi.me/sse", help="Veraxi API endpoint")
@@ -270,6 +275,7 @@ def main():
         tenant_id = _resolve_tenant(args.tenant, key)
         run_context(
             task=args.task,
+            project=args.project,
             tenant_id=tenant_id,
             limit=args.limit,
             endpoint=endpoint,
@@ -285,6 +291,8 @@ def main():
             tag=args.tag,
             memory_type=args.type,
             supersedes=args.supersedes,
+            project=args.project,
+            is_global=args.is_global,
             tenant_id=tenant_id,
             endpoint=endpoint,
             key=key,
@@ -321,6 +329,8 @@ def main():
         tenant_id = _resolve_tenant(args.tenant, key)
         run_memory_list(
             status_filter=args.status,
+            project=args.project,
+            all_projects=args.all_projects,
             tenant_id=tenant_id,
             endpoint=endpoint,
             key=key,
