@@ -118,7 +118,8 @@ You can run the databases locally for free via Docker and connect to free-tier c
    source backend/.venv/bin/activate
    cd backend
    pip install -e ".[dev]"
-   uvicorn main:app --reload
+   cd ..
+   uvicorn backend.api_gateway:app --reload
    ```
 
 5. **Run the Flutter App:**

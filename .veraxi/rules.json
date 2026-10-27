@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "exported_at": "2026-10-27T00:34:58.787317+00:00",
+  "exported_at": "2026-10-27T05:21:46.490157+00:00",
   "project": "veraxi",
   "total": 4,
   "memories": [
@@ -33,11 +33,11 @@
       "name": "Django migrations must always specify default values",
       "tag": "db",
       "type": "rule",
-      "status": "active",
+      "status": "resolved",
       "project": "veraxi",
       "created_at": "2026-10-26T23:57:42.246675+00:00",
-      "resolved_ref": "",
-      "resolved_note": "",
+      "resolved_ref": "manual",
+      "resolved_note": "Not applicable to FastAPI/Neo4j architecture",
       "superseded_by": ""
     },
     {

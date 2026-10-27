@@ -22,7 +22,7 @@ graph TD
     end
     
     subgraph Backend["Python Backend"]
-        Api["main.py (FastAPI)"]
+        Api["api_gateway.py (FastAPI)"]
         MCP["mcp_server (tools)"]
         Retrieval["retrieval/merge_rank"]
         Ingestion["ingestion pipeline"]
