@@ -226,6 +226,114 @@ def run_rules_lint(
         sys.exit(1)
 
 
+def audit_diff_against_rules(diff_text: str, rules: list[dict]) -> list[dict]:
+    """
+    Evaluates a git diff against active architectural rules and invariants.
+    Detects:
+    1. Layer boundary / Clean Architecture violations (forbidden imports in domain/core).
+    2. Multi-tenancy leaks (database queries lacking tenant_id parameter).
+    3. Forbidden or deprecated library usages.
+    4. Plaintext API keys or secrets in committed code.
+    """
+    violations = []
+    if not diff_text or not rules:
+        return violations
+
+    file_diffs = []
+    current_file = None
+    current_lines = []
+
+    for line in diff_text.splitlines():
+        if line.startswith("+++ b/"):
+            if current_file:
+                file_diffs.append((current_file, current_lines))
+            current_file = line[6:].strip()
+            current_lines = []
+        elif line.startswith("+") and not line.startswith("+++") and current_file:
+            current_lines.append(line[1:])
+
+    if current_file:
+        file_diffs.append((current_file, current_lines))
+
+    for filepath, added_lines in file_diffs:
+        lower_path = filepath.lower()
+
+        for r in rules:
+            rule_id = r.get("id")
+            rule_name = r.get("name", "")
+            rule_lower = rule_name.lower()
+            tag = r.get("tag", "rule")
+
+            # 1. Clean Architecture / Layer Boundary Violations
+            import_forbidden_match = re.search(r"(?:never|do not|must not|cannot)\s+import\s+([a-zA-Z0-9_\.]+)", rule_lower)
+            if import_forbidden_match:
+                forbidden_pkg = import_forbidden_match.group(1).strip()
+                for line in added_lines:
+                    if re.search(rf"\b(?:from|import)\s+{re.escape(forbidden_pkg)}\b", line):
+                        violations.append({
+                            "severity": "CRITICAL",
+                            "type": "layer_violation",
+                            "rule_id": rule_id,
+                            "rule_name": rule_name,
+                            "tag": tag,
+                            "file": filepath,
+                            "line": line.strip(),
+                            "reason": f"Violates layer boundary: prohibited import '{forbidden_pkg}' introduced.",
+                            "remediation": f"Refactor '{filepath}' to use dependency injection or invert dependency.",
+                        })
+
+            if any(term in rule_lower for term in ("clean architecture", "domain entity", "domain layer")):
+                if any(seg in lower_path for seg in ("/domain/", "/core/", "/entities/", "src/domain/")):
+                    for line in added_lines:
+                        if re.search(r"\b(?:from|import)\s+.*(?:storage|database|postgres|neo4j|qdrant|fastapi|flask)\b", line):
+                            violations.append({
+                                "severity": "CRITICAL",
+                                "type": "clean_architecture_violation",
+                                "rule_id": rule_id,
+                                "rule_name": rule_name,
+                                "tag": tag,
+                                "file": filepath,
+                                "line": line.strip(),
+                                "reason": "Clean Architecture violation: Domain layer must not depend on Infrastructure or Frameworks.",
+                                "remediation": "Invert dependency using an abstract interface / repository port.",
+                            })
+
+            # 2. Multi-tenancy Guardrail
+            if "tenant_id" in rule_lower and any(kw in rule_lower for kw in ("all query", "database query", "filter by", "must filter", "must include")):
+                for line in added_lines:
+                    if any(term in line for term in (".execute_read(", ".execute_write(", "search_vectors(", "search_hybrid(", "qdrant.search(")):
+                        if "tenant_id" not in line and "tenant" not in line:
+                            violations.append({
+                                "severity": "CRITICAL",
+                                "type": "multitenancy_leak",
+                                "rule_id": rule_id,
+                                "rule_name": rule_name,
+                                "tag": tag,
+                                "file": filepath,
+                                "line": line.strip(),
+                                "reason": "Multi-tenancy violation: Database query missing mandatory 'tenant_id' filter.",
+                                "remediation": "Pass explicit 'tenant_id' to guarantee cross-tenant data isolation.",
+                            })
+
+            # 3. Plaintext Secret / Token Commit
+            if any(term in rule_lower for term in ("never commit secret", "never commit key", "never commit token", "no plaintext key")):
+                for line in added_lines:
+                    if re.search(r"(?:api_key|token|secret|password)\s*=\s*['\"][A-Za-z0-9_\-]{16,}['\"]", line, re.IGNORECASE):
+                        violations.append({
+                            "severity": "CRITICAL",
+                            "type": "hardcoded_secret",
+                            "rule_id": rule_id,
+                            "rule_name": rule_name,
+                            "tag": tag,
+                            "file": filepath,
+                            "line": line.strip()[:60] + "...",
+                            "reason": "Security violation: Potential hardcoded secret or token detected in diff.",
+                            "remediation": "Move secrets to environment variables or secret manager.",
+                        })
+
+    return violations
+
+
 def _inject_rules_block(content: str, block: str) -> str:
     """
     Replaces existing managed block or appends to content.
@@ -264,11 +372,26 @@ def run_rules_sync(
     if not active_rules:
         lines.append("*No active architectural constraints found. Run `vx remember \"<rule>\"` to add one.*")
     else:
-        for r in active_rules:
-            proj = r.get("project") or project_scope
-            source_info = f" *(from {proj})*" if proj and str(proj).lower() not in (project_scope.lower(), "global", "none") else ""
-            tag = r.get("tag", "rule")
-            lines.append(f"- **[{tag}]** {r['name']}{source_info}")
+        invariants = [r for r in active_rules if r.get("type") == "invariant" or r.get("tag") == "architecture"]
+        guards = [r for r in active_rules if r not in invariants]
+
+        if invariants:
+            lines.append("### 🏛 Permanent Architectural Invariants\n")
+            for r in invariants:
+                proj = r.get("project") or project_scope
+                source_info = f" *(from {proj})*" if proj and str(proj).lower() not in (project_scope.lower(), "global", "none") else ""
+                tag = r.get("tag", "architecture")
+                lines.append(f"- **[{tag}]** {r['name']}{source_info}")
+            lines.append("")
+
+        if guards:
+            if invariants:
+                lines.append("### ⚡ Active Project Guards\n")
+            for r in guards:
+                proj = r.get("project") or project_scope
+                source_info = f" *(from {proj})*" if proj and str(proj).lower() not in (project_scope.lower(), "global", "none") else ""
+                tag = r.get("tag", "rule")
+                lines.append(f"- **[{tag}]** {r['name']}{source_info}")
 
     lines.append(MANAGED_END)
     block = "\n".join(lines)
