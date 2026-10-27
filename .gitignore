@@ -53,6 +53,9 @@ backend/tts/cache/
 .deepeval/
 *.patch
 analyze.txt
+test_out.txt
+mypy_errors.txt
+test_redos*.py
 scratch/
 *.out
 *.pid
