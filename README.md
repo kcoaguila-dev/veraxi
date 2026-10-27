@@ -89,6 +89,8 @@ Veraxi includes a dedicated developer CLI (`vx`) for knowledge inspection and ag
 
 | Command | Purpose |
 | :--- | :--- |
+| `vx config` | Inspect, set, or unset configuration values (`api_url`, `api_key`, `model`) with safe secret masking and `--json` support. |
+| `vx models` | Discover supported multi-provider models (OpenAI, Anthropic, Gemini, Groq, DeepSeek, Ollama), verify API key readiness, and switch default model. |
 | `vx doctor` | Inspects MCP endpoint reachability and client JSON configs (Claude Code, Cursor, Cline). |
 | `vx trace "<entity>"` | Traces multi-hop causal paths in the terminal across Neo4j nodes. |
 | `vx stats` | Displays live counts of nodes, vectors, and relationships for the current tenant. |

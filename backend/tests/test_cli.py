@@ -768,6 +768,60 @@ def test_memory_drift_detection(tmp_path, capsys):
             assert exc_info.value.code == 1
 
 
+# 33. test_cli_config_lifecycle: Test get, set, unset, and list in CLI config
+def test_cli_config_lifecycle(tmp_path, monkeypatch, capsys):
+    from veraxi.cli.config import run_config
+
+    fake_cfg_path = tmp_path / "config.json"
+    monkeypatch.setattr("veraxi.cli.config.get_cli_config_path", lambda: fake_cfg_path)
+    monkeypatch.setattr("veraxi.cli.config.load_credentials", lambda: {"api_key": "vx-test-secret-key"})
+
+    # 1. Set key
+    run_config(action="set", key="default_model", value="gpt-4o")
+    captured = capsys.readouterr()
+    assert "default_model = gpt-4o" in captured.out
+
+    # 2. Get key
+    run_config(action="get", key="default_model", as_json=True)
+    captured = capsys.readouterr()
+    assert json.loads(captured.out)["default_model"] == "gpt-4o"
+
+    # 3. List
+    run_config(action="list", as_json=True)
+    captured = capsys.readouterr()
+    data = json.loads(captured.out)
+    assert data["default_model"] == "gpt-4o"
+    assert data["api_key"] == "vx-test-secret-key"
+
+    # 4. Unset key
+    run_config(action="unset", key="default_model")
+    captured = capsys.readouterr()
+    assert "Removed config key: default_model" in captured.out
+
+
+# 34. test_cli_models_discovery: Test listing models and setting active model
+def test_cli_models_discovery(tmp_path, monkeypatch, capsys):
+    from veraxi.cli.models import run_models_list, run_models_set
+
+    fake_cfg_path = tmp_path / "config.json"
+    monkeypatch.setattr("veraxi.cli.config.get_cli_config_path", lambda: fake_cfg_path)
+    monkeypatch.setattr("veraxi.cli.config.load_credentials", lambda: {})
+
+    # Set default model
+    run_models_set(model_name="claude-3-5-sonnet-latest")
+    captured = capsys.readouterr()
+    assert "claude-3-5-sonnet-latest" in captured.out
+
+    # List as JSON
+    run_models_list(as_json=True)
+    captured = capsys.readouterr()
+    data = json.loads(captured.out)
+    assert data["current_model"] == "claude-3-5-sonnet-latest"
+    assert "OpenAI" in data["providers"]
+    assert "Anthropic" in data["providers"]
+
+
+
 
 
 
