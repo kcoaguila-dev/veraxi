@@ -1,7 +1,7 @@
 import json
 import sys
 from veraxi.cli.cluster import get_cluster_repos
-from veraxi.cli.memory import _resolve_project_scope
+from veraxi.cli.utils import resolve_project_scope as _resolve_project_scope
 
 
 def run_context(
