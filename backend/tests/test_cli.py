@@ -531,6 +531,62 @@ def test_memory_audit(capsys):
         assert data["health_score"] < 100
 
 
+# 23. test_memory_prune: Test pruning resolved memories with dry-run and archive
+def test_memory_prune(capsys, tmp_path):
+    from backend.cli.memory import run_memory_prune
+
+    archive_file = tmp_path / "archive.json"
+
+    with patch("backend.storage.neo4j_client.Neo4jStorageClient.from_config") as mock_neo4j:
+        mock_client = MagicMock()
+        mock_neo4j.return_value = mock_client
+        mock_client.execute_read.return_value = [
+            {"id": "old-1", "name": "Old bug", "tag": "db", "status": "resolved", "created_at": "2024-01-01T00:00:00Z"}
+        ]
+
+        # Dry run
+        run_memory_prune(older_than="30d", dry_run=True, project="test-repo", as_json=True)
+        captured = capsys.readouterr()
+        dry_data = json.loads(captured.out)
+        assert dry_data["dry_run"] is True
+        assert dry_data["pruned_count"] == 1
+        assert not mock_client.execute_write.called
+
+        # Actual execution
+        run_memory_prune(older_than="30d", dry_run=False, archive_file=str(archive_file), project="test-repo", as_json=True)
+        assert mock_client.execute_write.called
+        assert archive_file.is_file()
+
+
+# 24. test_memory_stats: Test prompt token overhead & quota capacity estimation
+def test_memory_stats(capsys):
+    from backend.cli.memory import run_memory_stats
+
+    with patch("backend.storage.neo4j_client.Neo4jStorageClient.from_config") as mock_neo4j:
+        mock_client = MagicMock()
+        mock_neo4j.return_value = mock_client
+        mock_client.execute_read.side_effect = [
+            # memories
+            [
+                {"id": "r1", "name": "Active rule 1", "tag": "auth", "status": "active"},
+                {"id": "r2", "name": "Active rule 2", "tag": "db", "status": "active"},
+                {"id": "r3", "name": "Resolved issue", "tag": "api", "status": "resolved"},
+            ],
+            # count query
+            [{"cnt": 150}],
+        ]
+
+        run_memory_stats(project="test-repo", as_json=True)
+        captured = capsys.readouterr()
+        data = json.loads(captured.out)
+        assert data["hot_memory"]["active_rules_count"] == 2
+        assert data["hot_memory"]["estimated_prompt_tokens"] > 0
+        assert data["database_capacity"]["stored_nodes"] == 150
+        assert data["database_capacity"]["status"] == "OPTIMAL"
+        assert data["lifecycle"]["resolved"] == 1
+
+
+
 
 
 

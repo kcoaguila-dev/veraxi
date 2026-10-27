@@ -16,6 +16,8 @@ from backend.cli.memory import (
     run_memory_export,
     run_memory_import,
     run_memory_list,
+    run_memory_prune,
+    run_memory_stats,
     run_remember,
     run_reopen,
     run_resolve,
@@ -197,17 +199,33 @@ def main():
     reopen_parser.add_argument("--json", action="store_true", help="Output raw JSON")
 
     # --- memory ---
-    memory_parser = subparsers.add_parser("memory", help="Inspect, export, import, or audit architectural memories")
-    memory_parser.add_argument("action", choices=["list", "export", "import", "audit"], default="list", nargs="?", help="Action to perform")
+    memory_parser = subparsers.add_parser("memory", help="Inspect, export, import, audit, prune, or check memory stats")
+    memory_parser.add_argument("action", choices=["list", "export", "import", "audit", "prune", "stats"], default="list", nargs="?", help="Action to perform")
     memory_parser.add_argument("file_path", nargs="?", help="File path for import or export")
     memory_parser.add_argument("--status", choices=["active", "resolved", "superseded", "all"], default="all", help="Status filter")
     memory_parser.add_argument("--project", help="Project repository filter (defaults to current git repo)")
     memory_parser.add_argument("--all-projects", action="store_true", help="Display memories across all projects")
+    memory_parser.add_argument("--older-than", default="90d", help="Retention window for pruning (e.g. 30d, 90d)")
+    memory_parser.add_argument("--dry-run", action="store_true", help="Preview items that would be pruned without modifying state")
+    memory_parser.add_argument("--archive-file", help="Archive file destination for pruned items")
     memory_parser.add_argument("--output", "-o", help="Output file path for export (default: .veraxi/rules.json)")
     memory_parser.add_argument("--tenant", help="Tenant ID")
     memory_parser.add_argument("--key", help="Veraxi API key (vx-...)")
     memory_parser.add_argument("--endpoint", default="https://api.veraxi.me/sse", help="Veraxi API endpoint")
     memory_parser.add_argument("--json", action="store_true", help="Output raw JSON")
+
+    # --- prune (alias to memory prune) ---
+    prune_parser = subparsers.add_parser("prune", help="Safely archive stale resolved notes and superseded caveats")
+    prune_parser.add_argument("--older-than", default="90d", help="Retention window for pruning (e.g. 30d, 90d)")
+    prune_parser.add_argument("--dry-run", action="store_true", help="Preview items that would be pruned without modifying state")
+    prune_parser.add_argument("--status", choices=["resolved", "superseded", "all"], default="resolved", help="Status filter to prune")
+    prune_parser.add_argument("--project", help="Project repository filter")
+    prune_parser.add_argument("--all-projects", action="store_true", help="Prune across all projects")
+    prune_parser.add_argument("--archive-file", help="Archive destination file")
+    prune_parser.add_argument("--tenant", help="Tenant ID")
+    prune_parser.add_argument("--key", help="Veraxi API key (vx-...)")
+    prune_parser.add_argument("--endpoint", default="https://api.veraxi.me/sse", help="Veraxi API endpoint")
+    prune_parser.add_argument("--json", action="store_true", help="Output raw JSON")
 
     # --- rules ---
     rules_parser = subparsers.add_parser("rules", help="Manage and sync rules with AI editors (CLAUDE.md, .cursorrules)")
@@ -418,6 +436,28 @@ def main():
                 key=key,
                 as_json=args.json,
             )
+        elif action == "prune":
+            run_memory_prune(
+                older_than=getattr(args, "older_than", "90d"),
+                dry_run=getattr(args, "dry_run", False),
+                archive_file=getattr(args, "archive_file", None),
+                status_filter=getattr(args, "status", "resolved"),
+                project=args.project,
+                all_projects=args.all_projects,
+                tenant_id=tenant_id,
+                endpoint=endpoint,
+                key=key,
+                as_json=args.json,
+            )
+        elif action == "stats":
+            run_memory_stats(
+                project=args.project,
+                all_projects=args.all_projects,
+                tenant_id=tenant_id,
+                endpoint=endpoint,
+                key=key,
+                as_json=args.json,
+            )
         else:
             run_memory_list(
                 status_filter=args.status,
@@ -461,6 +501,22 @@ def main():
             target=args.target,
             hops=args.hops,
             project=args.project,
+            tenant_id=tenant_id,
+            endpoint=endpoint,
+            key=key,
+            as_json=args.json,
+        )
+
+    elif args.mcp_group == "prune":
+        key, endpoint = resolve_credentials(args.key, args.endpoint)
+        tenant_id = _resolve_tenant(args.tenant, key)
+        run_memory_prune(
+            older_than=getattr(args, "older_than", "90d"),
+            dry_run=getattr(args, "dry_run", False),
+            archive_file=getattr(args, "archive_file", None),
+            status_filter=getattr(args, "status", "resolved"),
+            project=args.project,
+            all_projects=args.all_projects,
             tenant_id=tenant_id,
             endpoint=endpoint,
             key=key,
