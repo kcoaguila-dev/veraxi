@@ -85,18 +85,26 @@ flutter run -d linux
 
 ## 🧰 Developer CLI (`vx`)
 
-Veraxi includes a dedicated developer CLI (`vx`) for knowledge inspection and agent alignment:
+Veraxi includes a dedicated, zero-dependency developer CLI (`vx`) for terminal knowledge retrieval and agent alignment:
 
 | Command | Purpose |
 | :--- | :--- |
+| `vx chat` | Interactive terminal knowledge assistant with slash shortcuts (`/web`, `/fetch`, `/trace`, `/stats`, `/models`). |
 | `vx config` | Inspect, set, or unset configuration values (`api_url`, `api_key`, `model`) with safe secret masking and `--json` support. |
 | `vx models` | Discover supported multi-provider models (OpenAI, Anthropic, Gemini, Groq, DeepSeek, Ollama), verify API key readiness, and switch default model. |
-| `vx doctor` | Inspects system environment, MCP endpoint reachability, and client JSON configs (Claude Code, Cursor, Cline). |
+| `vx doctor` | Inspects system environment (Android Termux, Linux, macOS), MCP endpoint reachability, and client configs (Claude Code, Cursor, Cline). |
+| `vx web search "<q>"` | Zero-dependency live web search via DuckDuckGo (CLI & `--json`). |
+| `vx web fetch <url>` | Clean Markdown/text webpage extraction for AI agents and Termux. |
 | `vx trace "<entity>"` | Traces multi-hop causal paths in the terminal across Neo4j nodes. |
 | `vx stats` | Displays live counts of nodes, vectors, and relationships for the current tenant. |
 | `vx rules sync` | Synchronizes active architectural constraints to `CLAUDE.md`, `.cursorrules`, and `.clinerules`. |
-| `vx web search "<q>"` | Zero-dependency live web search via DuckDuckGo (CLI & `--json`). |
-| `vx web fetch <url>` | Clean Markdown/text webpage extraction for AI agents and Termux. |
+| `vx review` | 1-Command Git diff auditor and CI architectural rule enforcer. |
+
+### 🛠 Makefile Developer Shortcuts
+
+| Target | Purpose |
+| :--- | :--- |
+| `make install-cli` | Installs the lightweight `vx` developer CLI globally. |
 | `make seed` | Populates local Neo4j and Qdrant with interrelated multi-hop seed data in 3 seconds. |
 | `make inspect-mcp` | Launches the interactive `@modelcontextprotocol/inspector` against the `/sse` endpoint. |
 | `make lint` / `make format` | Runs unified linters (`ruff` and `flutter analyze`) across both codebases. |
