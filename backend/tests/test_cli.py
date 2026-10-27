@@ -872,7 +872,7 @@ def test_cli_web_search_and_fetch(monkeypatch, capsys):
     from veraxi.cli.web import run_web
 
     fake_results = [{"snippet": "Run AI on mobile", "url": "https://example.com"}]
-    monkeypatch.setattr("veraxi.cli.web.web_search", lambda query, limit=5: fake_results)
+    monkeypatch.setattr("veraxi.cli.web.web_search", lambda query, limit=5, provider=None: fake_results)
     monkeypatch.setattr("veraxi.cli.web.fetch_web_page", lambda url, max_chars=5000: "Clean Markdown Content")
 
     # 1. Search text
@@ -915,6 +915,35 @@ def test_cli_chat_slash_commands(monkeypatch, capsys):
     assert "MOCK_WEB_CALLED" in captured.out
     assert "MOCK_MODELS_CALLED" in captured.out
     assert "Session ended" in captured.out
+
+
+# 40. test_cli_web_provider_management: Test listing and setting web search providers
+def test_cli_web_provider_management(tmp_path, monkeypatch, capsys):
+    from veraxi.cli.web import run_web
+
+    fake_cfg_path = tmp_path / "config.json"
+    monkeypatch.setattr("veraxi.cli.config.get_cli_config_path", lambda: fake_cfg_path)
+
+    # 1. List providers as JSON
+    run_web(action="provider", as_json=True)
+    captured = capsys.readouterr()
+    data = json.loads(captured.out)
+    assert data["active_provider"] == "duckduckgo"
+    assert "searxng" in data["providers"]
+    assert "serper" in data["providers"]
+    assert "tavily" in data["providers"]
+
+    # 2. Set provider to searxng
+    run_web(action="provider", query_or_url="set", provider_name="searxng")
+    captured = capsys.readouterr()
+    assert "searxng" in captured.out
+
+    # 3. Verify updated active provider
+    run_web(action="provider", as_json=True)
+    captured = capsys.readouterr()
+    data = json.loads(captured.out)
+    assert data["active_provider"] == "searxng"
+
 
 
 
