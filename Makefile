@@ -1,8 +1,9 @@
-.PHONY: setup up down run run-backend test test-gcp seed lint format inspect-mcp clean help
+.PHONY: setup up down run run-backend test test-gcp seed lint format inspect-mcp install-cli clean help
 
 help:
 	@echo "Available commands:"
 	@echo "  make setup        - Copies .env files, sets up Python venv, pre-commit, and Flutter deps"
+	@echo "  make install-cli  - Installs the lightweight Veraxi developer CLI (vx) globally"
 	@echo "  make up           - Starts the backend and databases via Docker Compose"
 	@echo "  make down         - Stops all Docker containers"
 	@echo "  make seed         - Seeds local Neo4j & Qdrant with synthetic multi-hop test data"
@@ -26,6 +27,10 @@ setup:
 	@echo ""
 	@echo "Setup complete! Please add your GEMINI_API_KEY and SENTRY_DSN to backend/.env"
 	@echo "Then run 'make up' followed by 'make seed' to start."
+
+install-cli:
+	@echo "--- Installing Veraxi CLI (vx) ---"
+	./install.sh
 
 run-backend:
 	@echo "--- Starting backend locally with hot-reload ---"

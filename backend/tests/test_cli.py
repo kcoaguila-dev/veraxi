@@ -900,6 +900,24 @@ def test_cli_web_search_and_fetch(monkeypatch, capsys):
     assert data["content"] == "Clean Markdown Content"
 
 
+# 39. test_cli_chat_slash_commands: Test interactive chat REPL slash shortcuts
+def test_cli_chat_slash_commands(monkeypatch, capsys):
+    from veraxi.cli.chat import run_interactive_chat
+
+    inputs = iter(["/help", "/web termux-test", "/models", "exit"])
+    monkeypatch.setattr("builtins.input", lambda prompt="": next(inputs))
+    monkeypatch.setattr("veraxi.cli.chat.run_web", lambda action, query_or_url, limit=5: print("MOCK_WEB_CALLED"))
+    monkeypatch.setattr("veraxi.cli.chat.run_models_list", lambda *args, **kwargs: print("MOCK_MODELS_CALLED"))
+
+    run_interactive_chat(tenant_id="test-tenant")
+    captured = capsys.readouterr()
+    assert "Available Commands & Shortcuts" in captured.out
+    assert "MOCK_WEB_CALLED" in captured.out
+    assert "MOCK_MODELS_CALLED" in captured.out
+    assert "Session ended" in captured.out
+
+
+
 
 
 
