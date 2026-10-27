@@ -361,9 +361,11 @@ def main():
     top_doctor_parser.add_argument("--endpoint", default="https://api.veraxi.me/sse", help="MCP endpoint URL")
 
     # --- web ---
-    web_parser = subparsers.add_parser("web", help="Zero-dependency web search & page reader for agents and Termux")
-    web_parser.add_argument("action", choices=["search", "fetch"], help="Action: search (search query) or fetch (read URL)")
-    web_parser.add_argument("query_or_url", help="Search query or URL to fetch")
+    web_parser = subparsers.add_parser("web", help="Multi-provider web search & page reader for agents and Termux")
+    web_parser.add_argument("action", choices=["search", "fetch", "provider"], help="Action: search, fetch, or provider")
+    web_parser.add_argument("query_or_url", nargs="?", help="Search query, URL to fetch, or provider action (e.g. 'set')")
+    web_parser.add_argument("provider_name", nargs="?", help="Provider name when using 'provider set <name>'")
+    web_parser.add_argument("--provider", help="Override search provider (duckduckgo, searxng, serper, tavily)")
     web_parser.add_argument("--limit", type=int, default=5, help="Maximum number of search results (default: 5)")
     web_parser.add_argument("--json", action="store_true", help="Output raw JSON for agent pipelines")
 
@@ -788,6 +790,8 @@ def main():
         run_web(
             action=args.action,
             query_or_url=args.query_or_url,
+            provider_name=getattr(args, "provider_name", None),
+            provider=getattr(args, "provider", None),
             limit=args.limit,
             as_json=args.json,
         )
