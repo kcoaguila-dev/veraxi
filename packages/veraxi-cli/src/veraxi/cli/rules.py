@@ -72,6 +72,160 @@ def _get_active_rules(project_scope: str, tenant_id: str = "default") -> list[di
     return rules
 
 
+OPPOSING_DOMAINS = [
+    ({"cookie", "cookies"}, {"header", "headers", "bearer"}),
+    ({"sync", "synchronous"}, {"async", "asynchronous"}),
+    ({"rest", "restful"}, {"graphql", "grpc"}),
+    ({"tabs"}, {"spaces"}),
+    ({"sql", "relational", "postgres"}, {"nosql", "mongo", "mongodb"}),
+    ({"localstorage"}, {"httponly", "cookie", "cookies"}),
+    ({"pydantic v1", "pydantic 1"}, {"pydantic v2", "pydantic 2"}),
+]
+
+POSITIVE_MARKERS = {"always", "require", "required", "must", "prefer", "use", "enable", "ensure", "adopt"}
+NEGATIVE_MARKERS = {"never", "avoid", "deprecate", "deprecated", "forbid", "forbidden", "prohibit", "prohibited", "disable", "disallow", "stop", "dont", "do not", "must not", "cannot"}
+STOPWORDS = {"a", "an", "the", "in", "on", "of", "to", "for", "with", "and", "or", "is", "are", "it", "this", "that", "all", "by", "as", "at", "be"}
+
+
+def detect_rule_conflicts(rules: list[dict]) -> list[dict]:
+    """
+    Analyzes active rules pairwise for semantic contradictions, opposing directives,
+    version discrepancies, and token-wasting redundancies.
+    """
+    conflicts = []
+    n = len(rules)
+
+    for i in range(n):
+        for j in range(i + 1, n):
+            r1 = rules[i]
+            r2 = rules[j]
+
+            t1 = (r1.get("name") or "").lower()
+            t2 = (r2.get("name") or "").lower()
+
+            words1 = {re.sub(r"\W+", "", w) for w in t1.split() if len(w) > 2 and w not in STOPWORDS}
+            words2 = {re.sub(r"\W+", "", w) for w in t2.split() if len(w) > 2 and w not in STOPWORDS}
+
+            # 1. Opposing Domain Check
+            for set_a, set_b in OPPOSING_DOMAINS:
+                a_in_1 = any(term in t1 for term in set_a)
+                b_in_2 = any(term in t2 for term in set_b)
+                b_in_1 = any(term in t1 for term in set_b)
+                a_in_2 = any(term in t2 for term in set_a)
+
+                if (a_in_1 and b_in_2) or (b_in_1 and a_in_2):
+                    shared_tags = bool(r1.get("tag") and r1.get("tag") == r2.get("tag"))
+                    shared_keywords = words1.intersection(words2)
+                    if shared_tags or len(shared_keywords) >= 1 or any(k in t1 and k in t2 for k in ("auth", "api", "data", "token", "session", "db", "query", "indent")):
+                        conflicts.append({
+                            "severity": "CRITICAL",
+                            "type": "contradiction",
+                            "rule_a": r1,
+                            "rule_b": r2,
+                            "reason": f"Opposing architectural conventions detected ({', '.join(set_a)} vs {', '.join(set_b)}).",
+                            "remediation": f"Resolve either #{r1.get('id')} or #{r2.get('id')} using 'vx memory resolve <id>'.",
+                        })
+                        break
+
+            # 2. Polarity / Negation Conflict (one says always/use, other says never/avoid on same entity)
+            has_pos_1 = any(m in t1 for m in POSITIVE_MARKERS)
+            has_neg_1 = any(m in t1 for m in NEGATIVE_MARKERS)
+            has_pos_2 = any(m in t2 for m in POSITIVE_MARKERS)
+            has_neg_2 = any(m in t2 for m in NEGATIVE_MARKERS)
+
+            is_polarity_clash = (has_pos_1 and has_neg_2) or (has_neg_1 and has_pos_2)
+            if is_polarity_clash:
+                shared_nouns = words1.intersection(words2) - POSITIVE_MARKERS - NEGATIVE_MARKERS
+                if len(shared_nouns) >= 1:
+                    conflicts.append({
+                        "severity": "CRITICAL",
+                        "type": "polarity_clash",
+                        "rule_a": r1,
+                        "rule_b": r2,
+                        "reason": f"Direct polarity clash on target concept(s): {', '.join(shared_nouns)}.",
+                        "remediation": "Verify intended convention; retire the deprecated rule via 'vx memory resolve <id>'.",
+                    })
+
+            # 3. High Redundancy / Duplicate Check (Jaccard similarity > 0.75)
+            if words1 and words2:
+                intersection = words1.intersection(words2)
+                union = words1.union(words2)
+                jaccard = len(intersection) / len(union) if union else 0.0
+                if jaccard >= 0.75 and t1 != t2:
+                    conflicts.append({
+                        "severity": "WARNING",
+                        "type": "redundancy",
+                        "rule_a": r1,
+                        "rule_b": r2,
+                        "reason": f"High lexical redundancy ({int(jaccard * 100)}% overlap). Wasting prompt tokens.",
+                        "remediation": "Consolidate duplicate rules into a single canonical entry.",
+                    })
+
+    return conflicts
+
+
+def run_rules_lint(
+    project: str | None = None,
+    tenant_id: str = "default",
+    strict: bool = False,
+    as_json: bool = False,
+) -> None:
+    """
+    Lints active architectural rules for contradictions, polarity clashes, and bloat.
+    """
+    project_scope = _resolve_project_scope(project)
+    active_rules = _get_active_rules(project_scope, tenant_id=tenant_id)
+    conflicts = detect_rule_conflicts(active_rules)
+
+    if as_json:
+        print(json.dumps({
+            "project": project_scope,
+            "total_rules": len(active_rules),
+            "conflicts_count": len(conflicts),
+            "clean": len(conflicts) == 0,
+            "conflicts": conflicts,
+        }, indent=2))
+        if strict and conflicts:
+            sys.exit(1)
+        return
+
+    bold = "\033[1m"
+    cyan = "\033[36m"
+    green = "\033[32m"
+    yellow = "\033[33m"
+    red = "\033[31m"
+    reset = "\033[0m"
+
+    print(f"\n{bold}{cyan}╔════════════════════════════════════════════════════════════════════╗{reset}")
+    print(f"{bold}{cyan}║                 Veraxi Architectural Rulebook Linter               ║{reset}")
+    print(f"{bold}{cyan}╚════════════════════════════════════════════════════════════════════╝{reset}")
+
+    print(f"\n  Project Scope: {bold}{project_scope}{reset}")
+    print(f"  Active Rules Audited: {bold}{len(active_rules)}{reset}\n")
+
+    if not conflicts:
+        print(f"  {green}✓ All active rules are coherent.{reset}")
+        print("  Zero semantic contradictions or token-wasting redundancies detected.\n")
+        return
+
+    critical_count = sum(1 for c in conflicts if c["severity"] == "CRITICAL")
+    warning_count = sum(1 for c in conflicts if c["severity"] == "WARNING")
+
+    print(f"  {red if critical_count else yellow}⚠️  Found {len(conflicts)} rule issue(s) ({critical_count} critical, {warning_count} warnings):{reset}\n")
+
+    for idx, c in enumerate(conflicts, 1):
+        color = red if c["severity"] == "CRITICAL" else yellow
+        print(f"  {color}[{c['severity']} - {c['type'].upper()} #{idx}]{reset}")
+        print(f"    • {bold}Rule #{c['rule_a'].get('id')}:{reset} \"{c['rule_a'].get('name')}\" [{c['rule_a'].get('tag', 'rule')}]")
+        print(f"    • {bold}Rule #{c['rule_b'].get('id')}:{reset} \"{c['rule_b'].get('name')}\" [{c['rule_b'].get('tag', 'rule')}]")
+        print(f"    • {bold}Issue:{reset} {c['reason']}")
+        print(f"    • {bold}Fix:{reset} {cyan}{c['remediation']}{reset}\n")
+
+    if strict and critical_count > 0:
+        print(f"  {red}Lint failed: {critical_count} critical conflict(s) must be resolved.{reset}\n")
+        sys.exit(1)
+
+
 def _inject_rules_block(content: str, block: str) -> str:
     """
     Replaces existing managed block or appends to content.

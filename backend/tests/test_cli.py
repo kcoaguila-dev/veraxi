@@ -597,6 +597,42 @@ def test_backend_cli_forwarding_compatibility():
     assert b_auth is v_auth
 
 
+# 26. test_rules_lint_conflict_detection: Verify semantic contradiction & conflict detection
+def test_rules_lint_conflict_detection(capsys):
+    from veraxi.cli.rules import detect_rule_conflicts, run_rules_lint
+
+    conflicting_rules = [
+        {"id": "r1", "name": "Always use httpOnly cookies for authentication sessions", "tag": "auth", "status": "active"},
+        {"id": "r2", "name": "Never use cookies, pass Bearer tokens in Authorization headers", "tag": "auth", "status": "active"},
+        {"id": "r3", "name": "All database queries must filter by tenant_id", "tag": "db", "status": "active"},
+    ]
+
+    conflicts = detect_rule_conflicts(conflicting_rules)
+    assert len(conflicts) >= 1
+    assert any(c["type"] in ("contradiction", "polarity_clash") for c in conflicts)
+
+    # Test run_rules_lint execution with mocked active rules
+    with patch("veraxi.cli.rules._get_active_rules", return_value=conflicting_rules):
+        run_rules_lint(project="test-repo", as_json=True)
+        captured = capsys.readouterr()
+        res = json.loads(captured.out)
+        assert res["clean"] is False
+        assert res["conflicts_count"] >= 1
+
+        # Test strict mode raises SystemExit(1)
+        with pytest.raises(SystemExit) as exc_info:
+            run_rules_lint(project="test-repo", strict=True)
+        assert exc_info.value.code == 1
+
+    # Test clean rules
+    clean_rules = [
+        {"id": "c1", "name": "All database queries must filter by tenant_id", "tag": "db", "status": "active"},
+        {"id": "c2", "name": "Use snake_case for Python function identifiers", "tag": "style", "status": "active"},
+    ]
+    assert len(detect_rule_conflicts(clean_rules)) == 0
+
+
+
 
 
 

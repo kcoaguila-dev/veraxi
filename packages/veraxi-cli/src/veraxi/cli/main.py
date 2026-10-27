@@ -25,7 +25,7 @@ from veraxi.cli.memory import (
 )
 from veraxi.cli.query import run_query
 from veraxi.cli.review import run_review
-from veraxi.cli.rules import run_rules_sync
+from veraxi.cli.rules import run_rules_lint, run_rules_sync
 from veraxi.cli.schema import run_schema
 from veraxi.cli.stats import run_stats
 from veraxi.cli.trace import run_trace
@@ -237,13 +237,14 @@ def main():
     prune_parser.add_argument("--json", action="store_true", help="Output raw JSON")
 
     # --- rules ---
-    rules_parser = subparsers.add_parser("rules", help="Manage and sync rules with AI editors (CLAUDE.md, .cursorrules)")
-    rules_parser.add_argument("action", choices=["sync", "list"], default="sync", nargs="?", help="Rules action")
+    rules_parser = subparsers.add_parser("rules", help="Manage, lint, and sync rules with AI editors (CLAUDE.md, .cursorrules)")
+    rules_parser.add_argument("action", choices=["sync", "list", "lint", "check"], default="sync", nargs="?", help="Rules action")
     rules_parser.add_argument("--target", choices=["claude", "cursor", "cline", "all"], default="all", help="Target AI tool")
     rules_parser.add_argument("--project", help="Project repository scope")
     rules_parser.add_argument("--tenant", help="Tenant ID")
     rules_parser.add_argument("--key", help="Veraxi API key (vx-...)")
     rules_parser.add_argument("--endpoint", default="https://api.veraxi.me/sse", help="Veraxi API endpoint")
+    rules_parser.add_argument("--strict", action="store_true", help="Exit with code 1 if critical rule contradictions are found")
     rules_parser.add_argument("--json", action="store_true", help="Output raw JSON")
 
     # --- sync (alias to rules sync) ---
@@ -497,14 +498,23 @@ def main():
     elif args.subcommand in ("rules", "sync"):
         key, endpoint = resolve_credentials(args.key, args.endpoint)
         tenant_id = _resolve_tenant_id(args.tenant, key)
-        run_rules_sync(
-            target=args.target,
-            project=args.project,
-            tenant_id=tenant_id,
-            endpoint=endpoint,
-            key=key,
-            as_json=args.json,
-        )
+        action = getattr(args, "action", "sync")
+        if action in ("lint", "check"):
+            run_rules_lint(
+                project=args.project,
+                tenant_id=tenant_id,
+                strict=getattr(args, "strict", False),
+                as_json=args.json,
+            )
+        else:
+            run_rules_sync(
+                target=args.target,
+                project=args.project,
+                tenant_id=tenant_id,
+                endpoint=endpoint,
+                key=key,
+                as_json=args.json,
+            )
 
     elif args.subcommand in ("cluster", "repo"):
         key, endpoint = resolve_credentials(args.key, args.endpoint)
