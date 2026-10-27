@@ -2,6 +2,7 @@ import datetime
 import json
 import os
 import subprocess
+import sys
 
 
 def get_utc_now(formatted: bool = False) -> str:
@@ -12,6 +13,60 @@ def get_utc_now(formatted: bool = False) -> str:
     if formatted:
         return now.strftime("%Y-%m-%d %H:%M:%S UTC")
     return now.isoformat()
+
+
+def copy_to_clipboard(text: str) -> bool:
+    """
+    Copies text to the system clipboard across Android Termux, macOS, Linux, and Windows.
+    Returns True if successfully written to clipboard.
+    """
+    if not text:
+        return False
+
+    # 1. Android Termux (termux-api)
+    if "TERMUX_VERSION" in os.environ or "com.termux" in os.environ.get("PREFIX", ""):
+        try:
+            p = subprocess.Popen(["termux-clipboard-set"], stdin=subprocess.PIPE)
+            p.communicate(input=text.encode("utf-8"))
+            return p.returncode == 0
+        except Exception:
+            pass
+
+    # 2. macOS (pbcopy)
+    if sys.platform == "darwin":
+        try:
+            p = subprocess.Popen(["pbcopy"], stdin=subprocess.PIPE)
+            p.communicate(input=text.encode("utf-8"))
+            return p.returncode == 0
+        except Exception:
+            pass
+
+    # 3. Linux / Wayland (wl-copy)
+    try:
+        p = subprocess.Popen(["wl-copy"], stdin=subprocess.PIPE)
+        p.communicate(input=text.encode("utf-8"))
+        return p.returncode == 0
+    except Exception:
+        pass
+
+    # 4. Linux / X11 (xclip)
+    try:
+        p = subprocess.Popen(["xclip", "-selection", "clipboard"], stdin=subprocess.PIPE)
+        p.communicate(input=text.encode("utf-8"))
+        return p.returncode == 0
+    except Exception:
+        pass
+
+    # 5. Windows (clip)
+    if sys.platform == "win32":
+        try:
+            p = subprocess.Popen(["clip"], stdin=subprocess.PIPE)
+            p.communicate(input=text.encode("utf-8"))
+            return p.returncode == 0
+        except Exception:
+            pass
+
+    return False
 
 
 def resolve_project_scope(explicit_project: str | None = None) -> str:

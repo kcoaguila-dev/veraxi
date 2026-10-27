@@ -91,13 +91,37 @@ Veraxi includes a dedicated developer CLI (`vx`) for knowledge inspection and ag
 | :--- | :--- |
 | `vx config` | Inspect, set, or unset configuration values (`api_url`, `api_key`, `model`) with safe secret masking and `--json` support. |
 | `vx models` | Discover supported multi-provider models (OpenAI, Anthropic, Gemini, Groq, DeepSeek, Ollama), verify API key readiness, and switch default model. |
-| `vx doctor` | Inspects MCP endpoint reachability and client JSON configs (Claude Code, Cursor, Cline). |
+| `vx doctor` | Inspects system environment, MCP endpoint reachability, and client JSON configs (Claude Code, Cursor, Cline). |
 | `vx trace "<entity>"` | Traces multi-hop causal paths in the terminal across Neo4j nodes. |
 | `vx stats` | Displays live counts of nodes, vectors, and relationships for the current tenant. |
 | `vx rules sync` | Synchronizes active architectural constraints to `CLAUDE.md`, `.cursorrules`, and `.clinerules`. |
 | `make seed` | Populates local Neo4j and Qdrant with interrelated multi-hop seed data in 3 seconds. |
 | `make inspect-mcp` | Launches the interactive `@modelcontextprotocol/inspector` against the `/sse` endpoint. |
 | `make lint` / `make format` | Runs unified linters (`ruff` and `flutter analyze`) across both codebases. |
+
+### ⚡ 1-Line Universal Installer
+
+Install `vx` on Linux, macOS, or Android (Termux) with zero hassle:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/kcoaguila-dev/veraxi/main/install.sh | bash
+```
+
+### 📱 Android (Termux) Support
+
+The `vx` CLI is architected using **100% Pure Python standard library** (0 C-extensions, 0 compiled Rust wheels, 0 glibc dependencies). Unlike heavy AI packages that fail to build on Android's `bionic` C runtime, `vx` installs in under 3 seconds on Termux and runs natively on ARM64/aarch64:
+
+```bash
+# In Termux on Android:
+pkg update && pkg install -y python git
+curl -fsSL https://raw.githubusercontent.com/kcoaguila-dev/veraxi/main/install.sh | bash
+
+# Run diagnostics and start chatting with your knowledge base from mobile:
+vx doctor
+vx chat
+```
+
+*(Optional) Run `pkg install termux-api` to enable mobile clipboard integration (`termux-clipboard-set`).*
 
 ---
 
