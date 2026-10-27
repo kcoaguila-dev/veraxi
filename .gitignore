@@ -22,6 +22,10 @@ app/build/
 app/.dart_tool/
 app/.flutter-plugin-dependencies
 app/.flutter-plugins-dependencies
+app/.sentry-native/
+.sentry-native/
+app/android/build/
+app/android/app/build/
 
 # OS/editor junk
 .DS_Store
