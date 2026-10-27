@@ -354,6 +354,11 @@ def main():
     models_parser.add_argument("--provider", help="Filter by provider (e.g. openai, anthropic, gemini, groq, ollama)")
     models_parser.add_argument("--json", action="store_true", help="Output raw JSON")
 
+    # --- doctor (top-level alias) ---
+    top_doctor_parser = subparsers.add_parser("doctor", help="Run system, environment, and connectivity diagnosis")
+    top_doctor_parser.add_argument("--key", help="Veraxi API key (vx-...)")
+    top_doctor_parser.add_argument("--endpoint", default="https://api.veraxi.me/sse", help="MCP endpoint URL")
+
     args = parser.parse_args()
 
     if not args.subcommand:
@@ -766,6 +771,10 @@ def main():
                 provider_filter=args.provider,
                 as_json=args.json,
             )
+
+    elif args.subcommand == "doctor":
+        key, endpoint = resolve_credentials(args.key, args.endpoint)
+        run_doctor(endpoint, key)
 
 
 if __name__ == "__main__":

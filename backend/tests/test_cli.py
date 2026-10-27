@@ -821,6 +821,53 @@ def test_cli_models_discovery(tmp_path, monkeypatch, capsys):
     assert "Anthropic" in data["providers"]
 
 
+# 35. test_doctor_termux_detection: Test Android/Termux environment detection
+def test_doctor_termux_detection(monkeypatch, capsys):
+    from veraxi.cli.doctor import run_doctor
+
+    monkeypatch.setenv("TERMUX_VERSION", "0.118.0")
+    monkeypatch.setattr("veraxi.cli.doctor.check_endpoint", lambda endpoint, key: (True, "200 OK"))
+    monkeypatch.setattr("veraxi.cli.doctor.CLIENT_PATH_RESOLVERS", {})
+
+    run_doctor(endpoint="https://api.veraxi.me/sse")
+    captured = capsys.readouterr()
+    assert "Android / Termux" in captured.out
+    assert "Pure Python stdlib mode active" in captured.out
+
+
+# 36. test_cli_completion_includes_config_and_models: Test bash/zsh completion includes new subcommands
+def test_cli_completion_includes_config_and_models(capsys):
+    from veraxi.cli.completion import run_completion
+
+    run_completion(shell="bash")
+    captured = capsys.readouterr()
+    assert "config" in captured.out
+    assert "models" in captured.out
+
+    run_completion(shell="zsh")
+    captured = capsys.readouterr()
+    assert "config:" in captured.out
+    assert "models:" in captured.out
+
+
+# 37. test_copy_to_clipboard: Test cross-platform clipboard copy helper
+def test_copy_to_clipboard(monkeypatch):
+    from veraxi.cli.utils import copy_to_clipboard
+
+    assert copy_to_clipboard("") is False
+
+    # Simulate success in subprocess
+    mock_proc = MagicMock()
+    mock_proc.communicate.return_value = (b"", b"")
+    mock_proc.returncode = 0
+    monkeypatch.setattr("subprocess.Popen", lambda *args, **kwargs: mock_proc)
+    monkeypatch.setenv("TERMUX_VERSION", "0.118.0")
+
+    result = copy_to_clipboard("test clip")
+    assert result is True
+
+
+
 
 
 

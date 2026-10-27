@@ -6,12 +6,14 @@ _veraxi_completions() {
     local cur prev words cword
     _init_completion -n : || return
 
-    local commands="chat init brief research review ingest login whoami logout stats hook schema trace check impact context remember resolve reopen memory cluster repo rules sync prune mcp completion"
+    local commands="chat init brief research review ingest login whoami logout stats hook schema trace check impact context remember resolve reopen memory cluster repo rules sync prune mcp completion config models"
     local mcp_commands="install doctor query"
     local hook_commands="install uninstall"
     local cluster_commands="add list remove link"
     local memory_commands="list export import audit prune stats"
     local rules_commands="sync list"
+    local config_commands="list get set unset"
+    local models_commands="list set"
     local clients="claude cursor claude-code cline all"
 
     if [[ ${cword} -eq 1 ]]; then
@@ -20,6 +22,14 @@ _veraxi_completions() {
     fi
 
     case "${prev}" in
+        config)
+            COMPREPLY=( $(compgen -W "${config_commands}" -- ${cur}) )
+            return 0
+            ;;
+        models)
+            COMPREPLY=( $(compgen -W "${models_commands}" -- ${cur}) )
+            return 0
+            ;;
         mcp)
             COMPREPLY=( $(compgen -W "${mcp_commands}" -- ${cur}) )
             return 0
@@ -92,6 +102,8 @@ _veraxi() {
         'rules:Manage and sync rules with AI editors (CLAUDE.md, .cursorrules)'
         'sync:1-Command sync of architectural rules to AI editor files'
         'mcp:Manage MCP server configuration'
+        'config:Manage CLI settings, endpoints, and provider API keys'
+        'models:Discover supported AI providers and select default models'
         'completion:Generate shell auto-completion script'
     )
 
