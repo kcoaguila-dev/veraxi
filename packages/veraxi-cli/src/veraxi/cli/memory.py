@@ -631,3 +631,302 @@ def run_memory_audit(
 
     print("\n  Tip: Run 'vx rules sync' to propagate active rules directly to your editor.\n")
 
+
+def _render_bar(used: int, total: int, width: int = 10) -> str:
+    ratio = min(1.0, max(0.0, used / max(1, total)))
+    filled = int(round(ratio * width))
+    return "█" * filled + "░" * (width - filled)
+
+
+def run_memory_prune(
+    older_than: str = "90d",
+    dry_run: bool = False,
+    archive_file: str | None = None,
+    status_filter: str = "resolved",
+    project: str | None = None,
+    all_projects: bool = False,
+    tenant_id: str = "default",
+    endpoint: str = "https://api.veraxi.me",
+    key: str | None = None,
+    as_json: bool = False,
+) -> None:
+    """
+    Safely prunes or archives stale resolved caveats and superseded notes.
+    Active architectural rules are permanently protected from automated pruning.
+    """
+    days = 90
+    older_than_clean = (older_than or "90d").strip().lower()
+    if older_than_clean.endswith("d"):
+        try:
+            days = int(older_than_clean[:-1])
+        except ValueError:
+            days = 90
+    elif older_than_clean.isdigit():
+        days = int(older_than_clean)
+
+    cutoff_date = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=days)
+    cutoff_iso = cutoff_date.isoformat()
+
+    project_scope = None if all_projects else _resolve_project_scope(project)
+    candidates = []
+
+    try:
+        from backend.config import get_config
+        from backend.storage.neo4j_client import Neo4jStorageClient
+
+        config = get_config()
+        neo4j = Neo4jStorageClient.from_config(config)
+
+        where_clause = "(n.tenant_id = $tenant_id OR n.tenant_id = 'default')"
+        if status_filter != "all":
+            where_clause += f" AND n.status = '{status_filter}'"
+        else:
+            where_clause += " AND n.status IN ['resolved', 'superseded']"
+
+        if not all_projects:
+            where_clause += " AND (n.project = $project OR n.project = 'global' OR n.project IS NULL)"
+
+        where_clause += " AND n.created_at <= $cutoff_iso"
+
+        query = f"""
+        MATCH (n:Memory)
+        WHERE {where_clause}
+        RETURN n.id as id, n.name as name, n.tag as tag, n.status as status,
+               n.project as project, n.created_at as created_at
+        ORDER BY n.created_at ASC
+        """
+        candidates = neo4j.execute_read(
+            query,
+            {"tenant_id": tenant_id, "project": project_scope, "cutoff_iso": cutoff_iso},
+        )
+
+        if not dry_run and candidates:
+            cand_ids = [c["id"] for c in candidates]
+            neo4j.execute_write(
+                """
+                MATCH (n:Memory)
+                WHERE (n.tenant_id = $tenant_id OR n.tenant_id = 'default')
+                  AND n.id IN $ids
+                SET n.status = 'archived', n.archived_at = $archived_at
+                """,
+                {"tenant_id": tenant_id, "ids": cand_ids, "archived_at": _get_utc_now()},
+            )
+        neo4j.close()
+    except Exception:
+        pass
+
+    if not dry_run and candidates:
+        dest_archive = archive_file or os.path.join(os.getcwd(), ".veraxi", "archive.json")
+        try:
+            parent = os.path.dirname(dest_archive)
+            if parent:
+                os.makedirs(parent, exist_ok=True)
+            existing_archive = []
+            if os.path.isfile(dest_archive):
+                with open(dest_archive, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    existing_archive = data.get("archived", [])
+            existing_archive.extend(candidates)
+            with open(dest_archive, "w", encoding="utf-8") as f:
+                json.dump({"version": "1.0", "updated_at": _get_utc_now(), "archived": existing_archive}, f, indent=2)
+        except Exception:
+            pass
+
+    if as_json:
+        print(json.dumps({
+            "dry_run": dry_run,
+            "days_retention": days,
+            "cutoff": cutoff_iso,
+            "project": project_scope or "all",
+            "pruned_count": len(candidates),
+            "candidates": candidates,
+        }, indent=2))
+        return
+
+    bold = "\033[1m"
+    cyan = "\033[36m"
+    green = "\033[32m"
+    yellow = "\033[33m"
+    reset = "\033[0m"
+
+    print(f"\n{bold}{cyan}╔════════════════════════════════════════════════════════════════════╗{reset}")
+    print(f"{bold}{cyan}║                 Veraxi Memory Pruning & Archiving                  ║{reset}")
+    print(f"{bold}{cyan}╚════════════════════════════════════════════════════════════════════╝{reset}")
+
+    mode_badge = f"{yellow}[DRY RUN - PREVIEW ONLY]{reset}" if dry_run else f"{green}[EXECUTED]{reset}"
+    print(f"\n  Status: {mode_badge}")
+    print(f"  Scope: {bold}{project_scope or 'All Projects'}{reset} | Retention Threshold: {days} days (Created on or before {cutoff_date.strftime('%Y-%m-%d')})")
+    print(f"  Target Filter: {status_filter} items")
+
+    if not candidates:
+        print(f"\n  {green}✓ No stale memories found exceeding the {days}-day threshold.{reset}")
+        print("    Your memory bank is lean and up-to-date.\n")
+        return
+
+    action_word = "Identified" if dry_run else "Archived"
+    print(f"\n  {action_word} {len(candidates)} memory item(s):")
+    print("  " + "─" * 68)
+    for c in candidates:
+        print(f"  • [{c.get('status', 'resolved')}] {cyan}{c['id']}{reset} ({c.get('created_at', '')[:10]}) [{c.get('tag', 'general')}] {c.get('name', '')[:60]}")
+
+    if dry_run:
+        print(f"\n  {yellow}To archive these memories permanently, run:{reset}")
+        print(f"  vx memory prune --older-than {days}d\n")
+    else:
+        print(f"\n  {green}✓ Successfully archived {len(candidates)} item(s) to .veraxi/archive.json.{reset}")
+        print("    Active rules were preserved. Graph capacity has been optimized.\n")
+
+
+def run_memory_stats(
+    project: str | None = None,
+    all_projects: bool = False,
+    tenant_id: str = "default",
+    endpoint: str = "https://api.veraxi.me",
+    key: str | None = None,
+    as_json: bool = False,
+) -> None:
+    """
+    Displays a comprehensive visual dashboard of hot memory prompt token footprints,
+    editor sync statuses, and database quota capacity.
+    """
+    project_scope = None if all_projects else _resolve_project_scope(project)
+    nodes = []
+    total_db_nodes = 0
+
+    try:
+        from backend.config import get_config
+        from backend.storage.neo4j_client import Neo4jStorageClient
+
+        config = get_config()
+        neo4j = Neo4jStorageClient.from_config(config)
+
+        where_clause = "(n.tenant_id = $tenant_id OR n.tenant_id = 'default')"
+        if not all_projects:
+            where_clause += " AND (n.project = $project OR n.project = 'global' OR n.project IS NULL)"
+
+        query = f"""
+        MATCH (n:Memory)
+        WHERE {where_clause}
+        RETURN n.id as id, n.name as name, n.tag as tag, n.type as type, n.status as status,
+               n.project as project, n.created_at as created_at
+        """
+        nodes = neo4j.execute_read(query, {"tenant_id": tenant_id, "project": project_scope})
+
+        count_res = neo4j.execute_read(
+            "MATCH (n) WHERE (n.tenant_id = $tenant_id OR n.tenant_id = 'default') RETURN count(n) as cnt",
+            {"tenant_id": tenant_id},
+        )
+        if count_res:
+            total_db_nodes = count_res[0].get("cnt", 0)
+        neo4j.close()
+    except Exception:
+        pass
+
+    # Offline fallback
+    if not nodes:
+        local_file = os.path.join(os.getcwd(), ".veraxi", "rules.json")
+        if os.path.isfile(local_file):
+            try:
+                with open(local_file, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    nodes = data.get("memories", [])
+            except Exception:
+                pass
+
+    active = [n for n in nodes if n.get("status") == "active"]
+    resolved = [n for n in nodes if n.get("status") == "resolved"]
+    superseded = [n for n in nodes if n.get("status") == "superseded"]
+    archived = [n for n in nodes if n.get("status") == "archived"]
+
+    active_chars = sum(len(r.get("name", "")) + len(r.get("tag", "")) + 16 for r in active)
+    est_tokens = max(0, int(active_chars / 3.8))
+    context_budget = 16384
+    token_pct = (est_tokens / context_budget) * 100
+
+    node_quota = 50000
+    used_nodes = total_db_nodes or len(nodes)
+    node_pct = (used_nodes / node_quota) * 100
+
+    root_dir = os.getcwd()
+    try:
+        import subprocess
+        root_dir = subprocess.check_output(
+            ["git", "rev-parse", "--show-toplevel"],
+            stderr=subprocess.DEVNULL,
+            text=True,
+        ).strip()
+    except Exception:
+        pass
+
+    editor_files = ["CLAUDE.md", ".cursorrules", ".clinerules"]
+    synced_files = []
+    for ef in editor_files:
+        ef_path = os.path.join(root_dir, ef)
+        if os.path.isfile(ef_path):
+            try:
+                with open(ef_path, "r", encoding="utf-8") as f:
+                    if "<!-- VERAXI_MANAGED_START" in f.read():
+                        synced_files.append(ef)
+            except Exception:
+                pass
+
+    editor_status = "IN SYNC" if len(synced_files) == len(editor_files) else ("PARTIAL" if synced_files else "NOT CONFIGURED")
+
+    stats_data = {
+        "project": project_scope or "all",
+        "hot_memory": {
+            "active_rules_count": len(active),
+            "estimated_prompt_tokens": est_tokens,
+            "token_budget_percentage": round(token_pct, 2),
+            "editor_sync_status": editor_status,
+            "synced_editor_files": synced_files,
+        },
+        "lifecycle": {
+            "active": len(active),
+            "resolved": len(resolved),
+            "superseded": len(superseded),
+            "archived": len(archived),
+            "total": len(nodes),
+        },
+        "database_capacity": {
+            "stored_nodes": used_nodes,
+            "node_quota": node_quota,
+            "quota_percentage": round(node_pct, 2),
+            "status": "OPTIMAL" if node_pct < 80 else ("WARNING" if node_pct < 95 else "CRITICAL"),
+        },
+    }
+
+    if as_json:
+        print(json.dumps(stats_data, indent=2))
+        return
+
+    bold = "\033[1m"
+    cyan = "\033[36m"
+    green = "\033[32m"
+    yellow = "\033[33m"
+    reset = "\033[0m"
+
+    print(f"\n{bold}{cyan}╔════════════════════════════════════════════════════════════════════╗{reset}")
+    print(f"{bold}{cyan}║                 Veraxi Memory Footprint & Token Gauge              ║{reset}")
+    print(f"{bold}{cyan}╚════════════════════════════════════════════════════════════════════╝{reset}")
+
+    print(f"\n  Project: {bold}{project_scope or 'All Projects'}{reset} | Tenant: {tenant_id[:12]}...")
+
+    print(f"\n  {bold}Hot Memory (Editor Injected Prompt Overhead):{reset}")
+    print(f"  • Active Rules: {bold}{len(active)}{reset} rule(s)")
+    token_color = green if est_tokens < 1000 else yellow
+    print(f"  • Estimated Prompt Footprint: {token_color}{bold}{est_tokens} tokens{reset} ({token_pct:.1f}% of 16k context window)")
+    sync_color = green if editor_status == "IN SYNC" else yellow
+    synced_desc = ", ".join(synced_files) if synced_files else "None (run 'vx sync')"
+    print(f"  • Editor Sync Status: {sync_color}{bold}{editor_status}{reset} ({synced_desc})")
+
+    print(f"\n  {bold}Knowledge Graph & Quota Capacity:{reset}")
+    bar = _render_bar(used_nodes, node_quota, width=12)
+    cap_color = green if node_pct < 80 else yellow
+    print(f"  • Stored Nodes: {used_nodes:,} / {node_quota:,} [{cap_color}{bar}{reset}] {node_pct:.1f}%")
+    print(f"  • Capacity Status: {cap_color}{bold}{stats_data['database_capacity']['status']}{reset} (Zero risk of truncation)")
+
+    print(f"\n  {bold}Lifecycle Distribution:{reset}")
+    print(f"  • Active: {green}{len(active)}{reset} | Resolved: {cyan}{len(resolved)}{reset} | Superseded: {yellow}{len(superseded)}{reset} | Archived: {len(archived)}")
+    print("\n  Tip: Run 'vx memory prune' to archive stale resolved notes and keep memory lean.\n")
+

@@ -6,11 +6,11 @@ _veraxi_completions() {
     local cur prev words cword
     _init_completion -n : || return
 
-    local commands="chat init brief research review ingest login whoami logout stats hook schema trace check impact context remember resolve reopen memory cluster repo rules sync mcp completion"
+    local commands="chat init brief research review ingest login whoami logout stats hook schema trace check impact context remember resolve reopen memory cluster repo rules sync prune mcp completion"
     local mcp_commands="install doctor query"
     local hook_commands="install uninstall"
     local cluster_commands="add list remove link"
-    local memory_commands="list export import audit"
+    local memory_commands="list export import audit prune stats"
     local rules_commands="sync list"
     local clients="claude cursor claude-code cline all"
 
