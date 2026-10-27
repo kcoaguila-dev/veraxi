@@ -675,6 +675,62 @@ def test_learn_lifecycle(capsys):
             assert call_kwargs["project"] == "test-project"
 
 
+# 28. test_audit_diff_rules_and_ci_gate: Verify CI rule enforcement against git diffs
+def test_audit_diff_rules_and_ci_gate(capsys, tmp_path):
+    from veraxi.cli.rules import audit_diff_against_rules, run_rules_sync
+    from veraxi.cli.review import run_review
+
+    active_rules = [
+        {"id": "inv1", "name": "Clean Architecture: Domain entities must never import storage or database modules", "tag": "architecture", "type": "invariant", "status": "active"},
+        {"id": "inv2", "name": "All database queries must filter by tenant_id", "tag": "db", "type": "rule", "status": "active"},
+    ]
+
+    violating_diff = """--- a/backend/domain/model.py
++++ b/backend/domain/model.py
+@@ -1,3 +1,5 @@
++from backend.storage import neo4j_client
++data = neo4j_client.execute_read("MATCH (n) RETURN n")
+"""
+
+    violations = audit_diff_against_rules(violating_diff, active_rules)
+    assert len(violations) >= 1
+    assert any(v["type"] == "clean_architecture_violation" for v in violations)
+    assert any(v["type"] == "multitenancy_leak" for v in violations)
+
+    # Test run_review --enforce-rules failure
+    mock_run = MagicMock()
+    mock_run.stdout = violating_diff
+    with patch("subprocess.run", return_value=mock_run):
+        with patch("veraxi.cli.review._get_active_rules", return_value=active_rules):
+            with pytest.raises(SystemExit) as exc_info:
+                run_review(enforce_rules=True, project="test-repo")
+            assert exc_info.value.code == 1
+
+    # Test run_review --enforce-rules pass on clean diff
+    clean_diff = """--- a/backend/domain/model.py
++++ b/backend/domain/model.py
+@@ -1,3 +1,4 @@
++class DomainUser: pass
+"""
+    mock_run.stdout = clean_diff
+    with patch("subprocess.run", return_value=mock_run):
+        with patch("veraxi.cli.review._get_active_rules", return_value=active_rules):
+            with pytest.raises(SystemExit) as exc_info:
+                run_review(enforce_rules=True, project="test-repo")
+            assert exc_info.value.code == 0
+
+    # Test run_rules_sync groups permanent invariants at the top
+    claude_file = tmp_path / "CLAUDE.md"
+    claude_file.write_text("# Project Notes\n")
+    with patch("veraxi.cli.rules._get_active_rules", return_value=active_rules):
+        with patch("subprocess.check_output", return_value=str(tmp_path)):
+            run_rules_sync(target="claude", project="test-repo")
+            content = claude_file.read_text()
+            assert "### 🏛 Permanent Architectural Invariants" in content
+            assert "Clean Architecture" in content
+
+
+
 
 
 

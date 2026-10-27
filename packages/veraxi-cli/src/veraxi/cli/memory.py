@@ -653,6 +653,7 @@ def run_memory_prune(
             where_clause += " AND (n.project = $project OR n.project = 'global' OR n.project IS NULL)"
 
         where_clause += " AND n.created_at <= $cutoff_iso"
+        where_clause += " AND (n.type IS NULL OR n.type <> 'invariant')"
 
         query = f"""
         MATCH (n:Memory)

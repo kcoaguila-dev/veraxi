@@ -101,11 +101,16 @@ def main():
     brief_parser.add_argument("--json", action="store_true", help="Output raw JSON")
 
     # --- review ---
-    review_parser = subparsers.add_parser("review", help="1-Command Git Diff Auditor")
+    review_parser = subparsers.add_parser("review", help="1-Command Git Diff Auditor & CI Rule Enforcer")
     review_parser.add_argument("--staged", action="store_true", help="Review staged changes")
     review_parser.add_argument("--commit", help="Review a specific commit hash")
+    review_parser.add_argument("--enforce-rules", "--rules", dest="enforce_rules", action="store_true", help="Audit diff against active architectural rules and fail CI on violations")
+    review_parser.add_argument("--strict", action="store_true", help="Exit code 1 on rule violations")
+    review_parser.add_argument("--project", help="Project repository scope")
     review_parser.add_argument("--limit", type=int, default=10, help="Number of evidence chunks to retrieve")
     review_parser.add_argument("--key", help="Veraxi API key (vx-...)")
+    review_parser.add_argument("--endpoint", default="https://api.veraxi.me/sse", help="Veraxi API endpoint")
+    review_parser.add_argument("--json", action="store_true", help="Output raw JSON")
 
     # --- ingest ---
     ingest_parser = subparsers.add_parser("ingest", help="CLI Document & URL Ingest")
@@ -197,6 +202,7 @@ def main():
     remember_parser.add_argument("--supersedes", help="ID or keyword of older memory this replaces")
     remember_parser.add_argument("--project", help="Project repository scope (defaults to auto-detected git repo)")
     remember_parser.add_argument("--global", dest="is_global", action="store_true", help="Apply across all projects")
+    remember_parser.add_argument("--permanent", "--invariant", dest="is_invariant", action="store_true", help="Store as permanent architectural invariant (protected from pruning)")
     remember_parser.add_argument("--tenant", help="Tenant ID")
     remember_parser.add_argument("--key", help="Veraxi API key (vx-...)")
     remember_parser.add_argument("--endpoint", default="https://api.veraxi.me/sse", help="Veraxi API endpoint")
@@ -420,10 +426,11 @@ def main():
     elif args.subcommand == "remember":
         key, endpoint = resolve_credentials(args.key, args.endpoint)
         tenant_id = _resolve_tenant_id(args.tenant, key)
+        mem_type = "invariant" if getattr(args, "is_invariant", False) else args.type
         run_remember(
             insight=args.insight,
             tag=args.tag,
-            memory_type=args.type,
+            memory_type=mem_type,
             supersedes=args.supersedes,
             project=args.project,
             is_global=args.is_global,
@@ -626,14 +633,19 @@ def main():
         )
 
     elif args.subcommand == "review":
-        key, _ = resolve_credentials(args.key)
+        key, endpoint = resolve_credentials(args.key, getattr(args, "endpoint", None))
         tenant_id = _resolve_tenant_id(None, key)
         run_review(
             staged=args.staged,
             commit_hash=args.commit,
             limit=args.limit,
             tenant_id=tenant_id,
+            endpoint=endpoint,
             key=key,
+            enforce_rules=getattr(args, "enforce_rules", False),
+            project=getattr(args, "project", None),
+            strict=getattr(args, "strict", False),
+            as_json=getattr(args, "json", False),
         )
 
     elif args.subcommand == "ingest":
