@@ -5,6 +5,7 @@ import 'package:android_intent_plus/android_intent.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 
 /// Result returned by every tool implementation.
@@ -71,12 +72,9 @@ class AgentToolRouter {
           packageOrUrl: args['package_or_url']?.toString() ?? '',
         );
       case 'web_search':
-        // web_search is handled by the backend MCP — we surface a stub result
-        // so the LLM knows it should use the backend tool instead.
-        return const ToolResult(
-          summary: '🌐 Delegating to backend web search…',
-          content: 'web_search is handled by the backend MCP tool.',
-        );
+        return _webSearch(query: args['query']?.toString() ?? '');
+      case 'fetch_web_page':
+        return _fetchWebPage(url: args['url']?.toString() ?? '');
       default:
         return ToolResult.error('Unknown tool: $toolName');
     }
@@ -293,6 +291,165 @@ class AgentToolRouter {
   }
 
   // ---------------------------------------------------------------------------
+  // Tool: web_search
+  // ---------------------------------------------------------------------------
+
+  /// Searches the web using DuckDuckGo HTML without requiring external API keys.
+  Future<ToolResult> _webSearch({required String query}) async {
+    if (query.trim().isEmpty) return ToolResult.error('No query provided.');
+
+    try {
+      final uri = Uri.parse(
+        'https://html.duckduckgo.com/html/?q=${Uri.encodeComponent(query)}',
+      );
+      final response = await http.get(
+        uri,
+        headers: {
+          'User-Agent':
+              'Mozilla/5.0 (Linux; Android 10; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Mobile Safari/537.36',
+        },
+      ).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode != 200) {
+        return ToolResult.error(
+            'Search request failed (HTTP ${response.statusCode})');
+      }
+
+      final body = response.body;
+      final snippetRegex = RegExp(
+        r'<a class="result__snippet[^>]*href="([^"]*)"[^>]*>(.*?)<\/a>',
+        dotAll: true,
+      );
+
+      final matches = snippetRegex.allMatches(body).take(5).toList();
+      if (matches.isEmpty) {
+        final genericRegex = RegExp(
+          r'class="result__snippet"[^>]*>(.*?)<\/(?:td|a|div)>',
+          dotAll: true,
+        );
+        final genericMatches = genericRegex.allMatches(body).take(5).toList();
+        if (genericMatches.isEmpty) {
+          return ToolResult(
+            summary: '🌐 No web results found for "$query"',
+            content: 'No results found on DuckDuckGo for query: $query',
+          );
+        }
+
+        final buffer = StringBuffer('Search Results for "$query":\n\n');
+        for (var i = 0; i < genericMatches.length; i++) {
+          final snippet = genericMatches[i]
+              .group(1)!
+              .replaceAll(RegExp(r'<[^>]*>'), '')
+              .replaceAll('&quot;', '"')
+              .replaceAll('&amp;', '&')
+              .replaceAll('&#x27;', "'")
+              .trim();
+          buffer.writeln('${i + 1}. $snippet\n');
+        }
+        return ToolResult(
+          summary: '🌐 Found ${genericMatches.length} web snippet(s)',
+          content: buffer.toString().trim(),
+        );
+      }
+
+      final buffer = StringBuffer('Search Results for "$query":\n\n');
+      for (var i = 0; i < matches.length; i++) {
+        final snippet = matches[i]
+            .group(2)!
+            .replaceAll(RegExp(r'<[^>]*>'), '')
+            .replaceAll('&quot;', '"')
+            .replaceAll('&amp;', '&')
+            .replaceAll('&#x27;', "'")
+            .trim();
+        buffer.writeln('${i + 1}. $snippet\n');
+      }
+
+      return ToolResult(
+        summary: '🌐 Found ${matches.length} result(s) for "$query"',
+        content: buffer.toString().trim(),
+      );
+    } catch (e) {
+      return ToolResult.error('Web search error: $e');
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Tool: fetch_web_page
+  // ---------------------------------------------------------------------------
+
+  /// Fetches a web page URL and converts it to clean readable text/markdown.
+  /// Uses r.jina.ai Reader with direct HTTP fallback.
+  Future<ToolResult> _fetchWebPage({required String url}) async {
+    if (url.trim().isEmpty) return ToolResult.error('No URL provided.');
+    final cleanUrl = url.trim();
+
+    try {
+      // 1. Try Jina Reader (converts any webpage to clean LLM-ready markdown)
+      final jinaUri = Uri.parse('https://r.jina.ai/$cleanUrl');
+      final jinaResp = await http.get(
+        jinaUri,
+        headers: {
+          'Accept': 'text/plain',
+          'X-Return-Format': 'text',
+        },
+      ).timeout(const Duration(seconds: 12));
+
+      if (jinaResp.statusCode == 200 && jinaResp.body.trim().length > 50) {
+        final content = jinaResp.body.trim();
+        final truncated = content.length > 4000
+            ? '${content.substring(0, 4000)}\n\n… [truncated for context limit]'
+            : content;
+        return ToolResult(
+          summary:
+              '📄 Read web page: ${Uri.tryParse(cleanUrl)?.host ?? cleanUrl}',
+          content: truncated,
+        );
+      }
+    } catch (_) {
+      // Fallback to direct HTTP fetch below
+    }
+
+    try {
+      // 2. Fallback to direct HTTP fetch & HTML tag stripping
+      final directUri = Uri.parse(cleanUrl);
+      final resp = await http.get(
+        directUri,
+        headers: {'User-Agent': 'Veraxi Mobile Agent/1.0'},
+      ).timeout(const Duration(seconds: 10));
+
+      if (resp.statusCode != 200) {
+        return ToolResult.error(
+            'Failed to fetch page (HTTP ${resp.statusCode})');
+      }
+
+      var text = resp.body
+          .replaceAll(
+              RegExp(
+                  r'<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>',
+                  caseSensitive: false),
+              '')
+          .replaceAll(
+              RegExp(r'<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>',
+                  caseSensitive: false),
+              '')
+          .replaceAll(RegExp(r'<[^>]*>'), ' ')
+          .replaceAll(RegExp(r'\s+'), ' ')
+          .trim();
+
+      final truncated = text.length > 4000
+          ? '${text.substring(0, 4000)}\n\n… [truncated]'
+          : text;
+
+      return ToolResult(
+        summary: '📄 Read web page: ${directUri.host}',
+        content: truncated,
+      );
+    } catch (e) {
+      return ToolResult.error('Could not fetch web page: $e');
+    }
+  }
+
+  // ---------------------------------------------------------------------------
   // Helpers
   // ---------------------------------------------------------------------------
 
@@ -441,6 +598,45 @@ const List<Map<String, dynamic>> kAndroidAgentTools = [
           },
         },
         'required': ['package_or_url'],
+      },
+    },
+  },
+  {
+    'type': 'function',
+    'function': {
+      'name': 'web_search',
+      'description':
+          'Searches the live web for information, documentation, news, or solutions. '
+              'Use this when you need live, external, or up-to-date knowledge.',
+      'parameters': {
+        'type': 'object',
+        'properties': {
+          'query': {
+            'type': 'string',
+            'description':
+                'The search query string, e.g. "flutter termux bridge".',
+          },
+        },
+        'required': ['query'],
+      },
+    },
+  },
+  {
+    'type': 'function',
+    'function': {
+      'name': 'fetch_web_page',
+      'description':
+          'Fetches the text content of a web page or documentation URL. '
+              'Use this to read articles, API references, GitHub issues, or tutorials.',
+      'parameters': {
+        'type': 'object',
+        'properties': {
+          'url': {
+            'type': 'string',
+            'description': 'The full HTTP/HTTPS URL of the web page to read.',
+          },
+        },
+        'required': ['url'],
       },
     },
   },

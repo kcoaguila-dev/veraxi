@@ -867,6 +867,40 @@ def test_copy_to_clipboard(monkeypatch):
     assert result is True
 
 
+# 38. test_cli_web_search_and_fetch: Test web search and page fetch handlers
+def test_cli_web_search_and_fetch(monkeypatch, capsys):
+    from veraxi.cli.web import run_web
+
+    fake_results = [{"snippet": "Run AI on mobile", "url": "https://example.com"}]
+    monkeypatch.setattr("veraxi.cli.web.web_search", lambda query, limit=5: fake_results)
+    monkeypatch.setattr("veraxi.cli.web.fetch_web_page", lambda url, max_chars=5000: "Clean Markdown Content")
+
+    # 1. Search text
+    run_web(action="search", query_or_url="termux agent")
+    captured = capsys.readouterr()
+    assert "Web Search Results" in captured.out
+    assert "Run AI on mobile" in captured.out
+
+    # 2. Search JSON
+    run_web(action="search", query_or_url="termux agent", as_json=True)
+    captured = capsys.readouterr()
+    data = json.loads(captured.out)
+    assert data["query"] == "termux agent"
+    assert data["results"][0]["snippet"] == "Run AI on mobile"
+
+    # 3. Fetch text
+    run_web(action="fetch", query_or_url="https://example.com")
+    captured = capsys.readouterr()
+    assert "Clean Markdown Content" in captured.out
+
+    # 4. Fetch JSON
+    run_web(action="fetch", query_or_url="https://example.com", as_json=True)
+    captured = capsys.readouterr()
+    data = json.loads(captured.out)
+    assert data["content"] == "Clean Markdown Content"
+
+
+
 
 
 

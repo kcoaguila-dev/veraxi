@@ -12,11 +12,20 @@ void main() {
 
     test('tools() returns expected list of schemas', () {
       final tools = agentToolsForPlatform();
-      // On non-android, we expect 3 tools
-      expect(tools.length, 3);
+      // On non-android, we expect 5 tools (read_file, write_file, list_files, web_search, fetch_web_page)
+      expect(tools.length, 5);
 
       final names = tools.map((t) => t['function']['name']).toList();
-      expect(names, containsAll(['read_file', 'write_file', 'list_files']));
+      expect(
+        names,
+        containsAll([
+          'read_file',
+          'write_file',
+          'list_files',
+          'web_search',
+          'fetch_web_page',
+        ]),
+      );
     });
 
     test('dispatch handles missing tool gracefully', () async {

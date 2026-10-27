@@ -32,6 +32,7 @@ from veraxi.cli.rules import run_rules_lint, run_rules_sync
 from veraxi.cli.schema import run_schema
 from veraxi.cli.stats import run_stats
 from veraxi.cli.trace import run_trace
+from veraxi.cli.web import run_web
 
 
 def _resolve_tenant_id(tenant_arg: str | None, key_arg: str | None) -> str:
@@ -358,6 +359,13 @@ def main():
     top_doctor_parser = subparsers.add_parser("doctor", help="Run system, environment, and connectivity diagnosis")
     top_doctor_parser.add_argument("--key", help="Veraxi API key (vx-...)")
     top_doctor_parser.add_argument("--endpoint", default="https://api.veraxi.me/sse", help="MCP endpoint URL")
+
+    # --- web ---
+    web_parser = subparsers.add_parser("web", help="Zero-dependency web search & page reader for agents and Termux")
+    web_parser.add_argument("action", choices=["search", "fetch"], help="Action: search (search query) or fetch (read URL)")
+    web_parser.add_argument("query_or_url", help="Search query or URL to fetch")
+    web_parser.add_argument("--limit", type=int, default=5, help="Maximum number of search results (default: 5)")
+    web_parser.add_argument("--json", action="store_true", help="Output raw JSON for agent pipelines")
 
     args = parser.parse_args()
 
@@ -775,6 +783,14 @@ def main():
     elif args.subcommand == "doctor":
         key, endpoint = resolve_credentials(args.key, args.endpoint)
         run_doctor(endpoint, key)
+
+    elif args.subcommand == "web":
+        run_web(
+            action=args.action,
+            query_or_url=args.query_or_url,
+            limit=args.limit,
+            as_json=args.json,
+        )
 
 
 if __name__ == "__main__":

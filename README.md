@@ -95,6 +95,8 @@ Veraxi includes a dedicated developer CLI (`vx`) for knowledge inspection and ag
 | `vx trace "<entity>"` | Traces multi-hop causal paths in the terminal across Neo4j nodes. |
 | `vx stats` | Displays live counts of nodes, vectors, and relationships for the current tenant. |
 | `vx rules sync` | Synchronizes active architectural constraints to `CLAUDE.md`, `.cursorrules`, and `.clinerules`. |
+| `vx web search "<q>"` | Zero-dependency live web search via DuckDuckGo (CLI & `--json`). |
+| `vx web fetch <url>` | Clean Markdown/text webpage extraction for AI agents and Termux. |
 | `make seed` | Populates local Neo4j and Qdrant with interrelated multi-hop seed data in 3 seconds. |
 | `make inspect-mcp` | Launches the interactive `@modelcontextprotocol/inspector` against the `/sse` endpoint. |
 | `make lint` / `make format` | Runs unified linters (`ruff` and `flutter analyze`) across both codebases. |
