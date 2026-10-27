@@ -44,9 +44,14 @@ def _get_active_rules(project_scope: str, tenant_id: str = "default") -> list[di
         rows = neo4j.execute_read(query, {"tenant_id": tenant_id, "repos": list(all_scoped)})
         neo4j.close()
         for r in rows:
+            name = (r.get("name") or "").strip()
+            tag = (r.get("tag") or "rule").lower()
+            # Guard against test, mock, or dummy rules leaking into production AI prompts
+            if tag in ("test", "dummy", "example", "sample", "mock") or name.lower().startswith(("[test]", "test:", "dummy:", "mock:")):
+                continue
             rules.append({
                 "id": r.get("id"),
-                "name": r.get("name"),
+                "name": name,
                 "tag": r.get("tag", "rule"),
                 "type": r.get("type", "rule"),
                 "project": r.get("project", project_scope),
@@ -63,6 +68,10 @@ def _get_active_rules(project_scope: str, tenant_id: str = "default") -> list[di
                     data = json.load(f)
                     for item in data.get("memories", []):
                         if item.get("status") == "active":
+                            tag = (item.get("tag") or "rule").lower()
+                            name = (item.get("name") or "").strip()
+                            if tag in ("test", "dummy", "example", "sample", "mock") or name.lower().startswith(("[test]", "test:", "dummy:", "mock:")):
+                                continue
                             proj = item.get("project")
                             if proj in all_scoped or proj == "global" or not proj:
                                 rules.append(item)
