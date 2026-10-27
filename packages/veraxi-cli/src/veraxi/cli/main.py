@@ -11,6 +11,7 @@ from veraxi.cli.doctor import check_endpoint, run_doctor
 from veraxi.cli.hook import run_hook
 from veraxi.cli.impact import run_impact
 from veraxi.cli.ingest import run_ingest
+from veraxi.cli.learn import run_learn
 from veraxi.cli.init_project import init_project
 from veraxi.cli.memory import (
     run_memory_audit,
@@ -137,8 +138,21 @@ def main():
     completion_parser.add_argument("shell", choices=["bash", "zsh"], default="bash", nargs="?", help="Shell type")
 
     # --- hook ---
-    hook_parser = subparsers.add_parser("hook", help="Manage Git pre-commit hooks for architectural review")
+    hook_parser = subparsers.add_parser("hook", help="Manage Git pre-commit and post-commit hooks for review and auto-learning")
     hook_parser.add_argument("action", choices=["install", "uninstall"], default="install", nargs="?", help="Action to perform (default: install)")
+    hook_parser.add_argument("--type", choices=["pre-commit", "post-commit", "all"], default="pre-commit", help="Hook type to manage (default: pre-commit)")
+
+    # --- learn ---
+    learn_parser = subparsers.add_parser("learn", help="Autonomously learn architectural rules from git commits")
+    learn_parser.add_argument("commit", default="HEAD", nargs="?", help="Git commit to analyze (default: HEAD)")
+    learn_parser.add_argument("--auto", action="store_true", help="Auto-capture without interactive prompt (for post-commit hook)")
+    learn_parser.add_argument("-y", "--yes", action="store_true", help="Non-interactive confirm")
+    learn_parser.add_argument("--sync", action="store_true", help="Automatically sync rules to AI editors after learning")
+    learn_parser.add_argument("--project", help="Project repository scope")
+    learn_parser.add_argument("--tenant", help="Tenant ID")
+    learn_parser.add_argument("--key", help="Veraxi API key (vx-...)")
+    learn_parser.add_argument("--endpoint", default="https://api.veraxi.me/sse", help="Veraxi API endpoint")
+    learn_parser.add_argument("--json", action="store_true", help="Output raw JSON")
 
     # --- schema ---
     schema_parser = subparsers.add_parser("schema", help="Display knowledge graph ontology and schema")
@@ -346,7 +360,20 @@ def main():
         run_completion(shell=args.shell)
 
     elif args.subcommand == "hook":
-        run_hook(action=args.action)
+        run_hook(action=args.action, hook_type=getattr(args, "type", "pre-commit"))
+
+    elif args.subcommand == "learn":
+        key, endpoint = resolve_credentials(args.key, args.endpoint)
+        tenant_id = _resolve_tenant_id(args.tenant, key)
+        run_learn(
+            commit=args.commit,
+            auto=args.auto,
+            yes=args.yes,
+            sync=args.sync,
+            project=args.project,
+            tenant_id=tenant_id,
+            as_json=args.json,
+        )
 
     elif args.subcommand == "schema":
         key, endpoint = resolve_credentials(args.key, args.endpoint)
