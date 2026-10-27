@@ -1,0 +1,56 @@
+{
+  "version": "1.0",
+  "exported_at": "2026-10-27T00:34:58.787317+00:00",
+  "project": "veraxi",
+  "total": 4,
+  "memories": [
+    {
+      "id": "27a0f36b",
+      "name": "Supabase RLS requires JWT tenant_id header in SSR requests",
+      "tag": "auth",
+      "type": "rule",
+      "status": "active",
+      "project": null,
+      "created_at": "2026-10-26T23:28:09.251727+00:00",
+      "resolved_ref": "PR#42",
+      "resolved_note": "Fixed with SSR cookie forwarder",
+      "superseded_by": null
+    },
+    {
+      "id": "3128873e",
+      "name": "New SSR auth uses Bearer session cookies",
+      "tag": "auth",
+      "type": "rule",
+      "status": "active",
+      "project": null,
+      "created_at": "2026-10-26T23:28:57.864211+00:00",
+      "resolved_ref": "",
+      "resolved_note": "",
+      "superseded_by": ""
+    },
+    {
+      "id": "2a7d82c6",
+      "name": "Django migrations must always specify default values",
+      "tag": "db",
+      "type": "rule",
+      "status": "active",
+      "project": "veraxi",
+      "created_at": "2026-10-26T23:57:42.246675+00:00",
+      "resolved_ref": "",
+      "resolved_note": "",
+      "superseded_by": ""
+    },
+    {
+      "id": "1e2a93bb",
+      "name": "Never commit plain text API secrets",
+      "tag": "security",
+      "type": "rule",
+      "status": "active",
+      "project": "global",
+      "created_at": "2026-10-26T23:57:49.478247+00:00",
+      "resolved_ref": "",
+      "resolved_note": "",
+      "superseded_by": ""
+    }
+  ]
+}

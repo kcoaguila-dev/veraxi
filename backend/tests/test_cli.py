@@ -454,6 +454,84 @@ def test_impact_offline_static_scan(capsys, tmp_path):
         assert data["source"] == "static_ast"
 
 
+# 20. test_rules_sync: Test atomic syncing of active rules into CLAUDE.md and .cursorrules
+def test_rules_sync(tmp_path):
+    from backend.cli.rules import run_rules_sync
+
+    claude_md = tmp_path / "CLAUDE.md"
+    claude_md.write_text("# Project Guidelines\nExisting manual instructions.\n")
+
+    with patch("backend.storage.neo4j_client.Neo4jStorageClient.from_config") as mock_neo4j:
+        mock_client = MagicMock()
+        mock_neo4j.return_value = mock_client
+        mock_client.execute_read.side_effect = [
+            [{"repos": ["veraxi"]}],  # get_cluster_repos
+            [{"id": "rule-1", "name": "Always use RS256 for tokens", "tag": "auth", "project": "veraxi"}],
+        ]
+
+        with patch("os.getcwd", return_value=str(tmp_path)):
+            with patch("subprocess.check_output", return_value=str(tmp_path)):
+                run_rules_sync(target="claude", project="veraxi", as_json=True)
+
+    content = claude_md.read_text()
+    assert "Existing manual instructions." in content
+    assert "VERAXI_MANAGED_START" in content
+    assert "Always use RS256 for tokens" in content
+    assert "VERAXI_MANAGED_END" in content
+
+
+# 21. test_memory_export_and_import: Test Git rulebook JSON export and import
+def test_memory_export_and_import(tmp_path):
+    from backend.cli.memory import run_memory_export, run_memory_import
+
+    export_file = tmp_path / "rules.json"
+
+    with patch("backend.storage.neo4j_client.Neo4jStorageClient.from_config") as mock_neo4j:
+        mock_client = MagicMock()
+        mock_neo4j.return_value = mock_client
+        mock_client.execute_read.return_value = [
+            {"id": "mem-1", "name": "Rule one", "tag": "db", "status": "active", "project": "test-repo"}
+        ]
+
+        # Export
+        run_memory_export(output_path=str(export_file), project="test-repo")
+        assert export_file.is_file()
+
+        with open(export_file) as f:
+            data = json.load(f)
+        assert data["total"] == 1
+        assert data["memories"][0]["id"] == "mem-1"
+
+        # Import
+        run_memory_import(file_path=str(export_file), project="test-repo")
+        assert mock_client.execute_write.called
+
+
+# 22. test_memory_audit: Test memory bank health scoring
+def test_memory_audit(capsys):
+    from backend.cli.memory import run_memory_audit
+
+    with patch("backend.storage.neo4j_client.Neo4jStorageClient.from_config") as mock_neo4j:
+        mock_client = MagicMock()
+        mock_neo4j.return_value = mock_client
+        mock_client.execute_read.return_value = [
+            {"id": "m1", "name": "Rule 1", "tag": "db", "status": "active"},
+            {"id": "m2", "name": "Rule 2", "tag": "db", "status": "active"},
+            {"id": "m3", "name": "Rule 3", "tag": "db", "status": "active"},
+            {"id": "m4", "name": "Old bug", "tag": "auth", "status": "resolved"},
+        ]
+
+        run_memory_audit(project="test-repo", as_json=True)
+        captured = capsys.readouterr()
+        data = json.loads(captured.out)
+        assert data["total"] == 4
+        assert data["active_count"] == 3
+        assert data["resolved_count"] == 1
+        assert "db" in data["crowded_tags"]
+        assert data["health_score"] < 100
+
+
+
 
 
 
