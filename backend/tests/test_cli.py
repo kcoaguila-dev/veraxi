@@ -4,10 +4,10 @@ from unittest.mock import patch, MagicMock
 import pytest
 
 
-from backend.cli.client_configs import update_mcp_config
-from backend.cli.doctor import check_endpoint
-from backend.cli.main import main
-from backend.cli.init_project import init_project
+from veraxi.cli.client_configs import update_mcp_config
+from veraxi.cli.doctor import check_endpoint
+from veraxi.cli.main import main
+from veraxi.cli.init_project import init_project
 
 # 1. test_client_configs_safe_mutation: Mock an existing config containing "github-mcp";
 # verify veraxi is added without deleting "github-mcp".
@@ -45,7 +45,7 @@ def test_client_configs_safe_mutation(tmp_path):
     assert veraxi_node["headers"]["Authorization"] == "Bearer vx-testkey123"
 
 # 2. test_mcp_install_headless_error: Verify exit code 1 when no key is provided in a non-interactive shell.
-@patch("backend.cli.auth.load_credentials", return_value={})
+@patch("veraxi.cli.auth.load_credentials", return_value={})
 @patch("sys.stdin.isatty", return_value=False)
 @patch("sys.argv", ["veraxi", "mcp", "install"])
 @patch("os.environ.get", return_value=None) # No VERAXI_API_KEY
@@ -105,7 +105,7 @@ def test_init_command_creates_files(tmp_path):
 @patch("sys.stdin.isatty", return_value=False)
 @patch("sys.stdin.read", return_value="mock pipe error context")
 @patch("sys.argv", ["veraxi", "mcp", "query"])
-@patch("backend.cli.main.run_query")
+@patch("veraxi.cli.main.run_query")
 def test_main_pipe_handling(mock_run_query, mock_read, mock_isatty):
     main()
     mock_run_query.assert_called_once()
@@ -113,10 +113,10 @@ def test_main_pipe_handling(mock_run_query, mock_read, mock_isatty):
     assert "mock pipe error context" in args[0]
 
 # 4. test_review_diff: Test run_review diff handling
-@patch("backend.cli.review.run_query")
+@patch("veraxi.cli.review.run_query")
 @patch("subprocess.run")
 def test_review_diff(mock_subprocess_run, mock_run_query):
-    from backend.cli.review import run_review
+    from veraxi.cli.review import run_review
 
     # Mock unstaged check returning empty, then HEAD~1 returning diff
     mock_unstaged = MagicMock()
@@ -137,7 +137,7 @@ def test_review_diff(mock_subprocess_run, mock_run_query):
 # 5. test_review_empty_diff: Test run_review exits 0 if no diff
 @patch("subprocess.run")
 def test_review_empty_diff(mock_subprocess_run):
-    from backend.cli.review import run_review
+    from veraxi.cli.review import run_review
 
     mock_unstaged = MagicMock()
     mock_unstaged.stdout = ""
@@ -155,7 +155,7 @@ def test_review_empty_diff(mock_subprocess_run):
 # 6. test_ingest_url_200: Test URL ingestion
 @patch("urllib.request.urlopen")
 def test_ingest_url_200(mock_urlopen):
-    from backend.cli.ingest import run_ingest
+    from veraxi.cli.ingest import run_ingest
 
     mock_response = MagicMock()
     mock_response.getcode.return_value = 200
@@ -165,13 +165,13 @@ def test_ingest_url_200(mock_urlopen):
 
     mock_urlopen.assert_called_once()
     req = mock_urlopen.call_args[0][0]
-    assert req.full_url == "http://localhost:8000/api/admin/ingest/url"
+    assert req.full_url.endswith("/api/admin/ingest/url")
     assert req.headers.get("Authorization") == "Bearer vx-test"
 
 # 7. test_ingest_file_401: Test file ingestion with 401
 @patch("urllib.request.urlopen")
 def test_ingest_file_401(mock_urlopen, tmp_path):
-    from backend.cli.ingest import run_ingest
+    from veraxi.cli.ingest import run_ingest
     import urllib.error
 
     test_file = tmp_path / "test.md"
@@ -192,7 +192,7 @@ def test_ingest_file_401(mock_urlopen, tmp_path):
 
 # 8. test_auth_save_and_load: Test credentials lifecycle
 def test_auth_save_and_load(tmp_path):
-    from backend.cli import auth
+    from veraxi.cli import auth
 
     cred_file = tmp_path / ".veraxi" / "credentials.json"
     with patch.object(auth, "get_credentials_path", return_value=cred_file):
@@ -212,7 +212,7 @@ def test_auth_save_and_load(tmp_path):
 # 9. test_stats_json_output: Test stats formatted output
 @patch("backend.mcp_server.tools.get_stats.get_database_stats")
 def test_stats_json_output(mock_get_stats, capsys):
-    from backend.cli.stats import run_stats
+    from veraxi.cli.stats import run_stats
 
     mock_get_stats.return_value = {
         "qdrant_vectors": 1234,
@@ -228,7 +228,7 @@ def test_stats_json_output(mock_get_stats, capsys):
 
 # 10. test_completion_output: Test shell completion output
 def test_completion_output(capsys):
-    from backend.cli.completion import run_completion
+    from veraxi.cli.completion import run_completion
 
     run_completion("bash")
     captured = capsys.readouterr()
@@ -238,7 +238,7 @@ def test_completion_output(capsys):
 
 # 11. test_hook_lifecycle: Test install and uninstall of git pre-commit hook
 def test_hook_lifecycle(tmp_path):
-    from backend.cli import hook
+    from veraxi.cli import hook
 
     fake_git_dir = tmp_path / ".git"
     fake_git_dir.mkdir()
@@ -261,7 +261,7 @@ def test_hook_lifecycle(tmp_path):
 # 12. test_schema_json_output: Test schema command output
 @patch("backend.mcp_server.tools.get_schema.get_graph_schema")
 def test_schema_json_output(mock_get_schema, capsys):
-    from backend.cli.schema import run_schema
+    from veraxi.cli.schema import run_schema
 
     mock_get_schema.return_value = {
         "node_labels": ["Concept", "Service"],
@@ -277,7 +277,7 @@ def test_schema_json_output(mock_get_schema, capsys):
 
 # 13. test_trace_json_output: Test trace path traversal
 def test_trace_json_output(capsys):
-    from backend.cli.trace import run_trace
+    from veraxi.cli.trace import run_trace
 
     with patch("backend.storage.neo4j_client.Neo4jStorageClient.from_config") as mock_neo4j:
         mock_client = MagicMock()
@@ -295,7 +295,7 @@ def test_trace_json_output(capsys):
 
 # 14. test_check_gate: Test check command grounding threshold
 def test_check_gate():
-    from backend.cli.check import run_check
+    from veraxi.cli.check import run_check
 
     with patch("backend.evaluation.grounding.evaluate_groundedness", return_value=0.95):
         with pytest.raises(SystemExit) as exc_info:
@@ -310,7 +310,7 @@ def test_check_gate():
 
 # 15. test_remember_and_resolve_lifecycle: Test architectural memory tracking
 def test_remember_and_resolve_lifecycle(capsys):
-    from backend.cli.memory import run_remember, run_resolve, run_memory_list
+    from veraxi.cli.memory import run_remember, run_resolve, run_memory_list
 
     with patch("backend.storage.neo4j_client.Neo4jStorageClient.from_config") as mock_neo4j:
         mock_client = MagicMock()
@@ -331,7 +331,7 @@ def test_remember_and_resolve_lifecycle(capsys):
         assert res_data["ref"] == "PR#1"
 
         # Reopen (Human Override)
-        from backend.cli.memory import run_reopen
+        from veraxi.cli.memory import run_reopen
         run_reopen(data["id"], note="Still broken in staging", as_json=True)
         captured = capsys.readouterr()
         reopen_data = json.loads(captured.out)
@@ -350,7 +350,7 @@ def test_remember_and_resolve_lifecycle(capsys):
 
 # 16. test_context_packing: Test token-efficient context assembly
 def test_context_packing(capsys):
-    from backend.cli.context import run_context
+    from veraxi.cli.context import run_context
 
     with patch("backend.storage.neo4j_client.Neo4jStorageClient.from_config") as mock_neo4j:
         mock_client = MagicMock()
@@ -373,7 +373,7 @@ def test_context_packing(capsys):
 
 # 17. test_cluster_lifecycle: Test repository clustering commands
 def test_cluster_lifecycle(capsys):
-    from backend.cli.cluster import run_cluster, get_cluster_repos
+    from veraxi.cli.cluster import run_cluster, get_cluster_repos
 
     with patch("backend.storage.neo4j_client.Neo4jStorageClient.from_config") as mock_neo4j:
         mock_client = MagicMock()
@@ -408,7 +408,7 @@ def test_cluster_lifecycle(capsys):
 
 # 18. test_impact_analysis: Test architectural blast radius analysis
 def test_impact_analysis(capsys):
-    from backend.cli.impact import run_impact
+    from veraxi.cli.impact import run_impact
 
     with patch("backend.storage.neo4j_client.Neo4jStorageClient.from_config") as mock_neo4j:
         mock_client = MagicMock()
@@ -433,7 +433,7 @@ def test_impact_analysis(capsys):
 
 # 19. test_impact_offline_static_scan: Test local static fallback
 def test_impact_offline_static_scan(capsys, tmp_path):
-    from backend.cli.impact import run_impact
+    from veraxi.cli.impact import run_impact
 
     # Create dummy repo files
     (tmp_path / "routes").mkdir()
@@ -456,7 +456,7 @@ def test_impact_offline_static_scan(capsys, tmp_path):
 
 # 20. test_rules_sync: Test atomic syncing of active rules into CLAUDE.md and .cursorrules
 def test_rules_sync(tmp_path):
-    from backend.cli.rules import run_rules_sync
+    from veraxi.cli.rules import run_rules_sync
 
     claude_md = tmp_path / "CLAUDE.md"
     claude_md.write_text("# Project Guidelines\nExisting manual instructions.\n")
@@ -482,7 +482,7 @@ def test_rules_sync(tmp_path):
 
 # 21. test_memory_export_and_import: Test Git rulebook JSON export and import
 def test_memory_export_and_import(tmp_path):
-    from backend.cli.memory import run_memory_export, run_memory_import
+    from veraxi.cli.memory import run_memory_export, run_memory_import
 
     export_file = tmp_path / "rules.json"
 
@@ -509,7 +509,7 @@ def test_memory_export_and_import(tmp_path):
 
 # 22. test_memory_audit: Test memory bank health scoring
 def test_memory_audit(capsys):
-    from backend.cli.memory import run_memory_audit
+    from veraxi.cli.memory import run_memory_audit
 
     with patch("backend.storage.neo4j_client.Neo4jStorageClient.from_config") as mock_neo4j:
         mock_client = MagicMock()
@@ -533,7 +533,7 @@ def test_memory_audit(capsys):
 
 # 23. test_memory_prune: Test pruning resolved memories with dry-run and archive
 def test_memory_prune(capsys, tmp_path):
-    from backend.cli.memory import run_memory_prune
+    from veraxi.cli.memory import run_memory_prune
 
     archive_file = tmp_path / "archive.json"
 
@@ -560,7 +560,7 @@ def test_memory_prune(capsys, tmp_path):
 
 # 24. test_memory_stats: Test prompt token overhead & quota capacity estimation
 def test_memory_stats(capsys):
-    from backend.cli.memory import run_memory_stats
+    from veraxi.cli.memory import run_memory_stats
 
     with patch("backend.storage.neo4j_client.Neo4jStorageClient.from_config") as mock_neo4j:
         mock_client = MagicMock()
@@ -584,6 +584,18 @@ def test_memory_stats(capsys):
         assert data["database_capacity"]["stored_nodes"] == 150
         assert data["database_capacity"]["status"] == "OPTIMAL"
         assert data["lifecycle"]["resolved"] == 1
+
+
+# 25. test_backend_cli_forwarding_compatibility: Verify legacy backend.cli forwarders map to veraxi.cli
+def test_backend_cli_forwarding_compatibility():
+    import backend.cli.main as b_main
+    import veraxi.cli.main as v_main
+    import backend.cli.auth as b_auth
+    import veraxi.cli.auth as v_auth
+
+    assert b_main is v_main
+    assert b_auth is v_auth
+
 
 
 

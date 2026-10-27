@@ -2,7 +2,7 @@ import json
 import os
 import re
 import sys
-from veraxi.cli.memory import _resolve_project_scope
+from veraxi.cli.utils import resolve_project_scope as _resolve_project_scope
 
 
 def _local_static_impact_scan(target: str, root_dir: str | None = None) -> list[dict]:

@@ -1,11 +1,9 @@
-import datetime
 import json
 import sys
-from veraxi.cli.memory import _resolve_project_scope
+from veraxi.cli.utils import get_utc_now, resolve_project_scope
 
-
-def _get_utc_now() -> str:
-    return datetime.datetime.now(datetime.timezone.utc).isoformat()
+_get_utc_now = get_utc_now
+_resolve_project_scope = resolve_project_scope
 
 
 def get_cluster_repos(repo_name: str, tenant_id: str = "default") -> list[str]:

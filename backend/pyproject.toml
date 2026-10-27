@@ -11,8 +11,8 @@ include = ["backend*"]
 
 
 [project.scripts]
-veraxi = "backend.cli.main:main"
-vx = "backend.cli.main:main"
+veraxi = "veraxi.cli.main:main"
+vx = "veraxi.cli.main:main"
 
 [project]
 name = "veraxi-backend"

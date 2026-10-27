@@ -1,43 +1,15 @@
 import datetime
 import json
 import os
-import subprocess
 import sys
 import uuid
 
 
-def _get_utc_now() -> str:
-    return datetime.datetime.now(datetime.timezone.utc).isoformat()
+from veraxi.cli.utils import get_utc_now, render_progress_bar, resolve_project_scope
 
-
-def _resolve_project_scope(explicit_project: str | None = None) -> str:
-    if explicit_project and explicit_project.strip():
-        return explicit_project.strip()
-
-    curr = os.getcwd()
-    while curr != os.path.dirname(curr):
-        cfg_file = os.path.join(curr, ".veraxi", "config.json")
-        if os.path.isfile(cfg_file):
-            try:
-                with open(cfg_file, "r", encoding="utf-8") as f:
-                    data = json.load(f)
-                    if "project" in data and data["project"]:
-                        return str(data["project"]).strip()
-            except Exception:
-                pass
-        curr = os.path.dirname(curr)
-
-    try:
-        toplevel = subprocess.check_output(
-            ["git", "rev-parse", "--show-toplevel"],
-            stderr=subprocess.DEVNULL,
-            text=True,
-        ).strip()
-        return os.path.basename(toplevel)
-    except Exception:
-        pass
-
-    return os.path.basename(os.getcwd())
+_get_utc_now = get_utc_now
+_resolve_project_scope = resolve_project_scope
+_render_bar = render_progress_bar
 
 
 def run_remember(
@@ -630,12 +602,6 @@ def run_memory_audit(
         print(f"\n  {green}✓ No conflicting or crowded memory tags detected.{reset}")
 
     print("\n  Tip: Run 'vx rules sync' to propagate active rules directly to your editor.\n")
-
-
-def _render_bar(used: int, total: int, width: int = 10) -> str:
-    ratio = min(1.0, max(0.0, used / max(1, total)))
-    filled = int(round(ratio * width))
-    return "█" * filled + "░" * (width - filled)
 
 
 def run_memory_prune(

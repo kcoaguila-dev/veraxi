@@ -1,17 +1,18 @@
-import datetime
 import json
 import os
 import re
 import sys
 from veraxi.cli.cluster import get_cluster_repos
-from veraxi.cli.memory import _resolve_project_scope
+from veraxi.cli.utils import get_utc_now, resolve_project_scope
 
 MANAGED_START = "<!-- VERAXI_MANAGED_START (DO NOT EDIT DIRECTLY) -->"
 MANAGED_END = "<!-- VERAXI_MANAGED_END -->"
 
+_resolve_project_scope = resolve_project_scope
+
 
 def _get_utc_now() -> str:
-    return datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+    return get_utc_now(formatted=True)
 
 
 def _get_active_rules(project_scope: str, tenant_id: str = "default") -> list[dict]:
