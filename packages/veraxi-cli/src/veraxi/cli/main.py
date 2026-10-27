@@ -6,13 +6,15 @@ from veraxi.cli.check import run_check
 from veraxi.cli.client_configs import CLIENT_PATH_RESOLVERS, update_mcp_config
 from veraxi.cli.cluster import run_cluster
 from veraxi.cli.completion import run_completion
+from veraxi.cli.config import run_config
 from veraxi.cli.context import run_context
 from veraxi.cli.doctor import check_endpoint, run_doctor
 from veraxi.cli.hook import run_hook
 from veraxi.cli.impact import run_impact
 from veraxi.cli.ingest import run_ingest
-from veraxi.cli.learn import run_learn
 from veraxi.cli.init_project import init_project
+from veraxi.cli.learn import run_learn
+from veraxi.cli.models import run_models_list, run_models_set
 from veraxi.cli.memory import (
     run_memory_audit,
     run_memory_export,
@@ -337,6 +339,20 @@ def main():
     query_parser.add_argument("--limit", type=int, default=5, help="Number of chunks to retrieve")
     query_parser.add_argument("--endpoint", default="https://api.veraxi.me/sse", help="MCP endpoint URL")
     query_parser.add_argument("--json", action="store_true", help="Output raw JSON for pipeline integration")
+
+    # --- config ---
+    config_parser = subparsers.add_parser("config", help="Manage CLI settings, endpoints, and provider API keys")
+    config_parser.add_argument("action", nargs="?", default="list", choices=["list", "get", "set", "unset"], help="Config action (default: list)")
+    config_parser.add_argument("key", nargs="?", help="Setting key name (e.g. default_model, openai_api_key)")
+    config_parser.add_argument("value", nargs="?", help="Setting value (when using 'set')")
+    config_parser.add_argument("--json", action="store_true", help="Output raw JSON")
+
+    # --- models ---
+    models_parser = subparsers.add_parser("models", help="Discover supported AI providers and select default models")
+    models_parser.add_argument("action", nargs="?", default="list", choices=["list", "set"], help="Action: list (default) or set")
+    models_parser.add_argument("model_name", nargs="?", help="Model name (when using 'set', e.g. gpt-4o)")
+    models_parser.add_argument("--provider", help="Filter by provider (e.g. openai, anthropic, gemini, groq, ollama)")
+    models_parser.add_argument("--json", action="store_true", help="Output raw JSON")
 
     args = parser.parse_args()
 
@@ -732,6 +748,23 @@ def main():
                 limit=args.limit,
                 endpoint=endpoint,
                 key=key,
+            )
+
+    elif args.subcommand == "config":
+        run_config(
+            action=args.action,
+            key=args.key,
+            value=args.value,
+            as_json=args.json,
+        )
+
+    elif args.subcommand == "models":
+        if getattr(args, "action", "list") == "set":
+            run_models_set(model_name=args.model_name)
+        else:
+            run_models_list(
+                provider_filter=args.provider,
+                as_json=args.json,
             )
 
 
