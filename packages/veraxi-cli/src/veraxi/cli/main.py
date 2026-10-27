@@ -12,9 +12,18 @@ from veraxi.cli.hook import run_hook
 from veraxi.cli.impact import run_impact
 from veraxi.cli.ingest import run_ingest
 from veraxi.cli.init_project import init_project
-from veraxi.cli.memory import run_memory_list, run_remember, run_reopen, run_resolve
+from veraxi.cli.memory import (
+    run_memory_audit,
+    run_memory_export,
+    run_memory_import,
+    run_memory_list,
+    run_remember,
+    run_reopen,
+    run_resolve,
+)
 from veraxi.cli.query import run_query
 from veraxi.cli.review import run_review
+from veraxi.cli.rules import run_rules_sync
 from veraxi.cli.schema import run_schema
 from veraxi.cli.stats import run_stats
 from veraxi.cli.trace import run_trace
@@ -197,14 +206,36 @@ def main():
     reopen_parser.add_argument("--json", action="store_true", help="Output raw JSON")
 
     # --- memory ---
-    memory_parser = subparsers.add_parser("memory", help="Inspect and list architectural memories")
+    memory_parser = subparsers.add_parser("memory", help="Inspect, export, import, or audit architectural memories")
+    memory_parser.add_argument("action", choices=["list", "export", "import", "audit"], default="list", nargs="?", help="Action to perform")
+    memory_parser.add_argument("file_path", nargs="?", help="File path for import or export")
     memory_parser.add_argument("--status", choices=["active", "resolved", "superseded", "all"], default="all", help="Status filter")
     memory_parser.add_argument("--project", help="Project repository filter (defaults to current git repo)")
     memory_parser.add_argument("--all-projects", action="store_true", help="Display memories across all projects")
+    memory_parser.add_argument("--output", "-o", help="Output file path for export (default: .veraxi/rules.json)")
     memory_parser.add_argument("--tenant", help="Tenant ID")
     memory_parser.add_argument("--key", help="Veraxi API key (vx-...)")
     memory_parser.add_argument("--endpoint", default="https://api.veraxi.me/sse", help="Veraxi API endpoint")
     memory_parser.add_argument("--json", action="store_true", help="Output raw JSON")
+
+    # --- rules ---
+    rules_parser = subparsers.add_parser("rules", help="Manage and sync rules with AI editors (CLAUDE.md, .cursorrules)")
+    rules_parser.add_argument("action", choices=["sync", "list"], default="sync", nargs="?", help="Rules action")
+    rules_parser.add_argument("--target", choices=["claude", "cursor", "cline", "all"], default="all", help="Target AI tool")
+    rules_parser.add_argument("--project", help="Project repository scope")
+    rules_parser.add_argument("--tenant", help="Tenant ID")
+    rules_parser.add_argument("--key", help="Veraxi API key (vx-...)")
+    rules_parser.add_argument("--endpoint", default="https://api.veraxi.me/sse", help="Veraxi API endpoint")
+    rules_parser.add_argument("--json", action="store_true", help="Output raw JSON")
+
+    # --- sync (alias to rules sync) ---
+    sync_parser = subparsers.add_parser("sync", help="1-Command sync of architectural rules to CLAUDE.md, .cursorrules, .clinerules")
+    sync_parser.add_argument("--target", choices=["claude", "cursor", "cline", "all"], default="all", help="Target AI tool")
+    sync_parser.add_argument("--project", help="Project repository scope")
+    sync_parser.add_argument("--tenant", help="Tenant ID")
+    sync_parser.add_argument("--key", help="Veraxi API key (vx-...)")
+    sync_parser.add_argument("--endpoint", default="https://api.veraxi.me/sse", help="Veraxi API endpoint")
+    sync_parser.add_argument("--json", action="store_true", help="Output raw JSON")
 
     # --- cluster ---
     cluster_parser = subparsers.add_parser("cluster", help="Manage cross-repository microservice clusters")
@@ -384,10 +415,51 @@ def main():
     elif args.subcommand == "memory":
         key, endpoint = resolve_credentials(args.key, args.endpoint)
         tenant_id = _resolve_tenant_id(args.tenant, key)
-        run_memory_list(
-            status_filter=args.status,
+        action = getattr(args, "action", "list") or "list"
+        if action == "export":
+            run_memory_export(
+                output_path=getattr(args, "output", None) or getattr(args, "file_path", None),
+                project=args.project,
+                all_projects=args.all_projects,
+                tenant_id=tenant_id,
+                endpoint=endpoint,
+                key=key,
+                as_json=args.json,
+            )
+        elif action == "import":
+            run_memory_import(
+                file_path=getattr(args, "file_path", None),
+                project=args.project,
+                tenant_id=tenant_id,
+                endpoint=endpoint,
+                key=key,
+                as_json=args.json,
+            )
+        elif action == "audit":
+            run_memory_audit(
+                project=args.project,
+                tenant_id=tenant_id,
+                endpoint=endpoint,
+                key=key,
+                as_json=args.json,
+            )
+        else:
+            run_memory_list(
+                status_filter=args.status,
+                project=args.project,
+                all_projects=args.all_projects,
+                tenant_id=tenant_id,
+                endpoint=endpoint,
+                key=key,
+                as_json=args.json,
+            )
+
+    elif args.subcommand in ("rules", "sync"):
+        key, endpoint = resolve_credentials(args.key, args.endpoint)
+        tenant_id = _resolve_tenant_id(args.tenant, key)
+        run_rules_sync(
+            target=args.target,
             project=args.project,
-            all_projects=args.all_projects,
             tenant_id=tenant_id,
             endpoint=endpoint,
             key=key,

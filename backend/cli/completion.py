@@ -6,10 +6,12 @@ _veraxi_completions() {
     local cur prev words cword
     _init_completion -n : || return
 
-    local commands="chat init brief research review ingest login whoami logout stats hook schema trace check impact context remember resolve reopen memory cluster repo mcp completion"
+    local commands="chat init brief research review ingest login whoami logout stats hook schema trace check impact context remember resolve reopen memory cluster repo rules sync mcp completion"
     local mcp_commands="install doctor query"
     local hook_commands="install uninstall"
     local cluster_commands="add list remove link"
+    local memory_commands="list export import audit"
+    local rules_commands="sync list"
     local clients="claude cursor claude-code cline all"
 
     if [[ ${cword} -eq 1 ]]; then
@@ -28,6 +30,14 @@ _veraxi_completions() {
             ;;
         cluster|repo)
             COMPREPLY=( $(compgen -W "${cluster_commands}" -- ${cur}) )
+            return 0
+            ;;
+        memory)
+            COMPREPLY=( $(compgen -W "${memory_commands}" -- ${cur}) )
+            return 0
+            ;;
+        rules)
+            COMPREPLY=( $(compgen -W "${rules_commands}" -- ${cur}) )
             return 0
             ;;
         --client)
@@ -79,6 +89,8 @@ _veraxi() {
         'cluster:Manage cross-repository microservice clusters'
         'repo:Manage repository registration and clusters'
         'impact:Architectural blast radius analysis before refactoring'
+        'rules:Manage and sync rules with AI editors (CLAUDE.md, .cursorrules)'
+        'sync:1-Command sync of architectural rules to AI editor files'
         'mcp:Manage MCP server configuration'
         'completion:Generate shell auto-completion script'
     )

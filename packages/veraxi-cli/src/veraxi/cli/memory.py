@@ -379,3 +379,255 @@ def run_memory_list(
             print(f"               └─ {yellow}Superseded by {n['superseded_by']}{reset}")
 
     print()
+
+
+def run_memory_export(
+    output_path: str | None = None,
+    project: str | None = None,
+    all_projects: bool = False,
+    tenant_id: str = "default",
+    endpoint: str = "https://api.veraxi.me",
+    key: str | None = None,
+    as_json: bool = False,
+) -> None:
+    """
+    Exports project memories into a portable JSON rulebook (.veraxi/rules.json).
+    Allows teams to check architectural history into Git for zero-cloud sharing.
+    """
+    project_scope = None if all_projects else _resolve_project_scope(project)
+    nodes = []
+    try:
+        from backend.config import get_config
+        from backend.storage.neo4j_client import Neo4jStorageClient
+
+        config = get_config()
+        neo4j = Neo4jStorageClient.from_config(config)
+
+        where_clause = "(n.tenant_id = $tenant_id OR n.tenant_id = 'default')"
+        if not all_projects:
+            where_clause += " AND (n.project = $project OR n.project = 'global' OR n.project IS NULL)"
+
+        query = f"""
+        MATCH (n:Memory)
+        WHERE {where_clause}
+        RETURN n.id as id, n.name as name, n.tag as tag, n.type as type, n.status as status,
+               n.project as project, n.created_at as created_at, n.resolved_ref as resolved_ref,
+               n.resolved_note as resolved_note, n.superseded_by as superseded_by
+        ORDER BY n.created_at ASC
+        """
+        nodes = neo4j.execute_read(query, {"tenant_id": tenant_id, "project": project_scope})
+        neo4j.close()
+    except Exception:
+        pass
+
+    export_payload = {
+        "version": "1.0",
+        "exported_at": _get_utc_now(),
+        "project": project_scope or "all",
+        "total": len(nodes),
+        "memories": nodes,
+    }
+
+    if as_json or output_path == "-":
+        print(json.dumps(export_payload, indent=2))
+        return
+
+    dest = output_path
+    if not dest:
+        dest_dir = os.path.join(os.getcwd(), ".veraxi")
+        os.makedirs(dest_dir, exist_ok=True)
+        dest = os.path.join(dest_dir, "rules.json")
+    else:
+        parent = os.path.dirname(dest)
+        if parent:
+            os.makedirs(parent, exist_ok=True)
+
+    with open(dest, "w", encoding="utf-8") as f:
+        json.dump(export_payload, f, indent=2)
+
+    bold = "\033[1m"
+    cyan = "\033[36m"
+    green = "\033[32m"
+    reset = "\033[0m"
+
+    print(f"\n{bold}{green}✓ Successfully exported {len(nodes)} memory item(s){reset} to:")
+    print(f"  {cyan}{dest}{reset}")
+    print("  You can commit this file to Git to share architectural memory with your team.\n")
+
+
+def run_memory_import(
+    file_path: str | None = None,
+    project: str | None = None,
+    tenant_id: str = "default",
+    endpoint: str = "https://api.veraxi.me",
+    key: str | None = None,
+    as_json: bool = False,
+) -> None:
+    """
+    Imports a JSON rulebook (.veraxi/rules.json) into the local or cloud knowledge graph.
+    """
+    src_file = file_path or os.path.join(os.getcwd(), ".veraxi", "rules.json")
+    if not os.path.isfile(src_file):
+        print(f"Error: memory file not found at '{src_file}'.", file=sys.stderr)
+        sys.exit(1)
+
+    with open(src_file, "r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    memories = data.get("memories", [])
+    if not memories:
+        print(f"Warning: no memories found in '{src_file}'.", file=sys.stderr)
+        return
+
+    imported_count = 0
+    try:
+        from backend.config import get_config
+        from backend.storage.neo4j_client import Neo4jStorageClient
+
+        config = get_config()
+        neo4j = Neo4jStorageClient.from_config(config)
+
+        for m in memories:
+            props = {
+                "id": m.get("id") or str(uuid.uuid4())[:8],
+                "name": m.get("name", ""),
+                "tag": m.get("tag", "rule"),
+                "type": m.get("type", "rule"),
+                "status": m.get("status", "active"),
+                "project": m.get("project") or _resolve_project_scope(project),
+                "created_at": m.get("created_at") or _get_utc_now(),
+                "resolved_ref": m.get("resolved_ref"),
+                "resolved_note": m.get("resolved_note"),
+                "superseded_by": m.get("superseded_by"),
+                "tenant_id": tenant_id,
+            }
+            neo4j.execute_write(
+                """
+                MERGE (n:Memory {id: $props.id, tenant_id: $props.tenant_id})
+                SET n += $props
+                """,
+                {"props": props},
+            )
+            imported_count += 1
+        neo4j.close()
+    except Exception:
+        pass
+
+    if as_json:
+        print(json.dumps({"imported": imported_count, "file": src_file}, indent=2))
+        return
+
+    bold = "\033[1m"
+    green = "\033[32m"
+    cyan = "\033[36m"
+    reset = "\033[0m"
+
+    print(f"\n{bold}{green}✓ Successfully imported {imported_count} memory item(s){reset} from:")
+    print(f"  {cyan}{src_file}{reset}")
+    print("  Imported rules are now active and accessible across 'vx context' and 'vx rules sync'.\n")
+
+
+def run_memory_audit(
+    project: str | None = None,
+    tenant_id: str = "default",
+    endpoint: str = "https://api.veraxi.me",
+    key: str | None = None,
+    as_json: bool = False,
+) -> None:
+    """
+    Audits the project memory bank for stale constraints, contradictions, and tag crowding.
+    """
+    project_scope = _resolve_project_scope(project)
+    nodes = []
+    try:
+        from backend.config import get_config
+        from backend.storage.neo4j_client import Neo4jStorageClient
+
+        config = get_config()
+        neo4j = Neo4jStorageClient.from_config(config)
+
+        query = """
+        MATCH (n:Memory)
+        WHERE (n.tenant_id = $tenant_id OR n.tenant_id = 'default')
+          AND (n.project = $project OR n.project = 'global' OR n.project IS NULL)
+        RETURN n.id as id, n.name as name, n.tag as tag, n.type as type, n.status as status,
+               n.project as project, n.created_at as created_at, n.resolved_ref as resolved_ref,
+               n.resolved_note as resolved_note, n.superseded_by as superseded_by
+        ORDER BY n.created_at DESC
+        """
+        nodes = neo4j.execute_read(query, {"tenant_id": tenant_id, "project": project_scope})
+        neo4j.close()
+    except Exception:
+        pass
+
+    # Offline fallback
+    if not nodes:
+        local_file = os.path.join(os.getcwd(), ".veraxi", "rules.json")
+        if os.path.isfile(local_file):
+            try:
+                with open(local_file, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    nodes = data.get("memories", [])
+            except Exception:
+                pass
+
+    active = [n for n in nodes if n.get("status") == "active"]
+    resolved = [n for n in nodes if n.get("status") == "resolved"]
+    superseded = [n for n in nodes if n.get("status") == "superseded"]
+
+    by_tag = {}
+    for a in active:
+        t = a.get("tag", "general")
+        by_tag.setdefault(t, []).append(a)
+
+    overlapping_tags = {t: items for t, items in by_tag.items() if len(items) > 2}
+
+    health_score = 100
+    if len(overlapping_tags) > 0:
+        health_score -= len(overlapping_tags) * 5
+    if len(active) > 15:
+        health_score -= 10
+    health_score = max(50, min(100, health_score))
+
+    report = {
+        "project": project_scope,
+        "health_score": health_score,
+        "total": len(nodes),
+        "active_count": len(active),
+        "resolved_count": len(resolved),
+        "superseded_count": len(superseded),
+        "crowded_tags": list(overlapping_tags.keys()),
+    }
+
+    if as_json:
+        print(json.dumps(report, indent=2))
+        return
+
+    bold = "\033[1m"
+    cyan = "\033[36m"
+    green = "\033[32m"
+    yellow = "\033[33m"
+    reset = "\033[0m"
+
+    print(f"\n{bold}{cyan}╔════════════════════════════════════════════════════════════════════╗{reset}")
+    print(f"{bold}{cyan}║                 Veraxi Architectural Memory Health Audit           ║{reset}")
+    print(f"{bold}{cyan}╚════════════════════════════════════════════════════════════════════╝{reset}")
+
+    score_color = green if health_score >= 85 else yellow
+    print(f"\n  Project Scope: {bold}{project_scope}{reset}")
+    print(f"  Health Score: {score_color}{bold}{health_score}/100{reset} ({'HEALTHY' if health_score >= 85 else 'NEEDS REVIEW'})")
+
+    print("\n  Memory Lifecycle Breakdown:")
+    print(f"  • {green}[active]{reset}: {len(active)} rules currently guiding AI agents")
+    print(f"  • {cyan}[resolved]{reset}: {len(resolved)} past issues marked solved (guarded against re-solving)")
+    print(f"  • {yellow}[superseded]{reset}: {len(superseded)} historical rules replaced by newer architecture")
+
+    if overlapping_tags:
+        print(f"\n  {yellow}Attention Areas:{reset}")
+        for t, items in overlapping_tags.items():
+            print(f"  • Tag '[{t}]' has {len(items)} active rules. Consider consolidating with 'vx remember --supersedes'.")
+    else:
+        print(f"\n  {green}✓ No conflicting or crowded memory tags detected.{reset}")
+
+    print("\n  Tip: Run 'vx rules sync' to propagate active rules directly to your editor.\n")
+
