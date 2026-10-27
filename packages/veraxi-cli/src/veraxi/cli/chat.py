@@ -7,7 +7,11 @@ try:
 except ImportError:
     pass
 
+from veraxi.cli.models import run_models_list
 from veraxi.cli.query import run_query
+from veraxi.cli.stats import run_stats
+from veraxi.cli.trace import run_trace
+from veraxi.cli.web import run_web
 
 
 def run_interactive_chat(
@@ -50,11 +54,39 @@ def run_interactive_chat(
                 os.system("clear" if os.name != "nt" else "cls")
                 continue
 
-            if query_text.lower() == "help":
-                print(f"\n{yellow}Available Commands:{reset}")
-                print("  Type any question or topic to search vectors & graph entities.")
-                print("  clear       - Clear the terminal screen")
-                print("  exit / quit - End this interactive session\n")
+            if query_text.lower() in ("help", "/help", "?"):
+                print(f"\n{yellow}Available Commands & Shortcuts:{reset}")
+                print("  <question>      - Query knowledge graph & vector memory")
+                print("  /web <query>    - Search the live web via DuckDuckGo")
+                print("  /fetch <url>    - Read clean Markdown from a web page")
+                print("  /trace <entity> - Trace multi-hop causal graph relationships")
+                print("  /stats          - Display knowledge graph counts & telemetry")
+                print("  /models         - List supported AI models & provider readiness")
+                print("  clear           - Clear the terminal screen")
+                print("  exit / quit     - End this interactive session\n")
+                continue
+
+            if query_text.startswith("/web "):
+                search_q = query_text[5:].strip()
+                run_web(action="search", query_or_url=search_q, limit=limit)
+                continue
+
+            if query_text.startswith("/fetch "):
+                fetch_url = query_text[7:].strip()
+                run_web(action="fetch", query_or_url=fetch_url)
+                continue
+
+            if query_text.startswith("/trace "):
+                entity_name = query_text[7:].strip()
+                run_trace(entity_name=entity_name, tenant_id=tenant_id, endpoint=endpoint, key=key)
+                continue
+
+            if query_text.lower() in ("/stats", "stats"):
+                run_stats(tenant_id=tenant_id, endpoint=endpoint, key=key)
+                continue
+
+            if query_text.lower() in ("/models", "/model", "models"):
+                run_models_list()
                 continue
 
             print()

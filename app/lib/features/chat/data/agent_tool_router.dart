@@ -224,12 +224,41 @@ class AgentToolRouter {
     }
 
     try {
+      final outDir = await _veraximDir();
+      final outFile = File('${outDir.path}/.termux_out.txt');
+      final exitFile = File('${outDir.path}/.termux_exit.txt');
+      if (outFile.existsSync()) outFile.deleteSync();
+      if (exitFile.existsSync()) exitFile.deleteSync();
+
+      // Wrap command to redirect stdout and stderr to shared storage
+      final wrappedCommand =
+          'mkdir -p "${outDir.path}" && ($command) > "${outFile.path}" 2>&1; echo \$? > "${exitFile.path}"';
+
       const channel = MethodChannel('veraxi/termux_bridge');
-      final result = await channel.invokeMethod<String>('runCommand', {
-        'command': command,
+      await channel.invokeMethod<String>('runCommand', {
+        'command': wrappedCommand,
       });
 
-      final output = result ?? '(no output)';
+      // Poll for command completion for up to 4 seconds
+      String output = '';
+      for (var i = 0; i < 20; i++) {
+        await Future.delayed(const Duration(milliseconds: 200));
+        if (exitFile.existsSync()) {
+          final exitCode = exitFile.readAsStringSync().trim();
+          final text = outFile.existsSync()
+              ? outFile.readAsStringSync().trim()
+              : '';
+          output = text.isNotEmpty
+              ? text
+              : '(Command completed with exit code $exitCode and no output)';
+          break;
+        }
+      }
+
+      if (output.isEmpty) {
+        output = 'Command dispatched in background to Termux: $command';
+      }
+
       return ToolResult(
         summary:
             '⚡ Shell: ${command.length > 40 ? '${command.substring(0, 40)}…' : command}',
