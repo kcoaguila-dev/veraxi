@@ -1,6 +1,7 @@
 import datetime
 import json
 import os
+import re
 import sys
 import uuid
 
@@ -499,15 +500,145 @@ def run_memory_import(
     print("  Imported rules are now active and accessible across 'vx context' and 'vx rules sync'.\n")
 
 
+def detect_memory_drift(nodes: list[dict], root_dir: str | None = None) -> list[dict]:
+    """
+    Scans active memories against actual filesystem state and package manifests.
+    Flags:
+    1. Orphaned target files (files mentioned in rules that no longer exist).
+    2. Upstream dependency version drift (library versions mentioned that have been upgraded).
+    3. Stale temporary bug workarounds older than 90 days.
+    """
+    root_dir = root_dir or os.getcwd()
+    drift_items = []
+
+    manifest_deps = {}
+
+    # Check pyproject.toml
+    pyproject_path = os.path.join(root_dir, "pyproject.toml")
+    if os.path.isfile(pyproject_path):
+        try:
+            with open(pyproject_path, "r", encoding="utf-8") as f:
+                content = f.read()
+                for match in re.finditer(r'["\']([a-zA-Z0-9_\-]+)(?:[><=~!^]+([0-9\.]+))?["\']', content):
+                    pkg = match.group(1).lower()
+                    ver = match.group(2) or "installed"
+                    manifest_deps[pkg] = ver
+        except Exception:
+            pass
+
+    # Check package.json
+    pkg_json_path = os.path.join(root_dir, "package.json")
+    if os.path.isfile(pkg_json_path):
+        try:
+            with open(pkg_json_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                all_deps = {**data.get("dependencies", {}), **data.get("devDependencies", {})}
+                for k, v in all_deps.items():
+                    clean_v = re.sub(r"[^0-9\.]", "", str(v))
+                    manifest_deps[k.lower()] = clean_v or str(v)
+        except Exception:
+            pass
+
+    # Check requirements.txt
+    req_path = os.path.join(root_dir, "requirements.txt")
+    if os.path.isfile(req_path):
+        try:
+            with open(req_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    m = re.match(r"([a-zA-Z0-9_\-]+)[=><~]+([0-9\.]+)", line)
+                    if m:
+                        manifest_deps[m.group(1).lower()] = m.group(2)
+        except Exception:
+            pass
+
+    now = datetime.datetime.now(datetime.timezone.utc)
+
+    for item in nodes:
+        if item.get("status") != "active":
+            continue
+
+        item_id = item.get("id")
+        name = item.get("name", "")
+        tag = item.get("tag", "general")
+        created_at_str = item.get("created_at")
+
+        # A. Check for referenced file paths
+        file_candidates = re.findall(r"\b([a-zA-Z0-9_\-/\\]+\.[a-zA-Z0-9]{1,6})\b", name)
+        for rel_path in file_candidates:
+            if rel_path.startswith(("http://", "https://")) or re.match(r"^[0-9\.]+$", rel_path):
+                continue
+            if "/" in rel_path or "\\" in rel_path:
+                full_path = os.path.join(root_dir, rel_path)
+                if not os.path.exists(full_path):
+                    drift_items.append({
+                        "id": item_id,
+                        "name": name,
+                        "tag": tag,
+                        "type": "orphaned_target",
+                        "severity": "WARNING",
+                        "target": rel_path,
+                        "reason": f"Referenced file '{rel_path}' does not exist on disk.",
+                        "remediation": f"Verify file location or resolve rule via 'vx memory resolve {item_id}'.",
+                    })
+
+        # B. Check for library version drift (e.g. "pydantic v1", "react 18")
+        dep_match = re.search(r"\b([a-zA-Z0-9_\-]+)\s+(?:v|version\s+)?([0-9]+(?:\.[0-9]+)?)\b", name, re.IGNORECASE)
+        if dep_match:
+            lib = dep_match.group(1).lower()
+            old_ver_str = dep_match.group(2)
+            if lib in manifest_deps:
+                curr_ver_str = manifest_deps[lib]
+                try:
+                    old_major = int(old_ver_str.split(".")[0])
+                    curr_major = int(curr_ver_str.split(".")[0])
+                    if curr_major > old_major:
+                        drift_items.append({
+                            "id": item_id,
+                            "name": name,
+                            "tag": tag,
+                            "type": "dependency_drift",
+                            "severity": "WARNING",
+                            "target": f"{lib} (rule: v{old_ver_str} vs manifest: v{curr_ver_str})",
+                            "reason": f"Rule targets '{lib} v{old_ver_str}', but project manifest is upgraded to v{curr_ver_str}.",
+                            "remediation": f"Test if workaround is still required on v{curr_ver_str}; retire with 'vx memory resolve {item_id}'.",
+                        })
+                except (ValueError, IndexError):
+                    pass
+
+        # C. Stale Temporary Caveats (> 90 days old)
+        if tag in ("bug", "issue", "workaround", "caveat", "fix") and created_at_str:
+            try:
+                created_dt = datetime.datetime.fromisoformat(created_at_str.replace("Z", "+00:00"))
+                age_days = (now - created_dt).days
+                if age_days > 90:
+                    drift_items.append({
+                        "id": item_id,
+                        "name": name,
+                        "tag": tag,
+                        "type": "stale_caveat",
+                        "severity": "INFO",
+                        "target": f"{age_days} days old",
+                        "reason": f"Temporary {tag} has been active for {age_days} days without updates.",
+                        "remediation": f"Confirm resolution and mark solved via 'vx memory resolve {item_id}'.",
+                    })
+            except Exception:
+                pass
+
+    return drift_items
+
+
 def run_memory_audit(
     project: str | None = None,
     tenant_id: str = "default",
     endpoint: str = "https://api.veraxi.me",
     key: str | None = None,
     as_json: bool = False,
+    drift: bool = False,
+    strict: bool = False,
 ) -> None:
     """
-    Audits the project memory bank for stale constraints, contradictions, and tag crowding.
+    Audits the project memory bank for stale constraints, contradictions, tag crowding, and codebase drift.
     """
     project_scope = _resolve_project_scope(project)
     nodes = []
@@ -554,12 +685,17 @@ def run_memory_audit(
 
     overlapping_tags = {t: items for t, items in by_tag.items() if len(items) > 2}
 
+    # Codebase drift inspection
+    drift_items = detect_memory_drift(active)
+
     health_score = 100
     if len(overlapping_tags) > 0:
         health_score -= len(overlapping_tags) * 5
     if len(active) > 15:
         health_score -= 10
-    health_score = max(50, min(100, health_score))
+    if len(drift_items) > 0:
+        health_score -= min(30, len(drift_items) * 5)
+    health_score = max(30, min(100, health_score))
 
     report = {
         "project": project_scope,
@@ -569,23 +705,28 @@ def run_memory_audit(
         "resolved_count": len(resolved),
         "superseded_count": len(superseded),
         "crowded_tags": list(overlapping_tags.keys()),
+        "drift_count": len(drift_items),
+        "drift_items": drift_items,
     }
 
     if as_json:
         print(json.dumps(report, indent=2))
+        if strict and len(drift_items) > 0:
+            sys.exit(1)
         return
 
     bold = "\033[1m"
     cyan = "\033[36m"
     green = "\033[32m"
     yellow = "\033[33m"
+    red = "\033[31m"
     reset = "\033[0m"
 
     print(f"\n{bold}{cyan}╔════════════════════════════════════════════════════════════════════╗{reset}")
     print(f"{bold}{cyan}║                 Veraxi Architectural Memory Health Audit           ║{reset}")
     print(f"{bold}{cyan}╚════════════════════════════════════════════════════════════════════╝{reset}")
 
-    score_color = green if health_score >= 85 else yellow
+    score_color = green if health_score >= 85 else (yellow if health_score >= 60 else red)
     print(f"\n  Project Scope: {bold}{project_scope}{reset}")
     print(f"  Health Score: {score_color}{bold}{health_score}/100{reset} ({'HEALTHY' if health_score >= 85 else 'NEEDS REVIEW'})")
 
@@ -594,14 +735,28 @@ def run_memory_audit(
     print(f"  • {cyan}[resolved]{reset}: {len(resolved)} past issues marked solved (guarded against re-solving)")
     print(f"  • {yellow}[superseded]{reset}: {len(superseded)} historical rules replaced by newer architecture")
 
+    if drift_items:
+        print(f"\n  {yellow}⚠️  Codebase Drift Detected ({len(drift_items)} items):{reset}")
+        for idx, d in enumerate(drift_items, 1):
+            d_color = yellow if d["severity"] == "WARNING" else cyan
+            print(f"  {d_color}[DRIFT #{idx} - {d['type'].upper()}]{reset}")
+            print(f"    • {bold}Rule #{d['id']}:{reset} \"{d['name']}\" [{d['tag']}]")
+            print(f"    • {bold}Target:{reset} {d['target']}")
+            print(f"    • {bold}Issue:{reset}  {d['reason']}")
+            print(f"    • {bold}Fix:{reset}    {cyan}{d['remediation']}{reset}\n")
+
     if overlapping_tags:
-        print(f"\n  {yellow}Attention Areas:{reset}")
+        print(f"  {yellow}Attention Areas:{reset}")
         for t, items in overlapping_tags.items():
             print(f"  • Tag '[{t}]' has {len(items)} active rules. Consider consolidating with 'vx remember --supersedes'.")
-    else:
-        print(f"\n  {green}✓ No conflicting or crowded memory tags detected.{reset}")
+    elif not drift_items:
+        print(f"\n  {green}✓ No conflicting, crowded, or drifted memory tags detected.{reset}")
 
     print("\n  Tip: Run 'vx rules sync' to propagate active rules directly to your editor.\n")
+
+    if strict and any(d["severity"] == "WARNING" for d in drift_items):
+        print(f"  {red}Audit failed: Codebase drift detected in strict mode.{reset}\n")
+        sys.exit(1)
 
 
 def run_memory_prune(

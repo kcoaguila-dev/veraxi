@@ -79,6 +79,24 @@ def run_context(
     except Exception:
         pass
 
+    # 1b. Offline fallback: check local .veraxi/rules.json if active_rules is empty
+    if not active_rules:
+        import os
+        local_file = os.path.join(os.getcwd(), ".veraxi", "rules.json")
+        if os.path.isfile(local_file):
+            try:
+                with open(local_file, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    for item in data.get("memories", []):
+                        proj = item.get("project")
+                        if proj in cluster_scopes or proj == "global" or not proj:
+                            if item.get("status") == "active":
+                                active_rules.append(item)
+                            elif item.get("status") == "resolved":
+                                resolved_caveats.append(item)
+            except Exception:
+                pass
+
     # 2. Fetch relevant vector chunks
     try:
         from backend.mcp_server.tools.search_vectors import search_vectors

@@ -730,6 +730,45 @@ def test_audit_diff_rules_and_ci_gate(capsys, tmp_path):
             assert "Clean Architecture" in content
 
 
+# 29. test_memory_drift_detection: Verify codebase drift, orphaned targets, and dependency divergence
+def test_memory_drift_detection(tmp_path, capsys):
+    from veraxi.cli.memory import detect_memory_drift, run_memory_audit
+
+    # Create dummy pyproject.toml with upgraded pydantic v2
+    pyproj = tmp_path / "pyproject.toml"
+    pyproj.write_text('[project]\ndependencies = ["pydantic>=2.8.0", "fastapi>=0.110.0"]\n')
+
+    # Existing file
+    valid_file = tmp_path / "src" / "valid.py"
+    valid_file.parent.mkdir()
+    valid_file.write_text("# valid code\n")
+
+    nodes = [
+        {"id": "d1", "name": "Workaround for pydantic v1 validator bug in models", "tag": "db", "status": "active"},
+        {"id": "d2", "name": "Ensure helper logic in src/nonexistent_old_file.py is pure", "tag": "architecture", "status": "active"},
+        {"id": "d3", "name": "Valid rule in src/valid.py", "tag": "core", "status": "active"},
+        {"id": "d4", "name": "Temporary workaround for upstream bug", "tag": "workaround", "status": "active", "created_at": "2024-01-01T00:00:00Z"},
+    ]
+
+    drift = detect_memory_drift(nodes, root_dir=str(tmp_path))
+    assert len(drift) >= 2
+    types = [item["type"] for item in drift]
+    assert "dependency_drift" in types
+    assert "orphaned_target" in types
+
+    # Test run_memory_audit with drift output
+    with patch("backend.storage.neo4j_client.Neo4jStorageClient.from_config") as mock_neo4j:
+        mock_client = MagicMock()
+        mock_neo4j.return_value = mock_client
+        mock_client.execute_read.return_value = nodes
+
+        with patch("os.getcwd", return_value=str(tmp_path)):
+            with pytest.raises(SystemExit) as exc_info:
+                run_memory_audit(project="test-repo", strict=True)
+            assert exc_info.value.code == 1
+
+
+
 
 
 

@@ -229,7 +229,7 @@ def main():
 
     # --- memory ---
     memory_parser = subparsers.add_parser("memory", help="Inspect, export, import, audit, prune, or check memory stats")
-    memory_parser.add_argument("action", choices=["list", "export", "import", "audit", "prune", "stats"], default="list", nargs="?", help="Action to perform")
+    memory_parser.add_argument("action", choices=["list", "export", "import", "audit", "prune", "stats", "drift"], default="list", nargs="?", help="Action to perform")
     memory_parser.add_argument("file_path", nargs="?", help="File path for import or export")
     memory_parser.add_argument("--status", choices=["active", "resolved", "superseded", "all"], default="all", help="Status filter")
     memory_parser.add_argument("--project", help="Project repository filter (defaults to current git repo)")
@@ -238,6 +238,8 @@ def main():
     memory_parser.add_argument("--dry-run", action="store_true", help="Preview items that would be pruned without modifying state")
     memory_parser.add_argument("--archive-file", help="Archive file destination for pruned items")
     memory_parser.add_argument("--output", "-o", help="Output file path for export (default: .veraxi/rules.json)")
+    memory_parser.add_argument("--drift", action="store_true", help="Audit memories for codebase drift, orphaned targets, and upgraded dependencies")
+    memory_parser.add_argument("--strict", action="store_true", help="Exit code 1 if codebase drift is detected (for CI/CD)")
     memory_parser.add_argument("--tenant", help="Tenant ID")
     memory_parser.add_argument("--key", help="Veraxi API key (vx-...)")
     memory_parser.add_argument("--endpoint", default="https://api.veraxi.me/sse", help="Veraxi API endpoint")
@@ -488,13 +490,15 @@ def main():
                 key=key,
                 as_json=args.json,
             )
-        elif action == "audit":
+        elif action in ("audit", "drift"):
             run_memory_audit(
                 project=args.project,
                 tenant_id=tenant_id,
                 endpoint=endpoint,
                 key=key,
                 as_json=args.json,
+                drift=getattr(args, "drift", False) or action == "drift",
+                strict=getattr(args, "strict", False),
             )
         elif action == "prune":
             run_memory_prune(
