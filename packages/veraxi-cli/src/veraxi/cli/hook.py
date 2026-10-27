@@ -6,7 +6,7 @@ import sys
 HOOK_MARKER_START = "# >>> veraxi hook >>>"
 HOOK_MARKER_END = "# <<< veraxi hook <<<"
 
-HOOK_SCRIPT = f"""{HOOK_MARKER_START}
+HOOK_PRE_COMMIT = f"""{HOOK_MARKER_START}
 # Veraxi pre-commit hook: audit staged git diff against knowledge base
 if command -v vx >/dev/null 2>&1; then
     vx review --staged
@@ -15,6 +15,18 @@ elif command -v veraxi >/dev/null 2>&1; then
 fi
 {HOOK_MARKER_END}
 """
+
+HOOK_POST_COMMIT = f"""{HOOK_MARKER_START}
+# Veraxi post-commit hook: autonomously learn architectural lessons from commit
+if command -v vx >/dev/null 2>&1; then
+    vx learn --auto
+elif command -v veraxi >/dev/null 2>&1; then
+    veraxi learn --auto
+fi
+{HOOK_MARKER_END}
+"""
+
+HOOK_SCRIPT = HOOK_PRE_COMMIT
 
 
 def _find_git_dir() -> str | None:
@@ -35,23 +47,12 @@ def _find_git_dir() -> str | None:
         return None
 
 
-def run_hook(action: str = "install") -> None:
-    """
-    Manages Git pre-commit hooks for automatic architectural review.
-    """
-    git_dir = _find_git_dir()
-    if not git_dir:
-        print("Error: Not a git repository (or any of the parent directories).", file=sys.stderr)
-        sys.exit(1)
-
-    hooks_dir = os.path.join(git_dir, "hooks")
-    os.makedirs(hooks_dir, exist_ok=True)
-    hook_path = os.path.join(hooks_dir, "pre-commit")
-
+def _manage_single_hook(hooks_dir: str, hook_name: str, hook_script: str, action: str) -> None:
     green = "\033[32m"
     bold = "\033[1m"
     reset = "\033[0m"
 
+    hook_path = os.path.join(hooks_dir, hook_name)
     if action == "install":
         content = ""
         if os.path.exists(hook_path):
@@ -59,13 +60,13 @@ def run_hook(action: str = "install") -> None:
                 content = f.read()
 
         if HOOK_MARKER_START in content:
-            print(f"{bold}Veraxi pre-commit hook is already installed at {hook_path}{reset}")
+            print(f"{bold}Veraxi {hook_name} hook is already installed at {hook_path}{reset}")
             return
 
         if not content:
-            new_content = f"#!/bin/sh\n\n{HOOK_SCRIPT}"
+            new_content = f"#!/bin/sh\n\n{hook_script}"
         else:
-            new_content = content.rstrip() + f"\n\n{HOOK_SCRIPT}"
+            new_content = content.rstrip() + f"\n\n{hook_script}"
 
         with open(hook_path, "w", encoding="utf-8") as f:
             f.write(new_content)
@@ -73,12 +74,11 @@ def run_hook(action: str = "install") -> None:
         st = os.stat(hook_path)
         os.chmod(hook_path, st.st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
 
-        print(f"{bold}{green}✓ Successfully installed Veraxi pre-commit hook{reset} at {hook_path}")
-        print("  Staged changes will now be automatically checked with 'veraxi review --staged' before each commit.")
+        print(f"{bold}{green}✓ Successfully installed Veraxi {hook_name} hook{reset} at {hook_path}")
 
     elif action == "uninstall":
         if not os.path.exists(hook_path):
-            print(f"No pre-commit hook found at {hook_path}")
+            print(f"No {hook_name} hook found at {hook_path}")
             return
 
         with open(hook_path, "r", encoding="utf-8") as f:
@@ -99,3 +99,23 @@ def run_hook(action: str = "install") -> None:
             with open(hook_path, "w", encoding="utf-8") as f:
                 f.write(cleaned + "\n")
             print(f"{bold}{green}✓ Successfully removed Veraxi hook from {hook_path}{reset}")
+
+
+def run_hook(action: str = "install", hook_type: str = "pre-commit") -> None:
+    """
+    Manages Git hooks (pre-commit review, post-commit auto-learning).
+    """
+    git_dir = _find_git_dir()
+    if not git_dir:
+        print("Error: Not a git repository (or any of the parent directories).", file=sys.stderr)
+        sys.exit(1)
+
+    hooks_dir = os.path.join(git_dir, "hooks")
+    os.makedirs(hooks_dir, exist_ok=True)
+
+    hook_type = (hook_type or "pre-commit").strip().lower()
+
+    if hook_type in ("pre-commit", "all"):
+        _manage_single_hook(hooks_dir, "pre-commit", HOOK_PRE_COMMIT, action)
+    if hook_type in ("post-commit", "all"):
+        _manage_single_hook(hooks_dir, "post-commit", HOOK_POST_COMMIT, action)

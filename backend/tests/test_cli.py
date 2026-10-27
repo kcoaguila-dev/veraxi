@@ -244,18 +244,21 @@ def test_hook_lifecycle(tmp_path):
     fake_git_dir.mkdir()
 
     with patch.object(hook, "_find_git_dir", return_value=str(fake_git_dir)):
-        hook.run_hook("install")
-        hook_file = fake_git_dir / "hooks" / "pre-commit"
-        assert hook_file.exists()
-        content = hook_file.read_text()
-        assert "veraxi review --staged" in content
+        hook.run_hook("install", hook_type="all")
+        pre_file = fake_git_dir / "hooks" / "pre-commit"
+        post_file = fake_git_dir / "hooks" / "post-commit"
+        assert pre_file.exists()
+        assert post_file.exists()
+        assert "veraxi review --staged" in pre_file.read_text()
+        assert "veraxi learn --auto" in post_file.read_text()
 
         # Idempotent install
-        hook.run_hook("install")
+        hook.run_hook("install", hook_type="all")
 
         # Uninstall
-        hook.run_hook("uninstall")
-        assert not hook_file.exists()
+        hook.run_hook("uninstall", hook_type="all")
+        assert not pre_file.exists()
+        assert not post_file.exists()
 
 
 # 12. test_schema_json_output: Test schema command output
@@ -630,6 +633,47 @@ def test_rules_lint_conflict_detection(capsys):
         {"id": "c2", "name": "Use snake_case for Python function identifiers", "tag": "style", "status": "active"},
     ]
     assert len(detect_rule_conflicts(clean_rules)) == 0
+
+
+# 27. test_learn_lifecycle: Verify autonomous memory extraction from git commits
+def test_learn_lifecycle(capsys):
+    from veraxi.cli.learn import extract_commit_lesson, run_learn
+
+    # Mock git log returning architectural fix
+    mock_log = "abc1234\x00fix(auth): rotate refresh tokens during session refresh\x00Resolves token expiration drops."
+    with patch("subprocess.check_output") as mock_sub:
+        mock_sub.side_effect = [
+            mock_log,
+            "backend/auth.py\nbackend/session.py\n",
+        ]
+        lesson = extract_commit_lesson("HEAD")
+        assert lesson is not None
+        assert lesson["tag"] == "auth"
+        assert "Rotate refresh tokens during session refresh" in lesson["rule"]
+
+    # Mock trivial commit (chore) returning None
+    with patch("subprocess.check_output", return_value="def5678\x00chore: bump version to 0.1.1\x00"):
+        assert extract_commit_lesson("HEAD") is None
+
+    # Test run_learn auto-persisting
+    with patch("veraxi.cli.learn.extract_commit_lesson") as mock_extract:
+        mock_extract.return_value = {
+            "commit": "abc1234",
+            "short_hash": "abc1234",
+            "subject": "fix(db): add tenant_id filter to all queries",
+            "body": "",
+            "rule": "Add tenant_id filter to all queries.",
+            "tag": "db",
+            "files_count": 2,
+        }
+        with patch("veraxi.cli.learn.run_remember") as mock_remember:
+            run_learn(auto=True, project="test-project", tenant_id="default")
+            mock_remember.assert_called_once()
+            call_kwargs = mock_remember.call_args[1]
+            assert call_kwargs["name"] == "Add tenant_id filter to all queries."
+            assert call_kwargs["tag"] == "db"
+            assert call_kwargs["project"] == "test-project"
+
 
 
 
