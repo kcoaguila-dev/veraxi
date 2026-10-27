@@ -1,5 +1,6 @@
 import json
 import sys
+from veraxi.cli.cluster import get_cluster_repos
 from veraxi.cli.memory import _resolve_project_scope
 
 
@@ -14,8 +15,8 @@ def run_context(
 ) -> None:
     """
     Assembles a token-efficient, hallucination-resistant XML/Markdown context pack
-    scoped to the current project codebase, containing active architectural rules,
-    relevant grounding evidence, and resolved caveats (marked DO-NOT-RE-SOLVE).
+    scoped to the current project codebase and its cluster microservices, containing
+    active architectural rules, relevant grounding evidence, and resolved caveats.
     """
     if not task:
         if not sys.stdin.isatty():
@@ -29,11 +30,15 @@ def run_context(
         sys.exit(1)
 
     project_scope = _resolve_project_scope(project)
+    cluster_scopes = get_cluster_repos(project_scope, tenant_id)
+    if not cluster_scopes:
+        cluster_scopes = [project_scope]
+
     active_rules = []
     resolved_caveats = []
     vector_chunks = []
 
-    # 1. Fetch active rules and resolved caveats from graph scoped to project or global
+    # 1. Fetch active rules and resolved caveats from graph scoped to project cluster or global
     try:
         from backend.config import get_config
         from backend.storage.neo4j_client import Neo4jStorageClient
@@ -46,13 +51,13 @@ def run_context(
             """
             MATCH (n:Memory)
             WHERE (n.tenant_id = $tenant_id OR n.tenant_id = 'default')
-              AND (n.project = $project OR n.project = 'global' OR n.project IS NULL)
+              AND (n.project IN $cluster_scopes OR n.project = 'global' OR n.project IS NULL)
               AND n.status = 'active'
-            RETURN n.id as id, n.name as name, n.tag as tag, n.type as type
+            RETURN n.id as id, n.name as name, n.tag as tag, n.type as type, n.project as project
             ORDER BY n.created_at DESC
             LIMIT 10
             """,
-            {"tenant_id": tenant_id, "project": project_scope},
+            {"tenant_id": tenant_id, "cluster_scopes": cluster_scopes},
         )
         active_rules = rule_rows
 
@@ -61,13 +66,13 @@ def run_context(
             """
             MATCH (n:Memory)
             WHERE (n.tenant_id = $tenant_id OR n.tenant_id = 'default')
-              AND (n.project = $project OR n.project = 'global' OR n.project IS NULL)
+              AND (n.project IN $cluster_scopes OR n.project = 'global' OR n.project IS NULL)
               AND n.status = 'resolved'
-            RETURN n.id as id, n.name as name, n.tag as tag, n.resolved_ref as ref, n.resolved_note as note
+            RETURN n.id as id, n.name as name, n.tag as tag, n.project as project, n.resolved_ref as ref, n.resolved_note as note
             ORDER BY n.resolved_at DESC
             LIMIT 5
             """,
-            {"tenant_id": tenant_id, "project": project_scope},
+            {"tenant_id": tenant_id, "cluster_scopes": cluster_scopes},
         )
         resolved_caveats = caveat_rows
         neo4j.close()
@@ -93,6 +98,7 @@ def run_context(
         result = {
             "task": task,
             "project": project_scope,
+            "cluster": cluster_scopes,
             "tenant_id": tenant_id,
             "active_rules": active_rules,
             "resolved_caveats": resolved_caveats,
@@ -103,7 +109,8 @@ def run_context(
 
     # Render clean XML context block for AI coding agents
     output = []
-    output.append(f'<veraxi-context version="1.0" project="{project_scope}" tenant="{tenant_id}">')
+    cluster_attr = f' cluster="{",".join(cluster_scopes)}"' if len(cluster_scopes) > 1 else ""
+    output.append(f'<veraxi-context version="1.0" project="{project_scope}"{cluster_attr} tenant="{tenant_id}">')
     output.append(f"  <task>\n    {task}\n  </task>\n")
 
     if active_rules:
@@ -111,7 +118,8 @@ def run_context(
         output.append("  <active-rules>")
         for r in active_rules:
             tag = r.get("tag", "general")
-            output.append(f"    - [{tag}] {r['name']}")
+            proj_prefix = f"[{r['project']}] " if r.get("project") and r["project"] != project_scope and r["project"] != "global" else ""
+            output.append(f"    - {proj_prefix}[{tag}] {r['name']}")
         output.append("  </active-rules>\n")
 
     if resolved_caveats:
@@ -120,7 +128,8 @@ def run_context(
         for c in resolved_caveats:
             ref = c.get("ref", "manual")
             note = c.get("note", "Fixed")
-            output.append(f"    - [RESOLVED via {ref}]: {c['name']}")
+            proj_prefix = f"[{c['project']}] " if c.get("project") and c["project"] != project_scope and c["project"] != "global" else ""
+            output.append(f"    - {proj_prefix}[RESOLVED via {ref}]: {c['name']}")
             output.append(f"      Resolution Note: {note}")
         output.append("  </resolved-caveats>\n")
 

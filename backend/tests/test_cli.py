@@ -356,6 +356,7 @@ def test_context_packing(capsys):
         mock_client = MagicMock()
         mock_neo4j.return_value = mock_client
         mock_client.execute_read.side_effect = [
+            [{"repos": ["veraxi"]}],  # get_cluster_repos
             [{"id": "mem-1", "name": "Active rule", "tag": "auth"}],  # active rules
             [{"id": "mem-2", "name": "Old caveat", "tag": "db", "ref": "PR#2", "note": "Solved"}],  # resolved caveats
         ]
@@ -368,6 +369,91 @@ def test_context_packing(capsys):
             assert "Active rule" in captured.out
             assert "DO-NOT-RE-SOLVE" in captured.out
             assert "Old caveat" in captured.out
+
+
+# 17. test_cluster_lifecycle: Test repository clustering commands
+def test_cluster_lifecycle(capsys):
+    from backend.cli.cluster import run_cluster, get_cluster_repos
+
+    with patch("backend.storage.neo4j_client.Neo4jStorageClient.from_config") as mock_neo4j:
+        mock_client = MagicMock()
+        mock_neo4j.return_value = mock_client
+
+        # Add cluster
+        mock_client.execute_read.return_value = []
+        run_cluster("add", name="auth-stack", repos=["frontend", "auth-service"], as_json=True)
+        captured = capsys.readouterr()
+        data = json.loads(captured.out)
+        assert data["name"] == "auth-stack"
+        assert "frontend" in data["repos"]
+
+        # List cluster
+        mock_client.execute_read.return_value = [
+            {"name": "auth-stack", "repos": ["frontend", "auth-service"]}
+        ]
+        run_cluster("list", as_json=True)
+        captured = capsys.readouterr()
+        list_data = json.loads(captured.out)
+        assert len(list_data) == 1
+        assert list_data[0]["name"] == "auth-stack"
+
+        # get_cluster_repos
+        mock_client.execute_read.return_value = [
+            {"repos": ["frontend", "auth-service"]}
+        ]
+        sisters = get_cluster_repos("frontend")
+        assert "auth-service" in sisters
+        assert "frontend" in sisters
+
+
+# 18. test_impact_analysis: Test architectural blast radius analysis
+def test_impact_analysis(capsys):
+    from backend.cli.impact import run_impact
+
+    with patch("backend.storage.neo4j_client.Neo4jStorageClient.from_config") as mock_neo4j:
+        mock_client = MagicMock()
+        mock_neo4j.return_value = mock_client
+
+        mock_client.execute_read.return_value = [
+            {"name": "POST /api/v1/auth", "labels": ["Endpoint"], "rels": ["INVOKES"]},
+            {"name": "test_auth.py", "labels": ["Test"], "rels": ["DEPENDS_ON"]},
+            {"name": "AuthService", "labels": ["Service"], "rels": ["CALLS"]},
+        ]
+
+        run_impact("validate_token", hops=2, as_json=True)
+        captured = capsys.readouterr()
+        data = json.loads(captured.out)
+        assert data["target"] == "validate_token"
+        assert data["total_dependents"] == 3
+        assert data["risk_level"] == "MEDIUM"
+        assert len(data["by_category"]["Endpoints & APIs"]) == 1
+        assert len(data["by_category"]["Tests & Verification"]) == 1
+        assert "test_auth.py" in data["required_tests"]
+
+
+# 19. test_impact_offline_static_scan: Test local static fallback
+def test_impact_offline_static_scan(capsys, tmp_path):
+    from backend.cli.impact import run_impact
+
+    # Create dummy repo files
+    (tmp_path / "routes").mkdir()
+    (tmp_path / "tests").mkdir()
+    api_file = tmp_path / "routes" / "api.py"
+    test_file = tmp_path / "tests" / "test_client.py"
+
+    api_file.write_text("from storage import CustomClient\nCustomClient.do_work()\n")
+    test_file.write_text("import CustomClient\n")
+
+    with patch("backend.storage.neo4j_client.Neo4jStorageClient.from_config", side_effect=Exception("Offline")):
+        run_impact("CustomClient", hops=2, root_dir=str(tmp_path), as_json=True)
+        captured = capsys.readouterr()
+        data = json.loads(captured.out)
+        assert data["target"] == "CustomClient"
+        assert data["total_dependents"] == 2
+        assert data["risk_level"] == "LOW"
+        assert data["source"] == "static_ast"
+
+
 
 
 
