@@ -6,9 +6,10 @@ _veraxi_completions() {
     local cur prev words cword
     _init_completion -n : || return
 
-    local commands="chat init brief research review ingest login whoami logout stats hook schema trace check context remember resolve reopen memory mcp completion"
+    local commands="chat init brief research review ingest login whoami logout stats hook schema trace check impact context remember resolve reopen memory cluster repo mcp completion"
     local mcp_commands="install doctor query"
     local hook_commands="install uninstall"
+    local cluster_commands="add list remove link"
     local clients="claude cursor claude-code cline all"
 
     if [[ ${cword} -eq 1 ]]; then
@@ -23,6 +24,10 @@ _veraxi_completions() {
             ;;
         hook)
             COMPREPLY=( $(compgen -W "${hook_commands}" -- ${cur}) )
+            return 0
+            ;;
+        cluster|repo)
+            COMPREPLY=( $(compgen -W "${cluster_commands}" -- ${cur}) )
             return 0
             ;;
         --client)
@@ -71,6 +76,9 @@ _veraxi() {
         'remember:Save an architectural rule or constraint to memory'
         'resolve:Mark an issue or caveat as resolved (prevents re-solving)'
         'memory:Inspect and list architectural memories'
+        'cluster:Manage cross-repository microservice clusters'
+        'repo:Manage repository registration and clusters'
+        'impact:Architectural blast radius analysis before refactoring'
         'mcp:Manage MCP server configuration'
         'completion:Generate shell auto-completion script'
     )

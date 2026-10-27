@@ -4,10 +4,12 @@ import sys
 from backend.cli.auth import resolve_credentials, run_login, run_logout, run_whoami
 from backend.cli.check import run_check
 from backend.cli.client_configs import CLIENT_PATH_RESOLVERS, update_mcp_config
+from backend.cli.cluster import run_cluster
 from backend.cli.completion import run_completion
 from backend.cli.context import run_context
 from backend.cli.doctor import check_endpoint, run_doctor
 from backend.cli.hook import run_hook
+from backend.cli.impact import run_impact
 from backend.cli.ingest import run_ingest
 from backend.cli.memory import run_memory_list, run_remember, run_reopen, run_resolve
 from backend.cli.query import run_query
@@ -195,6 +197,36 @@ def main():
     memory_parser.add_argument("--endpoint", default="https://api.veraxi.me/sse", help="Veraxi API endpoint")
     memory_parser.add_argument("--json", action="store_true", help="Output raw JSON")
 
+    # --- cluster ---
+    cluster_parser = subparsers.add_parser("cluster", help="Manage cross-repository microservice clusters")
+    cluster_parser.add_argument("action", choices=["add", "list", "remove", "link"], default="list", nargs="?", help="Cluster action")
+    cluster_parser.add_argument("name", nargs="?", help="Cluster name or target repo to link")
+    cluster_parser.add_argument("repos", nargs="*", help="Repository names to include in cluster")
+    cluster_parser.add_argument("--tenant", help="Tenant ID")
+    cluster_parser.add_argument("--key", help="Veraxi API key (vx-...)")
+    cluster_parser.add_argument("--endpoint", default="https://api.veraxi.me/sse", help="Veraxi API endpoint")
+    cluster_parser.add_argument("--json", action="store_true", help="Output raw JSON")
+
+    # --- repo (alias to cluster) ---
+    repo_parser = subparsers.add_parser("repo", help="Manage repository registration and microservice clusters")
+    repo_parser.add_argument("action", choices=["add", "list", "remove", "link"], default="list", nargs="?", help="Cluster/repo action")
+    repo_parser.add_argument("name", nargs="?", help="Cluster name or target repo to link")
+    repo_parser.add_argument("repos", nargs="*", help="Repository names to include in cluster")
+    repo_parser.add_argument("--tenant", help="Tenant ID")
+    repo_parser.add_argument("--key", help="Veraxi API key (vx-...)")
+    repo_parser.add_argument("--endpoint", default="https://api.veraxi.me/sse", help="Veraxi API endpoint")
+    repo_parser.add_argument("--json", action="store_true", help="Output raw JSON")
+
+    # --- impact ---
+    impact_parser = subparsers.add_parser("impact", help="Architectural blast radius analysis before refactoring")
+    impact_parser.add_argument("target", help="Target symbol name, class, function, or file path")
+    impact_parser.add_argument("--hops", type=int, default=2, help="Blast radius traversal depth (1-4)")
+    impact_parser.add_argument("--project", help="Explicit project name")
+    impact_parser.add_argument("--tenant", help="Tenant ID")
+    impact_parser.add_argument("--key", help="Veraxi API key (vx-...)")
+    impact_parser.add_argument("--endpoint", default="https://api.veraxi.me/sse", help="Veraxi API endpoint")
+    impact_parser.add_argument("--json", action="store_true", help="Output raw JSON")
+
     # "mcp" command group
     mcp_parser = subparsers.add_parser("mcp", help="MCP related commands")
     mcp_subparsers = mcp_parser.add_subparsers(dest="command", required=False)
@@ -331,6 +363,32 @@ def main():
             status_filter=args.status,
             project=args.project,
             all_projects=args.all_projects,
+            tenant_id=tenant_id,
+            endpoint=endpoint,
+            key=key,
+            as_json=args.json,
+        )
+
+    elif args.mcp_group in ("cluster", "repo"):
+        key, endpoint = resolve_credentials(args.key, args.endpoint)
+        tenant_id = _resolve_tenant(args.tenant, key)
+        run_cluster(
+            action=args.action,
+            name=args.name,
+            repos=args.repos,
+            tenant_id=tenant_id,
+            endpoint=endpoint,
+            key=key,
+            as_json=args.json,
+        )
+
+    elif args.mcp_group == "impact":
+        key, endpoint = resolve_credentials(args.key, args.endpoint)
+        tenant_id = _resolve_tenant(args.tenant, key)
+        run_impact(
+            target=args.target,
+            hops=args.hops,
+            project=args.project,
             tenant_id=tenant_id,
             endpoint=endpoint,
             key=key,
