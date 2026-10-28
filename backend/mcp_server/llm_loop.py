@@ -181,9 +181,11 @@ def _make_tool_summary(name: str, content: str, artifact: Any = None) -> str:
 
 def _handle_chat_model_end(
     event: dict,
-    tool_start_times: dict[str, float],
-    current_step: int,
+    tool_start_times: dict[str, float] | None = None,
+    current_step: int = 1,
 ) -> list[dict]:
+    if tool_start_times is None:
+        tool_start_times = {}
     events = []
     msg = event.get("data", {}).get("output")
     if hasattr(msg, "tool_calls") and msg.tool_calls:
@@ -206,9 +208,11 @@ def _handle_chat_model_end(
 
 def _handle_chain_end_tools(
     event: dict,
-    tool_start_times: dict[str, float],
-    current_step: int,
+    tool_start_times: dict[str, float] | None = None,
+    current_step: int = 1,
 ) -> list[dict]:
+    if tool_start_times is None:
+        tool_start_times = {}
     events = []
     output = event.get("data", {}).get("output", {})
     if isinstance(output, dict) and "messages" in output:

@@ -1,4 +1,5 @@
 import uuid
+from unittest.mock import patch
 
 import pytest
 
@@ -117,18 +118,35 @@ def test_purge_cooccurrence_relationships(test_tenant):
 
 
 def test_build_lazy_graph_dossier_structure():
-    # Test on the live tenant with ingested books
-    tenant_id = "2b0d4cab-503e-4827-91d6-5806e587b15f"
-    dossier = build_lazy_graph_dossier(
-        query="Allied Capital David Einhorn SBA loan default",
-        tenant_id=tenant_id,
-        limit=5,
-    )
-    assert "chunks" in dossier
-    assert "host_ai_instruction" in dossier
-    assert len(dossier["chunks"]) > 0
-    first_chunk = dossier["chunks"][0]
-    assert "point_id" in first_chunk
-    assert "text" in first_chunk
-    assert "title" in first_chunk
-    assert len(first_chunk["text"]) > 20
+    with patch("backend.storage.qdrant_client.QdrantStorageClient.search_hybrid") as mock_search, \
+         patch("backend.storage.neo4j_client.Neo4jStorageClient.execute_read") as mock_neo:
+        mock_search.return_value = [
+            {
+                "id": "pt-1",
+                "score": 0.95,
+                "payload": {
+                    "text": "Allied Capital was investigated by David Einhorn for SBA loan fraud.",
+                    "title": "Fooling Some of the People All of the Time",
+                    "url": "https://example.com/einhorn",
+                    "tenant_id": "test-tenant",
+                },
+            }
+        ]
+        mock_neo.return_value = [
+            {"name": "David Einhorn", "type": "Person", "q_id": "pt-1"},
+            {"name": "Allied Capital", "type": "Company", "q_id": "pt-1"},
+        ]
+
+        dossier = build_lazy_graph_dossier(
+            query="Allied Capital David Einhorn SBA loan default",
+            tenant_id="test-tenant",
+            limit=5,
+        )
+        assert "chunks" in dossier
+        assert "host_ai_instruction" in dossier
+        assert len(dossier["chunks"]) > 0
+        first_chunk = dossier["chunks"][0]
+        assert first_chunk["point_id"] == "pt-1"
+        assert "Allied Capital was investigated" in first_chunk["text"]
+        assert first_chunk["title"] == "Fooling Some of the People All of the Time"
+        assert len(first_chunk["linked_entities"]) == 2

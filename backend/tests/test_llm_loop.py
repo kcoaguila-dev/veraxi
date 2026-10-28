@@ -84,9 +84,11 @@ async def test_stream_answer_question_basic(mock_config, mock_postgres_saver):
         ):
             chunks.append(chunk)
 
-        assert chunks[0]["event"] == "on_chat_model_stream"
-        assert chunks[0]["data"]["chunk"].content == "Chunk 1"
-        assert chunks[1]["data"]["chunk"].content == "Chunk 2"
+        chat_chunks = [c for c in chunks if c.get("event") == "on_chat_model_stream"]
+        assert len(chat_chunks) >= 2
+        assert chat_chunks[0]["data"]["chunk"].content == "Chunk 1"
+        assert chat_chunks[1]["data"]["chunk"].content == "Chunk 2"
+        assert any(c.get("event") == "on_step_start" for c in chunks)
 
 
 from backend.mcp_server.orchestrator import route_evaluation, should_continue
@@ -220,7 +222,8 @@ async def test_call_model(mock_config):
     mock_llm.ainvoke.return_value = AIMessage(content="Hi there!", additional_kwargs={})
 
     with patch("backend.mcp_server.orchestrator._create_chat_llm") as mock_create:
-        mock_create.return_value.bind_tools.return_value = mock_llm
+        mock_create.return_value = mock_llm
+        mock_llm.bind_tools.return_value = mock_llm
 
         state = {
             "messages": [msg],
