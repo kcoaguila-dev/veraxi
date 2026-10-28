@@ -136,10 +136,11 @@ def should_escalate_to_vlm(
         return True
 
     # If image has completely zero caption and zero OCR text, escalate
-    if not existing_caption.strip() and not ocr_text.strip() and area >= min_area_for_diagram:
-        return True
-
-    return False
+    return bool(
+        not existing_caption.strip()
+        and not ocr_text.strip()
+        and area >= min_area_for_diagram
+    )
 
 
 def get_vision_captioner(config: Any) -> VisionCaptioner:
