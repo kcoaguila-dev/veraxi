@@ -44,18 +44,44 @@ class _CitationChipState extends State<CitationChip> {
     _findSourceData();
   }
 
+  static bool _isSourceEvent(ToolEvent event) {
+    if (event.result == null) return false;
+    final n = event.name.toLowerCase();
+    return n.contains('web_search') ||
+        n.contains('merge_rank') ||
+        n.contains('search_vectors') ||
+        n.contains('query_graph') ||
+        n.contains('build_lazy_dossier') ||
+        n.contains('deep_research') ||
+        n.contains('dynamic_web_graph');
+  }
+
   void _findSourceData() {
     for (final event in widget.message.toolEvents) {
-      if (!event.name.contains('web_search') || event.result == null) continue;
+      if (!_isSourceEvent(event)) continue;
       _effectiveUrl = widget.url;
 
       try {
         List<dynamic> items = [];
         if (event.result is String) {
           final decoded = jsonDecode(event.result);
-          if (decoded is List) items = decoded;
+          if (decoded is List) {
+            items = decoded;
+          } else if (decoded is Map && decoded.containsKey('chunks')) {
+            items = decoded['chunks'] as List;
+          } else if (decoded is Map && decoded.containsKey('sources')) {
+            items = decoded['sources'] as List;
+          }
         } else if (event.result is List) {
           items = event.result;
+        } else if (event.result is Map) {
+          if (event.result.containsKey('chunks') &&
+              event.result['chunks'] is List) {
+            items = event.result['chunks'] as List;
+          } else if (event.result.containsKey('sources') &&
+              event.result['sources'] is List) {
+            items = event.result['sources'] as List;
+          }
         }
 
         for (final item in items) {
@@ -63,21 +89,44 @@ class _CitationChipState extends State<CitationChip> {
           final itemUrl = _extractUrl(item);
           String itemTitle = item['title']?.toString() ?? '';
           if (itemTitle.isEmpty && item['payload'] is Map) {
-            itemTitle = item['payload']['title']?.toString() ?? '';
+            itemTitle = item['payload']['title']?.toString() ??
+                item['payload']['document_name']?.toString() ??
+                '';
+          }
+          if (itemTitle.isEmpty && item.containsKey('document_name')) {
+            itemTitle = item['document_name']?.toString() ?? '';
+          }
+          if (itemTitle.isEmpty && item.containsKey('entity')) {
+            itemTitle = item['entity']?.toString() ?? '';
+          }
+          if (itemTitle.isEmpty && item.containsKey('source')) {
+            itemTitle = item['source']?.toString() ?? '';
           }
 
           // Match by URL if we have one
           if (widget.url.isNotEmpty &&
+              itemUrl.isNotEmpty &&
               (itemUrl.contains(widget.url) || widget.url.contains(itemUrl))) {
             _sourceData = Map<String, dynamic>.from(item);
             break;
           }
 
-          // Match by source name when URL is empty (e.g. [Yahoo Finance])
-          if (widget.url.isEmpty && widget.text.isNotEmpty) {
-            final searchText = widget.text.toLowerCase();
-            if (itemUrl.toLowerCase().contains(searchText) ||
-                itemTitle.toLowerCase().contains(searchText)) {
+          // Match by numeric index (e.g. [1], [2]) or by name (e.g. [CLAUDE.md], [Reuters])
+          if (widget.text.isNotEmpty) {
+            final searchText = widget.text.toLowerCase().trim();
+            final numIndex = int.tryParse(searchText);
+            if (numIndex != null && numIndex > 0 && numIndex <= items.length) {
+              final target = items[numIndex - 1];
+              if (target is Map) {
+                _sourceData = Map<String, dynamic>.from(target);
+                break;
+              }
+            }
+
+            if ((itemUrl.isNotEmpty &&
+                    itemUrl.toLowerCase().contains(searchText)) ||
+                (itemTitle.isNotEmpty &&
+                    itemTitle.toLowerCase().contains(searchText))) {
               _sourceData = Map<String, dynamic>.from(item);
               break;
             }
@@ -106,9 +155,16 @@ class _CitationChipState extends State<CitationChip> {
 
   String get _displayText {
     String text = widget.text;
-    // If text is just a number, derive name from URL
+    // If text is just a number, derive name from URL or document title
     if (int.tryParse(text) != null) {
-      text = _domainLabel(_effectiveUrl);
+      if (_effectiveUrl.isNotEmpty && _effectiveUrl.startsWith('http')) {
+        text = _domainLabel(_effectiveUrl);
+      } else {
+        final title = _resolveTitle();
+        if (title.isNotEmpty) {
+          text = title.length > 20 ? '${title.substring(0, 18)}…' : title;
+        }
+      }
     }
     if (text.isNotEmpty && text == text.toLowerCase()) {
       text = text[0].toUpperCase() + text.substring(1);
@@ -117,6 +173,10 @@ class _CitationChipState extends State<CitationChip> {
   }
 
   String _domainLabel(String url) {
+    if (!url.startsWith('http')) {
+      final title = _resolveTitle();
+      return title.isNotEmpty ? title : 'Knowledge Base';
+    }
     try {
       final host = Uri.parse(url).host.replaceFirst('www.', '');
       final parts = host.split('.');
@@ -127,6 +187,7 @@ class _CitationChipState extends State<CitationChip> {
   }
 
   String get _faviconUrl {
+    if (!_effectiveUrl.startsWith('http')) return '';
     try {
       final host = Uri.parse(_effectiveUrl).host;
       if (host.isNotEmpty) return 'https://icon.horse/icon/$host';
@@ -269,6 +330,13 @@ class _CitationChipState extends State<CitationChip> {
                             color: Colors.white54,
                           ),
                         ),
+                      ),
+                      SizedBox(width: 6),
+                    ] else ...[
+                      Icon(
+                        Icons.auto_stories_outlined,
+                        size: 14,
+                        color: Colors.blueAccent.shade100,
                       ),
                       SizedBox(width: 6),
                     ],

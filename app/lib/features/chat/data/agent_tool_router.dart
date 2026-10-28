@@ -245,9 +245,8 @@ class AgentToolRouter {
         await Future.delayed(const Duration(milliseconds: 200));
         if (exitFile.existsSync()) {
           final exitCode = exitFile.readAsStringSync().trim();
-          final text = outFile.existsSync()
-              ? outFile.readAsStringSync().trim()
-              : '';
+          final text =
+              outFile.existsSync() ? outFile.readAsStringSync().trim() : '';
           output = text.isNotEmpty
               ? text
               : '(Command completed with exit code $exitCode and no output)';
@@ -453,8 +452,7 @@ class AgentToolRouter {
 
       var text = resp.body
           .replaceAll(
-              RegExp(
-                  r'<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>',
+              RegExp(r'<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>',
                   caseSensitive: false),
               '')
           .replaceAll(
@@ -654,9 +652,8 @@ const List<Map<String, dynamic>> kAndroidAgentTools = [
     'type': 'function',
     'function': {
       'name': 'fetch_web_page',
-      'description':
-          'Fetches the text content of a web page or documentation URL. '
-              'Use this to read articles, API references, GitHub issues, or tutorials.',
+      'description': 'Fetches the text content of a web page or documentation URL. '
+          'Use this to read articles, API references, GitHub issues, or tutorials.',
       'parameters': {
         'type': 'object',
         'properties': {

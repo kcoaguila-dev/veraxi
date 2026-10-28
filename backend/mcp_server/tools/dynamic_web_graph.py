@@ -17,6 +17,7 @@ import logging
 from concurrent.futures import ThreadPoolExecutor
 
 from backend.ingestion.extract import extract_entities_and_relations_fast
+from backend.mcp_server.tools.query_optimizer import optimize_search_query
 from backend.mcp_server.tools.search_providers import get_search_provider
 from backend.mcp_server.tools.web_search import _enrich
 
@@ -102,10 +103,12 @@ def mcp_dynamic_web_graph(
     tool_settings = tool_settings or {}
     web_settings = tool_settings.get("web_search") or {}
 
-    # 1. Search Web
-    logger.info(f"Dynamic Graph Search for query: {query}")
+    # 1. Search Web with optimized terms
+    optimized_q = optimize_search_query(query)
+    search_q = optimized_q if optimized_q else query
+    logger.info(f"Dynamic Graph Search for query: {search_q}")
     provider = get_search_provider(web_settings)
-    raw_results = provider.search(query, language, max_results, web_settings)
+    raw_results = provider.search(search_q, language, max_results, web_settings)
     if not raw_results:
         return {"graph": {"entities": [], "relations": []}, "sources": []}
 

@@ -7,6 +7,8 @@ import redis
 from backend.config import get_config
 from backend.mcp_server.tools.ingest_document import mcp_ingest_document
 from backend.mcp_server.tools.query_graph import query_graph
+from backend.mcp_server.tools.query_optimizer import optimize_search_query
+from backend.mcp_server.tools.scrapers.robots_gate import RobotsGate
 from backend.mcp_server.tools.search_providers import get_search_provider
 from backend.mcp_server.tools.search_vectors import search_vectors
 from backend.retrieval.merge_rank import merge_rank
@@ -41,9 +43,11 @@ def mcp_deep_research(
 
     # 2. Search the web (if urls not provided)
     if not urls:
+        optimized_q = optimize_search_query(query)
+        search_q = optimized_q if optimized_q else query
         provider = get_search_provider(web_settings)
         raw_results = provider.search(
-            query, language="en", max_results=max_results, web_settings=web_settings
+            search_q, language="en", max_results=max_results, web_settings=web_settings
         )
 
         if not raw_results:
@@ -74,9 +78,17 @@ def mcp_deep_research(
     ingestion_results: list[dict] = []
 
     try:
-        # 3. Concurrently Ingest URLs
+        # 3. Concurrently Ingest URLs with RobotsGate pacing
         def _ingest_url(url: str):
             logger.info(f"Ingesting URL: {url}")
+            if not RobotsGate.check_and_wait(url, timeout=3.0):
+                logger.warning(f"Deep Research skipped disallowed URL: {url}")
+                return {
+                    "status": "skipped",
+                    "error": "Disallowed by robots.txt",
+                    "url": url,
+                }
+
             return mcp_ingest_document(
                 tenant_id=ephemeral_tenant_id,
                 url=url,

@@ -44,18 +44,42 @@ SUPPORTED_PROVIDERS = {
         "config_key": "tavily_api_key",
         "env_var": "TAVILY_API_KEY",
     },
+    "wikipedia": {
+        "label": "Wikipedia",
+        "description": "Zero-key academic & encyclopedic knowledge discovery",
+        "requires_key": False,
+    },
 }
 
 
 def _search_duckduckgo(query: str, limit: int = 5) -> list[dict[str, str]]:
     clean_query = query.strip()
+    results: list[dict[str, str]] = []
+
+    # 1. Primary: Use duckduckgo_search (DDGS) with TLS impersonation
+    try:
+        from duckduckgo_search import DDGS
+
+        with DDGS() as ddgs:
+            raw_hits = list(ddgs.text(clean_query, max_results=limit))
+            for item in raw_hits:
+                url = item.get("href", "").strip()
+                snippet = item.get("body", "").strip()
+                if url:
+                    results.append({"snippet": snippet, "url": url})
+            if results:
+                return results
+    except Exception:
+        pass
+
+    # 2. Resilient fallback: Direct HTTP scraping
     encoded = urllib.parse.quote_plus(clean_query)
     url = f"https://html.duckduckgo.com/html/?q={encoded}"
 
     headers = {
         "User-Agent": (
-            "Mozilla/5.0 (Linux; Android 10; Mobile) AppleWebKit/537.36 "
-            "(KHTML, like Gecko) Chrome/119.0.0.0 Mobile Safari/537.36"
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+            "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
         )
     }
 
@@ -89,7 +113,9 @@ def _search_duckduckgo(query: str, limit: int = 5) -> list[dict[str, str]]:
             actual_url = link
             if "uddg=" in link:
                 try:
-                    query_params = urllib.parse.parse_qs(urllib.parse.urlparse(link).query)
+                    query_params = urllib.parse.parse_qs(
+                        urllib.parse.urlparse(link).query
+                    )
                     actual_url = query_params.get("uddg", [link])[0]
                 except Exception:
                     actual_url = link
@@ -109,13 +135,20 @@ def _search_duckduckgo(query: str, limit: int = 5) -> list[dict[str, str]]:
     return results
 
 
-def _search_searxng(query: str, limit: int = 5, base_url: str = "http://localhost:8080") -> list[dict[str, str]]:
+def _search_searxng(
+    query: str, limit: int = 5, base_url: str = "http://localhost:8080"
+) -> list[dict[str, str]]:
     clean_url = base_url.rstrip("/")
     target = f"{clean_url}/search" if not clean_url.endswith("/search") else clean_url
     params = urllib.parse.urlencode({"q": query, "format": "json"})
     req_url = f"{target}?{params}"
 
-    req = urllib.request.Request(req_url, headers={"User-Agent": "Veraxi-Agent/1.0"})
+    req = urllib.request.Request(
+        req_url,
+        headers={
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+        },
+    )
     try:
         with urllib.request.urlopen(req, timeout=10) as resp:
             data = json.loads(resp.read().decode("utf-8"))
@@ -125,14 +158,57 @@ def _search_searxng(query: str, limit: int = 5, base_url: str = "http://localhos
                 results.append({"snippet": snippet.strip(), "url": item.get("url", "")})
             return results
     except Exception as e:
-        print(f"Error querying SearXNG ({clean_url}): {e}. Falling back to DuckDuckGo.", file=sys.stderr)
-        return _search_duckduckgo(query, limit)
+        print(
+            f"Error querying SearXNG ({clean_url}): {e}.",
+            file=sys.stderr,
+        )
+        return []
 
 
-def _search_serper(query: str, limit: int = 5, api_key: str | None = None) -> list[dict[str, str]]:
+def _search_wikipedia(query: str, limit: int = 5) -> list[dict[str, str]]:
+    clean_query = query.strip()
+    encoded = urllib.parse.quote_plus(clean_query)
+    url = f"https://en.wikipedia.org/w/api.php?action=opensearch&search={encoded}&limit={limit}&namespace=0&format=json"
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        "Accept": "application/json",
+    }
+    req = urllib.request.Request(url, headers=headers)
+    results = []
+    try:
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            titles = data[1] if len(data) > 1 else []
+            links = data[3] if len(data) > 3 else []
+            for title, link in zip(titles[:limit], links[:limit]):
+                title_enc = urllib.parse.quote(title.replace(" ", "_"))
+                s_url = f"https://en.wikipedia.org/api/rest_v1/page/summary/{title_enc}"
+                s_req = urllib.request.Request(s_url, headers=headers)
+                try:
+                    with urllib.request.urlopen(s_req, timeout=5) as s_resp:
+                        s_data = json.loads(s_resp.read().decode("utf-8"))
+                        snippet = s_data.get("extract", "")
+                        results.append({"snippet": snippet.strip(), "url": link})
+                except Exception:
+                    results.append({"snippet": title, "url": link})
+    except Exception as e:
+        print(
+            f"Error querying Wikipedia: {e}.",
+            file=sys.stderr,
+        )
+        return []
+    return results
+
+
+def _search_serper(
+    query: str, limit: int = 5, api_key: str | None = None
+) -> list[dict[str, str]]:
     if not api_key:
-        print("Error: Serper API key missing. Falling back to DuckDuckGo.", file=sys.stderr)
-        return _search_duckduckgo(query, limit)
+        print(
+            "Error: Serper API key missing.",
+            file=sys.stderr,
+        )
+        return []
 
     req = urllib.request.Request(
         "https://google.serper.dev/search",
@@ -140,7 +216,7 @@ def _search_serper(query: str, limit: int = 5, api_key: str | None = None) -> li
         headers={
             "X-API-KEY": api_key,
             "Content-Type": "application/json",
-            "User-Agent": "Veraxi-Agent/1.0",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
         },
     )
     try:
@@ -148,21 +224,59 @@ def _search_serper(query: str, limit: int = 5, api_key: str | None = None) -> li
             data = json.loads(resp.read().decode("utf-8"))
             results = []
             for item in data.get("organic", [])[:limit]:
-                results.append({"snippet": item.get("snippet", "").strip(), "url": item.get("link", "")})
+                results.append(
+                    {
+                        "snippet": item.get("snippet", "").strip(),
+                        "url": item.get("link", ""),
+                    }
+                )
             return results
     except Exception as e:
-        print(f"Error querying Serper: {e}. Falling back to DuckDuckGo.", file=sys.stderr)
-        return _search_duckduckgo(query, limit)
+        print(f"Error querying Serper: {e}.", file=sys.stderr)
+        return []
 
 
-def _search_tavily(query: str, limit: int = 5, api_key: str | None = None) -> list[dict[str, str]]:
+def _search_tavily(
+    query: str, limit: int = 5, api_key: str | None = None
+) -> list[dict[str, str]]:
     if not api_key:
-        print("Error: Tavily API key missing. Falling back to DuckDuckGo.", file=sys.stderr)
-        return _search_duckduckgo(query, limit)
+        print(
+            "Error: Tavily API key missing.",
+            file=sys.stderr,
+        )
+        return []
 
     req = urllib.request.Request(
         "https://api.tavily.com/search",
-        data=json.dumps({"api_key": api_key, "query": query, "max_results": limit}).encode("utf-8"),
+        data=json.dumps(
+            {"api_key": api_key, "query": query, "max_results": limit}
+        ).encode("utf-8"),
+        headers={
+            "Content-Type": "application/json",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        },
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            results = []
+            for item in data.get("results", [])[:limit]:
+                results.append(
+                    {
+                        "snippet": item.get("content", "").strip(),
+                        "url": item.get("url", ""),
+                    }
+                )
+            return results
+    except Exception as e:
+        print(f"Error querying Tavily: {e}.", file=sys.stderr)
+        return []
+
+    req = urllib.request.Request(
+        "https://api.tavily.com/search",
+        data=json.dumps(
+            {"api_key": api_key, "query": query, "max_results": limit}
+        ).encode("utf-8"),
         headers={"Content-Type": "application/json", "User-Agent": "Veraxi-Agent/1.0"},
     )
     try:
@@ -170,23 +284,45 @@ def _search_tavily(query: str, limit: int = 5, api_key: str | None = None) -> li
             data = json.loads(resp.read().decode("utf-8"))
             results = []
             for item in data.get("results", [])[:limit]:
-                results.append({"snippet": item.get("content", "").strip(), "url": item.get("url", "")})
+                results.append(
+                    {
+                        "snippet": item.get("content", "").strip(),
+                        "url": item.get("url", ""),
+                    }
+                )
             return results
     except Exception as e:
-        print(f"Error querying Tavily: {e}. Falling back to DuckDuckGo.", file=sys.stderr)
+        print(
+            f"Error querying Tavily: {e}. Falling back to DuckDuckGo.", file=sys.stderr
+        )
         return _search_duckduckgo(query, limit)
 
 
-def web_search(query: str, limit: int = 5, provider: str | None = None) -> list[dict[str, str]]:
+def web_search(
+    query: str, limit: int = 5, provider: str | None = None
+) -> list[dict[str, str]]:
     """Executes a web search with the active or requested search provider."""
     if not query or not query.strip():
         return []
 
     cfg = load_cli_config()
-    chosen_provider = (provider or cfg.get("web_provider") or os.environ.get("VERAXI_WEB_PROVIDER") or "duckduckgo").lower().strip()
+    chosen_provider = (
+        (
+            provider
+            or cfg.get("web_provider")
+            or os.environ.get("VERAXI_WEB_PROVIDER")
+            or "duckduckgo"
+        )
+        .lower()
+        .strip()
+    )
 
     if chosen_provider == "searxng":
-        searxng_url = cfg.get("searxng_url") or os.environ.get("SEARXNG_URL") or "http://localhost:8080"
+        searxng_url = (
+            cfg.get("searxng_url")
+            or os.environ.get("SEARXNG_URL")
+            or "http://localhost:8080"
+        )
         return _search_searxng(query, limit, base_url=searxng_url)
     elif chosen_provider == "serper":
         serper_key = cfg.get("serper_api_key") or os.environ.get("SERPER_API_KEY")
@@ -194,6 +330,8 @@ def web_search(query: str, limit: int = 5, provider: str | None = None) -> list[
     elif chosen_provider == "tavily":
         tavily_key = cfg.get("tavily_api_key") or os.environ.get("TAVILY_API_KEY")
         return _search_tavily(query, limit, api_key=tavily_key)
+    elif chosen_provider == "wikipedia":
+        return _search_wikipedia(query, limit)
     else:
         return _search_duckduckgo(query, limit)
 
@@ -210,7 +348,7 @@ def fetch_web_page(url: str, max_chars: int = 5000) -> str:
     headers = {
         "Accept": "text/plain",
         "X-Return-Format": "text",
-        "User-Agent": "Veraxi-Agent/1.0",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
     }
     req = urllib.request.Request(jina_url, headers=headers)
     try:
@@ -223,8 +361,14 @@ def fetch_web_page(url: str, max_chars: int = 5000) -> str:
     except Exception:
         pass
 
-    # 2. Fallback to direct HTTP fetch
-    req_direct = urllib.request.Request(clean_url, headers={"User-Agent": "Veraxi-Agent/1.0"})
+    # 2. Fallback to direct HTTP fetch with realistic browser headers
+    headers_direct = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.9",
+        "DNT": "1",
+    }
+    req_direct = urllib.request.Request(clean_url, headers=headers_direct)
     try:
         with urllib.request.urlopen(req_direct, timeout=10) as resp:
             html = resp.read().decode("utf-8", errors="replace")
@@ -232,8 +376,12 @@ def fetch_web_page(url: str, max_chars: int = 5000) -> str:
         return f"Error fetching {clean_url}: {e}"
 
     # Strip script and style
-    text = re.sub(r"<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>", "", html, flags=re.I)
-    text = re.sub(r"<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>", "", text, flags=re.I)
+    text = re.sub(
+        r"<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>", "", html, flags=re.I
+    )
+    text = re.sub(
+        r"<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>", "", text, flags=re.I
+    )
     text = re.sub(r"<[^>]*>", " ", text)
     text = re.sub(r"\s+", " ", text).strip()
 
@@ -245,7 +393,15 @@ def fetch_web_page(url: str, max_chars: int = 5000) -> str:
 def run_web_providers_list(as_json: bool = False):
     """Displays available web search providers and configuration status."""
     cfg = load_cli_config()
-    active = (cfg.get("web_provider") or os.environ.get("VERAXI_WEB_PROVIDER") or "duckduckgo").lower().strip()
+    active = (
+        (
+            cfg.get("web_provider")
+            or os.environ.get("VERAXI_WEB_PROVIDER")
+            or "duckduckgo"
+        )
+        .lower()
+        .strip()
+    )
 
     if as_json:
         payload = {
@@ -255,7 +411,9 @@ def run_web_providers_list(as_json: bool = False):
         for name, meta in SUPPORTED_PROVIDERS.items():
             configured = True
             if meta.get("requires_key"):
-                configured = bool(cfg.get(meta["config_key"]) or os.environ.get(meta["env_var"]))
+                configured = bool(
+                    cfg.get(meta["config_key"]) or os.environ.get(meta["env_var"])
+                )
             payload["providers"][name] = {
                 "label": meta["label"],
                 "description": meta["description"],
@@ -272,9 +430,15 @@ def run_web_providers_list(as_json: bool = False):
     dim = "\033[2m"
     reset = "\033[0m"
 
-    print(f"\n{bold}{cyan}╔════════════════════════════════════════════════════════════════════╗{reset}")
-    print(f"{bold}{cyan}║                 Veraxi Web Search Providers Catalog                ║{reset}")
-    print(f"{bold}{cyan}╚════════════════════════════════════════════════════════════════════╝{reset}")
+    print(
+        f"\n{bold}{cyan}╔════════════════════════════════════════════════════════════════════╗{reset}"
+    )
+    print(
+        f"{bold}{cyan}║                 Veraxi Web Search Providers Catalog                ║{reset}"
+    )
+    print(
+        f"{bold}{cyan}╚════════════════════════════════════════════════════════════════════╝{reset}"
+    )
     print(f"  Active Search Provider: {bold}{green}{active}{reset}\n")
 
     for name, meta in SUPPORTED_PROVIDERS.items():
@@ -282,25 +446,42 @@ def run_web_providers_list(as_json: bool = False):
         marker = f"{green}* {reset}" if is_active else "  "
         status = f"{green}[READY]{reset}"
         if meta.get("requires_key"):
-            has_key = bool(cfg.get(meta["config_key"]) or os.environ.get(meta["env_var"]))
-            status = f"{green}[KEY SET]{reset}" if has_key else f"{yellow}[NO KEY CONFIGURED]{reset}"
+            has_key = bool(
+                cfg.get(meta["config_key"]) or os.environ.get(meta["env_var"])
+            )
+            status = (
+                f"{green}[KEY SET]{reset}"
+                if has_key
+                else f"{yellow}[NO KEY CONFIGURED]{reset}"
+            )
         elif name == "searxng":
-            url = cfg.get("searxng_url") or os.environ.get("SEARXNG_URL") or "http://localhost:8080"
+            url = (
+                cfg.get("searxng_url")
+                or os.environ.get("SEARXNG_URL")
+                or "http://localhost:8080"
+            )
             status = f"{dim}({url}){reset}"
 
         print(f"{marker}{bold}{meta['label']:<15}{reset} {status}")
         print(f"    {dim}{meta['description']}{reset}")
         print()
 
-    print(f"{dim}Tip: Switch provider with: vx web provider set <duckduckgo|searxng|serper|tavily>{reset}")
-    print(f"{dim}     Configure keys with:   vx config set <serper_api_key|tavily_api_key|searxng_url> <val>{reset}\n")
+    print(
+        f"{dim}Tip: Switch provider with: vx web provider set <duckduckgo|searxng|serper|tavily>{reset}"
+    )
+    print(
+        f"{dim}     Configure keys with:   vx config set <serper_api_key|tavily_api_key|searxng_url> <val>{reset}\n"
+    )
 
 
 def run_web_provider_set(provider_name: str | None = None):
     """Sets the active web search provider in persistent CLI config."""
     if not provider_name or provider_name.lower().strip() not in SUPPORTED_PROVIDERS:
         valid = ", ".join(SUPPORTED_PROVIDERS.keys())
-        print(f"Error: Invalid provider '{provider_name}'. Supported providers: {valid}", file=sys.stderr)
+        print(
+            f"Error: Invalid provider '{provider_name}'. Supported providers: {valid}",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
     clean_name = provider_name.lower().strip()
@@ -308,7 +489,9 @@ def run_web_provider_set(provider_name: str | None = None):
         bold = "\033[1m"
         green = "\033[32m"
         reset = "\033[0m"
-        print(f"{green}✓ Set default web search provider to:{reset} {bold}{clean_name}{reset}")
+        print(
+            f"{green}✓ Set default web search provider to:{reset} {bold}{clean_name}{reset}"
+        )
     else:
         print("Failed to save web provider configuration.", file=sys.stderr)
         sys.exit(1)
@@ -338,7 +521,10 @@ def run_web(
 
     if action == "search":
         if not query_or_url:
-            print("Error: Search query required. Usage: vx web search <query>", file=sys.stderr)
+            print(
+                "Error: Search query required. Usage: vx web search <query>",
+                file=sys.stderr,
+            )
             sys.exit(1)
 
         results = web_search(query_or_url, limit=limit, provider=provider)
@@ -347,7 +533,9 @@ def run_web(
             print(json.dumps({"query": query_or_url, "results": results}, indent=2))
             return
 
-        print(f"\n{bold}{cyan}Web Search Results for: {reset}{bold}{query_or_url}{reset}\n")
+        print(
+            f"\n{bold}{cyan}Web Search Results for: {reset}{bold}{query_or_url}{reset}\n"
+        )
         if not results:
             print(f"{dim}No results found.{reset}")
             return
@@ -372,5 +560,8 @@ def run_web(
         print(content)
         print()
     else:
-        print(f"Unknown web action: {action}. Choose 'search', 'fetch', or 'provider'.", file=sys.stderr)
+        print(
+            f"Unknown web action: {action}. Choose 'search', 'fetch', or 'provider'.",
+            file=sys.stderr,
+        )
         sys.exit(1)

@@ -1,10 +1,46 @@
+# SearXNG configuration for Veraxi
+# Enhanced with anti-bot rate-limiting and outgoing proxy support from AI_PROJECT
+
 use_default_settings: true
-search:
-  formats:
-    - html
-    - json
+
 server:
   port: 8080
   bind_address: "0.0.0.0"
   secret_key: "myveraxisecretkey123"
+  limiter: true
+  image_proxy: true
 
+# Outgoing proxy support: route through SOCKS5 (e.g. Tor daemon at socks5://tor:9050)
+outgoing:
+  using_tor_proxy: false
+  # proxies:
+  #   all://:
+  #     - socks5://tor:9050
+
+search:
+  safe_search: 0
+  autocomplete: ""
+  formats:
+    - html
+    - json
+
+# Whitelisted engines with weights and timeouts to avoid CAPTCHA blocks
+engines:
+  - name: google
+    engine: google
+    shortcut: go
+    weight: 2
+    timeout: 10.0
+  - name: bing
+    engine: bing
+    shortcut: bi
+    weight: 1
+    timeout: 10.0
+  - name: wikipedia
+    engine: wikipedia
+    shortcut: wp
+  - name: duckduckgo
+    engine: duckduckgo
+    shortcut: dd
+    weight: 1
+    timeout: 10.0

@@ -28,13 +28,26 @@ async def mcp_web_browser(task: str, llm: Any) -> dict[str, Any]:
             # Use Browserbase via remote CDP
             wss_url = f"wss://connect.browserbase.com?apiKey={browserbase_key}"
             config = BrowserProfile(
-                wss_url=wss_url, # type: ignore[call-arg]
+                wss_url=wss_url,  # type: ignore[call-arg]
                 headless=True,
             )
             browser = Browser(config=config)  # type: ignore[call-arg, call-overload]
         else:
-            # Use local headless browser
-            config = BrowserProfile(headless=True)
+            # Use local persistent headless browser with anti-automation flags (from AI_PROJECT)
+            config = BrowserProfile(
+                headless=True,
+                user_data_dir="/tmp/veraxi_browser_profile",
+                user_agent=(
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                    "AppleWebKit/537.36 (KHTML, like Gecko) "
+                    "Chrome/124.0.0.0 Safari/537.36"
+                ),
+                args=[
+                    "--disable-blink-features=AutomationControlled",
+                    "--no-sandbox",
+                    "--disable-dev-shm-usage",
+                ],
+            )
             browser = Browser(config=config)  # type: ignore[call-arg, call-overload]
 
         agent: Agent = Agent(task=task, llm=llm, browser=browser)

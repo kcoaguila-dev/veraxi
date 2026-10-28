@@ -1,6 +1,10 @@
+import json
 import logging
 import os
+import time
+import uuid
 from collections.abc import AsyncGenerator
+from typing import Any
 
 from backend.config import get_config
 from backend.mcp_server.formatter import (
@@ -134,33 +138,103 @@ async def answer_question(
     return final_answer
 
 
-def _handle_chat_model_end(event: dict) -> list[dict]:
+TOOL_LABELS: dict[str, str] = {
+    "mcp_query_graph": "Query Knowledge Graph",
+    "mcp_web_search": "Search Live Web",
+    "mcp_search_vectors": "Search Vector Memory",
+    "mcp_deep_research": "Deep Research Synthesis",
+    "mcp_dynamic_web_graph": "Dynamic Graph Construction",
+    "mcp_run_code": "Python Code Interpreter",
+    "mcp_evaluate_grounding": "Verify Grounding & Veracity",
+    "mcp_get_stats": "Inspect Graph Telemetry",
+    "mcp_get_graph_schema": "Inspect Graph Schema",
+    "mcp_run_community_detection": "Run Community Detection",
+    "mcp_ingest_document": "Ingest Document",
+}
+
+
+def _get_tool_friendly_label(tool_name: str) -> str:
+    """Returns a clean, human-readable tool label for UI and CLI displays."""
+    if tool_name in TOOL_LABELS:
+        return TOOL_LABELS[tool_name]
+    clean = tool_name.replace("mcp_", "").replace("_", " ")
+    return clean.title()
+
+
+def _make_tool_summary(name: str, content: str, artifact: Any = None) -> str:
+    """Generate a clean, high-veracity preview of tool output."""
+    if isinstance(artifact, list) and artifact:
+        return f"Retrieved {len(artifact)} evidence chunks from graph"
+    if not content:
+        return "Executed successfully"
+    if content.startswith("Error:"):
+        return content[:120]
+    if "No results found" in content:
+        return "No matching records found"
+    lines = [line.strip() for line in str(content).splitlines() if line.strip()]
+    if lines:
+        preview = lines[0]
+        return preview[:120] + ("..." if len(preview) > 120 else "")
+    return "Executed successfully"
+
+
+def _handle_chat_model_end(
+    event: dict,
+    tool_start_times: dict[str, float],
+    current_step: int,
+) -> list[dict]:
     events = []
     msg = event.get("data", {}).get("output")
     if hasattr(msg, "tool_calls") and msg.tool_calls:
         for tc in msg.tool_calls:
+            run_id = tc.get("id") or str(uuid.uuid4())
+            name = tc.get("name", "tool")
+            tool_start_times[run_id] = time.perf_counter()
             events.append(
                 {
                     "event": "on_tool_start",
-                    "name": tc.get("name", "tool"),
-                    "run_id": tc.get("id", ""),
+                    "name": name,
+                    "label": _get_tool_friendly_label(name),
+                    "step": current_step,
+                    "run_id": run_id,
                     "data": {"input": tc.get("args", {})},
                 }
             )
     return events
 
 
-def _handle_chain_end_tools(event: dict) -> list[dict]:
+def _handle_chain_end_tools(
+    event: dict,
+    tool_start_times: dict[str, float],
+    current_step: int,
+) -> list[dict]:
     events = []
     output = event.get("data", {}).get("output", {})
     if isinstance(output, dict) and "messages" in output:
         for m in output["messages"]:
             if hasattr(m, "tool_call_id") and m.tool_call_id:
+                run_id = m.tool_call_id
+                start_t = tool_start_times.pop(run_id, None)
+                duration_ms = (
+                    round((time.perf_counter() - start_t) * 1000)
+                    if start_t is not None
+                    else None
+                )
+                name = m.name or "tool"
+                content_str = str(m.content or "")
+                is_error = content_str.startswith("Error:")
                 events.append(
                     {
                         "event": "on_tool_end",
-                        "name": m.name or "tool",
-                        "run_id": m.tool_call_id,
+                        "name": name,
+                        "label": _get_tool_friendly_label(name),
+                        "step": current_step,
+                        "run_id": run_id,
+                        "duration_ms": duration_ms,
+                        "status": "error" if is_error else "success",
+                        "summary": _make_tool_summary(
+                            name, content_str, getattr(m, "artifact", None)
+                        ),
                         "data": {
                             "output": m.content,
                             "artifact": getattr(m, "artifact", None),
@@ -170,13 +244,19 @@ def _handle_chain_end_tools(event: dict) -> list[dict]:
     return events
 
 
-def _handle_chain_end_langgraph(event: dict) -> list[dict]:
+def _handle_chain_end_langgraph(
+    event: dict, started_at: float | None = None
+) -> list[dict]:
     events = []
     output_state = (
         event.get("data", {}).get("output") or event.get("data", {}).get("chunk") or {}
     )
     if isinstance(output_state, dict):
-        metrics = _extract_metrics_from_state(output_state)
+        metrics = _extract_metrics_from_state(output_state) or {}
+        if started_at:
+            elapsed = round(time.perf_counter() - started_at, 2)
+            metrics["generation_seconds"] = metrics.get("generation_seconds") or elapsed
+            metrics["worked_for"] = f"{elapsed}s"
         if metrics:
             events.append({"event": "metadata", "data": {"metrics": metrics}})
     return events
@@ -194,7 +274,8 @@ async def stream_answer_question(
     tool_settings: dict | None = None,
 ) -> AsyncGenerator[dict, None]:
     """
-    Executes the LangGraph state machine and yields raw astream_events.
+    Executes the LangGraph state machine and yields raw astream_events
+    enriched with real-time steps, tool durations, and reasoning traces.
     """
     # Set the per-request API key so call_model picks it up through the contextvar
     token_api = _request_api_key.set(api_key_override)
@@ -221,6 +302,21 @@ async def stream_answer_question(
         workflow = _get_workflow()
 
         async def _process_stream(stream):
+            tool_start_times: dict[str, float] = {}
+            current_step = 1
+            in_thinking_mode = False
+            thinking_start_time: float | None = None
+            called_tools: list[str] = []
+            started_at = time.perf_counter()
+
+            # Step 1: Initial research & tool determination
+            yield {
+                "event": "on_step_start",
+                "step": current_step,
+                "name": "Planning & Discovery",
+                "description": "Analyzing intent and selecting domain tools...",
+            }
+
             async for event in stream:
                 if "crag_evaluator" in event.get("tags", []):  # noqa: SIM102
                     # We ignore stream events and end events for the internal CRAG evaluator
@@ -233,23 +329,163 @@ async def stream_answer_question(
                     ]:
                         continue
 
+                # Parse reasoning / <think> blocks (DeepSeek-R1 / QwQ)
+                if event["event"] == "on_chat_model_stream":
+                    chunk = event.get("data", {}).get("chunk")
+                    # Check for explicit reasoning_content in additional_kwargs (e.g. DeepSeek API)
+                    if hasattr(
+                        chunk, "additional_kwargs"
+                    ) and chunk.additional_kwargs.get("reasoning_content"):
+                        if thinking_start_time is None:
+                            thinking_start_time = time.perf_counter()
+                        reasoning_text = chunk.additional_kwargs["reasoning_content"]
+                        yield {
+                            "event": "on_reasoning_stream",
+                            "data": {"text": reasoning_text},
+                        }
+                    elif hasattr(chunk, "content") and isinstance(chunk.content, str):
+                        txt = chunk.content
+                        if thinking_start_time is not None and not in_thinking_mode:
+                            # Concluded explicit reasoning_content stream
+                            t_dur_ms = round(
+                                (time.perf_counter() - thinking_start_time) * 1000
+                            )
+                            thinking_start_time = None
+                            yield {
+                                "event": "on_reasoning_end",
+                                "data": {
+                                    "duration_ms": t_dur_ms,
+                                    "seconds": round(t_dur_ms / 1000, 1),
+                                },
+                            }
+
+                        if "<think>" in txt:
+                            in_thinking_mode = True
+                            thinking_start_time = time.perf_counter()
+                            parts = txt.split("<think>", 1)
+                            if parts[0]:
+                                yield event
+                            if "</think>" in parts[1]:
+                                think_body, after_think = parts[1].split("</think>", 1)
+                                t_dur_ms = round(
+                                    (time.perf_counter() - thinking_start_time) * 1000
+                                )
+                                yield {
+                                    "event": "on_reasoning_stream",
+                                    "data": {"text": think_body},
+                                }
+                                yield {
+                                    "event": "on_reasoning_end",
+                                    "data": {
+                                        "duration_ms": t_dur_ms,
+                                        "seconds": round(t_dur_ms / 1000, 1),
+                                    },
+                                }
+                                in_thinking_mode = False
+                                thinking_start_time = None
+                                if after_think:
+                                    chunk.content = after_think
+                                    yield event
+                                continue
+                            else:
+                                if parts[1]:
+                                    yield {
+                                        "event": "on_reasoning_stream",
+                                        "data": {"text": parts[1]},
+                                    }
+                                continue
+                        elif in_thinking_mode:
+                            if "</think>" in txt:
+                                think_body, after_think = txt.split("</think>", 1)
+                                t_dur_ms = (
+                                    round(
+                                        (time.perf_counter() - thinking_start_time)
+                                        * 1000
+                                    )
+                                    if thinking_start_time
+                                    else 0
+                                )
+                                if think_body:
+                                    yield {
+                                        "event": "on_reasoning_stream",
+                                        "data": {"text": think_body},
+                                    }
+                                yield {
+                                    "event": "on_reasoning_end",
+                                    "data": {
+                                        "duration_ms": t_dur_ms,
+                                        "seconds": round(t_dur_ms / 1000, 1),
+                                    },
+                                }
+                                in_thinking_mode = False
+                                thinking_start_time = None
+                                if after_think:
+                                    chunk.content = after_think
+                                    yield event
+                            else:
+                                yield {
+                                    "event": "on_reasoning_stream",
+                                    "data": {"text": txt},
+                                }
+                            continue
+
                 if event["event"] == "on_chat_model_end":
-                    for e in _handle_chat_model_end(event):
-                        yield e
+                    tool_events = _handle_chat_model_end(
+                        event, tool_start_times, current_step
+                    )
+                    # Loop detection: detect repeated tool calls with identical args
+                    loop_detected = False
+                    for te in tool_events:
+                        t_fp = f"{te['name']}:{json.dumps(te['data'].get('input', {}), sort_keys=True)}"
+                        if called_tools.count(t_fp) >= 2:
+                            logger.warning(
+                                "Loop detector caught runaway tool repetition: %s", t_fp
+                            )
+                            loop_detected = True
+                            break
+                        called_tools.append(t_fp)
+                        yield te
+
+                    if loop_detected:
+                        yield {
+                            "event": "on_tool_end",
+                            "name": "loop_guard",
+                            "label": "Runaway Loop Guard",
+                            "step": current_step,
+                            "run_id": str(uuid.uuid4()),
+                            "duration_ms": 0,
+                            "status": "warning",
+                            "summary": "Detected repetitive tool pattern; proceeding to synthesis to prevent timeout",
+                            "data": {
+                                "output": "Tool execution paused by loop guard to prevent timeout."
+                            },
+                        }
 
                 if event["event"] == "on_chain_end" and event.get("name") in [
                     "execute_tools",
                     "tools",
                 ]:
-                    for e in _handle_chain_end_tools(event):
+                    for e in _handle_chain_end_tools(
+                        event, tool_start_times, current_step
+                    ):
                         yield e
+
+                    # Advance to synthesis step once tools complete
+                    current_step += 1
+                    yield {
+                        "event": "on_step_start",
+                        "step": current_step,
+                        "name": "Answer Synthesis",
+                        "description": "Synthesizing answer grounded in retrieved knowledge...",
+                    }
 
                 if (
                     event["event"] == "on_chain_end"
                     and event.get("name") == "LangGraph"
                 ):
-                    for e in _handle_chain_end_langgraph(event):
+                    for e in _handle_chain_end_langgraph(event, started_at):
                         yield e
+
                 yield event
 
         if is_temporary:

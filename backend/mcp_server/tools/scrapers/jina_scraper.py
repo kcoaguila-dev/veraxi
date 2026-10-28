@@ -7,6 +7,8 @@ Jina Reader endpoint: https://r.jina.ai/{url}
 Handles JavaScript-rendered pages. Free tier allows ~20 req/min; providing
 an API key raises the limit significantly.
 
+Enhanced with ScrapeCache deduplication and realistic browser headers.
+
 Best for: JS-heavy SPAs, pages that block plain HTTP scrapers, Reddit, Twitter/X.
 """
 
@@ -19,6 +21,9 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from concurrent.futures import TimeoutError as FuturesTimeoutError
 
 import sentry_sdk
+from backend.mcp_server.tools.scrapers.cache import ScrapeCache
+from backend.mcp_server.tools.scrapers.headers import get_browser_headers
+from backend.mcp_server.tools.scrapers.sanitizer import is_bot_challenge_or_boilerplate
 
 logger = logging.getLogger(__name__)
 
@@ -29,12 +34,12 @@ _MIN_CONTENT_LENGTH = 150
 def _fetch_one(url: str, api_key: str, timeout: float) -> tuple[str, str]:
     """Fetch a single URL via Jina Reader. Returns (url, markdown_text)."""
     jina_url = f"{_JINA_BASE}/{url}"
-    headers = {
-        "Accept": "text/plain",
-        "User-Agent": "Veraxi/1.0 (MCP Agent)",
-        # Ask Jina to return plain text, not HTML
-        "X-Return-Format": "text",
-    }
+    headers = get_browser_headers(
+        {
+            "Accept": "text/plain",
+            "X-Return-Format": "text",
+        }
+    )
     if api_key:
         headers["Authorization"] = f"Bearer {api_key}"
 
@@ -42,6 +47,11 @@ def _fetch_one(url: str, api_key: str, timeout: float) -> tuple[str, str]:
         req = urllib.request.Request(jina_url, headers=headers)
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             text = resp.read().decode("utf-8", errors="replace").strip()
+            if text and len(text) >= _MIN_CONTENT_LENGTH:
+                if is_bot_challenge_or_boilerplate(text):
+                    logger.warning("Jina Reader rejected bot challenge from %s", url)
+                    return url, ""
+                ScrapeCache.set(url, text)
             return url, text
     except urllib.error.HTTPError as exc:
         logger.warning("Jina Reader HTTP %s for %s", exc.code, url)
@@ -82,17 +92,20 @@ class JinaScraper:
                 executor.submit(_fetch_one, url, self._api_key, timeout_per_url): url
                 for url in urls
             }
-            for future in as_completed(future_to_url, timeout=timeout_per_url + 1):
-                try:
-                    url, content = future.result(timeout=timeout_per_url)
-                    if content and len(content) >= _MIN_CONTENT_LENGTH:
-                        results[url] = content
-                except FuturesTimeoutError:
-                    logger.warning(
-                        "Jina Reader timed out for %s", future_to_url[future]
-                    )
-                except Exception as exc:
-                    sentry_sdk.capture_exception(exc)
-                    logger.warning("Jina Reader fetch_batch error: %s", exc)
+            try:
+                for future in as_completed(future_to_url, timeout=timeout_per_url + 1):
+                    try:
+                        url, content = future.result(timeout=timeout_per_url)
+                        if content and len(content) >= _MIN_CONTENT_LENGTH:
+                            results[url] = content
+                    except FuturesTimeoutError:
+                        logger.warning(
+                            "Jina Reader timed out for %s", future_to_url.get(future)
+                        )
+                    except Exception as exc:
+                        sentry_sdk.capture_exception(exc)
+                        logger.warning("Jina Reader fetch_batch error: %s", exc)
+            except FuturesTimeoutError:
+                logger.warning("Jina Reader batch fetch timed out")
 
         return results
