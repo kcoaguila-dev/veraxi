@@ -109,19 +109,30 @@ class QdrantStorageClient:
                 PointStruct(id=point_id, vector=qdrant_vector, payload=payload)  # type: ignore[arg-type]
             )
 
-        self.client.upsert(collection_name=collection_name, points=points)
+        # Batch upsert in chunks of 100 to stay well under Qdrant's 32MB HTTP request limit
+        batch_size = 100
+        for i in range(0, len(points), batch_size):
+            batch = points[i : i + batch_size]
+            self.client.upsert(collection_name=collection_name, points=batch)
         return point_ids
 
     def get_points(
         self, collection_name: str, point_ids: list[str]
     ) -> list[dict[str, Any]]:
         """Get points by their IDs."""
-        points = self.client.retrieve(
-            collection_name=collection_name,
-            ids=point_ids,
-            with_payload=True,
-            with_vectors=True,
-        )
+        if not point_ids:
+            return []
+        batch_size = 100
+        points = []
+        for i in range(0, len(point_ids), batch_size):
+            batch_ids = point_ids[i : i + batch_size]
+            retrieved = self.client.retrieve(
+                collection_name=collection_name,
+                ids=batch_ids,
+                with_payload=True,
+                with_vectors=True,
+            )
+            points.extend(retrieved)
         return [{"id": p.id, "payload": p.payload, "vector": p.vector} for p in points]
 
     def search_hybrid(
