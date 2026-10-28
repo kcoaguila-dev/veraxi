@@ -63,7 +63,7 @@ async def test_execute_tools_internal_telemetry_isolation(
         {"name": "search_vectors", "args": {"query": "Apple info"}}
     ]
 
-    context_str, merged = await execute_tools_internal(
+    context_str, _merged = await execute_tools_internal(
         tool_calls, "test_tenant", {}
     )
 
