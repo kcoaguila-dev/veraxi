@@ -1,10 +1,11 @@
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+
 from backend.mcp_server.formatter import _prepend_system_messages
 from backend.mcp_server.orchestrator import call_model
 from backend.prompts import CHAT_SYSTEM_PROMPT
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
 
 def test_prepend_system_messages_injects_chat_prompt():

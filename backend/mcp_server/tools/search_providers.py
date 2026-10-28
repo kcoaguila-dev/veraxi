@@ -19,6 +19,7 @@ import urllib.request
 from abc import ABC, abstractmethod
 
 import sentry_sdk
+
 from backend.config import get_config
 from backend.mcp_server.tools.scrapers.headers import get_browser_headers
 from backend.mcp_server.tools.scrapers.sanitizer import (

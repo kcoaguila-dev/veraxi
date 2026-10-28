@@ -20,6 +20,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from concurrent.futures import TimeoutError as FuturesTimeoutError
 
 import sentry_sdk
+
 from backend.mcp_server.tools.scrapers.cache import ScrapeCache
 from backend.mcp_server.tools.scrapers.headers import get_browser_headers
 

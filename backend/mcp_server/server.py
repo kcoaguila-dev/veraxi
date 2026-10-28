@@ -1,10 +1,11 @@
 import json
 
+from mcp.server.mcpserver import MCPServer
+
 from backend.mcp_server.context import tenant_context
 from backend.mcp_server.tools.get_schema import get_graph_schema
 from backend.mcp_server.tools.get_stats import get_database_stats
 from backend.prompts import CRAG_ORCHESTRATOR_PROMPT, INGEST_KNOWLEDGE_PROMPT
-from mcp.server.mcpserver import MCPServer
 
 mcp_server = MCPServer("veraxi_mcp")
 

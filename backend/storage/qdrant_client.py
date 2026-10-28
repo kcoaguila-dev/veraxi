@@ -1,7 +1,6 @@
 import uuid
 from typing import Any
 
-from backend import context as byod_context
 from qdrant_client import QdrantClient
 from qdrant_client.models import (
     Distance,
@@ -11,6 +10,8 @@ from qdrant_client.models import (
     SparseVectorParams,
     VectorParams,
 )
+
+from backend import context as byod_context
 
 
 class QdrantStorageClient:

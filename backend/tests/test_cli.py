@@ -590,10 +590,11 @@ def test_memory_stats(capsys):
 
 # 25. test_backend_cli_forwarding_compatibility: Verify legacy backend.cli forwarders map to veraxi.cli
 def test_backend_cli_forwarding_compatibility():
-    import backend.cli.auth as b_auth
-    import backend.cli.main as b_main
     import veraxi.cli.auth as v_auth
     import veraxi.cli.main as v_main
+
+    import backend.cli.auth as b_auth
+    import backend.cli.main as b_main
 
     assert b_main is v_main
     assert b_auth is v_auth

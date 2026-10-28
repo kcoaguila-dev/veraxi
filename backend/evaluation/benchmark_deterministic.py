@@ -20,11 +20,12 @@ from dotenv import load_dotenv
 
 load_dotenv("backend/.env")
 
+from openai import OpenAI
+
 from backend.config import get_config
 from backend.mcp_server.tools.query_graph import query_graph
 from backend.mcp_server.tools.search_vectors import search_vectors
 from backend.retrieval.merge_rank import GraphHit, VectorHit, merge_rank
-from openai import OpenAI
 
 logging.basicConfig(level=logging.ERROR, format="%(levelname)s: %(message)s")
 

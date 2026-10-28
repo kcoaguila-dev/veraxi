@@ -2,10 +2,10 @@ import json
 import os
 
 import pytest
+
 from backend.mcp_server.llm_loop import answer_question
 
 try:
-    from backend.tests.custom_openai_eval import OpenAIDeepEvalModel
     from deepeval import assert_test  # type: ignore[attr-defined]
     from deepeval.metrics import (
         AnswerRelevancyMetric,
@@ -13,6 +13,8 @@ try:
         FaithfulnessMetric,
     )
     from deepeval.test_case import LLMTestCase
+
+    from backend.tests.custom_openai_eval import OpenAIDeepEvalModel
 except ImportError:
     pytest.skip(
         "deepeval is not installed, skipping evaluation tests", allow_module_level=True
