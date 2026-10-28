@@ -60,12 +60,10 @@ async def test_execute_tools_internal_telemetry_isolation(
 
     tool_calls = [
         {"name": "mcp__openbb__quote", "args": {"ticker": "AAPL"}},
-        {"name": "search_vectors", "args": {"query": "Apple info"}}
+        {"name": "search_vectors", "args": {"query": "Apple info"}},
     ]
 
-    context_str, _merged = await execute_tools_internal(
-        tool_calls, "test_tenant", {}
-    )
+    context_str, _merged = await execute_tools_internal(tool_calls, "test_tenant", {})
 
     assert "[EXTERNAL TELEMETRY & ACTIONS]" in context_str
     assert "AAPL is at $150" in context_str

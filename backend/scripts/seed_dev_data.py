@@ -17,7 +17,9 @@ from backend.ingestion.chunk_embed import embed_text, embed_text_sparse
 from backend.storage.neo4j_client import Neo4jStorageClient
 from backend.storage.qdrant_client import QdrantStorageClient
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s"
+)
 logger = logging.getLogger("seed_dev_data")
 
 # Cohesive sample multi-hop domain data
@@ -30,8 +32,16 @@ SAMPLE_DOCUMENTS = [
         ),
         "source": "seed/founding_records.txt",
         "entities": [
-            {"name": "Elena Rostova", "type": "Person", "properties": {"role": "Founder & Chief Scientist"}},
-            {"name": "Acme Neurotech", "type": "Organization", "properties": {"founded_year": 2021, "domain": "Causal AI"}},
+            {
+                "name": "Elena Rostova",
+                "type": "Person",
+                "properties": {"role": "Founder & Chief Scientist"},
+            },
+            {
+                "name": "Acme Neurotech",
+                "type": "Organization",
+                "properties": {"founded_year": 2021, "domain": "Causal AI"},
+            },
         ],
     },
     {
@@ -42,7 +52,11 @@ SAMPLE_DOCUMENTS = [
         ),
         "source": "seed/press_release_2023.txt",
         "entities": [
-            {"name": "GlobalTech Holdings", "type": "Organization", "properties": {"industry": "Enterprise Software"}},
+            {
+                "name": "GlobalTech Holdings",
+                "type": "Organization",
+                "properties": {"industry": "Enterprise Software"},
+            },
             {"name": "Acme Neurotech", "type": "Organization", "properties": {}},
         ],
     },
@@ -55,9 +69,21 @@ SAMPLE_DOCUMENTS = [
         "source": "seed/architecture_whitepaper.txt",
         "entities": [
             {"name": "GlobalTech Holdings", "type": "Organization", "properties": {}},
-            {"name": "Veraxi", "type": "Technology", "properties": {"category": "Hybrid GraphRAG Engine"}},
-            {"name": "Neo4j", "type": "Technology", "properties": {"category": "Graph Database"}},
-            {"name": "Qdrant", "type": "Technology", "properties": {"category": "Vector Database"}},
+            {
+                "name": "Veraxi",
+                "type": "Technology",
+                "properties": {"category": "Hybrid GraphRAG Engine"},
+            },
+            {
+                "name": "Neo4j",
+                "type": "Technology",
+                "properties": {"category": "Graph Database"},
+            },
+            {
+                "name": "Qdrant",
+                "type": "Technology",
+                "properties": {"category": "Vector Database"},
+            },
         ],
     },
 ]
@@ -83,7 +109,10 @@ def seed_database(tenant_id: str = "default", clean: bool = False) -> dict[str, 
     try:
         neo4j.driver.verify_connectivity()
     except Exception as e:
-        logger.error("Could not connect to Neo4j. Ensure Docker stack is running ('make up'): %s", e)
+        logger.error(
+            "Could not connect to Neo4j. Ensure Docker stack is running ('make up'): %s",
+            e,
+        )
         sys.exit(1)
 
     # 2. Ensure Qdrant collection exists
@@ -116,7 +145,9 @@ def seed_database(tenant_id: str = "default", clean: bool = False) -> dict[str, 
                 ),
             )
         except Exception as e:
-            logger.warning("Could not purge tenant points in Qdrant (will upsert): %s", e)
+            logger.warning(
+                "Could not purge tenant points in Qdrant (will upsert): %s", e
+            )
 
     # 4. Generate vectors and payload for Qdrant
     logger.info("Embedding %d seed documents...", len(SAMPLE_DOCUMENTS))
@@ -129,13 +160,15 @@ def seed_database(tenant_id: str = "default", clean: bool = False) -> dict[str, 
         sparse = embed_text_sparse(doc["text"])
         dense_vectors.append(dense)
         sparse_vectors.append(sparse)
-        payloads.append({
-            "text": doc["text"],
-            "title": doc["title"],
-            "source": doc["source"],
-            "tenant_id": tenant_id,
-            "neo4j_node_ids": [],  # will be populated after Neo4j writes
-        })
+        payloads.append(
+            {
+                "text": doc["text"],
+                "title": doc["title"],
+                "source": doc["source"],
+                "tenant_id": tenant_id,
+                "neo4j_node_ids": [],  # will be populated after Neo4j writes
+            }
+        )
 
     point_ids = qdrant.insert_points(
         collection_name=collection_name,
@@ -144,7 +177,11 @@ def seed_database(tenant_id: str = "default", clean: bool = False) -> dict[str, 
         payloads=payloads,
         tenant_id=tenant_id,
     )
-    logger.info("Inserted %d points into Qdrant collection '%s'.", len(point_ids), collection_name)
+    logger.info(
+        "Inserted %d points into Qdrant collection '%s'.",
+        len(point_ids),
+        collection_name,
+    )
 
     # 5. Insert entities and link to Qdrant point IDs in Neo4j
     logger.info("Writing knowledge graph entities and causal relationships to Neo4j...")
@@ -235,7 +272,7 @@ def main():
     print(f"  Sample Entities : {', '.join(summary['entities'][:4])}...")
     print("=" * 60)
     print("  You can now test multi-hop retrieval immediately:")
-    print("    - Query via CLI: vx trace \"Elena Rostova\"")
+    print('    - Query via CLI: vx trace "Elena Rostova"')
     print("    - Query via MCP: mcp_build_lazy_dossier")
     print("    - UI Browser   : http://localhost:8000/docs\n")
 

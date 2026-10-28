@@ -25,8 +25,16 @@ def test_insert_and_merge_graph_nodes(test_tenant):
         # Step 1: Insert initial nodes
         res1 = insert_graph_nodes(
             nodes=[
-                {"type": "Company", "name": "Allied Capital", "properties": {"ticker": "ALD"}},
-                {"type": "Person", "name": "David Einhorn", "properties": {"role": "Short Seller"}},
+                {
+                    "type": "Company",
+                    "name": "Allied Capital",
+                    "properties": {"ticker": "ALD"},
+                },
+                {
+                    "type": "Person",
+                    "name": "David Einhorn",
+                    "properties": {"role": "Short Seller"},
+                },
             ],
             relations=[],
             tenant_id=test_tenant,
@@ -37,7 +45,11 @@ def test_insert_and_merge_graph_nodes(test_tenant):
         # Step 2: Merge the same nodes with an additional property and a rich causal relation
         res2 = insert_graph_nodes(
             nodes=[
-                {"type": "Company", "name": "Allied Capital", "properties": {"sector": "Financials"}},
+                {
+                    "type": "Company",
+                    "name": "Allied Capital",
+                    "properties": {"sector": "Financials"},
+                },
             ],
             relations=[
                 {
@@ -69,7 +81,10 @@ def test_insert_and_merge_graph_nodes(test_tenant):
 
     finally:
         # Cleanup
-        neo4j.execute_write("MATCH (n {tenant_id: $tenant_id}) DETACH DELETE n", {"tenant_id": test_tenant})
+        neo4j.execute_write(
+            "MATCH (n {tenant_id: $tenant_id}) DETACH DELETE n",
+            {"tenant_id": test_tenant},
+        )
         neo4j.close()
 
 
@@ -85,8 +100,16 @@ def test_purge_cooccurrence_relationships(test_tenant):
                 {"type": "Company", "name": "Allied Capital", "properties": {}},
             ],
             relations=[
-                {"from_entity": "BLX", "to_entity": "Allied Capital", "type": "MENTIONED_WITH"},
-                {"from_entity": "BLX", "to_entity": "Allied Capital", "type": "SUBSIDIARY_OF"},
+                {
+                    "from_entity": "BLX",
+                    "to_entity": "Allied Capital",
+                    "type": "MENTIONED_WITH",
+                },
+                {
+                    "from_entity": "BLX",
+                    "to_entity": "Allied Capital",
+                    "type": "SUBSIDIARY_OF",
+                },
             ],
             tenant_id=test_tenant,
         )
@@ -113,13 +136,22 @@ def test_purge_cooccurrence_relationships(test_tenant):
         assert res_nodes[0]["cnt"] == 2
 
     finally:
-        neo4j.execute_write("MATCH (n {tenant_id: $tenant_id}) DETACH DELETE n", {"tenant_id": test_tenant})
+        neo4j.execute_write(
+            "MATCH (n {tenant_id: $tenant_id}) DETACH DELETE n",
+            {"tenant_id": test_tenant},
+        )
         neo4j.close()
 
 
 def test_build_lazy_graph_dossier_structure():
-    with patch("backend.storage.qdrant_client.QdrantStorageClient.search_hybrid") as mock_search, \
-         patch("backend.storage.neo4j_client.Neo4jStorageClient.execute_read") as mock_neo:
+    with (
+        patch(
+            "backend.storage.qdrant_client.QdrantStorageClient.search_hybrid"
+        ) as mock_search,
+        patch(
+            "backend.storage.neo4j_client.Neo4jStorageClient.execute_read"
+        ) as mock_neo,
+    ):
         mock_search.return_value = [
             {
                 "id": "pt-1",

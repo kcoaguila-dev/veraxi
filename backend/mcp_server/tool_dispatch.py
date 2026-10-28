@@ -769,7 +769,12 @@ async def execute_tools_internal(
         else:
             loop = asyncio.get_running_loop()
             v_hits, g_hits = await loop.run_in_executor(
-                None, _execute_single_tool, tool_name, tool_input, tenant_id, tool_settings
+                None,
+                _execute_single_tool,
+                tool_name,
+                tool_input,
+                tenant_id,
+                tool_settings,
             )
             vector_hits.extend(v_hits)
             graph_hits.extend(g_hits)
@@ -783,14 +788,24 @@ async def execute_tools_internal(
         telemetry_blocks = []
         for hit in telemetry_hits:
             sources = " and ".join(getattr(hit, "sources", ["External Tool"]))
-            content = hit.payload.get("content", str(hit.payload)) if isinstance(hit.payload, dict) else str(hit.payload)
+            content = (
+                hit.payload.get("content", str(hit.payload))
+                if isinstance(hit.payload, dict)
+                else str(hit.payload)
+            )
             telemetry_blocks.append(f"[{sources}]:\n{content}")
-        context_sections.append("[EXTERNAL TELEMETRY & ACTIONS]:\n" + "\n\n".join(telemetry_blocks))
+        context_sections.append(
+            "[EXTERNAL TELEMETRY & ACTIONS]:\n" + "\n\n".join(telemetry_blocks)
+        )
 
     if merged_docs:
         narrative_str = _build_context_string(merged_docs)
         if narrative_str and narrative_str != "No results found.":
-            context_sections.append("[GROUNDED KNOWLEDGE GRAPH & VECTOR CONTEXT]:\n" + narrative_str)
+            context_sections.append(
+                "[GROUNDED KNOWLEDGE GRAPH & VECTOR CONTEXT]:\n" + narrative_str
+            )
 
-    context_str = "\n\n".join(context_sections) if context_sections else "No results found."
+    context_str = (
+        "\n\n".join(context_sections) if context_sections else "No results found."
+    )
     return context_str, merged
