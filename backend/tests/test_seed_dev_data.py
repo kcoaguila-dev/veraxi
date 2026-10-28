@@ -30,14 +30,23 @@ def test_seed_dev_data_pipeline(patch_env):
             assert len(r["qdrant_id"]) > 0
 
         # Verify Qdrant points have neo4j_node_ids
+        from qdrant_client import models
+
         points = qdrant.client.scroll(
             collection_name=config.qdrant_collection_name,
+            scroll_filter=models.Filter(
+                must=[
+                    models.FieldCondition(
+                        key="tenant_id",
+                        match=models.MatchValue(value=tenant_id),
+                    )
+                ]
+            ),
             limit=10,
             with_payload=True,
         )[0]
-        tenant_points = [p for p in points if p.payload and p.payload.get("tenant_id") == tenant_id]
-        assert len(tenant_points) == 3
-        for tp in tenant_points:
+        assert len(points) == 3
+        for tp in points:
             assert "neo4j_node_ids" in tp.payload
             assert len(tp.payload["neo4j_node_ids"]) > 0
 
