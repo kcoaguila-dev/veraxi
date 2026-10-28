@@ -19,7 +19,12 @@ def _verify_neo4j_nodes_have_qdrant_ids(nodes: list[dict]) -> set[str]:
 def _verify_qdrant_points_exist(
     qdrant, collection_name: str, qdrant_ids_from_neo4j: set[str]
 ):
-    points = qdrant.get_points(collection_name, list(qdrant_ids_from_neo4j))
+    ids_list = list(qdrant_ids_from_neo4j)
+    batch_size = 100
+    points = []
+    for i in range(0, len(ids_list), batch_size):
+        batch = ids_list[i : i + batch_size]
+        points.extend(qdrant.get_points(collection_name, batch))
     found_qdrant_ids = {p["id"] for p in points}
     for q_id in qdrant_ids_from_neo4j:
         assert q_id in found_qdrant_ids, (
