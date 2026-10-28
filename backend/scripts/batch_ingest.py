@@ -8,7 +8,11 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from backend.config import get_config
 from backend.ingestion.__main__ import run_ingestion
-from backend.ingestion.vision import NoOpVisionCaptioner, VisionCaptioner, get_vision_captioner
+from backend.ingestion.vision import (
+    NoOpVisionCaptioner,
+    VisionCaptioner,
+    get_vision_captioner,
+)
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
