@@ -39,7 +39,7 @@ dependencies = [
     "stripe",
     "langgraph",
     "langchain<1.5.0",
-    "langchain-core<1.7.0",
+    "langchain-core<1.8.0",
     "langchain-openai",
     "litellm",
     "langchain-litellm>=0.6.6",
