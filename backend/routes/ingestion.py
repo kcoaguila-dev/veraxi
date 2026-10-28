@@ -7,11 +7,12 @@ import tempfile
 
 import magic
 import sentry_sdk
-from backend.config import get_config
-from backend.storage.quota import check_tenant_hard_cap
 from docling.document_converter import DocumentConverter
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from pydantic import BaseModel
+
+from backend.config import get_config
+from backend.storage.quota import check_tenant_hard_cap
 
 logger = logging.getLogger(__name__)
 
@@ -62,8 +63,9 @@ async def _ensure_schema_exists(redis, tenant_id: str, sample_text: str):
         f"No schema found for tenant {tenant_id}. Auto-generating from ingested content..."
     )
     config = get_config()
-    from backend.prompts import get_auto_ontology_prompt
     from openai import AsyncOpenAI
+
+    from backend.prompts import get_auto_ontology_prompt
 
     client = AsyncOpenAI(**config.get_llm_client_args())
     try:
@@ -336,8 +338,9 @@ def register_ingestion_routes(
     @app_router.post("/api/admin/schema/auto-generate")
     async def auto_generate_schema(data: AutoGenerateSchemaRequest):
         config = get_config()
-        from backend.prompts import get_auto_ontology_prompt
         from openai import AsyncOpenAI
+
+        from backend.prompts import get_auto_ontology_prompt
 
         client = AsyncOpenAI(**config.get_llm_client_args())
         try:

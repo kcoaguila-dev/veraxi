@@ -8,8 +8,9 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from backend import context as byod_context
 from browser_use import Agent, Browser, BrowserProfile
+
+from backend import context as byod_context
 
 logger = logging.getLogger(__name__)
 

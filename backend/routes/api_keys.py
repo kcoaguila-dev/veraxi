@@ -3,9 +3,10 @@
 import logging
 
 import sentry_sdk
-from backend.security.api_keys import generate_api_key
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
+
+from backend.security.api_keys import generate_api_key
 
 logger = logging.getLogger(__name__)
 

@@ -8,8 +8,9 @@ scenarios return specific, actionable error messages instead of generic
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from backend.api_gateway import app, get_tenant_id, verify_infrastructure_access
 from fastapi.testclient import TestClient
+
+from backend.api_gateway import app, get_tenant_id, verify_infrastructure_access
 
 # Global test client - same pattern as test_api_chat.py
 client = TestClient(app)

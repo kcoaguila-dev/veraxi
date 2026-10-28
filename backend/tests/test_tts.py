@@ -1,9 +1,10 @@
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from fastapi.testclient import TestClient
+
 from backend.api_gateway import app, get_tenant_id, verify_infrastructure_access
 from backend.routes.tts import clean_text_for_tts
-from fastapi.testclient import TestClient
 
 
 @pytest.fixture(autouse=True)

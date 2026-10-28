@@ -14,8 +14,9 @@ from http import HTTPStatus
 from unittest.mock import MagicMock, patch
 
 import pytest
-from backend.api_gateway import app, get_tenant_id
 from fastapi.testclient import TestClient
+
+from backend.api_gateway import app, get_tenant_id
 
 # ---------------------------------------------------------------------------
 # Fixtures

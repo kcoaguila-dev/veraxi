@@ -11,6 +11,8 @@ Tests verify:
 import asyncio
 from unittest.mock import MagicMock, patch
 
+from veraxi.cli.chat import _format_tool_input
+
 from backend.mcp_server.llm_loop import (
     _get_tool_friendly_label,
     _handle_chain_end_tools,
@@ -18,7 +20,6 @@ from backend.mcp_server.llm_loop import (
     _make_tool_summary,
     stream_answer_question,
 )
-from veraxi.cli.chat import _format_tool_input
 
 
 def test_tool_friendly_labels():
@@ -206,8 +207,9 @@ def test_stream_answer_question_steps():
 
 
 def test_anti_attribution_drift_prompt_rule():
-    from backend.mcp_server.orchestrator import call_model
     from langchain_core.messages import HumanMessage, SystemMessage
+
+    from backend.mcp_server.orchestrator import call_model
 
     captured_messages = []
 

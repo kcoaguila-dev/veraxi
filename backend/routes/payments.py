@@ -5,10 +5,11 @@ import logging
 
 import sentry_sdk
 import stripe
-from backend.config import get_config
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from supabase import Client, create_client
+
+from backend.config import get_config
 
 logger = logging.getLogger(__name__)
 
