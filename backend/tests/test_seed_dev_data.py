@@ -1,7 +1,7 @@
+from backend.config import get_config
 from backend.scripts.seed_dev_data import seed_database
 from backend.storage.neo4j_client import Neo4jStorageClient
 from backend.storage.qdrant_client import QdrantStorageClient
-from backend.config import get_config
 
 
 def test_seed_dev_data_pipeline(patch_env):

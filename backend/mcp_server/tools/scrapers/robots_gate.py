@@ -16,7 +16,7 @@ import threading
 import time
 import urllib.parse
 import urllib.request
-from typing import Any
+from typing import Any, ClassVar
 
 from backend.mcp_server.tools.scrapers.headers import get_browser_headers
 
@@ -37,8 +37,8 @@ class RobotsGate:
     """
 
     _lock = threading.Lock()
-    _rules_cache: dict[str, dict[str, Any]] = {}
-    _domain_last_request: dict[str, float] = {}
+    _rules_cache: ClassVar[dict[str, dict[str, Any]]] = {}
+    _domain_last_request: ClassVar[dict[str, float]] = {}
 
     @classmethod
     def get_rules(cls, domain: str, timeout: float = 3.0) -> dict[str, Any]:

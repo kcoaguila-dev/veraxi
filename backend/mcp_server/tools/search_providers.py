@@ -186,7 +186,8 @@ class WikipediaProvider(SearchProvider):
                                         "snippet": extract,
                                     }
                                 )
-                except Exception:
+                except Exception as exc:
+                    logger.debug("Failed fetching Wikipedia summary for %s: %s", title, exc)
                     continue
         except Exception as exc:
             sentry_sdk.capture_exception(exc)

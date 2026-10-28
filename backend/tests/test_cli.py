@@ -1,13 +1,12 @@
 import json
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
-
-
 from veraxi.cli.client_configs import update_mcp_config
 from veraxi.cli.doctor import check_endpoint
-from veraxi.cli.main import main
 from veraxi.cli.init_project import init_project
+from veraxi.cli.main import main
+
 
 # 1. test_client_configs_safe_mutation: Mock an existing config containing "github-mcp";
 # verify veraxi is added without deleting "github-mcp".
@@ -109,7 +108,7 @@ def test_init_command_creates_files(tmp_path):
 def test_main_pipe_handling(mock_run_query, mock_read, mock_isatty):
     main()
     mock_run_query.assert_called_once()
-    args, kwargs = mock_run_query.call_args
+    args, _kwargs = mock_run_query.call_args
     assert "mock pipe error context" in args[0]
 
 # 4. test_review_diff: Test run_review diff handling
@@ -131,7 +130,7 @@ def test_review_diff(mock_subprocess_run, mock_run_query):
 
     # run_query should be called with the diff
     assert mock_run_query.called
-    args, kwargs = mock_run_query.call_args
+    _args, kwargs = mock_run_query.call_args
     assert "diff --git a/test b/test" in kwargs["query"]
 
 # 5. test_review_empty_diff: Test run_review exits 0 if no diff
@@ -171,8 +170,9 @@ def test_ingest_url_200(mock_urlopen):
 # 7. test_ingest_file_401: Test file ingestion with 401
 @patch("urllib.request.urlopen")
 def test_ingest_file_401(mock_urlopen, tmp_path):
-    from veraxi.cli.ingest import run_ingest
     import urllib.error
+
+    from veraxi.cli.ingest import run_ingest
 
     test_file = tmp_path / "test.md"
     test_file.write_text("test content")
@@ -313,7 +313,7 @@ def test_check_gate():
 
 # 15. test_remember_and_resolve_lifecycle: Test architectural memory tracking
 def test_remember_and_resolve_lifecycle(capsys):
-    from veraxi.cli.memory import run_remember, run_resolve, run_memory_list
+    from veraxi.cli.memory import run_memory_list, run_remember, run_resolve
 
     with patch("backend.storage.neo4j_client.Neo4jStorageClient.from_config") as mock_neo4j:
         mock_client = MagicMock()
@@ -376,7 +376,7 @@ def test_context_packing(capsys):
 
 # 17. test_cluster_lifecycle: Test repository clustering commands
 def test_cluster_lifecycle(capsys):
-    from veraxi.cli.cluster import run_cluster, get_cluster_repos
+    from veraxi.cli.cluster import get_cluster_repos, run_cluster
 
     with patch("backend.storage.neo4j_client.Neo4jStorageClient.from_config") as mock_neo4j:
         mock_client = MagicMock()
@@ -472,9 +472,8 @@ def test_rules_sync(tmp_path):
             [{"id": "rule-1", "name": "Always use RS256 for tokens", "tag": "auth", "project": "veraxi"}],
         ]
 
-        with patch("os.getcwd", return_value=str(tmp_path)):
-            with patch("subprocess.check_output", return_value=str(tmp_path)):
-                run_rules_sync(target="claude", project="veraxi", as_json=True)
+        with patch("os.getcwd", return_value=str(tmp_path)), patch("subprocess.check_output", return_value=str(tmp_path)):
+            run_rules_sync(target="claude", project="veraxi", as_json=True)
 
     content = claude_md.read_text()
     assert "Existing manual instructions." in content
@@ -591,10 +590,10 @@ def test_memory_stats(capsys):
 
 # 25. test_backend_cli_forwarding_compatibility: Verify legacy backend.cli forwarders map to veraxi.cli
 def test_backend_cli_forwarding_compatibility():
-    import backend.cli.main as b_main
-    import veraxi.cli.main as v_main
     import backend.cli.auth as b_auth
+    import backend.cli.main as b_main
     import veraxi.cli.auth as v_auth
+    import veraxi.cli.main as v_main
 
     assert b_main is v_main
     assert b_auth is v_auth
@@ -677,8 +676,8 @@ def test_learn_lifecycle(capsys):
 
 # 28. test_audit_diff_rules_and_ci_gate: Verify CI rule enforcement against git diffs
 def test_audit_diff_rules_and_ci_gate(capsys, tmp_path):
-    from veraxi.cli.rules import audit_diff_against_rules, run_rules_sync
     from veraxi.cli.review import run_review
+    from veraxi.cli.rules import audit_diff_against_rules, run_rules_sync
 
     active_rules = [
         {"id": "inv1", "name": "Clean Architecture: Domain entities must never import storage or database modules", "tag": "architecture", "type": "invariant", "status": "active"},
@@ -700,11 +699,10 @@ def test_audit_diff_rules_and_ci_gate(capsys, tmp_path):
     # Test run_review --enforce-rules failure
     mock_run = MagicMock()
     mock_run.stdout = violating_diff
-    with patch("subprocess.run", return_value=mock_run):
-        with patch("veraxi.cli.review._get_active_rules", return_value=active_rules):
-            with pytest.raises(SystemExit) as exc_info:
-                run_review(enforce_rules=True, project="test-repo")
-            assert exc_info.value.code == 1
+    with patch("subprocess.run", return_value=mock_run), patch("veraxi.cli.review._get_active_rules", return_value=active_rules):
+        with pytest.raises(SystemExit) as exc_info:
+            run_review(enforce_rules=True, project="test-repo")
+        assert exc_info.value.code == 1
 
     # Test run_review --enforce-rules pass on clean diff
     clean_diff = """--- a/backend/domain/model.py
@@ -713,21 +711,19 @@ def test_audit_diff_rules_and_ci_gate(capsys, tmp_path):
 +class DomainUser: pass
 """
     mock_run.stdout = clean_diff
-    with patch("subprocess.run", return_value=mock_run):
-        with patch("veraxi.cli.review._get_active_rules", return_value=active_rules):
-            with pytest.raises(SystemExit) as exc_info:
-                run_review(enforce_rules=True, project="test-repo")
-            assert exc_info.value.code == 0
+    with patch("subprocess.run", return_value=mock_run), patch("veraxi.cli.review._get_active_rules", return_value=active_rules):
+        with pytest.raises(SystemExit) as exc_info:
+            run_review(enforce_rules=True, project="test-repo")
+        assert exc_info.value.code == 0
 
     # Test run_rules_sync groups permanent invariants at the top
     claude_file = tmp_path / "CLAUDE.md"
     claude_file.write_text("# Project Notes\n")
-    with patch("veraxi.cli.rules._get_active_rules", return_value=active_rules):
-        with patch("subprocess.check_output", return_value=str(tmp_path)):
-            run_rules_sync(target="claude", project="test-repo")
-            content = claude_file.read_text()
-            assert "### 🏛 Permanent Architectural Invariants" in content
-            assert "Clean Architecture" in content
+    with patch("veraxi.cli.rules._get_active_rules", return_value=active_rules), patch("subprocess.check_output", return_value=str(tmp_path)):
+        run_rules_sync(target="claude", project="test-repo")
+        content = claude_file.read_text()
+        assert "### 🏛 Permanent Architectural Invariants" in content
+        assert "Clean Architecture" in content
 
 
 # 29. test_memory_drift_detection: Verify codebase drift, orphaned targets, and dependency divergence
@@ -805,7 +801,7 @@ def test_cli_models_discovery(tmp_path, monkeypatch, capsys):
 
     fake_cfg_path = tmp_path / "config.json"
     monkeypatch.setattr("veraxi.cli.config.get_cli_config_path", lambda: fake_cfg_path)
-    monkeypatch.setattr("veraxi.cli.config.load_credentials", lambda: {})
+    monkeypatch.setattr("veraxi.cli.config.load_credentials", dict)
 
     # Set default model
     run_models_set(model_name="claude-3-5-sonnet-latest")

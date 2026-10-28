@@ -124,11 +124,10 @@ def test_searxng_no_fallback_on_failure():
         mock_cfg.return_value = cfg
 
         # SearXNG fails, should respect user setting and return empty results without fallback
-        with patch("urllib.request.urlopen", side_effect=Exception("SearXNG down")):
-            with patch.object(DuckDuckGoProvider, "search") as mock_ddg:
-                res = provider.search("test", "en", 1, mock_settings)
-                assert res == []
-                mock_ddg.assert_not_called()
+        with patch("urllib.request.urlopen", side_effect=Exception("SearXNG down")), patch.object(DuckDuckGoProvider, "search") as mock_ddg:
+            res = provider.search("test", "en", 1, mock_settings)
+            assert res == []
+            mock_ddg.assert_not_called()
 
 
 def test_enrich_with_cache_deduplication():

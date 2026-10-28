@@ -41,7 +41,7 @@ def test_fast_entity_extraction_with_large_text():
         "David Einhorn investigated Allied Capital. "
     ) * 50
 
-    entities, relations = extract_entities_and_relations_fast(
+    entities, _relations = extract_entities_and_relations_fast(
         repeated_text, schema, language="en"
     )
     assert len(entities) > 0
@@ -55,8 +55,9 @@ def test_extract_text_empty_or_nonexistent():
 
 
 def test_resolve_entities_scalability():
-    from backend.ingestion.entity_resolution import resolve_entities
     import time
+
+    from backend.ingestion.entity_resolution import resolve_entities
 
     # Simulate 500 entities with realistic duplicates found in books
     entities = []
