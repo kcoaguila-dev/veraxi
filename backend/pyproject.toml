@@ -57,7 +57,6 @@ dependencies = [
     "mcp-types>=2.2.0",
     "python-dotenv>=1.2.3",
     "duckduckgo_search>=7.0.0",
-    "pytest-asyncio>=1.4.0",
 ]
 
 [project.optional-dependencies]
@@ -74,10 +73,14 @@ eval = [
 
 [dependency-groups]
 dev = [
+    "datasets>=5.0.1",
+    "deepeval>=4.2.6",
     "import-linter>=2.15",
     "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
     "python-dotenv>=1.2.3",
     "testcontainers>=4.15.0",
+    "veraxi",
 ]
 
 [tool.mypy]
@@ -86,3 +89,6 @@ namespace_packages = true
 [tool.ruff]
 lint.ignore = ["E402", "BLE001"]
 lint.exclude = ["build/**"]
+
+[tool.uv.sources]
+veraxi = { path = "../packages/veraxi-cli" }

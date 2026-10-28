@@ -9961,6 +9961,11 @@ wheels = [
 ]
 
 [[package]]
+name = "veraxi"
+version = "0.1.0"
+source = { directory = "../packages/veraxi-cli" }
+
+[[package]]
 name = "veraxi-backend"
 version = "0.1.0"
 source = { editable = "." }
@@ -9989,7 +9994,6 @@ dependencies = [
     { name = "playwright" },
     { name = "psycopg", extra = ["binary"] },
     { name = "pyjwt" },
-    { name = "pytest-asyncio" },
     { name = "python-dotenv" },
     { name = "python-magic" },
     { name = "python-multipart" },
@@ -10022,10 +10026,14 @@ eval = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "datasets" },
+    { name = "deepeval" },
     { name = "import-linter" },
     { name = "pytest" },
+    { name = "pytest-asyncio" },
     { name = "python-dotenv" },
     { name = "testcontainers" },
+    { name = "veraxi" },
 ]
 
 [package.metadata]
@@ -10058,7 +10066,6 @@ requires-dist = [
     { name = "psycopg", extras = ["binary"] },
     { name = "pyjwt" },
     { name = "pytest", marker = "extra == 'dev'" },
-    { name = "pytest-asyncio", specifier = ">=1.4.0" },
     { name = "pytest-asyncio", marker = "extra == 'dev'" },
     { name = "python-dotenv", specifier = ">=1.2.3" },
     { name = "python-magic" },
@@ -10080,10 +10087,14 @@ provides-extras = ["dev", "eval"]
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "datasets", specifier = ">=5.0.1" },
+    { name = "deepeval", specifier = ">=4.2.6" },
     { name = "import-linter", specifier = ">=2.15" },
     { name = "pytest", specifier = ">=9.1.1" },
+    { name = "pytest-asyncio", specifier = ">=1.4.0" },
     { name = "python-dotenv", specifier = ">=1.2.3" },
     { name = "testcontainers", specifier = ">=4.15.0" },
+    { name = "veraxi", directory = "../packages/veraxi-cli" },
 ]
 
 [[package]]
