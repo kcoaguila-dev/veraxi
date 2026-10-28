@@ -5,6 +5,8 @@ Calls the Firecrawl v1 scrape API to extract clean Markdown from any URL,
 including JavaScript-rendered pages. Supports both the managed cloud service
 (api.firecrawl.dev) and self-hosted instances.
 
+Enhanced with ScrapeCache deduplication and realistic browser headers.
+
 Best for: production deployments needing reliable JS rendering + anti-bot bypass.
 """
 
@@ -18,6 +20,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from concurrent.futures import TimeoutError as FuturesTimeoutError
 
 import sentry_sdk
+from backend.mcp_server.tools.scrapers.cache import ScrapeCache
+from backend.mcp_server.tools.scrapers.headers import get_browser_headers
 
 logger = logging.getLogger(__name__)
 
@@ -30,10 +34,11 @@ def _fetch_one(
     """Call Firecrawl scrape endpoint for a single URL. Returns (url, markdown)."""
     endpoint = f"{base_url}/v1/scrape"
     payload = json.dumps({"url": url, "formats": ["markdown"]}).encode()
-    headers = {
-        "Content-Type": "application/json",
-        "User-Agent": "Veraxi/1.0 (MCP Agent)",
-    }
+    headers = get_browser_headers(
+        {
+            "Content-Type": "application/json",
+        }
+    )
     if api_key:
         headers["Authorization"] = f"Bearer {api_key}"
 
@@ -43,11 +48,13 @@ def _fetch_one(
         )
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             data = json.loads(resp.read().decode("utf-8", errors="replace"))
-            # Firecrawl v1 response: {"success": true, "data": {"markdown": "..."}}
             markdown = (
                 data.get("data", {}).get("markdown") or data.get("markdown") or ""
             )
-            return url, markdown.strip()
+            extracted = markdown.strip()
+            if extracted and len(extracted) >= _MIN_CONTENT_LENGTH:
+                ScrapeCache.set(url, extracted)
+            return url, extracted
     except urllib.error.HTTPError as exc:
         logger.warning("Firecrawl HTTP %s for %s", exc.code, url)
         return url, ""
@@ -94,15 +101,20 @@ class FirecrawlScraper:
                 ): url
                 for url in urls
             }
-            for future in as_completed(future_to_url, timeout=timeout_per_url + 1):
-                try:
-                    url, content = future.result(timeout=timeout_per_url)
-                    if content and len(content) >= _MIN_CONTENT_LENGTH:
-                        results[url] = content
-                except FuturesTimeoutError:
-                    logger.warning("Firecrawl timed out for %s", future_to_url[future])
-                except Exception as exc:
-                    sentry_sdk.capture_exception(exc)
-                    logger.warning("Firecrawl fetch_batch error: %s", exc)
+            try:
+                for future in as_completed(future_to_url, timeout=timeout_per_url + 1):
+                    try:
+                        url, content = future.result(timeout=timeout_per_url)
+                        if content and len(content) >= _MIN_CONTENT_LENGTH:
+                            results[url] = content
+                    except FuturesTimeoutError:
+                        logger.warning(
+                            "Firecrawl timed out for %s", future_to_url.get(future)
+                        )
+                    except Exception as exc:
+                        sentry_sdk.capture_exception(exc)
+                        logger.warning("Firecrawl fetch_batch error: %s", exc)
+            except FuturesTimeoutError:
+                logger.warning("Firecrawl batch fetch timed out")
 
         return results

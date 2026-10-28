@@ -127,6 +127,27 @@ async def call_model(state: AgentState):
             )
         )
 
+    file_search_enabled = tool_settings.get("file_search_enabled", False)
+    web_search = tool_settings.get("web_search", {})
+    web_enabled = (
+        web_search.get("enabled", False) if isinstance(web_search, dict) else False
+    )
+    if file_search_enabled or web_enabled:
+        extra_system_messages.append(
+            SystemMessage(
+                content=(
+                    "CITATION & GROUNDING RULES:\n"
+                    "1. When information is retrieved from tools (such as web search, vector search, or knowledge graph), "
+                    "ground your statements with inline bracketed citations [1], [2], or [Source Title] immediately after "
+                    "the corresponding claim (like Perplexity).\n"
+                    "2. ANTI-ATTRIBUTION-DRIFT: In multi-turn conversations and follow-up questions, NEVER reuse citations "
+                    "from previous turns to justify new claims. If a follow-up question introduces new entities or questions "
+                    "not answered by prior tool outputs, you MUST call the retrieval tools again for fresh context.\n"
+                    "3. DO NOT make up URLs or cite materials not retrieved by tools for the current claim."
+                )
+            )
+        )
+
     modified_messages = _prepend_system_messages(messages, extra_system_messages)
 
     # Determine if we should bind tools. We do not bind tools if we are executing a fallback,
@@ -144,7 +165,10 @@ async def call_model(state: AgentState):
         llm_with_tools = llm
     else:
         tools_list = await get_tools(tool_settings)
-        llm_with_tools = llm.bind_tools(tools_list, parallel_tool_calls=False)
+        if tools_list:
+            llm_with_tools = llm.bind_tools(tools_list, parallel_tool_calls=False)
+        else:
+            llm_with_tools = llm
 
     MAX_RETRIES = 3
     response = None

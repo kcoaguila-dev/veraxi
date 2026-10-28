@@ -5,8 +5,8 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
 import 'package:veraxi_app/features/chat/view_models/chat_view_model.dart';
-import 'package:veraxi_app/features/chat/views/widgets/agentic_tool_log.dart';
 import 'package:veraxi_app/features/chat/views/widgets/chat_message_metrics.dart';
+import 'package:veraxi_app/features/chat/views/widgets/tool_event_card.dart';
 import 'package:veraxi_app/features/chat/views/widgets/markdown_citation_builder.dart';
 import 'package:veraxi_app/features/chat/views/widgets/markdown_code_builder.dart';
 import 'package:veraxi_app/core/providers/active_sources_provider.dart';
@@ -151,30 +151,48 @@ class ChatMessageListItem extends ConsumerWidget {
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              // 1. Thinking / Active Tool Indicator
-                              if (msg.isStreaming && msg.content.isEmpty)
+                              // 1. Step & Active Tool Indicator (Claude / AnythingLLM Parity)
+                              if (msg.isStreaming &&
+                                  (msg.content.isEmpty ||
+                                      msg.activeTool != null))
                                 Padding(
-                                  padding: EdgeInsets.only(bottom: 16),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      SizedBox(
-                                        width: 14,
-                                        height: 14,
-                                        child: CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                            color: ext.primaryGradientStart),
+                                  padding: const EdgeInsets.only(bottom: 12),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 10, vertical: 6),
+                                    decoration: BoxDecoration(
+                                      color: ext.primaryGradientStart
+                                          .withValues(alpha: 0.1),
+                                      borderRadius: BorderRadius.circular(6),
+                                      border: Border.all(
+                                        color: ext.primaryGradientStart
+                                            .withValues(alpha: 0.25),
+                                        width: 1,
                                       ),
-                                      SizedBox(width: 8),
-                                      Text(
-                                        'Thinking...',
-                                        style: theme.textTheme.bodyMedium
-                                            ?.copyWith(
-                                                color: ext.primaryGradientStart,
-                                                fontWeight: FontWeight.w500,
-                                                fontStyle: FontStyle.italic),
-                                      ),
-                                    ],
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        SizedBox(
+                                          width: 12,
+                                          height: 12,
+                                          child: CircularProgressIndicator(
+                                              strokeWidth: 1.5,
+                                              color: ext.primaryGradientStart),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          msg.activeTool ??
+                                              'Thinking & formulating plan...',
+                                          style: theme.textTheme.bodySmall
+                                              ?.copyWith(
+                                                  color:
+                                                      ext.primaryGradientStart,
+                                                  fontWeight: FontWeight.w600,
+                                                  fontSize: 12),
+                                        ),
+                                      ],
+                                    ),
                                   )
                                       .animate(
                                           onPlay: (controller) =>
@@ -184,15 +202,27 @@ class ChatMessageListItem extends ConsumerWidget {
                                           color: Colors.white30),
                                 ),
 
-                              // 3. Completed Tool Events
+                              // 2. Reasoning Trace / Thought Process (Collapsible)
+                              if (msg.reasoning != null &&
+                                  msg.reasoning!.isNotEmpty)
+                                Padding(
+                                  padding: const EdgeInsets.only(bottom: 12.0),
+                                  child: _ReasoningDisclosure(
+                                    reasoning: msg.reasoning!,
+                                    durationSeconds:
+                                        msg.reasoningDurationSeconds,
+                                  ),
+                                ),
+
+                              // 3. Completed & In-Flight Tool Events (Rich Collapsible Cards)
                               if (msg.toolEvents.isNotEmpty)
                                 Padding(
-                                  padding: EdgeInsets.only(bottom: 16.0),
+                                  padding: const EdgeInsets.only(bottom: 16.0),
                                   child: Column(
                                     crossAxisAlignment:
                                         CrossAxisAlignment.stretch,
                                     children: msg.toolEvents
-                                        .map((te) => AgenticToolLog(event: te))
+                                        .map((te) => ToolEventCard(event: te))
                                         .toList(),
                                   ),
                                 ),
@@ -379,6 +409,9 @@ class ChatMessageListItem extends ConsumerWidget {
                                           },
                                         ),
                                       ],
+                                      if (_buildWorkedForBadge(theme, msg) !=
+                                          null)
+                                        _buildWorkedForBadge(theme, msg)!,
                                     ],
                                   ),
                                 ),
@@ -405,6 +438,48 @@ class ChatMessageListItem extends ConsumerWidget {
   }
 
   // Removed hardcoded _allProviderModels
+
+  Widget? _buildWorkedForBadge(ThemeData theme, ChatMessage msg) {
+    if (msg.metrics == null) return null;
+    final double? genSec =
+        (msg.metrics!['generation_seconds'] as num?)?.toDouble();
+    final String workedText = genSec != null
+        ? 'Worked for ${genSec.toStringAsFixed(1)}s'
+        : (msg.metrics!['worked_for']?.toString() ?? '');
+    if (workedText.isEmpty) return null;
+
+    return Container(
+      margin: const EdgeInsets.only(left: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.onSurface.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(
+          color: theme.colorScheme.onSurface.withValues(alpha: 0.1),
+          width: 0.5,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.schedule_rounded,
+            size: 11,
+            color: theme.colorScheme.onSurface.withValues(alpha: 0.45),
+          ),
+          const SizedBox(width: 4),
+          Text(
+            workedText,
+            style: TextStyle(
+              fontSize: 11,
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.55),
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _providerDotFor(String model, {double size = 14}) {
     String? assetPath;
@@ -470,6 +545,87 @@ class ChatMessageListItem extends ConsumerWidget {
       width: 8,
       height: 8,
       decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+    );
+  }
+}
+
+class _ReasoningDisclosure extends StatefulWidget {
+  final String reasoning;
+  final double? durationSeconds;
+  const _ReasoningDisclosure({
+    required this.reasoning,
+    this.durationSeconds,
+  });
+
+  @override
+  State<_ReasoningDisclosure> createState() => _ReasoningDisclosureState();
+}
+
+class _ReasoningDisclosureState extends State<_ReasoningDisclosure> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 6),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: Colors.purpleAccent.withValues(alpha: 0.25),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          InkWell(
+            onTap: () => setState(() => _expanded = !_expanded),
+            borderRadius: BorderRadius.circular(8),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              child: Row(
+                children: [
+                  Icon(
+                    _expanded
+                        ? Icons.keyboard_arrow_down_rounded
+                        : Icons.keyboard_arrow_right_rounded,
+                    size: 16,
+                    color: Colors.white70,
+                  ),
+                  const SizedBox(width: 6),
+                  const Icon(Icons.psychology_outlined,
+                      size: 15, color: Colors.purpleAccent),
+                  const SizedBox(width: 6),
+                  Text(
+                    widget.durationSeconds != null
+                        ? 'Thought for ${widget.durationSeconds!.toStringAsFixed(1)}s'
+                        : 'Thought Process & Reasoning Trace',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white70,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (_expanded)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+              child: Text(
+                widget.reasoning,
+                style: const TextStyle(
+                  fontSize: 11.5,
+                  fontFamily: 'monospace',
+                  color: Colors.white60,
+                  height: 1.4,
+                ),
+              ),
+            ),
+        ],
+      ),
     );
   }
 }

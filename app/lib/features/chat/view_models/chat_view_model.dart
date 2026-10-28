@@ -22,6 +22,8 @@ class ToolEvent {
   final Map<String, dynamic> args;
   final dynamic result;
   final bool isComplete;
+  final int? durationMs;
+  final String? summary;
 
   ToolEvent({
     required this.id,
@@ -29,6 +31,8 @@ class ToolEvent {
     this.args = const {},
     this.result,
     this.isComplete = false,
+    this.durationMs,
+    this.summary,
   });
 
   ToolEvent copyWith({
@@ -37,6 +41,8 @@ class ToolEvent {
     Map<String, dynamic>? args,
     dynamic result,
     bool? isComplete,
+    int? durationMs,
+    String? summary,
   }) {
     return ToolEvent(
       id: id ?? this.id,
@@ -44,6 +50,8 @@ class ToolEvent {
       args: args ?? this.args,
       result: result ?? this.result,
       isComplete: isComplete ?? this.isComplete,
+      durationMs: durationMs ?? this.durationMs,
+      summary: summary ?? this.summary,
     );
   }
 }
@@ -53,7 +61,9 @@ class ChatMessage {
   final String role; // 'user' or 'assistant'
   final String content;
   final bool isStreaming;
-  final String? activeTool; // E.g. "Searching Neo4j..."
+  final String? activeTool; // E.g. "Step 1: Searching Neo4j..."
+  final String? reasoning; // Collapsible chain of thought / reasoning trace
+  final double? reasoningDurationSeconds; // E.g. "Thought for 4.2s"
   final List<ToolEvent> toolEvents;
   final bool isError;
   final int feedback; // 1 (up), -1 (down), 0 (none)
@@ -66,6 +76,8 @@ class ChatMessage {
     required this.content,
     this.isStreaming = false,
     this.activeTool,
+    this.reasoning,
+    this.reasoningDurationSeconds,
     this.toolEvents = const [],
     this.isError = false,
     this.feedback = 0,
@@ -81,6 +93,8 @@ class ChatMessage {
       String? content,
       bool? isStreaming,
       String? activeTool,
+      String? reasoning,
+      double? reasoningDurationSeconds,
       List<ToolEvent>? toolEvents,
       bool? isError,
       int? feedback,
@@ -92,6 +106,9 @@ class ChatMessage {
       content: content ?? this.content,
       isStreaming: isStreaming ?? this.isStreaming,
       activeTool: activeTool, // allow null to clear tool
+      reasoning: reasoning ?? this.reasoning,
+      reasoningDurationSeconds:
+          reasoningDurationSeconds ?? this.reasoningDurationSeconds,
       toolEvents: toolEvents ?? this.toolEvents,
       isError: isError ?? this.isError,
       feedback: feedback ?? this.feedback,
@@ -843,7 +860,36 @@ class ChatViewModel extends StateNotifier<ChatState> {
       }
       return;
     }
-    if (type == 'on_chat_model_stream') {
+    if (type == 'on_step_start') {
+      final step = event['step'] ?? 1;
+      final desc = event['description'] ?? event['name'] ?? 'Processing...';
+      _updateLastMessage(activeTool: 'Step $step: $desc');
+      return;
+    } else if (type == 'on_reasoning_stream') {
+      final text = event['data']?['text'] ?? '';
+      if (text is String && text.isNotEmpty && state.messages.isNotEmpty) {
+        final last = state.messages.last;
+        final currentReasoning = last.reasoning ?? '';
+        final updatedReasoning = currentReasoning + text;
+        final msgs = List<ChatMessage>.from(state.messages);
+        msgs[msgs.length - 1] = last.copyWith(reasoning: updatedReasoning);
+        state = state.copyWith(messages: msgs);
+      }
+      return;
+    } else if (type == 'on_reasoning_end') {
+      final seconds = (event['seconds'] as num?)?.toDouble() ??
+          ((event['duration_ms'] as num?) != null
+              ? (event['duration_ms'] as num).toDouble() / 1000.0
+              : null);
+      if (seconds != null && state.messages.isNotEmpty) {
+        final last = state.messages.last;
+        final msgs = List<ChatMessage>.from(state.messages);
+        msgs[msgs.length - 1] =
+            last.copyWith(reasoningDurationSeconds: seconds);
+        state = state.copyWith(messages: msgs);
+      }
+      return;
+    } else if (type == 'on_chat_model_stream') {
       final chunk = event['data']?['chunk'];
       if (chunk != null) {
         final content = chunk['content'];
@@ -864,7 +910,9 @@ class ChatViewModel extends StateNotifier<ChatState> {
       }
     } else if (type == 'on_tool_start') {
       final toolName = event['name'];
-      final friendlyName = _friendlyToolLabel(toolName);
+      final friendlyName = event['label'] ?? _friendlyToolLabel(toolName);
+      final step = event['step'];
+      final stepPrefix = step != null ? 'Step $step: ' : '';
       final runId =
           event['run_id'] ?? DateTime.now().millisecondsSinceEpoch.toString();
       final args = event['data']?['input'] ?? {};
@@ -879,9 +927,9 @@ class ChatViewModel extends StateNotifier<ChatState> {
           isComplete: false,
         ));
         _updateLastMessage(
-            activeTool: '$friendlyName...', toolEvents: newEvents);
+            activeTool: '$stepPrefix$friendlyName...', toolEvents: newEvents);
       } else {
-        _updateLastMessage(activeTool: '$friendlyName...');
+        _updateLastMessage(activeTool: '$stepPrefix$friendlyName...');
       }
     } else if (type == 'on_tool_end') {
       final runId = event['run_id'];
@@ -892,7 +940,12 @@ class ChatViewModel extends StateNotifier<ChatState> {
         final last = state.messages.last;
         final newEvents = last.toolEvents.map((t) {
           if (t.id == runId) {
-            return t.copyWith(isComplete: true, result: artifact ?? output);
+            return t.copyWith(
+              isComplete: true,
+              result: artifact ?? output,
+              durationMs: (event['duration_ms'] as num?)?.toInt(),
+              summary: event['summary'] as String?,
+            );
           }
           return t;
         }).toList();
@@ -928,6 +981,8 @@ class ChatViewModel extends StateNotifier<ChatState> {
       {String? content,
       bool? isStreaming,
       String? activeTool,
+      String? reasoning,
+      double? reasoningDurationSeconds,
       List<ToolEvent>? toolEvents,
       bool? isError,
       Map<String, dynamic>? metrics}) {
@@ -941,6 +996,9 @@ class ChatViewModel extends StateNotifier<ChatState> {
       content: content ?? last.content,
       isStreaming: isStreaming ?? last.isStreaming,
       activeTool: activeTool, // This will clear it if activeTool is null
+      reasoning: reasoning ?? last.reasoning,
+      reasoningDurationSeconds:
+          reasoningDurationSeconds ?? last.reasoningDurationSeconds,
       toolEvents: toolEvents ?? last.toolEvents,
       isError: isError ?? last.isError,
       feedback: last.feedback,

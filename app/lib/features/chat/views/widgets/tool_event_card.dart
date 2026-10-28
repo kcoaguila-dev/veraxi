@@ -109,15 +109,74 @@ class _ToolEventCardState extends State<ToolEventCard>
                       statusIcon,
                       const SizedBox(width: 8),
                       Expanded(
-                        child: Text(
-                          label,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.white.withValues(alpha: 0.85),
-                            fontWeight: FontWeight.w500,
-                          ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              label,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.white.withValues(alpha: 0.85),
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            if (isComplete &&
+                                event.summary != null &&
+                                event.summary!.isNotEmpty)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 2),
+                                child: Text(
+                                  event.summary!,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.white.withValues(alpha: 0.55),
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                          ],
                         ),
                       ),
+                      if (isComplete && event.durationMs != null)
+                        Tooltip(
+                          message:
+                              'Worked for ${event.durationMs! < 1000 ? "${event.durationMs}ms" : "${(event.durationMs! / 1000.0).toStringAsFixed(1)}s"}',
+                          child: Container(
+                            margin: const EdgeInsets.only(right: 6),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.08),
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.12),
+                                width: 0.5,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.timer_outlined,
+                                  size: 10,
+                                  color: Colors.white.withValues(alpha: 0.5),
+                                ),
+                                const SizedBox(width: 3),
+                                Text(
+                                  event.durationMs! < 1000
+                                      ? '${event.durationMs}ms'
+                                      : '${(event.durationMs! / 1000.0).toStringAsFixed(1)}s',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w500,
+                                    color: Colors.white.withValues(alpha: 0.65),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
                       if (isComplete && result != null)
                         RotationTransition(
                           turns: Tween(begin: 0.0, end: 0.5)
@@ -216,7 +275,9 @@ class _ResultPanelState extends State<_ResultPanel> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(
-                        _showRaw ? Icons.visibility_off_outlined : Icons.code_rounded,
+                        _showRaw
+                            ? Icons.visibility_off_outlined
+                            : Icons.code_rounded,
                         size: 13,
                         color: Colors.blueAccent.shade100,
                       ),

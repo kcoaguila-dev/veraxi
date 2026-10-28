@@ -78,7 +78,10 @@ async def get_tools(tool_settings: dict | None = None) -> list:
                     "type": "function",
                     "function": {
                         "name": "search_vectors",
-                        "description": "Search for semantically similar text chunks in the vector database.",
+                        "description": (
+                            "Search for semantically similar text chunks in the vector database. "
+                            "Cite retrieved evidence using inline bracketed numbers [1], [2] or [Document Title]."
+                        ),
                         "parameters": {
                             "type": "object",
                             "properties": {
@@ -99,7 +102,10 @@ async def get_tools(tool_settings: dict | None = None) -> list:
                     "type": "function",
                     "function": {
                         "name": "query_graph",
-                        "description": "Query the knowledge graph starting from a specific entity.",
+                        "description": (
+                            "Query the knowledge graph starting from a specific entity. "
+                            "Cite referenced entities using inline brackets [Entity Name]."
+                        ),
                         "parameters": {
                             "type": "object",
                             "properties": {
@@ -515,18 +521,16 @@ async def _execute_mcp_tool(
     actual_tool_name = parts[2]
 
     mcp_servers = tool_settings.get("mcp_servers", [])
-    server_config = next(
-        (s for s in mcp_servers if s.get("name") == server_name), None
-    )
+    server_config = next((s for s in mcp_servers if s.get("name") == server_name), None)
     if not server_config or not server_config.get("url"):
         return [], []
-    
+
     url = server_config["url"]
 
     worktree_path = None
     branch_name = None
     supports_worktree = server_config.get("supports_worktree", False)
-    
+
     # Only apply worktree wrapper to servers with an explicit shared-filesystem contract
     if supports_worktree:
         branch_name = f"veraxi_agent_{uuid.uuid4().hex[:8]}"
@@ -538,51 +542,86 @@ async def _execute_mcp_tool(
             tool_input = copy.deepcopy(tool_input)
             # Spin up a temporary Git Worktree isolated from the main branch
             proc = await asyncio.create_subprocess_exec(
-                "git", "worktree", "add", "-b", branch_name, str(worktree_path),
+                "git",
+                "worktree",
+                "add",
+                "-b",
+                branch_name,
+                str(worktree_path),
                 stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE
+                stderr=asyncio.subprocess.PIPE,
             )
             stdout, stderr = await proc.communicate()
             if proc.returncode != 0:
-                raise subprocess.CalledProcessError(proc.returncode or 1, "git worktree add", stdout, stderr)
+                raise subprocess.CalledProcessError(
+                    proc.returncode or 1, "git worktree add", stdout, stderr
+                )
 
             # Rewrite tool_input generically to force execution in the worktree
             # For shell commands (e.g. command)
             if "command" in tool_input:
                 cmd = tool_input["command"]
                 if ".." in cmd or " /" in cmd or cmd.startswith("/"):
+
                     class McpErrorHit:
                         def __init__(self, err):
                             self.id = "mcp_err"
                             self.payload = {"error": str(err)}
                             self.sources = [f"MCP Server ({server_name})"]
-                    return [McpErrorHit(ValueError("Commands that can address paths outside the worktree are prohibited"))], []
+
+                    return [
+                        McpErrorHit(
+                            ValueError(
+                                "Commands that can address paths outside the worktree are prohibited"
+                            )
+                        )
+                    ], []
                 tool_input["command"] = f"cd {shlex.quote(worktree_path)} && " + cmd
             # For file system commands (e.g. path, filepath, file)
             for path_key in ["path", "filepath", "file", "dir", "directory"]:
-                if path_key in tool_input and isinstance(tool_input[path_key], str) and not tool_input[path_key].startswith(worktree_path):
-                        input_path = tool_input[path_key]
-                        # Force it to be relative to the worktree path if it was relative or absolute
-                        if os.path.isabs(input_path):
-                            current_cwd = os.getcwd()
-                            if not input_path.startswith(current_cwd):
-                                class McpErrorHit:
-                                    def __init__(self, err):
-                                        self.id = "mcp_err"
-                                        self.payload = {"error": str(err)}
-                                        self.sources = [f"MCP Server ({server_name})"]
-                                return [McpErrorHit(ValueError(f"Absolute path {input_path} is outside the allowed checkout boundary"))], []
-                            rel_path = os.path.relpath(input_path, current_cwd)
-                            tool_input[path_key] = os.path.join(worktree_path, rel_path)
-                        else:
-                            if input_path.startswith(".."):
-                                class McpErrorHit:
-                                    def __init__(self, err):
-                                        self.id = "mcp_err"
-                                        self.payload = {"error": str(err)}
-                                        self.sources = [f"MCP Server ({server_name})"]
-                                return [McpErrorHit(ValueError(f"Path {input_path} escapes the allowed checkout boundary"))], []
-                            tool_input[path_key] = os.path.join(worktree_path, input_path)
+                if (
+                    path_key in tool_input
+                    and isinstance(tool_input[path_key], str)
+                    and not tool_input[path_key].startswith(worktree_path)
+                ):
+                    input_path = tool_input[path_key]
+                    # Force it to be relative to the worktree path if it was relative or absolute
+                    if os.path.isabs(input_path):
+                        current_cwd = os.getcwd()
+                        if not input_path.startswith(current_cwd):
+
+                            class McpErrorHit:
+                                def __init__(self, err):
+                                    self.id = "mcp_err"
+                                    self.payload = {"error": str(err)}
+                                    self.sources = [f"MCP Server ({server_name})"]
+
+                            return [
+                                McpErrorHit(
+                                    ValueError(
+                                        f"Absolute path {input_path} is outside the allowed checkout boundary"
+                                    )
+                                )
+                            ], []
+                        rel_path = os.path.relpath(input_path, current_cwd)
+                        tool_input[path_key] = os.path.join(worktree_path, rel_path)
+                    else:
+                        if input_path.startswith(".."):
+
+                            class McpErrorHit:
+                                def __init__(self, err):
+                                    self.id = "mcp_err"
+                                    self.payload = {"error": str(err)}
+                                    self.sources = [f"MCP Server ({server_name})"]
+
+                            return [
+                                McpErrorHit(
+                                    ValueError(
+                                        f"Path {input_path} escapes the allowed checkout boundary"
+                                    )
+                                )
+                            ], []
+                        tool_input[path_key] = os.path.join(worktree_path, input_path)
 
         async with sse_client(url) as (read, write):  # noqa: SIM117
             async with ClientSession(read, write) as session:
@@ -593,33 +632,52 @@ async def _execute_mcp_tool(
                 if supports_worktree and worktree_path:
                     try:
                         diff_proc = await asyncio.create_subprocess_exec(
-                            "git", "diff",
+                            "git",
+                            "diff",
                             cwd=worktree_path,
                             stdout=asyncio.subprocess.PIPE,
-                            stderr=asyncio.subprocess.PIPE
+                            stderr=asyncio.subprocess.PIPE,
                         )
                         diff_stdout, diff_stderr = await diff_proc.communicate()
                         if diff_proc.returncode != 0:
                             preserve_worktree = True
-                            logger.error(f"Git diff failed: {diff_stderr.decode('utf-8')}")
+                            logger.error(
+                                f"Git diff failed: {diff_stderr.decode('utf-8')}"
+                            )
+
                             class McpErrorHit:
                                 def __init__(self, err):
                                     self.id = "mcp_err"
                                     self.payload = {"error": str(err)}
                                     self.sources = [f"MCP Server ({server_name})"]
-                            return [McpErrorHit(RuntimeError(f"Git diff failed in worktree. Preserving worktree at {worktree_path}"))], []
+
+                            return [
+                                McpErrorHit(
+                                    RuntimeError(
+                                        f"Git diff failed in worktree. Preserving worktree at {worktree_path}"
+                                    )
+                                )
+                            ], []
                         diff_text = diff_stdout.decode("utf-8") if diff_stdout else ""
                         if diff_text:
                             diff_output = "\n\n[Git Worktree Diff]:\n" + diff_text
                     except Exception as e:
                         preserve_worktree = True
                         logger.error(f"Failed to get git diff: {e}")
+
                         class McpErrorHit:
                             def __init__(self, err):
                                 self.id = "mcp_err"
                                 self.payload = {"error": str(err)}
                                 self.sources = [f"MCP Server ({server_name})"]
-                        return [McpErrorHit(RuntimeError(f"Exception during git diff: {e}. Preserving worktree at {worktree_path}"))], []
+
+                        return [
+                            McpErrorHit(
+                                RuntimeError(
+                                    f"Exception during git diff: {e}. Preserving worktree at {worktree_path}"
+                                )
+                            )
+                        ], []
 
                 class McpHit:
                     def __init__(self, res, diff):
@@ -644,23 +702,34 @@ async def _execute_mcp_tool(
 
         return [McpErrorHit(err_msg)], []
     finally:
-        if supports_worktree and worktree_path and os.path.exists(worktree_path) and not preserve_worktree:
+        if (
+            supports_worktree
+            and worktree_path
+            and os.path.exists(worktree_path)
+            and not preserve_worktree
+        ):
             try:
                 proc1 = await asyncio.create_subprocess_exec(
-                    "git", "worktree", "remove", "--force", str(worktree_path),
+                    "git",
+                    "worktree",
+                    "remove",
+                    "--force",
+                    str(worktree_path),
                     stdout=asyncio.subprocess.PIPE,
-                    stderr=asyncio.subprocess.PIPE
+                    stderr=asyncio.subprocess.PIPE,
                 )
                 await proc1.communicate()
                 proc2 = await asyncio.create_subprocess_exec(
-                    "git", "branch", "-D", str(branch_name),
+                    "git",
+                    "branch",
+                    "-D",
+                    str(branch_name),
                     stdout=asyncio.subprocess.PIPE,
-                    stderr=asyncio.subprocess.PIPE
+                    stderr=asyncio.subprocess.PIPE,
                 )
                 await proc2.communicate()
             except Exception as e:
                 logger.error(f"Failed to cleanup git worktree: {e}")
-
 
 
 def _build_context_string(merged_results: list[Any]) -> str:

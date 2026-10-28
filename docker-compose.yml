@@ -119,6 +119,16 @@ services:
     environment:
       - SEARXNG_BASE_URL=http://searxng:8080/
     restart: unless-stopped
+    depends_on:
+      - tor
+
+  tor:
+    image: dperson/torproxy:latest
+    restart: unless-stopped
+    ports:
+      - "9050:9050"
+    environment:
+      - TOR_NewCircuitPeriod=15
 
   web:
     build:
