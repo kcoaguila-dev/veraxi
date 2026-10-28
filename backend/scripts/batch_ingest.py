@@ -37,6 +37,7 @@ def _extract_pdf_pypdf(file_path: str) -> str:
 
 def extract_text(
     file_path: str,
+    parser: str = "docling",
     fast: bool = False,
     vision_captioner: VisionCaptioner | None = None,
 ) -> str:
@@ -55,16 +56,17 @@ def extract_text(
             logger.debug("Could not inspect file header for %s: %s", file_path, err)
 
     if is_pdf:
-        # If fast is requested and vision is NOT enabled, use direct pypdf
-        has_active_vision = vision_captioner is not None and not isinstance(
-            vision_captioner, NoOpVisionCaptioner
-        )
-        if fast and not has_active_vision:
+        # If explicitly set to pypdf parser, extract text via fast pypdf stream
+        if parser == "pypdf":
             logger.info("Extracting PDF text via fast pypdf parser...")
             text = _extract_pdf_pypdf(file_path)
             if text.strip():
                 return text
             logger.info("Fast pypdf returned empty text, falling back to Docling...")
+
+        has_active_vision = vision_captioner is not None and not isinstance(
+            vision_captioner, NoOpVisionCaptioner
+        )
 
         try:
             from io import BytesIO
@@ -74,7 +76,7 @@ def extract_text(
             from backend.ingestion.vision import should_escalate_to_vlm
 
             logger.info(
-                "Parsing PDF with Docling AI models (this may take a moment)..."
+                "Parsing PDF with Docling AI models & TableFormer (this may take a moment)..."
             )
             converter = DocumentConverter()
             result = converter.convert(file_path)
@@ -151,9 +153,16 @@ def main():
         help="Tenant ID to ingest as (required if Auth is enabled and not self-hosting)",
     )
     parser.add_argument(
+        "--parser",
+        type=str,
+        choices=["docling", "pypdf"],
+        default="docling",
+        help="PDF parser engine: 'docling' (default, layout & TableFormer AI) or 'pypdf' (fast stream)",
+    )
+    parser.add_argument(
         "--fast",
         action="store_true",
-        help="Use fast extraction (CPU/spaCy) instead of Deep Extraction (LLM)",
+        help="Use fast entity extraction (CPU/spaCy) instead of Deep Extraction (LLM)",
     )
     parser.add_argument(
         "--vision",
@@ -254,7 +263,7 @@ def main():
     has_active_vision = not isinstance(captioner, NoOpVisionCaptioner)
 
     logger.info(
-        f"Found {len(files)} files for batch ingestion. Extraction Mode: {'Fast (CPU)' if args.fast else 'Deep (LLM)'} | Vision: {'Active (' + config.vision_model_name + ')' if has_active_vision else 'Disabled'}"
+        f"Found {len(files)} files for batch ingestion. Parser: {args.parser.upper()} | Entity Extraction: {'Fast (CPU spaCy)' if args.fast else 'Deep (LLM)'} | Vision: {'Active (' + config.vision_model_name + ')' if has_active_vision else 'Disabled'}"
     )
 
     for file_path in files:
@@ -262,7 +271,12 @@ def main():
         logger.info("==================================================")
         logger.info(f"Processing: {filename}")
 
-        text = extract_text(file_path, fast=args.fast, vision_captioner=captioner)
+        text = extract_text(
+            file_path,
+            parser=args.parser,
+            fast=args.fast,
+            vision_captioner=captioner,
+        )
         if not text.strip():
             logger.warning(f"No text extracted from {filename}. Skipping.")
             continue
