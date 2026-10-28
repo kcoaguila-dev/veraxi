@@ -8,6 +8,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from backend.config import get_config
 from backend.ingestion.__main__ import run_ingestion
+from backend.ingestion.vision import NoOpVisionCaptioner, VisionCaptioner, get_vision_captioner
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
@@ -30,8 +31,12 @@ def _extract_pdf_pypdf(file_path: str) -> str:
         return ""
 
 
-def extract_text(file_path: str, fast: bool = False) -> str:
-    """Extracts text from PDF, MD, or TXT files."""
+def extract_text(
+    file_path: str,
+    fast: bool = False,
+    vision_captioner: VisionCaptioner | None = None,
+) -> str:
+    """Extracts text from PDF, MD, or TXT files, with optional adaptive vision."""
     ext = os.path.splitext(file_path)[1].lower()
 
     # Detect if file is a PDF (by extension or magic bytes %PDF-)
@@ -46,7 +51,11 @@ def extract_text(file_path: str, fast: bool = False) -> str:
             logger.debug("Could not inspect file header for %s: %s", file_path, err)
 
     if is_pdf:
-        if fast:
+        # If fast is requested and vision is NOT enabled, use direct pypdf
+        has_active_vision = vision_captioner is not None and not isinstance(
+            vision_captioner, NoOpVisionCaptioner
+        )
+        if fast and not has_active_vision:
             logger.info("Extracting PDF text via fast pypdf parser...")
             text = _extract_pdf_pypdf(file_path)
             if text.strip():
@@ -54,14 +63,60 @@ def extract_text(file_path: str, fast: bool = False) -> str:
             logger.info("Fast pypdf returned empty text, falling back to Docling...")
 
         try:
+            from io import BytesIO
+
             from docling.document_converter import DocumentConverter
+
+            from backend.ingestion.vision import should_escalate_to_vlm
 
             logger.info(
                 "Parsing PDF with Docling AI models (this may take a moment)..."
             )
             converter = DocumentConverter()
             result = converter.convert(file_path)
-            return result.document.export_to_markdown()
+            doc = result.document
+            markdown = doc.export_to_markdown()
+
+            if has_active_vision:
+                visual_summaries = []
+                pictures = getattr(doc, "pictures", [])
+                logger.info(
+                    f"Found {len(pictures)} visual elements. Running adaptive vision escalation..."
+                )
+                for idx, pic in enumerate(pictures):
+                    try:
+                        img = pic.get_image(doc)
+                        if not img:
+                            continue
+                        w, h = img.size
+                        caption = pic.caption_text(doc) or ""
+                        if should_escalate_to_vlm(
+                            width=w, height=h, existing_caption=caption
+                        ):
+                            buf = BytesIO()
+                            img.save(buf, format="JPEG")
+                            img_bytes = buf.getvalue()
+                            assert vision_captioner is not None
+                            vlm_caption = vision_captioner.caption_image(img_bytes)
+                            if vlm_caption:
+                                visual_summaries.append(
+                                    f"### Visual Figure {idx + 1}\n{vlm_caption}"
+                                )
+                    except Exception as err:
+                        logger.debug(
+                            "Vision extraction skipped for picture %d: %s", idx, err
+                        )
+
+                if visual_summaries:
+                    logger.info(
+                        f"Enriched document with {len(visual_summaries)} visual descriptions via Vision AI."
+                    )
+                    markdown += (
+                        "\n\n## Visual Elements & Diagram Analysis\n\n"
+                        + "\n\n".join(visual_summaries)
+                    )
+
+            return markdown
         except Exception as e:
             logger.warning(f"Docling extraction failed for {file_path}: {e}")
             return _extract_pdf_pypdf(file_path)
@@ -95,6 +150,23 @@ def main():
         "--fast",
         action="store_true",
         help="Use fast extraction (CPU/spaCy) instead of Deep Extraction (LLM)",
+    )
+    parser.add_argument(
+        "--vision",
+        action="store_true",
+        help="Enable adaptive vision captioning for complex images/diagrams using configured Vision model",
+    )
+    parser.add_argument(
+        "--vision-model",
+        type=str,
+        default=None,
+        help="Override vision model name (e.g. moondream3, qwen2.5-vl:3b, gpt-4o-mini)",
+    )
+    parser.add_argument(
+        "--vision-base-url",
+        type=str,
+        default=None,
+        help="Override vision base URL (e.g. http://localhost:11434/v1)",
     )
     parser.add_argument(
         "--chunk-size", type=int, default=300, help="Chunk size for embedding"
@@ -166,8 +238,19 @@ def main():
         logger.info(f"No files found in {args.dir}")
         return
 
+    # Vision captioner setup
+    if args.vision:
+        config.vision_enabled = True
+    if args.vision_model:
+        config.vision_model_name = args.vision_model
+    if args.vision_base_url:
+        config.vision_base_url = args.vision_base_url
+
+    captioner = get_vision_captioner(config)
+    has_active_vision = not isinstance(captioner, NoOpVisionCaptioner)
+
     logger.info(
-        f"Found {len(files)} files for batch ingestion. Extraction Mode: {'Fast (CPU)' if args.fast else 'Deep (LLM)'}"
+        f"Found {len(files)} files for batch ingestion. Extraction Mode: {'Fast (CPU)' if args.fast else 'Deep (LLM)'} | Vision: {'Active (' + config.vision_model_name + ')' if has_active_vision else 'Disabled'}"
     )
 
     for file_path in files:
@@ -175,7 +258,7 @@ def main():
         logger.info("==================================================")
         logger.info(f"Processing: {filename}")
 
-        text = extract_text(file_path, fast=args.fast)
+        text = extract_text(file_path, fast=args.fast, vision_captioner=captioner)
         if not text.strip():
             logger.warning(f"No text extracted from {filename}. Skipping.")
             continue
