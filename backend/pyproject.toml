@@ -57,6 +57,7 @@ dependencies = [
     "mcp-types>=2.2.0",
     "python-dotenv>=1.2.3",
     "duckduckgo_search>=7.0.0",
+    "pytest-asyncio>=1.4.0",
 ]
 
 [project.optional-dependencies]

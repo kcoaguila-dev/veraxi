@@ -37,6 +37,7 @@ class ChatRequest(BaseModel):
     base_url: str | None = None
     model: str | None = None
     tool_settings: dict | None = None
+    custom_system_prompt: str | None = None
 
 
 class ChatResponse(BaseModel):
@@ -217,6 +218,10 @@ async def _stream_events(
 ):
     try:
         yield f"data: {json.dumps({'event': 'metadata', 'data': {'thread_id': thread_id}})}\n\n"
+        ts = chat_request.tool_settings or {}
+        if chat_request.custom_system_prompt:
+            ts["custom_system_prompt"] = chat_request.custom_system_prompt
+
         async for event in stream_answer_question(
             chat_request.question,
             tenant_id=tenant_id,
@@ -226,7 +231,7 @@ async def _stream_events(
             base_url_override=chat_request.base_url,
             model_override=chat_request.model,
             calculate_grounding=chat_request.calculate_grounding,
-            tool_settings=chat_request.tool_settings,
+            tool_settings=ts,
         ):
 
             def custom_encoder(obj):
@@ -463,6 +468,11 @@ def register_chat_routes(
                     ),
                     media_type="text/event-stream",
                 )
+            # Inject custom_system_prompt into tool_settings
+            ts = chat_request.tool_settings or {}
+            if chat_request.custom_system_prompt:
+                ts["custom_system_prompt"] = chat_request.custom_system_prompt
+
             answer, context, metrics = await answer_question(
                 chat_request.question,
                 tenant_id=tenant_id,
@@ -474,7 +484,7 @@ def register_chat_routes(
                 base_url_override=chat_request.base_url,
                 model_override=chat_request.model,
                 calculate_grounding=chat_request.calculate_grounding,
-                tool_settings=chat_request.tool_settings,
+                tool_settings=ts,
             )
             return ChatResponse(
                 answer=answer,

@@ -755,6 +755,7 @@ async def execute_tools_internal(
 
     vector_hits = []
     graph_hits = []
+    telemetry_hits = []
 
     for tool_call in tool_calls:
         tool_name = tool_call["name"]
@@ -763,28 +764,33 @@ async def execute_tools_internal(
         logger.info(f"LangGraph Agent called tool: {tool_name} with args: {tool_input}")
 
         if tool_name.startswith("mcp__"):
-            v_hits, g_hits = await _execute_mcp_tool(
-                tool_name, tool_input, tool_settings
-            )
+            t_hits, _ = await _execute_mcp_tool(tool_name, tool_input, tool_settings)
+            telemetry_hits.extend(t_hits)
         else:
-            # Run synchronous DB calls in threadpool
             loop = asyncio.get_running_loop()
             v_hits, g_hits = await loop.run_in_executor(
-                None,
-                _execute_single_tool,
-                tool_name,
-                tool_input,
-                tenant_id,
-                tool_settings,
+                None, _execute_single_tool, tool_name, tool_input, tenant_id, tool_settings
             )
+            vector_hits.extend(v_hits)
+            graph_hits.extend(g_hits)
 
-        vector_hits.extend(v_hits)
-        graph_hits.extend(g_hits)
+    merged_docs = merge_rank(vector_hits, graph_hits)
+    merged = telemetry_hits + merged_docs
 
-    merged = merge_rank(vector_hits, graph_hits)
-    context_str = _build_context_string(merged)
+    context_sections = []
 
-    if not context_str:
-        context_str = "No results found."
+    if telemetry_hits:
+        telemetry_blocks = []
+        for hit in telemetry_hits:
+            sources = " and ".join(getattr(hit, "sources", ["External Tool"]))
+            content = hit.payload.get("content", str(hit.payload)) if isinstance(hit.payload, dict) else str(hit.payload)
+            telemetry_blocks.append(f"[{sources}]:\n{content}")
+        context_sections.append("[EXTERNAL TELEMETRY & ACTIONS]:\n" + "\n\n".join(telemetry_blocks))
 
+    if merged_docs:
+        narrative_str = _build_context_string(merged_docs)
+        if narrative_str and narrative_str != "No results found.":
+            context_sections.append("[GROUNDED KNOWLEDGE GRAPH & VECTOR CONTEXT]:\n" + narrative_str)
+
+    context_str = "\n\n".join(context_sections) if context_sections else "No results found."
     return context_str, merged
