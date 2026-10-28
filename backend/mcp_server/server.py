@@ -406,7 +406,9 @@ def mcp_build_lazy_dossier(query: str, limit: int = 15) -> str:
 def mcp_purge_noisy_relationships() -> str:
     tenant_id = tenant_context.get()
     args = {k: v for k, v in locals().items() if k != "tenant_id"}
-    from backend.mcp_server.handlers.tool_registry import _handle_purge_noisy_relationships
+    from backend.mcp_server.handlers.tool_registry import (
+        _handle_purge_noisy_relationships,
+    )
 
     res = _handle_purge_noisy_relationships(args, tenant_id)
     return res[0].text

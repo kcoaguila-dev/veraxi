@@ -37,7 +37,7 @@ jobs:
     - name: Lint with Ruff
       run: |
         pip install ruff
-        ruff check backend/
+        ruff check --config backend/pyproject.toml backend/
 
     - name: Test with pytest
       run: |

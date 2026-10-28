@@ -1,5 +1,6 @@
-from typing import Any
 import logging
+from typing import Any
+
 from backend.config import get_config
 from backend.storage.neo4j_client import Neo4jStorageClient
 

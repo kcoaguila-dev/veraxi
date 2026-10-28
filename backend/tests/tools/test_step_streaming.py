@@ -228,12 +228,11 @@ def test_anti_attribution_drift_prompt_rule():
         "tool_settings": {"web_search": {"enabled": True}},
     }
 
-    with patch("backend.mcp_server.orchestrator.get_tools", return_value=[]):
-        with patch(
-            "backend.mcp_server.orchestrator._create_chat_llm",
-            return_value=DummyLLM(),
-        ):
-            asyncio.run(call_model(state))
+    with patch("backend.mcp_server.orchestrator.get_tools", return_value=[]), patch(
+        "backend.mcp_server.orchestrator._create_chat_llm",
+        return_value=DummyLLM(),
+    ):
+        asyncio.run(call_model(state))
 
     system_contents = [
         m.content for m in captured_messages if isinstance(m, SystemMessage)

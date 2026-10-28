@@ -1,6 +1,6 @@
 from typing import Any
-import numpy as np
 
+import numpy as np
 from backend.ingestion.chunk_embed import embed_text, get_embedding_model
 
 

@@ -17,8 +17,8 @@ from backend.mcp_server.tools.scrapers.trafilatura_scraper import TrafilaturaScr
 __all__ = [
     "PageScraper",
     "RobotsGate",
-    "ScraperResult",
     "ScrapeCache",
+    "ScraperResult",
     "build_scraper",
 ]
 

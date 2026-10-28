@@ -42,8 +42,8 @@ def extract_text(file_path: str, fast: bool = False) -> str:
                 header = f.read(5)
                 if header.startswith(b"%PDF-"):
                     is_pdf = True
-        except Exception:
-            pass
+        except OSError as err:
+            logger.debug("Could not inspect file header for %s: %s", file_path, err)
 
     if is_pdf:
         if fast:
@@ -70,8 +70,10 @@ def extract_text(file_path: str, fast: bool = False) -> str:
     try:
         with open(file_path, "r", encoding="utf-8") as f:
             return f.read()
-    except Exception:
-        pass
+    except UnicodeDecodeError as err:
+        logger.debug("UTF-8 decoding failed for %s: %s", file_path, err)
+    except OSError as err:
+        logger.debug("Failed opening file %s: %s", file_path, err)
 
     logger.warning(
         f"File {file_path} is neither a valid PDF nor UTF-8 text."
@@ -194,8 +196,8 @@ def main():
                 chunk_overlap=args.chunk_overlap,
             )
             logger.info(f"Successfully ingested {filename}: {result}")
-        except Exception as e:
-            logger.error(f"Ingestion failed for {filename}: {e}", exc_info=True)
+        except Exception:
+            logger.exception("Ingestion failed for %s", filename)
 
 
 if __name__ == "__main__":

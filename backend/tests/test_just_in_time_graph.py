@@ -1,9 +1,13 @@
 import uuid
+
 import pytest
 from backend.config import get_config
-from backend.storage.neo4j_client import Neo4jStorageClient
-from backend.storage.graph_operations import insert_graph_nodes, purge_cooccurrence_relationships
 from backend.retrieval.just_in_time_graph import build_lazy_graph_dossier
+from backend.storage.graph_operations import (
+    insert_graph_nodes,
+    purge_cooccurrence_relationships,
+)
+from backend.storage.neo4j_client import Neo4jStorageClient
 
 
 @pytest.fixture

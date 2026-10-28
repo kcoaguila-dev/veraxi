@@ -13,13 +13,13 @@ from backend.mcp_server.tools.ingest_document import (
     mcp_get_ingest_status,
     mcp_ingest_document,
 )
-from backend.storage.graph_operations import insert_graph_nodes
 from backend.mcp_server.tools.insert_vector import insert_vectors
 from backend.mcp_server.tools.query_graph import query_graph
 from backend.mcp_server.tools.run_analytics import run_community_detection
 from backend.mcp_server.tools.search_vectors import search_vectors
 from backend.mcp_server.tools.update_document import update_document_metadata
 from backend.mcp_server.tools.update_entity import update_entity
+from backend.storage.graph_operations import insert_graph_nodes
 from backend.storage.quota import check_tenant_hard_cap
 from mcp.types import TextContent, Tool
 

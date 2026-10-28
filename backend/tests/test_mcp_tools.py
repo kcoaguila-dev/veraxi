@@ -155,8 +155,8 @@ def test_extraction_validation_normalizes_nested_properties():
     assert "mixed_array" not in props
 
 
-from backend.storage.graph_operations import insert_graph_nodes
 from backend.mcp_server.tools.insert_vector import insert_vectors
+from backend.storage.graph_operations import insert_graph_nodes
 
 
 @patch("backend.storage.graph_operations.get_config")

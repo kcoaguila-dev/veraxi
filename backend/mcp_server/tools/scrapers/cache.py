@@ -11,6 +11,7 @@ from __future__ import annotations
 import logging
 import threading
 import time
+from typing import ClassVar
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +25,7 @@ class ScrapeCache:
     """Thread-safe in-memory cache with TTL for scraped page content."""
 
     _lock = threading.Lock()
-    _store: dict[str, tuple[str, float]] = {}
+    _store: ClassVar[dict[str, tuple[str, float]]] = {}
 
     @classmethod
     def get(cls, url: str) -> str | None:
