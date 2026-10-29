@@ -48,12 +48,12 @@ class Config:
     max_tenant_nodes: int
     internal_api_url: str
     admin_tenant_ids: list[str]
-    mcp_tool_profile: str
     vision_enabled: bool = False
     vision_base_url: str = ""
     vision_api_key: str = ""
     vision_model_name: str = "moondream3"
     vision_prompt: str = ""
+    mcp_tool_profile: str = "agent"
 
     @classmethod
     def from_env(cls) -> "Config":
@@ -124,12 +124,12 @@ class Config:
                 for t in os.environ.get("ADMIN_TENANT_IDS", "").split(",")
                 if t.strip()
             ],
-            mcp_tool_profile=mcp_profile,
             vision_enabled=os.environ.get("VISION_ENABLED", "false").lower() == "true",
             vision_base_url=os.environ.get("VISION_BASE_URL", ""),
             vision_api_key=os.environ.get("VISION_API_KEY", ""),
             vision_model_name=os.environ.get("VISION_MODEL_NAME", "moondream3"),
             vision_prompt=os.environ.get("VISION_PROMPT", ""),
+            mcp_tool_profile=mcp_profile,
         )
 
     def get_llm_client_args(self, model_name: str | None = None) -> dict:
