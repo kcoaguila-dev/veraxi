@@ -251,7 +251,7 @@ def _print_summary(schema: dict) -> None:
     node_count = metadata.get("node_count", "?")
     rel_type_count = len({r["type"] for r in relationships})
 
-    print(f"\n── Data Summary ────────────────────────────────────────────────────")
+    print("\n── Data Summary ────────────────────────────────────────────────────")
     print(f"  Nodes sampled (≥): {node_count}  |  Relationship types: {rel_type_count}")
 
     print("\n── Node Labels & Properties ────────────────────────────────────────")

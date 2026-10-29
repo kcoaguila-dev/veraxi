@@ -23,7 +23,7 @@ logging.basicConfig(
 logger = logging.getLogger("seed_dev_data")
 
 # Cohesive sample multi-hop domain data
-SAMPLE_DOCUMENTS = [
+SAMPLE_DOCUMENTS: list[dict[str, Any]] = [
     {
         "title": "Acme Neurotech Origins",
         "text": (

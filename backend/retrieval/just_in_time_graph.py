@@ -71,7 +71,7 @@ def build_lazy_graph_dossier(
         )
 
     # 3. Pull linked entity anchors from Neo4j
-    entities_by_chunk = {}
+    entities_by_chunk: dict[str, list[dict[str, Any]]] = {}
     if chunk_ids:
         cypher = """
         MATCH (n)
