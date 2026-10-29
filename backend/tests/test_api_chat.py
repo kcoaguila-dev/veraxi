@@ -1,9 +1,8 @@
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from fastapi.testclient import TestClient
-
 from backend.api_gateway import app, get_tenant_id, verify_infrastructure_access
+from fastapi.testclient import TestClient
 
 
 @pytest.fixture(autouse=True)
@@ -398,3 +397,55 @@ async def test_error_handling_httpexception_passthrough(override_redis):
         assert response.status_code == 400
         data = response.json()
         assert data["detail"] == "Custom bad request"
+
+
+@pytest.mark.asyncio
+async def test_chat_endpoint_forwards_custom_system_prompt_non_streaming(override_redis):
+    """Verify that non-streaming /api/chat forwards custom_system_prompt via tool_settings."""
+    with patch(
+        "backend.routes.chat.answer_question", new_callable=AsyncMock
+    ) as mock_answer:
+        mock_answer.return_value = ("Answer", "Context", {})
+
+        response = client.post(
+            "/api/chat",
+            json={
+                "question": "What is 2+2?",
+                "stream": False,
+                "model": "test-model",
+                "api_key": "dummy",
+                "custom_system_prompt": "Act as a pirate.",
+            },
+        )
+
+        assert response.status_code == 200
+        mock_answer.assert_awaited_once()
+        tool_settings = mock_answer.call_args.kwargs.get("tool_settings", {})
+        assert tool_settings.get("custom_system_prompt") == "Act as a pirate."
+
+
+@pytest.mark.asyncio
+async def test_chat_endpoint_forwards_custom_system_prompt_streaming(override_redis):
+    """Verify that streaming /api/chat forwards custom_system_prompt via tool_settings."""
+    async def mock_stream(*args, **kwargs):
+        yield {"event": "token", "data": "Arr!"}
+
+    with patch(
+        "backend.routes.chat.stream_answer_question", side_effect=mock_stream
+    ) as mock_stream_fn:
+        response = client.post(
+            "/api/chat",
+            json={
+                "question": "What is 2+2?",
+                "stream": True,
+                "model": "test-model",
+                "api_key": "dummy",
+                "custom_system_prompt": "Act as a pirate.",
+            },
+        )
+
+        assert response.status_code == 200
+        mock_stream_fn.assert_called_once()
+        tool_settings = mock_stream_fn.call_args.kwargs.get("tool_settings", {})
+        assert tool_settings.get("custom_system_prompt") == "Act as a pirate."
+

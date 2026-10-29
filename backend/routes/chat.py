@@ -9,11 +9,6 @@ import uuid
 from typing import Any, Literal
 
 import sentry_sdk
-from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import StreamingResponse
-from langchain_core.messages import AIMessage, HumanMessage
-from pydantic import BaseModel, Field
-
 from backend.mcp_server.llm_loop import (
     answer_question,
     generate_chat_title,
@@ -21,6 +16,10 @@ from backend.mcp_server.llm_loop import (
 )
 from backend.mcp_server.orchestrator import _get_workflow
 from backend.security.moderation import moderate_text
+from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import StreamingResponse
+from langchain_core.messages import AIMessage, HumanMessage
+from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 
@@ -314,9 +313,8 @@ def register_chat_routes(
         if tenant_id == "local_guest":
             raise HTTPException(status_code=401, detail="Authentication required")
 
-        from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
-
         from backend.config import get_config as _get_config
+        from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 
         config_obj = _get_config()
         if not config_obj.postgres_url:
@@ -685,9 +683,8 @@ def register_chat_routes(
             is_shared = await request.app.state.redis.get(f"shared_thread:{thread_id}")
             if not is_shared:
                 raise HTTPException(status_code=404, detail="Shared thread not found.")
-            from langgraph.checkpoint.redis.aio import AsyncRedisSaver
-
             from backend.config import get_config as _get_config
+            from langgraph.checkpoint.redis.aio import AsyncRedisSaver
 
             config_obj = _get_config()
             async with AsyncRedisSaver.from_conn_string(config_obj.redis_url) as memory:
@@ -743,9 +740,8 @@ def register_chat_routes(
         tenant_id: str = Depends(get_tenant_id),
     ):
         try:
-            from langgraph.checkpoint.redis.aio import AsyncRedisSaver
-
             from backend.config import get_config as _get_config
+            from langgraph.checkpoint.redis.aio import AsyncRedisSaver
 
             config_obj = _get_config()
             async with AsyncRedisSaver.from_conn_string(config_obj.redis_url) as memory:

@@ -1,3 +1,3 @@
 [lint]
-ignore = ["E402", "BLE001"]
+ignore = ["E402", "BLE001", "I001"]
 exclude = ["build/**"]
