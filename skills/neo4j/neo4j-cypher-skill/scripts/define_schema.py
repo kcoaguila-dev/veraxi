@@ -63,7 +63,7 @@ def main():
         print("No nodes defined. Exiting.")
         return
 
-    print(f"\nStep 2: Define Relationships")
+    print("\nStep 2: Define Relationships")
     print(f"  Available nodes: {node_labels}")
     rel_types = set()
 
@@ -72,8 +72,8 @@ def main():
         if not rel:
             break
 
-        from_label = input(f"  From node: ").strip()
-        to_label = input(f"  To node: ").strip()
+        from_label = input("  From node: ").strip()
+        to_label = input("  To node: ").strip()
 
         if from_label not in schema["value"]:
             print(f"  '{from_label}' not found. Skipping.")

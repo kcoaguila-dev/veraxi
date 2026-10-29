@@ -149,7 +149,12 @@ async def call_model(state: AgentState):
             )
         )
 
-    modified_messages = _prepend_system_messages(messages, extra_system_messages)
+    custom_system_prompt = tool_settings.get("custom_system_prompt")
+    modified_messages = _prepend_system_messages(
+        messages,
+        extra_system_messages,
+        custom_system_prompt=custom_system_prompt,
+    )
 
     # Determine if we should bind tools. We do not bind tools if we are executing a fallback,
     # OR if we just received a ToolMessage (to prevent the LLM from hallucinating more tool calls and looping).
@@ -167,7 +172,7 @@ async def call_model(state: AgentState):
     else:
         tools_list = await get_tools(tool_settings)
         if tools_list:
-            llm_with_tools = llm.bind_tools(tools_list, parallel_tool_calls=False)
+            llm_with_tools = llm.bind_tools(tools_list, parallel_tool_calls=True)
         else:
             llm_with_tools = llm
 

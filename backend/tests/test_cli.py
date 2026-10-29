@@ -18,7 +18,7 @@ def test_client_configs_safe_mutation(tmp_path):
         "mcpServers": {
             "github-mcp": {
                 "command": "npx",
-                "args": ["-y", "@modelcontextprotocol/server-github"]
+                "args": ["-y", "@modelcontextprotocol/server-github"],
             }
         }
     }
@@ -27,7 +27,9 @@ def test_client_configs_safe_mutation(tmp_path):
         json.dump(initial_data, f)
 
     # Run the mutation
-    success = update_mcp_config(config_file, "vx-testkey123", "https://api.veraxi.me/sse")
+    success = update_mcp_config(
+        config_file, "vx-testkey123", "https://api.veraxi.me/sse"
+    )
 
     assert success is True
 
@@ -36,24 +38,26 @@ def test_client_configs_safe_mutation(tmp_path):
         result_data = json.load(f)
 
     assert "mcpServers" in result_data
-    assert "github-mcp" in result_data["mcpServers"] # Must not delete other servers
+    assert "github-mcp" in result_data["mcpServers"]  # Must not delete other servers
     assert "veraxi" in result_data["mcpServers"]
 
     veraxi_node = result_data["mcpServers"]["veraxi"]
     assert veraxi_node["url"] == "https://api.veraxi.me/sse"
     assert veraxi_node["headers"]["Authorization"] == "Bearer vx-testkey123"
 
+
 # 2. test_mcp_install_headless_error: Verify exit code 1 when no key is provided in a non-interactive shell.
 @patch("veraxi.cli.auth.load_credentials", return_value={})
 @patch("sys.stdin.isatty", return_value=False)
 @patch("sys.argv", ["veraxi", "mcp", "install"])
-@patch("os.environ.get", return_value=None) # No VERAXI_API_KEY
+@patch("os.environ.get", return_value=None)  # No VERAXI_API_KEY
 def test_mcp_install_headless_error(mock_env_get, mock_isatty, mock_load_creds):
     # Running main should raise SystemExit(1)
     with pytest.raises(SystemExit) as exc_info:
         main()
 
     assert exc_info.value.code == 1
+
 
 # 3. test_doctor_validation: Test mock endpoint checks for 200 vs 401.
 @patch("urllib.request.urlopen")
@@ -66,16 +70,18 @@ def test_doctor_validation_200(mock_urlopen):
     assert success is True
     assert "200 OK" in msg
 
+
 @patch("urllib.request.urlopen")
 def test_doctor_validation_401(mock_urlopen):
     # Mocking a 401 Unauthorized Error
     import urllib.error
+
     mock_urlopen.side_effect = urllib.error.HTTPError(
         url="https://api.veraxi.me/sse",
         code=401,
         msg="Unauthorized",
         hdrs=None,
-        fp=None
+        fp=None,
     )
 
     # With a key provided, 401 should mean invalid key (Fail)
@@ -87,6 +93,7 @@ def test_doctor_validation_401(mock_urlopen):
     success, msg = check_endpoint("https://api.veraxi.me/sse", None)
     assert success is True
     assert "401 Unauthorized" in msg
+
 
 def test_init_command_creates_files(tmp_path):
     with patch("os.getcwd", return_value=str(tmp_path)):
@@ -101,6 +108,7 @@ def test_init_command_creates_files(tmp_path):
     assert "AI Agent Instructions for Veraxi Knowledge Graph" in claude_md.read_text()
     assert "Veraxi Knowledge Graph Rules" in cursorrules.read_text()
 
+
 @patch("sys.stdin.isatty", return_value=False)
 @patch("sys.stdin.read", return_value="mock pipe error context")
 @patch("sys.argv", ["veraxi", "mcp", "query"])
@@ -110,6 +118,7 @@ def test_main_pipe_handling(mock_run_query, mock_read, mock_isatty):
     mock_run_query.assert_called_once()
     args, _kwargs = mock_run_query.call_args
     assert "mock pipe error context" in args[0]
+
 
 # 4. test_review_diff: Test run_review diff handling
 @patch("veraxi.cli.review.run_query")
@@ -133,6 +142,7 @@ def test_review_diff(mock_subprocess_run, mock_run_query):
     _args, kwargs = mock_run_query.call_args
     assert "diff --git a/test b/test" in kwargs["query"]
 
+
 # 5. test_review_empty_diff: Test run_review exits 0 if no diff
 @patch("subprocess.run")
 def test_review_empty_diff(mock_subprocess_run):
@@ -151,6 +161,7 @@ def test_review_empty_diff(mock_subprocess_run):
 
     assert exc_info.value.code == 0
 
+
 # 6. test_ingest_url_200: Test URL ingestion
 @patch("urllib.request.urlopen")
 def test_ingest_url_200(mock_urlopen):
@@ -167,6 +178,7 @@ def test_ingest_url_200(mock_urlopen):
     assert req.full_url.endswith("/api/admin/ingest/url")
     assert req.headers.get("Authorization") == "Bearer vx-test"
 
+
 # 7. test_ingest_file_401: Test file ingestion with 401
 @patch("urllib.request.urlopen")
 def test_ingest_file_401(mock_urlopen, tmp_path):
@@ -182,13 +194,14 @@ def test_ingest_file_401(mock_urlopen, tmp_path):
         code=401,
         msg="Unauthorized",
         hdrs=None,
-        fp=None
+        fp=None,
     )
 
     # Should not raise exception, just print error
     run_ingest(str(test_file), key="vx-bad")
 
     mock_urlopen.assert_called_once()
+
 
 # 8. test_auth_save_and_load: Test credentials lifecycle
 def test_auth_save_and_load(tmp_path):
@@ -209,6 +222,7 @@ def test_auth_save_and_load(tmp_path):
         assert auth.delete_credentials()
         assert auth.load_credentials() == {}
 
+
 # 9. test_stats_json_output: Test stats formatted output
 @patch("backend.mcp_server.tools.get_stats.get_database_stats")
 def test_stats_json_output(mock_get_stats, capsys):
@@ -225,6 +239,7 @@ def test_stats_json_output(mock_get_stats, capsys):
     data = json.loads(captured.out)
     assert data["qdrant_vectors"] == 1234
     assert data["neo4j_nodes"] == 5678
+
 
 # 10. test_completion_output: Test shell completion output
 def test_completion_output(capsys):
@@ -282,7 +297,9 @@ def test_schema_json_output(mock_get_schema, capsys):
 def test_trace_json_output(capsys):
     from veraxi.cli.trace import run_trace
 
-    with patch("backend.storage.neo4j_client.Neo4jStorageClient.from_config") as mock_neo4j:
+    with patch(
+        "backend.storage.neo4j_client.Neo4jStorageClient.from_config"
+    ) as mock_neo4j:
         mock_client = MagicMock()
         mock_neo4j.return_value = mock_client
         mock_client.execute_read.return_value = [
@@ -302,12 +319,19 @@ def test_check_gate():
 
     with patch("backend.evaluation.grounding.evaluate_groundedness", return_value=0.95):
         with pytest.raises(SystemExit) as exc_info:
-            run_check(text="True fact", context="True fact", min_score=0.8, as_json=True)
+            run_check(
+                text="True fact", context="True fact", min_score=0.8, as_json=True
+            )
         assert exc_info.value.code == 0
 
     with patch("backend.evaluation.grounding.evaluate_groundedness", return_value=0.40):
         with pytest.raises(SystemExit) as exc_info:
-            run_check(text="Hallucinated fact", context="Other fact", min_score=0.8, as_json=True)
+            run_check(
+                text="Hallucinated fact",
+                context="Other fact",
+                min_score=0.8,
+                as_json=True,
+            )
         assert exc_info.value.code == 1
 
 
@@ -315,7 +339,9 @@ def test_check_gate():
 def test_remember_and_resolve_lifecycle(capsys):
     from veraxi.cli.memory import run_memory_list, run_remember, run_resolve
 
-    with patch("backend.storage.neo4j_client.Neo4jStorageClient.from_config") as mock_neo4j:
+    with patch(
+        "backend.storage.neo4j_client.Neo4jStorageClient.from_config"
+    ) as mock_neo4j:
         mock_client = MagicMock()
         mock_neo4j.return_value = mock_client
 
@@ -327,7 +353,9 @@ def test_remember_and_resolve_lifecycle(capsys):
         assert data["status"] == "active"
 
         # Resolve
-        mock_client.execute_read.return_value = [{"id": data["id"], "name": "Test rule"}]
+        mock_client.execute_read.return_value = [
+            {"id": data["id"], "name": "Test rule"}
+        ]
         run_resolve(data["id"], ref="PR#1", note="Fixed", as_json=True)
         captured = capsys.readouterr()
         res_data = json.loads(captured.out)
@@ -335,6 +363,7 @@ def test_remember_and_resolve_lifecycle(capsys):
 
         # Reopen (Human Override)
         from veraxi.cli.memory import run_reopen
+
         run_reopen(data["id"], note="Still broken in staging", as_json=True)
         captured = capsys.readouterr()
         reopen_data = json.loads(captured.out)
@@ -355,16 +384,28 @@ def test_remember_and_resolve_lifecycle(capsys):
 def test_context_packing(capsys):
     from veraxi.cli.context import run_context
 
-    with patch("backend.storage.neo4j_client.Neo4jStorageClient.from_config") as mock_neo4j:
+    with patch(
+        "backend.storage.neo4j_client.Neo4jStorageClient.from_config"
+    ) as mock_neo4j:
         mock_client = MagicMock()
         mock_neo4j.return_value = mock_client
         mock_client.execute_read.side_effect = [
             [{"repos": ["veraxi"]}],  # get_cluster_repos
             [{"id": "mem-1", "name": "Active rule", "tag": "auth"}],  # active rules
-            [{"id": "mem-2", "name": "Old caveat", "tag": "db", "ref": "PR#2", "note": "Solved"}],  # resolved caveats
+            [
+                {
+                    "id": "mem-2",
+                    "name": "Old caveat",
+                    "tag": "db",
+                    "ref": "PR#2",
+                    "note": "Solved",
+                }
+            ],  # resolved caveats
         ]
 
-        with patch("backend.mcp_server.tools.search_vectors.search_vectors", return_value=[]):
+        with patch(
+            "backend.mcp_server.tools.search_vectors.search_vectors", return_value=[]
+        ):
             run_context("Auth refactor task")
             captured = capsys.readouterr()
             assert "<veraxi-context" in captured.out
@@ -378,13 +419,17 @@ def test_context_packing(capsys):
 def test_cluster_lifecycle(capsys):
     from veraxi.cli.cluster import get_cluster_repos, run_cluster
 
-    with patch("backend.storage.neo4j_client.Neo4jStorageClient.from_config") as mock_neo4j:
+    with patch(
+        "backend.storage.neo4j_client.Neo4jStorageClient.from_config"
+    ) as mock_neo4j:
         mock_client = MagicMock()
         mock_neo4j.return_value = mock_client
 
         # Add cluster
         mock_client.execute_read.return_value = []
-        run_cluster("add", name="auth-stack", repos=["frontend", "auth-service"], as_json=True)
+        run_cluster(
+            "add", name="auth-stack", repos=["frontend", "auth-service"], as_json=True
+        )
         captured = capsys.readouterr()
         data = json.loads(captured.out)
         assert data["name"] == "auth-stack"
@@ -413,7 +458,9 @@ def test_cluster_lifecycle(capsys):
 def test_impact_analysis(capsys):
     from veraxi.cli.impact import run_impact
 
-    with patch("backend.storage.neo4j_client.Neo4jStorageClient.from_config") as mock_neo4j:
+    with patch(
+        "backend.storage.neo4j_client.Neo4jStorageClient.from_config"
+    ) as mock_neo4j:
         mock_client = MagicMock()
         mock_neo4j.return_value = mock_client
 
@@ -447,7 +494,10 @@ def test_impact_offline_static_scan(capsys, tmp_path):
     api_file.write_text("from storage import CustomClient\nCustomClient.do_work()\n")
     test_file.write_text("import CustomClient\n")
 
-    with patch("backend.storage.neo4j_client.Neo4jStorageClient.from_config", side_effect=Exception("Offline")):
+    with patch(
+        "backend.storage.neo4j_client.Neo4jStorageClient.from_config",
+        side_effect=Exception("Offline"),
+    ):
         run_impact("CustomClient", hops=2, root_dir=str(tmp_path), as_json=True)
         captured = capsys.readouterr()
         data = json.loads(captured.out)
@@ -464,15 +514,27 @@ def test_rules_sync(tmp_path):
     claude_md = tmp_path / "CLAUDE.md"
     claude_md.write_text("# Project Guidelines\nExisting manual instructions.\n")
 
-    with patch("backend.storage.neo4j_client.Neo4jStorageClient.from_config") as mock_neo4j:
+    with patch(
+        "backend.storage.neo4j_client.Neo4jStorageClient.from_config"
+    ) as mock_neo4j:
         mock_client = MagicMock()
         mock_neo4j.return_value = mock_client
         mock_client.execute_read.side_effect = [
             [{"repos": ["veraxi"]}],  # get_cluster_repos
-            [{"id": "rule-1", "name": "Always use RS256 for tokens", "tag": "auth", "project": "veraxi"}],
+            [
+                {
+                    "id": "rule-1",
+                    "name": "Always use RS256 for tokens",
+                    "tag": "auth",
+                    "project": "veraxi",
+                }
+            ],
         ]
 
-        with patch("os.getcwd", return_value=str(tmp_path)), patch("subprocess.check_output", return_value=str(tmp_path)):
+        with (
+            patch("os.getcwd", return_value=str(tmp_path)),
+            patch("subprocess.check_output", return_value=str(tmp_path)),
+        ):
             run_rules_sync(target="claude", project="veraxi", as_json=True)
 
     content = claude_md.read_text()
@@ -488,11 +550,19 @@ def test_memory_export_and_import(tmp_path):
 
     export_file = tmp_path / "rules.json"
 
-    with patch("backend.storage.neo4j_client.Neo4jStorageClient.from_config") as mock_neo4j:
+    with patch(
+        "backend.storage.neo4j_client.Neo4jStorageClient.from_config"
+    ) as mock_neo4j:
         mock_client = MagicMock()
         mock_neo4j.return_value = mock_client
         mock_client.execute_read.return_value = [
-            {"id": "mem-1", "name": "Rule one", "tag": "db", "status": "active", "project": "test-repo"}
+            {
+                "id": "mem-1",
+                "name": "Rule one",
+                "tag": "db",
+                "status": "active",
+                "project": "test-repo",
+            }
         ]
 
         # Export
@@ -513,7 +583,9 @@ def test_memory_export_and_import(tmp_path):
 def test_memory_audit(capsys):
     from veraxi.cli.memory import run_memory_audit
 
-    with patch("backend.storage.neo4j_client.Neo4jStorageClient.from_config") as mock_neo4j:
+    with patch(
+        "backend.storage.neo4j_client.Neo4jStorageClient.from_config"
+    ) as mock_neo4j:
         mock_client = MagicMock()
         mock_neo4j.return_value = mock_client
         mock_client.execute_read.return_value = [
@@ -539,15 +611,25 @@ def test_memory_prune(capsys, tmp_path):
 
     archive_file = tmp_path / "archive.json"
 
-    with patch("backend.storage.neo4j_client.Neo4jStorageClient.from_config") as mock_neo4j:
+    with patch(
+        "backend.storage.neo4j_client.Neo4jStorageClient.from_config"
+    ) as mock_neo4j:
         mock_client = MagicMock()
         mock_neo4j.return_value = mock_client
         mock_client.execute_read.return_value = [
-            {"id": "old-1", "name": "Old bug", "tag": "db", "status": "resolved", "created_at": "2024-01-01T00:00:00Z"}
+            {
+                "id": "old-1",
+                "name": "Old bug",
+                "tag": "db",
+                "status": "resolved",
+                "created_at": "2024-01-01T00:00:00Z",
+            }
         ]
 
         # Dry run
-        run_memory_prune(older_than="30d", dry_run=True, project="test-repo", as_json=True)
+        run_memory_prune(
+            older_than="30d", dry_run=True, project="test-repo", as_json=True
+        )
         captured = capsys.readouterr()
         dry_data = json.loads(captured.out)
         assert dry_data["dry_run"] is True
@@ -555,7 +637,13 @@ def test_memory_prune(capsys, tmp_path):
         assert not mock_client.execute_write.called
 
         # Actual execution
-        run_memory_prune(older_than="30d", dry_run=False, archive_file=str(archive_file), project="test-repo", as_json=True)
+        run_memory_prune(
+            older_than="30d",
+            dry_run=False,
+            archive_file=str(archive_file),
+            project="test-repo",
+            as_json=True,
+        )
         assert mock_client.execute_write.called
         assert archive_file.is_file()
 
@@ -564,15 +652,27 @@ def test_memory_prune(capsys, tmp_path):
 def test_memory_stats(capsys):
     from veraxi.cli.memory import run_memory_stats
 
-    with patch("backend.storage.neo4j_client.Neo4jStorageClient.from_config") as mock_neo4j:
+    with patch(
+        "backend.storage.neo4j_client.Neo4jStorageClient.from_config"
+    ) as mock_neo4j:
         mock_client = MagicMock()
         mock_neo4j.return_value = mock_client
         mock_client.execute_read.side_effect = [
             # memories
             [
-                {"id": "r1", "name": "Active rule 1", "tag": "auth", "status": "active"},
+                {
+                    "id": "r1",
+                    "name": "Active rule 1",
+                    "tag": "auth",
+                    "status": "active",
+                },
                 {"id": "r2", "name": "Active rule 2", "tag": "db", "status": "active"},
-                {"id": "r3", "name": "Resolved issue", "tag": "api", "status": "resolved"},
+                {
+                    "id": "r3",
+                    "name": "Resolved issue",
+                    "tag": "api",
+                    "status": "resolved",
+                },
             ],
             # count query
             [{"cnt": 150}],
@@ -605,9 +705,24 @@ def test_rules_lint_conflict_detection(capsys):
     from veraxi.cli.rules import detect_rule_conflicts, run_rules_lint
 
     conflicting_rules = [
-        {"id": "r1", "name": "Always use httpOnly cookies for authentication sessions", "tag": "auth", "status": "active"},
-        {"id": "r2", "name": "Never use cookies, pass Bearer tokens in Authorization headers", "tag": "auth", "status": "active"},
-        {"id": "r3", "name": "All database queries must filter by tenant_id", "tag": "db", "status": "active"},
+        {
+            "id": "r1",
+            "name": "Always use httpOnly cookies for authentication sessions",
+            "tag": "auth",
+            "status": "active",
+        },
+        {
+            "id": "r2",
+            "name": "Never use cookies, pass Bearer tokens in Authorization headers",
+            "tag": "auth",
+            "status": "active",
+        },
+        {
+            "id": "r3",
+            "name": "All database queries must filter by tenant_id",
+            "tag": "db",
+            "status": "active",
+        },
     ]
 
     conflicts = detect_rule_conflicts(conflicting_rules)
@@ -629,8 +744,18 @@ def test_rules_lint_conflict_detection(capsys):
 
     # Test clean rules
     clean_rules = [
-        {"id": "c1", "name": "All database queries must filter by tenant_id", "tag": "db", "status": "active"},
-        {"id": "c2", "name": "Use snake_case for Python function identifiers", "tag": "style", "status": "active"},
+        {
+            "id": "c1",
+            "name": "All database queries must filter by tenant_id",
+            "tag": "db",
+            "status": "active",
+        },
+        {
+            "id": "c2",
+            "name": "Use snake_case for Python function identifiers",
+            "tag": "style",
+            "status": "active",
+        },
     ]
     assert len(detect_rule_conflicts(clean_rules)) == 0
 
@@ -652,7 +777,10 @@ def test_learn_lifecycle(capsys):
         assert "Rotate refresh tokens during session refresh" in lesson["rule"]
 
     # Mock trivial commit (chore) returning None
-    with patch("subprocess.check_output", return_value="def5678\x00chore: bump version to 0.1.1\x00"):
+    with patch(
+        "subprocess.check_output",
+        return_value="def5678\x00chore: bump version to 0.1.1\x00",
+    ):
         assert extract_commit_lesson("HEAD") is None
 
     # Test run_learn auto-persisting
@@ -681,8 +809,20 @@ def test_audit_diff_rules_and_ci_gate(capsys, tmp_path):
     from veraxi.cli.rules import audit_diff_against_rules, run_rules_sync
 
     active_rules = [
-        {"id": "inv1", "name": "Clean Architecture: Domain entities must never import storage or database modules", "tag": "architecture", "type": "invariant", "status": "active"},
-        {"id": "inv2", "name": "All database queries must filter by tenant_id", "tag": "db", "type": "rule", "status": "active"},
+        {
+            "id": "inv1",
+            "name": "Clean Architecture: Domain entities must never import storage or database modules",
+            "tag": "architecture",
+            "type": "invariant",
+            "status": "active",
+        },
+        {
+            "id": "inv2",
+            "name": "All database queries must filter by tenant_id",
+            "tag": "db",
+            "type": "rule",
+            "status": "active",
+        },
     ]
 
     violating_diff = """--- a/backend/domain/model.py
@@ -700,7 +840,10 @@ def test_audit_diff_rules_and_ci_gate(capsys, tmp_path):
     # Test run_review --enforce-rules failure
     mock_run = MagicMock()
     mock_run.stdout = violating_diff
-    with patch("subprocess.run", return_value=mock_run), patch("veraxi.cli.review._get_active_rules", return_value=active_rules):
+    with (
+        patch("subprocess.run", return_value=mock_run),
+        patch("veraxi.cli.review._get_active_rules", return_value=active_rules),
+    ):
         with pytest.raises(SystemExit) as exc_info:
             run_review(enforce_rules=True, project="test-repo")
         assert exc_info.value.code == 1
@@ -712,7 +855,10 @@ def test_audit_diff_rules_and_ci_gate(capsys, tmp_path):
 +class DomainUser: pass
 """
     mock_run.stdout = clean_diff
-    with patch("subprocess.run", return_value=mock_run), patch("veraxi.cli.review._get_active_rules", return_value=active_rules):
+    with (
+        patch("subprocess.run", return_value=mock_run),
+        patch("veraxi.cli.review._get_active_rules", return_value=active_rules),
+    ):
         with pytest.raises(SystemExit) as exc_info:
             run_review(enforce_rules=True, project="test-repo")
         assert exc_info.value.code == 0
@@ -720,7 +866,10 @@ def test_audit_diff_rules_and_ci_gate(capsys, tmp_path):
     # Test run_rules_sync groups permanent invariants at the top
     claude_file = tmp_path / "CLAUDE.md"
     claude_file.write_text("# Project Notes\n")
-    with patch("veraxi.cli.rules._get_active_rules", return_value=active_rules), patch("subprocess.check_output", return_value=str(tmp_path)):
+    with (
+        patch("veraxi.cli.rules._get_active_rules", return_value=active_rules),
+        patch("subprocess.check_output", return_value=str(tmp_path)),
+    ):
         run_rules_sync(target="claude", project="test-repo")
         content = claude_file.read_text()
         assert "### 🏛 Permanent Architectural Invariants" in content
@@ -733,7 +882,9 @@ def test_memory_drift_detection(tmp_path, capsys):
 
     # Create dummy pyproject.toml with upgraded pydantic v2
     pyproj = tmp_path / "pyproject.toml"
-    pyproj.write_text('[project]\ndependencies = ["pydantic>=2.8.0", "fastapi>=0.110.0"]\n')
+    pyproj.write_text(
+        '[project]\ndependencies = ["pydantic>=2.8.0", "fastapi>=0.110.0"]\n'
+    )
 
     # Existing file
     valid_file = tmp_path / "src" / "valid.py"
@@ -741,10 +892,31 @@ def test_memory_drift_detection(tmp_path, capsys):
     valid_file.write_text("# valid code\n")
 
     nodes = [
-        {"id": "d1", "name": "Workaround for pydantic v1 validator bug in models", "tag": "db", "status": "active"},
-        {"id": "d2", "name": "Ensure helper logic in src/nonexistent_old_file.py is pure", "tag": "architecture", "status": "active"},
-        {"id": "d3", "name": "Valid rule in src/valid.py", "tag": "core", "status": "active"},
-        {"id": "d4", "name": "Temporary workaround for upstream bug", "tag": "workaround", "status": "active", "created_at": "2024-01-01T00:00:00Z"},
+        {
+            "id": "d1",
+            "name": "Workaround for pydantic v1 validator bug in models",
+            "tag": "db",
+            "status": "active",
+        },
+        {
+            "id": "d2",
+            "name": "Ensure helper logic in src/nonexistent_old_file.py is pure",
+            "tag": "architecture",
+            "status": "active",
+        },
+        {
+            "id": "d3",
+            "name": "Valid rule in src/valid.py",
+            "tag": "core",
+            "status": "active",
+        },
+        {
+            "id": "d4",
+            "name": "Temporary workaround for upstream bug",
+            "tag": "workaround",
+            "status": "active",
+            "created_at": "2024-01-01T00:00:00Z",
+        },
     ]
 
     drift = detect_memory_drift(nodes, root_dir=str(tmp_path))
@@ -754,7 +926,9 @@ def test_memory_drift_detection(tmp_path, capsys):
     assert "orphaned_target" in types
 
     # Test run_memory_audit with drift output
-    with patch("backend.storage.neo4j_client.Neo4jStorageClient.from_config") as mock_neo4j:
+    with patch(
+        "backend.storage.neo4j_client.Neo4jStorageClient.from_config"
+    ) as mock_neo4j:
         mock_client = MagicMock()
         mock_neo4j.return_value = mock_client
         mock_client.execute_read.return_value = nodes
@@ -771,7 +945,9 @@ def test_cli_config_lifecycle(tmp_path, monkeypatch, capsys):
 
     fake_cfg_path = tmp_path / "config.json"
     monkeypatch.setattr("veraxi.cli.config.get_cli_config_path", lambda: fake_cfg_path)
-    monkeypatch.setattr("veraxi.cli.config.load_credentials", lambda: {"api_key": "vx-test-secret-key"})
+    monkeypatch.setattr(
+        "veraxi.cli.config.load_credentials", lambda: {"api_key": "vx-test-secret-key"}
+    )
 
     # 1. Set key
     run_config(action="set", key="default_model", value="gpt-4o")
@@ -823,7 +999,9 @@ def test_doctor_termux_detection(monkeypatch, capsys):
     from veraxi.cli.doctor import run_doctor
 
     monkeypatch.setenv("TERMUX_VERSION", "0.118.0")
-    monkeypatch.setattr("veraxi.cli.doctor.check_endpoint", lambda endpoint, key: (True, "200 OK"))
+    monkeypatch.setattr(
+        "veraxi.cli.doctor.check_endpoint", lambda endpoint, key: (True, "200 OK")
+    )
     monkeypatch.setattr("veraxi.cli.doctor.CLIENT_PATH_RESOLVERS", {})
 
     run_doctor(endpoint="https://api.veraxi.me/sse")
@@ -869,8 +1047,13 @@ def test_cli_web_search_and_fetch(monkeypatch, capsys):
     from veraxi.cli.web import run_web
 
     fake_results = [{"snippet": "Run AI on mobile", "url": "https://example.com"}]
-    monkeypatch.setattr("veraxi.cli.web.web_search", lambda query, limit=5, provider=None: fake_results)
-    monkeypatch.setattr("veraxi.cli.web.fetch_web_page", lambda url, max_chars=5000: "Clean Markdown Content")
+    monkeypatch.setattr(
+        "veraxi.cli.web.web_search", lambda query, limit=5, provider=None: fake_results
+    )
+    monkeypatch.setattr(
+        "veraxi.cli.web.fetch_web_page",
+        lambda url, max_chars=5000: "Clean Markdown Content",
+    )
 
     # 1. Search text
     run_web(action="search", query_or_url="termux agent")
@@ -903,8 +1086,14 @@ def test_cli_chat_slash_commands(monkeypatch, capsys):
 
     inputs = iter(["/help", "/web termux-test", "/models", "exit"])
     monkeypatch.setattr("builtins.input", lambda prompt="": next(inputs))
-    monkeypatch.setattr("veraxi.cli.chat.run_web", lambda action, query_or_url, limit=5: print("MOCK_WEB_CALLED"))
-    monkeypatch.setattr("veraxi.cli.chat.run_models_list", lambda *args, **kwargs: print("MOCK_MODELS_CALLED"))
+    monkeypatch.setattr(
+        "veraxi.cli.chat.run_web",
+        lambda action, query_or_url, limit=5: print("MOCK_WEB_CALLED"),
+    )
+    monkeypatch.setattr(
+        "veraxi.cli.chat.run_models_list",
+        lambda *args, **kwargs: print("MOCK_MODELS_CALLED"),
+    )
 
     run_interactive_chat(tenant_id="test-tenant")
     captured = capsys.readouterr()
@@ -940,20 +1129,3 @@ def test_cli_web_provider_management(tmp_path, monkeypatch, capsys):
     captured = capsys.readouterr()
     data = json.loads(captured.out)
     assert data["active_provider"] == "searxng"
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

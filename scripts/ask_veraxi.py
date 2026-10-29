@@ -18,6 +18,6 @@ if __name__ == "__main__":
         logging.info("\n================ FINAL ANSWER ================\n")
         logging.info(answer)
         logging.info("\n==============================================\n")
-    except Exception as e:
+    except Exception:
         logging.exception("❌ Error running MCP inference")
         sys.exit(1)

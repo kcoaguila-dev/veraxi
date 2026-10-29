@@ -188,7 +188,9 @@ class WikipediaProvider(SearchProvider):
                                     }
                                 )
                 except Exception as exc:
-                    logger.debug("Failed fetching Wikipedia summary for %s: %s", title, exc)
+                    logger.debug(
+                        "Failed fetching Wikipedia summary for %s: %s", title, exc
+                    )
                     continue
         except Exception as exc:
             sentry_sdk.capture_exception(exc)
@@ -230,7 +232,9 @@ class SearXNGProvider(SearchProvider):
             params_dict["categories"] = web_settings["categories"]
         else:
             # Engines fallback whitelist avoiding CAPTCHA-suspended engines
-            params_dict["engines"] = web_settings.get("engines", "google,bing,duckduckgo")
+            params_dict["engines"] = web_settings.get(
+                "engines", "google,bing,duckduckgo"
+            )
 
         if language and language.lower() not in ("auto", "all"):
             params_dict["language"] = language

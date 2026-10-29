@@ -511,6 +511,20 @@ def _execute_single_tool(
     return [], []
 
 
+class McpErrorHit:
+    def __init__(self, err: Any, server_name: str = "External"):
+        self.id = "mcp_err"
+        self.payload = {"error": str(err)}
+        self.sources = [f"MCP Server ({server_name})"]
+
+
+class McpHit:
+    def __init__(self, res: Any, diff: str, server_name: str = "External"):
+        self.id = "mcp_tool"
+        self.payload = {"content": str(res) + diff}
+        self.sources = [f"MCP Server ({server_name})"]
+
+
 async def _execute_mcp_tool(
     tool_name: str, tool_input: dict, tool_settings: dict
 ) -> tuple[list[Any], list[Any]]:
@@ -539,7 +553,7 @@ async def _execute_mcp_tool(
 
     preserve_worktree = False
     try:
-        if supports_worktree:
+        if supports_worktree and worktree_path and branch_name:
             tool_input = copy.deepcopy(tool_input)
             # Spin up a temporary Git Worktree isolated from the main branch
             proc = await asyncio.create_subprocess_exec(
@@ -563,18 +577,12 @@ async def _execute_mcp_tool(
             if "command" in tool_input:
                 cmd = tool_input["command"]
                 if ".." in cmd or " /" in cmd or cmd.startswith("/"):
-
-                    class McpErrorHit:
-                        def __init__(self, err):
-                            self.id = "mcp_err"
-                            self.payload = {"error": str(err)}
-                            self.sources = [f"MCP Server ({server_name})"]
-
                     return [
                         McpErrorHit(
                             ValueError(
                                 "Commands that can address paths outside the worktree are prohibited"
-                            )
+                            ),
+                            server_name,
                         )
                     ], []
                 tool_input["command"] = f"cd {shlex.quote(worktree_path)} && " + cmd
@@ -590,36 +598,24 @@ async def _execute_mcp_tool(
                     if os.path.isabs(input_path):
                         current_cwd = os.getcwd()
                         if not input_path.startswith(current_cwd):
-
-                            class McpErrorHit:
-                                def __init__(self, err):
-                                    self.id = "mcp_err"
-                                    self.payload = {"error": str(err)}
-                                    self.sources = [f"MCP Server ({server_name})"]
-
                             return [
                                 McpErrorHit(
                                     ValueError(
                                         f"Absolute path {input_path} is outside the allowed checkout boundary"
-                                    )
+                                    ),
+                                    server_name,
                                 )
                             ], []
                         rel_path = os.path.relpath(input_path, current_cwd)
                         tool_input[path_key] = os.path.join(worktree_path, rel_path)
                     else:
                         if input_path.startswith(".."):
-
-                            class McpErrorHit:
-                                def __init__(self, err):
-                                    self.id = "mcp_err"
-                                    self.payload = {"error": str(err)}
-                                    self.sources = [f"MCP Server ({server_name})"]
-
                             return [
                                 McpErrorHit(
                                     ValueError(
                                         f"Path {input_path} escapes the allowed checkout boundary"
-                                    )
+                                    ),
+                                    server_name,
                                 )
                             ], []
                         tool_input[path_key] = os.path.join(worktree_path, input_path)
@@ -645,18 +641,12 @@ async def _execute_mcp_tool(
                             logger.error(
                                 f"Git diff failed: {diff_stderr.decode('utf-8')}"
                             )
-
-                            class McpErrorHit:
-                                def __init__(self, err):
-                                    self.id = "mcp_err"
-                                    self.payload = {"error": str(err)}
-                                    self.sources = [f"MCP Server ({server_name})"]
-
                             return [
                                 McpErrorHit(
                                     RuntimeError(
                                         f"Git diff failed in worktree. Preserving worktree at {worktree_path}"
-                                    )
+                                    ),
+                                    server_name,
                                 )
                             ], []
                         diff_text = diff_stdout.decode("utf-8") if diff_stdout else ""
@@ -665,28 +655,16 @@ async def _execute_mcp_tool(
                     except Exception as e:
                         preserve_worktree = True
                         logger.error(f"Failed to get git diff: {e}")
-
-                        class McpErrorHit:
-                            def __init__(self, err):
-                                self.id = "mcp_err"
-                                self.payload = {"error": str(err)}
-                                self.sources = [f"MCP Server ({server_name})"]
-
                         return [
                             McpErrorHit(
                                 RuntimeError(
                                     f"Exception during git diff: {e}. Preserving worktree at {worktree_path}"
-                                )
+                                ),
+                                server_name,
                             )
                         ], []
 
-                class McpHit:
-                    def __init__(self, res, diff):
-                        self.id = "mcp_tool"
-                        self.payload = {"content": str(res) + diff}
-                        self.sources = [f"MCP Server ({server_name})"]
-
-                return [McpHit(result, diff_output)], []
+                return [McpHit(result, diff_output, server_name)], []
     except Exception as e:
         logger.error(f"Failed to execute MCP tool {tool_name} on {url}: {e}")
 
@@ -695,13 +673,7 @@ async def _execute_mcp_tool(
             preserve_worktree = True
             err_msg += f" (Worktree preserved at {worktree_path} for recovery)"
 
-        class McpErrorHit:
-            def __init__(self, err):
-                self.id = "mcp_err"
-                self.payload = {"error": str(err)}
-                self.sources = [f"MCP Server ({server_name})"]
-
-        return [McpErrorHit(err_msg)], []
+        return [McpErrorHit(err_msg, server_name)], []
     finally:
         if (
             supports_worktree
@@ -755,6 +727,7 @@ async def execute_tools_internal(
 
     vector_hits = []
     graph_hits = []
+    telemetry_hits = []
 
     for tool_call in tool_calls:
         tool_name = tool_call["name"]
@@ -763,11 +736,9 @@ async def execute_tools_internal(
         logger.info(f"LangGraph Agent called tool: {tool_name} with args: {tool_input}")
 
         if tool_name.startswith("mcp__"):
-            v_hits, g_hits = await _execute_mcp_tool(
-                tool_name, tool_input, tool_settings
-            )
+            t_hits, _ = await _execute_mcp_tool(tool_name, tool_input, tool_settings)
+            telemetry_hits.extend(t_hits)
         else:
-            # Run synchronous DB calls in threadpool
             loop = asyncio.get_running_loop()
             v_hits, g_hits = await loop.run_in_executor(
                 None,
@@ -777,14 +748,36 @@ async def execute_tools_internal(
                 tenant_id,
                 tool_settings,
             )
+            vector_hits.extend(v_hits)
+            graph_hits.extend(g_hits)
 
-        vector_hits.extend(v_hits)
-        graph_hits.extend(g_hits)
+    merged_docs = merge_rank(vector_hits, graph_hits)
+    merged = telemetry_hits + merged_docs
 
-    merged = merge_rank(vector_hits, graph_hits)
-    context_str = _build_context_string(merged)
+    context_sections = []
 
-    if not context_str:
-        context_str = "No results found."
+    if telemetry_hits:
+        telemetry_blocks = []
+        for hit in telemetry_hits:
+            sources = " and ".join(getattr(hit, "sources", ["External Tool"]))
+            content = (
+                hit.payload.get("content", str(hit.payload))
+                if isinstance(hit.payload, dict)
+                else str(hit.payload)
+            )
+            telemetry_blocks.append(f"[{sources}]:\n{content}")
+        context_sections.append(
+            "[EXTERNAL TELEMETRY & ACTIONS]:\n" + "\n\n".join(telemetry_blocks)
+        )
 
+    if merged_docs:
+        narrative_str = _build_context_string(merged_docs)
+        if narrative_str and narrative_str != "No results found.":
+            context_sections.append(
+                "[GROUNDED KNOWLEDGE GRAPH & VECTOR CONTEXT]:\n" + narrative_str
+            )
+
+    context_str = (
+        "\n\n".join(context_sections) if context_sections else "No results found."
+    )
     return context_str, merged

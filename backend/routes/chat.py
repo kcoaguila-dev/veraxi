@@ -9,11 +9,6 @@ import uuid
 from typing import Any, Literal
 
 import sentry_sdk
-from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import StreamingResponse
-from langchain_core.messages import AIMessage, HumanMessage
-from pydantic import BaseModel, Field
-
 from backend.mcp_server.llm_loop import (
     answer_question,
     generate_chat_title,
@@ -21,6 +16,10 @@ from backend.mcp_server.llm_loop import (
 )
 from backend.mcp_server.orchestrator import _get_workflow
 from backend.security.moderation import moderate_text
+from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import StreamingResponse
+from langchain_core.messages import AIMessage, HumanMessage
+from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +36,7 @@ class ChatRequest(BaseModel):
     base_url: str | None = None
     model: str | None = None
     tool_settings: dict | None = None
+    custom_system_prompt: str | None = None
 
 
 class ChatResponse(BaseModel):
@@ -217,6 +217,10 @@ async def _stream_events(
 ):
     try:
         yield f"data: {json.dumps({'event': 'metadata', 'data': {'thread_id': thread_id}})}\n\n"
+        ts = chat_request.tool_settings or {}
+        if chat_request.custom_system_prompt:
+            ts["custom_system_prompt"] = chat_request.custom_system_prompt
+
         async for event in stream_answer_question(
             chat_request.question,
             tenant_id=tenant_id,
@@ -226,7 +230,7 @@ async def _stream_events(
             base_url_override=chat_request.base_url,
             model_override=chat_request.model,
             calculate_grounding=chat_request.calculate_grounding,
-            tool_settings=chat_request.tool_settings,
+            tool_settings=ts,
         ):
 
             def custom_encoder(obj):
@@ -252,15 +256,19 @@ async def _stream_events(
         yield "data: [DONE]\n\n"
 
 
-
-async def notify_sync_event(redis_client, tenant_id: str, event_type: str, data: dict | None = None):
+async def notify_sync_event(
+    redis_client, tenant_id: str, event_type: str, data: dict | None = None
+):
     if tenant_id == "local_guest":
         return
     payload = {"event": event_type, "data": data or {}}
     try:
-        await redis_client.publish(f"tenant:{tenant_id}:sync_events", json.dumps(payload))
+        await redis_client.publish(
+            f"tenant:{tenant_id}:sync_events", json.dumps(payload)
+        )
     except Exception as e:
         logger.error(f"Failed to publish sync event: {e}")
+
 
 def register_chat_routes(
     app_router, get_tenant_id, verify_infrastructure_access, limiter, config
@@ -268,10 +276,12 @@ def register_chat_routes(
     """Register all chat routes with injected auth dependencies."""
 
     @app_router.get("/api/chat/sync")
-    async def chat_sync_stream(request: Request, tenant_id: str = Depends(get_tenant_id)):
+    async def chat_sync_stream(
+        request: Request, tenant_id: str = Depends(get_tenant_id)
+    ):
         if tenant_id == "local_guest":
             return StreamingResponse(iter([]))
-            
+
         async def event_generator():
             pubsub = request.app.state.redis.pubsub()
             await pubsub.subscribe(f"tenant:{tenant_id}:sync_events")
@@ -286,7 +296,7 @@ def register_chat_routes(
                 logger.error(f"SSE error: {e}")
             finally:
                 await pubsub.unsubscribe()
-                
+
         return StreamingResponse(event_generator(), media_type="text/event-stream")
 
     @app_router.post("/api/chat/threads/import")
@@ -303,9 +313,8 @@ def register_chat_routes(
         if tenant_id == "local_guest":
             raise HTTPException(status_code=401, detail="Authentication required")
 
-        from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
-
         from backend.config import get_config as _get_config
+        from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 
         config_obj = _get_config()
         if not config_obj.postgres_url:
@@ -463,6 +472,11 @@ def register_chat_routes(
                     ),
                     media_type="text/event-stream",
                 )
+            # Inject custom_system_prompt into tool_settings
+            ts = chat_request.tool_settings or {}
+            if chat_request.custom_system_prompt:
+                ts["custom_system_prompt"] = chat_request.custom_system_prompt
+
             answer, context, metrics = await answer_question(
                 chat_request.question,
                 tenant_id=tenant_id,
@@ -474,7 +488,7 @@ def register_chat_routes(
                 base_url_override=chat_request.base_url,
                 model_override=chat_request.model,
                 calculate_grounding=chat_request.calculate_grounding,
-                tool_settings=chat_request.tool_settings,
+                tool_settings=ts,
             )
             return ChatResponse(
                 answer=answer,
@@ -669,9 +683,8 @@ def register_chat_routes(
             is_shared = await request.app.state.redis.get(f"shared_thread:{thread_id}")
             if not is_shared:
                 raise HTTPException(status_code=404, detail="Shared thread not found.")
-            from langgraph.checkpoint.redis.aio import AsyncRedisSaver
-
             from backend.config import get_config as _get_config
+            from langgraph.checkpoint.redis.aio import AsyncRedisSaver
 
             config_obj = _get_config()
             async with AsyncRedisSaver.from_conn_string(config_obj.redis_url) as memory:
@@ -727,9 +740,8 @@ def register_chat_routes(
         tenant_id: str = Depends(get_tenant_id),
     ):
         try:
-            from langgraph.checkpoint.redis.aio import AsyncRedisSaver
-
             from backend.config import get_config as _get_config
+            from langgraph.checkpoint.redis.aio import AsyncRedisSaver
 
             config_obj = _get_config()
             async with AsyncRedisSaver.from_conn_string(config_obj.redis_url) as memory:
