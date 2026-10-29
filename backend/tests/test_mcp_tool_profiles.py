@@ -10,23 +10,23 @@ def get_test_server():
 
     @server.tool(name="mcp_merge_rank")
     def mcp_merge_rank() -> str:
-        pass
+        return ""
 
     @server.tool(name="mcp_ingest_knowledge")
     def mcp_ingest_knowledge() -> str:
-        pass
+        return ""
 
     @server.tool(name="mcp_something_else")
     def mcp_something_else() -> str:
-        pass
+        return ""
 
     @server.prompt(name="crag_orchestrator")
     def crag_orchestrator() -> str:
-        pass
+        return ""
 
     @server.prompt(name="ingest_knowledge")
     def ingest_knowledge() -> str:
-        pass
+        return ""
 
     return server
 
