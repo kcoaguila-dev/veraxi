@@ -84,20 +84,15 @@ def chunk_and_embed(
     sparse_vectors = [
         {
             "indices": (
-                s.indices.tolist()
-                if hasattr(s.indices, "tolist")
-                else list(s.indices)
+                s.indices.tolist() if hasattr(s.indices, "tolist") else list(s.indices)
             ),
             "values": (
-                s.values.tolist()
-                if hasattr(s.values, "tolist")
-                else list(s.values)
+                s.values.tolist() if hasattr(s.values, "tolist") else list(s.values)
             ),
         }
         for s in sparse_raw
     ]
 
     return [
-        (chunks[i], dense_vectors[i], sparse_vectors[i])
-        for i in range(len(chunks))
+        (chunks[i], dense_vectors[i], sparse_vectors[i]) for i in range(len(chunks))
     ]

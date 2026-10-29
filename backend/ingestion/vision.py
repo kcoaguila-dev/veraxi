@@ -154,7 +154,9 @@ def get_vision_captioner(config: Any) -> VisionCaptioner:
     prompt = getattr(config, "vision_prompt", DEFAULT_VISION_PROMPT)
 
     if not base_url and not api_key:
-        logger.info("Vision enabled but no base_url or api_key configured. Using NoOpVisionCaptioner.")
+        logger.info(
+            "Vision enabled but no base_url or api_key configured. Using NoOpVisionCaptioner."
+        )
         return NoOpVisionCaptioner()
 
     return OpenAIVisionCaptioner(

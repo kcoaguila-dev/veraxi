@@ -40,8 +40,9 @@ jobs:
 
       - name: AST Semantic Scan with Semgrep
         run: |
-          pip install semgrep
-          semgrep --config p/python --error .
+          python -m venv /tmp/semgrep-env
+          /tmp/semgrep-env/bin/pip install semgrep
+          /tmp/semgrep-env/bin/semgrep --config p/python --error .
 
       - name: Dead Code Detection with Vulture
         run: |

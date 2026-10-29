@@ -1,9 +1,8 @@
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from fastapi.testclient import TestClient
-
 from backend.api_gateway import app, get_tenant_id, verify_infrastructure_access
+from fastapi.testclient import TestClient
 
 
 @pytest.fixture(autouse=True)
@@ -70,7 +69,8 @@ async def test_chat_endpoint_no_stream(override_redis):
             json={
                 "question": "What is testing?",
                 "stream": False,
-                "model": "test-model", "api_key": "dummy",
+                "model": "test-model",
+                "api_key": "dummy",
             },
         )
 
@@ -97,7 +97,12 @@ async def test_chat_endpoint_stream(override_redis):
     ):
         response = client.post(
             "/api/chat",
-            json={"question": "Stream me?", "stream": True, "model": "test-model", "api_key": "dummy"},
+            json={
+                "question": "Stream me?",
+                "stream": True,
+                "model": "test-model",
+                "api_key": "dummy",
+            },
         )
 
         assert response.status_code == 200
@@ -281,7 +286,8 @@ async def test_chat_endpoint_tool_events(override_redis):
             json={
                 "question": "search something",
                 "stream": True,
-                "model": "test-model", "api_key": "dummy",
+                "model": "test-model",
+                "api_key": "dummy",
             },
         )
 
@@ -308,16 +314,21 @@ async def test_chat_endpoint_tool_events(override_redis):
 @pytest.mark.asyncio
 async def test_error_handling_non_stream(override_redis):
     """Test that non-streaming errors return specific error details."""
-    with patch(
-        "backend.routes.chat.answer_question",
-        side_effect=ValueError("Test error message")
-    ), patch('backend.routes.chat.sentry_sdk.capture_exception') as mock_sentry, patch('backend.routes.chat.logger.exception') as mock_logger:
+    with (
+        patch(
+            "backend.routes.chat.answer_question",
+            side_effect=ValueError("Test error message"),
+        ),
+        patch("backend.routes.chat.sentry_sdk.capture_exception") as mock_sentry,
+        patch("backend.routes.chat.logger.exception") as mock_logger,
+    ):
         response = client.post(
             "/api/chat",
             json={
                 "question": "What is testing?",
                 "stream": False,
-                "model": "test-model", "api_key": "dummy",
+                "model": "test-model",
+                "api_key": "dummy",
             },
         )
 
@@ -343,19 +354,18 @@ async def test_error_handling_non_stream(override_redis):
 @pytest.mark.asyncio
 async def test_error_handling_timeout(override_redis):
     """Test that timeout errors return 504 with timeout message."""
+
     async def mock_timeout(*args, **kwargs):
         raise TimeoutError("Request timed out")
 
-    with patch(
-        "backend.routes.chat.answer_question",
-        side_effect=mock_timeout
-    ):
+    with patch("backend.routes.chat.answer_question", side_effect=mock_timeout):
         response = client.post(
             "/api/chat",
             json={
                 "question": "Timeout test?",
                 "stream": False,
-                "model": "test-model", "api_key": "dummy",
+                "model": "test-model",
+                "api_key": "dummy",
             },
         )
 
@@ -369,19 +379,73 @@ async def test_error_handling_timeout(override_redis):
 async def test_error_handling_httpexception_passthrough(override_redis):
     """Test that HTTPException errors are passed through unchanged."""
     from fastapi import HTTPException
+
     with patch(
         "backend.routes.chat.answer_question",
-        side_effect=HTTPException(status_code=400, detail="Custom bad request")
+        side_effect=HTTPException(status_code=400, detail="Custom bad request"),
     ):
         response = client.post(
             "/api/chat",
             json={
                 "question": "HTTPException test?",
                 "stream": False,
-                "model": "test-model", "api_key": "dummy",
+                "model": "test-model",
+                "api_key": "dummy",
             },
         )
 
         assert response.status_code == 400
         data = response.json()
         assert data["detail"] == "Custom bad request"
+
+
+@pytest.mark.asyncio
+async def test_chat_endpoint_forwards_custom_system_prompt_non_streaming(override_redis):
+    """Verify that non-streaming /api/chat forwards custom_system_prompt via tool_settings."""
+    with patch(
+        "backend.routes.chat.answer_question", new_callable=AsyncMock
+    ) as mock_answer:
+        mock_answer.return_value = ("Answer", "Context", {})
+
+        response = client.post(
+            "/api/chat",
+            json={
+                "question": "What is 2+2?",
+                "stream": False,
+                "model": "test-model",
+                "api_key": "dummy",
+                "custom_system_prompt": "Act as a pirate.",
+            },
+        )
+
+        assert response.status_code == 200
+        mock_answer.assert_awaited_once()
+        tool_settings = mock_answer.call_args.kwargs.get("tool_settings", {})
+        assert tool_settings.get("custom_system_prompt") == "Act as a pirate."
+
+
+@pytest.mark.asyncio
+async def test_chat_endpoint_forwards_custom_system_prompt_streaming(override_redis):
+    """Verify that streaming /api/chat forwards custom_system_prompt via tool_settings."""
+    async def mock_stream(*args, **kwargs):
+        yield {"event": "token", "data": "Arr!"}
+
+    with patch(
+        "backend.routes.chat.stream_answer_question", side_effect=mock_stream
+    ) as mock_stream_fn:
+        response = client.post(
+            "/api/chat",
+            json={
+                "question": "What is 2+2?",
+                "stream": True,
+                "model": "test-model",
+                "api_key": "dummy",
+                "custom_system_prompt": "Act as a pirate.",
+            },
+        )
+
+        assert response.status_code == 200
+        mock_stream_fn.assert_called_once()
+        tool_settings = mock_stream_fn.call_args.kwargs.get("tool_settings", {})
+        assert tool_settings.get("custom_system_prompt") == "Act as a pirate."
+

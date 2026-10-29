@@ -119,9 +119,18 @@ def _create_chat_llm(model_name: str, api_key: str | None, base_url: str | None 
 def _prepend_system_messages(
     messages: Sequence[BaseMessage],
     extra_system_messages: list[SystemMessage] | None = None,
+    custom_system_prompt: str | None = None,
 ) -> list[BaseMessage]:
     """Inject chat-wide system instructions without persisting them to thread state."""
     system_messages = [SystemMessage(content=CHAT_SYSTEM_PROMPT)]
+
+    if custom_system_prompt and custom_system_prompt.strip():
+        system_messages.append(
+            SystemMessage(
+                content=f"USER CUSTOM INSTRUCTIONS:\n{custom_system_prompt.strip()}"
+            )
+        )
+
     if extra_system_messages:
         system_messages.extend(extra_system_messages)
 

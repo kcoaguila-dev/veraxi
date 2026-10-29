@@ -2,6 +2,7 @@
 
 Single source of truth resides in packages/veraxi-cli/src/veraxi/cli/query.py.
 """
+
 import sys
 
 import veraxi.cli.query

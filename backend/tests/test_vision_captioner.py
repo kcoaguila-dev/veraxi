@@ -62,7 +62,9 @@ def test_openai_vision_captioner_success():
         mock_openai_cls.return_value = mock_client
 
         mock_choice = MagicMock()
-        mock_choice.message.content = "A detailed diagram of corporate debt restructuring."
+        mock_choice.message.content = (
+            "A detailed diagram of corporate debt restructuring."
+        )
         mock_response = MagicMock()
         mock_response.choices = [mock_choice]
         mock_client.chat.completions.create.return_value = mock_response
@@ -89,7 +91,9 @@ def test_openai_vision_captioner_error_handling():
     with patch("openai.OpenAI") as mock_openai_cls:
         mock_client = MagicMock()
         mock_openai_cls.return_value = mock_client
-        mock_client.chat.completions.create.side_effect = RuntimeError("Connection refused")
+        mock_client.chat.completions.create.side_effect = RuntimeError(
+            "Connection refused"
+        )
 
         captioner = OpenAIVisionCaptioner(
             base_url="http://localhost:11434/v1",

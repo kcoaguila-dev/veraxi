@@ -136,9 +136,7 @@ def extract_text(
     except OSError as err:
         logger.debug("Failed opening file %s: %s", file_path, err)
 
-    logger.warning(
-        f"File {file_path} is neither a valid PDF nor UTF-8 text."
-    )
+    logger.warning(f"File {file_path} is neither a valid PDF nor UTF-8 text.")
     return ""
 
 

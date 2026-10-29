@@ -2,6 +2,7 @@
 
 Single source of truth resides in packages/veraxi-cli/src/veraxi/cli/.
 """
+
 import importlib
 import sys
 
@@ -44,4 +45,3 @@ for _sub in _SUBMODULES:
         sys.modules[f"{__name__}.{_sub}"] = _mod
     except ImportError:
         pass
-

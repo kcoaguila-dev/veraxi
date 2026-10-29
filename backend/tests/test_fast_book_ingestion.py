@@ -18,7 +18,9 @@ def test_batched_chunk_and_embed():
         "cash flow statements, and executive incentives. Thornton O'Glove and David Einhorn "
         "identified critical accounting shenanigans."
     )
-    results = chunk_and_embed(sample_text, chunk_size=100, chunk_overlap=20, batch_size=4)
+    results = chunk_and_embed(
+        sample_text, chunk_size=100, chunk_overlap=20, batch_size=4
+    )
     assert len(results) > 0
     for chunk, dense_vec, sparse_vec in results:
         assert isinstance(chunk, str)
@@ -62,17 +64,36 @@ def test_resolve_entities_scalability():
     # Simulate 500 entities with realistic duplicates found in books
     entities = []
     base_names = [
-        "David Einhorn", "David M. Einhorn", "Allied Capital", "Allied Capital Corp",
-        "Howard Schilit", "Thornton O'Glove", "SEC", "Securities and Exchange Commission",
-        "Sunbeam", "Enron", "Arthur Andersen", "Tyco International"
+        "David Einhorn",
+        "David M. Einhorn",
+        "Allied Capital",
+        "Allied Capital Corp",
+        "Howard Schilit",
+        "Thornton O'Glove",
+        "SEC",
+        "Securities and Exchange Commission",
+        "Sunbeam",
+        "Enron",
+        "Arthur Andersen",
+        "Tyco International",
     ]
     for i in range(500):
         name = base_names[i % len(base_names)]
-        entities.append({
-            "type": "Organization" if "Capital" in name or "SEC" in name or "Commission" in name or "Sunbeam" in name or "Enron" in name or "Andersen" in name or "Tyco" in name else "Person",
-            "name": name,
-            "properties": {"mention_index": i}
-        })
+        entities.append(
+            {
+                "type": "Organization"
+                if "Capital" in name
+                or "SEC" in name
+                or "Commission" in name
+                or "Sunbeam" in name
+                or "Enron" in name
+                or "Andersen" in name
+                or "Tyco" in name
+                else "Person",
+                "name": name,
+                "properties": {"mention_index": i},
+            }
+        )
 
     start_time = time.time()
     resolved, alias_mapping = resolve_entities(entities)
@@ -82,4 +103,3 @@ def test_resolve_entities_scalability():
     assert duration < 10.0
     assert len(resolved) <= len(base_names)
     assert len(alias_mapping) >= len(base_names)
-

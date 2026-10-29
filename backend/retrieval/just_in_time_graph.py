@@ -58,16 +58,20 @@ def build_lazy_graph_dossier(
         cid = str(hit.get("id"))
         chunk_ids.append(cid)
         payload = hit.get("payload", {})
-        chunks.append({
-            "point_id": cid,
-            "score": float(hit.get("score", 0.0)),
-            "text": payload.get("text", ""),
-            "title": payload.get("title") or payload.get("document_id") or "Document",
-            "metadata": payload.get("metadata", {}),
-        })
+        chunks.append(
+            {
+                "point_id": cid,
+                "score": float(hit.get("score", 0.0)),
+                "text": payload.get("text", ""),
+                "title": payload.get("title")
+                or payload.get("document_id")
+                or "Document",
+                "metadata": payload.get("metadata", {}),
+            }
+        )
 
     # 3. Pull linked entity anchors from Neo4j
-    entities_by_chunk = {}
+    entities_by_chunk: dict[str, list[dict[str, Any]]] = {}
     if chunk_ids:
         cypher = """
         MATCH (n)
@@ -75,12 +79,16 @@ def build_lazy_graph_dossier(
         RETURN n.name AS name, labels(n)[0] AS type, n.qdrant_point_id AS q_id
         """
         try:
-            records = neo4j.execute_read(cypher, {"tenant_id": tenant_id, "chunk_ids": chunk_ids})
+            records = neo4j.execute_read(
+                cypher, {"tenant_id": tenant_id, "chunk_ids": chunk_ids}
+            )
             for r in records:
                 qid = r.get("q_id")
                 if qid not in entities_by_chunk:
                     entities_by_chunk[qid] = []
-                entities_by_chunk[qid].append({"name": r.get("name"), "type": r.get("type")})
+                entities_by_chunk[qid].append(
+                    {"name": r.get("name"), "type": r.get("type")}
+                )
         except Exception as e:
             logger.warning(f"Error querying Neo4j entity anchors: {e}")
         finally:

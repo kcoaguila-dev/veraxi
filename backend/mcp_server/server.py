@@ -413,4 +413,3 @@ def mcp_purge_noisy_relationships() -> str:
 
     res = _handle_purge_noisy_relationships(args, tenant_id)
     return res[0].text
-

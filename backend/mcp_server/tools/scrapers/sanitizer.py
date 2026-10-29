@@ -31,24 +31,24 @@ BOT_CHALLENGE_PATTERNS = [
 def is_bot_challenge_or_boilerplate(text: str, scan_window: int = 1500) -> bool:
     """
     Returns True if the extracted text contains bot-challenge or access-denied boilerplate.
-    
+
     Scans the initial character window (default: 1500 chars) where challenge banners appear.
     """
     if not text:
         return True
-        
+
     head = text[:scan_window].lower()
     for pattern in BOT_CHALLENGE_PATTERNS:
         if pattern in head:
             return True
-            
+
     return False
 
 
 def apply_authority_weights(results: list[dict]) -> list[dict]:
     """
     Applies heritage domain authority weighting to search results.
-    
+
     Inspired by AI_PROJECT's OmniResearch authority logic:
     - 3.0x multiplier on high-truth academic/governmental domains (.edu, .gov, arxiv, jstor, ieee)
     - 1.5x multiplier on verified journalism (reuters, bloomberg, nature, science)

@@ -54,7 +54,9 @@ def _fetch_one(url: str, timeout: float) -> tuple[str, str]:
         if extracted and len(extracted) >= _MIN_CONTENT_LENGTH:
             # AI_PROJECT sanity guard: Reject bot-challenge / Cloudflare interception pages
             if is_bot_challenge_or_boilerplate(extracted):
-                logger.warning("Trafilatura rejected bot-challenge boilerplate from %s", url)
+                logger.warning(
+                    "Trafilatura rejected bot-challenge boilerplate from %s", url
+                )
                 return url, ""
             ScrapeCache.set(url, extracted)
         return url, extracted

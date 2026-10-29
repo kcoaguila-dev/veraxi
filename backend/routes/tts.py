@@ -156,14 +156,16 @@ def register_tts_routes(
 
         model = request.model or "s2.1-pro-free"
         cache_key = f"{request.reference_id or 'default'}_{model}"
-        cache_hash = hashlib.md5(cache_key.encode()).hexdigest()
+        cache_hash = hashlib.sha256(cache_key.encode()).hexdigest()
 
         if request.message_id:
             cache_dir = os.path.join(
                 os.path.dirname(os.path.dirname(__file__)), "tts", "cache"
             )
             os.makedirs(cache_dir, exist_ok=True)
-            cached_file_path = safe_join(cache_dir, f"{request.message_id}_{cache_hash}.wav")
+            cached_file_path = safe_join(
+                cache_dir, f"{request.message_id}_{cache_hash}.wav"
+            )
             if os.path.exists(cached_file_path):
                 return FileResponse(
                     cached_file_path, media_type="audio/wav", filename="audio.wav"
@@ -197,7 +199,9 @@ def register_tts_routes(
                         os.path.dirname(os.path.dirname(__file__)), "tts", "cache"
                     )
                     os.makedirs(cache_dir, exist_ok=True)
-                    cached_file_path = safe_join(cache_dir, f"{request.message_id}_{cache_hash}.wav")
+                    cached_file_path = safe_join(
+                        cache_dir, f"{request.message_id}_{cache_hash}.wav"
+                    )
                     await asyncio.to_thread(
                         Path(cached_file_path).write_bytes, audio_bytes
                     )
@@ -239,14 +243,16 @@ def register_tts_routes(
         from backend.tts.voices import get_voice
 
         cache_key = request.voice_id
-        cache_hash = hashlib.md5(cache_key.encode()).hexdigest()
+        cache_hash = hashlib.sha256(cache_key.encode()).hexdigest()
 
         if request.message_id:
             cache_dir = os.path.join(
                 os.path.dirname(os.path.dirname(__file__)), "tts", "cache"
             )
             os.makedirs(cache_dir, exist_ok=True)
-            cached_file_path = safe_join(cache_dir, f"{request.message_id}_{cache_hash}.wav")
+            cached_file_path = safe_join(
+                cache_dir, f"{request.message_id}_{cache_hash}.wav"
+            )
             if os.path.exists(cached_file_path):
                 logger.info(f"Returning cached audio for message {request.message_id}")
                 return FileResponse(
@@ -278,7 +284,9 @@ def register_tts_routes(
                     os.path.dirname(os.path.dirname(__file__)), "tts", "cache"
                 )
                 os.makedirs(cache_dir, exist_ok=True)
-                cached_file_path = safe_join(cache_dir, f"{request.message_id}_{cache_hash}.wav")
+                cached_file_path = safe_join(
+                    cache_dir, f"{request.message_id}_{cache_hash}.wav"
+                )
                 await asyncio.to_thread(Path(cached_file_path).write_bytes, audio_bytes)
                 from backend.tts.cache_manager import cleanup_audio_cache
 
