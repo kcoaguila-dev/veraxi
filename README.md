@@ -139,6 +139,11 @@ vx chat
 
 Veraxi exposes its hybrid engine over standard MCP endpoints (`/sse`):
 
+### MCP tool profiles
+The exact set of tools exposed via MCP depends on the `VERAXI_MCP_PROFILE` environment variable (defaults to `agent`):
+- `agent`: The default profile. Exposes a streamlined, safe set of tools needed for autonomous research, deep search, and ingestion (`mcp_merge_rank`, `mcp_evaluate_grounding`, `mcp_web_search`, `mcp_deep_research`, `mcp_ingest_document`, `mcp_get_ingest_status`, `mcp_get_database_stats`).
+- `admin` (or `all`): Exposes all available tools. This profile is required for the `ingest_knowledge` / manual graph-editing workflow and raw CRUD operations.
+
 | Tool | Purpose |
 | :--- | :--- |
 | `mcp_build_lazy_dossier` | Retrieves ground-truth excerpts via Hybrid Search (Dense + SPLADE) fused with Neo4j entity anchors, returning a structured analytical dossier. |

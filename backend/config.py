@@ -48,6 +48,7 @@ class Config:
     max_tenant_nodes: int
     internal_api_url: str
     admin_tenant_ids: list[str]
+    mcp_tool_profile: str
     vision_enabled: bool = False
     vision_base_url: str = ""
     vision_api_key: str = ""
@@ -56,6 +57,12 @@ class Config:
 
     @classmethod
     def from_env(cls) -> "Config":
+        mcp_profile = os.environ.get("VERAXI_MCP_PROFILE", "agent").lower()
+        if mcp_profile not in ("agent", "admin", "all"):
+            raise ValueError(
+                f"Invalid VERAXI_MCP_PROFILE: {mcp_profile}. Must be agent, admin, or all."
+            )
+
         return cls(
             neo4j_uri=_require("NEO4J_URI"),
             neo4j_user=_require("NEO4J_USER"),
@@ -117,6 +124,7 @@ class Config:
                 for t in os.environ.get("ADMIN_TENANT_IDS", "").split(",")
                 if t.strip()
             ],
+            mcp_tool_profile=mcp_profile,
             vision_enabled=os.environ.get("VISION_ENABLED", "false").lower() == "true",
             vision_base_url=os.environ.get("VISION_BASE_URL", ""),
             vision_api_key=os.environ.get("VISION_API_KEY", ""),
