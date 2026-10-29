@@ -400,7 +400,9 @@ async def test_error_handling_httpexception_passthrough(override_redis):
 
 
 @pytest.mark.asyncio
-async def test_chat_endpoint_forwards_custom_system_prompt_non_streaming(override_redis):
+async def test_chat_endpoint_forwards_custom_system_prompt_non_streaming(
+    override_redis,
+):
     """Verify that non-streaming /api/chat forwards custom_system_prompt via tool_settings."""
     with patch(
         "backend.routes.chat.answer_question", new_callable=AsyncMock
@@ -427,6 +429,7 @@ async def test_chat_endpoint_forwards_custom_system_prompt_non_streaming(overrid
 @pytest.mark.asyncio
 async def test_chat_endpoint_forwards_custom_system_prompt_streaming(override_redis):
     """Verify that streaming /api/chat forwards custom_system_prompt via tool_settings."""
+
     async def mock_stream(*args, **kwargs):
         yield {"event": "token", "data": "Arr!"}
 
