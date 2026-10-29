@@ -156,7 +156,7 @@ def register_tts_routes(
 
         model = request.model or "s2.1-pro-free"
         cache_key = f"{request.reference_id or 'default'}_{model}"
-        cache_hash = hashlib.md5(cache_key.encode()).hexdigest()
+        cache_hash = hashlib.sha256(cache_key.encode()).hexdigest()
 
         if request.message_id:
             cache_dir = os.path.join(
@@ -243,7 +243,7 @@ def register_tts_routes(
         from backend.tts.voices import get_voice
 
         cache_key = request.voice_id
-        cache_hash = hashlib.md5(cache_key.encode()).hexdigest()
+        cache_hash = hashlib.sha256(cache_key.encode()).hexdigest()
 
         if request.message_id:
             cache_dir = os.path.join(
