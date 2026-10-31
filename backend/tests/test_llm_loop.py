@@ -320,6 +320,32 @@ def test_execute_single_tool(mock_config):
         assert len(v_hits) == 1
         assert v_hits[0].payload["text"] == "result"
 
+    # Test agentic_debate mock
+    with patch(
+        "backend.mcp_server.orchestrator_multi_agent.mcp_agentic_debate"
+    ) as mock_ad:
+        async def _mock_debate(*args, **kwargs):
+            return {
+                "results": [
+                    {
+                        "id": "res_1",
+                        "text": "Debate verified text",
+                        "sources": ["Multi-Agent"],
+                    }
+                ]
+            }
+
+        mock_ad.side_effect = _mock_debate
+        v_hits, g_hits = _execute_single_tool(
+            "agentic_debate",
+            {"query": "test query"},
+            "test_tenant",
+            tool_settings={"web_search": {"enabled": True}},
+        )
+        assert len(v_hits) == 1
+        assert v_hits[0].payload["text"] == "Debate verified text"
+        assert v_hits[0].payload["title"] == "Agentic Debate Verified Answer"
+
 
 def test_handle_stream_events():
     from langchain_core.messages import AIMessage

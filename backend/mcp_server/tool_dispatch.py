@@ -395,9 +395,31 @@ def _execute_single_tool(
 
         from backend.mcp_server.orchestrator_multi_agent import mcp_agentic_debate
 
-        debate_results = mcp_agentic_debate(
-            tool_input["query"], tenant_id=tenant_id, tool_settings=tool_settings
-        )
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+
+        if loop and loop.is_running():
+            import concurrent.futures
+
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+                debate_results = pool.submit(
+                    asyncio.run,
+                    mcp_agentic_debate(
+                        tool_input["query"],
+                        tenant_id=tenant_id,
+                        tool_settings=tool_settings,
+                    ),
+                ).result()
+        else:
+            debate_results = asyncio.run(
+                mcp_agentic_debate(
+                    tool_input["query"],
+                    tenant_id=tenant_id,
+                    tool_settings=tool_settings,
+                )
+            )
 
         class DebateHit:
             def __init__(self, res):

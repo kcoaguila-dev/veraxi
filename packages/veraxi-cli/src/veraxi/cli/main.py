@@ -82,6 +82,12 @@ def main():
     chat_parser.add_argument("--tenant", help="Tenant ID (defaults to resolving from key or config)")
     chat_parser.add_argument("--limit", type=int, default=5, help="Number of evidence chunks to retrieve")
     chat_parser.add_argument("--endpoint", default="https://api.veraxi.me/sse", help="MCP endpoint URL")
+    chat_parser.add_argument(
+        "--mode",
+        choices=["fast", "deep"],
+        default="fast",
+        help="Execution mode: 'fast' (sub-second Hybrid GraphRAG) or 'deep' (Multi-Agent Research Swarm)",
+    )
 
     # --- init ---
     init_parser = subparsers.add_parser(
@@ -376,7 +382,12 @@ def main():
         if sys.stdin.isatty():
             tenant_id = _resolve_tenant_id(None, None)
             key, endpoint = resolve_credentials()
-            run_interactive_chat(tenant_id=tenant_id, endpoint=endpoint, key=key)
+            run_interactive_chat(
+                tenant_id=tenant_id,
+                endpoint=endpoint,
+                key=key,
+                mode=getattr(args, "mode", "fast"),
+            )
         else:
             parser.print_help()
         sys.exit(0)
@@ -635,6 +646,7 @@ def main():
             limit=args.limit,
             endpoint=endpoint,
             key=key,
+            mode=getattr(args, "mode", "fast"),
         )
 
     elif args.subcommand == "init":
