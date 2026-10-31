@@ -143,7 +143,6 @@ TOOL_LABELS: dict[str, str] = {
     "mcp_query_graph": "Query Knowledge Graph",
     "mcp_web_search": "Search Live Web",
     "mcp_search_vectors": "Search Vector Memory",
-    "mcp_deep_research": "Deep Research Synthesis",
     "mcp_ephemeral_web_rag": "Live Web Ingestion & Retrieval",
     "mcp_agentic_debate": "Deep Research Multi-Agent Debate",
     "mcp_dynamic_web_graph": "Dynamic Graph Construction",

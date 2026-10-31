@@ -318,22 +318,6 @@ REGISTERED_TOOLS = [
         },
     ),
     Tool(
-        name="mcp_deep_research",
-        description="Performs deep web research. Searches the internet, dynamically ingests the top results into your Hybrid RAG database, and returns mathematically ranked facts. Alias for mcp_ephemeral_web_rag.",
-        input_schema={
-            "type": "object",
-            "properties": {
-                "query": {"type": "string"},
-                "max_results": {"type": "integer", "default": 3},
-                "urls": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Optional list of pre-searched URLs to ingest and research over. If provided, skips the internal web search phase.",
-                },
-            },
-        },
-    ),
-    Tool(
         name="mcp_agentic_debate",
         description="Executes a high-accuracy multi-agent GraphRAG research debate. Dispatches Vector, Knowledge Graph, and Web specialists, synthesizes evidence with strict citations, and enforces an adversarial Skeptic verification loop. Use for deep multi-hop research, complex claims, and cross-verification.",
         input_schema={
@@ -544,8 +528,8 @@ def _handle_dynamic_web_graph(args: dict, tenant_id: str) -> list[TextContent]:
     return [TextContent(type="text", text=json.dumps(results))]
 
 
-def _handle_deep_research(args: dict, tenant_id: str) -> list[TextContent]:
-    from backend.mcp_server.tools.deep_research import mcp_ephemeral_web_rag
+def _handle_ephemeral_web_rag(args: dict, tenant_id: str) -> list[TextContent]:
+    from backend.mcp_server.tools.ephemeral_web_rag import mcp_ephemeral_web_rag
 
     tool_settings = args.get("_tool_settings", {})
     results = mcp_ephemeral_web_rag(
@@ -556,9 +540,6 @@ def _handle_deep_research(args: dict, tenant_id: str) -> list[TextContent]:
         tool_settings=tool_settings,
     )
     return [TextContent(type="text", text=json.dumps(results))]
-
-
-_handle_ephemeral_web_rag = _handle_deep_research
 
 
 def _handle_skills(args: dict, tenant_id: str) -> list[TextContent]:
@@ -664,7 +645,6 @@ TOOL_HANDLERS = {
     "mcp_ingest_document": _handle_ingest_document,
     "mcp_get_ingest_status": _handle_get_ingest_status,
     "mcp_ephemeral_web_rag": _handle_ephemeral_web_rag,
-    "mcp_deep_research": _handle_deep_research,
     "mcp_agentic_debate": _handle_agentic_debate,
     "mcp_export_data": _handle_export_data,
     "mcp_build_lazy_dossier": _handle_build_lazy_dossier,
