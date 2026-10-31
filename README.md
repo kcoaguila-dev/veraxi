@@ -33,15 +33,36 @@ Traditional GraphRAG pipelines (such as Microsoft GraphRAG) extract every noun a
 
 Veraxi eliminates this with a **Two-Tier Just-In-Time Pipeline**:
 
-1. **Tier 1 — Base Ingestion (CPU-Optimized, Free):**
+1. **Tier 1 — Base Ingestion & Cross-Document Linking (CPU-Optimized, Free):**
    * Raw text (PDFs, Markdown, text files) is chunked and indexed into Qdrant using dual embeddings: **MiniLM (dense semantics)** and **SPLADE (lexical keywords)**.
-   * Lightweight entity anchors (companies, people, metrics, titles) are mapped into Neo4j with **bidirectional UUID links** (`qdrant_point_id` ↔ `neo4j_node_ids`).
+   * Lightweight entity anchors are resolved across documents using **acronym and suffix normalization** (e.g., matching "WHO" ↔ "World Health Organization", "Apple Inc." ↔ "Apple").
+   * Multi-document provenance is maintained with **bidirectional UUID links** (`qdrant_point_ids` list ↔ `neo4j_node_ids`).
    * Ingestion runs at **under 2 minutes per 500-page book** on pure CPU with 0 GPU VRAM.
 
 2. **Tier 2 — On-Demand Causal Graph Weaving (Just-In-Time):**
    * When an agent researches a topic or complex multi-hop question, seed chunks are retrieved via `mcp_build_lazy_dossier`.
    * The model extracts high-precision, verified **causal relationships** and commits them via `mcp_insert_graph_nodes`.
    * The knowledge graph grows organically into a curated knowledge base without upfront API bills.
+
+---
+
+## 🤖 Dual Execution Modes: Fast vs. Deep Research
+
+Veraxi separates high-throughput conversational chat from deep investigative research:
+
+1. **Fast Mode (Standard Chat):**
+   * Powered by a single chat model loop with sub-second to 2s streaming via SSE.
+   * Answers general, conversational, and direct questions with minimal latency and minimal token consumption.
+   * Invokes internal tools (`mcp_search_vectors`, `mcp_query_graph`) only when context is required.
+
+2. **Deep Research Mode (Multi-Agent Swarm):**
+   * Powered by a specialized LangGraph state machine (`mcp_agentic_debate`).
+   * Dispatches concurrent specialist subagents:
+     * **Vector Specialist:** Dual dense + SPLADE sparse retrieval from Qdrant.
+     * **Graph Specialist:** Entity relationship and multi-hop graph traversal from Neo4j.
+     * **Web Specialist:** Live web search and ephemeral web indexing.
+   * **Synthesizer & Writer:** Fuses multi-modal context into structured reports with strict inline bracketed citations (`[Vector Source X]`, `[Graph Relation X]`, `[Web Source X]`).
+   * **Skeptic Node:** An adversarial judge evaluating mathematical claim grounding (`mcp_evaluate_grounding`). Ungrounded claims trigger an iterative revision loop back to the Writer (up to 3 rounds).
 
 ---
 
@@ -153,11 +174,13 @@ Veraxi exposes its hybrid engine over standard MCP endpoints (`/sse`):
 
 ### MCP tool profiles
 The exact set of tools exposed via MCP depends on the `VERAXI_MCP_PROFILE` environment variable (defaults to `agent`):
-- `agent`: The default profile. Exposes a streamlined, safe set of tools needed for autonomous research, deep search, and ingestion (`mcp_merge_rank`, `mcp_evaluate_grounding`, `mcp_web_search`, `mcp_deep_research`, `mcp_ingest_document`, `mcp_get_ingest_status`, `mcp_get_database_stats`).
+- `agent`: The default profile. Exposes a streamlined, safe set of tools needed for autonomous research, deep search, and ingestion (`mcp_merge_rank`, `mcp_evaluate_grounding`, `mcp_web_search`, `mcp_ephemeral_web_rag`, `mcp_agentic_debate`, `mcp_deep_research`, `mcp_ingest_document`, `mcp_get_ingest_status`, `mcp_get_database_stats`).
 - `admin` (or `all`): Exposes all available tools. This profile is required for the `ingest_knowledge` / manual graph-editing workflow and raw CRUD operations.
 
 | Tool | Purpose |
 | :--- | :--- |
+| `mcp_agentic_debate` | High-accuracy GraphRAG research debate. Dispatches Vector, Knowledge Graph, and Web specialists with strict citations and an adversarial Skeptic verification loop. |
+| `mcp_ephemeral_web_rag` | Crawls external web URLs, dynamically ingests them into an ephemeral sandboxed knowledge graph and vector space, and returns fused RRF facts (alias: `mcp_deep_research`). |
 | `mcp_build_lazy_dossier` | Retrieves ground-truth excerpts via Hybrid Search (Dense + SPLADE) fused with Neo4j entity anchors, returning a structured analytical dossier. |
 | `mcp_insert_graph_nodes` | Upserts/merges structured causal entities and rich relations into Neo4j, preserving Qdrant vector links without duplicates. |
 | `mcp_merge_rank` | Executes 3-way hybrid search: Qdrant dense + sparse vectors combined with Neo4j multi-hop traversals via Reciprocal Rank Fusion (RRF). |
