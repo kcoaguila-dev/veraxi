@@ -41067,7 +41067,7 @@ bat:function bat(a){this.a=a},
 c7B(a){var s
 if(a.d==null)return!1
 s=a.b.toLowerCase()
-return B.c.n(s,"web_search")||B.c.n(s,"merge_rank")||B.c.n(s,"search_vectors")||B.c.n(s,"query_graph")||B.c.n(s,"build_lazy_dossier")||B.c.n(s,"deep_research")||B.c.n(s,"dynamic_web_graph")},
+return B.c.n(s,"web_search")||B.c.n(s,"merge_rank")||B.c.n(s,"search_vectors")||B.c.n(s,"query_graph")||B.c.n(s,"build_lazy_dossier")||B.c.n(s,"ephemeral_web_rag")||B.c.n(s,"agentic_debate")||B.c.n(s,"dynamic_web_graph")},
 FP:function FP(a,b,c,d){var _=this
 _.c=a
 _.d=b
@@ -41263,7 +41263,6 @@ case"mcp_purge_noisy_relationships":return"\ud83e\uddf9 Purging noisy graph edge
 case"mcp_search_vectors":return"\ud83d\udd0d Searching vector database\u2026"
 case"mcp_query_graph":return"\ud83d\udd78\ufe0f Querying knowledge graph\u2026"
 case"mcp_ephemeral_web_rag":return"\ud83c\udf10 Ephemeral web ingestion\u2026"
-case"mcp_deep_research":return"\ud83d\udd2c Executing deep research\u2026"
 case"mcp_agentic_debate":return"\u2694\ufe0f Multi-agent reasoning debate\u2026"
 default:return"\ud83d\udd27 "+a+"\u2026"}},
 yR:function yR(a,b){this.c=a
