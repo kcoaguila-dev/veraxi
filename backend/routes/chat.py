@@ -37,6 +37,7 @@ class ChatRequest(BaseModel):
     model: str | None = None
     tool_settings: dict | None = None
     custom_system_prompt: str | None = None
+    mode: str = "fast"
 
 
 class ChatResponse(BaseModel):

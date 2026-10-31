@@ -41,11 +41,16 @@ def run_agent_stream(
     key: str | None = None,
     model: str | None = None,
     tool_settings: dict | None = None,
+    mode: str = "fast",
 ) -> bool:
     """
     Executes conversational query with real-time step and tool execution visibility.
     Emulates rival UX (Claude, AnythingLLM) by streaming steps, active tools,
     durations, and reasoning traces in real-time.
+
+    Supports dual execution modes:
+      - 'fast': Sub-second Hybrid GraphRAG (search_vectors, query_graph)
+      - 'deep': Multi-Agent Debate Swarm (Vector, Graph, Web, Synthesizer, Skeptic)
 
     Returns True if streaming completed successfully, False otherwise.
     """
@@ -57,8 +62,91 @@ def run_agent_stream(
     italic = "\033[3m"
     reset = "\033[0m"
 
-    # 1. Try local execution via backend.mcp_server.llm_loop if running in Veraxi repo/host
+    # 1. Try local execution if running in Veraxi repo/host
     try:
+        if mode == "deep":
+            from backend.mcp_server.orchestrator_multi_agent import get_debate_workflow
+
+            async def _local_deep_runner():
+                print(f"\n{bold}{cyan}● Multi-Agent Deep Research Swarm Initialized{reset}")
+                print(
+                    f"  {dim}Collaborating: Vector + Graph + Web Specialists, Synthesizer, Writer, Skeptic{reset}\n"
+                )
+
+                workflow = get_debate_workflow()
+                app = workflow.compile()
+                initial_state = {
+                    "query": query,
+                    "tenant_id": tenant_id,
+                    "tool_settings": tool_settings or {},
+                    "iterations": 0,
+                    "vector_data": "",
+                    "graph_data": "",
+                    "web_data": "",
+                    "research_data": "",
+                    "draft": "",
+                    "critique": "",
+                    "grounding_score": 1.0,
+                    "is_approved": False,
+                }
+
+                final_draft = ""
+                grounding_score = 1.0
+                critique = ""
+                is_approved = False
+
+                async for event in app.astream(initial_state):
+                    for node_name, node_output in event.items():
+                        if node_name == "vector_specialist":
+                            v_len = len(node_output.get("vector_data", ""))
+                            print(
+                                f"  {green}✓ Vector Specialist:{reset} Retrieved Qdrant vector chunks {dim}({v_len} chars){reset}"
+                            )
+                        elif node_name == "graph_specialist":
+                            g_len = len(node_output.get("graph_data", ""))
+                            print(
+                                f"  {green}✓ Graph Specialist:{reset} Traversed Neo4j causal relationships {dim}({g_len} chars){reset}"
+                            )
+                        elif node_name == "web_specialist":
+                            w_len = len(node_output.get("web_data", ""))
+                            print(
+                                f"  {green}✓ Web Specialist:{reset} Gathered live external data {dim}({w_len} chars){reset}"
+                            )
+                        elif node_name == "synthesizer":
+                            print(
+                                f"  {yellow}⠋ Synthesizer:{reset} Fused multi-source evidence matrix"
+                            )
+                        elif node_name == "writer":
+                            final_draft = node_output.get("draft", "")
+                            iter_num = node_output.get("iterations", 1)
+                            print(
+                                f"  {cyan}✎ Writer:{reset} Drafted synthesis report {dim}(iteration {iter_num}){reset}"
+                            )
+                        elif node_name == "skeptic":
+                            grounding_score = node_output.get("grounding_score", 1.0)
+                            is_approved = node_output.get("is_approved", True)
+                            critique = node_output.get("critique", "")
+                            status_str = (
+                                f"{green}Approved{reset}"
+                                if is_approved
+                                else f"{yellow}Critique & Revise{reset}"
+                            )
+                            print(
+                                f"  {bold}⚖ Skeptic Verifier:{reset} {status_str} {dim}(Grounding Score: {grounding_score:.2f}){reset}"
+                            )
+                            if critique and not is_approved:
+                                print(f"    {dim}Critique: {critique[:80]}...{reset}")
+
+                print(f"\n{bold}{green}Verified Deep Research Report:{reset}\n")
+                print(final_draft or "No report produced.")
+                print(
+                    f"\n{dim}─── Grounding Score: {grounding_score:.2f} • 5-Agent Consensus ───{reset}\n"
+                )
+                return True
+
+            return asyncio.run(_local_deep_runner())
+
+        # Fast Mode (default)
         from backend.mcp_server.llm_loop import stream_answer_question
 
         async def _local_runner():
@@ -155,6 +243,7 @@ def run_agent_stream(
             "tenant_id": tenant_id,
             "stream": True,
             "is_temporary": True,
+            "mode": mode,
         }
         if key:
             payload["api_key"] = key
@@ -262,6 +351,7 @@ def run_interactive_chat(
     endpoint: str = "https://api.veraxi.me/sse",
     key: str | None = None,
     model: str | None = None,
+    mode: str = "fast",
 ):
     """
     Launches an interactive Terminal Knowledge Assistant REPL with full
@@ -273,6 +363,8 @@ def run_interactive_chat(
     yellow = "\033[33m"
     dim = "\033[2m"
     reset = "\033[0m"
+
+    mode = mode.lower() if mode in ("fast", "deep") else "fast"
 
     print(
         f"\n{bold}{cyan}╔════════════════════════════════════════════════════════════════════╗{reset}"
@@ -288,7 +380,7 @@ def run_interactive_chat(
     )
     print(f"{dim}Tenant ID: {tenant_id} | Endpoint: {endpoint}{reset}")
     print(
-        f"{dim}Commands: 'exit' or 'quit' to leave, 'clear' to clear screen.{reset}\n"
+        f"{dim}Commands: 'exit' or 'quit' to leave, '/mode' to switch modes, 'clear' to clear.{reset}\n"
     )
 
     tool_settings = {
@@ -300,7 +392,8 @@ def run_interactive_chat(
 
     while True:
         try:
-            prompt_str = f"{bold}{green}veraxi>{reset} "
+            mode_tag = f"{green}fast{reset}" if mode == "fast" else f"{cyan}deep{reset}"
+            prompt_str = f"{bold}veraxi{reset} [{mode_tag}]> "
             query_text = input(prompt_str).strip()
 
             if not query_text:
@@ -318,6 +411,15 @@ def run_interactive_chat(
                 print(f"\n{yellow}Available Commands & Shortcuts:{reset}")
                 print(
                     "  <question>          - Query knowledge assistant with live step & tool streaming"
+                )
+                print(
+                    "  /mode               - View active execution mode (fast vs deep)"
+                )
+                print(
+                    "  /mode [fast|deep]   - Switch execution mode"
+                )
+                print(
+                    "  /fast, /deep        - Quick shortcut to switch modes"
                 )
                 print(
                     "  /tools              - View and manage active tools (GraphRAG, Web, Code)"
@@ -343,6 +445,38 @@ def run_interactive_chat(
                 )
                 print("  clear               - Clear the terminal screen")
                 print("  exit / quit         - End this interactive session\n")
+                continue
+
+            if query_text.lower() in ("/mode", "mode"):
+                mode_color = green if mode == "fast" else cyan
+                print(f"\n{bold}Active Mode:{reset} {mode_color}{mode.upper()}{reset}")
+                print("  • fast : Sub-second Hybrid GraphRAG retrieval (default)")
+                print(
+                    "  • deep : 5-Agent Research Swarm (Vector + Graph + Web + Synthesizer + Skeptic)"
+                )
+                print(
+                    f"\n{dim}Switch via: /mode fast, /mode deep, /fast, /deep{reset}\n"
+                )
+                continue
+
+            if query_text.lower() in ("/mode fast", "mode fast", "/fast"):
+                mode = "fast"
+                print(
+                    f"{green}Switched to Fast Mode (Sub-second Hybrid GraphRAG).{reset}\n"
+                )
+                continue
+
+            if query_text.lower() in (
+                "/mode deep",
+                "mode deep",
+                "/mode research",
+                "/deep",
+                "/research",
+            ):
+                mode = "deep"
+                print(
+                    f"{cyan}Switched to Deep Research Mode (5-Agent Debate Swarm).{reset}\n"
+                )
                 continue
 
             if query_text.lower() in ("/tools", "tools"):
@@ -461,6 +595,7 @@ def run_interactive_chat(
                 key=key,
                 model=model,
                 tool_settings=tool_settings,
+                mode=mode,
             )
 
             # Fallback to direct dossier retrieval if streaming agent loop is not active
