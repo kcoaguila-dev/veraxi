@@ -144,6 +144,8 @@ TOOL_LABELS: dict[str, str] = {
     "mcp_web_search": "Search Live Web",
     "mcp_search_vectors": "Search Vector Memory",
     "mcp_deep_research": "Deep Research Synthesis",
+    "mcp_ephemeral_web_rag": "Live Web Ingestion & Retrieval",
+    "mcp_agentic_debate": "Deep Research Multi-Agent Debate",
     "mcp_dynamic_web_graph": "Dynamic Graph Construction",
     "mcp_run_code": "Python Code Interpreter",
     "mcp_evaluate_grounding": "Verify Grounding & Veracity",

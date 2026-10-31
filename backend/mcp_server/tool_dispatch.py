@@ -150,8 +150,27 @@ async def get_tools(tool_settings: dict | None = None) -> list:
             {
                 "type": "function",
                 "function": {
+                    "name": "ephemeral_web_rag",
+                    "description": "Crawl live web URLs, dynamically ingest them into an ephemeral sandboxed knowledge graph and vector space, and return fused RRF facts.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "query": {
+                                "type": "string",
+                                "description": "The specific topic or claim to research on the web.",
+                            }
+                        },
+                        "required": ["query"],
+                    },
+                },
+            }
+        )
+        all_tools.append(
+            {
+                "type": "function",
+                "function": {
                     "name": "deep_research",
-                    "description": "Perform a highly precise, deep web search by building a temporary knowledge graph. Use this for complex research, fact-checking, or mapping entity relationships.",
+                    "description": "Perform a highly precise, deep web search by building a temporary knowledge graph. Alias for ephemeral_web_rag.",
                     "parameters": {
                         "type": "object",
                         "properties": {
@@ -344,7 +363,7 @@ def _execute_single_tool(
 
             return [WebHit(r) for r in results], []
 
-    elif tool_name == "deep_research":
+    elif tool_name in ("deep_research", "ephemeral_web_rag"):
         web_search = settings.get("web_search", {})
         if not web_search.get("enabled", False):
 
@@ -352,15 +371,15 @@ def _execute_single_tool(
                 def __init__(self):
                     self.id = "tool_err"
                     self.payload = {
-                        "error": "Tool deep_research is currently disabled by the user."
+                        "error": f"Tool {tool_name} is currently disabled by the user."
                     }
                     self.sources = ["System Error"]
 
             return [DRErrorHit()], []
 
-        from backend.mcp_server.tools.deep_research import mcp_deep_research
+        from backend.mcp_server.tools.deep_research import mcp_ephemeral_web_rag
 
-        dr_results = mcp_deep_research(
+        dr_results = mcp_ephemeral_web_rag(
             tool_input["query"], tenant_id=tenant_id, tool_settings=tool_settings
         )
 
