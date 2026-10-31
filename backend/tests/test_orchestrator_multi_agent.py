@@ -128,22 +128,24 @@ async def test_skeptic_node_approved():
     )
     mock_llm.with_structured_output.return_value = mock_structured
 
-    with patch(
-        "backend.mcp_server.orchestrator_multi_agent._create_chat_llm",
-        return_value=mock_llm,
-    ):
-        with patch(
+    with (
+        patch(
+            "backend.mcp_server.orchestrator_multi_agent._create_chat_llm",
+            return_value=mock_llm,
+        ),
+        patch(
             "backend.mcp_server.tools.evaluate_grounding.mcp_evaluate_grounding",
             return_value="0.95",
-        ):
-            state = {
-                "draft": "Well grounded claim [Vector Source 1].",
-                "research_data": "Evidence text",
-            }
-            res = await skeptic_node(state)  # type: ignore
-            assert res["is_approved"] is True
-            assert res["grounding_score"] == 0.95
-            assert res["critique"] == ""
+        ),
+    ):
+        state = {
+            "draft": "Well grounded claim [Vector Source 1].",
+            "research_data": "Evidence text",
+        }
+        res = await skeptic_node(state)  # type: ignore
+        assert res["is_approved"] is True
+        assert res["grounding_score"] == 0.95
+        assert res["critique"] == ""
 
 
 def test_debate_router():
