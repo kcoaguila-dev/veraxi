@@ -6,19 +6,9 @@ from pathlib import Path
 
 def get_claude_desktop_config_path() -> Path:
     if sys.platform == "darwin":
-        return (
-            Path.home()
-            / "Library"
-            / "Application Support"
-            / "Claude"
-            / "claude_desktop_config.json"
-        )
+        return Path.home() / "Library" / "Application Support" / "Claude" / "claude_desktop_config.json"
     elif sys.platform == "win32":
-        return (
-            Path(os.environ.get("APPDATA", ""))
-            / "Claude"
-            / "claude_desktop_config.json"
-        )
+        return Path(os.environ.get("APPDATA", "")) / "Claude" / "claude_desktop_config.json"
     else:
         return Path.home() / ".config" / "Claude" / "claude_desktop_config.json"
 
@@ -39,38 +29,11 @@ def get_claude_code_config_path() -> Path:
 
 def get_cline_config_path() -> Path:
     if sys.platform == "darwin":
-        return (
-            Path.home()
-            / "Library"
-            / "Application Support"
-            / "Code"
-            / "User"
-            / "globalStorage"
-            / "saoudrizwan.claude-dev"
-            / "settings"
-            / "cline_mcp_settings.json"
-        )
+        return Path.home() / "Library" / "Application Support" / "Code" / "User" / "globalStorage" / "saoudrizwan.claude-dev" / "settings" / "cline_mcp_settings.json"
     elif sys.platform == "win32":
-        return (
-            Path(os.environ.get("APPDATA", ""))
-            / "Code"
-            / "User"
-            / "globalStorage"
-            / "saoudrizwan.claude-dev"
-            / "settings"
-            / "cline_mcp_settings.json"
-        )
+        return Path(os.environ.get("APPDATA", "")) / "Code" / "User" / "globalStorage" / "saoudrizwan.claude-dev" / "settings" / "cline_mcp_settings.json"
     else:
-        return (
-            Path.home()
-            / ".config"
-            / "Code"
-            / "User"
-            / "globalStorage"
-            / "saoudrizwan.claude-dev"
-            / "settings"
-            / "cline_mcp_settings.json"
-        )
+        return Path.home() / ".config" / "Code" / "User" / "globalStorage" / "saoudrizwan.claude-dev" / "settings" / "cline_mcp_settings.json"
 
 
 CLIENT_PATH_RESOLVERS = {
@@ -98,14 +61,14 @@ def update_mcp_config(filepath: Path, key: str, endpoint: str) -> bool:
         if not isinstance(config_data, dict):
             config_data = {}
 
-        if "mcpServers" not in config_data or not isinstance(
-            config_data["mcpServers"], dict
-        ):
+        if "mcpServers" not in config_data or not isinstance(config_data["mcpServers"], dict):
             config_data["mcpServers"] = {}
 
         config_data["mcpServers"]["veraxi"] = {
             "url": endpoint,
-            "headers": {"Authorization": f"Bearer {key}"},
+            "headers": {
+                "Authorization": f"Bearer {key}"
+            }
         }
 
         filepath.parent.mkdir(parents=True, exist_ok=True)

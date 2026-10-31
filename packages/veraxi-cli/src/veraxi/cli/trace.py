@@ -53,23 +53,15 @@ def run_trace(
     yellow = "\033[33m"
     reset = "\033[0m"
 
-    print(
-        f"\n{bold}{cyan}╔════════════════════════════════════════════════════════════════════╗{reset}"
-    )
-    print(
-        f"{bold}{cyan}║                 Veraxi Knowledge Graph Trace                       ║{reset}"
-    )
-    print(
-        f"{bold}{cyan}╚════════════════════════════════════════════════════════════════════╝{reset}"
-    )
+    print(f"\n{bold}{cyan}╔════════════════════════════════════════════════════════════════════╗{reset}")
+    print(f"{bold}{cyan}║                 Veraxi Knowledge Graph Trace                       ║{reset}")
+    print(f"{bold}{cyan}╚════════════════════════════════════════════════════════════════════╝{reset}")
 
     if not paths_data:
         print(f"\n  No graph relationships found matching entity: '{entity}'.\n")
         return
 
-    print(
-        f"\n  {bold}Entity Knowledge Trace:{reset} {cyan}{entity}{reset} (Depth: {hops} hops, {len(paths_data)} paths found)"
-    )
+    print(f"\n  {bold}Entity Knowledge Trace:{reset} {cyan}{entity}{reset} (Depth: {hops} hops, {len(paths_data)} paths found)")
     print("  " + "─" * 60)
 
     seen_paths = set()
@@ -86,9 +78,7 @@ def run_trace(
 
         chain_parts = [f"{bold}{nodes[0]}{reset}"]
         for i in range(len(rels)):
-            chain_parts.append(
-                f"──[{yellow}{rels[i]}{reset}]──▶ {green}{nodes[i + 1]}{reset}"
-            )
+            chain_parts.append(f"──[{yellow}{rels[i]}{reset}]──▶ {green}{nodes[i+1]}{reset}")
         print("  " + " ".join(chain_parts))
 
     print()

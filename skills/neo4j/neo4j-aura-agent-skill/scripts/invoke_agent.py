@@ -14,7 +14,6 @@ from pathlib import Path
 
 try:
     from dotenv import load_dotenv
-
     load_dotenv(Path(__file__).parent.parent / ".env")
 except ImportError:
     pass
@@ -32,9 +31,7 @@ def get_token() -> str:
     client_id = os.environ.get("AURA_CLIENT_ID")
     client_secret = os.environ.get("AURA_CLIENT_SECRET")
     if not client_id or not client_secret:
-        sys.exit(
-            "ERROR: AURA_CLIENT_ID and AURA_CLIENT_SECRET must be set in .env or environment"
-        )
+        sys.exit("ERROR: AURA_CLIENT_ID and AURA_CLIENT_SECRET must be set in .env or environment")
     r = requests.post(
         f"{BASE}/oauth/token",
         auth=(client_id, client_secret),
@@ -50,11 +47,7 @@ def main():
     parser.add_argument("--project-id", default=os.environ.get("AURA_PROJECT_ID"))
     parser.add_argument("--agent-id", default=os.environ.get("AURA_AGENT_ID"))
     parser.add_argument("query", help="Natural language query to send to the agent")
-    parser.add_argument(
-        "--raw",
-        action="store_true",
-        help="Print full JSON response (includes reasoning chain)",
-    )
+    parser.add_argument("--raw", action="store_true", help="Print full JSON response (includes reasoning chain)")
     args = parser.parse_args()
 
     for field in ("org_id", "project_id", "agent_id"):
@@ -68,10 +61,7 @@ def main():
 
     r = requests.post(
         url,
-        headers={
-            "Authorization": f"Bearer {token}",
-            "Content-Type": "application/json",
-        },
+        headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
         json={"input": args.query},
     )
     r.raise_for_status()
@@ -81,17 +71,11 @@ def main():
         print(json.dumps(response, indent=2))
         return
 
-    data = (
-        response
-        if isinstance(response, (list, str))
-        else response.get("data", response)
-    )
+    data = response if isinstance(response, (list, str)) else response.get("data", response)
 
     if data.get("type") == "error":
         err = data.get("error", {})
-        sys.exit(
-            f"Agent error ({err.get('status_code', '?')}): {err.get('message', 'unknown error')}"
-        )
+        sys.exit(f"Agent error ({err.get('status_code', '?')}): {err.get('message', 'unknown error')}")
 
     for block in data.get("content", []):
         if block.get("type") == "text":

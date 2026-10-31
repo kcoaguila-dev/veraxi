@@ -23,7 +23,6 @@ from neo4j import GraphDatabase
 
 try:
     from dotenv import load_dotenv
-
     load_dotenv()
 except ImportError:
     pass  # python-dotenv optional; env vars already set take precedence
@@ -35,9 +34,7 @@ PASSWORD = os.getenv("NEO4J_PASSWORD")
 
 def fetch_and_map_schema(db_name=None):
     if not PASSWORD:
-        print(
-            "Error: NEO4J_PASSWORD is not set. Add it to your .env file or environment."
-        )
+        print("Error: NEO4J_PASSWORD is not set. Add it to your .env file or environment.")
         sys.exit(1)
 
     name = db_name or os.getenv("NEO4J_DATABASE", "neo4j")

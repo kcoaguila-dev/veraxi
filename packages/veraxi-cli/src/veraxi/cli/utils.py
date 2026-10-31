@@ -51,9 +51,7 @@ def copy_to_clipboard(text: str) -> bool:
 
     # 4. Linux / X11 (xclip)
     try:
-        p = subprocess.Popen(
-            ["xclip", "-selection", "clipboard"], stdin=subprocess.PIPE
-        )
+        p = subprocess.Popen(["xclip", "-selection", "clipboard"], stdin=subprocess.PIPE)
         p.communicate(input=text.encode("utf-8"))
         return p.returncode == 0
     except Exception:

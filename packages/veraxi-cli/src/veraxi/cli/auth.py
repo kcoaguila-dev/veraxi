@@ -71,12 +71,7 @@ def resolve_credentials(
 
     # 2. Resolve endpoint
     default_endpoint = "https://api.veraxi.me/sse"
-    endpoint = (
-        endpoint_arg
-        or os.environ.get("VERAXI_ENDPOINT")
-        or creds.get("endpoint")
-        or default_endpoint
-    )
+    endpoint = endpoint_arg or os.environ.get("VERAXI_ENDPOINT") or creds.get("endpoint") or default_endpoint
 
     return key, endpoint
 
@@ -85,10 +80,7 @@ def run_login(key: str | None = None, endpoint: str = "https://api.veraxi.me/sse
     if not key:
         is_headless = not sys.stdin.isatty()
         if is_headless:
-            print(
-                "Error: Headless environment. Provide key via --key or VERAXI_API_KEY.",
-                file=sys.stderr,
-            )
+            print("Error: Headless environment. Provide key via --key or VERAXI_API_KEY.", file=sys.stderr)
             sys.exit(1)
         key = input("Enter your Veraxi API Key (vx-...): ").strip()
 
@@ -116,11 +108,7 @@ def run_whoami(key: str | None = None, endpoint: str = "https://api.veraxi.me/ss
         sys.exit(0)
 
     # Mask key for safety
-    masked_key = (
-        resolved_key[:7] + "..." + resolved_key[-4:]
-        if len(resolved_key) > 12
-        else "****"
-    )
+    masked_key = resolved_key[:7] + "..." + resolved_key[-4:] if len(resolved_key) > 12 else "****"
 
     print("\nVeraxi Identity")
     print("===============")

@@ -115,10 +115,7 @@ def run_config(
 
     if action == "set":
         if not key or value is None:
-            print(
-                "Error: 'set' requires both <KEY> and <VALUE>. Example: vx config set default_model gpt-4o",
-                file=sys.stderr,
-            )
+            print("Error: 'set' requires both <KEY> and <VALUE>. Example: vx config set default_model gpt-4o", file=sys.stderr)
             sys.exit(1)
         ok = set_config_value(key, value)
         if ok:
@@ -129,10 +126,7 @@ def run_config(
 
     if action == "unset":
         if not key:
-            print(
-                "Error: 'unset' requires <KEY>. Example: vx config unset default_model",
-                file=sys.stderr,
-            )
+            print("Error: 'unset' requires <KEY>. Example: vx config unset default_model", file=sys.stderr)
             sys.exit(1)
         ok = unset_config_value(key)
         if ok:
@@ -143,10 +137,7 @@ def run_config(
 
     if action == "get":
         if not key:
-            print(
-                "Error: 'get' requires <KEY>. Example: vx config get default_model",
-                file=sys.stderr,
-            )
+            print("Error: 'get' requires <KEY>. Example: vx config get default_model", file=sys.stderr)
             sys.exit(1)
         cfg = load_cli_config()
         val = cfg.get(key)
@@ -165,16 +156,9 @@ def run_config(
 
     # Also detect active environment variables
     env_keys = [
-        "LLM_MODEL_NAME",
-        "DEFAULT_SEARCH_LIMIT",
-        "DEFAULT_MAX_HOPS",
-        "OPENAI_API_KEY",
-        "ANTHROPIC_API_KEY",
-        "GEMINI_API_KEY",
-        "GROQ_API_KEY",
-        "NEO4J_URI",
-        "QDRANT_URL",
-        "REDIS_URL",
+        "LLM_MODEL_NAME", "DEFAULT_SEARCH_LIMIT", "DEFAULT_MAX_HOPS",
+        "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GEMINI_API_KEY", "GROQ_API_KEY",
+        "NEO4J_URI", "QDRANT_URL", "REDIS_URL"
     ]
     env_detected = {}
     for ek in env_keys:
@@ -193,15 +177,9 @@ def run_config(
     dim = "\033[2m"
     reset = "\033[0m"
 
-    print(
-        f"\n{bold}{cyan}╔════════════════════════════════════════════════════════════════════╗{reset}"
-    )
-    print(
-        f"{bold}{cyan}║                 Veraxi Active Configuration & Settings             ║{reset}"
-    )
-    print(
-        f"{bold}{cyan}╚════════════════════════════════════════════════════════════════════╝{reset}"
-    )
+    print(f"\n{bold}{cyan}╔════════════════════════════════════════════════════════════════════╗{reset}")
+    print(f"{bold}{cyan}║                 Veraxi Active Configuration & Settings             ║{reset}")
+    print(f"{bold}{cyan}╚════════════════════════════════════════════════════════════════════╝{reset}")
     print(f"{dim}Config File: {get_cli_config_path()}{reset}\n")
 
     if not combined:
@@ -213,9 +191,7 @@ def run_config(
     print("  " + "─" * 68)
 
     for k, v in sorted(combined.items()):
-        is_secret = any(
-            term in k.lower() for term in ("key", "secret", "password", "token")
-        )
+        is_secret = any(term in k.lower() for term in ("key", "secret", "password", "token"))
         display_val = mask_secret(v) if is_secret else str(v)
         source = "environment" if k in env_detected and k not in cfg else "config"
         print(f"  {k:<26} | {display_val:<30} | {dim}{source}{reset}")

@@ -39,29 +39,19 @@ def run_doctor(endpoint: str, key: str | None = None):
     # 1. Environment & Architecture diagnostics
     print("1. Inspecting Environment...")
     arch = platform.machine() or "unknown"
-    is_termux = "TERMUX_VERSION" in os.environ or "com.termux" in os.environ.get(
-        "PREFIX", ""
-    )
+    is_termux = "TERMUX_VERSION" in os.environ or "com.termux" in os.environ.get("PREFIX", "")
 
     if is_termux:
         termux_ver = os.environ.get("TERMUX_VERSION", "detected")
         print(f"  [PASS] Platform: Android / Termux ({arch}) [v{termux_ver}]")
-        print(
-            "  [INFO] Pure Python stdlib mode active (0 C-extensions / 0 Rust wheels required)"
-        )
+        print("  [INFO] Pure Python stdlib mode active (0 C-extensions / 0 Rust wheels required)")
         if shutil.which("termux-clipboard-get"):
-            print(
-                "  [PASS] Termux:API clipboard detected (system copy/paste supported)"
-            )
+            print("  [PASS] Termux:API clipboard detected (system copy/paste supported)")
         else:
-            print(
-                "  [INFO] Termux:API optional (run 'pkg install termux-api' for mobile clipboard)"
-            )
+            print("  [INFO] Termux:API optional (run 'pkg install termux-api' for mobile clipboard)")
     else:
         sys_name = platform.system()
-        print(
-            f"  [PASS] Platform: {sys_name} ({arch}) - Python {platform.python_version()}"
-        )
+        print(f"  [PASS] Platform: {sys_name} ({arch}) - Python {platform.python_version()}")
 
     print("\n2. Testing Connectivity...")
     success, msg = check_endpoint(endpoint, key)
@@ -90,9 +80,7 @@ def run_doctor(endpoint: str, key: str | None = None):
                 server_url = mcp_servers["veraxi"].get("url", "unknown")
                 print(f"{client_name:<15} | {'[CONFIGURED]':<15} | {server_url}")
             else:
-                print(
-                    f"{client_name:<15} | {'[MISSING]':<15} | 'veraxi' not in mcpServers"
-                )
+                print(f"{client_name:<15} | {'[MISSING]':<15} | 'veraxi' not in mcpServers")
         except Exception as e:
             print(f"{client_name:<15} | {'[ERROR]':<15} | Malformed JSON ({e})")
 

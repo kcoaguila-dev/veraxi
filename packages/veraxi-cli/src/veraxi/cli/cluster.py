@@ -64,10 +64,7 @@ def run_cluster(
 
     if action in ("add", "create"):
         if not name or not name.strip():
-            print(
-                "Error: cluster name is required to create or add repos.",
-                file=sys.stderr,
-            )
+            print("Error: cluster name is required to create or add repos.", file=sys.stderr)
             sys.exit(1)
 
         name = name.strip()
@@ -106,12 +103,7 @@ def run_cluster(
                 MERGE (c:Cluster {name: $name, tenant_id: $tenant_id})
                 SET c.repos = $repos, c.updated_at = $now_iso
                 """,
-                {
-                    "name": name,
-                    "tenant_id": tenant_id,
-                    "repos": final_repos,
-                    "now_iso": now_iso,
-                },
+                {"name": name, "tenant_id": tenant_id, "repos": final_repos, "now_iso": now_iso},
             )
             neo4j.close()
             cluster_data = {"name": name, "repos": final_repos, "updated_at": now_iso}
@@ -119,19 +111,13 @@ def run_cluster(
             print(f"Warning: Cluster database write failed ({e}).", file=sys.stderr)
 
         if as_json:
-            print(
-                json.dumps(cluster_data or {"name": name, "repos": repo_list}, indent=2)
-            )
+            print(json.dumps(cluster_data or {"name": name, "repos": repo_list}, indent=2))
             return
 
         final_list = cluster_data["repos"] if cluster_data else repo_list
-        print(
-            f"\n{bold}{green}✓ Updated repository cluster{reset} [{cyan}{name}{reset}]:"
-        )
+        print(f"\n{bold}{green}✓ Updated repository cluster{reset} [{cyan}{name}{reset}]:")
         print(f"  Repositories ({len(final_list)}): {', '.join(final_list)}")
-        print(
-            "  These services now share architectural rules and context automatically.\n"
-        )
+        print("  These services now share architectural rules and context automatically.\n")
 
     elif action == "list":
         clusters = []
@@ -160,21 +146,13 @@ def run_cluster(
             print(json.dumps(clusters, indent=2))
             return
 
-        print(
-            f"\n{bold}{cyan}╔════════════════════════════════════════════════════════════════════╗{reset}"
-        )
-        print(
-            f"{bold}{cyan}║                 Veraxi Repository Clusters                         ║{reset}"
-        )
-        print(
-            f"{bold}{cyan}╚════════════════════════════════════════════════════════════════════╝{reset}"
-        )
+        print(f"\n{bold}{cyan}╔════════════════════════════════════════════════════════════════════╗{reset}")
+        print(f"{bold}{cyan}║                 Veraxi Repository Clusters                         ║{reset}")
+        print(f"{bold}{cyan}╚════════════════════════════════════════════════════════════════════╝{reset}")
 
         if not clusters:
             print("\n  No cross-repository clusters configured yet.")
-            print(
-                "  Use 'veraxi cluster add <name> <repo1> <repo2>' to group microservices.\n"
-            )
+            print("  Use 'veraxi cluster add <name> <repo1> <repo2>' to group microservices.\n")
             return
 
         print(f"\n  Active Architectural Clusters ({len(clusters)}):")
@@ -221,9 +199,7 @@ def run_cluster(
                         """,
                         {"name": name, "tenant_id": tenant_id, "repos": curr_list},
                     )
-                print(
-                    f"{bold}{green}✓ Removed '{target_repo}' from cluster '{name}'{reset}"
-                )
+                print(f"{bold}{green}✓ Removed '{target_repo}' from cluster '{name}'{reset}")
             else:
                 neo4j.execute_write(
                     """
@@ -246,10 +222,4 @@ def run_cluster(
         target_repo = name.strip()
         current_repo = _resolve_project_scope()
         cluster_name = f"{current_repo}-{target_repo}"
-        run_cluster(
-            "add",
-            name=cluster_name,
-            repos=[current_repo, target_repo],
-            tenant_id=tenant_id,
-            as_json=as_json,
-        )
+        run_cluster("add", name=cluster_name, repos=[current_repo, target_repo], tenant_id=tenant_id, as_json=as_json)

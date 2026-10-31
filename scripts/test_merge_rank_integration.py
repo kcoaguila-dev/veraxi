@@ -5,12 +5,7 @@ from backend.mcp_server.tools.search_vectors import search_vectors
 from backend.mcp_server.tools.query_graph import query_graph
 from backend.retrieval.merge_rank import merge_rank
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s | %(levelname)s: %(message)s",
-    datefmt="%H:%M:%S",
-)
-
+logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s: %(message)s", datefmt="%H:%M:%S")
 
 def test_integration(vector_query: str, graph_query: str):
     """
@@ -34,31 +29,16 @@ def test_integration(vector_query: str, graph_query: str):
             logging.info(f"Top result score: {top_result.fused_score}")
             logging.info(f"Top result sources: {top_result.sources}")
         else:
-            logging.warning(
-                "No merged results found. Ensure your database contains data matching your queries."
-            )
-
+            logging.warning("No merged results found. Ensure your database contains data matching your queries.")
+            
     except Exception:
         logging.exception("❌ Error running integration test")
         sys.exit(1)
 
-
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="Test Vector and Graph retrieval with Reciprocal Rank Fusion."
-    )
-    parser.add_argument(
-        "--vector",
-        type=str,
-        default="GraphRAG",
-        help="Query string for the Vector DB search",
-    )
-    parser.add_argument(
-        "--graph",
-        type=str,
-        default="Microsoft Research",
-        help="Entity name for the Graph DB query",
-    )
-
+    parser = argparse.ArgumentParser(description="Test Vector and Graph retrieval with Reciprocal Rank Fusion.")
+    parser.add_argument("--vector", type=str, default="GraphRAG", help="Query string for the Vector DB search")
+    parser.add_argument("--graph", type=str, default="Microsoft Research", help="Entity name for the Graph DB query")
+    
     args = parser.parse_args()
     test_integration(args.vector, args.graph)

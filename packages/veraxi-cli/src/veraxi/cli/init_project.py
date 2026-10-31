@@ -1,7 +1,6 @@
 import os
 from pathlib import Path
 
-
 def init_project(force: bool = False):
     """
     Initializes project by auto-generating/appending CLAUDE.md and .cursorrules.

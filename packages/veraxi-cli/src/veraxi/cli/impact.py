@@ -13,7 +13,6 @@ def _local_static_impact_scan(target: str, root_dir: str | None = None) -> list[
     if not root_dir:
         try:
             import subprocess
-
             root_dir = subprocess.check_output(
                 ["git", "rev-parse", "--show-toplevel"],
                 stderr=subprocess.DEVNULL,
@@ -25,12 +24,7 @@ def _local_static_impact_scan(target: str, root_dir: str | None = None) -> list[
                 return []
             root_dir = cwd
 
-    symbol = (
-        os.path.basename(target)
-        .replace(".py", "")
-        .replace(".ts", "")
-        .replace(".js", "")
-    )
+    symbol = os.path.basename(target).replace(".py", "").replace(".ts", "").replace(".js", "")
     dependents = []
     seen_files = set()
 
@@ -43,43 +37,15 @@ def _local_static_impact_scan(target: str, root_dir: str | None = None) -> list[
     ]
 
     ignore_dirs = {
-        ".git",
-        ".venv",
-        "venv",
-        "env",
-        "node_modules",
-        "__pycache__",
-        "dist",
-        "build",
-        ".egg-info",
-        ".idea",
-        ".vscode",
-        ".cache",
-        ".local",
-        ".cargo",
-        ".rustup",
-        ".gemini",
-        "site-packages",
+        ".git", ".venv", "venv", "env", "node_modules", "__pycache__", "dist",
+        "build", ".egg-info", ".idea", ".vscode", ".cache", ".local", ".cargo",
+        ".rustup", ".gemini", "site-packages"
     }
-    code_exts = {
-        ".py",
-        ".ts",
-        ".tsx",
-        ".js",
-        ".jsx",
-        ".go",
-        ".rs",
-        ".java",
-        ".cpp",
-        ".c",
-        ".h",
-    }
+    code_exts = {".py", ".ts", ".tsx", ".js", ".jsx", ".go", ".rs", ".java", ".cpp", ".c", ".h"}
 
     scanned_count = 0
     for dirpath, dirnames, filenames in os.walk(root_dir):
-        dirnames[:] = [
-            d for d in dirnames if d not in ignore_dirs and not d.startswith(".")
-        ]
+        dirnames[:] = [d for d in dirnames if d not in ignore_dirs and not d.startswith(".")]
         for fn in filenames:
             ext = os.path.splitext(fn)[1].lower()
             if ext not in code_exts:
@@ -102,39 +68,18 @@ def _local_static_impact_scan(target: str, root_dir: str | None = None) -> list[
                             norm = rel_path.lower()
                             if any(k in norm for k in ["test", "spec"]):
                                 category = "Tests & Verification"
-                            elif any(
-                                k in norm
-                                for k in [
-                                    "api",
-                                    "route",
-                                    "endpoint",
-                                    "view",
-                                    "controller",
-                                ]
-                            ):
+                            elif any(k in norm for k in ["api", "route", "endpoint", "view", "controller"]):
                                 category = "Endpoints & APIs"
-                            elif any(
-                                k in norm
-                                for k in [
-                                    "service",
-                                    "storage",
-                                    "client",
-                                    "core",
-                                    "model",
-                                    "db",
-                                ]
-                            ):
+                            elif any(k in norm for k in ["service", "storage", "client", "core", "model", "db"]):
                                 category = "Services & Storage"
 
-                            dependents.append(
-                                {
-                                    "name": rel_path,
-                                    "category": category,
-                                    "relation": "IMPORTS/CALLS",
-                                    "line": line_num,
-                                    "preview": line.strip()[:80],
-                                }
-                            )
+                            dependents.append({
+                                "name": rel_path,
+                                "category": category,
+                                "relation": "IMPORTS/CALLS",
+                                "line": line_num,
+                                "preview": line.strip()[:80],
+                            })
                             seen_files.add(rel_path)
                             break
             except Exception:
@@ -158,10 +103,7 @@ def run_impact(
     Identifies downstream callers, dependent services, public endpoints, and required test suites.
     """
     if not target or not target.strip():
-        print(
-            "Error: target symbol or file path is required for impact analysis.",
-            file=sys.stderr,
-        )
+        print("Error: target symbol or file path is required for impact analysis.", file=sys.stderr)
         sys.exit(1)
 
     target = target.strip()
@@ -204,42 +146,18 @@ def run_impact(
                 category = "Internal Modules"
                 if any(k in norm for k in ["test", "spec"]):
                     category = "Tests & Verification"
-                elif any(
-                    k in norm
-                    for k in [
-                        "endpoint",
-                        "api",
-                        "route",
-                        "view",
-                        "controller",
-                        "/",
-                        "post ",
-                        "get ",
-                    ]
-                ):
+                elif any(k in norm for k in ["endpoint", "api", "route", "view", "controller", "/", "post ", "get "]):
                     category = "Endpoints & APIs"
-                elif any(
-                    k in norm
-                    for k in [
-                        "service",
-                        "storage",
-                        "client",
-                        "model",
-                        "db",
-                        "repository",
-                    ]
-                ):
+                elif any(k in norm for k in ["service", "storage", "client", "model", "db", "repository"]):
                     category = "Services & Storage"
 
                 rels = r.get("rels") or ["DEPENDS_ON"]
-                dependents.append(
-                    {
-                        "name": name,
-                        "category": category,
-                        "relation": rels[0] if rels else "DEPENDS_ON",
-                        "filepath": None,
-                    }
-                )
+                dependents.append({
+                    "name": name,
+                    "category": category,
+                    "relation": rels[0] if rels else "DEPENDS_ON",
+                    "filepath": None,
+                })
     except Exception:
         pass
 
@@ -306,22 +224,12 @@ def run_impact(
     else:
         risk_badge = f"\033[41m\033[37m{bold} CRITICAL {reset}"
 
-    print(
-        f"\n{bold}{cyan}╔════════════════════════════════════════════════════════════════════╗{reset}"
-    )
-    print(
-        f"{bold}{cyan}║                 Veraxi Architectural Blast Radius                  ║{reset}"
-    )
-    print(
-        f"{bold}{cyan}╚════════════════════════════════════════════════════════════════════╝{reset}"
-    )
+    print(f"\n{bold}{cyan}╔════════════════════════════════════════════════════════════════════╗{reset}")
+    print(f"{bold}{cyan}║                 Veraxi Architectural Blast Radius                  ║{reset}")
+    print(f"{bold}{cyan}╚════════════════════════════════════════════════════════════════════╝{reset}")
 
-    print(
-        f"\n  Target: {bold}{target}{reset} (Scope: {project_scope} | Source: {source_type})"
-    )
-    print(
-        f"  Risk Level: {risk_badge} ({total} downstream dependents across {len([k for k, v in by_category.items() if v])} domains)"
-    )
+    print(f"\n  Target: {bold}{target}{reset} (Scope: {project_scope} | Source: {source_type})")
+    print(f"  Risk Level: {risk_badge} ({total} downstream dependents across {len([k for k, v in by_category.items() if v])} domains)")
 
     if total == 0:
         print(f"\n  {green}✓ No downstream dependencies found.{reset}")
@@ -330,23 +238,14 @@ def run_impact(
         return
 
     print("\n  Downstream Blast Radius Tree:")
-    cat_keys = [
-        k
-        for k in [
-            "Endpoints & APIs",
-            "Services & Storage",
-            "Internal Modules",
-            "Tests & Verification",
-        ]
-        if by_category.get(k)
-    ]
+    cat_keys = [k for k in ["Endpoints & APIs", "Services & Storage", "Internal Modules", "Tests & Verification"] if by_category.get(k)]
     for i, cat in enumerate(cat_keys):
-        is_last_cat = i == len(cat_keys) - 1
+        is_last_cat = (i == len(cat_keys) - 1)
         cat_branch = "└──" if is_last_cat else "├──"
         print(f"  {cat_branch} {bold}{cat}{reset} ({len(by_category[cat])})")
         items = by_category[cat]
         for j, item in enumerate(items):
-            is_last_item = j == len(items) - 1
+            is_last_item = (j == len(items) - 1)
             child_prefix = "    " if is_last_cat else "│   "
             item_branch = "└──" if is_last_item else "├──"
             rel = f" \033[2m({item.get('relation', 'DEPENDS_ON')})\033[0m"
@@ -354,18 +253,10 @@ def run_impact(
 
     print(f"\n  {bold}Actionable Guidance for AI Agent / Engineer:{reset}")
     if by_category.get("Endpoints & APIs"):
-        print(
-            f"  • {yellow}Warning:{reset} Modifying '{target}' directly affects {len(by_category['Endpoints & APIs'])} public API endpoint(s). Check API contracts."
-        )
+        print(f"  • {yellow}Warning:{reset} Modifying '{target}' directly affects {len(by_category['Endpoints & APIs'])} public API endpoint(s). Check API contracts.")
     if required_tests:
-        test_str = ", ".join(required_tests[:4]) + (
-            "..." if len(required_tests) > 4 else ""
-        )
-        print(
-            f"  • {green}Required Verification:{reset} Execute test suites before committing: {bold}{test_str}{reset}"
-        )
+        test_str = ", ".join(required_tests[:4]) + ("..." if len(required_tests) > 4 else "")
+        print(f"  • {green}Required Verification:{reset} Execute test suites before committing: {bold}{test_str}{reset}")
     else:
-        print(
-            f"  • {yellow}Notice:{reset} No automated tests found directly covering this component. Add a test suite."
-        )
+        print(f"  • {yellow}Notice:{reset} No automated tests found directly covering this component. Add a test suite.")
     print()

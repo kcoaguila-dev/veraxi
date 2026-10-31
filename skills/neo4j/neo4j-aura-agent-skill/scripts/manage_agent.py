@@ -12,7 +12,6 @@ from pathlib import Path
 
 try:
     from dotenv import load_dotenv
-
     load_dotenv(Path(__file__).parent.parent / ".env")
 except ImportError:
     pass
@@ -30,9 +29,7 @@ def get_token() -> str:
     client_id = os.environ.get("AURA_CLIENT_ID")
     client_secret = os.environ.get("AURA_CLIENT_SECRET")
     if not client_id or not client_secret:
-        sys.exit(
-            "ERROR: AURA_CLIENT_ID and AURA_CLIENT_SECRET must be set in .env or environment"
-        )
+        sys.exit("ERROR: AURA_CLIENT_ID and AURA_CLIENT_SECRET must be set in .env or environment")
     r = requests.post(
         f"{BASE}/oauth/token",
         auth=(client_id, client_secret),
@@ -77,18 +74,14 @@ def cmd_list(args, token: str):
             print(f"MCP:      {a['mcp_endpoint_link']}")
         tools = a.get("tools", [])
         if tools:
-            print(
-                f"Tools:    {', '.join(t.get('name', t.get('type', '?')) for t in tools)}"
-            )
+            print(f"Tools:    {', '.join(t.get('name', t.get('type', '?')) for t in tools)}")
         print()
 
 
 def cmd_create(args, token: str):
     with open(args.config) as f:
         payload = json.load(f)
-    r = requests.post(
-        agents_url(args.org_id, args.project_id), headers=headers(token), json=payload
-    )
+    r = requests.post(agents_url(args.org_id, args.project_id), headers=headers(token), json=payload)
     r.raise_for_status()
     data = unwrap(r)
     print(json.dumps(data, indent=2))
@@ -98,9 +91,7 @@ def cmd_create(args, token: str):
 
 
 def cmd_get(args, token: str):
-    r = requests.get(
-        agents_url(args.org_id, args.project_id, args.agent_id), headers=headers(token)
-    )
+    r = requests.get(agents_url(args.org_id, args.project_id, args.agent_id), headers=headers(token))
     r.raise_for_status()
     print(json.dumps(unwrap(r), indent=2))
 
@@ -118,50 +109,32 @@ def cmd_update(args, token: str):
 
 
 def cmd_delete(args, token: str):
-    r = requests.delete(
-        agents_url(args.org_id, args.project_id, args.agent_id), headers=headers(token)
-    )
+    r = requests.delete(agents_url(args.org_id, args.project_id, args.agent_id), headers=headers(token))
     r.raise_for_status()
     print(f"Agent {args.agent_id} deleted (status {r.status_code})")
 
 
 def main():
     parser = argparse.ArgumentParser(description="Manage Aura Agents (v2beta1)")
-    parser.add_argument(
-        "--org-id", default=os.environ.get("AURA_ORG_ID"), help="Organization ID"
-    )
-    parser.add_argument(
-        "--project-id", default=os.environ.get("AURA_PROJECT_ID"), help="Project ID"
-    )
+    parser.add_argument("--org-id", default=os.environ.get("AURA_ORG_ID"), help="Organization ID")
+    parser.add_argument("--project-id", default=os.environ.get("AURA_PROJECT_ID"), help="Project ID")
 
     sub = parser.add_subparsers(dest="command", required=True)
 
     sub.add_parser("list", help="List all agents in project")
 
     p_create = sub.add_parser("create", help="Create agent from JSON config file")
-    p_create.add_argument(
-        "--config",
-        required=True,
-        help="Path to JSON config (see assets/contract-review-agent.json)",
-    )
+    p_create.add_argument("--config", required=True, help="Path to JSON config (see assets/contract-review-agent.json)")
 
     p_get = sub.add_parser("get", help="Get full agent details")
-    p_get.add_argument(
-        "--agent-id", default=os.environ.get("AURA_AGENT_ID"), required=False
-    )
+    p_get.add_argument("--agent-id", default=os.environ.get("AURA_AGENT_ID"), required=False)
 
     p_update = sub.add_parser("update", help="Partial update (PATCH) agent")
-    p_update.add_argument(
-        "--agent-id", default=os.environ.get("AURA_AGENT_ID"), required=False
-    )
-    p_update.add_argument(
-        "--config", required=True, help="Path to JSON with fields to patch"
-    )
+    p_update.add_argument("--agent-id", default=os.environ.get("AURA_AGENT_ID"), required=False)
+    p_update.add_argument("--config", required=True, help="Path to JSON with fields to patch")
 
     p_delete = sub.add_parser("delete", help="Delete agent (irreversible)")
-    p_delete.add_argument(
-        "--agent-id", default=os.environ.get("AURA_AGENT_ID"), required=False
-    )
+    p_delete.add_argument("--agent-id", default=os.environ.get("AURA_AGENT_ID"), required=False)
 
     args = parser.parse_args()
 
@@ -172,9 +145,7 @@ def main():
 
     for cmd in ("get", "update", "delete"):
         if args.command == cmd and not args.agent_id:
-            sys.exit(
-                f"ERROR: --agent-id required for {cmd} (or set AURA_AGENT_ID in .env)"
-            )
+            sys.exit(f"ERROR: --agent-id required for {cmd} (or set AURA_AGENT_ID in .env)")
 
     token = get_token()
 
