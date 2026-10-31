@@ -37,9 +37,13 @@ def qdrant_client(patch_env):
 
 def test_delete_entity(neo4j_client, test_tenant):
     # Setup
-    neo4j_client.execute_read(
-        "CREATE (n:Person {name: 'Test Delete Entity', tenant_id: $tenant_id})",
-        {"tenant_id": test_tenant},
+    neo4j_client.upsert_entity(
+        label="Person",
+        tenant_id=test_tenant,
+        name="Test Delete Entity",
+        aliases=[],
+        properties={},
+        qdrant_point_ids=[],
     )
 
     # Test
@@ -56,14 +60,23 @@ def test_delete_entity(neo4j_client, test_tenant):
 
 def test_delete_relationship(neo4j_client, test_tenant):
     # Setup
-    neo4j_client.execute_read(
-        """
-        CREATE (a:Person {name: 'NodeA', tenant_id: $tenant_id})
-        CREATE (b:Person {name: 'NodeB', tenant_id: $tenant_id})
-        CREATE (a)-[:KNOWS]->(b)
-        """,
-        {"tenant_id": test_tenant},
+    id_a = neo4j_client.upsert_entity(
+        label="Person",
+        tenant_id=test_tenant,
+        name="NodeA",
+        aliases=[],
+        properties={},
+        qdrant_point_ids=[],
     )
+    id_b = neo4j_client.upsert_entity(
+        label="Person",
+        tenant_id=test_tenant,
+        name="NodeB",
+        aliases=[],
+        properties={},
+        qdrant_point_ids=[],
+    )
+    neo4j_client.upsert_relationship(id_a, id_b, "KNOWS", {"tenant_id": test_tenant})
 
     # Test
     result = delete_relationship("NodeA", "NodeB", "KNOWS", tenant_id=test_tenant)
@@ -177,9 +190,13 @@ def test_update_document_metadata(qdrant_client, patch_env, test_tenant):
 
 def test_update_entity(neo4j_client, test_tenant):
     # Setup
-    neo4j_client.execute_read(
-        "CREATE (n:Person {name: 'Update Me', tenant_id: $tenant_id, age: 30})",
-        {"tenant_id": test_tenant},
+    neo4j_client.upsert_entity(
+        label="Person",
+        tenant_id=test_tenant,
+        name="Update Me",
+        aliases=[],
+        properties={"age": 30},
+        qdrant_point_ids=[],
     )
 
     # Test

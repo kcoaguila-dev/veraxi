@@ -75,8 +75,11 @@ def build_lazy_graph_dossier(
     if chunk_ids:
         cypher = """
         MATCH (n)
-        WHERE n.tenant_id = $tenant_id AND n.qdrant_point_id IN $chunk_ids
-        RETURN n.name AS name, labels(n)[0] AS type, n.qdrant_point_id AS q_id
+        WHERE n.tenant_id = $tenant_id
+        UNWIND n.qdrant_point_ids AS q_id
+        WITH n, q_id
+        WHERE q_id IN $chunk_ids
+        RETURN n.name AS name, labels(n)[0] AS type, q_id
         """
         try:
             records = neo4j.execute_read(

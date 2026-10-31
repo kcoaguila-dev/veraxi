@@ -21,10 +21,11 @@ def query_graph(
     # We parameterize the entity_name and tenant_id
     query = f"""
     MATCH (start {{name: $entity_name}})-[*1..{max_hops}]-(end)
-    WHERE end.qdrant_point_id IS NOT NULL 
+    WHERE end.qdrant_point_ids IS NOT NULL
       AND start.tenant_id = $tenant_id 
       AND end.tenant_id = $tenant_id
-    RETURN DISTINCT end.id AS id, end.qdrant_point_id AS qdrant_point_id, labels(end) AS labels, properties(end) AS props
+    UNWIND end.qdrant_point_ids AS qid
+    RETURN DISTINCT end.id AS id, qid AS qdrant_point_id, labels(end) AS labels, properties(end) AS props
     """
 
     # Execute query

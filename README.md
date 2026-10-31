@@ -64,14 +64,26 @@ make up
 make seed
 ```
 
-### 2. Service Dashboards
+### 2. Resource Usage & Low-RAM Tuning
+By default, the local Neo4j Docker container is constrained to prevent the JVM from consuming all available host RAM:
+- `NEO4J_HEAP` (default `512m`)
+- `NEO4J_PAGECACHE` (default `256m`)
+
+Users on budget hardware can adjust these values in `docker-compose.yml` or via environment variables before running `make up`. To find the optimal memory settings for your specific machine, you can run:
+```bash
+docker run --rm neo4j:5 neo4j-admin server memory-recommendation --memory=<RAM> --docker
+```
+
+**BYOD Cloud Instances:** For a near-zero local RAM footprint, you can point `NEO4J_URI` to a free Neo4j AuraDB instance and `QDRANT_URL` to a free Qdrant Cloud instance. Set these environment variables before starting the backend, and local databases won't be necessary.
+
+### 3. Service Dashboards
 Once `make up` completes:
 - **FastAPI OpenAPI Swagger:** [http://localhost:8000/docs](http://localhost:8000/docs)
 - **Neo4j Browser UI:** [http://localhost:7474](http://localhost:7474) *(user: `neo4j`, pass: `changeme_local_password`)*
 - **Qdrant Dashboard:** [http://localhost:6333/dashboard](http://localhost:6333/dashboard)
 - **SearXNG Search Engine:** [http://localhost:8080](http://localhost:8080)
 
-### 3. Run the Backend & Frontend
+### 4. Run the Backend & Frontend
 ```bash
 # Start backend natively with hot-reload
 make run-backend

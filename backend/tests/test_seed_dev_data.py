@@ -19,9 +19,9 @@ def test_seed_dev_data_pipeline(patch_env):
     qdrant = QdrantStorageClient.from_config(config)
 
     try:
-        # Verify Neo4j nodes have qdrant_point_id linked
+        # Verify Neo4j nodes have qdrant_point_ids linked
         records = neo4j.execute_read(
-            "MATCH (n) WHERE n.tenant_id = $tenant_id RETURN n.name as name, n.qdrant_point_id as qdrant_id",
+            "MATCH (n) WHERE n.tenant_id = $tenant_id RETURN n.name as name, n.qdrant_point_ids as qdrant_id",
             {"tenant_id": tenant_id},
         )
         assert len(records) >= 4

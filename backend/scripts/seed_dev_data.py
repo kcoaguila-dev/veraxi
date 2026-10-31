@@ -193,14 +193,21 @@ def seed_database(tenant_id: str = "default", clean: bool = False) -> dict[str, 
         for ent in doc["entities"]:
             ent_name = ent["name"]
             if ent_name in entity_nodes:
-                continue  # already created
+                # Need to update existing entity's qdrant_point_ids, but since this is seeding
+                # and our upsert does this for us, we can just call it again
+                pass
 
             props = ent.get("properties", {}).copy()
-            props["name"] = ent_name
-            props["tenant_id"] = tenant_id
-            props["qdrant_point_id"] = doc_point_id
 
-            node_id = neo4j.create_node(ent["type"], props)
+            node_id = neo4j.upsert_entity(
+                label=ent["type"],
+                tenant_id=tenant_id,
+                name=ent_name,
+                aliases=[ent_name],
+                properties=props,
+                qdrant_point_ids=[doc_point_id],
+            )
+
             entity_nodes[ent_name] = node_id
             point_to_nodes[doc_point_id].append(node_id)
 
@@ -210,7 +217,7 @@ def seed_database(tenant_id: str = "default", clean: bool = False) -> dict[str, 
         from_id = entity_nodes.get(from_name)
         to_id = entity_nodes.get(to_name)
         if from_id and to_id:
-            neo4j.create_relationship(
+            neo4j.upsert_relationship(
                 from_id=from_id,
                 to_id=to_id,
                 rel_type=rel_type,
