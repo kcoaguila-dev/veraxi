@@ -19,7 +19,7 @@ from backend.storage.qdrant_client import QdrantStorageClient
 logger = logging.getLogger(__name__)
 
 
-def mcp_deep_research(
+def mcp_ephemeral_web_rag(
     query: str,
     tenant_id: str,
     max_results: int = 3,
@@ -27,15 +27,15 @@ def mcp_deep_research(
     tool_settings: dict | None = None,
 ) -> dict:
     """
-    Performs deep web research by searching the web, dynamically ingesting the top
-    results into the tenant's Hybrid RAG database, and returning the mathematically
+    Performs ephemeral web RAG by searching the web, dynamically ingesting the top
+    results into an ephemeral sandboxed Hybrid RAG database, and returning the mathematically
     ranked RRF results using `merge_rank`.
     """
     tool_settings = tool_settings or {}
     web_settings = tool_settings.get("web_search") or {}
 
     logger.info(
-        f"Deep Research triggered for query: '{query}' on original tenant: {tenant_id}"
+        f"Ephemeral Web RAG triggered for query: '{query}' on original tenant: {tenant_id}"
     )
 
     # 1. Generate Ephemeral Namespace
@@ -165,3 +165,8 @@ def mcp_deep_research(
             import sentry_sdk
 
             sentry_sdk.capture_exception(e)
+
+
+# Backward-compatible alias
+mcp_deep_research = mcp_ephemeral_web_rag
+

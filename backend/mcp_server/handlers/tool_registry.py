@@ -302,8 +302,8 @@ REGISTERED_TOOLS = [
         },
     ),
     Tool(
-        name="mcp_deep_research",
-        description="Performs deep web research. Searches the internet, dynamically ingests the top results into your Hybrid RAG database, and returns mathematically ranked facts. Use this for complex research where standard web search lacks depth or relational accuracy. If you already have URLs to research, provide them in the 'urls' array.",
+        name="mcp_ephemeral_web_rag",
+        description="Dynamically crawls external web URLs, extracts facts into a temporary sandboxed knowledge graph and vector space, and returns fused RRF facts. Use when external live web data needs structured RAG retrieval. If you already have URLs to research, provide them in the 'urls' array.",
         input_schema={
             "type": "object",
             "properties": {
@@ -315,6 +315,36 @@ REGISTERED_TOOLS = [
                     "description": "Optional list of pre-searched URLs to ingest and research over. If provided, skips the internal web search phase.",
                 },
             },
+        },
+    ),
+    Tool(
+        name="mcp_deep_research",
+        description="Performs deep web research. Searches the internet, dynamically ingests the top results into your Hybrid RAG database, and returns mathematically ranked facts. Alias for mcp_ephemeral_web_rag.",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "query": {"type": "string"},
+                "max_results": {"type": "integer", "default": 3},
+                "urls": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Optional list of pre-searched URLs to ingest and research over. If provided, skips the internal web search phase.",
+                },
+            },
+        },
+    ),
+    Tool(
+        name="mcp_agentic_debate",
+        description="Executes a high-accuracy multi-agent GraphRAG research debate. Dispatches Vector, Knowledge Graph, and Web specialists, synthesizes evidence with strict citations, and enforces an adversarial Skeptic verification loop. Use for deep multi-hop research, complex claims, and cross-verification.",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "The research question or topic to investigate.",
+                },
+            },
+            "required": ["query"],
         },
     ),
     Tool(
@@ -515,10 +545,10 @@ def _handle_dynamic_web_graph(args: dict, tenant_id: str) -> list[TextContent]:
 
 
 def _handle_deep_research(args: dict, tenant_id: str) -> list[TextContent]:
-    from backend.mcp_server.tools.deep_research import mcp_deep_research
+    from backend.mcp_server.tools.deep_research import mcp_ephemeral_web_rag
 
     tool_settings = args.get("_tool_settings", {})
-    results = mcp_deep_research(
+    results = mcp_ephemeral_web_rag(
         query=args["query"],
         tenant_id=tenant_id,
         max_results=args.get("max_results", 3),
@@ -526,6 +556,9 @@ def _handle_deep_research(args: dict, tenant_id: str) -> list[TextContent]:
         tool_settings=tool_settings,
     )
     return [TextContent(type="text", text=json.dumps(results))]
+
+
+_handle_ephemeral_web_rag = _handle_deep_research
 
 
 def _handle_skills(args: dict, tenant_id: str) -> list[TextContent]:
@@ -630,7 +663,9 @@ TOOL_HANDLERS = {
     "mcp_read_artifact": _handle_read_artifact,
     "mcp_ingest_document": _handle_ingest_document,
     "mcp_get_ingest_status": _handle_get_ingest_status,
+    "mcp_ephemeral_web_rag": _handle_ephemeral_web_rag,
     "mcp_deep_research": _handle_deep_research,
+    "mcp_agentic_debate": _handle_agentic_debate,
     "mcp_export_data": _handle_export_data,
     "mcp_build_lazy_dossier": _handle_build_lazy_dossier,
     "mcp_purge_noisy_relationships": _handle_purge_noisy_relationships,

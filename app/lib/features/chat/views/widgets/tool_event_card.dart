@@ -224,6 +224,8 @@ class _ToolEventCardState extends State<ToolEventCard>
         return '🔍 Searching vector database…';
       case 'mcp_query_graph':
         return '🕸️ Querying knowledge graph…';
+      case 'mcp_ephemeral_web_rag':
+        return '🌐 Ephemeral web ingestion…';
       case 'mcp_deep_research':
         return '🔬 Executing deep research…';
       case 'mcp_agentic_debate':

@@ -356,8 +356,23 @@ def mcp_dynamic_web_graph(
 
 
 @mcp_server.tool(
+    name="mcp_ephemeral_web_rag",
+    description="Dynamically crawls external web URLs, extracts facts into a temporary sandboxed knowledge graph and vector space, and returns fused RRF facts. Use when external live web data needs structured RAG retrieval. If you already have URLs to research, provide them in the 'urls' array.",
+)
+def mcp_ephemeral_web_rag(
+    query: str | None = None, max_results: int = 3, urls: list | None = None
+) -> str:
+    tenant_id = tenant_context.get()
+    args = {k: v for k, v in locals().items() if k != "tenant_id"}
+    from backend.mcp_server.handlers.tool_registry import _handle_ephemeral_web_rag
+
+    res = _handle_ephemeral_web_rag(args, tenant_id)
+    return res[0].text
+
+
+@mcp_server.tool(
     name="mcp_deep_research",
-    description="Performs deep web research. Searches the internet, dynamically ingests the top results into your Hybrid RAG database, and returns mathematically ranked facts. Use this for complex research where standard web search lacks depth or relational accuracy. If you already have URLs to research, provide them in the 'urls' array.",
+    description="Performs deep web research. Searches the internet, dynamically ingests the top results into your Hybrid RAG database, and returns mathematically ranked facts. Alias for mcp_ephemeral_web_rag.",
 )
 def mcp_deep_research(
     query: str | None = None, max_results: int = 3, urls: list | None = None
@@ -368,6 +383,19 @@ def mcp_deep_research(
 
     res = _handle_deep_research(args, tenant_id)
     # The old handler returns list[TextContent]. MCPServer expects str.
+    return res[0].text
+
+
+@mcp_server.tool(
+    name="mcp_agentic_debate",
+    description="Executes a high-accuracy multi-agent GraphRAG research debate. Dispatches Vector, Knowledge Graph, and Web specialists, synthesizes evidence with strict citations, and enforces an adversarial Skeptic verification loop.",
+)
+async def mcp_agentic_debate(query: str) -> str:
+    tenant_id = tenant_context.get()
+    args = {"query": query}
+    from backend.mcp_server.handlers.tool_registry import _handle_agentic_debate
+
+    res = await _handle_agentic_debate(args, tenant_id)
     return res[0].text
 
 
@@ -421,6 +449,8 @@ AGENT_TOOLS: frozenset[str] = frozenset(
         "mcp_evaluate_grounding",
         "mcp_web_search",
         "mcp_deep_research",
+        "mcp_ephemeral_web_rag",
+        "mcp_agentic_debate",
         "mcp_ingest_document",
         "mcp_get_ingest_status",
         "mcp_get_database_stats",
