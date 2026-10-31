@@ -71,3 +71,14 @@ def test_all_profile():
     tools = {t.name for t in server._tool_manager.list_tools()}
     assert "mcp_merge_rank" in tools
     assert "mcp_ingest_knowledge" in tools
+
+
+def test_real_agent_tools_exclude_web_search():
+    from backend.mcp_server.server import AGENT_TOOLS
+
+    assert "mcp_web_search" not in AGENT_TOOLS
+    assert "mcp_ephemeral_web_rag" in AGENT_TOOLS
+    assert "mcp_merge_rank" in AGENT_TOOLS
+    assert "mcp_search_vectors" in AGENT_TOOLS
+    assert "mcp_query_graph" in AGENT_TOOLS
+    assert "mcp_agentic_debate" in AGENT_TOOLS

@@ -174,8 +174,8 @@ Veraxi exposes its hybrid engine over standard MCP endpoints (`/sse`):
 
 ### MCP tool profiles
 The exact set of tools exposed via MCP depends on the `VERAXI_MCP_PROFILE` environment variable (defaults to `agent`):
-- `agent`: The default profile. Exposes a streamlined, safe set of tools needed for autonomous research, deep search, and ingestion (`mcp_merge_rank`, `mcp_search_vectors`, `mcp_query_graph`, `mcp_evaluate_grounding`, `mcp_web_search`, `mcp_ephemeral_web_rag`, `mcp_agentic_debate`, `mcp_ingest_document`, `mcp_get_ingest_status`, `mcp_get_database_stats`).
-- `admin` (or `all`): Exposes all available tools. This profile is required for the `ingest_knowledge` / manual graph-editing workflow and raw CRUD operations.
+- `agent`: The default profile. Exposes a streamlined, safe set of tools needed for autonomous research, deep search, and ingestion (`mcp_merge_rank`, `mcp_search_vectors`, `mcp_query_graph`, `mcp_evaluate_grounding`, `mcp_ephemeral_web_rag`, `mcp_agentic_debate`, `mcp_ingest_document`, `mcp_get_ingest_status`, `mcp_get_database_stats`).
+- `admin` (or `all`): Exposes all available tools (including raw `mcp_web_search`). This profile is required for the `ingest_knowledge` / manual graph-editing workflow and raw CRUD operations.
 
 | Tool | Purpose |
 | :--- | :--- |
@@ -183,7 +183,7 @@ The exact set of tools exposed via MCP depends on the `VERAXI_MCP_PROFILE` envir
 | `mcp_search_vectors` | **[FAST - Vector Only (<50ms)]** Semantic vector search over document chunks. Ideal for fast text similarity retrieval without graph traversals. |
 | `mcp_query_graph` | **[FAST - Graph Only (<50ms)]** Multi-hop causal relationship and entity path traversal in Neo4j from a known entity. |
 | `mcp_agentic_debate` | **[HEAVY - Long Running (15-30s)]** High-accuracy GraphRAG research debate. Dispatches Vector, Knowledge Graph, and Web specialists with strict citations and an adversarial Skeptic verification loop. |
-| `mcp_ephemeral_web_rag` | **[WEB RAG - Moderate (3-8s)]** Crawls external web URLs, dynamically ingests them into an ephemeral sandboxed knowledge graph and vector space, and returns fused RRF facts. |
+| `mcp_ephemeral_web_rag` | **[DEEP WEB CRAWL & RAG - Moderate (3-8s)]** Full-page web crawler and temporary GraphRAG indexer. Reads full contents of URLs into an ephemeral sandboxed graph and vector space for structured RAG. |
 | `mcp_build_lazy_dossier` | Retrieves ground-truth excerpts via Hybrid Search (Dense + SPLADE) fused with Neo4j entity anchors, returning a structured analytical dossier. |
 | `mcp_insert_graph_nodes` | Upserts/merges structured causal entities and rich relations into Neo4j, preserving Qdrant vector links without duplicates. |
 | `mcp_purge_noisy_relationships` | Purges uncurated co-occurrence edges from Neo4j for a tenant while keeping all entity nodes and vector links intact. |

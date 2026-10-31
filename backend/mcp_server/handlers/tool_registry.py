@@ -310,7 +310,7 @@ REGISTERED_TOOLS = [
     ),
     Tool(
         name="mcp_ephemeral_web_rag",
-        description="[WEB RAG - Moderate (3-8s)] Dynamically crawls external web URLs, extracts facts into a temporary sandboxed knowledge graph and vector space, and returns fused RRF facts. Use when external live web data needs structured RAG retrieval. If you already have URLs to research, provide them in the 'urls' array.",
+        description="[DEEP WEB CRAWL & RAG - Moderate (3-8s)] Full-page web crawler and temporary GraphRAG indexer. DO NOT use for simple fact lookups or finding links (use native host web search for that). Use this when you need to read FULL contents of external documentation, articles, or URLs (pass in 'urls' array), extract their entities into a temporary sandboxed graph, and perform structured RAG over the crawled text.",
         input_schema={
             "type": "object",
             "properties": {
