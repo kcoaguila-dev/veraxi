@@ -204,7 +204,7 @@ def test_mcp_schema_demarcation_and_optional_entity():
     assert "[HEAVY - Long Running" in tools_by_name["mcp_agentic_debate"].description
     assert "[FAST - Vector Only" in tools_by_name["mcp_search_vectors"].description
     assert "[FAST - Graph Only" in tools_by_name["mcp_query_graph"].description
-    assert "[WEB RAG - Moderate" in tools_by_name["mcp_ephemeral_web_rag"].description
+    assert "[DEEP WEB CRAWL & RAG" in tools_by_name["mcp_ephemeral_web_rag"].description
 
     # Verify entity_name is optional in mcp_merge_rank schema
     merge_rank_schema = tools_by_name["mcp_merge_rank"].input_schema
