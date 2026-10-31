@@ -53,9 +53,16 @@ class Config:
     vision_api_key: str = ""
     vision_model_name: str = "moondream3"
     vision_prompt: str = ""
+    mcp_tool_profile: str = "agent"
 
     @classmethod
     def from_env(cls) -> "Config":
+        mcp_profile = os.environ.get("VERAXI_MCP_PROFILE", "agent").lower()
+        if mcp_profile not in ("agent", "admin", "all"):
+            raise ValueError(
+                f"Invalid VERAXI_MCP_PROFILE: {mcp_profile}. Must be agent, admin, or all."
+            )
+
         return cls(
             neo4j_uri=_require("NEO4J_URI"),
             neo4j_user=_require("NEO4J_USER"),
@@ -122,6 +129,7 @@ class Config:
             vision_api_key=os.environ.get("VISION_API_KEY", ""),
             vision_model_name=os.environ.get("VISION_MODEL_NAME", "moondream3"),
             vision_prompt=os.environ.get("VISION_PROMPT", ""),
+            mcp_tool_profile=mcp_profile,
         )
 
     def get_llm_client_args(self, model_name: str | None = None) -> dict:

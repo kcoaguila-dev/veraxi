@@ -413,3 +413,42 @@ def mcp_purge_noisy_relationships() -> str:
 
     res = _handle_purge_noisy_relationships(args, tenant_id)
     return res[0].text
+
+
+AGENT_TOOLS: frozenset[str] = frozenset(
+    [
+        "mcp_merge_rank",
+        "mcp_evaluate_grounding",
+        "mcp_web_search",
+        "mcp_deep_research",
+        "mcp_ingest_document",
+        "mcp_get_ingest_status",
+        "mcp_get_database_stats",
+    ]
+)
+
+AGENT_PROMPTS: frozenset[str] = frozenset(
+    [
+        "crag_orchestrator",
+    ]
+)
+
+
+def apply_mcp_profile(server: MCPServer, profile: str) -> None:
+    if profile == "agent":
+        # Remove tools not in AGENT_TOOLS
+        tools = [tool.name for tool in server._tool_manager.list_tools()]
+        for tool_name in tools:
+            if tool_name not in AGENT_TOOLS:
+                server.remove_tool(tool_name)
+
+        # Remove prompts not in AGENT_PROMPTS
+        prompts = [prompt.name for prompt in server._prompt_manager.list_prompts()]
+        for prompt_name in prompts:
+            if prompt_name not in AGENT_PROMPTS:
+                server.remove_prompt(prompt_name)
+
+
+from backend.config import get_config
+
+apply_mcp_profile(mcp_server, get_config().mcp_tool_profile)
