@@ -25,7 +25,6 @@ from backend.mcp_server.llm_loop import (
 def test_tool_friendly_labels():
     assert _get_tool_friendly_label("mcp_query_graph") == "Query Knowledge Graph"
     assert _get_tool_friendly_label("mcp_web_search") == "Search Live Web"
-    assert _get_tool_friendly_label("mcp_deep_research") == "Deep Research Synthesis"
     assert (
         _get_tool_friendly_label("mcp_ephemeral_web_rag")
         == "Live Web Ingestion & Retrieval"

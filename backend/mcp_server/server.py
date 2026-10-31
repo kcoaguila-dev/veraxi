@@ -371,22 +371,6 @@ def mcp_ephemeral_web_rag(
 
 
 @mcp_server.tool(
-    name="mcp_deep_research",
-    description="Performs deep web research. Searches the internet, dynamically ingests the top results into your Hybrid RAG database, and returns mathematically ranked facts. Alias for mcp_ephemeral_web_rag.",
-)
-def mcp_deep_research(
-    query: str | None = None, max_results: int = 3, urls: list | None = None
-) -> str:
-    tenant_id = tenant_context.get()
-    args = {k: v for k, v in locals().items() if k != "tenant_id"}
-    from backend.mcp_server.handlers.tool_registry import _handle_deep_research
-
-    res = _handle_deep_research(args, tenant_id)
-    # The old handler returns list[TextContent]. MCPServer expects str.
-    return res[0].text
-
-
-@mcp_server.tool(
     name="mcp_agentic_debate",
     description="Executes a high-accuracy multi-agent GraphRAG research debate. Dispatches Vector, Knowledge Graph, and Web specialists, synthesizes evidence with strict citations, and enforces an adversarial Skeptic verification loop.",
 )
@@ -448,7 +432,6 @@ AGENT_TOOLS: frozenset[str] = frozenset(
         "mcp_merge_rank",
         "mcp_evaluate_grounding",
         "mcp_web_search",
-        "mcp_deep_research",
         "mcp_ephemeral_web_rag",
         "mcp_agentic_debate",
         "mcp_ingest_document",

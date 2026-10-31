@@ -166,7 +166,3 @@ def mcp_ephemeral_web_rag(
 
             sentry_sdk.capture_exception(e)
 
-
-# Backward-compatible alias
-mcp_deep_research = mcp_ephemeral_web_rag
-
