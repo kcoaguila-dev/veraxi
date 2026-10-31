@@ -36,16 +36,38 @@ def insert_graph_nodes(
             name = node.get("name", "").strip()
             if not name:
                 continue
+            props["name"] = name
+            props["tenant_id"] = tenant_id
 
-            node_id = neo4j_client.upsert_entity(
-                label=node_type,
-                tenant_id=tenant_id,
-                name=name,
-                aliases=[name],
-                properties=props,
-                qdrant_point_ids=[],
+            # Check if node already exists for this tenant
+            match_query = """
+            MATCH (n {name: $name, tenant_id: $tenant_id})
+            RETURN n.id AS id
+            LIMIT 1
+            """
+            existing = neo4j_client.execute_read(
+                match_query, {"name": name, "tenant_id": tenant_id}
             )
-            nodes_inserted += 1
+            if existing and existing[0].get("id"):
+                node_id = existing[0]["id"]
+                # Update properties if provided
+                if props:
+                    update_query = """
+                    MATCH (n {id: $node_id, tenant_id: $tenant_id})
+                    SET n += $props
+                    """
+                    neo4j_client.execute_write(
+                        update_query,
+                        {
+                            "node_id": node_id,
+                            "tenant_id": tenant_id,
+                            "props": props,
+                        },
+                    )
+            else:
+                node_id = neo4j_client.create_node(node_type, props)
+                nodes_inserted += 1
+
             entity_name_to_node_id[name] = node_id
 
         # 2. Insert relations
@@ -59,15 +81,44 @@ def insert_graph_nodes(
             if not rel_type.replace("_", "").isalnum():
                 rel_type = "RELATED_TO"
 
+            # Resolve from_id
             from_id = entity_name_to_node_id.get(from_name)
+            if not from_id and from_name:
+                match_from = neo4j_client.execute_read(
+                    "MATCH (n {name: $name, tenant_id: $tenant_id}) RETURN n.id AS id LIMIT 1",
+                    {"name": from_name, "tenant_id": tenant_id},
+                )
+                if match_from and match_from[0].get("id"):
+                    from_id = match_from[0]["id"]
+                    entity_name_to_node_id[from_name] = from_id
+
+            # Resolve to_id
             to_id = entity_name_to_node_id.get(to_name)
+            if not to_id and to_name:
+                match_to = neo4j_client.execute_read(
+                    "MATCH (n {name: $name, tenant_id: $tenant_id}) RETURN n.id AS id LIMIT 1",
+                    {"name": to_name, "tenant_id": tenant_id},
+                )
+                if match_to and match_to[0].get("id"):
+                    to_id = match_to[0]["id"]
+                    entity_name_to_node_id[to_name] = to_id
 
             if from_id and to_id:
-                neo4j_client.upsert_relationship(
-                    from_id=from_id,
-                    to_id=to_id,
-                    rel_type=rel_type,
-                    properties=rel_props,
+                # Merge relationship to prevent duplicates, setting causal properties and tenant_id
+                merge_rel_query = f"""
+                MATCH (a {{id: $from_id, tenant_id: $tenant_id}})
+                MATCH (b {{id: $to_id, tenant_id: $tenant_id}})
+                MERGE (a)-[r:{rel_type}]->(b)
+                SET r += $rel_props
+                """
+                neo4j_client.execute_write(
+                    merge_rel_query,
+                    {
+                        "from_id": from_id,
+                        "to_id": to_id,
+                        "tenant_id": tenant_id,
+                        "rel_props": rel_props,
+                    },
                 )
                 relations_inserted += 1
 

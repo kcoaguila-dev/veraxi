@@ -123,6 +123,27 @@ class Neo4jStorageClient:
         with self.driver.session() as session:
             session.run(query, from_id=from_id, to_id=to_id, props=props)
 
+    def create_node(self, label: str, properties: dict[str, Any]) -> str:
+        """Create a node with the given label and properties, returning its generated UUID."""
+        node_id = str(uuid.uuid4())
+        props = properties.copy()
+        props["id"] = node_id
+
+        if not label.isalnum():
+            raise ValueError("Label must be alphanumeric")
+
+        query = f"""
+        CREATE (n:{label} $props)
+        RETURN n.id AS id
+        """
+
+        with self.driver.session() as session:
+            result = session.run(query, props=props)
+            record = result.single()
+            if record:
+                return record["id"]
+        return ""
+
     def create_relationship(
         self,
         from_id: str,
