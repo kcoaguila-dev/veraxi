@@ -37,7 +37,8 @@ def prompt_crag_orchestrator() -> str:
 
 
 @mcp_server.tool(
-    name="mcp_search_vectors", description="Semantic search over documents"
+    name="mcp_search_vectors",
+    description="[FAST - Vector Only (<50ms)] Semantic vector search over document chunks. Use when searching purely by text similarity without graph relationship traversal.",
 )
 def mcp_search_vectors(query_text: str, limit: int = 10) -> str:
     tenant_id = tenant_context.get()
@@ -49,7 +50,10 @@ def mcp_search_vectors(query_text: str, limit: int = 10) -> str:
     return res[0].text
 
 
-@mcp_server.tool(name="mcp_query_graph", description="Find exact entity relationships")
+@mcp_server.tool(
+    name="mcp_query_graph",
+    description="[FAST - Graph Only (<50ms)] Multi-hop relationship traversal from a known entity in Neo4j. Use when exploring entity connections, dependencies, or causal chains.",
+)
 def mcp_query_graph(entity_name: str, max_hops: int = 2) -> str:
     tenant_id = tenant_context.get()
     args = {k: v for k, v in locals().items() if k != "tenant_id"}
@@ -89,10 +93,10 @@ def mcp_insert_vectors(texts: list) -> str:
 
 @mcp_server.tool(
     name="mcp_merge_rank",
-    description="Perform a unified GraphRAG search. It searches vectors using query_text and traverses the graph from entity_name, then fuses the results using Reciprocal Rank Fusion.",
+    description="[DEFAULT - Fast (<100ms)] Primary hybrid GraphRAG search tool. Use for 95% of queries, codebase navigation, fact lookup, and general Q&A. Searches vector embeddings and traverses entity relationships in Neo4j.",
 )
 def mcp_merge_rank(
-    query_text: str, entity_name: str, limit: int = 10, max_hops: int = 2
+    query_text: str, entity_name: str = "", limit: int = 10, max_hops: int = 2
 ) -> str:
     tenant_id = tenant_context.get()
     args = {k: v for k, v in locals().items() if k != "tenant_id"}
@@ -357,7 +361,7 @@ def mcp_dynamic_web_graph(
 
 @mcp_server.tool(
     name="mcp_ephemeral_web_rag",
-    description="Dynamically crawls external web URLs, extracts facts into a temporary sandboxed knowledge graph and vector space, and returns fused RRF facts. Use when external live web data needs structured RAG retrieval. If you already have URLs to research, provide them in the 'urls' array.",
+    description="[WEB RAG - Moderate (3-8s)] Dynamically crawls external web URLs, extracts facts into a temporary sandboxed knowledge graph and vector space, and returns fused RRF facts. Use when external live web data needs structured RAG retrieval. If you already have URLs to research, provide them in the 'urls' array.",
 )
 def mcp_ephemeral_web_rag(
     query: str | None = None, max_results: int = 3, urls: list | None = None
@@ -372,7 +376,7 @@ def mcp_ephemeral_web_rag(
 
 @mcp_server.tool(
     name="mcp_agentic_debate",
-    description="Executes a high-accuracy multi-agent GraphRAG research debate. Dispatches Vector, Knowledge Graph, and Web specialists, synthesizes evidence with strict citations, and enforces an adversarial Skeptic verification loop.",
+    description="[HEAVY - Long Running (15-30s)] Multi-agent debate swarm with adversarial Skeptic fact-checking. Dispatches Vector, Knowledge Graph, and Web specialists, synthesizes evidence with strict citations, and enforces an adversarial verification loop. ONLY call when the user explicitly asks for 'deep research', 'exhaustive audit', or 'multi-agent debate'. Do not use for routine lookups.",
 )
 async def mcp_agentic_debate(query: str) -> str:
     tenant_id = tenant_context.get()
@@ -430,6 +434,8 @@ def mcp_purge_noisy_relationships() -> str:
 AGENT_TOOLS: frozenset[str] = frozenset(
     [
         "mcp_merge_rank",
+        "mcp_search_vectors",
+        "mcp_query_graph",
         "mcp_evaluate_grounding",
         "mcp_web_search",
         "mcp_ephemeral_web_rag",
