@@ -1129,3 +1129,85 @@ def test_cli_web_provider_management(tmp_path, monkeypatch, capsys):
     captured = capsys.readouterr()
     data = json.loads(captured.out)
     assert data["active_provider"] == "searxng"
+
+
+# 41. test_cli_chat_mode_switching: Test /mode, /mode deep, /mode fast, /deep, /fast
+def test_cli_chat_mode_switching(monkeypatch, capsys):
+    from veraxi.cli.chat import run_interactive_chat
+
+    inputs = iter([
+        "/mode",
+        "/mode deep",
+        "/fast",
+        "/deep",
+        "/mode fast",
+        "exit",
+    ])
+    monkeypatch.setattr("builtins.input", lambda prompt="": next(inputs))
+
+    run_interactive_chat(tenant_id="test-tenant")
+    captured = capsys.readouterr()
+    assert "Active Mode:" in captured.out
+    assert "Switched to Deep Research Mode" in captured.out
+    assert "Switched to Fast Mode" in captured.out
+
+
+# 42. test_cli_chat_mode_command_line_arg: Test --mode flag in parser
+def test_cli_chat_mode_command_line_arg(monkeypatch):
+    from unittest.mock import MagicMock
+    from veraxi.cli.main import main
+
+    mock_chat = MagicMock()
+    monkeypatch.setattr("veraxi.cli.main.run_interactive_chat", mock_chat)
+    monkeypatch.setattr("sys.argv", ["veraxi", "chat", "--mode", "deep"])
+
+    main()
+    mock_chat.assert_called_once()
+    assert mock_chat.call_args[1]["mode"] == "deep"
+
+
+# 43. test_cli_chat_run_agent_stream_deep_mode: Test run_agent_stream in deep mode
+def test_cli_chat_run_agent_stream_deep_mode(monkeypatch, capsys):
+    from unittest.mock import MagicMock
+    from veraxi.cli.chat import run_agent_stream
+
+    # Mock get_debate_workflow and its compiled app
+    mock_app = MagicMock()
+
+    async def mock_astream(*args, **kwargs):
+        yield {"vector_specialist": {"vector_data": "Vector facts"}}
+        yield {"graph_specialist": {"graph_data": "Graph paths"}}
+        yield {"web_specialist": {"web_data": "Web facts"}}
+        yield {"synthesizer": {"research_data": "Fused facts"}}
+        yield {"writer": {"draft": "Final multi-agent draft", "iterations": 1}}
+        yield {
+            "skeptic": {
+                "grounding_score": 0.95,
+                "is_approved": True,
+                "critique": "",
+            }
+        }
+
+    mock_app.astream = mock_astream
+    mock_workflow = MagicMock()
+    mock_workflow.compile.return_value = mock_app
+
+    monkeypatch.setattr(
+        "backend.mcp_server.orchestrator_multi_agent.get_debate_workflow",
+        lambda: mock_workflow,
+    )
+
+    success = run_agent_stream(
+        query="What is the architecture?",
+        tenant_id="test_tenant",
+        mode="deep",
+    )
+    assert success is True
+    captured = capsys.readouterr()
+    assert "Multi-Agent Deep Research Swarm Initialized" in captured.out
+    assert "Vector Specialist" in captured.out
+    assert "Graph Specialist" in captured.out
+    assert "Skeptic Verifier" in captured.out
+    assert "Verified Deep Research Report:" in captured.out
+    assert "Final multi-agent draft" in captured.out
+
