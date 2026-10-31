@@ -47,13 +47,25 @@ def convert_graphrag(schema):
     for nt in data.get("node_types", []):
         if isinstance(nt, str):
             label = nt
-            properties = {"name": {"type": "STRING", "indexed": False, "unique": False, "existence": False}}
+            properties = {
+                "name": {
+                    "type": "STRING",
+                    "indexed": False,
+                    "unique": False,
+                    "existence": False,
+                }
+            }
         else:
             label = nt.get("label", nt.get("name", "Unknown"))
             properties = {}
             for prop in nt.get("properties", []):
                 if isinstance(prop, str):
-                    properties[prop] = {"type": "STRING", "indexed": False, "unique": False, "existence": False}
+                    properties[prop] = {
+                        "type": "STRING",
+                        "indexed": False,
+                        "unique": False,
+                        "existence": False,
+                    }
                 else:
                     properties[prop.get("name", prop.get("token", "prop"))] = {
                         "type": prop.get("type", "STRING").upper(),
@@ -62,7 +74,12 @@ def convert_graphrag(schema):
                         "existence": False,
                     }
             if not properties:
-                properties["name"] = {"type": "STRING", "indexed": False, "unique": False, "existence": False}
+                properties["name"] = {
+                    "type": "STRING",
+                    "indexed": False,
+                    "unique": False,
+                    "existence": False,
+                }
 
         apoc["value"][label] = {
             "type": "node",
@@ -76,7 +93,9 @@ def convert_graphrag(schema):
     # Parse relationship types — can be strings or dicts
     rel_labels = []
     for rt in data.get("relationship_types", []):
-        label = rt if isinstance(rt, str) else rt.get("label", rt.get("name", "RELATED"))
+        label = (
+            rt if isinstance(rt, str) else rt.get("label", rt.get("name", "RELATED"))
+        )
         rel_labels.append(label)
         apoc["value"][label] = {"type": "relationship", "count": 0, "properties": {}}
 
@@ -163,18 +182,27 @@ def convert_standard(neo4j_schema):
 
         if from_label in apoc["value"]:
             apoc["value"][from_label]["relationships"][rel_token] = {
-                "direction": "out", "labels": [to_label], "count": 0, "properties": rel_props,
+                "direction": "out",
+                "labels": [to_label],
+                "count": 0,
+                "properties": rel_props,
             }
 
         if to_label in apoc["value"]:
             apoc["value"][to_label]["relationships"][rel_token] = {
-                "direction": "in", "labels": [from_label], "count": 0, "properties": rel_props,
+                "direction": "in",
+                "labels": [from_label],
+                "count": 0,
+                "properties": rel_props,
             }
 
         apoc["value"][rel_token] = {
             "type": "relationship",
             "count": 0,
-            "properties": {k: {kk: vv for kk, vv in v.items() if kk != "array"} for k, v in rel_props.items()},
+            "properties": {
+                k: {kk: vv for kk, vv in v.items() if kk != "array"}
+                for k, v in rel_props.items()
+            },
         }
 
     return apoc
@@ -202,7 +230,9 @@ def detect_and_convert(schema):
 def main():
     if len(sys.argv) < 2:
         print("Usage: python scripts/import_neo4j_schema.py <path-to-schema.json>")
-        print("Supported formats: neo4j-graphrag-python SchemaBuilder, Neo4j standard graph schema JSON")
+        print(
+            "Supported formats: neo4j-graphrag-python SchemaBuilder, Neo4j standard graph schema JSON"
+        )
         sys.exit(1)
 
     input_path = sys.argv[1]
@@ -218,7 +248,9 @@ def main():
         json.dump(apoc, f, indent=2)
 
     node_count = sum(1 for v in apoc["value"].values() if v.get("type") == "node")
-    rel_count = sum(1 for v in apoc["value"].values() if v.get("type") == "relationship")
+    rel_count = sum(
+        1 for v in apoc["value"].values() if v.get("type") == "relationship"
+    )
     print(f"✅ Converted: {node_count} node types, {rel_count} relationship types")
     print(f"   Saved to {output_path}")
 

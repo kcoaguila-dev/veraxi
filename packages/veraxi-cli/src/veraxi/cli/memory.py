@@ -62,7 +62,13 @@ def run_remember(
             """
             superseded_nodes = neo4j.execute_read(
                 find_query,
-                {"tenant_id": tenant_id, "project": project_scope, "supersedes": supersedes, "new_id": mem_id, "now_iso": now_iso},
+                {
+                    "tenant_id": tenant_id,
+                    "project": project_scope,
+                    "supersedes": supersedes,
+                    "new_id": mem_id,
+                    "now_iso": now_iso,
+                },
             )
 
         create_query = """
@@ -128,12 +134,16 @@ def run_remember(
     yellow = "\033[33m"
     reset = "\033[0m"
 
-    print(f"\n{bold}{green}✓ Saved architectural memory{reset} [{cyan}{mem_id}{reset}]:")
-    print(f"  \"{insight}\"")
-    print(f"  Status: {green}active{reset} | Scope: {cyan}{project_scope}{reset} | Tag: {yellow}{tag}{reset} | Type: {memory_type}")
+    print(
+        f"\n{bold}{green}✓ Saved architectural memory{reset} [{cyan}{mem_id}{reset}]:"
+    )
+    print(f'  "{insight}"')
+    print(
+        f"  Status: {green}active{reset} | Scope: {cyan}{project_scope}{reset} | Tag: {yellow}{tag}{reset} | Type: {memory_type}"
+    )
 
     for s in superseded_nodes:
-        print(f"  {yellow}↪ Superseded older memory{reset} [{s['id']}]: \"{s['name']}\"")
+        print(f'  {yellow}↪ Superseded older memory{reset} [{s["id"]}]: "{s["name"]}"')
     print()
 
 
@@ -178,14 +188,22 @@ def run_resolve(
         """
         resolved_nodes = neo4j.execute_read(
             update_query,
-            {"tenant_id": tenant_id, "target": target, "now_iso": now_iso, "ref": ref, "note": note},
+            {
+                "tenant_id": tenant_id,
+                "target": target,
+                "now_iso": now_iso,
+                "ref": ref,
+                "note": note,
+            },
         )
         neo4j.close()
     except Exception as e:
         print(f"Warning: Failed to resolve memory ({e}).", file=sys.stderr)
 
     if as_json:
-        print(json.dumps({"resolved": resolved_nodes, "ref": ref, "note": note}, indent=2))
+        print(
+            json.dumps({"resolved": resolved_nodes, "ref": ref, "note": note}, indent=2)
+        )
         return
 
     bold = "\033[1m"
@@ -199,7 +217,7 @@ def run_resolve(
 
     print(f"\n{bold}{green}✓ Marked memory as RESOLVED{reset}:")
     for r in resolved_nodes:
-        print(f"  [{cyan}{r['id']}{reset}] \"{r['name']}\"")
+        print(f'  [{cyan}{r["id"]}{reset}] "{r["name"]}"')
         print(f"    Resolution Ref : {ref}")
         print(f"    Resolution Note: {note}")
     print("  This caveat will no longer be treated as an open issue by AI agents.\n")
@@ -222,7 +240,9 @@ def run_reopen(
         sys.exit(1)
 
     target = target.strip()
-    note = (note or "Reopened by engineer: still reproducible or incomplete fix").strip()
+    note = (
+        note or "Reopened by engineer: still reproducible or incomplete fix"
+    ).strip()
     now_iso = _get_utc_now()
     reopened_nodes = []
 
@@ -244,7 +264,12 @@ def run_reopen(
         """
         reopened_nodes = neo4j.execute_read(
             update_query,
-            {"tenant_id": tenant_id, "target": target, "now_iso": now_iso, "note": note},
+            {
+                "tenant_id": tenant_id,
+                "target": target,
+                "now_iso": now_iso,
+                "note": note,
+            },
         )
         neo4j.close()
     except Exception as e:
@@ -265,9 +290,11 @@ def run_reopen(
 
     print(f"\n{bold}{yellow}↩ Reopened memory (Marked ACTIVE for AI agents){reset}:")
     for r in reopened_nodes:
-        print(f"  [{cyan}{r['id']}{reset}] \"{r['name']}\"")
+        print(f'  [{cyan}{r["id"]}{reset}] "{r["name"]}"')
         print(f"    Reopen Note: {note}")
-    print("  This issue is now active again and will be prioritized by AI agents in 'vx context'.\n")
+    print(
+        "  This issue is now active again and will be prioritized by AI agents in 'vx context'.\n"
+    )
 
 
 def run_memory_list(
@@ -306,7 +333,9 @@ def run_memory_list(
         ORDER BY n.created_at DESC
         LIMIT 50
         """
-        nodes = neo4j.execute_read(query, {"tenant_id": tenant_id, "project": project_scope})
+        nodes = neo4j.execute_read(
+            query, {"tenant_id": tenant_id, "project": project_scope}
+        )
         neo4j.close()
     except Exception:
         pass
@@ -321,17 +350,27 @@ def run_memory_list(
     yellow = "\033[33m"
     reset = "\033[0m"
 
-    print(f"\n{bold}{cyan}╔════════════════════════════════════════════════════════════════════╗{reset}")
-    print(f"{bold}{cyan}║                 Veraxi Architectural Memories                      ║{reset}")
-    print(f"{bold}{cyan}╚════════════════════════════════════════════════════════════════════╝{reset}")
+    print(
+        f"\n{bold}{cyan}╔════════════════════════════════════════════════════════════════════╗{reset}"
+    )
+    print(
+        f"{bold}{cyan}║                 Veraxi Architectural Memories                      ║{reset}"
+    )
+    print(
+        f"{bold}{cyan}╚════════════════════════════════════════════════════════════════════╝{reset}"
+    )
 
     if not nodes:
-        print(f"\n  No architectural memories found for project '{project_scope or 'all'}'.")
+        print(
+            f"\n  No architectural memories found for project '{project_scope or 'all'}'."
+        )
         print("  Use 'veraxi remember \"<insight>\" --tag <tag>' to record one.\n")
         return
 
     scope_str = "All Projects" if all_projects else f"Project: {project_scope}"
-    print(f"\n  Found {len(nodes)} memory items ({scope_str} | Filter: {status_filter}):")
+    print(
+        f"\n  Found {len(nodes)} memory items ({scope_str} | Filter: {status_filter}):"
+    )
     print("  " + "─" * 68)
 
     for n in nodes:
@@ -345,11 +384,17 @@ def run_memory_list(
 
         tag = n.get("tag", "general")
         proj_badge = f"\033[2m[{n.get('project', 'general')}]\033[0m "
-        print(f"  {status_badge:<18} {cyan}{n['id']}{reset} • {proj_badge}[{tag}] {n['name']}")
+        print(
+            f"  {status_badge:<18} {cyan}{n['id']}{reset} • {proj_badge}[{tag}] {n['name']}"
+        )
         if status == "resolved" and n.get("resolved_ref"):
-            print(f"               └─ {green}Resolved ({n['resolved_ref']}){reset}: {n.get('resolved_note', '')}")
+            print(
+                f"               └─ {green}Resolved ({n['resolved_ref']}){reset}: {n.get('resolved_note', '')}"
+            )
         elif status == "superseded" and n.get("superseded_by"):
-            print(f"               └─ {yellow}Superseded by {n['superseded_by']}{reset}")
+            print(
+                f"               └─ {yellow}Superseded by {n['superseded_by']}{reset}"
+            )
 
     print()
 
@@ -388,7 +433,9 @@ def run_memory_export(
                n.resolved_note as resolved_note, n.superseded_by as superseded_by
         ORDER BY n.created_at ASC
         """
-        nodes = neo4j.execute_read(query, {"tenant_id": tenant_id, "project": project_scope})
+        nodes = neo4j.execute_read(
+            query, {"tenant_id": tenant_id, "project": project_scope}
+        )
         neo4j.close()
     except Exception:
         pass
@@ -423,9 +470,13 @@ def run_memory_export(
     green = "\033[32m"
     reset = "\033[0m"
 
-    print(f"\n{bold}{green}✓ Successfully exported {len(nodes)} memory item(s){reset} to:")
+    print(
+        f"\n{bold}{green}✓ Successfully exported {len(nodes)} memory item(s){reset} to:"
+    )
     print(f"  {cyan}{dest}{reset}")
-    print("  You can commit this file to Git to share architectural memory with your team.\n")
+    print(
+        "  You can commit this file to Git to share architectural memory with your team.\n"
+    )
 
 
 def run_memory_import(
@@ -495,9 +546,13 @@ def run_memory_import(
     cyan = "\033[36m"
     reset = "\033[0m"
 
-    print(f"\n{bold}{green}✓ Successfully imported {imported_count} memory item(s){reset} from:")
+    print(
+        f"\n{bold}{green}✓ Successfully imported {imported_count} memory item(s){reset} from:"
+    )
     print(f"  {cyan}{src_file}{reset}")
-    print("  Imported rules are now active and accessible across 'vx context' and 'vx rules sync'.\n")
+    print(
+        "  Imported rules are now active and accessible across 'vx context' and 'vx rules sync'.\n"
+    )
 
 
 def detect_memory_drift(nodes: list[dict], root_dir: str | None = None) -> list[dict]:
@@ -519,7 +574,9 @@ def detect_memory_drift(nodes: list[dict], root_dir: str | None = None) -> list[
         try:
             with open(pyproject_path, "r", encoding="utf-8") as f:
                 content = f.read()
-                for match in re.finditer(r'["\']([a-zA-Z0-9_\-]+)(?:[><=~!^]+([0-9\.]+))?["\']', content):
+                for match in re.finditer(
+                    r'["\']([a-zA-Z0-9_\-]+)(?:[><=~!^]+([0-9\.]+))?["\']', content
+                ):
                     pkg = match.group(1).lower()
                     ver = match.group(2) or "installed"
                     manifest_deps[pkg] = ver
@@ -532,7 +589,10 @@ def detect_memory_drift(nodes: list[dict], root_dir: str | None = None) -> list[
         try:
             with open(pkg_json_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
-                all_deps = {**data.get("dependencies", {}), **data.get("devDependencies", {})}
+                all_deps = {
+                    **data.get("dependencies", {}),
+                    **data.get("devDependencies", {}),
+                }
                 for k, v in all_deps.items():
                     clean_v = re.sub(r"[^0-9\.]", "", str(v))
                     manifest_deps[k.lower()] = clean_v or str(v)
@@ -564,26 +624,36 @@ def detect_memory_drift(nodes: list[dict], root_dir: str | None = None) -> list[
         created_at_str = item.get("created_at")
 
         # A. Check for referenced file paths
-        file_candidates = re.findall(r"\b([a-zA-Z0-9_\-/\\]+\.[a-zA-Z0-9]{1,6})\b", name)
+        file_candidates = re.findall(
+            r"\b([a-zA-Z0-9_\-/\\]+\.[a-zA-Z0-9]{1,6})\b", name
+        )
         for rel_path in file_candidates:
-            if rel_path.startswith(("http://", "https://")) or re.match(r"^[0-9\.]+$", rel_path):
+            if rel_path.startswith(("http://", "https://")) or re.match(
+                r"^[0-9\.]+$", rel_path
+            ):
                 continue
             if "/" in rel_path or "\\" in rel_path:
                 full_path = os.path.join(root_dir, rel_path)
                 if not os.path.exists(full_path):
-                    drift_items.append({
-                        "id": item_id,
-                        "name": name,
-                        "tag": tag,
-                        "type": "orphaned_target",
-                        "severity": "WARNING",
-                        "target": rel_path,
-                        "reason": f"Referenced file '{rel_path}' does not exist on disk.",
-                        "remediation": f"Verify file location or resolve rule via 'vx memory resolve {item_id}'.",
-                    })
+                    drift_items.append(
+                        {
+                            "id": item_id,
+                            "name": name,
+                            "tag": tag,
+                            "type": "orphaned_target",
+                            "severity": "WARNING",
+                            "target": rel_path,
+                            "reason": f"Referenced file '{rel_path}' does not exist on disk.",
+                            "remediation": f"Verify file location or resolve rule via 'vx memory resolve {item_id}'.",
+                        }
+                    )
 
         # B. Check for library version drift (e.g. "pydantic v1", "react 18")
-        dep_match = re.search(r"\b([a-zA-Z0-9_\-]+)\s+(?:v|version\s+)?([0-9]+(?:\.[0-9]+)?)\b", name, re.IGNORECASE)
+        dep_match = re.search(
+            r"\b([a-zA-Z0-9_\-]+)\s+(?:v|version\s+)?([0-9]+(?:\.[0-9]+)?)\b",
+            name,
+            re.IGNORECASE,
+        )
         if dep_match:
             lib = dep_match.group(1).lower()
             old_ver_str = dep_match.group(2)
@@ -593,35 +663,41 @@ def detect_memory_drift(nodes: list[dict], root_dir: str | None = None) -> list[
                     old_major = int(old_ver_str.split(".")[0])
                     curr_major = int(curr_ver_str.split(".")[0])
                     if curr_major > old_major:
-                        drift_items.append({
-                            "id": item_id,
-                            "name": name,
-                            "tag": tag,
-                            "type": "dependency_drift",
-                            "severity": "WARNING",
-                            "target": f"{lib} (rule: v{old_ver_str} vs manifest: v{curr_ver_str})",
-                            "reason": f"Rule targets '{lib} v{old_ver_str}', but project manifest is upgraded to v{curr_ver_str}.",
-                            "remediation": f"Test if workaround is still required on v{curr_ver_str}; retire with 'vx memory resolve {item_id}'.",
-                        })
+                        drift_items.append(
+                            {
+                                "id": item_id,
+                                "name": name,
+                                "tag": tag,
+                                "type": "dependency_drift",
+                                "severity": "WARNING",
+                                "target": f"{lib} (rule: v{old_ver_str} vs manifest: v{curr_ver_str})",
+                                "reason": f"Rule targets '{lib} v{old_ver_str}', but project manifest is upgraded to v{curr_ver_str}.",
+                                "remediation": f"Test if workaround is still required on v{curr_ver_str}; retire with 'vx memory resolve {item_id}'.",
+                            }
+                        )
                 except (ValueError, IndexError):
                     pass
 
         # C. Stale Temporary Caveats (> 90 days old)
         if tag in ("bug", "issue", "workaround", "caveat", "fix") and created_at_str:
             try:
-                created_dt = datetime.datetime.fromisoformat(created_at_str.replace("Z", "+00:00"))
+                created_dt = datetime.datetime.fromisoformat(
+                    created_at_str.replace("Z", "+00:00")
+                )
                 age_days = (now - created_dt).days
                 if age_days > 90:
-                    drift_items.append({
-                        "id": item_id,
-                        "name": name,
-                        "tag": tag,
-                        "type": "stale_caveat",
-                        "severity": "INFO",
-                        "target": f"{age_days} days old",
-                        "reason": f"Temporary {tag} has been active for {age_days} days without updates.",
-                        "remediation": f"Confirm resolution and mark solved via 'vx memory resolve {item_id}'.",
-                    })
+                    drift_items.append(
+                        {
+                            "id": item_id,
+                            "name": name,
+                            "tag": tag,
+                            "type": "stale_caveat",
+                            "severity": "INFO",
+                            "target": f"{age_days} days old",
+                            "reason": f"Temporary {tag} has been active for {age_days} days without updates.",
+                            "remediation": f"Confirm resolution and mark solved via 'vx memory resolve {item_id}'.",
+                        }
+                    )
             except Exception:
                 pass
 
@@ -658,7 +734,9 @@ def run_memory_audit(
                n.resolved_note as resolved_note, n.superseded_by as superseded_by
         ORDER BY n.created_at DESC
         """
-        nodes = neo4j.execute_read(query, {"tenant_id": tenant_id, "project": project_scope})
+        nodes = neo4j.execute_read(
+            query, {"tenant_id": tenant_id, "project": project_scope}
+        )
         neo4j.close()
     except Exception:
         pass
@@ -722,25 +800,43 @@ def run_memory_audit(
     red = "\033[31m"
     reset = "\033[0m"
 
-    print(f"\n{bold}{cyan}╔════════════════════════════════════════════════════════════════════╗{reset}")
-    print(f"{bold}{cyan}║                 Veraxi Architectural Memory Health Audit           ║{reset}")
-    print(f"{bold}{cyan}╚════════════════════════════════════════════════════════════════════╝{reset}")
+    print(
+        f"\n{bold}{cyan}╔════════════════════════════════════════════════════════════════════╗{reset}"
+    )
+    print(
+        f"{bold}{cyan}║                 Veraxi Architectural Memory Health Audit           ║{reset}"
+    )
+    print(
+        f"{bold}{cyan}╚════════════════════════════════════════════════════════════════════╝{reset}"
+    )
 
-    score_color = green if health_score >= 85 else (yellow if health_score >= 60 else red)
+    score_color = (
+        green if health_score >= 85 else (yellow if health_score >= 60 else red)
+    )
     print(f"\n  Project Scope: {bold}{project_scope}{reset}")
-    print(f"  Health Score: {score_color}{bold}{health_score}/100{reset} ({'HEALTHY' if health_score >= 85 else 'NEEDS REVIEW'})")
+    print(
+        f"  Health Score: {score_color}{bold}{health_score}/100{reset} ({'HEALTHY' if health_score >= 85 else 'NEEDS REVIEW'})"
+    )
 
     print("\n  Memory Lifecycle Breakdown:")
-    print(f"  • {green}[active]{reset}: {len(active)} rules currently guiding AI agents")
-    print(f"  • {cyan}[resolved]{reset}: {len(resolved)} past issues marked solved (guarded against re-solving)")
-    print(f"  • {yellow}[superseded]{reset}: {len(superseded)} historical rules replaced by newer architecture")
+    print(
+        f"  • {green}[active]{reset}: {len(active)} rules currently guiding AI agents"
+    )
+    print(
+        f"  • {cyan}[resolved]{reset}: {len(resolved)} past issues marked solved (guarded against re-solving)"
+    )
+    print(
+        f"  • {yellow}[superseded]{reset}: {len(superseded)} historical rules replaced by newer architecture"
+    )
 
     if drift_items:
-        print(f"\n  {yellow}⚠️  Codebase Drift Detected ({len(drift_items)} items):{reset}")
+        print(
+            f"\n  {yellow}⚠️  Codebase Drift Detected ({len(drift_items)} items):{reset}"
+        )
         for idx, d in enumerate(drift_items, 1):
             d_color = yellow if d["severity"] == "WARNING" else cyan
             print(f"  {d_color}[DRIFT #{idx} - {d['type'].upper()}]{reset}")
-            print(f"    • {bold}Rule #{d['id']}:{reset} \"{d['name']}\" [{d['tag']}]")
+            print(f'    • {bold}Rule #{d["id"]}:{reset} "{d["name"]}" [{d["tag"]}]')
             print(f"    • {bold}Target:{reset} {d['target']}")
             print(f"    • {bold}Issue:{reset}  {d['reason']}")
             print(f"    • {bold}Fix:{reset}    {cyan}{d['remediation']}{reset}\n")
@@ -748,11 +844,17 @@ def run_memory_audit(
     if overlapping_tags:
         print(f"  {yellow}Attention Areas:{reset}")
         for t, items in overlapping_tags.items():
-            print(f"  • Tag '[{t}]' has {len(items)} active rules. Consider consolidating with 'vx remember --supersedes'.")
+            print(
+                f"  • Tag '[{t}]' has {len(items)} active rules. Consider consolidating with 'vx remember --supersedes'."
+            )
     elif not drift_items:
-        print(f"\n  {green}✓ No conflicting, crowded, or drifted memory tags detected.{reset}")
+        print(
+            f"\n  {green}✓ No conflicting, crowded, or drifted memory tags detected.{reset}"
+        )
 
-    print("\n  Tip: Run 'vx rules sync' to propagate active rules directly to your editor.\n")
+    print(
+        "\n  Tip: Run 'vx rules sync' to propagate active rules directly to your editor.\n"
+    )
 
     if strict and any(d["severity"] == "WARNING" for d in drift_items):
         print(f"  {red}Audit failed: Codebase drift detected in strict mode.{reset}\n")
@@ -785,7 +887,9 @@ def run_memory_prune(
     elif older_than_clean.isdigit():
         days = int(older_than_clean)
 
-    cutoff_date = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=days)
+    cutoff_date = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(
+        days=days
+    )
     cutoff_iso = cutoff_date.isoformat()
 
     project_scope = None if all_projects else _resolve_project_scope(project)
@@ -819,7 +923,11 @@ def run_memory_prune(
         """
         candidates = neo4j.execute_read(
             query,
-            {"tenant_id": tenant_id, "project": project_scope, "cutoff_iso": cutoff_iso},
+            {
+                "tenant_id": tenant_id,
+                "project": project_scope,
+                "cutoff_iso": cutoff_iso,
+            },
         )
 
         if not dry_run and candidates:
@@ -831,14 +939,20 @@ def run_memory_prune(
                   AND n.id IN $ids
                 SET n.status = 'archived', n.archived_at = $archived_at
                 """,
-                {"tenant_id": tenant_id, "ids": cand_ids, "archived_at": _get_utc_now()},
+                {
+                    "tenant_id": tenant_id,
+                    "ids": cand_ids,
+                    "archived_at": _get_utc_now(),
+                },
             )
         neo4j.close()
     except Exception:
         pass
 
     if not dry_run and candidates:
-        dest_archive = archive_file or os.path.join(os.getcwd(), ".veraxi", "archive.json")
+        dest_archive = archive_file or os.path.join(
+            os.getcwd(), ".veraxi", "archive.json"
+        )
         try:
             parent = os.path.dirname(dest_archive)
             if parent:
@@ -850,19 +964,32 @@ def run_memory_prune(
                     existing_archive = data.get("archived", [])
             existing_archive.extend(candidates)
             with open(dest_archive, "w", encoding="utf-8") as f:
-                json.dump({"version": "1.0", "updated_at": _get_utc_now(), "archived": existing_archive}, f, indent=2)
+                json.dump(
+                    {
+                        "version": "1.0",
+                        "updated_at": _get_utc_now(),
+                        "archived": existing_archive,
+                    },
+                    f,
+                    indent=2,
+                )
         except Exception:
             pass
 
     if as_json:
-        print(json.dumps({
-            "dry_run": dry_run,
-            "days_retention": days,
-            "cutoff": cutoff_iso,
-            "project": project_scope or "all",
-            "pruned_count": len(candidates),
-            "candidates": candidates,
-        }, indent=2))
+        print(
+            json.dumps(
+                {
+                    "dry_run": dry_run,
+                    "days_retention": days,
+                    "cutoff": cutoff_iso,
+                    "project": project_scope or "all",
+                    "pruned_count": len(candidates),
+                    "candidates": candidates,
+                },
+                indent=2,
+            )
+        )
         return
 
     bold = "\033[1m"
@@ -871,17 +998,31 @@ def run_memory_prune(
     yellow = "\033[33m"
     reset = "\033[0m"
 
-    print(f"\n{bold}{cyan}╔════════════════════════════════════════════════════════════════════╗{reset}")
-    print(f"{bold}{cyan}║                 Veraxi Memory Pruning & Archiving                  ║{reset}")
-    print(f"{bold}{cyan}╚════════════════════════════════════════════════════════════════════╝{reset}")
+    print(
+        f"\n{bold}{cyan}╔════════════════════════════════════════════════════════════════════╗{reset}"
+    )
+    print(
+        f"{bold}{cyan}║                 Veraxi Memory Pruning & Archiving                  ║{reset}"
+    )
+    print(
+        f"{bold}{cyan}╚════════════════════════════════════════════════════════════════════╝{reset}"
+    )
 
-    mode_badge = f"{yellow}[DRY RUN - PREVIEW ONLY]{reset}" if dry_run else f"{green}[EXECUTED]{reset}"
+    mode_badge = (
+        f"{yellow}[DRY RUN - PREVIEW ONLY]{reset}"
+        if dry_run
+        else f"{green}[EXECUTED]{reset}"
+    )
     print(f"\n  Status: {mode_badge}")
-    print(f"  Scope: {bold}{project_scope or 'All Projects'}{reset} | Retention Threshold: {days} days (Created on or before {cutoff_date.strftime('%Y-%m-%d')})")
+    print(
+        f"  Scope: {bold}{project_scope or 'All Projects'}{reset} | Retention Threshold: {days} days (Created on or before {cutoff_date.strftime('%Y-%m-%d')})"
+    )
     print(f"  Target Filter: {status_filter} items")
 
     if not candidates:
-        print(f"\n  {green}✓ No stale memories found exceeding the {days}-day threshold.{reset}")
+        print(
+            f"\n  {green}✓ No stale memories found exceeding the {days}-day threshold.{reset}"
+        )
         print("    Your memory bank is lean and up-to-date.\n")
         return
 
@@ -889,13 +1030,17 @@ def run_memory_prune(
     print(f"\n  {action_word} {len(candidates)} memory item(s):")
     print("  " + "─" * 68)
     for c in candidates:
-        print(f"  • [{c.get('status', 'resolved')}] {cyan}{c['id']}{reset} ({c.get('created_at', '')[:10]}) [{c.get('tag', 'general')}] {c.get('name', '')[:60]}")
+        print(
+            f"  • [{c.get('status', 'resolved')}] {cyan}{c['id']}{reset} ({c.get('created_at', '')[:10]}) [{c.get('tag', 'general')}] {c.get('name', '')[:60]}"
+        )
 
     if dry_run:
         print(f"\n  {yellow}To archive these memories permanently, run:{reset}")
         print(f"  vx memory prune --older-than {days}d\n")
     else:
-        print(f"\n  {green}✓ Successfully archived {len(candidates)} item(s) to .veraxi/archive.json.{reset}")
+        print(
+            f"\n  {green}✓ Successfully archived {len(candidates)} item(s) to .veraxi/archive.json.{reset}"
+        )
         print("    Active rules were preserved. Graph capacity has been optimized.\n")
 
 
@@ -932,7 +1077,9 @@ def run_memory_stats(
         RETURN n.id as id, n.name as name, n.tag as tag, n.type as type, n.status as status,
                n.project as project, n.created_at as created_at
         """
-        nodes = neo4j.execute_read(query, {"tenant_id": tenant_id, "project": project_scope})
+        nodes = neo4j.execute_read(
+            query, {"tenant_id": tenant_id, "project": project_scope}
+        )
 
         count_res = neo4j.execute_read(
             "MATCH (n) WHERE (n.tenant_id = $tenant_id OR n.tenant_id = 'default') RETURN count(n) as cnt",
@@ -960,7 +1107,9 @@ def run_memory_stats(
     superseded = [n for n in nodes if n.get("status") == "superseded"]
     archived = [n for n in nodes if n.get("status") == "archived"]
 
-    active_chars = sum(len(r.get("name", "")) + len(r.get("tag", "")) + 16 for r in active)
+    active_chars = sum(
+        len(r.get("name", "")) + len(r.get("tag", "")) + 16 for r in active
+    )
     est_tokens = max(0, int(active_chars / 3.8))
     context_budget = 16384
     token_pct = (est_tokens / context_budget) * 100
@@ -972,6 +1121,7 @@ def run_memory_stats(
     root_dir = os.getcwd()
     try:
         import subprocess
+
         root_dir = subprocess.check_output(
             ["git", "rev-parse", "--show-toplevel"],
             stderr=subprocess.DEVNULL,
@@ -992,7 +1142,11 @@ def run_memory_stats(
             except Exception:
                 pass
 
-    editor_status = "IN SYNC" if len(synced_files) == len(editor_files) else ("PARTIAL" if synced_files else "NOT CONFIGURED")
+    editor_status = (
+        "IN SYNC"
+        if len(synced_files) == len(editor_files)
+        else ("PARTIAL" if synced_files else "NOT CONFIGURED")
+    )
 
     stats_data = {
         "project": project_scope or "all",
@@ -1014,7 +1168,9 @@ def run_memory_stats(
             "stored_nodes": used_nodes,
             "node_quota": node_quota,
             "quota_percentage": round(node_pct, 2),
-            "status": "OPTIMAL" if node_pct < 80 else ("WARNING" if node_pct < 95 else "CRITICAL"),
+            "status": "OPTIMAL"
+            if node_pct < 80
+            else ("WARNING" if node_pct < 95 else "CRITICAL"),
         },
     }
 
@@ -1028,27 +1184,46 @@ def run_memory_stats(
     yellow = "\033[33m"
     reset = "\033[0m"
 
-    print(f"\n{bold}{cyan}╔════════════════════════════════════════════════════════════════════╗{reset}")
-    print(f"{bold}{cyan}║                 Veraxi Memory Footprint & Token Gauge              ║{reset}")
-    print(f"{bold}{cyan}╚════════════════════════════════════════════════════════════════════╝{reset}")
+    print(
+        f"\n{bold}{cyan}╔════════════════════════════════════════════════════════════════════╗{reset}"
+    )
+    print(
+        f"{bold}{cyan}║                 Veraxi Memory Footprint & Token Gauge              ║{reset}"
+    )
+    print(
+        f"{bold}{cyan}╚════════════════════════════════════════════════════════════════════╝{reset}"
+    )
 
-    print(f"\n  Project: {bold}{project_scope or 'All Projects'}{reset} | Tenant: {tenant_id[:12]}...")
+    print(
+        f"\n  Project: {bold}{project_scope or 'All Projects'}{reset} | Tenant: {tenant_id[:12]}..."
+    )
 
     print(f"\n  {bold}Hot Memory (Editor Injected Prompt Overhead):{reset}")
     print(f"  • Active Rules: {bold}{len(active)}{reset} rule(s)")
     token_color = green if est_tokens < 1000 else yellow
-    print(f"  • Estimated Prompt Footprint: {token_color}{bold}{est_tokens} tokens{reset} ({token_pct:.1f}% of 16k context window)")
+    print(
+        f"  • Estimated Prompt Footprint: {token_color}{bold}{est_tokens} tokens{reset} ({token_pct:.1f}% of 16k context window)"
+    )
     sync_color = green if editor_status == "IN SYNC" else yellow
     synced_desc = ", ".join(synced_files) if synced_files else "None (run 'vx sync')"
-    print(f"  • Editor Sync Status: {sync_color}{bold}{editor_status}{reset} ({synced_desc})")
+    print(
+        f"  • Editor Sync Status: {sync_color}{bold}{editor_status}{reset} ({synced_desc})"
+    )
 
     print(f"\n  {bold}Knowledge Graph & Quota Capacity:{reset}")
     bar = _render_bar(used_nodes, node_quota, width=12)
     cap_color = green if node_pct < 80 else yellow
-    print(f"  • Stored Nodes: {used_nodes:,} / {node_quota:,} [{cap_color}{bar}{reset}] {node_pct:.1f}%")
-    print(f"  • Capacity Status: {cap_color}{bold}{stats_data['database_capacity']['status']}{reset} (Zero risk of truncation)")
+    print(
+        f"  • Stored Nodes: {used_nodes:,} / {node_quota:,} [{cap_color}{bar}{reset}] {node_pct:.1f}%"
+    )
+    print(
+        f"  • Capacity Status: {cap_color}{bold}{stats_data['database_capacity']['status']}{reset} (Zero risk of truncation)"
+    )
 
     print(f"\n  {bold}Lifecycle Distribution:{reset}")
-    print(f"  • Active: {green}{len(active)}{reset} | Resolved: {cyan}{len(resolved)}{reset} | Superseded: {yellow}{len(superseded)}{reset} | Archived: {len(archived)}")
-    print("\n  Tip: Run 'vx memory prune' to archive stale resolved notes and keep memory lean.\n")
-
+    print(
+        f"  • Active: {green}{len(active)}{reset} | Resolved: {cyan}{len(resolved)}{reset} | Superseded: {yellow}{len(superseded)}{reset} | Archived: {len(archived)}"
+    )
+    print(
+        "\n  Tip: Run 'vx memory prune' to archive stale resolved notes and keep memory lean.\n"
+    )

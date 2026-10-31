@@ -20,6 +20,7 @@ def run_query(
     # Try local backend execution first if in a server environment
     try:
         from backend.retrieval.just_in_time_graph import build_lazy_graph_dossier
+
         result = build_lazy_graph_dossier(query, tenant_id=tenant_id, limit=limit)
     except ImportError:
         pass
@@ -44,14 +45,20 @@ def run_query(
                 "tenant_id": tenant_id,
                 "remote_endpoint": endpoint,
                 "status": f"Connected ({status} OK)",
-                "note": "Connected to Veraxi MCP server over SSE. Queries can be invoked directly by AI agents (Claude, Cursor, Cline) via configured MCP tools."
+                "note": "Connected to Veraxi MCP server over SSE. Queries can be invoked directly by AI agents (Claude, Cursor, Cline) via configured MCP tools.",
             }
         except urllib.error.HTTPError as e:
             if e.code == 401:
-                print("Error: 401 Unauthorized - Please provide a valid Veraxi API key with --key or VERAXI_API_KEY.", file=sys.stderr)
+                print(
+                    "Error: 401 Unauthorized - Please provide a valid Veraxi API key with --key or VERAXI_API_KEY.",
+                    file=sys.stderr,
+                )
                 sys.exit(1)
             else:
-                print(f"Error connecting to {endpoint}: {e.code} {e.reason}", file=sys.stderr)
+                print(
+                    f"Error connecting to {endpoint}: {e.code} {e.reason}",
+                    file=sys.stderr,
+                )
                 sys.exit(1)
         except Exception as e:
             print(f"Error connecting to {endpoint}: {e}", file=sys.stderr)

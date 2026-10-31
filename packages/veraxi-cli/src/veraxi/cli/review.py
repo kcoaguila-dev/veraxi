@@ -29,7 +29,9 @@ def run_review(
         elif staged:
             cmd = ["git", "diff", "--cached"]
         else:
-            res = subprocess.run(["git", "diff"], capture_output=True, text=True, check=True)
+            res = subprocess.run(
+                ["git", "diff"], capture_output=True, text=True, check=True
+            )
             if res.stdout.strip():
                 cmd = ["git", "diff"]
             else:
@@ -55,12 +57,17 @@ def run_review(
         violations = audit_diff_against_rules(diff_text, active_rules)
 
         if as_json:
-            print(json.dumps({
-                "project": project_scope,
-                "passed": len(violations) == 0,
-                "violations_count": len(violations),
-                "violations": violations,
-            }, indent=2))
+            print(
+                json.dumps(
+                    {
+                        "project": project_scope,
+                        "passed": len(violations) == 0,
+                        "violations_count": len(violations),
+                        "violations": violations,
+                    },
+                    indent=2,
+                )
+            )
             sys.exit(0 if len(violations) == 0 else 1)
 
         bold = "\033[1m"
@@ -69,9 +76,15 @@ def run_review(
         red = "\033[31m"
         reset = "\033[0m"
 
-        print(f"\n{bold}{cyan}╔════════════════════════════════════════════════════════════════════╗{reset}")
-        print(f"{bold}{cyan}║            Veraxi CI/CD Architectural Invariant Gate               ║{reset}")
-        print(f"{bold}{cyan}╚════════════════════════════════════════════════════════════════════╝{reset}")
+        print(
+            f"\n{bold}{cyan}╔════════════════════════════════════════════════════════════════════╗{reset}"
+        )
+        print(
+            f"{bold}{cyan}║            Veraxi CI/CD Architectural Invariant Gate               ║{reset}"
+        )
+        print(
+            f"{bold}{cyan}╚════════════════════════════════════════════════════════════════════╝{reset}"
+        )
         print(f"\n  Project Scope: {bold}{project_scope}{reset}")
         print(f"  Rules Evaluated: {bold}{len(active_rules)}{reset}\n")
 
@@ -80,10 +93,14 @@ def run_review(
             print("  Zero invariant violations detected across current git changes.\n")
             sys.exit(0)
 
-        print(f"  {red}❌ FAILED: Found {len(violations)} Architectural Invariant Violation(s):{reset}\n")
+        print(
+            f"  {red}❌ FAILED: Found {len(violations)} Architectural Invariant Violation(s):{reset}\n"
+        )
         for idx, v in enumerate(violations, 1):
             print(f"  {red}[VIOLATION #{idx} - {v['type'].upper()}]{reset}")
-            print(f"    • {bold}Rule #{v['rule_id']}:{reset} \"{v['rule_name']}\" [{v['tag']}]")
+            print(
+                f'    • {bold}Rule #{v["rule_id"]}:{reset} "{v["rule_name"]}" [{v["tag"]}]'
+            )
             print(f"    • {bold}File:{reset}    {v['file']}")
             print(f"    • {bold}Line:{reset}    `{v['line']}`")
             print(f"    • {bold}Issue:{reset}   {v['reason']}")

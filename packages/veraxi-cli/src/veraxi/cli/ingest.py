@@ -8,7 +8,7 @@ from pathlib import Path
 
 def _upload_file(filepath: Path, endpoint: str, key: str | None):
     try:
-        with open(filepath, 'rb') as f:
+        with open(filepath, "rb") as f:
             file_data = f.read()
     except Exception as e:
         print(f"Error reading {filepath}: {e}", file=sys.stderr)
@@ -21,7 +21,11 @@ def _upload_file(filepath: Path, endpoint: str, key: str | None):
     # We construct the multipart body
     body = bytearray()
     body.extend(f"--{boundary}\r\n".encode("utf-8"))
-    body.extend(f'Content-Disposition: form-data; name="file"; filename="{filename}"\r\n'.encode("utf-8"))
+    body.extend(
+        f'Content-Disposition: form-data; name="file"; filename="{filename}"\r\n'.encode(
+            "utf-8"
+        )
+    )
     body.extend(b"Content-Type: application/octet-stream\r\n\r\n")
     body.extend(file_data)
     body.extend(f"\r\n--{boundary}--\r\n".encode("utf-8"))
@@ -69,7 +73,7 @@ def run_ingest(
     CLI Document & URL Ingest
     """
     # Remove trailing slash from endpoint if present
-    if endpoint.endswith('/'):
+    if endpoint.endswith("/"):
         endpoint = endpoint[:-1]
 
     if target.startswith("http://") or target.startswith("https://"):

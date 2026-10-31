@@ -2,8 +2,16 @@ import json
 from datetime import datetime, timezone
 
 SCALAR_TYPES = [
-    "STRING", "INTEGER", "FLOAT", "BOOLEAN",
-    "DATE", "DATETIME", "LOCAL_DATETIME", "TIME", "LOCAL_TIME", "DURATION",
+    "STRING",
+    "INTEGER",
+    "FLOAT",
+    "BOOLEAN",
+    "DATE",
+    "DATETIME",
+    "LOCAL_DATETIME",
+    "TIME",
+    "LOCAL_TIME",
+    "DURATION",
     "POINT",
 ]
 VALID_TYPES = SCALAR_TYPES + ["LIST"] + [f"LIST<{t}>" for t in SCALAR_TYPES]
@@ -36,7 +44,9 @@ def define_properties():
 
 def main():
     print("\nNeo4j Schema Definition Tool")
-    print("Builds <db-name>-schema.json by defining your graph schema before the database exists.")
+    print(
+        "Builds <db-name>-schema.json by defining your graph schema before the database exists."
+    )
     print("=" * 60)
 
     schema = {"value": {}}
@@ -108,7 +118,12 @@ def main():
         rel_types.add(rel)
         print(f"  ({from_label})-[:{rel}]->({to_label}) added.")
 
-    db_name = input("\nDatabase name for schema file (e.g. 'movies', 'supply-chain'): ").strip() or "neo4j"
+    db_name = (
+        input(
+            "\nDatabase name for schema file (e.g. 'movies', 'supply-chain'): "
+        ).strip()
+        or "neo4j"
+    )
     output_path = f"{db_name}-schema.json"
     schema["schema_retrieved_at"] = datetime.now(timezone.utc).isoformat()
     with open(output_path, "w", encoding="utf-8") as f:

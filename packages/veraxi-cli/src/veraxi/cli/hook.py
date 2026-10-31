@@ -47,7 +47,9 @@ def _find_git_dir() -> str | None:
         return None
 
 
-def _manage_single_hook(hooks_dir: str, hook_name: str, hook_script: str, action: str) -> None:
+def _manage_single_hook(
+    hooks_dir: str, hook_name: str, hook_script: str, action: str
+) -> None:
     green = "\033[32m"
     bold = "\033[1m"
     reset = "\033[0m"
@@ -60,7 +62,9 @@ def _manage_single_hook(hooks_dir: str, hook_name: str, hook_script: str, action
                 content = f.read()
 
         if HOOK_MARKER_START in content:
-            print(f"{bold}Veraxi {hook_name} hook is already installed at {hook_path}{reset}")
+            print(
+                f"{bold}Veraxi {hook_name} hook is already installed at {hook_path}{reset}"
+            )
             return
 
         if not content:
@@ -74,7 +78,9 @@ def _manage_single_hook(hooks_dir: str, hook_name: str, hook_script: str, action
         st = os.stat(hook_path)
         os.chmod(hook_path, st.st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
 
-        print(f"{bold}{green}✓ Successfully installed Veraxi {hook_name} hook{reset} at {hook_path}")
+        print(
+            f"{bold}{green}✓ Successfully installed Veraxi {hook_name} hook{reset} at {hook_path}"
+        )
 
     elif action == "uninstall":
         if not os.path.exists(hook_path):
@@ -98,7 +104,9 @@ def _manage_single_hook(hooks_dir: str, hook_name: str, hook_script: str, action
         else:
             with open(hook_path, "w", encoding="utf-8") as f:
                 f.write(cleaned + "\n")
-            print(f"{bold}{green}✓ Successfully removed Veraxi hook from {hook_path}{reset}")
+            print(
+                f"{bold}{green}✓ Successfully removed Veraxi hook from {hook_path}{reset}"
+            )
 
 
 def run_hook(action: str = "install", hook_type: str = "pre-commit") -> None:
@@ -107,7 +115,10 @@ def run_hook(action: str = "install", hook_type: str = "pre-commit") -> None:
     """
     git_dir = _find_git_dir()
     if not git_dir:
-        print("Error: Not a git repository (or any of the parent directories).", file=sys.stderr)
+        print(
+            "Error: Not a git repository (or any of the parent directories).",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
     hooks_dir = os.path.join(git_dir, "hooks")

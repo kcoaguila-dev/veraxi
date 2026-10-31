@@ -18,6 +18,7 @@ from pathlib import Path
 
 try:
     from dotenv import load_dotenv
+
     load_dotenv(Path(__file__).parent.parent / ".env")
 except ImportError:
     pass
@@ -67,7 +68,9 @@ def main():
     database = os.environ.get("NEO4J_DATABASE", "neo4j")
 
     if not uri or not password:
-        sys.exit("ERROR: NEO4J_URI and NEO4J_PASSWORD must be set in .env or environment")
+        sys.exit(
+            "ERROR: NEO4J_URI and NEO4J_PASSWORD must be set in .env or environment"
+        )
 
     driver = neo4j.GraphDatabase.driver(uri, auth=(user, password))
     try:
@@ -108,11 +111,15 @@ def main():
 
         # Cardinality — one query per STRING property on nodes and relationships
         string_prop_count = sum(
-            1 for props in schema.get("node_props", {}).values()
-            for p in props if p.get("aura_data_type") == "string"
+            1
+            for props in schema.get("node_props", {}).values()
+            for p in props
+            if p.get("aura_data_type") == "string"
         ) + sum(
-            1 for props in schema.get("rel_props", {}).values()
-            for p in props if p.get("aura_data_type") == "string"
+            1
+            for props in schema.get("rel_props", {}).values()
+            for p in props
+            if p.get("aura_data_type") == "string"
         )
         print(f"Checking cardinality for {string_prop_count} string properties...")
         _enrich_with_cardinality(driver, database, schema)
@@ -132,6 +139,7 @@ def main():
 
 
 # ── Data gate ────────────────────────────────────────────────────────────────
+
 
 def _get_node_count(driver, database: str) -> int:
     records, _, _ = driver.execute_query(
@@ -159,6 +167,7 @@ def _validate_data(schema: dict, node_count: int) -> None:
 
 # ── Cardinality enrichment ────────────────────────────────────────────────────
 
+
 def _enrich_with_cardinality(driver, database: str, schema: dict) -> None:
     # APOC is assumed available — it is bundled with all AuraDB instances.
     # apoc.meta.schema() returns property types and indexed flags in one call.
@@ -177,7 +186,9 @@ def _enrich_with_cardinality(driver, database: str, schema: dict) -> None:
             pname = prop["property"]
             if apoc_props.get(pname, {}).get("indexed", False):
                 _check_cardinality(
-                    driver, database, prop,
+                    driver,
+                    database,
+                    prop,
                     f"MATCH (n:`{label}`) WHERE n[$prop] IS NOT NULL "
                     "WITH DISTINCT n[$prop] AS v LIMIT $limit ",
                     pname,
@@ -193,7 +204,9 @@ def _enrich_with_cardinality(driver, database: str, schema: dict) -> None:
             pname = prop["property"]
             if apoc_props.get(pname, {}).get("indexed", False):
                 _check_cardinality(
-                    driver, database, prop,
+                    driver,
+                    database,
+                    prop,
                     f"MATCH ()-[r:`{rel_type}`]->() WHERE r[$prop] IS NOT NULL "
                     "WITH DISTINCT r[$prop] AS v LIMIT $limit ",
                     pname,
@@ -202,18 +215,24 @@ def _enrich_with_cardinality(driver, database: str, schema: dict) -> None:
                 prop["low_cardinality"] = False
 
 
-def _check_cardinality(driver, database: str, prop: dict, base_query: str, pname: str) -> None:
+def _check_cardinality(
+    driver, database: str, prop: dict, base_query: str, pname: str
+) -> None:
     try:
         records, _, _ = driver.execute_query(
             base_query + "RETURN count(v) AS cnt",
-            prop=pname, limit=CARDINALITY_THRESHOLD + 1, database_=database,
+            prop=pname,
+            limit=CARDINALITY_THRESHOLD + 1,
+            database_=database,
         )
         cnt = records[0]["cnt"] if records else 0
         if cnt <= CARDINALITY_THRESHOLD:
             prop["low_cardinality"] = True
             records, _, _ = driver.execute_query(
                 base_query + "RETURN collect(v) AS values",
-                prop=pname, limit=CARDINALITY_THRESHOLD + 1, database_=database,
+                prop=pname,
+                limit=CARDINALITY_THRESHOLD + 1,
+                database_=database,
             )
             raw = records[0]["values"] if records else []
             prop["values"] = sorted(str(v) for v in raw if v is not None)
@@ -224,6 +243,7 @@ def _check_cardinality(driver, database: str, prop: dict, base_query: str, pname
 
 
 # ── Full-text index cross-reference ─────────────────────────────────────────
+
 
 def _mark_fulltext_indexed_props(schema: dict) -> None:
     ft_lookup: dict[str, set] = {}
@@ -238,10 +258,13 @@ def _mark_fulltext_indexed_props(schema: dict) -> None:
 
     for rel_type, props in schema.get("rel_props", {}).items():
         for prop in props:
-            prop["has_fulltext_index"] = prop["property"] in ft_lookup.get(rel_type, set())
+            prop["has_fulltext_index"] = prop["property"] in ft_lookup.get(
+                rel_type, set()
+            )
 
 
 # ── Output ───────────────────────────────────────────────────────────────────
+
 
 def _print_summary(schema: dict) -> None:
     node_props = schema.get("node_props", {})
@@ -256,13 +279,19 @@ def _print_summary(schema: dict) -> None:
 
     print("\n── Node Labels & Properties ────────────────────────────────────────")
     for label, props in node_props.items():
-        prop_strs = [f"{p['property']}({p['type']}→{p['aura_data_type']})" for p in props]
-        print(f"  ({label}): {', '.join(prop_strs) if prop_strs else '(no properties)'}")
+        prop_strs = [
+            f"{p['property']}({p['type']}→{p['aura_data_type']})" for p in props
+        ]
+        print(
+            f"  ({label}): {', '.join(prop_strs) if prop_strs else '(no properties)'}"
+        )
 
     if rel_props:
         print("\n── Relationship Properties ─────────────────────────────────────────")
         for rel_type, props in rel_props.items():
-            prop_strs = [f"{p['property']}({p['type']}→{p['aura_data_type']})" for p in props]
+            prop_strs = [
+                f"{p['property']}({p['type']}→{p['aura_data_type']})" for p in props
+            ]
             print(f"  [{rel_type}]: {', '.join(prop_strs)}")
 
     if relationships:
@@ -279,21 +308,23 @@ def _print_summary(schema: dict) -> None:
             dims = config.get("vector.dimensions", "?")
             provider = options.get("indexProvider", "?")
             print(
-                f"  name={idx.get('name','?')}  labels={idx.get('labelsOrTypes',[])}  "
-                f"props={idx.get('properties',[])}  state={idx.get('state','?')}  "
+                f"  name={idx.get('name', '?')}  labels={idx.get('labelsOrTypes', [])}  "
+                f"props={idx.get('properties', [])}  state={idx.get('state', '?')}  "
                 f"dims={dims}  provider={provider}"
             )
     else:
         print("\n── Vector Indexes: none found ──────────────────────────────────────")
-        print("  SimilaritySearch requires a vector index — use neo4j-vector-index-skill.")
+        print(
+            "  SimilaritySearch requires a vector index — use neo4j-vector-index-skill."
+        )
 
     ft_indexes = metadata.get("fulltext_index", [])
     if ft_indexes:
         print("\n── Full-Text Indexes ────────────────────────────────────────────────")
         for idx in ft_indexes:
             print(
-                f"  name={idx.get('name','?')}  labels={idx.get('labelsOrTypes',[])}  "
-                f"props={idx.get('properties',[])}  state={idx.get('state','?')}"
+                f"  name={idx.get('name', '?')}  labels={idx.get('labelsOrTypes', [])}  "
+                f"props={idx.get('properties', [])}  state={idx.get('state', '?')}"
             )
     else:
         print("\n── Full-Text Indexes: none found ───────────────────────────────────")
@@ -313,12 +344,16 @@ def _print_summary(schema: dict) -> None:
                 low_card_rows.append(f"  [{rel_type}].{p['property']}{ft}: {vals}")
 
     if low_card_rows:
-        print(f"\n── Low Cardinality Properties (≤{CARDINALITY_THRESHOLD} values) ────────────────────────")
+        print(
+            f"\n── Low Cardinality Properties (≤{CARDINALITY_THRESHOLD} values) ────────────────────────"
+        )
         print("  ⚠ Include valid values in CypherTemplate parameter descriptions")
         for row in low_card_rows:
             print(row)
     else:
-        print(f"\n── Low Cardinality Properties: none found (threshold: ≤{CARDINALITY_THRESHOLD}) ────")
+        print(
+            f"\n── Low Cardinality Properties: none found (threshold: ≤{CARDINALITY_THRESHOLD}) ────"
+        )
 
     print()
 
@@ -328,9 +363,13 @@ def _print_gitignore_warning() -> None:
     if gitignore.exists():
         content = gitignore.read_text()
         if "schema.json" not in content:
-            print("\nWARNING: schema.json not in .gitignore — add it to avoid committing graph metadata")
+            print(
+                "\nWARNING: schema.json not in .gitignore — add it to avoid committing graph metadata"
+            )
     else:
-        print("\nNOTE: Add schema.json to .gitignore to avoid committing graph metadata")
+        print(
+            "\nNOTE: Add schema.json to .gitignore to avoid committing graph metadata"
+        )
 
 
 if __name__ == "__main__":

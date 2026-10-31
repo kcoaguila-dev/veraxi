@@ -82,6 +82,7 @@ def run_context(
     # 1b. Offline fallback: check local .veraxi/rules.json if active_rules is empty
     if not active_rules:
         import os
+
         local_file = os.path.join(os.getcwd(), ".veraxi", "rules.json")
         if os.path.isfile(local_file):
             try:
@@ -104,11 +105,13 @@ def run_context(
         hits = search_vectors(query_text=task[:400], limit=limit, tenant_id=tenant_id)
         for h in hits:
             if isinstance(h, dict) and "text" in h:
-                vector_chunks.append({
-                    "text": h["text"].strip(),
-                    "score": h.get("score", 0.0),
-                    "source": h.get("source", "knowledge_base"),
-                })
+                vector_chunks.append(
+                    {
+                        "text": h["text"].strip(),
+                        "score": h.get("score", 0.0),
+                        "source": h.get("source", "knowledge_base"),
+                    }
+                )
     except Exception:
         pass
 
@@ -127,8 +130,12 @@ def run_context(
 
     # Render clean XML context block for AI coding agents
     output = []
-    cluster_attr = f' cluster="{",".join(cluster_scopes)}"' if len(cluster_scopes) > 1 else ""
-    output.append(f'<veraxi-context version="1.0" project="{project_scope}"{cluster_attr} tenant="{tenant_id}">')
+    cluster_attr = (
+        f' cluster="{",".join(cluster_scopes)}"' if len(cluster_scopes) > 1 else ""
+    )
+    output.append(
+        f'<veraxi-context version="1.0" project="{project_scope}"{cluster_attr} tenant="{tenant_id}">'
+    )
     output.append(f"  <task>\n    {task}\n  </task>\n")
 
     if active_rules:
@@ -136,17 +143,31 @@ def run_context(
         output.append("  <active-rules>")
         for r in active_rules:
             tag = r.get("tag", "general")
-            proj_prefix = f"[{r['project']}] " if r.get("project") and r["project"] != project_scope and r["project"] != "global" else ""
+            proj_prefix = (
+                f"[{r['project']}] "
+                if r.get("project")
+                and r["project"] != project_scope
+                and r["project"] != "global"
+                else ""
+            )
             output.append(f"    - {proj_prefix}[{tag}] {r['name']}")
         output.append("  </active-rules>\n")
 
     if resolved_caveats:
-        output.append("  <!-- HISTORICAL RESOLVED ISSUES (DO NOT RE-SOLVE OR RE-INTRODUCE) -->")
+        output.append(
+            "  <!-- HISTORICAL RESOLVED ISSUES (DO NOT RE-SOLVE OR RE-INTRODUCE) -->"
+        )
         output.append('  <resolved-caveats status="DO-NOT-RE-SOLVE">')
         for c in resolved_caveats:
             ref = c.get("ref", "manual")
             note = c.get("note", "Fixed")
-            proj_prefix = f"[{c['project']}] " if c.get("project") and c["project"] != project_scope and c["project"] != "global" else ""
+            proj_prefix = (
+                f"[{c['project']}] "
+                if c.get("project")
+                and c["project"] != project_scope
+                and c["project"] != "global"
+                else ""
+            )
             output.append(f"    - {proj_prefix}[RESOLVED via {ref}]: {c['name']}")
             output.append(f"      Resolution Note: {note}")
         output.append("  </resolved-caveats>\n")

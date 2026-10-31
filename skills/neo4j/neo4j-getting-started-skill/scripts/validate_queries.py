@@ -8,6 +8,7 @@ Run from the project work directory (where .env lives):
 Substitutes $param placeholders with safe test defaults, runs all queries in
 one driver session, and prints a pass/fail table. Exits 0 if ≥60% pass.
 """
+
 import os
 import re
 import sys
@@ -15,6 +16,7 @@ from pathlib import Path
 
 try:
     from dotenv import load_dotenv
+
     load_dotenv()
 except ImportError:
     pass  # fall back to env vars already set
@@ -24,6 +26,7 @@ try:
 except ImportError:
     print("ERROR: neo4j package not installed. Run: pip install neo4j", file=sys.stderr)
     sys.exit(2)
+
 
 # ── Read sample_id from progress.md (written by 4-load) ─────────────────────
 def _read_sample_id() -> str:
@@ -38,6 +41,7 @@ def _read_sample_id() -> str:
     for csv_path in sorted(Path("data").glob("*.csv")) if Path("data").exists() else []:
         try:
             import csv as _csv
+
             with open(csv_path) as f:
                 row = next(_csv.DictReader(f), None)
                 if row:
@@ -47,6 +51,7 @@ def _read_sample_id() -> str:
         except Exception:
             pass
     return "p1"
+
 
 SAMPLE_ID = _read_sample_id()
 
@@ -63,8 +68,7 @@ segments = text.split(";")
 queries = []
 for seg in segments:
     content_lines = [
-        ln for ln in seg.splitlines()
-        if ln.strip() and not ln.strip().startswith("//")
+        ln for ln in seg.splitlines() if ln.strip() and not ln.strip().startswith("//")
     ]
     if content_lines:
         queries.append(seg.strip())
@@ -74,13 +78,16 @@ if not queries:
     sys.exit(2)
 
 # ── Connect ────────────────────────────────────────────────────────────────────
-uri      = os.environ.get("NEO4J_URI", "bolt://localhost:7687")
-user     = os.environ.get("NEO4J_USERNAME", "neo4j")
+uri = os.environ.get("NEO4J_URI", "bolt://localhost:7687")
+user = os.environ.get("NEO4J_USERNAME", "neo4j")
 password = os.environ.get("NEO4J_PASSWORD", "")
 database = os.environ.get("NEO4J_DATABASE", "neo4j")
 
 if not password:
-    print("ERROR: NEO4J_PASSWORD not set. Source .env or set the variable.", file=sys.stderr)
+    print(
+        "ERROR: NEO4J_PASSWORD not set. Source .env or set the variable.",
+        file=sys.stderr,
+    )
     sys.exit(2)
 
 driver = GraphDatabase.driver(uri, auth=(user, password))
@@ -92,19 +99,21 @@ except Exception as e:
 
 # ── Run each query ─────────────────────────────────────────────────────────────
 PARAM_DEFAULTS = {
-    r"\$id\b":          f"'{SAMPLE_ID}'",
-    r"\$\w*[Ii]d\b":    f"'{SAMPLE_ID}'",  # personId, userId, nodeId etc.
-    r"\$limit\b":       "10",
-    r"\$threshold\b":   "0",
-    r"\$searchTerm\b":  "'test'",
-    r"\$embedding\b":   "[]",
-    r"\$\w+":           "'test'",   # fallback for any remaining $param
+    r"\$id\b": f"'{SAMPLE_ID}'",
+    r"\$\w*[Ii]d\b": f"'{SAMPLE_ID}'",  # personId, userId, nodeId etc.
+    r"\$limit\b": "10",
+    r"\$threshold\b": "0",
+    r"\$searchTerm\b": "'test'",
+    r"\$embedding\b": "[]",
+    r"\$\w+": "'test'",  # fallback for any remaining $param
 }
+
 
 def substitute_params(q: str) -> str:
     for pattern, default in PARAM_DEFAULTS.items():
         q = re.sub(pattern, default, q)
     return q
+
 
 passed = 0
 results = []
@@ -113,14 +122,17 @@ for i, raw_query in enumerate(queries, 1):
     test_query = substitute_params(raw_query)
     # extract first non-comment line for display
     label = next(
-        (ln.strip() for ln in raw_query.splitlines()
-         if ln.strip() and not ln.strip().startswith("//")),
-        "(empty)"
+        (
+            ln.strip()
+            for ln in raw_query.splitlines()
+            if ln.strip() and not ln.strip().startswith("//")
+        ),
+        "(empty)",
     )[:70]
     try:
         records, _, _ = driver.execute_query(test_query, database_=database)
         row_count = len(records)
-        results.append((i, True,  row_count, label))
+        results.append((i, True, row_count, label))
         passed += 1
     except Exception as e:
         results.append((i, False, str(e)[:80], label))
@@ -132,7 +144,7 @@ print(f"\nQuery validation — {queries_file}")
 print(f"{'Q':<4} {'Status':<8} {'Rows/Error':<12}  Query")
 print("-" * 80)
 for qnum, ok, detail, label in results:
-    icon   = "✓" if ok else "✗"
+    icon = "✓" if ok else "✗"
     detail_str = str(detail)
     print(f"Q{qnum:<3} {icon:<8} {detail_str:<12}  {label}")
 
@@ -141,7 +153,9 @@ print(f"\n{passed}/{len(queries)} passed  |  {traversals} traversal queries dete
 
 min_pass = max(3, int(len(queries) * 0.6))
 if passed < min_pass:
-    print(f"FAIL: need ≥{min_pass} passing (60%). Fix failing queries before proceeding.")
+    print(
+        f"FAIL: need ≥{min_pass} passing (60%). Fix failing queries before proceeding."
+    )
     sys.exit(1)
 else:
     print("PASS")

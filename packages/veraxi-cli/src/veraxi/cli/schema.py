@@ -16,6 +16,7 @@ def run_schema(
     # Try local backend inspection if available
     try:
         from backend.mcp_server.tools.get_schema import get_graph_schema
+
         schema_data = get_graph_schema()
     except Exception:
         pass
@@ -59,9 +60,15 @@ def run_schema(
     yellow = "\033[33m"
     reset = "\033[0m"
 
-    print(f"\n{bold}{cyan}╔════════════════════════════════════════════════════════════════════╗{reset}")
-    print(f"{bold}{cyan}║                 Veraxi Knowledge Graph Schema                      ║{reset}")
-    print(f"{bold}{cyan}╚════════════════════════════════════════════════════════════════════╝{reset}")
+    print(
+        f"\n{bold}{cyan}╔════════════════════════════════════════════════════════════════════╗{reset}"
+    )
+    print(
+        f"{bold}{cyan}║                 Veraxi Knowledge Graph Schema                      ║{reset}"
+    )
+    print(
+        f"{bold}{cyan}╚════════════════════════════════════════════════════════════════════╝{reset}"
+    )
 
     labels = schema_data.get("node_labels", [])
     rels = schema_data.get("relationship_types", [])

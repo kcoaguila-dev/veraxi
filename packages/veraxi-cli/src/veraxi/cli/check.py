@@ -20,7 +20,10 @@ def run_check(
         if not sys.stdin.isatty():
             text = sys.stdin.read().strip()
         else:
-            print("Error: No text provided to check. Pass text as argument or pipe via stdin.", file=sys.stderr)
+            print(
+                "Error: No text provided to check. Pass text as argument or pipe via stdin.",
+                file=sys.stderr,
+            )
             sys.exit(1)
 
     if not text:
@@ -32,7 +35,10 @@ def run_check(
             with open(context, "r", encoding="utf-8") as f:
                 context = f.read()
         except Exception as e:
-            print(f"Warning: Failed to read context file '{context}': {e}", file=sys.stderr)
+            print(
+                f"Warning: Failed to read context file '{context}': {e}",
+                file=sys.stderr,
+            )
 
     if not context:
         try:
@@ -81,14 +87,26 @@ def run_check(
     red = "\033[31m"
     reset = "\033[0m"
 
-    print(f"\n{bold}{cyan}╔════════════════════════════════════════════════════════════════════╗{reset}")
-    print(f"{bold}{cyan}║                 Veraxi Grounding & Factual Check                   ║{reset}")
-    print(f"{bold}{cyan}╚════════════════════════════════════════════════════════════════════╝{reset}")
+    print(
+        f"\n{bold}{cyan}╔════════════════════════════════════════════════════════════════════╗{reset}"
+    )
+    print(
+        f"{bold}{cyan}║                 Veraxi Grounding & Factual Check                   ║{reset}"
+    )
+    print(
+        f"{bold}{cyan}╚════════════════════════════════════════════════════════════════════╝{reset}"
+    )
 
-    status_str = f"{green}PASSED [Factual alignment confirmed]{reset}" if passed else f"{red}FAILED [Hallucination or unsupported claims detected]{reset}"
+    status_str = (
+        f"{green}PASSED [Factual alignment confirmed]{reset}"
+        if passed
+        else f"{red}FAILED [Hallucination or unsupported claims detected]{reset}"
+    )
 
     print(f"\n  {bold}Claim Size{reset}      : {len(text)} characters")
-    print(f"  {bold}Grounding Score{reset} : {score:.2f} (Required Threshold: {min_score:.2f})")
+    print(
+        f"  {bold}Grounding Score{reset} : {score:.2f} (Required Threshold: {min_score:.2f})"
+    )
     print(f"  {bold}Verification{reset}    : {status_str}\n")
 
     sys.exit(0 if passed else 1)

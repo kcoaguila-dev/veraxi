@@ -8,13 +8,34 @@ from veraxi.cli.utils import resolve_project_scope
 
 
 SKIP_PREFIXES = (
-    "chore", "docs", "doc", "ci", "style", "test", "tests",
-    "bump", "wip", "merge", "formatting", "typo", "release",
+    "chore",
+    "docs",
+    "doc",
+    "ci",
+    "style",
+    "test",
+    "tests",
+    "bump",
+    "wip",
+    "merge",
+    "formatting",
+    "typo",
+    "release",
 )
 
 TAG_KEYWORDS = {
     "auth": ("auth", "jwt", "token", "session", "oauth", "password", "login"),
-    "db": ("db", "database", "sql", "postgres", "neo4j", "qdrant", "model", "migration", "query"),
+    "db": (
+        "db",
+        "database",
+        "sql",
+        "postgres",
+        "neo4j",
+        "qdrant",
+        "model",
+        "migration",
+        "query",
+    ),
     "api": ("api", "endpoint", "route", "http", "controller", "graphql", "rest"),
     "ui": ("ui", "css", "component", "view", "react", "flutter", "frontend"),
     "cache": ("cache", "redis", "memcached"),
@@ -42,7 +63,12 @@ def _infer_tag(scope: str | None, text: str, files: list[str]) -> str:
 def _clean_invariant_text(raw_text: str) -> str:
     text = raw_text.strip()
     # Normalize common prefix forms
-    text = re.sub(r"^(prevent|fix|avoid|ensure|require|enforce)\s+", lambda m: m.group(1).capitalize() + " ", text, flags=re.IGNORECASE)
+    text = re.sub(
+        r"^(prevent|fix|avoid|ensure|require|enforce)\s+",
+        lambda m: m.group(1).capitalize() + " ",
+        text,
+        flags=re.IGNORECASE,
+    )
     if text and not text[0].isupper():
         text = text[0].upper() + text[1:]
     if text and not text.endswith((".", "!", "?")):
@@ -74,23 +100,42 @@ def extract_commit_lesson(commit: str = "HEAD") -> dict | None:
     # Check for trivial / chore commit
     lower_subj = subject.lower()
     for pfx in SKIP_PREFIXES:
-        if lower_subj.startswith(f"{pfx}:") or lower_subj.startswith(f"{pfx}(") or lower_subj == pfx:
+        if (
+            lower_subj.startswith(f"{pfx}:")
+            or lower_subj.startswith(f"{pfx}(")
+            or lower_subj == pfx
+        ):
             return None
 
     # Get modified files
     files = []
     try:
-        file_lines = subprocess.check_output(
-            ["git", "diff-tree", "--no-commit-id", "--name-only", "-r", commit_hash],
-            stderr=subprocess.DEVNULL,
-            text=True,
-        ).strip().splitlines()
+        file_lines = (
+            subprocess.check_output(
+                [
+                    "git",
+                    "diff-tree",
+                    "--no-commit-id",
+                    "--name-only",
+                    "-r",
+                    commit_hash,
+                ],
+                stderr=subprocess.DEVNULL,
+                text=True,
+            )
+            .strip()
+            .splitlines()
+        )
         files = [f.strip() for f in file_lines if f.strip()]
     except Exception:
         pass
 
     # Match conventional commit
-    match = re.match(r"^(?P<type>fix|feat|refactor|perf|security)(\((?P<scope>[^)]+)\))?:\s*(?P<msg>.+)", subject, re.IGNORECASE)
+    match = re.match(
+        r"^(?P<type>fix|feat|refactor|perf|security)(\((?P<scope>[^)]+)\))?:\s*(?P<msg>.+)",
+        subject,
+        re.IGNORECASE,
+    )
     if match:
         scope = match.group("scope")
         msg = match.group("msg").strip()
@@ -137,31 +182,54 @@ def run_learn(
 
     if not lesson:
         if as_json:
-            print(json.dumps({"project": project_scope, "learned": False, "reason": "No architectural invariant detected."}))
+            print(
+                json.dumps(
+                    {
+                        "project": project_scope,
+                        "learned": False,
+                        "reason": "No architectural invariant detected.",
+                    }
+                )
+            )
             return
         if not auto:
-            print(f"\n{yellow}No architectural invariant detected in commit {commit}.{reset}")
-            print("Commit may be trivial (chore, docs, formatting) or non-prescriptive.\n")
+            print(
+                f"\n{yellow}No architectural invariant detected in commit {commit}.{reset}"
+            )
+            print(
+                "Commit may be trivial (chore, docs, formatting) or non-prescriptive.\n"
+            )
         return
 
     if as_json and not auto and not yes:
-        print(json.dumps({
-            "project": project_scope,
-            "learned": True,
-            "candidate": lesson,
-        }, indent=2))
+        print(
+            json.dumps(
+                {
+                    "project": project_scope,
+                    "learned": True,
+                    "candidate": lesson,
+                },
+                indent=2,
+            )
+        )
         return
 
     confirmed_rule = lesson["rule"]
     confirmed_tag = lesson["tag"]
 
     if not auto and not yes and sys.stdin.isatty():
-        print(f"\n{bold}{cyan}╔════════════════════════════════════════════════════════════════════╗{reset}")
-        print(f"{bold}{cyan}║                 Veraxi Autonomous Memory Learner                   ║{reset}")
-        print(f"{bold}{cyan}╚════════════════════════════════════════════════════════════════════╝{reset}")
+        print(
+            f"\n{bold}{cyan}╔════════════════════════════════════════════════════════════════════╗{reset}"
+        )
+        print(
+            f"{bold}{cyan}║                 Veraxi Autonomous Memory Learner                   ║{reset}"
+        )
+        print(
+            f"{bold}{cyan}╚════════════════════════════════════════════════════════════════════╝{reset}"
+        )
         print(f"\n  Commit: {bold}{lesson['short_hash']}{reset} ({lesson['subject']})")
         print(f"  Project Scope: {bold}{project_scope}{reset}")
-        print(f"\n  {bold}Candidate Rule:{reset} \"{confirmed_rule}\"")
+        print(f'\n  {bold}Candidate Rule:{reset} "{confirmed_rule}"')
         print(f"  {bold}Inferred Tag:{reset}   [{confirmed_tag}]")
 
         try:
@@ -188,9 +256,13 @@ def run_learn(
     )
 
     if not as_json:
-        print(f"  {green}✓ Successfully captured architectural invariant into {bold}{project_scope}{reset} memory bank.")
+        print(
+            f"  {green}✓ Successfully captured architectural invariant into {bold}{project_scope}{reset} memory bank."
+        )
 
     if sync:
         if not as_json:
-            print(f"  {cyan}↻ Syncing updated rules to AI editor configs (CLAUDE.md, .cursorrules)...{reset}")
+            print(
+                f"  {cyan}↻ Syncing updated rules to AI editor configs (CLAUDE.md, .cursorrules)...{reset}"
+            )
         run_rules_sync(project=project_scope, tenant_id=tenant_id, as_json=as_json)

@@ -26,14 +26,23 @@ def _get_supported_models() -> dict[str, list[str]]:
     """Retrieves supported models from backend models_config or fallback mapping."""
     try:
         from backend.models_config import DEFAULT_PROVIDER_MODELS
+
         return DEFAULT_PROVIDER_MODELS
     except Exception:
         # Fallback catalog if backend is not in pythonpath
         return {
             "OpenAI": ["gpt-4o", "gpt-4o-mini", "o3-mini", "o1", "gpt-4-turbo"],
-            "Anthropic": ["claude-3-7-sonnet-20250219", "claude-3-5-sonnet-latest", "claude-3-5-haiku-latest"],
+            "Anthropic": [
+                "claude-3-7-sonnet-20250219",
+                "claude-3-5-sonnet-latest",
+                "claude-3-5-haiku-latest",
+            ],
             "Google Gemini": ["gemini-2.0-flash", "gemini-1.5-pro", "gemini-1.5-flash"],
-            "Groq": ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "mixtral-8x7b-32768"],
+            "Groq": [
+                "llama-3.3-70b-versatile",
+                "llama-3.1-8b-instant",
+                "mixtral-8x7b-32768",
+            ],
             "DeepSeek": ["deepseek-chat", "deepseek-reasoner"],
             "Ollama": ["llama3:latest", "mistral:latest", "qwen2.5:latest"],
         }
@@ -72,20 +81,17 @@ def run_models_list(
 
     if provider_filter:
         provider_filter = provider_filter.strip().lower()
-        matched = {
-            k: v for k, v in catalog.items()
-            if provider_filter in k.lower()
-        }
+        matched = {k: v for k, v in catalog.items() if provider_filter in k.lower()}
         if not matched:
-            print(f"Error: Unknown provider '{provider_filter}'. Available: {', '.join(catalog.keys())}", file=sys.stderr)
+            print(
+                f"Error: Unknown provider '{provider_filter}'. Available: {', '.join(catalog.keys())}",
+                file=sys.stderr,
+            )
             sys.exit(1)
         catalog = matched
 
     if as_json:
-        result = {
-            "current_model": current_model,
-            "providers": {}
-        }
+        result = {"current_model": current_model, "providers": {}}
         for prov, models in catalog.items():
             result["providers"][prov] = {
                 "ready": _is_provider_ready(prov, config),
@@ -101,19 +107,29 @@ def run_models_list(
     dim = "\033[2m"
     reset = "\033[0m"
 
-    print(f"\n{bold}{cyan}╔════════════════════════════════════════════════════════════════════╗{reset}")
-    print(f"{bold}{cyan}║                 Veraxi Supported LLM Models Catalog                ║{reset}")
-    print(f"{bold}{cyan}╚════════════════════════════════════════════════════════════════════╝{reset}")
+    print(
+        f"\n{bold}{cyan}╔════════════════════════════════════════════════════════════════════╗{reset}"
+    )
+    print(
+        f"{bold}{cyan}║                 Veraxi Supported LLM Models Catalog                ║{reset}"
+    )
+    print(
+        f"{bold}{cyan}╚════════════════════════════════════════════════════════════════════╝{reset}"
+    )
     print(f"  Active Model: {bold}{green}{current_model}{reset}\n")
 
     for provider, models in catalog.items():
         is_ready = _is_provider_ready(provider, config)
-        status_tag = f"{green}[READY - KEY SET]{reset}" if is_ready else f"{yellow}[NO KEY CONFIGURED]{reset}"
+        status_tag = (
+            f"{green}[READY - KEY SET]{reset}"
+            if is_ready
+            else f"{yellow}[NO KEY CONFIGURED]{reset}"
+        )
         print(f"  {bold}{provider:<16}{reset} {status_tag}")
         print("  " + "─" * 45)
 
         for m in models[:6]:  # Show top 6 per provider
-            is_active = (m == current_model)
+            is_active = m == current_model
             prefix = f"  {green}▶ {bold}" if is_active else "    • "
             suffix = f" (active default){reset}" if is_active else ""
             print(f"{prefix}{m}{suffix}")
@@ -128,7 +144,10 @@ def run_models_list(
 def run_models_set(model_name: str) -> None:
     """Sets the active default model."""
     if not model_name:
-        print("Error: Model name required. Example: vx models set claude-3-5-sonnet-latest", file=sys.stderr)
+        print(
+            "Error: Model name required. Example: vx models set claude-3-5-sonnet-latest",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
     ok = set_config_value("default_model", model_name)

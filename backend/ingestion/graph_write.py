@@ -11,20 +11,23 @@ class IngestionPayload:
     qdrant_point_ids: dict[str, str]
 
 
+from backend.ingestion.entity_resolution import normalize_name
+
+
 def _create_unlinked_chunks(
     neo4j_client: Neo4jStorageClient,
-    point_ids: list[str],
-    start_idx: int,
+    unlinked_point_ids: list[str],
     tenant_id: str,
 ):
-    for i in range(start_idx, len(point_ids)):
-        qdrant_id = point_ids[i]
-        props = {
-            "name": f"UnlinkedChunk_{i}",
-            "qdrant_point_id": qdrant_id,
-            "tenant_id": tenant_id,
-        }
-        neo4j_client.create_node("Chunk", props)
+    for i, qdrant_id in enumerate(unlinked_point_ids):
+        neo4j_client.upsert_entity(
+            label="Chunk",
+            tenant_id=tenant_id,
+            name=f"UnlinkedChunk_{qdrant_id[:8]}",
+            aliases=[],
+            properties={},
+            qdrant_point_ids=[qdrant_id],
+        )
 
 
 def write_to_graph(
@@ -42,39 +45,61 @@ def write_to_graph(
     if not payload.qdrant_point_ids:
         raise ValueError("Must provide at least one qdrant_point_id to link nodes.")
 
-    point_ids = list(payload.qdrant_point_ids.values())
+    # Match chunk texts to surface aliases to map qdrant_point_ids to canonical entities
+    linked_qdrant_ids = set()
 
-    for i, entity in enumerate(payload.entities):
-        props = entity.get("properties", {}).copy()
-        props["name"] = entity["name"]
+    for entity in payload.entities:
+        name = entity["name"]
+        aliases = list({name} | set(entity.get("aliases", [])))
 
-        # Link to qdrant - cycle through available qdrant points if there are more nodes than points
-        qdrant_id = point_ids[i % len(point_ids)]
-        props["qdrant_point_id"] = qdrant_id
-        props["tenant_id"] = tenant_id
+        # Find which chunks contain any of this entity's aliases
+        matched_point_ids = []
+        for chunk_text, point_id in payload.qdrant_point_ids.items():
+            chunk_text_norm = normalize_name(chunk_text)
+            for alias in aliases:
+                if normalize_name(alias) in chunk_text_norm:
+                    matched_point_ids.append(point_id)
+                    linked_qdrant_ids.add(point_id)
+                    break  # Once we link the chunk to this entity, move to next chunk
 
-        node_id = neo4j_client.create_node(entity["type"], props)
-        entity_name_to_node_id[entity["name"]] = node_id
+        # Ensure we always link at least one chunk if available and none matched
+        if not matched_point_ids and payload.qdrant_point_ids:
+            # Fallback to the first chunk
+            first_point_id = list(payload.qdrant_point_ids.values())[0]
+            matched_point_ids = [first_point_id]
+            linked_qdrant_ids.add(first_point_id)
 
-        if qdrant_id not in qdrant_id_to_neo4j_ids:
-            qdrant_id_to_neo4j_ids[qdrant_id] = []
-        qdrant_id_to_neo4j_ids[qdrant_id].append(node_id)
+        node_id = neo4j_client.upsert_entity(
+            label=entity["type"],
+            tenant_id=tenant_id,
+            name=name,
+            aliases=aliases,
+            properties=entity.get("properties", {}),
+            qdrant_point_ids=matched_point_ids,
+        )
+
+        entity_name_to_node_id[name] = node_id
+
+        for pid in matched_point_ids:
+            if pid not in qdrant_id_to_neo4j_ids:
+                qdrant_id_to_neo4j_ids[pid] = []
+            qdrant_id_to_neo4j_ids[pid].append(node_id)
 
     # Ensure every Qdrant point is stored in Neo4j (critical link requirement)
-    if len(point_ids) > len(payload.entities):
-        _create_unlinked_chunks(
-            neo4j_client, point_ids, len(payload.entities), tenant_id
-        )
+    all_point_ids = set(payload.qdrant_point_ids.values())
+    unlinked = list(all_point_ids - linked_qdrant_ids)
+    if unlinked:
+        _create_unlinked_chunks(neo4j_client, unlinked, tenant_id)
 
     for relation in payload.relations:
         from_node_id = entity_name_to_node_id.get(relation["from_entity"])
         to_node_id = entity_name_to_node_id.get(relation["to_entity"])
 
         if from_node_id and to_node_id:
-            neo4j_client.create_relationship(
-                from_node_id,
-                to_node_id,
-                relation["type"],
+            neo4j_client.upsert_relationship(
+                from_id=from_node_id,
+                to_id=to_node_id,
+                rel_type=relation["type"],
                 properties={"tenant_id": tenant_id},
             )
 
