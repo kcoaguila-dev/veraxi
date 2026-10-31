@@ -191,3 +191,43 @@ def test_insert_vectors_success(mock_qdrant_class, mock_get_config):
     assert result["vectors_inserted"] == 2
     assert result["point_ids"] == ["uuid-1", "uuid-2"]
     mock_instance.insert_points.assert_called_once()
+
+
+def test_mcp_schema_demarcation_and_optional_entity():
+    from backend.mcp_server.handlers.tool_registry import REGISTERED_TOOLS, _handle_merge_rank
+    from backend.retrieval.merge_rank import VectorHit
+
+    tools_by_name = {t.name: t for t in REGISTERED_TOOLS}
+
+    # Verify tool schema demarcations
+    assert "[DEFAULT - Fast" in tools_by_name["mcp_merge_rank"].description
+    assert "[HEAVY - Long Running" in tools_by_name["mcp_agentic_debate"].description
+    assert "[FAST - Vector Only" in tools_by_name["mcp_search_vectors"].description
+    assert "[FAST - Graph Only" in tools_by_name["mcp_query_graph"].description
+    assert "[WEB RAG - Moderate" in tools_by_name["mcp_ephemeral_web_rag"].description
+
+    # Verify entity_name is optional in mcp_merge_rank schema
+    merge_rank_schema = tools_by_name["mcp_merge_rank"].input_schema
+    assert merge_rank_schema["required"] == ["query_text"]
+    assert "entity_name" not in merge_rank_schema["required"]
+
+    # Verify _handle_merge_rank works cleanly without entity_name
+    with patch("backend.mcp_server.handlers.tool_registry.search_vectors") as mock_sv, \
+         patch("backend.mcp_server.handlers.tool_registry.query_graph") as mock_qg:
+
+        mock_sv.return_value = [
+            VectorHit(id="chunk-1", score=0.9, payload={"text": "Auth docs", "title": "AuthModule"})
+        ]
+        mock_qg.return_value = []
+
+        # Call with only query_text
+        res = _handle_merge_rank({"query_text": "OAuth flow"}, tenant_id="test_tenant")
+        assert len(res) == 1
+        assert "chunk-1" in res[0].text
+        # Fallback seeded candidate from vector hit title
+        mock_qg.assert_called_once_with(
+            entity_name="AuthModule",
+            max_hops=2,
+            tenant_id="test_tenant",
+        )
+

@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 REGISTERED_TOOLS = [
     Tool(
         name="mcp_search_vectors",
-        description="Semantic search over documents",
+        description="[FAST - Vector Only (<50ms)] Semantic vector search over document chunks. Use when searching purely by text similarity without graph relationship traversal.",
         input_schema={
             "type": "object",
             "properties": {
@@ -41,7 +41,7 @@ REGISTERED_TOOLS = [
     ),
     Tool(
         name="mcp_query_graph",
-        description="Find exact entity relationships",
+        description="[FAST - Graph Only (<50ms)] Multi-hop relationship traversal from a known entity in Neo4j. Use when exploring entity connections, dependencies, or causal chains.",
         input_schema={
             "type": "object",
             "properties": {
@@ -96,16 +96,23 @@ REGISTERED_TOOLS = [
     ),
     Tool(
         name="mcp_merge_rank",
-        description="Perform a unified GraphRAG search. It searches vectors using query_text and traverses the graph from entity_name, then fuses the results using Reciprocal Rank Fusion.",
+        description="[DEFAULT - Fast (<100ms)] Primary hybrid GraphRAG search tool. Use for 95% of queries, codebase navigation, fact lookup, and general Q&A. Searches vector embeddings and traverses entity relationships in Neo4j.",
         input_schema={
             "type": "object",
             "properties": {
-                "query_text": {"type": "string"},
-                "entity_name": {"type": "string"},
+                "query_text": {
+                    "type": "string",
+                    "description": "Natural language query text for semantic vector search.",
+                },
+                "entity_name": {
+                    "type": "string",
+                    "description": "Optional entity name to seed graph traversal. If omitted, seeds from top vector results or runs pure vector retrieval.",
+                    "default": "",
+                },
                 "limit": {"type": "integer", "default": 10},
                 "max_hops": {"type": "integer", "default": 2},
             },
-            "required": ["query_text", "entity_name"],
+            "required": ["query_text"],
         },
     ),
     Tool(
@@ -303,7 +310,7 @@ REGISTERED_TOOLS = [
     ),
     Tool(
         name="mcp_ephemeral_web_rag",
-        description="Dynamically crawls external web URLs, extracts facts into a temporary sandboxed knowledge graph and vector space, and returns fused RRF facts. Use when external live web data needs structured RAG retrieval. If you already have URLs to research, provide them in the 'urls' array.",
+        description="[WEB RAG - Moderate (3-8s)] Dynamically crawls external web URLs, extracts facts into a temporary sandboxed knowledge graph and vector space, and returns fused RRF facts. Use when external live web data needs structured RAG retrieval. If you already have URLs to research, provide them in the 'urls' array.",
         input_schema={
             "type": "object",
             "properties": {
@@ -319,7 +326,7 @@ REGISTERED_TOOLS = [
     ),
     Tool(
         name="mcp_agentic_debate",
-        description="Executes a high-accuracy multi-agent GraphRAG research debate. Dispatches Vector, Knowledge Graph, and Web specialists, synthesizes evidence with strict citations, and enforces an adversarial Skeptic verification loop. Use for deep multi-hop research, complex claims, and cross-verification.",
+        description="[HEAVY - Long Running (15-30s)] Multi-agent debate swarm with adversarial Skeptic fact-checking. Dispatches Vector, Knowledge Graph, and Web specialists, synthesizes evidence with strict citations, and enforces an adversarial verification loop. ONLY call when the user explicitly asks for 'deep research', 'exhaustive audit', or 'multi-agent debate'. Do not use for routine lookups.",
         input_schema={
             "type": "object",
             "properties": {
@@ -439,11 +446,29 @@ def _handle_merge_rank(args: dict, tenant_id: str) -> list[TextContent]:
         limit=args.get("limit", config.default_search_limit),
         tenant_id=tenant_id,
     )
-    g_hits = query_graph(
-        entity_name=args["entity_name"],
-        max_hops=args.get("max_hops", config.default_max_hops),
-        tenant_id=tenant_id,
-    )
+
+    entity_name = (args.get("entity_name") or "").strip()
+    g_hits = []
+    if entity_name:
+        g_hits = query_graph(
+            entity_name=entity_name,
+            max_hops=args.get("max_hops", config.default_max_hops),
+            tenant_id=tenant_id,
+        )
+    else:
+        # Seed graph traversal from entity candidates found in vector chunk payloads
+        for v in v_hits[:3]:
+            payload = getattr(v, "payload", {}) or {}
+            candidate = payload.get("entity_name") or payload.get("title")
+            if candidate and isinstance(candidate, str):
+                g_hits = query_graph(
+                    entity_name=candidate,
+                    max_hops=args.get("max_hops", config.default_max_hops),
+                    tenant_id=tenant_id,
+                )
+                if g_hits:
+                    break
+
     results = merge_rank(
         v_hits, g_hits, limit=args.get("limit", config.default_search_limit)
     )

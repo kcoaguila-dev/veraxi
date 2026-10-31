@@ -174,16 +174,18 @@ Veraxi exposes its hybrid engine over standard MCP endpoints (`/sse`):
 
 ### MCP tool profiles
 The exact set of tools exposed via MCP depends on the `VERAXI_MCP_PROFILE` environment variable (defaults to `agent`):
-- `agent`: The default profile. Exposes a streamlined, safe set of tools needed for autonomous research, deep search, and ingestion (`mcp_merge_rank`, `mcp_evaluate_grounding`, `mcp_web_search`, `mcp_ephemeral_web_rag`, `mcp_agentic_debate`, `mcp_ingest_document`, `mcp_get_ingest_status`, `mcp_get_database_stats`).
+- `agent`: The default profile. Exposes a streamlined, safe set of tools needed for autonomous research, deep search, and ingestion (`mcp_merge_rank`, `mcp_search_vectors`, `mcp_query_graph`, `mcp_evaluate_grounding`, `mcp_web_search`, `mcp_ephemeral_web_rag`, `mcp_agentic_debate`, `mcp_ingest_document`, `mcp_get_ingest_status`, `mcp_get_database_stats`).
 - `admin` (or `all`): Exposes all available tools. This profile is required for the `ingest_knowledge` / manual graph-editing workflow and raw CRUD operations.
 
 | Tool | Purpose |
 | :--- | :--- |
-| `mcp_agentic_debate` | High-accuracy GraphRAG research debate. Dispatches Vector, Knowledge Graph, and Web specialists with strict citations and an adversarial Skeptic verification loop. |
-| `mcp_ephemeral_web_rag` | Crawls external web URLs, dynamically ingests them into an ephemeral sandboxed knowledge graph and vector space, and returns fused RRF facts. |
+| `mcp_merge_rank` | **[DEFAULT - Fast (<100ms)]** Primary hybrid GraphRAG search: Qdrant dense + sparse vectors combined with Neo4j multi-hop traversals via Reciprocal Rank Fusion (RRF). Entity name is optional. |
+| `mcp_search_vectors` | **[FAST - Vector Only (<50ms)]** Semantic vector search over document chunks. Ideal for fast text similarity retrieval without graph traversals. |
+| `mcp_query_graph` | **[FAST - Graph Only (<50ms)]** Multi-hop causal relationship and entity path traversal in Neo4j from a known entity. |
+| `mcp_agentic_debate` | **[HEAVY - Long Running (15-30s)]** High-accuracy GraphRAG research debate. Dispatches Vector, Knowledge Graph, and Web specialists with strict citations and an adversarial Skeptic verification loop. |
+| `mcp_ephemeral_web_rag` | **[WEB RAG - Moderate (3-8s)]** Crawls external web URLs, dynamically ingests them into an ephemeral sandboxed knowledge graph and vector space, and returns fused RRF facts. |
 | `mcp_build_lazy_dossier` | Retrieves ground-truth excerpts via Hybrid Search (Dense + SPLADE) fused with Neo4j entity anchors, returning a structured analytical dossier. |
 | `mcp_insert_graph_nodes` | Upserts/merges structured causal entities and rich relations into Neo4j, preserving Qdrant vector links without duplicates. |
-| `mcp_merge_rank` | Executes 3-way hybrid search: Qdrant dense + sparse vectors combined with Neo4j multi-hop traversals via Reciprocal Rank Fusion (RRF). |
 | `mcp_purge_noisy_relationships` | Purges uncurated co-occurrence edges from Neo4j for a tenant while keeping all entity nodes and vector links intact. |
 | `mcp_get_database_stats` | Live counts of nodes, vectors, and relationships for the current tenant. |
 | `mcp_export_data` | Exports structured timelines and research into CSV, OpenTimelineIO (`.otio`), or Final Cut Pro XML (`.fcpxml`). |
