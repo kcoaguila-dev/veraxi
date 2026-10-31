@@ -9,10 +9,15 @@ from backend.storage.qdrant_client import QdrantStorageClient
 def _verify_neo4j_nodes_have_qdrant_ids(nodes: list[dict]) -> set[str]:
     qdrant_ids_from_neo4j = set()
     for node in nodes:
-        assert node.get("qdrant_point_id") is not None, (
-            f"Node {node['id']} is missing qdrant_point_id"
+        assert node.get("qdrant_point_ids") is not None, (
+            f"Node {node['id']} is missing qdrant_point_ids"
         )
-        qdrant_ids_from_neo4j.add(node["qdrant_point_id"])
+        # Verify it's a list and collect all point IDs
+        assert isinstance(node["qdrant_point_ids"], list), (
+            "qdrant_point_ids should be a list"
+        )
+        for q_id in node["qdrant_point_ids"]:
+            qdrant_ids_from_neo4j.add(q_id)
     return qdrant_ids_from_neo4j
 
 
@@ -77,7 +82,7 @@ def test_ingestion_linking(patch_env):
     run_ingestion()
 
     # 1. Fetch all nodes from Neo4j (test database is empty)
-    query = "MATCH (n) RETURN n.id AS id, n.qdrant_point_id AS qdrant_point_id"
+    query = "MATCH (n) RETURN n.id AS id, n.qdrant_point_ids AS qdrant_point_ids"
 
     with neo4j.driver.session() as session:
         result = session.run(query)

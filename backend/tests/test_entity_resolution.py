@@ -1,7 +1,14 @@
 import pytest
 
 from backend.config import get_config
-from backend.ingestion.entity_resolution import resolve_entities
+from backend.ingestion.entity_resolution import (
+    resolve_entities,
+    normalize_name,
+    strip_generic_suffix,
+    acronym_of,
+    is_acronym_match,
+    entity_key,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -70,6 +77,60 @@ def test_resolve_entities_no_duplicates():
     # Check that they retained their names
     names = {e["name"] for e in resolved}
     assert names == {"Alice", "Veraxi Corp", "AI"}
+
+
+def test_normalization_helpers():
+    assert normalize_name("Black-Scholes-Merton") == "black scholes merton"
+    assert normalize_name("Support Vector Machine") == "support vector machine"
+    assert normalize_name("Black_Scholes_Merton") == "black scholes merton"
+    assert normalize_name("H.I.V.") == "h i v"
+
+
+def test_strip_generic_suffix():
+    assert strip_generic_suffix("black scholes merton model") == "black scholes merton"
+    assert (
+        strip_generic_suffix("support vector machine algorithm")
+        == "support vector machine"
+    )
+    assert strip_generic_suffix("model") == "model"  # one word left, don't strip
+    assert strip_generic_suffix("black scholes") == "black scholes"
+
+
+def test_acronym_of():
+    assert acronym_of("black scholes merton model") == "bsm"
+    assert acronym_of("support vector machine") == "svm"
+    assert acronym_of("single") is None
+
+
+def test_is_acronym_match():
+    assert is_acronym_match("BSM", "Black-Scholes-Merton")
+    assert is_acronym_match("BSM model", "Black-Scholes-Merton")
+    assert is_acronym_match("SVM", "Support Vector Machine algorithm")
+    assert is_acronym_match("Black-Scholes-Merton", "BSM")
+    assert is_acronym_match("Black-Scholes-Merton model", "BSM")
+
+    # "Black-Scholes formula" and "Black-Scholes-Merton" have different keys
+    # and are NOT an acronym pair
+    assert not is_acronym_match("Black-Scholes formula", "Black-Scholes-Merton")
+
+
+def test_entity_key():
+    key = entity_key("t1", "Concept", "Black-Scholes-Merton model")
+    assert key == "t1::Concept::black scholes merton"
+
+
+def test_resolve_entities_multi_document_dedup():
+    entities = [
+        {"type": "Concept", "name": "Black-Scholes-Merton"},
+        {"type": "Concept", "name": "BSM"},
+        {"type": "Concept", "name": "BSM model"},
+    ]
+    resolved, alias_mapping = resolve_entities(entities)
+    assert len(resolved) == 1
+    canonical = resolved[0]["name"]
+    assert canonical == "Black-Scholes-Merton"
+    assert alias_mapping["BSM"] == canonical
+    assert alias_mapping["BSM model"] == canonical
 
 
 def test_resolve_entities_empty():
