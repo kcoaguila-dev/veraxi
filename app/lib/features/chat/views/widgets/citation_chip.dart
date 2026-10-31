@@ -52,7 +52,8 @@ class _CitationChipState extends State<CitationChip> {
         n.contains('search_vectors') ||
         n.contains('query_graph') ||
         n.contains('build_lazy_dossier') ||
-        n.contains('deep_research') ||
+        n.contains('ephemeral_web_rag') ||
+        n.contains('agentic_debate') ||
         n.contains('dynamic_web_graph');
   }
 

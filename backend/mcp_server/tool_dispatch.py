@@ -169,25 +169,6 @@ async def get_tools(tool_settings: dict | None = None) -> list:
             {
                 "type": "function",
                 "function": {
-                    "name": "deep_research",
-                    "description": "Perform a highly precise, deep web search by building a temporary knowledge graph. Alias for ephemeral_web_rag.",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "query": {
-                                "type": "string",
-                                "description": "The specific topic or claim to research.",
-                            }
-                        },
-                        "required": ["query"],
-                    },
-                },
-            }
-        )
-        all_tools.append(
-            {
-                "type": "function",
-                "function": {
                     "name": "agentic_debate",
                     "description": "Run a multi-agent debate (STORM-like) to research, draft, and aggressively fact-check a claim using multiple AI personas. Use this for the highest possible precision fact checking.",
                     "parameters": {
@@ -325,9 +306,11 @@ def _execute_single_tool(
             return [WebSearchErrorHit()], []
 
         if web_search.get("high_accuracy", False):
-            from backend.mcp_server.tools.deep_research import mcp_deep_research
+            from backend.mcp_server.tools.ephemeral_web_rag import (
+                mcp_ephemeral_web_rag,
+            )
 
-            dr_results = mcp_deep_research(
+            dr_results = mcp_ephemeral_web_rag(
                 tool_input["query"], tenant_id=tenant_id, tool_settings=tool_settings
             )
 
@@ -363,7 +346,7 @@ def _execute_single_tool(
 
             return [WebHit(r) for r in results], []
 
-    elif tool_name in ("deep_research", "ephemeral_web_rag"):
+    elif tool_name == "ephemeral_web_rag":
         web_search = settings.get("web_search", {})
         if not web_search.get("enabled", False):
 
@@ -377,7 +360,7 @@ def _execute_single_tool(
 
             return [DRErrorHit()], []
 
-        from backend.mcp_server.tools.deep_research import mcp_ephemeral_web_rag
+        from backend.mcp_server.tools.ephemeral_web_rag import mcp_ephemeral_web_rag
 
         dr_results = mcp_ephemeral_web_rag(
             tool_input["query"], tenant_id=tenant_id, tool_settings=tool_settings

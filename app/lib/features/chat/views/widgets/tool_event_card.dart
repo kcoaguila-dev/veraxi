@@ -226,8 +226,6 @@ class _ToolEventCardState extends State<ToolEventCard>
         return '🕸️ Querying knowledge graph…';
       case 'mcp_ephemeral_web_rag':
         return '🌐 Ephemeral web ingestion…';
-      case 'mcp_deep_research':
-        return '🔬 Executing deep research…';
       case 'mcp_agentic_debate':
         return '⚔️ Multi-agent reasoning debate…';
       default:
