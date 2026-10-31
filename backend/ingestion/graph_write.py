@@ -65,7 +65,7 @@ def write_to_graph(
         # Ensure we always link at least one chunk if available and none matched
         if not matched_point_ids and payload.qdrant_point_ids:
             # Fallback to the first chunk
-            first_point_id = list(payload.qdrant_point_ids.values())[0]
+            first_point_id = next(iter(payload.qdrant_point_ids.values()))
             matched_point_ids = [first_point_id]
             linked_qdrant_ids.add(first_point_id)
 

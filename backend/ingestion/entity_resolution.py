@@ -54,16 +54,22 @@ def is_acronym_match(a: str, b: str) -> bool:
     tokens_b = norm_b.split()
 
     # Case 1: 'a' is the acronym of 'b'
-    if len(tokens_a) == 1 and 2 <= len(tokens_a[0]) <= 6 and len(tokens_b) >= 2:
-        if tokens_a[0] == acronym_of(norm_b):
-            return True
+    is_a_acronym = (
+        len(tokens_a) == 1
+        and 2 <= len(tokens_a[0]) <= 6
+        and len(tokens_b) >= 2
+        and tokens_a[0] == acronym_of(norm_b)
+    )
 
     # Case 2: 'b' is the acronym of 'a'
-    if len(tokens_b) == 1 and 2 <= len(tokens_b[0]) <= 6 and len(tokens_a) >= 2:
-        if tokens_b[0] == acronym_of(norm_a):
-            return True
+    is_b_acronym = (
+        len(tokens_b) == 1
+        and 2 <= len(tokens_b[0]) <= 6
+        and len(tokens_a) >= 2
+        and tokens_b[0] == acronym_of(norm_a)
+    )
 
-    return False
+    return is_a_acronym or is_b_acronym
 
 
 def entity_key(tenant_id: str, label: str, name: str) -> str:
