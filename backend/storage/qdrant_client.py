@@ -66,13 +66,24 @@ class QdrantStorageClient:
                     "text-sparse": SparseVectorParams(modifier=Modifier.IDF)
                 },
             )
-            from qdrant_client.http import models
 
-            self.client.create_payload_index(
-                collection_name=collection_name,
-                field_name="tenant_id",
-                field_schema=models.PayloadSchemaType.KEYWORD,
-            )
+        from qdrant_client.http import models
+
+        for field in [
+            "tenant_id",
+            "file_hash",
+            "document_id",
+            "source",
+            "source_type",
+        ]:
+            try:
+                self.client.create_payload_index(
+                    collection_name=collection_name,
+                    field_name=field,
+                    field_schema=models.PayloadSchemaType.KEYWORD,
+                )
+            except Exception:
+                pass
 
     def insert_points(
         self,
@@ -204,6 +215,75 @@ class QdrantStorageClient:
             collection_name=collection_name,
             points_selector=models.PointIdsList(points=point_ids),  # type: ignore[arg-type]
         )
+
+    def has_file_hash(
+        self, collection_name: str, file_hash: str, tenant_id: str = "default"
+    ) -> bool:
+        """Check if any points with the given file_hash already exist for this tenant."""
+        from qdrant_client.http import models
+
+        try:
+            count = self.client.count(
+                collection_name=collection_name,
+                count_filter=models.Filter(
+                    must=[
+                        models.FieldCondition(
+                            key="tenant_id", match=models.MatchValue(value=tenant_id)
+                        ),
+                        models.FieldCondition(
+                            key="file_hash", match=models.MatchValue(value=file_hash)
+                        ),
+                    ]
+                ),
+                exact=False,
+            ).count
+            return count > 0
+        except Exception:
+            return False
+
+    def delete_by_document(
+        self, collection_name: str, document_id: str, tenant_id: str = "default"
+    ) -> int:
+        """Delete all points belonging to a specific document_id for a tenant."""
+        from qdrant_client.http import models
+
+        try:
+            count_before = self.client.count(
+                collection_name=collection_name,
+                count_filter=models.Filter(
+                    must=[
+                        models.FieldCondition(
+                            key="tenant_id", match=models.MatchValue(value=tenant_id)
+                        ),
+                        models.FieldCondition(
+                            key="document_id",
+                            match=models.MatchValue(value=document_id),
+                        ),
+                    ]
+                ),
+                exact=True,
+            ).count
+
+            self.client.delete(
+                collection_name=collection_name,
+                points_selector=models.FilterSelector(
+                    filter=models.Filter(
+                        must=[
+                            models.FieldCondition(
+                                key="tenant_id",
+                                match=models.MatchValue(value=tenant_id),
+                            ),
+                            models.FieldCondition(
+                                key="document_id",
+                                match=models.MatchValue(value=document_id),
+                            ),
+                        ]
+                    )
+                ),
+            )
+            return count_before
+        except Exception:
+            return 0
 
     def delete_tenant(self, collection_name: str, tenant_id: str):
         """Delete all points belonging to a specific tenant."""

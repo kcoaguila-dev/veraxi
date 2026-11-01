@@ -28,6 +28,7 @@ def run_ingestion(
     source: str | None = None,
     document_id: str | None = None,
     source_type: str = "document",
+    file_hash: str | None = None,
 ):
     # 1. Initialize clients
     qdrant = QdrantStorageClient.from_config(config)
@@ -52,6 +53,7 @@ def run_ingestion(
             "source": source or "unknown",
             "document_id": document_id or "default",
             "source_type": source_type,
+            "file_hash": file_hash,
         }
         for item in chunks_and_embeddings
     ]

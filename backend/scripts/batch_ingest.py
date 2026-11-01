@@ -1,4 +1,5 @@
 import argparse
+import hashlib
 import logging
 import os
 import sys
@@ -8,6 +9,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from backend.config import get_config
 from backend.ingestion.__main__ import run_ingestion
+from backend.storage.qdrant_client import QdrantStorageClient
 from backend.ingestion.vision import (
     NoOpVisionCaptioner,
     VisionCaptioner,
@@ -16,6 +18,15 @@ from backend.ingestion.vision import (
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
+
+
+def compute_sha256(file_path: str) -> str:
+    """Compute SHA-256 hash of a file efficiently in 64KB blocks."""
+    hasher = hashlib.sha256()
+    with open(file_path, "rb") as f:
+        for chunk in iter(lambda: f.read(65536), b""):
+            hasher.update(chunk)
+    return hasher.hexdigest()
 
 
 def _extract_pdf_pypdf(file_path: str) -> str:
@@ -204,6 +215,16 @@ def main():
     parser.add_argument(
         "--chunk-overlap", type=int, default=50, help="Chunk overlap for embedding"
     )
+    parser.add_argument(
+        "--replace",
+        action="store_true",
+        help="Purge any previously ingested chunks for each document_id before fresh ingestion",
+    )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Force re-ingestion even if identical file SHA-256 hash is already present in Qdrant",
+    )
 
     args = parser.parse_args()
     config = get_config()
@@ -279,14 +300,43 @@ def main():
     captioner = get_vision_captioner(config)
     has_active_vision = not isinstance(captioner, NoOpVisionCaptioner)
 
+    # Initialize storage client for idempotency & replacement checks
+    qdrant = QdrantStorageClient.from_config(config)
+    qdrant.create_collection(config.qdrant_collection_name)
+
     logger.info(
         f"Found {len(files)} files for batch ingestion. Parser: {args.parser.upper()} | Entity Extraction: {'Fast (CPU spaCy)' if args.fast else 'Deep (LLM)'} | Vision: {'Active (' + config.vision_model_name + ')' if has_active_vision else 'Disabled'}"
     )
 
     for file_path in files:
         filename = os.path.basename(file_path)
+        file_hash = compute_sha256(file_path)
+
         logger.info("==================================================")
-        logger.info(f"Processing: {filename}")
+        logger.info(f"Processing: {filename} (SHA256: {file_hash[:12]}...)")
+
+        # 1. Idempotency Check: Skip identical file if already indexed
+        if not args.force and not args.replace:
+            if qdrant.has_file_hash(
+                config.qdrant_collection_name, file_hash, tenant_id=tenant_id
+            ):
+                logger.info(
+                    f"⏭️  [IDEMPOTENT SKIP] File '{filename}' (hash: {file_hash[:12]}...) is already fully ingested in Qdrant. "
+                    "Skipping PDF parsing to save GPU/CPU cycles. Pass --force or --replace to reprocess."
+                )
+                continue
+
+        # 2. Document Replacement Check: Purge existing edition/document chunks if --replace requested
+        if args.replace:
+            deleted_count = qdrant.delete_by_document(
+                config.qdrant_collection_name,
+                document_id=filename,
+                tenant_id=tenant_id,
+            )
+            if deleted_count > 0:
+                logger.info(
+                    f"🔄 [REPLACE] Purged {deleted_count} prior chunks for document '{filename}' before fresh re-ingestion."
+                )
 
         text = extract_text(
             file_path,
@@ -315,6 +365,7 @@ def main():
                 source=filename,
                 document_id=filename,
                 source_type="book",
+                file_hash=file_hash,
             )
             logger.info(f"Successfully ingested {filename}: {result}")
         except Exception:
