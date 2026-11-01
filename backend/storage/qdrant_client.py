@@ -94,7 +94,15 @@ class QdrantStorageClient:
         points = []
         point_ids = []
         for vector, sparse, payload in zip(vectors, sparse_vectors, payloads):
-            point_id = str(uuid.uuid4())
+            # Check for explicit ID in payload, or generate deterministic UUIDv5 from tenant + source + text
+            explicit_id = payload.get("point_id") or payload.get("id")
+            if explicit_id:
+                point_id = str(explicit_id)
+            else:
+                source_key = payload.get("source") or payload.get("document_id") or ""
+                text_content = payload.get("text", "")
+                unique_key = f"{tenant_id}:{source_key}:{text_content}"
+                point_id = str(uuid.uuid5(uuid.NAMESPACE_URL, unique_key))
             point_ids.append(point_id)
 
             # Combine dense and sparse into a dictionary for Qdrant

@@ -72,3 +72,9 @@ def test_qdrant_create_collection_and_insert(qdrant_client):
     for point in points:
         assert point["payload"]["tenant_id"] == tenant_id
         assert "text" in point["payload"]
+
+    # Re-insert the exact same payload to verify 100% idempotency (deterministic chunk hashing)
+    point_ids_again = qdrant_client.insert_points(
+        collection_name, dense_vectors, sparse_vectors, payloads, tenant_id=tenant_id
+    )
+    assert point_ids_again == point_ids, "Point IDs must be deterministic on duplicate ingestion"
