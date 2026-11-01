@@ -20,12 +20,21 @@ def query_graph(
 
     # We parameterize the entity_name and tenant_id
     query = f"""
-    MATCH (start {{name: $entity_name}})-[*1..{max_hops}]-(end)
+    MATCH (start)
+    WHERE (start.name = $entity_name 
+           OR toLower(start.name) = toLower($entity_name) 
+           OR toLower(start.name) CONTAINS toLower($entity_name)
+           OR (size(start.name) > 4 AND toLower($entity_name) CONTAINS toLower(start.name))
+           OR any(a in coalesce(start.aliases, []) WHERE toLower(a) = toLower($entity_name) OR toLower(a) CONTAINS toLower($entity_name)))
+      AND start.tenant_id = $tenant_id
+    WITH start LIMIT 5
+    MATCH (start)-[*1..{max_hops}]-(end)
     WHERE end.qdrant_point_ids IS NOT NULL
-      AND start.tenant_id = $tenant_id 
       AND end.tenant_id = $tenant_id
+    WITH DISTINCT end LIMIT 50
     UNWIND end.qdrant_point_ids AS qid
     RETURN DISTINCT end.id AS id, qid AS qdrant_point_id, labels(end) AS labels, properties(end) AS props
+    LIMIT 100
     """
 
     # Execute query
