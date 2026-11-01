@@ -51,9 +51,9 @@ def run_ingestion(
     )
     logging.info(f"Inserted {len(qdrant_point_ids_list)} points into Qdrant.")  # noqa: LOG015
 
-    # Create dict mapping to pass to graph step
+    # Map each chunk's actual text content to its Qdrant point ID
     qdrant_point_ids = {
-        f"chunk_{i}": pid for i, pid in enumerate(qdrant_point_ids_list)
+        item[0]: pid for item, pid in zip(chunks_and_embeddings, qdrant_point_ids_list)
     }
 
     # 4. Extract entities and relations

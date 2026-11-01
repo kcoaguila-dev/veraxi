@@ -68,6 +68,19 @@ def extract_text(
             vision_captioner, NoOpVisionCaptioner
         )
 
+        temp_symlink = None
+        target_path = file_path
+        if not file_path.lower().endswith(".pdf"):
+            import tempfile
+
+            tmp_f = tempfile.NamedTemporaryFile(suffix=".pdf", delete=False)
+            tmp_f.close()
+            if os.path.exists(tmp_f.name):
+                os.remove(tmp_f.name)
+            os.symlink(os.path.abspath(file_path), tmp_f.name)
+            temp_symlink = tmp_f.name
+            target_path = temp_symlink
+
         try:
             from io import BytesIO
 
@@ -79,7 +92,7 @@ def extract_text(
                 "Parsing PDF with Docling AI models & TableFormer (this may take a moment)..."
             )
             converter = DocumentConverter()
-            result = converter.convert(file_path)
+            result = converter.convert(target_path)
             doc = result.document
             markdown = doc.export_to_markdown()
 
@@ -126,6 +139,12 @@ def extract_text(
         except Exception as e:
             logger.warning(f"Docling extraction failed for {file_path}: {e}")
             return _extract_pdf_pypdf(file_path)
+        finally:
+            if temp_symlink and os.path.exists(temp_symlink):
+                try:
+                    os.remove(temp_symlink)
+                except OSError:
+                    pass
 
     # For text / markdown or UTF-8 files
     try:
