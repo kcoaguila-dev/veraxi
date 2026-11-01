@@ -192,11 +192,26 @@ The exact set of tools exposed via MCP depends on the `VERAXI_MCP_PROFILE` envir
 
 ---
 
-## 📚 Batch Document Ingestion
+## 📚 Batch Document Ingestion & Idempotency
 
 To ingest folders of books, 10-K filings, or research PDFs in bulk using the CPU-optimized pipeline:
 ```bash
 python -m backend.scripts.batch_ingest --dir /path/to/documents --tenant <tenant_id> --fast --chunk-size 600 --chunk-overlap 100
+```
+
+### 🛡️ 4-Tier Deduplication & Idempotency Waterfall
+Veraxi includes built-in safeguards against document duplicates, repeating boilerplate, and revised editions (e.g. 2nd vs 4th editions):
+1. **File-Level SHA-256 Pre-Flight Skip:** Computes a cryptographic hash of each file before extraction. If already indexed for the tenant, Docling extraction is skipped immediately (0 CPU/GPU wasted).
+2. **Document Version Replacement (`--replace`):** Pass `--replace` to automatically purge prior chunks for that document from Qdrant and clean up Neo4j references before inserting the new edition.
+3. **Deterministic Chunk Hashing (UUIDv5):** Point IDs in Qdrant are generated from `uuid5(tenant_id + source + chunk_text)`. Re-ingesting files overwrites points in-place without generating duplicate vectors.
+4. **Retrieval-Time Near-Duplicate Suppression:** `mcp_merge_rank` automatically runs a token-overlap filter on retrieved candidates, dropping near-identical chunks from different editions so the LLM context window is never crowded with redundant copies.
+
+```bash
+# Update an existing book or replace a prior edition:
+python -m backend.scripts.batch_ingest --dir /path/to/documents --tenant <tenant_id> --replace
+
+# Force re-ingestion regardless of existing file SHA-256 hashes:
+python -m backend.scripts.batch_ingest --dir /path/to/documents --tenant <tenant_id> --force
 ```
 
 See [docs/architecture.md](docs/architecture.md) for a deep dive into the dependency flow and design rules.

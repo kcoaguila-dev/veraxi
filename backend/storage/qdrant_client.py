@@ -1,3 +1,4 @@
+import logging
 import uuid
 from typing import Any
 
@@ -12,6 +13,8 @@ from qdrant_client.models import (
 )
 
 from backend import context as byod_context
+
+logger = logging.getLogger(__name__)
 
 
 class QdrantStorageClient:
@@ -82,8 +85,8 @@ class QdrantStorageClient:
                     field_name=field,
                     field_schema=models.PayloadSchemaType.KEYWORD,
                 )
-            except Exception:
-                pass
+            except Exception as err:
+                logger.debug("Payload index creation skipped for %s: %s", field, err)
 
     def insert_points(
         self,

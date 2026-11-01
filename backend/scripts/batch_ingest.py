@@ -84,12 +84,12 @@ def extract_text(
         if not file_path.lower().endswith(".pdf"):
             import tempfile
 
-            tmp_f = tempfile.NamedTemporaryFile(suffix=".pdf", delete=False)
-            tmp_f.close()
-            if os.path.exists(tmp_f.name):
-                os.remove(tmp_f.name)
-            os.symlink(os.path.abspath(file_path), tmp_f.name)
-            temp_symlink = tmp_f.name
+            with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp_f:
+                tmp_name = tmp_f.name
+            if os.path.exists(tmp_name):
+                os.remove(tmp_name)
+            os.symlink(os.path.abspath(file_path), tmp_name)
+            temp_symlink = tmp_name
             target_path = temp_symlink
 
         try:
@@ -316,15 +316,18 @@ def main():
         logger.info(f"Processing: {filename} (SHA256: {file_hash[:12]}...)")
 
         # 1. Idempotency Check: Skip identical file if already indexed
-        if not args.force and not args.replace:
-            if qdrant.has_file_hash(
+        if (
+            not args.force
+            and not args.replace
+            and qdrant.has_file_hash(
                 config.qdrant_collection_name, file_hash, tenant_id=tenant_id
-            ):
-                logger.info(
-                    f"⏭️  [IDEMPOTENT SKIP] File '{filename}' (hash: {file_hash[:12]}...) is already fully ingested in Qdrant. "
-                    "Skipping PDF parsing to save GPU/CPU cycles. Pass --force or --replace to reprocess."
-                )
-                continue
+            )
+        ):
+            logger.info(
+                f"⏭️  [IDEMPOTENT SKIP] File '{filename}' (hash: {file_hash[:12]}...) is already fully ingested in Qdrant. "
+                "Skipping PDF parsing to save GPU/CPU cycles. Pass --force or --replace to reprocess."
+            )
+            continue
 
         # 2. Document Replacement Check: Purge existing edition/document chunks if --replace requested
         if args.replace:
