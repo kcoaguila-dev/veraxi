@@ -51,6 +51,47 @@ def test_fast_entity_extraction_with_large_text():
     assert any("Einhorn" in name or "Schilit" in name for name in entity_names)
 
 
+def test_fast_extraction_never_hallucinates_schema_relation_on_cooccurrence():
+    """Verify that co-occurring entities without grounding emit MENTIONED_WITH instead of guessing allowed_t1_t2[0]."""
+    schema = {
+        "entities": ["Person", "Organization"],
+        "relations": {
+            "Person": {"Organization": ["WORKS_AT"]},
+            "Organization": {"Organization": ["ACQUIRED"]},
+        },
+    }
+    # 1. "Powell criticized FTX": verb is "criticized", not "works", so WORKS_AT must NOT be emitted.
+    # 2. "Alice works at FTX": verb is "works", matching WORKS_AT.
+    # 3. "Bob did not work at FTX": verb is negated by "not", so WORKS_AT must NOT be emitted.
+    # 4. "Figma was acquired by Adobe": passive voice must emit Adobe -> Figma, not Figma -> Adobe.
+    text = (
+        "Jerome Powell criticized FTX during the hearing. "
+        "Alice works at FTX. "
+        "Bob did not work at FTX. "
+        "Figma was acquired by Adobe."
+    )
+    entities, relations = extract_entities_and_relations_fast(text, schema, language="en")
+    assert len(entities) >= 3
+
+    # Check relation tuples: (from, to, type)
+    rel_tuples = {(r["from_entity"], r["to_entity"], r["type"]) for r in relations}
+
+    # Powell & FTX: must NOT be WORKS_AT
+    assert ("Jerome Powell", "FTX", "WORKS_AT") not in rel_tuples
+    assert ("Jerome Powell", "FTX", "MENTIONED_WITH") in rel_tuples
+
+    # Alice & FTX: MUST be WORKS_AT (grounded in verb "works")
+    assert ("Alice", "FTX", "WORKS_AT") in rel_tuples
+
+    # Bob & FTX: must NOT be WORKS_AT (negated by "did not")
+    assert ("Bob", "FTX", "WORKS_AT") not in rel_tuples
+    assert ("Bob", "FTX", "MENTIONED_WITH") in rel_tuples
+
+    # Passive voice: Adobe ACQUIRED Figma (not Figma ACQUIRED Adobe)
+    assert ("Adobe", "Figma", "ACQUIRED") in rel_tuples
+    assert ("Figma", "Adobe", "ACQUIRED") not in rel_tuples
+
+
 def test_extract_text_empty_or_nonexistent():
     res = extract_text("/tmp/non_existent_file_path.pdf", fast=True)
     assert res == ""

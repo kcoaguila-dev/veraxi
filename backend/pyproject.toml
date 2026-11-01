@@ -36,7 +36,6 @@ dependencies = [
     "python-magic",
     "slowapi",
     "supabase",
-    "stripe",
     "langgraph",
     "langchain<1.5.0",
     "langchain-core<1.7.0",
@@ -51,7 +50,6 @@ dependencies = [
     "trafilatura>=2.3.0",
     "langgraph-checkpoint-postgres",
     "psycopg[binary]",
-    "opentimelineio",
     "browser-use>=0.11.0",
     "playwright>=1.40.0",
     "mcp-types>=2.2.0",
@@ -60,6 +58,12 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+studio = [
+    "opentimelineio",
+]
+enterprise = [
+    "stripe",
+]
 dev = [
     "pytest",
     "pytest-asyncio",

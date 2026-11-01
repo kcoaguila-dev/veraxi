@@ -6,6 +6,7 @@ from concurrent.futures import ThreadPoolExecutor
 import redis
 
 from backend.config import get_config
+from backend.ingestion.entity_resolution import normalize_name
 from backend.mcp_server.tools.ingest_document import mcp_ingest_document
 from backend.mcp_server.tools.query_graph import query_graph
 from backend.mcp_server.tools.query_optimizer import optimize_search_query
@@ -114,12 +115,107 @@ def mcp_ephemeral_web_rag(
             tenant_id=ephemeral_tenant_id,
         )
 
-        # We use the search query as a best-effort entity name for the graph query.
+        # Retrieve graph context: try exact query first, then fall back to entity anchors matching query tokens
         g_hits = query_graph(
             entity_name=query,
             max_hops=config.default_max_hops,
             tenant_id=ephemeral_tenant_id,
         )
+        if not g_hits:
+            _QUERY_STOP_WORDS = {
+                "a",
+                "an",
+                "and",
+                "are",
+                "as",
+                "at",
+                "be",
+                "by",
+                "did",
+                "do",
+                "does",
+                "for",
+                "from",
+                "had",
+                "has",
+                "have",
+                "how",
+                "in",
+                "is",
+                "it",
+                "of",
+                "on",
+                "or",
+                "that",
+                "the",
+                "to",
+                "was",
+                "were",
+                "what",
+                "when",
+                "where",
+                "which",
+                "who",
+                "why",
+                "with",
+            }
+            neo4j_client = Neo4jStorageClient.from_config(config)
+            try:
+                rows = neo4j_client.execute_read(
+                    """
+                    MATCH (n)
+                    WHERE n.tenant_id = $tenant_id AND n.name IS NOT NULL AND NOT n:Chunk
+                    RETURN DISTINCT n.name AS name,
+                                    coalesce(n.aliases, []) AS aliases,
+                                    n.acronym_key AS acronym_key
+                    """,
+                    {"tenant_id": ephemeral_tenant_id},
+                )
+                norm_q = normalize_name(query)
+                query_tokens = {
+                    t
+                    for t in norm_q.split()
+                    if len(t) >= 2 and t not in _QUERY_STOP_WORDS
+                }
+                scored_candidates: list[tuple[int, str]] = []
+                for row in rows:
+                    candidate_name = row.get("name", "")
+                    if not candidate_name:
+                        continue
+                    surface_forms = [candidate_name, *(row.get("aliases") or [])]
+                    acro = row.get("acronym_key")
+                    if acro:
+                        surface_forms.append(str(acro))
+                    best_score = 0
+                    for sf in surface_forms:
+                        norm_sf = normalize_name(str(sf))
+                        if not norm_sf:
+                            continue
+                        if norm_sf in norm_q:
+                            best_score = max(best_score, 10 + len(norm_sf.split()))
+                        sf_tokens = {
+                            t
+                            for t in norm_sf.split()
+                            if len(t) >= 2 and t not in _QUERY_STOP_WORDS
+                        }
+                        overlap = len(query_tokens.intersection(sf_tokens))
+                        if overlap > 0:
+                            best_score = max(best_score, overlap)
+                    if best_score > 0:
+                        scored_candidates.append((best_score, candidate_name))
+
+                scored_candidates.sort(key=lambda item: item[0], reverse=True)
+                for _, ent in scored_candidates[:3]:
+                    sub_hits = query_graph(
+                        entity_name=ent,
+                        max_hops=config.default_max_hops,
+                        tenant_id=ephemeral_tenant_id,
+                    )
+                    g_hits.extend(sub_hits)
+            except Exception as e:
+                logger.warning(f"Error resolving entity anchors for ephemeral graph query: {e}")
+            finally:
+                neo4j_client.close()
 
         # Fuse results using Reciprocal Rank Fusion
         results = merge_rank(v_hits, g_hits, limit=config.default_search_limit)

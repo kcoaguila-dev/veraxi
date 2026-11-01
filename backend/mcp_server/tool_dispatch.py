@@ -435,37 +435,53 @@ def _execute_single_tool(
         return [DebateHit(r) for r in hits], []
 
     elif tool_name == "run_python_code":
-        import requests  # type: ignore[import-untyped]
+        from backend.mcp_server.tools.run_code import execute_python_code
 
-        try:
-            resp = requests.post(
-                config.code_interpreter_url,
-                json={"code": tool_input["code"]},
-                timeout=15,
-            )
-            resp.raise_for_status()
-            data = resp.json()
+        code_to_run = tool_input.get("code", "")
+        data = None
+        source_label = "Python Sandbox"
 
-            class CodeHit:
-                def __init__(self, res):
-                    self.id = "code_exec"
-                    self.payload = {
-                        "stdout": res.get("stdout", ""),
-                        "stderr": res.get("stderr", ""),
-                        "exit_code": res.get("exit_code"),
-                    }
-                    self.sources = ["Python Sandbox"]
+        if getattr(config, "code_interpreter_url", None):
+            try:
+                import requests  # type: ignore[import-untyped]
 
-            return [CodeHit(data)], []
-        except Exception as e:
+                resp = requests.post(
+                    config.code_interpreter_url,
+                    json={"code": code_to_run},
+                    timeout=15,
+                )
+                resp.raise_for_status()
+                data = resp.json()
+                source_label = "Python Sandbox (Remote)"
+            except Exception:
+                # Fallback to zero-trust local execution
+                data = None
 
-            class CodeErrorHit:
-                def __init__(self, err):
-                    self.id = "code_err"
-                    self.payload = {"error": str(err)}
-                    self.sources = ["Python Sandbox Error"]
+        if data is None:
+            try:
+                data = execute_python_code(code_to_run)
+                source_label = "Python Sandbox (Zero-Trust)"
+            except Exception as e:
 
-            return [CodeErrorHit(e)], []
+                class CodeErrorHit:
+                    def __init__(self, err: Exception) -> None:
+                        self.id = "code_err"
+                        self.payload = {"error": str(err)}
+                        self.sources = ["Python Sandbox Error"]
+
+                return [CodeErrorHit(e)], []
+
+        class CodeHit:
+            def __init__(self, res: dict[str, Any], src: str) -> None:
+                self.id = "code_exec"
+                self.payload = {
+                    "stdout": res.get("stdout", ""),
+                    "stderr": res.get("stderr", ""),
+                    "exit_code": res.get("exit_code"),
+                }
+                self.sources = [src]
+
+        return [CodeHit(data, source_label)], []
 
     elif tool_name == "get_current_time":
         import datetime

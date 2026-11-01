@@ -6,13 +6,17 @@ import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:flutter_highlighter/flutter_highlighter.dart';
 import 'package:flutter_highlighter/themes/atom-one-dark.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
+import 'artifact_sandbox.dart';
 
 class InteractiveCodeBlock extends StatefulWidget {
   final String language;
   final String code;
 
-  const InteractiveCodeBlock(
-      {super.key, required this.language, required this.code});
+  const InteractiveCodeBlock({
+    super.key,
+    required this.language,
+    required this.code,
+  });
 
   @override
   State<InteractiveCodeBlock> createState() => _InteractiveCodeBlockState();
@@ -20,61 +24,30 @@ class InteractiveCodeBlock extends StatefulWidget {
 
 class _InteractiveCodeBlockState extends State<InteractiveCodeBlock> {
   bool _isRunning = false;
-  bool _hasError = false;
+  SandboxResult? _sandboxResult;
 
   void _runCode() async {
-    if (_isRunning || _hasError) return;
+    if (_isRunning) return;
     setState(() {
       _isRunning = true;
     });
 
-    // Simulate code execution delay
-    await Future.delayed(const Duration(seconds: 1));
+    final result = await runCodeInClientSandbox(widget.language, widget.code);
 
     if (mounted) {
       setState(() {
         _isRunning = false;
-        _hasError = true;
-      });
-
-      // Show red error snackbar
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.error_outline, color: Colors.white, size: 20),
-              SizedBox(width: 8),
-              Text('There was an error running the code',
-                  style: TextStyle(color: Colors.white)),
-            ],
-          ),
-          backgroundColor: const Color(0xFFDC2626), // Red background
-          behavior: SnackBarBehavior.floating,
-          margin: EdgeInsets.only(
-            bottom: MediaQuery.of(context).size.height - 150,
-            left: MediaQuery.of(context).size.width / 2 - 150,
-            right: MediaQuery.of(context).size.width / 2 - 150,
-          ),
-          duration: const Duration(seconds: 3),
-        ),
-      );
-
-      // Revert the error state after the snackbar duration
-      Future.delayed(const Duration(seconds: 3), () {
-        if (mounted) {
-          setState(() {
-            _hasError = false;
-          });
-        }
+        _sandboxResult = result;
       });
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final hasFailed = _sandboxResult != null && _sandboxResult!.exitCode != 0;
+
     return Container(
-      margin: EdgeInsets.symmetric(vertical: 8),
+      margin: const EdgeInsets.symmetric(vertical: 8),
       decoration: BoxDecoration(
         color: const Color(0xFF0F0F0F), // Dark background for code
         borderRadius: BorderRadius.circular(8),
@@ -85,43 +58,52 @@ class _InteractiveCodeBlockState extends State<InteractiveCodeBlock> {
         children: [
           // Header
           Container(
-            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             decoration: BoxDecoration(
               color:
                   Theme.of(context).extension<AppThemeExtension>()!.borderColor,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(8)),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(widget.language,
-                    style: TextStyle(
-                        color: Colors.white70,
-                        fontSize: 12,
-                        fontFamily: 'monospace')),
+                Text(
+                  widget.language,
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 12,
+                    fontFamily: 'monospace',
+                  ),
+                ),
                 Row(
                   children: [
                     InkWell(
                       onTap: _runCode,
                       child: Row(
                         children: [
-                          if (_hasError)
-                            Icon(Icons.close,
+                          if (hasFailed)
+                            const Icon(Icons.close,
                                 color: Color(0xFFDC2626), size: 14)
                           else if (_isRunning)
-                            SizedBox(
-                                width: 14,
-                                height: 14,
-                                child: CircularProgressIndicator(
-                                    strokeWidth: 2, color: Colors.white70))
+                            const SizedBox(
+                              width: 14,
+                              height: 14,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white70,
+                              ),
+                            )
                           else
-                            Icon(Icons.play_arrow_outlined,
+                            const Icon(Icons.play_arrow_outlined,
                                 color: Colors.white70, size: 14),
-                          SizedBox(width: 4),
+                          const SizedBox(width: 4),
                           Text(
-                            _hasError ? 'Failed' : 'Run Code',
+                            _isRunning
+                                ? 'Running...'
+                                : (hasFailed ? 'Failed' : 'Run Code'),
                             style: TextStyle(
-                              color: _hasError
+                              color: hasFailed
                                   ? const Color(0xFFDC2626)
                                   : Colors.white70,
                               fontSize: 12,
@@ -130,19 +112,21 @@ class _InteractiveCodeBlockState extends State<InteractiveCodeBlock> {
                         ],
                       ),
                     ),
-                    SizedBox(width: 16),
+                    const SizedBox(width: 16),
                     InkWell(
                       onTap: () {
                         Clipboard.setData(ClipboardData(text: widget.code));
                       },
-                      child: Row(
+                      child: const Row(
                         children: [
                           Icon(Icons.copy_outlined,
                               color: Colors.white70, size: 14),
                           SizedBox(width: 4),
-                          Text('Copy code',
-                              style: TextStyle(
-                                  color: Colors.white70, fontSize: 12)),
+                          Text(
+                            'Copy code',
+                            style:
+                                TextStyle(color: Colors.white70, fontSize: 12),
+                          ),
                         ],
                       ),
                     ),
@@ -159,10 +143,83 @@ class _InteractiveCodeBlockState extends State<InteractiveCodeBlock> {
               language:
                   widget.language == 'text' ? 'plaintext' : widget.language,
               theme: atomOneDarkTheme,
-              padding: EdgeInsets.all(16),
+              padding: const EdgeInsets.all(16),
               textStyle: GoogleFonts.firaCode(fontSize: 13, height: 1.5),
             ),
           ),
+          // Output Panel
+          if (_sandboxResult != null) ...[
+            const Divider(color: Colors.white12, height: 1),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: const BoxDecoration(
+                color: Color(0xFF09090B),
+                borderRadius: BorderRadius.vertical(bottom: Radius.circular(8)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            _sandboxResult!.exitCode == 0
+                                ? Icons.check_circle_outline
+                                : Icons.error_outline,
+                            size: 14,
+                            color: _sandboxResult!.exitCode == 0
+                                ? const Color(0xFF22C55E)
+                                : const Color(0xFFEF4444),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            _sandboxResult!.exitCode == 0
+                                ? 'Sandbox Output'
+                                : 'Sandbox Error (Exit ${_sandboxResult!.exitCode})',
+                            style: TextStyle(
+                              color: _sandboxResult!.exitCode == 0
+                                  ? const Color(0xFF22C55E)
+                                  : const Color(0xFFEF4444),
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                      InkWell(
+                        onTap: () {
+                          setState(() {
+                            _sandboxResult = null;
+                          });
+                        },
+                        child: const Icon(Icons.close,
+                            size: 14, color: Colors.white54),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  if (_sandboxResult!.stdout.isNotEmpty)
+                    SelectableText(
+                      _sandboxResult!.stdout,
+                      style: GoogleFonts.firaCode(
+                        fontSize: 12,
+                        color: const Color(0xFFE2E8F0),
+                      ),
+                    ),
+                  if (_sandboxResult!.stderr.isNotEmpty)
+                    SelectableText(
+                      _sandboxResult!.stderr,
+                      style: GoogleFonts.firaCode(
+                        fontSize: 12,
+                        color: const Color(0xFFFCA5A5),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -205,47 +262,11 @@ class CodeElementBuilder extends MarkdownElementBuilder {
     final code = element.textContent;
 
     if (language == 'xml' && languageClass == 'language-html') {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Container(
-            padding: EdgeInsets.all(8),
-            color: Colors.blue.withValues(alpha: 0.1),
-            child: Row(
-              children: [
-                Icon(Icons.brush, size: 16, color: Colors.blue),
-                SizedBox(width: 8),
-                Text('HTML Artifact (Preview coming soon)',
-                    style: TextStyle(
-                        color: Colors.blue, fontWeight: FontWeight.bold)),
-              ],
-            ),
-          ),
-          InteractiveCodeBlock(language: 'html', code: code),
-        ],
-      );
+      return buildSandboxedArtifactPreview(kind: 'html', code: code);
     }
 
     if (languageClass == 'language-mermaid') {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Container(
-            padding: EdgeInsets.all(8),
-            color: Colors.purple.withValues(alpha: 0.1),
-            child: Row(
-              children: [
-                Icon(Icons.schema, size: 16, color: Colors.purple),
-                SizedBox(width: 8),
-                Text('Mermaid Diagram Artifact (Preview coming soon)',
-                    style: TextStyle(
-                        color: Colors.purple, fontWeight: FontWeight.bold)),
-              ],
-            ),
-          ),
-          InteractiveCodeBlock(language: 'mermaid', code: code),
-        ],
-      );
+      return buildSandboxedArtifactPreview(kind: 'mermaid', code: code);
     }
 
     return InteractiveCodeBlock(language: language, code: code);

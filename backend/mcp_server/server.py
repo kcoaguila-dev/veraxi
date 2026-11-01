@@ -267,7 +267,7 @@ def mcp_skills() -> str:
 
 @mcp_server.tool(
     name="mcp_run_code",
-    description="Executes Python code in a secure sandbox and returns the stdout/stderr.",
+    description="Executes Python code in a local subprocess with timeout and sanitised environment (no secret access). Returns stdout/stderr.",
 )
 def mcp_run_code(code: str) -> str:
     tenant_id = tenant_context.get()

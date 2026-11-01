@@ -1,10 +1,19 @@
 import os
 from typing import Any, Literal
 
-import opentimelineio as otio
+
+def _get_otio():
+    try:
+        import opentimelineio as otio
+        return otio
+    except ImportError as e:
+        raise RuntimeError(
+            "opentimelineio is required for .otio export. Install with: pip install 'veraxi-backend[studio]'"
+        ) from e
 
 
-def build_otio(clips: list[dict[str, Any]]) -> otio.schema.Timeline:
+def build_otio(clips: list[dict[str, Any]]) -> Any:
+    otio = _get_otio()
     timeline = otio.schema.Timeline("Veraxi_Generated_Timeline")
 
     # We will create two tracks: one for Video (which might have text overlay markers or generic generators) and one for Audio
@@ -159,6 +168,7 @@ def mcp_veraxi_mcp_export_data(
     workspace_dir = os.environ.get("VERAXI_WORKSPACE_DIR", "/tmp")
 
     if format == "otio":
+        otio = _get_otio()
         timeline = build_otio(data)
         filepath = os.path.join(workspace_dir, f"{output_name}.otio")
         otio.adapters.write_to_file(timeline, filepath)

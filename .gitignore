@@ -53,6 +53,7 @@ infra/.terraform/
 backend/tts/voices.json
 backend/tts/voices/
 backend/tts/cache/
+*.wav
 
 .deepeval/
 *.patch

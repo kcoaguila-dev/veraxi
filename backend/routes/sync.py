@@ -28,24 +28,31 @@ def _require_supabase(get_supabase) -> Client:
     return sb
 
 
-def _require_premium(sb: Client, tenant_id: str) -> None:
-    """Raise 403 if the tenant does not have an active subscription.
+def _require_premium(
+    sb: Client, tenant_id: str, is_enterprise: bool = True
+) -> None:
+    """Raise 403 if the tenant does not have an active subscription in enterprise mode.
 
+    In self-hosted mode (is_enterprise=False), sync is unrestricted.
     Extracted here to keep each route handler at a single indentation
     level (guard-clause pattern, zero-cognitive-complexity policy).
     """
+    if not is_enterprise:
+        return
     user_res = sb.table("users").select("is_subscribed").eq("id", tenant_id).execute()
     if not user_res.data or not user_res.data[0].get("is_subscribed"):  # type: ignore
         raise HTTPException(status_code=403, detail="Sync is a premium feature.")
 
 
 def register_sync_routes(app_router, get_tenant_id, get_supabase, config):
+    is_enterprise = getattr(config, "is_enterprise", True)
+
     @app_router.get("/api/sync/byod")
     async def get_byod_sync(tenant_id: str = Depends(get_tenant_id)):
         sb = _require_supabase(get_supabase)
 
         # 1. Check premium status
-        _require_premium(sb, tenant_id)
+        _require_premium(sb, tenant_id, is_enterprise=is_enterprise)
 
         # 2. Fetch sync data
         res = (
@@ -75,7 +82,7 @@ def register_sync_routes(app_router, get_tenant_id, get_supabase, config):
         sb = _require_supabase(get_supabase)
 
         # 1. Check premium status
-        _require_premium(sb, tenant_id)
+        _require_premium(sb, tenant_id, is_enterprise=is_enterprise)
 
         # 2. Upsert sync data
         sb.table("user_sync_data").upsert(

@@ -89,8 +89,12 @@ def mcp_ingest_document(
             import time
 
             job_id = result["job_id"]
-            while True:
-                time.sleep(5)
+            elapsed = 0.0
+            poll_interval = 0.5
+            while elapsed < 120.0:
+                time.sleep(poll_interval)
+                elapsed += poll_interval
+                poll_interval = min(poll_interval * 1.5, 2.0)
                 status_res = mcp_get_ingest_status(tenant_id, job_id)
                 if status_res.get("status") not in [
                     "queued",

@@ -9,6 +9,7 @@ from backend.ingestion.chunk_embed import embed_text, get_embedding_model
 
 
 GENERIC_SUFFIXES = {
+    # Academic / analytical suffixes
     "model",
     "formula",
     "equation",
@@ -17,7 +18,57 @@ GENERIC_SUFFIXES = {
     "algorithm",
     "framework",
     "approach",
+    # Corporate / legal suffixes
+    "inc",
+    "incorporated",
+    "corp",
+    "corporation",
+    "ltd",
+    "limited",
+    "llc",
+    "plc",
+    "co",
+    "company",
+    "group",
+    "holdings",
+    # Institutional / organizational structure suffixes
+    "system",
+    "board",
 }
+
+_PARENTHETICAL_RE = re.compile(
+    r"(?:([A-Z][A-Za-z0-9\-]+(?:\s+[A-Z][A-Za-z0-9\-]+)*)|(?:^|[\s,;])([A-Za-z0-9\-]+))\s*\(\s*(?:also\s+known\s+as\s+|commonly\s+called\s+|hereafter\s+|or\s+)?([A-Za-z][A-Za-z0-9\-\s]{1,35}?)\s*\)"
+)
+
+
+def extract_in_text_aliases(text: str) -> dict[str, set[str]]:
+    """
+    Domain-agnostic Schwartz-Hearst style parenthetical & apposition alias extractor.
+    Detects patterns like:
+      - "Federal Reserve (the Fed)"
+      - "Taiwan Semiconductor Manufacturing Company (TSMC)"
+      - "Acetaminophen (commonly called Tylenol)"
+      - "Epidermal growth factor receptor (EGFR)"
+    Returns a bidirectional mapping of normalized surface forms to their discovered aliases.
+    """
+    alias_map: dict[str, set[str]] = {}
+    if not text:
+        return alias_map
+
+    for match in _PARENTHETICAL_RE.finditer(text):
+        long_form = (match.group(1) or match.group(2) or "").strip()
+        short_form = match.group(3).strip()
+        norm_long = strip_generic_suffix(normalize_name(long_form))
+        norm_short = strip_generic_suffix(normalize_name(short_form))
+        if not norm_long or not norm_short or norm_long == norm_short:
+            continue
+        # Reject pure numbers or years in parentheses like "Revenue (2024)"
+        if norm_short.isdigit() or len(norm_short) < 2:
+            continue
+        alias_map.setdefault(norm_long, set()).add(short_form)
+        alias_map.setdefault(norm_short, set()).add(long_form)
+
+    return alias_map
 
 
 def normalize_name(name: str) -> str:
@@ -29,11 +80,15 @@ def normalize_name(name: str) -> str:
 
 
 def strip_generic_suffix(norm: str) -> str:
-    """Strips trailing generic suffix token if at least one word remains."""
+    """Strips leading articles ('the', 'a', 'an') and trailing generic/corporate/institutional suffixes."""
     words = norm.split()
-    if len(words) > 1 and words[-1] in GENERIC_SUFFIXES:
-        return " ".join(words[:-1])
-    return norm
+    if len(words) > 1 and words[0] in {"the", "a", "an"}:
+        words = words[1:]
+
+    while len(words) > 1 and words[-1] in GENERIC_SUFFIXES:
+        words = words[:-1]
+
+    return " ".join(words)
 
 
 def acronym_of(norm: str) -> str | None:
@@ -45,31 +100,42 @@ def acronym_of(norm: str) -> str | None:
     return None
 
 
-def is_acronym_match(a: str, b: str) -> bool:
-    """True if one side (after suffix strip) is a 2-6 letter acronym matching acronym_of of the other side."""
-    norm_a = strip_generic_suffix(normalize_name(a))
-    norm_b = strip_generic_suffix(normalize_name(b))
+def acronym_candidates(norm: str) -> set[str]:
+    """Returns possible acronyms for a phrase (both with and without generic suffix stripping)."""
+    candidates = set()
+    raw_words = norm.split()
+    if len(raw_words) >= 2:
+        candidates.add("".join(w[0] for w in raw_words if w))
 
-    tokens_a = norm_a.split()
-    tokens_b = norm_b.split()
+    stripped = strip_generic_suffix(norm)
+    stripped_words = stripped.split()
+    if len(stripped_words) >= 2:
+        candidates.add("".join(w[0] for w in stripped_words if w))
+
+    return {c for c in candidates if 2 <= len(c) <= 6}
+
+
+def is_acronym_match(a: str, b: str) -> bool:
+    """True if one side is a 2-6 letter acronym matching acronym candidates of the other side."""
+    norm_a = normalize_name(a)
+    norm_b = normalize_name(b)
+    stripped_a = strip_generic_suffix(norm_a)
+    stripped_b = strip_generic_suffix(norm_b)
+
+    tokens_a = stripped_a.split()
+    tokens_b = stripped_b.split()
 
     # Case 1: 'a' is the acronym of 'b'
-    is_a_acronym = (
-        len(tokens_a) == 1
-        and 2 <= len(tokens_a[0]) <= 6
-        and len(tokens_b) >= 2
-        and tokens_a[0] == acronym_of(norm_b)
-    )
+    if len(tokens_a) == 1 and 2 <= len(tokens_a[0]) <= 6:
+        if tokens_a[0] in acronym_candidates(norm_b) or tokens_a[0] in acronym_candidates(stripped_b):
+            return True
 
     # Case 2: 'b' is the acronym of 'a'
-    is_b_acronym = (
-        len(tokens_b) == 1
-        and 2 <= len(tokens_b[0]) <= 6
-        and len(tokens_a) >= 2
-        and tokens_b[0] == acronym_of(norm_a)
-    )
+    if len(tokens_b) == 1 and 2 <= len(tokens_b[0]) <= 6:
+        if tokens_b[0] in acronym_candidates(norm_a) or tokens_b[0] in acronym_candidates(stripped_a):
+            return True
 
-    return is_a_acronym or is_b_acronym
+    return False
 
 
 def entity_key(tenant_id: str, label: str, name: str) -> str:
@@ -110,18 +176,59 @@ def _find_matching_cluster(
     return None
 
 
+def _entity_norm_forms(ent: dict[str, Any]) -> set[str]:
+    """Returns all normalized and raw lowercase surface forms (name + aliases) for an entity."""
+    forms: set[str] = set()
+    raw_names = [ent.get("name", "")] + list(ent.get("aliases", []) or [])
+    for raw in raw_names:
+        if isinstance(raw, str) and raw.strip():
+            forms.add(raw.strip().lower())
+            norm = strip_generic_suffix(normalize_name(raw))
+            if norm:
+                forms.add(norm)
+    return forms
+
+
+def _entities_share_alias_or_acronym(
+    ent_a: dict[str, Any], ent_b: dict[str, Any]
+) -> bool:
+    """True if two entities share any normalized name/alias or acronym match across any of their forms."""
+    forms_a = _entity_norm_forms(ent_a)
+    forms_b = _entity_norm_forms(ent_b)
+    if forms_a & forms_b:
+        return True
+    for fa in forms_a:
+        for fb in forms_b:
+            if is_acronym_match(fa, fb):
+                return True
+    return False
+
+
 def _merge_cluster(cluster: list[dict[str, Any]]) -> dict[str, Any]:
     cluster.sort(key=lambda x: len(x.get("name", "")), reverse=True)
     canonical_ent = cluster[0].copy()
 
     merged_props = {}
+    all_aliases: list[str] = []
+    seen_lower: set[str] = set()
+
     for ent in cluster:
+        name = ent.get("name", "").strip()
+        if name and name.lower() not in seen_lower:
+            seen_lower.add(name.lower())
+            all_aliases.append(name)
+        for alias in ent.get("aliases", []) or []:
+            if isinstance(alias, str) and alias.strip() and alias.strip().lower() not in seen_lower:
+                seen_lower.add(alias.strip().lower())
+                all_aliases.append(alias.strip())
+
         props = ent.get("properties", {})
         for k, v in props.items():
             if k not in merged_props:
                 merged_props[k] = v
 
     canonical_ent["properties"] = merged_props
+    canonical_ent["aliases"] = all_aliases
     return canonical_ent
 
 
@@ -138,7 +245,7 @@ def _group_entities_by_type(
 def _cluster_entities(group: list[dict[str, Any]]) -> list[list[dict[str, Any]]]:
     """
     Cluster entities within a single type group.
-    Groups by entity_key or is_acronym_match first, then uses batch embedding
+    Groups by entity_key, shared aliases, or is_acronym_match first, then uses batch embedding
     and vectorized cosine similarity for O(N) performance.
     """
     if not group:
@@ -148,24 +255,14 @@ def _cluster_entities(group: list[dict[str, Any]]) -> list[list[dict[str, Any]]]
     if not valid_group:
         return [[e] for e in group]
 
-    # Pre-group by entity_key and acronym matches
+    # Pre-group by entity_key, alias intersection, and acronym matches
     pre_clusters: list[list[dict[str, Any]]] = []
 
     for ent in valid_group:
-        name = ent["name"]
-        ent_type = ent.get("type", "Unknown")
-        norm_name = normalize_name(name)
-        key = entity_key("temp_tenant", ent_type, name)
-
         matched_cluster_idx = -1
         for idx, cluster in enumerate(pre_clusters):
-            # Check if it matches the canonical/first element of the cluster
             for c_ent in cluster:
-                c_name = c_ent["name"]
-                c_norm = normalize_name(c_name)
-                c_key = entity_key("temp_tenant", ent_type, c_name)
-
-                if key == c_key or is_acronym_match(norm_name, c_norm):
+                if _entities_share_alias_or_acronym(ent, c_ent):
                     matched_cluster_idx = idx
                     break
 
@@ -177,19 +274,15 @@ def _cluster_entities(group: list[dict[str, Any]]) -> list[list[dict[str, Any]]]
         else:
             pre_clusters.append([ent])
 
-    # Now we have pre_clusters. We extract the longest name from each pre_cluster as its canonical name
-    # and embed those canonical names.
+    # Extract the longest name from each pre_cluster as its canonical name for embedding
     canonical_names = []
     for cluster in pre_clusters:
-        # Longest surface name as canonical for embedding
         longest_ent = max(cluster, key=lambda x: len(x.get("name", "")))
         canonical_names.append(longest_ent["name"].strip())
 
     unique_names = list(dict.fromkeys(canonical_names))
 
     if len(unique_names) == 1:
-        # All valid entities mapped to the same canonical name cluster
-        # which means all pre_clusters map to the same name (should only be 1 pre_cluster)
         return [valid_group]
 
     # Pre-compute normalized embeddings in batches
@@ -218,7 +311,6 @@ def _cluster_entities(group: list[dict[str, Any]]) -> list[list[dict[str, Any]]]
 
         if cluster_seed_vectors:
             cluster_mat = np.stack(cluster_seed_vectors)
-            # Dot product of L2-normalized vectors == cosine similarity
             scores = np.dot(cluster_mat, emb)
 
             for idx, score in enumerate(scores):
@@ -263,6 +355,9 @@ def _process_clusters(
         canonical_name = merged["name"]
         for ent in cluster:
             alias_to_canonical[ent["name"]] = canonical_name
+            for alias in ent.get("aliases", []) or []:
+                if isinstance(alias, str) and alias.strip():
+                    alias_to_canonical[alias.strip()] = canonical_name
 
 
 def resolve_entities(

@@ -6,7 +6,12 @@ from neo4j import GraphDatabase
 from backend import context as byod_context
 
 
-from backend.ingestion.entity_resolution import entity_key, normalize_name, acronym_of
+from backend.ingestion.entity_resolution import (
+    acronym_of,
+    entity_key,
+    normalize_name,
+    strip_generic_suffix,
+)
 
 
 class Neo4jStorageClient:
@@ -61,6 +66,7 @@ class Neo4jStorageClient:
         self.ensure_entity_constraint(label)
 
         norm_name = normalize_name(name)
+        norm_stripped = strip_generic_suffix(norm_name)
         ent_key = entity_key(tenant_id, label, name)
         acr_key = acronym_of(norm_name)
 
@@ -76,19 +82,49 @@ class Neo4jStorageClient:
         ]:
             props.pop(k, None)
 
-        query = f"""
-        MERGE (n:{label} {{entity_key: $entity_key}})
-        ON CREATE SET n.id = $new_id, n.tenant_id = $tenant_id, n.name = $name,
-                      n.aliases = [], n.qdrant_point_ids = []
-        SET n += $properties,
-            n.acronym_key = $acronym_key,
-            n.name = CASE WHEN size($name) > size(n.name) THEN $name ELSE n.name END,
-            n.aliases = reduce(acc = n.aliases, a IN $aliases | CASE WHEN a IN acc THEN acc ELSE acc + a END),
-            n.qdrant_point_ids = reduce(acc = n.qdrant_point_ids, p IN $qdrant_point_ids | CASE WHEN p IN acc THEN acc ELSE acc + p END)
-        RETURN n.id AS id
-        """
+        lower_candidates = list(
+            {name.strip().lower()}
+            | {a.strip().lower() for a in (aliases or []) if isinstance(a, str) and a.strip()}
+        )
+        acr_entity_key = f"{tenant_id}::{label}::{acr_key}" if acr_key else None
 
         with self.driver.session() as session:
+            # Cross-document resolution: check if an existing node in this tenant matches by
+            # entity_key, acronym_key, reverse acronym entity_key, or any known alias.
+            existing_lookup = session.run(
+                f"""
+                MATCH (n:{label})
+                WHERE n.tenant_id = $tenant_id
+                  AND (
+                    n.entity_key = $entity_key
+                    OR ($is_short_token AND n.acronym_key = $norm_stripped)
+                    OR ($acr_entity_key IS NOT NULL AND n.entity_key = $acr_entity_key)
+                    OR any(a IN coalesce(n.aliases, []) WHERE toLower(a) IN $lower_candidates)
+                  )
+                RETURN n.entity_key AS ek
+                LIMIT 1
+                """,
+                tenant_id=tenant_id,
+                entity_key=ent_key,
+                is_short_token=(2 <= len(norm_stripped) <= 6 and " " not in norm_stripped),
+                norm_stripped=norm_stripped,
+                acr_entity_key=acr_entity_key,
+                lower_candidates=lower_candidates,
+            ).single()
+            if existing_lookup and existing_lookup["ek"]:
+                ent_key = existing_lookup["ek"]
+
+            query = f"""
+            MERGE (n:{label} {{entity_key: $entity_key}})
+            ON CREATE SET n.id = $new_id, n.tenant_id = $tenant_id, n.name = $name,
+                          n.aliases = [], n.qdrant_point_ids = []
+            SET n += $properties,
+                n.acronym_key = coalesce(n.acronym_key, $acronym_key),
+                n.name = CASE WHEN size($name) > size(n.name) THEN $name ELSE n.name END,
+                n.aliases = reduce(acc = n.aliases, a IN $aliases | CASE WHEN a IN acc THEN acc ELSE acc + a END),
+                n.qdrant_point_ids = reduce(acc = n.qdrant_point_ids, p IN $qdrant_point_ids | CASE WHEN p IN acc THEN acc ELSE acc + p END)
+            RETURN n.id AS id
+            """
             result = session.run(
                 query,
                 entity_key=ent_key,

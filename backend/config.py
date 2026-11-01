@@ -54,6 +54,7 @@ class Config:
     vision_model_name: str = "moondream3"
     vision_prompt: str = ""
     mcp_tool_profile: str = "agent"
+    public_app_url: str = "http://localhost:3000"
 
     @classmethod
     def from_env(cls) -> "Config":
@@ -130,6 +131,9 @@ class Config:
             vision_model_name=os.environ.get("VISION_MODEL_NAME", "moondream3"),
             vision_prompt=os.environ.get("VISION_PROMPT", ""),
             mcp_tool_profile=mcp_profile,
+            public_app_url=os.environ.get(
+                "PUBLIC_APP_URL", "http://localhost:3000"
+            ).rstrip("/"),
         )
 
     def get_llm_client_args(self, model_name: str | None = None) -> dict:

@@ -59,20 +59,22 @@ def get_extraction_prompt(schema: dict) -> str:
 
     return f"""
 You are a precise data extraction tool. Extract entities and relationships from the following text.
+For every entity, resolve nicknames, abbreviations, or colloquial terms to their standard canonical name in "name", and list any alternate surface forms, acronyms, or synonyms in "aliases" (e.g., if text says "The Fed" or "US Central Bank", set "name": "Federal Reserve" and "aliases": ["The Fed", "US Central Bank"]; if text says "Tylenol", include "Acetaminophen" in "aliases").
 Strictly adhere to this JSON format and schema:
 
 {{
   "entities": [
     {{
       "type": "string (one of the Allowed Entity Types)",
-      "name": "string",
+      "name": "string (canonical entity name)",
+      "aliases": ["string (alternate names, acronyms, or surface forms in text)"],
       "properties": {{"key": "value"}}
     }}
   ],
   "relations": [
     {{
-      "from_entity": "string (must match an entity name)",
-      "to_entity": "string (must match an entity name)",
+      "from_entity": "string (must match an entity name or alias)",
+      "to_entity": "string (must match an entity name or alias)",
       "type": "string"
     }}
   ]

@@ -22,8 +22,10 @@ Standard Vector RAG retrieves text chunks based solely on mathematical proximity
 
 By querying deterministic graph edges and semantic vector embeddings simultaneously, the LLM retrieves the exact isolated facts required to resolve multi-hop queries without hallucination.
 
-### ⚠️ Scope & Architectural Boundaries
-While Veraxi includes multi-tenancy, JWT auth, Stripe billing scaffolds, and GPT-SoVITS TTS integration, **these are structural boilerplates for developers**. Veraxi's primary value is serving as an integration reference of the Neo4j + Qdrant RRF pipeline wired into an end-to-end user application.
+### 🏛️ Architecture Layers: Core Engine vs. Creator Studio
+Veraxi is intentionally decoupled into two distinct architectural layers:
+1. **Core Hybrid GraphRAG Engine & MCP Server:** The high-performance database retrieval foundation (Neo4j + Qdrant Dense/SPLADE + RRF, Just-In-Time graph weaving, and stateless MCP tools).
+2. **Creator & Research Studio (Flutter Client + Optional Media Tools):** NotebookLM-style voice synthesis (Fish Audio, GPT-SoVITS, native OS TTS) and NLE timeline exports (`.otio` / `.fcpxml`). Researchers and content creators can turn multi-hop investigations and multi-agent debates directly into narrated audio and DaVinci Resolve or Final Cut Pro editing timelines. Core engine users can run without media dependencies.
 
 ---
 
