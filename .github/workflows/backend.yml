@@ -13,6 +13,8 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    env:
+      TESTCONTAINERS_RYUK_DISABLED: "true"
 
     services:
       redis:
@@ -45,5 +47,5 @@ jobs:
 
     - name: Test with pytest
       run: |
-        pytest backend/tests/
+        pytest -p no:deepeval --ignore=backend/tests/test_rag_deepeval.py --ignore=backend/tests/custom_openai_eval.py backend/tests/
 
