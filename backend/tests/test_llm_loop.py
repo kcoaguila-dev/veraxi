@@ -278,11 +278,15 @@ def test_execute_single_tool(mock_config):
 
         # Test error
         mock_post.side_effect = Exception("error")
-        v_hits, g_hits = _execute_single_tool(
-            "run_python_code", {"code": "print(42)"}, "test_tenant"
-        )
-        assert len(v_hits) == 1
-        assert "error" in v_hits[0].payload
+        with patch(
+            "backend.mcp_server.tools.run_code.execute_python_code",
+            side_effect=Exception("sandbox error"),
+        ):
+            v_hits, g_hits = _execute_single_tool(
+                "run_python_code", {"code": "print(42)"}, "test_tenant"
+            )
+            assert len(v_hits) == 1
+            assert "error" in v_hits[0].payload
 
     # Test search_vectors mock
     with patch("backend.mcp_server.tool_dispatch.search_vectors") as mock_sv:
@@ -324,6 +328,7 @@ def test_execute_single_tool(mock_config):
     with patch(
         "backend.mcp_server.orchestrator_multi_agent.mcp_agentic_debate"
     ) as mock_ad:
+
         async def _mock_debate(*args, **kwargs):
             return {
                 "results": [

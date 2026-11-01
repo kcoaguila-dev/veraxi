@@ -27,11 +27,9 @@ dependencies = [
     "uvicorn>=0.54.0",
     "sentry-sdk[fastapi]",
     "emoji",
-    "docling",
     "python-multipart",
-    "sentence-transformers",
+    "pypdf>=5.0.0",
     "fastembed",
-    "torch",
     "PyJWT",
     "python-magic",
     "slowapi",
@@ -50,14 +48,26 @@ dependencies = [
     "trafilatura>=2.3.0",
     "langgraph-checkpoint-postgres",
     "psycopg[binary]",
-    "browser-use>=0.11.0",
-    "playwright>=1.40.0",
     "mcp-types>=2.2.0",
     "python-dotenv>=1.2.3",
     "duckduckgo_search>=7.0.0",
 ]
 
 [project.optional-dependencies]
+ocr = [
+    "docling",
+]
+browser = [
+    "browser-use>=0.11.0",
+    "playwright>=1.40.0",
+]
+full = [
+    "docling",
+    "browser-use>=0.11.0",
+    "playwright>=1.40.0",
+    "opentimelineio",
+    "stripe",
+]
 studio = [
     "opentimelineio",
 ]

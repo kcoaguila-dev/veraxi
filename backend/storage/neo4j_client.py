@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 import uuid
 from typing import Any
 
@@ -84,7 +85,11 @@ class Neo4jStorageClient:
 
         lower_candidates = list(
             {name.strip().lower()}
-            | {a.strip().lower() for a in (aliases or []) if isinstance(a, str) and a.strip()}
+            | {
+                a.strip().lower()
+                for a in (aliases or [])
+                if isinstance(a, str) and a.strip()
+            }
         )
         acr_entity_key = f"{tenant_id}::{label}::{acr_key}" if acr_key else None
 
@@ -106,7 +111,9 @@ class Neo4jStorageClient:
                 """,
                 tenant_id=tenant_id,
                 entity_key=ent_key,
-                is_short_token=(2 <= len(norm_stripped) <= 6 and " " not in norm_stripped),
+                is_short_token=(
+                    2 <= len(norm_stripped) <= 6 and " " not in norm_stripped
+                ),
                 norm_stripped=norm_stripped,
                 acr_entity_key=acr_entity_key,
                 lower_candidates=lower_candidates,
@@ -147,17 +154,29 @@ class Neo4jStorageClient:
         if not rel_type.replace("_", "").isalnum():
             raise ValueError("Relationship type must be alphanumeric/underscores")
 
-        props = properties or {}
+        now_iso = datetime.now(timezone.utc).isoformat()
+        props = (properties or {}).copy()
+        props.setdefault("last_confirmed_at", now_iso)
+        props.setdefault("active", True)
+        first_seen = props.pop("first_seen_at", now_iso)
 
         query = f"""
         MATCH (a {{id: $from_id}})
         MATCH (b {{id: $to_id}})
         MERGE (a)-[r:{rel_type}]->(b)
-        SET r += $props
+        ON CREATE SET r.first_seen_at = $first_seen
+        SET r += $props,
+            r.first_seen_at = coalesce(r.first_seen_at, $first_seen)
         """
 
         with self.driver.session() as session:
-            session.run(query, from_id=from_id, to_id=to_id, props=props)
+            session.run(
+                query,
+                from_id=from_id,
+                to_id=to_id,
+                props=props,
+                first_seen=first_seen,
+            )
 
     def create_node(self, label: str, properties: dict[str, Any]) -> str:
         """Create a node with the given label and properties, returning its generated UUID."""

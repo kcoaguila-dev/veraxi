@@ -77,23 +77,54 @@ def test_qdrant_create_collection_and_insert(qdrant_client):
     point_ids_again = qdrant_client.insert_points(
         collection_name, dense_vectors, sparse_vectors, payloads, tenant_id=tenant_id
     )
-    assert point_ids_again == point_ids, "Point IDs must be deterministic on duplicate ingestion"
+    assert point_ids_again == point_ids, (
+        "Point IDs must be deterministic on duplicate ingestion"
+    )
 
     # Test file_hash detection and document-level replacement
     hash_payloads = [
-        {"text": "hash doc chunk 1", "file_hash": "sha256_abc123", "document_id": "doc_v1"},
-        {"text": "hash doc chunk 2", "file_hash": "sha256_abc123", "document_id": "doc_v1"},
+        {
+            "text": "hash doc chunk 1",
+            "file_hash": "sha256_abc123",
+            "document_id": "doc_v1",
+        },
+        {
+            "text": "hash doc chunk 2",
+            "file_hash": "sha256_abc123",
+            "document_id": "doc_v1",
+        },
     ]
     hash_pids = qdrant_client.insert_points(
-        collection_name, dense_vectors, sparse_vectors, hash_payloads, tenant_id=tenant_id
+        collection_name,
+        dense_vectors,
+        sparse_vectors,
+        hash_payloads,
+        tenant_id=tenant_id,
     )
     assert len(hash_pids) == 2
 
     # Check has_file_hash works
-    assert qdrant_client.has_file_hash(collection_name, "sha256_abc123", tenant_id=tenant_id) is True
-    assert qdrant_client.has_file_hash(collection_name, "nonexistent_hash", tenant_id=tenant_id) is False
+    assert (
+        qdrant_client.has_file_hash(
+            collection_name, "sha256_abc123", tenant_id=tenant_id
+        )
+        is True
+    )
+    assert (
+        qdrant_client.has_file_hash(
+            collection_name, "nonexistent_hash", tenant_id=tenant_id
+        )
+        is False
+    )
 
     # Check delete_by_document works
-    deleted = qdrant_client.delete_by_document(collection_name, "doc_v1", tenant_id=tenant_id)
+    deleted = qdrant_client.delete_by_document(
+        collection_name, "doc_v1", tenant_id=tenant_id
+    )
     assert deleted == 2
-    assert qdrant_client.has_file_hash(collection_name, "sha256_abc123", tenant_id=tenant_id) is False
+    assert (
+        qdrant_client.has_file_hash(
+            collection_name, "sha256_abc123", tenant_id=tenant_id
+        )
+        is False
+    )

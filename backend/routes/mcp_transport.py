@@ -35,7 +35,9 @@ def register_mcp_transport_routes(
         """Stateless MCP Streamable HTTP endpoint.
         Eliminates session 404s on multi-worker / Cloud Run serverless deployments.
         """
-        logger.debug(f"Handling stateless MCP Streamable HTTP request for tenant: {tenant_id}")
+        logger.debug(
+            f"Handling stateless MCP Streamable HTTP request for tenant: {tenant_id}"
+        )
         tenant_context.set(tenant_id)
 
         session_manager = StreamableHTTPSessionManager(

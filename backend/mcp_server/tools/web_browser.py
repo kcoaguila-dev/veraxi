@@ -8,8 +8,6 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from browser_use import Agent, Browser, BrowserProfile
-
 from backend import context as byod_context
 
 logger = logging.getLogger(__name__)
@@ -21,6 +19,14 @@ async def mcp_web_browser(task: str, llm: Any) -> dict[str, Any]:
     If context.request_browserbase_key has a key, it connects to Browserbase's CDP.
     Otherwise, it runs a local headless browser.
     """
+    try:
+        from browser_use import Agent, Browser, BrowserProfile
+    except ImportError:
+        return {
+            "status": "error",
+            "error": "Browser automation dependencies are not installed. Install with: pip install 'veraxi-backend[browser]'",
+        }
+
     browserbase_key = byod_context.request_browserbase_key.get()
     browser = None
 

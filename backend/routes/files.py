@@ -7,12 +7,16 @@ import uuid
 
 import magic
 import sentry_sdk
-from docling.document_converter import DocumentConverter
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api", tags=["files"])
+
+
+from backend.ingestion.document_parser import (
+    extract_attachment_text as _extract_attachment_text,
+)
 
 
 def register_file_routes(
@@ -48,25 +52,13 @@ def register_file_routes(
                 f"tenant:{tenant_id}:files", file_id, json.dumps(file_metadata)
             )
             mime_type = magic.from_file(file_path, mime=True)
-            extracted_text = f"File {file.filename} uploaded."
-            if mime_type.startswith("text/") or mime_type in [
-                "application/json",
-                "application/csv",
-            ]:
-                try:
-                    extracted_text = content.decode("utf-8")
-                except Exception as e:
-                    logger.warning(
-                        "Failed to decode text/csv file content: %s", repr(e)
-                    )
-                    sentry_sdk.capture_exception(e)
-            else:
-                try:
-                    converter = DocumentConverter()
-                    result = converter.convert(file_path)
-                    extracted_text = result.document.export_to_markdown()
-                except Exception as e:
-                    logger.warning(f"Docling could not convert {file.filename}: {e}")
+            extracted_text = _extract_attachment_text(
+                file_path,
+                file.filename,
+                content,
+                mime_type,
+                parser=config.document_parser,
+            )
             return {"text": extracted_text, "file_id": file_id}
         except Exception as e:
             sentry_sdk.capture_exception(e)

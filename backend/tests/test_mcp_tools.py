@@ -194,7 +194,10 @@ def test_insert_vectors_success(mock_qdrant_class, mock_get_config):
 
 
 def test_mcp_schema_demarcation_and_optional_entity():
-    from backend.mcp_server.handlers.tool_registry import REGISTERED_TOOLS, _handle_merge_rank
+    from backend.mcp_server.handlers.tool_registry import (
+        REGISTERED_TOOLS,
+        _handle_merge_rank,
+    )
     from backend.retrieval.merge_rank import VectorHit
 
     tools_by_name = {t.name: t for t in REGISTERED_TOOLS}
@@ -212,11 +215,16 @@ def test_mcp_schema_demarcation_and_optional_entity():
     assert "entity_name" not in merge_rank_schema["required"]
 
     # Verify _handle_merge_rank works cleanly without entity_name
-    with patch("backend.mcp_server.handlers.tool_registry.search_vectors") as mock_sv, \
-         patch("backend.mcp_server.handlers.tool_registry.query_graph") as mock_qg:
-
+    with (
+        patch("backend.mcp_server.handlers.tool_registry.search_vectors") as mock_sv,
+        patch("backend.mcp_server.handlers.tool_registry.query_graph") as mock_qg,
+    ):
         mock_sv.return_value = [
-            VectorHit(id="chunk-1", score=0.9, payload={"text": "Auth docs", "title": "AuthModule"})
+            VectorHit(
+                id="chunk-1",
+                score=0.9,
+                payload={"text": "Auth docs", "title": "AuthModule"},
+            )
         ]
         mock_qg.return_value = []
 
@@ -230,4 +238,3 @@ def test_mcp_schema_demarcation_and_optional_entity():
             max_hops=2,
             tenant_id="test_tenant",
         )
-

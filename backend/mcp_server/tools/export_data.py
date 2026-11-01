@@ -5,6 +5,7 @@ from typing import Any, Literal
 def _get_otio():
     try:
         import opentimelineio as otio
+
         return otio
     except ImportError as e:
         raise RuntimeError(

@@ -9,6 +9,7 @@ class IngestionPayload:
     entities: list[dict[str, Any]]
     relations: list[dict[str, str]]
     qdrant_point_ids: dict[str, str]
+    source: str | None = None
 
 
 from backend.ingestion.entity_resolution import normalize_name
@@ -96,11 +97,14 @@ def write_to_graph(
         to_node_id = entity_name_to_node_id.get(relation["to_entity"])
 
         if from_node_id and to_node_id:
+            rel_props = {"tenant_id": tenant_id}
+            if payload.source:
+                rel_props["source"] = payload.source
             neo4j_client.upsert_relationship(
                 from_id=from_node_id,
                 to_id=to_node_id,
                 rel_type=relation["type"],
-                properties={"tenant_id": tenant_id},
+                properties=rel_props,
             )
 
     return entity_name_to_node_id, qdrant_id_to_neo4j_ids

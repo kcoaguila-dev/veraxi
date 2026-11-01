@@ -750,8 +750,18 @@ def _build_context_string(merged_results: list[Any]) -> str:
     context_parts = []
     for i, res in enumerate(merged_results, 1):
         source_info = " and ".join(res.sources)
+        meta_tags = [f"from {source_info}"]
+        if isinstance(res.payload, dict):
+            doc_source = res.payload.get("source") or res.payload.get("relation_source")
+            if doc_source and doc_source != "unknown":
+                meta_tags.append(f"source: {doc_source}")
+            if res.payload.get("page_number") is not None:
+                meta_tags.append(f"page: {res.payload['page_number']}")
+            if res.payload.get("last_confirmed_at"):
+                meta_tags.append(f"confirmed_at: {res.payload['last_confirmed_at']}")
+        header = ", ".join(meta_tags)
         payload_str = str(res.payload)
-        context_parts.append(f"[Result {i} (from {source_info})]: {payload_str}")
+        context_parts.append(f"[Result {i} ({header})]: {payload_str}")
 
     return "\n".join(context_parts)
 

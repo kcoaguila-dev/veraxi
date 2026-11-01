@@ -19,7 +19,13 @@ logger = logging.getLogger(__name__)
 
 class QdrantStorageClient:
     def __init__(self, url: str, api_key: str | None = None):
-        if api_key:
+        if url == ":memory:":
+            self.client = QdrantClient(":memory:")
+        elif url.startswith("file://"):
+            self.client = QdrantClient(path=url[len("file://") :])
+        elif url.startswith(("./", "/")):
+            self.client = QdrantClient(path=url)
+        elif api_key:
             self.client = QdrantClient(url=url, api_key=api_key)
         else:
             self.client = QdrantClient(url=url)
@@ -38,10 +44,14 @@ class QdrantStorageClient:
     def create_collection(
         self,
         collection_name: str,
-        vector_size: int = 384,
+        vector_size: int | None = None,
         distance_metric: str = "Cosine",
     ):
         """Create a collection if it doesn't already exist."""
+        if vector_size is None:
+            from backend.config import get_config
+
+            vector_size = get_config().embedding_dimension
 
         # Safely map the string to the official Qdrant Enum
         d_enum = Distance.COSINE
@@ -54,7 +64,18 @@ class QdrantStorageClient:
 
         try:
             collection_info = self.client.get_collection(collection_name)
-            if not collection_info.config.params.sparse_vectors:
+            existing_size = None
+            if hasattr(collection_info.config.params, "vectors"):
+                v_params = collection_info.config.params.vectors
+                if hasattr(v_params, "size"):
+                    existing_size = v_params.size
+                elif isinstance(v_params, dict) and "" in v_params:
+                    existing_size = getattr(v_params[""], "size", None)
+
+            recreate_needed = not collection_info.config.params.sparse_vectors or (
+                existing_size is not None and existing_size != vector_size
+            )
+            if recreate_needed:
                 self.client.delete_collection(collection_name)
         except Exception as e:
             import sentry_sdk

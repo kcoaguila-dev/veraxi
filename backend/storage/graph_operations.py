@@ -183,21 +183,11 @@ def insert_graph_nodes(
                     entity_name_to_node_id[to_name] = to_id
 
             if from_id and to_id:
-                # Merge relationship to prevent duplicates, setting causal properties and tenant_id
-                merge_rel_query = f"""
-                MATCH (a {{id: $from_id, tenant_id: $tenant_id}})
-                MATCH (b {{id: $to_id, tenant_id: $tenant_id}})
-                MERGE (a)-[r:{rel_type}]->(b)
-                SET r += $rel_props
-                """
-                neo4j_client.execute_write(
-                    merge_rel_query,
-                    {
-                        "from_id": from_id,
-                        "to_id": to_id,
-                        "tenant_id": tenant_id,
-                        "rel_props": rel_props,
-                    },
+                neo4j_client.upsert_relationship(
+                    from_id=from_id,
+                    to_id=to_id,
+                    rel_type=rel_type,
+                    properties=rel_props,
                 )
                 relations_inserted += 1
 

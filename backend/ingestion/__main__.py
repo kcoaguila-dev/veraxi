@@ -1,7 +1,9 @@
+import hashlib
 import logging
 
 from backend.config import get_config
 from backend.ingestion.chunk_embed import chunk_and_embed
+from backend.ingestion.document_parser import strip_and_resolve_page_number
 from backend.ingestion.entity_resolution import resolve_entities
 from backend.ingestion.extract import (
     extract_entities_and_relations,
@@ -38,6 +40,23 @@ def run_ingestion(
     COLLECTION_NAME = config.qdrant_collection_name
     qdrant.create_collection(COLLECTION_NAME)
 
+    if file_hash is None and text:
+        file_hash = hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+    if file_hash and qdrant.has_file_hash(
+        COLLECTION_NAME, file_hash, tenant_id=tenant_id
+    ):
+        logging.info(  # noqa: LOG015
+            f"Skipping duplicate ingestion for tenant {tenant_id} (file_hash={file_hash[:12]} already exists)."
+        )
+        neo4j.close()
+        return {
+            "nodes_inserted": 0,
+            "vectors_inserted": 0,
+            "deduplicated": True,
+            "file_hash": file_hash,
+        }
+
     logging.info(f"Starting ingestion for tenant: {tenant_id}...")  # noqa: LOG015
 
     # 2. Chunk and embed
@@ -45,18 +64,30 @@ def run_ingestion(
         text, chunk_size=chunk_size, chunk_overlap=chunk_overlap
     )
 
-    vectors = [item[1] for item in chunks_and_embeddings]
-    sparse_vectors = [item[2] for item in chunks_and_embeddings]
-    payloads = [
-        {
-            "text": item[0],
+    vectors = []
+    sparse_vectors = []
+    payloads = []
+    cleaned_chunks_and_embeddings = []
+    current_page: int | None = None
+
+    for idx, (raw_chunk, vec, sparse_vec) in enumerate(chunks_and_embeddings):
+        clean_chunk, current_page = strip_and_resolve_page_number(
+            raw_chunk, current_page
+        )
+        vectors.append(vec)
+        sparse_vectors.append(sparse_vec)
+        cleaned_chunks_and_embeddings.append((clean_chunk, vec, sparse_vec))
+        payload: dict = {
+            "text": clean_chunk,
             "source": source or "unknown",
             "document_id": document_id or "default",
             "source_type": source_type,
             "file_hash": file_hash,
+            "chunk_index": idx,
         }
-        for item in chunks_and_embeddings
-    ]
+        if current_page is not None:
+            payload["page_number"] = current_page
+        payloads.append(payload)
 
     # 3. Write to Qdrant
     qdrant_point_ids_list = qdrant.insert_points(
@@ -66,7 +97,8 @@ def run_ingestion(
 
     # Map each chunk's actual text content to its Qdrant point ID
     qdrant_point_ids = {
-        item[0]: pid for item, pid in zip(chunks_and_embeddings, qdrant_point_ids_list)
+        item[0]: pid
+        for item, pid in zip(cleaned_chunks_and_embeddings, qdrant_point_ids_list)
     }
 
     # 4. Extract entities and relations
@@ -99,6 +131,7 @@ def run_ingestion(
         entities=entities,
         relations=rewritten_relations,
         qdrant_point_ids=qdrant_point_ids,
+        source=source,
     )
 
     # 5. Write to Neo4j

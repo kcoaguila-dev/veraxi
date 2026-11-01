@@ -1,17 +1,21 @@
 """Ingestion endpoints — text, file upload, URL, schema management, and memory."""
 
+import asyncio
 import json
 import logging
 import os
 import tempfile
+import uuid
 
 import magic
 import sentry_sdk
-from docling.document_converter import DocumentConverter
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from pydantic import BaseModel
 
 from backend.config import get_config
+from backend.ingestion.document_parser import (
+    convert_document_to_markdown as _convert_document_to_markdown,
+)
 from backend.storage.quota import check_tenant_hard_cap
 
 logger = logging.getLogger(__name__)
@@ -108,6 +112,46 @@ _ALLOWED_MIMES = [
 ]
 
 
+async def _run_inline_ingestion_task(redis, job_id: str, *args) -> None:
+    """Execute ingestion in-process and persist job status to Redis for status polling."""
+    from backend.worker import process_ingestion_task
+
+    key = f"inline_job:{job_id}"
+    try:
+        await redis.setex(
+            key, 3600, json.dumps({"status": "in_progress", "result": None})
+        )
+        result = await process_ingestion_task({"redis": redis}, *args)
+        if isinstance(result, dict) and result.get("status") == "error":
+            payload = {
+                "status": "error",
+                "error": result.get("message", "Unknown error"),
+            }
+        else:
+            payload = {"status": "complete", "result": result}
+        await redis.setex(key, 3600, json.dumps(payload))
+    except Exception as err:
+        logger.error(f"Inline ingestion job {job_id} failed: {err}")
+        await redis.setex(key, 3600, json.dumps({"status": "error", "error": str(err)}))
+
+
+async def _dispatch_ingestion_job(request: Request, config, *args) -> dict:
+    """Dispatch ingestion task either via in-process background task (inline) or ARQ Redis queue."""
+    if config.worker_mode == "inline":
+        job_id = str(uuid.uuid4())
+        redis = request.app.state.redis
+        await redis.setex(
+            f"inline_job:{job_id}",
+            3600,
+            json.dumps({"status": "queued", "result": None}),
+        )
+        asyncio.create_task(_run_inline_ingestion_task(redis, job_id, *args))
+        return {"status": "queued", "job_id": job_id}
+
+    job = await request.app.state.redis.enqueue_job("process_ingestion_task", *args)
+    return {"status": "queued", "job_id": job.job_id}
+
+
 def register_ingestion_routes(
     app_router, get_tenant_id, verify_infrastructure_access, limiter, config
 ):
@@ -125,15 +169,15 @@ def register_ingestion_routes(
             await _ensure_schema_exists(
                 request.app.state.redis, tenant_id, ingest_request.text
             )
-            job = await request.app.state.redis.enqueue_job(
-                "process_ingestion_task",
+            return await _dispatch_ingestion_job(
+                request,
+                config,
                 ingest_request.text,
                 tenant_id,
                 ingest_request.fast_extraction,
                 ingest_request.language,
                 ingest_request.custom_stop_words,
             )
-            return {"status": "queued", "job_id": job.job_id}
         except Exception as e:
             sentry_sdk.capture_exception(e)
             logger.error(f"Error during ingestion: {e}")
@@ -153,8 +197,9 @@ def register_ingestion_routes(
                 request.app.state.redis, tenant_id, content_with_tag
             )
             model_name = memory_request.model or "gemini-2.5-flash-lite"
-            job = await request.app.state.redis.enqueue_job(
-                "process_ingestion_task",
+            return await _dispatch_ingestion_job(
+                request,
+                config,
                 content_with_tag,
                 tenant_id,
                 False,
@@ -162,7 +207,6 @@ def register_ingestion_routes(
                 None,
                 model_name,
             )
-            return {"status": "queued", "job_id": job.job_id}
         except Exception as e:
             sentry_sdk.capture_exception(e)
             logger.error(f"Error during memory ingestion: {e}")
@@ -209,10 +253,12 @@ def register_ingestion_routes(
                     status_code=400,
                     detail="Invalid file type. Supported formats: PDF, Word, PowerPoint, Excel, HTML, Text, and Images (PNG/JPG).",
                 )
-            logger.info(f"Converting file {file.filename} with Docling...")
-            converter = DocumentConverter()
-            result = converter.convert(tmp_path)
-            markdown_text = result.document.export_to_markdown()
+            logger.info(
+                f"Converting file {file.filename} with {config.document_parser}..."
+            )
+            markdown_text = _convert_document_to_markdown(
+                tmp_path, parser=config.document_parser
+            )
             os.unlink(tmp_path)
             logger.info(
                 f"Enqueueing {len(markdown_text)} bytes of markdown from {file.filename}"
@@ -225,8 +271,9 @@ def register_ingestion_routes(
             await _ensure_schema_exists(
                 request.app.state.redis, tenant_id, markdown_text
             )
-            job = await request.app.state.redis.enqueue_job(
-                "process_ingestion_task",
+            return await _dispatch_ingestion_job(
+                request,
+                config,
                 markdown_text,
                 tenant_id,
                 fast_extraction,
@@ -235,8 +282,8 @@ def register_ingestion_routes(
                 model,
                 chunk_size,
                 chunk_overlap,
+                file.filename or "uploaded_file",
             )
-            return {"status": "queued", "job_id": job.job_id}
         except HTTPException:
             raise
         except Exception as e:
@@ -253,18 +300,21 @@ def register_ingestion_routes(
     ):
         try:
             check_tenant_hard_cap(tenant_id, get_config())
-            logger.info(f"Converting URL {url_request.url} with Docling...")
-            converter = DocumentConverter()
-            result = converter.convert(url_request.url)
-            markdown_text = result.document.export_to_markdown()
+            logger.info(
+                f"Converting URL {url_request.url} with {config.document_parser}..."
+            )
+            markdown_text = _convert_document_to_markdown(
+                url_request.url, parser=config.document_parser
+            )
             logger.info(
                 f"Enqueueing {len(markdown_text)} bytes of markdown from {url_request.url}"
             )
             await _ensure_schema_exists(
                 request.app.state.redis, tenant_id, markdown_text
             )
-            job = await request.app.state.redis.enqueue_job(
-                "process_ingestion_task",
+            return await _dispatch_ingestion_job(
+                request,
+                config,
                 markdown_text,
                 tenant_id,
                 url_request.fast_extraction,
@@ -273,8 +323,8 @@ def register_ingestion_routes(
                 url_request.model,
                 url_request.chunk_size,
                 url_request.chunk_overlap,
+                url_request.url,
             )
-            return {"status": "queued", "job_id": job.job_id}
         except Exception as e:
             sentry_sdk.capture_exception(e)
             logger.error(f"Error during URL ingestion: {e}")
@@ -289,6 +339,10 @@ def register_ingestion_routes(
         from arq.jobs import Job, JobStatus
 
         redis = request.app.state.redis
+        inline_raw = await redis.get(f"inline_job:{job_id}")
+        if inline_raw:
+            return json.loads(inline_raw)
+
         job = Job(job_id, redis)
         status = await job.status()
         if status == JobStatus.not_found:

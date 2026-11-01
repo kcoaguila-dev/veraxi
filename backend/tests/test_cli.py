@@ -1135,14 +1135,16 @@ def test_cli_web_provider_management(tmp_path, monkeypatch, capsys):
 def test_cli_chat_mode_switching(monkeypatch, capsys):
     from veraxi.cli.chat import run_interactive_chat
 
-    inputs = iter([
-        "/mode",
-        "/mode deep",
-        "/fast",
-        "/deep",
-        "/mode fast",
-        "exit",
-    ])
+    inputs = iter(
+        [
+            "/mode",
+            "/mode deep",
+            "/fast",
+            "/deep",
+            "/mode fast",
+            "exit",
+        ]
+    )
     monkeypatch.setattr("builtins.input", lambda prompt="": next(inputs))
 
     run_interactive_chat(tenant_id="test-tenant")
@@ -1210,4 +1212,3 @@ def test_cli_chat_run_agent_stream_deep_mode(monkeypatch, capsys):
     assert "Skeptic Verifier" in captured.out
     assert "Verified Deep Research Report:" in captured.out
     assert "Final multi-agent draft" in captured.out
-

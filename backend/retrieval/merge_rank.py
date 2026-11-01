@@ -114,9 +114,7 @@ def merge_rank(
         if text and any(
             _is_near_duplicate(
                 text,
-                d.payload.get("text", "")
-                if isinstance(d.payload, dict)
-                else "",
+                d.payload.get("text", "") if isinstance(d.payload, dict) else "",
             )
             for d in deduped
         ):

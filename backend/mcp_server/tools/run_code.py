@@ -15,7 +15,7 @@ from typing import Any
 
 # Harness executed inside the child process.
 # Keeps the harness self-contained so that no external packages are needed.
-_SANDBOX_HARNESS = r'''
+_SANDBOX_HARNESS = r"""
 import os
 import sys
 
@@ -143,7 +143,7 @@ exec_globals = {
 
 compiled = compile(user_code, filename="<sandbox>", mode="exec")
 exec(compiled, exec_globals)
-'''
+"""
 
 
 def execute_python_code(code: str, timeout: int = 10) -> dict[str, Any]:
@@ -200,8 +200,16 @@ def execute_python_code(code: str, timeout: int = 10) -> dict[str, Any]:
             "exit_code": result.returncode,
         }
     except subprocess.TimeoutExpired as e:
-        stdout_txt = e.stdout if isinstance(e.stdout, str) else (e.stdout.decode("utf-8") if e.stdout else "")
-        stderr_txt = e.stderr if isinstance(e.stderr, str) else (e.stderr.decode("utf-8") if e.stderr else "")
+        stdout_txt = (
+            e.stdout
+            if isinstance(e.stdout, str)
+            else (e.stdout.decode("utf-8") if e.stdout else "")
+        )
+        stderr_txt = (
+            e.stderr
+            if isinstance(e.stderr, str)
+            else (e.stderr.decode("utf-8") if e.stderr else "")
+        )
         return {
             "stdout": stdout_txt,
             "stderr": f"Execution timed out after {timeout} seconds.\n{stderr_txt}",

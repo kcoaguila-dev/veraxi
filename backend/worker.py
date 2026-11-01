@@ -19,6 +19,7 @@ async def process_ingestion_task(
     model: str = "gemini-2.5-flash-lite",
     chunk_size: int = 200,
     chunk_overlap: int = 50,
+    source: str | None = None,
 ):
     """
     Background worker task to ingest a document.
@@ -53,6 +54,7 @@ async def process_ingestion_task(
         model,
         chunk_size,
         chunk_overlap,
+        source,
     )
 
     logger.info(f"Worker completed ingestion task for tenant {tenant_id}: {result}")

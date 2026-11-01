@@ -7,6 +7,7 @@ from collections.abc import AsyncGenerator
 from typing import Any
 
 from langchain_core.messages import HumanMessage, SystemMessage
+from langgraph.checkpoint.memory import MemorySaver
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 
 from backend.config import get_config
@@ -24,6 +25,8 @@ from backend.mcp_server.orchestrator import (
 from backend.prompts import TITLE_GENERATION_PROMPT
 
 logger = logging.getLogger(__name__)
+
+_FALLBACK_MEMORY_SAVER = MemorySaver()
 
 
 async def generate_chat_title(
@@ -107,6 +110,9 @@ async def answer_question(
     try:
         if is_temporary:
             app = workflow.compile()
+            final_state = await app.ainvoke(initial_state, config=config)
+        elif not config_obj.postgres_url:
+            app = workflow.compile(checkpointer=_FALLBACK_MEMORY_SAVER)
             final_state = await app.ainvoke(initial_state, config=config)
         else:
             # Run the graph asynchronously using context manager for memory
@@ -496,6 +502,12 @@ async def stream_answer_question(
 
         if is_temporary:
             app = workflow.compile()
+            async for evt in _process_stream(
+                app.astream_events(initial_state, config=config, version="v2")
+            ):
+                yield evt
+        elif not config_obj.postgres_url:
+            app = workflow.compile(checkpointer=_FALLBACK_MEMORY_SAVER)
             async for evt in _process_stream(
                 app.astream_events(initial_state, config=config, version="v2")
             ):

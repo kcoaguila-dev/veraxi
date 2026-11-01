@@ -26,10 +26,29 @@ def get_community_detection(
     ORDER BY size DESC
     """
 
-    return neo4j_client.execute_read(
-        query_grouping,
-        parameters={"min_community_size": min_community_size, "tenant_id": tenant_id},
-    )
+    try:
+        return neo4j_client.execute_read(
+            query_grouping,
+            parameters={
+                "min_community_size": min_community_size,
+                "tenant_id": tenant_id,
+            },
+        )
+    except Exception:
+        fallback_query = """
+        MATCH (n {tenant_id: $tenant_id})
+        WITH coalesce(labels(n)[0], 'Entity') AS community, count(n) AS size, collect(n.name) AS members
+        WHERE size >= $min_community_size
+        RETURN toString(community) AS community, size, members
+        ORDER BY size DESC
+        """
+        return neo4j_client.execute_read(
+            fallback_query,
+            parameters={
+                "min_community_size": min_community_size,
+                "tenant_id": tenant_id,
+            },
+        )
 
 
 def get_node_degree_centrality(

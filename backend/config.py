@@ -9,6 +9,53 @@ from dotenv import load_dotenv
 env_path = Path(__file__).parent / ".env"
 load_dotenv(dotenv_path=env_path)
 
+_INGESTION_PROFILES = {
+    "lite": {
+        "dense": "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
+        "sparse": "Qdrant/bm25",
+        "parser": "pypdf",
+    },
+    "balanced": {
+        "dense": "sentence-transformers/paraphrase-multilingual-mpnet-base-v2",
+        "sparse": "Qdrant/bm25",
+        "parser": "docling",
+    },
+    "high_accuracy": {
+        "dense": "Qwen/Qwen3-Embedding-0.6B-Q",
+        "sparse": "Qdrant/bm25",
+        "parser": "docling",
+    },
+}
+
+_MODEL_DIMENSIONS = {
+    "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2": 384,
+    "paraphrase-multilingual-MiniLM-L12-v2": 384,
+    "sentence-transformers/all-MiniLM-L6-v2": 384,
+    "all-MiniLM-L6-v2": 384,
+    "BAAI/bge-small-en-v1.5": 384,
+    "BAAI/bge-base-en-v1.5": 768,
+    "nomic-ai/nomic-embed-text-v1.5": 768,
+    "nomic-ai/nomic-embed-text-v1.5-Q": 768,
+    "sentence-transformers/paraphrase-multilingual-mpnet-base-v2": 768,
+    "google/embeddinggemma-300m": 768,
+    "BAAI/bge-large-en-v1.5": 1024,
+    "intfloat/multilingual-e5-large": 1024,
+    "jinaai/jina-embeddings-v3": 1024,
+    "Qwen/Qwen3-Embedding-0.6B": 1024,
+    "Qwen/Qwen3-Embedding-0.6B-Q": 1024,
+    "text-embedding-3-small": 1536,
+    "text-embedding-3-large": 3072,
+    "text-embedding-004": 768,
+}
+
+
+def _resolve_embedding_model_name(raw_name: str) -> str:
+    if raw_name == "paraphrase-multilingual-MiniLM-L12-v2":
+        return "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+    if raw_name == "all-MiniLM-L6-v2":
+        return "sentence-transformers/all-MiniLM-L6-v2"
+    return raw_name
+
 
 @dataclass
 class Config:
@@ -55,6 +102,14 @@ class Config:
     vision_prompt: str = ""
     mcp_tool_profile: str = "agent"
     public_app_url: str = "http://localhost:3000"
+    ingestion_profile: str = "lite"
+    sparse_embedding_model_name: str = "Qdrant/bm25"
+    embedding_base_url: str = ""
+    embedding_dimension: int = 384
+    embedding_threads: int = 2
+    entity_resolution_threshold: float = 0.90
+    document_parser: str = "pypdf"
+    worker_mode: str = "inline"
 
     @classmethod
     def from_env(cls) -> "Config":
@@ -63,6 +118,32 @@ class Config:
             raise ValueError(
                 f"Invalid VERAXI_MCP_PROFILE: {mcp_profile}. Must be agent, admin, or all."
             )
+
+        profile = os.environ.get("INGESTION_PROFILE", "lite").lower()
+        profile_defaults = _INGESTION_PROFILES.get(profile, _INGESTION_PROFILES["lite"])
+
+        raw_dense_model = (
+            os.environ.get("EMBEDDING_MODEL_NAME") or profile_defaults["dense"]
+        )
+        embedding_model_name = _resolve_embedding_model_name(raw_dense_model)
+        sparse_embedding_model_name = (
+            os.environ.get("SPARSE_EMBEDDING_MODEL_NAME") or profile_defaults["sparse"]
+        )
+        document_parser = (
+            os.environ.get("DOCUMENT_PARSER") or profile_defaults["parser"]
+        )
+        embedding_dimension = int(
+            os.environ.get(
+                "EMBEDDING_DIMENSION",
+                str(_MODEL_DIMENSIONS.get(embedding_model_name, 384)),
+            )
+        )
+        embedding_base_url = os.environ.get("EMBEDDING_BASE_URL", "")
+        embedding_threads = int(os.environ.get("EMBEDDING_THREADS", "2"))
+        entity_resolution_threshold = float(
+            os.environ.get("ENTITY_RESOLUTION_THRESHOLD", "0.90")
+        )
+        worker_mode = os.environ.get("WORKER_MODE", "arq").lower()
 
         return cls(
             neo4j_uri=_require("NEO4J_URI"),
@@ -77,9 +158,7 @@ class Config:
             llm_base_url=os.environ.get("LLM_BASE_URL", ""),
             llm_model_name=os.environ.get("LLM_MODEL_NAME", ""),
             embedding_api_key=os.environ.get("EMBEDDING_API_KEY", ""),
-            embedding_model_name=os.environ.get(
-                "EMBEDDING_MODEL_NAME", "text-embedding-004"
-            ),
+            embedding_model_name=embedding_model_name,
             sentry_dsn=os.environ.get("SENTRY_DSN", ""),
             stripe_api_key=os.environ.get(
                 "STRIPE_SECRET_KEY", os.environ.get("STRIPE_API_KEY", "")
@@ -134,6 +213,14 @@ class Config:
             public_app_url=os.environ.get(
                 "PUBLIC_APP_URL", "http://localhost:3000"
             ).rstrip("/"),
+            ingestion_profile=profile,
+            sparse_embedding_model_name=sparse_embedding_model_name,
+            embedding_base_url=embedding_base_url,
+            embedding_dimension=embedding_dimension,
+            embedding_threads=embedding_threads,
+            entity_resolution_threshold=entity_resolution_threshold,
+            document_parser=document_parser,
+            worker_mode=worker_mode,
         )
 
     def get_llm_client_args(self, model_name: str | None = None) -> dict:

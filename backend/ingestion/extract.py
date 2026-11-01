@@ -51,7 +51,9 @@ def _validate_single_relation(
     to_type = entity_name_to_type[to_ent]
 
     allowed_types = allowed_relations.get(from_type, {}).get(to_type, [])
-    if rel_type in allowed_types or (allow_cooccurrence and rel_type == "MENTIONED_WITH"):
+    if rel_type in allowed_types or (
+        allow_cooccurrence and rel_type == "MENTIONED_WITH"
+    ):
         return {"from_entity": from_ent, "to_entity": to_ent, "type": rel_type}
     return None
 
@@ -100,7 +102,11 @@ def _validate_entities(
         props = ent.get("properties", {})
         raw_aliases = ent.get("aliases", [])
         aliases = (
-            [str(a).strip() for a in raw_aliases if isinstance(a, str) and str(a).strip()]
+            [
+                str(a).strip()
+                for a in raw_aliases
+                if isinstance(a, str) and str(a).strip()
+            ]
             if isinstance(raw_aliases, list)
             else []
         )
@@ -318,7 +324,9 @@ def _is_passive_reversed(tok1: Any, tok2: Any, path_tokens: list[Any]) -> bool:
     head2 = getattr(tok2, "head", None)
     head2_dep = getattr(head2, "dep_", "") if head2 is not None else ""
     head2_lower = getattr(head2, "lower_", "") if head2 is not None else ""
-    if dep1 in ("nsubjpass", "csubjpass") and (head2_dep == "agent" or head2_lower == "by"):
+    if dep1 in ("nsubjpass", "csubjpass") and (
+        head2_dep == "agent" or head2_lower == "by"
+    ):
         return True
     if head2_dep == "agent" and any(
         getattr(ch, "dep_", "") in ("auxpass", "nsubjpass")
@@ -336,9 +344,7 @@ def _extract_relations_from_sentence(sent, entity_name_to_type, allowed_relation
     without negation; otherwise emits an honest 'MENTIONED_WITH' co-occurrence edge.
     """
     relations = []
-    valid_spans = [
-        ent for ent in sent.ents if ent.text.strip() in entity_name_to_type
-    ]
+    valid_spans = [ent for ent in sent.ents if ent.text.strip() in entity_name_to_type]
 
     if len(valid_spans) < 2:
         return relations
@@ -372,7 +378,11 @@ def _extract_relations_from_sentence(sent, entity_name_to_type, allowed_relation
                 if key not in seen_pairs:
                     seen_pairs.add(key)
                     relations.append(
-                        {"from_entity": subj_ent, "to_entity": obj_ent, "type": matched_fwd}
+                        {
+                            "from_entity": subj_ent,
+                            "to_entity": obj_ent,
+                            "type": matched_fwd,
+                        }
                     )
                 continue
 
@@ -383,7 +393,11 @@ def _extract_relations_from_sentence(sent, entity_name_to_type, allowed_relation
                 if key not in seen_pairs:
                     seen_pairs.add(key)
                     relations.append(
-                        {"from_entity": obj_ent, "to_entity": subj_ent, "type": matched_rev}
+                        {
+                            "from_entity": obj_ent,
+                            "to_entity": subj_ent,
+                            "type": matched_rev,
+                        }
                     )
                 continue
 
@@ -398,6 +412,66 @@ def _extract_relations_from_sentence(sent, entity_name_to_type, allowed_relation
     return relations
 
 
+_SPACY_MODEL_MAP = {
+    "en": "en_core_web_sm",
+    "es": "es_core_news_sm",
+    "fr": "fr_core_news_sm",
+    "de": "de_core_news_sm",
+    "pt": "pt_core_news_sm",
+    "it": "it_core_news_sm",
+    "nl": "nl_core_news_sm",
+    "zh": "zh_core_web_sm",
+    "ja": "ja_core_news_sm",
+    "ko": "ko_core_news_sm",
+    "ru": "ru_core_news_sm",
+    "pl": "pl_core_news_sm",
+    "multi": "xx_ent_wiki_sm",
+    "xx": "xx_ent_wiki_sm",
+}
+
+
+def _load_spacy_model(language: str):
+    """Load the requested spaCy model, falling back to multilingual xx_ent_wiki_sm or blank pipeline."""
+    import spacy
+
+    lang_key = (language or "xx").lower().split("-")[0]
+    candidates = [
+        _SPACY_MODEL_MAP.get(lang_key, "xx_ent_wiki_sm"),
+        "xx_ent_wiki_sm",
+        "en_core_web_sm",
+    ]
+    nlp = None
+    for candidate in dict.fromkeys(candidates):
+        try:
+            nlp = spacy.load(candidate)
+            break
+        except OSError:
+            try:
+                import spacy.cli
+
+                spacy.cli.download(candidate)
+                nlp = spacy.load(candidate)
+                break
+            except Exception as err:
+                logger.warning(
+                    f"Could not load or download spaCy model {candidate}: {err}"
+                )
+
+    if nlp is None:
+        nlp = spacy.blank("xx")
+
+    if (
+        "parser" not in nlp.pipe_names
+        and "senter" not in nlp.pipe_names
+        and "sentencizer" not in nlp.pipe_names
+    ):
+        nlp.add_pipe(
+            "sentencizer",
+            config={"punct_chars": [".", "!", "?", "。", "！", "？", "\n"]},
+        )
+    return nlp
+
+
 def extract_entities_and_relations_fast(
     text: str, schema: dict, language: str = "en", custom_stop_words: list | None = None
 ) -> tuple[list[dict[str, Any]], list[dict[str, str]]]:
@@ -405,26 +479,7 @@ def extract_entities_and_relations_fast(
     Extract entities and relations using spaCy (FastGraphRAG NLP fallback) instead of an LLM.
     This provides ~90/10 ratio extraction speeds, sacrificing deep reasoning for speed.
     """
-    import logging
-
-    import spacy
-
-    model_map = {
-        "en": "en_core_web_sm",
-        "es": "es_core_news_sm",
-        "fr": "fr_core_news_sm",
-        "de": "de_core_news_sm",
-    }
-    model_name = model_map.get(language, "en_core_web_sm")
-
-    try:
-        nlp = spacy.load(model_name)
-    except OSError:
-        logging.info(f"Downloading spaCy model {model_name}...")  # noqa: LOG015
-        import spacy.cli
-
-        spacy.cli.download(model_name)
-        nlp = spacy.load(model_name)
+    nlp = _load_spacy_model(language)
 
     # Add custom stop words
     if custom_stop_words:
@@ -451,6 +506,7 @@ def extract_entities_and_relations_fast(
     allowed_types = set(schema.get("entities", []))
     spacy_to_schema = {
         "PERSON": "Person",
+        "PER": "Person",
         "ORG": "Organization",
         "GPE": "Location",
         "LOC": "Location",
@@ -458,6 +514,7 @@ def extract_entities_and_relations_fast(
         "DATE": "Date",
         "EVENT": "Event",
         "WORK_OF_ART": "Concept",
+        "MISC": "Concept",
     }
 
     # Extract Entities

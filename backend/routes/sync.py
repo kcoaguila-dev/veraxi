@@ -28,9 +28,7 @@ def _require_supabase(get_supabase) -> Client:
     return sb
 
 
-def _require_premium(
-    sb: Client, tenant_id: str, is_enterprise: bool = True
-) -> None:
+def _require_premium(sb: Client, tenant_id: str, is_enterprise: bool = True) -> None:
     """Raise 403 if the tenant does not have an active subscription in enterprise mode.
 
     In self-hosted mode (is_enterprise=False), sync is unrestricted.

@@ -66,7 +66,12 @@ jwks_client = PyJWKClient(jwks_url)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     config = get_config()
-    app.state.redis = await create_pool(RedisSettings.from_dsn(config.redis_url))
+    if config.redis_url.startswith("memory://"):
+        from backend.storage.memory_redis import InMemoryRedisPool
+
+        app.state.redis = InMemoryRedisPool()
+    else:
+        app.state.redis = await create_pool(RedisSettings.from_dsn(config.redis_url))
     yield
     await app.state.redis.close()
 

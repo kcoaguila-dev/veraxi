@@ -13,7 +13,7 @@ print("OUTPUT_JSON:" + json.dumps(data))
 """
     res = execute_python_code(code)
     assert res["exit_code"] == 0
-    assert "OUTPUT_JSON:{\"result\": 12.0, \"items\": [1, 2, 3]}" in res["stdout"]
+    assert 'OUTPUT_JSON:{"result": 12.0, "items": [1, 2, 3]}' in res["stdout"]
     assert res["stderr"] == ""
 
 

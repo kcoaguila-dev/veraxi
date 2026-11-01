@@ -37,10 +37,7 @@ def test_in_text_parenthetical_alias_extraction_across_domains():
     assert "the fed" in {a.lower() for a in alias_map.get("federal reserve", set())}
     assert "tylenol" in {a.lower() for a in alias_map.get("acetaminophen", set())}
     assert "tsmc" in {
-        a.lower()
-        for a in alias_map.get(
-            "taiwan semiconductor manufacturing", set()
-        )
+        a.lower() for a in alias_map.get("taiwan semiconductor manufacturing", set())
     }
 
 
@@ -67,10 +64,7 @@ def test_resolve_entities_multi_domain_via_aliases_and_acronyms():
     assert mapping["The Fed"] == mapping["Federal Reserve"]
     assert mapping["US Central Bank"] == mapping["Federal Reserve"]
     assert mapping["Tylenol"] == mapping["Acetaminophen"]
-    assert (
-        mapping["TSMC"]
-        == mapping["Taiwan Semiconductor Manufacturing Company"]
-    )
+    assert mapping["TSMC"] == mapping["Taiwan Semiconductor Manufacturing Company"]
 
 
 def test_llm_extraction_auto_attaches_parenthetical_aliases():
@@ -94,4 +88,3 @@ def test_llm_extraction_auto_attaches_parenthetical_aliases():
         )
         assert len(entities) == 1
         assert "the Fed" in entities[0].get("aliases", [])
-

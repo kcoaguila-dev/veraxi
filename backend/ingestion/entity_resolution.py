@@ -127,12 +127,16 @@ def is_acronym_match(a: str, b: str) -> bool:
 
     # Case 1: 'a' is the acronym of 'b'
     if len(tokens_a) == 1 and 2 <= len(tokens_a[0]) <= 6:
-        if tokens_a[0] in acronym_candidates(norm_b) or tokens_a[0] in acronym_candidates(stripped_b):
+        if tokens_a[0] in acronym_candidates(norm_b) or tokens_a[
+            0
+        ] in acronym_candidates(stripped_b):
             return True
 
     # Case 2: 'b' is the acronym of 'a'
     if len(tokens_b) == 1 and 2 <= len(tokens_b[0]) <= 6:
-        if tokens_b[0] in acronym_candidates(norm_a) or tokens_b[0] in acronym_candidates(stripped_a):
+        if tokens_b[0] in acronym_candidates(norm_a) or tokens_b[
+            0
+        ] in acronym_candidates(stripped_a):
             return True
 
     return False
@@ -162,16 +166,24 @@ def _find_matching_cluster(
         if c_name.lower() == lower_name:
             return cluster
 
-    from sentence_transformers import util
+    from backend.config import get_config
 
-    name_emb = embed_text(name)
+    threshold = get_config().entity_resolution_threshold
+    name_emb = np.array(embed_text(name), dtype=np.float32)
+    name_norm = np.linalg.norm(name_emb)
+    if name_norm > 0:
+        name_emb = name_emb / name_norm
+
     for cluster in clusters:
         if not cluster:
             continue
         canonical_name = cluster[0].get("name", "")
-        canonical_emb = embed_text(canonical_name)
-        score = util.cos_sim(name_emb, canonical_emb).item()
-        if score >= 0.90:
+        canonical_emb = np.array(embed_text(canonical_name), dtype=np.float32)
+        can_norm = np.linalg.norm(canonical_emb)
+        if can_norm > 0:
+            canonical_emb = canonical_emb / can_norm
+        score = float(np.dot(name_emb, canonical_emb))
+        if score >= threshold:
             return cluster
     return None
 
@@ -218,7 +230,11 @@ def _merge_cluster(cluster: list[dict[str, Any]]) -> dict[str, Any]:
             seen_lower.add(name.lower())
             all_aliases.append(name)
         for alias in ent.get("aliases", []) or []:
-            if isinstance(alias, str) and alias.strip() and alias.strip().lower() not in seen_lower:
+            if (
+                isinstance(alias, str)
+                and alias.strip()
+                and alias.strip().lower() not in seen_lower
+            ):
                 seen_lower.add(alias.strip().lower())
                 all_aliases.append(alias.strip())
 
@@ -305,6 +321,10 @@ def _cluster_entities(group: list[dict[str, Any]]) -> list[list[dict[str, Any]]]
     name_clusters: list[list[str]] = []
     cluster_seed_vectors: list[np.ndarray] = []
 
+    from backend.config import get_config
+
+    threshold = get_config().entity_resolution_threshold
+
     for name in unique_names:
         emb = name_to_emb[name]
         matched = False
@@ -314,7 +334,7 @@ def _cluster_entities(group: list[dict[str, Any]]) -> list[list[dict[str, Any]]]
             scores = np.dot(cluster_mat, emb)
 
             for idx, score in enumerate(scores):
-                if score >= 0.90:
+                if score >= threshold:
                     name_clusters[idx].append(name)
                     matched = True
                     break

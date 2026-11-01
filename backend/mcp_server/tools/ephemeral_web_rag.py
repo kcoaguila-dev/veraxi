@@ -72,10 +72,14 @@ def mcp_ephemeral_web_rag(
     config = get_config()
 
     # Clone schema to ephemeral tenant
-    r = redis.Redis.from_url(config.redis_url)
-    schema_data = r.get(f"tenant:{tenant_id}:schema")
-    if schema_data is not None:
-        r.set(f"tenant:{ephemeral_tenant_id}:schema", schema_data)  # type: ignore[arg-type]
+    if not config.redis_url.startswith("memory://"):
+        try:
+            r = redis.Redis.from_url(config.redis_url)
+            schema_data = r.get(f"tenant:{tenant_id}:schema")
+            if schema_data is not None:
+                r.set(f"tenant:{ephemeral_tenant_id}:schema", schema_data)  # type: ignore[arg-type]
+        except Exception as e:
+            logger.warning(f"Could not clone schema for ephemeral tenant: {e}")
 
     ingestion_results: list[dict] = []
 
@@ -213,7 +217,9 @@ def mcp_ephemeral_web_rag(
                     )
                     g_hits.extend(sub_hits)
             except Exception as e:
-                logger.warning(f"Error resolving entity anchors for ephemeral graph query: {e}")
+                logger.warning(
+                    f"Error resolving entity anchors for ephemeral graph query: {e}"
+                )
             finally:
                 neo4j_client.close()
 
@@ -261,4 +267,3 @@ def mcp_ephemeral_web_rag(
             import sentry_sdk
 
             sentry_sdk.capture_exception(e)
-

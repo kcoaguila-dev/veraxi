@@ -53,7 +53,9 @@ def _verify_stripe_signature(
         raise HTTPException(status_code=400, detail="Invalid signature") from exc
 
 
-def _activate_tenant_subscription(tenant_id: str | None, config: Any, redis: Any) -> None:
+def _activate_tenant_subscription(
+    tenant_id: str | None, config: Any, redis: Any
+) -> None:
     if not tenant_id:
         return
     try:
@@ -90,14 +92,19 @@ def register_payment_routes(
         request: CheckoutSessionRequest, tenant_id: str = Depends(get_tenant_id)
     ) -> dict[str, Any]:
         active_config = get_config()
-        if not getattr(active_config, "is_enterprise", False) or not active_config.stripe_api_key:
+        if (
+            not getattr(active_config, "is_enterprise", False)
+            or not active_config.stripe_api_key
+        ):
             raise HTTPException(
                 status_code=501,
                 detail="Billing is disabled in self-hosted / non-enterprise mode.",
             )
         stripe = _get_stripe()
         stripe.api_key = active_config.stripe_api_key
-        base_url = getattr(active_config, "public_app_url", "http://localhost:3000").rstrip("/")
+        base_url = getattr(
+            active_config, "public_app_url", "http://localhost:3000"
+        ).rstrip("/")
         try:
             unit_amount = 19000 if request.plan == "annual" else 1900
             plan_name = (
@@ -131,7 +138,10 @@ def register_payment_routes(
     async def stripe_webhook(request: Request) -> dict[str, str]:
         """Receives payment success events from Stripe."""
         active_config = get_config()
-        if not getattr(active_config, "is_enterprise", False) or not active_config.stripe_api_key:
+        if (
+            not getattr(active_config, "is_enterprise", False)
+            or not active_config.stripe_api_key
+        ):
             raise HTTPException(
                 status_code=501,
                 detail="Billing webhook is disabled in self-hosted mode.",

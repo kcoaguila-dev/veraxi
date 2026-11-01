@@ -285,3 +285,40 @@ def test_guest_with_api_key_is_allowed(
 
     assert response.status_code == 200
     assert response.json()["answer"] == "Hello from guest"
+
+
+def test_ingest_status_inline_job(client, mock_redis):
+    """Polling /api/admin/ingest/status/{job_id} must return the state stored in inline_job:{job_id} when WORKER_MODE=inline."""
+    mock_redis.get.return_value = (
+        '{"status": "complete", "result": {"status": "success", "chunks_ingested": 3}}'
+    )
+
+    response = client.get("/api/admin/ingest/status/inline-123")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "complete"
+    assert data["result"]["chunks_ingested"] == 3
+    mock_redis.get.assert_called_once_with("inline_job:inline-123")
+
+
+@pytest.mark.asyncio
+async def test_run_inline_ingestion_task_persists_status():
+    """_run_inline_ingestion_task should update inline_job:{job_id} from in_progress to complete."""
+    from backend.routes.ingestion import _run_inline_ingestion_task
+
+    mock_redis = AsyncMock()
+    with patch(
+        "backend.worker.process_ingestion_task",
+        new_callable=AsyncMock,
+        return_value={"status": "success", "chunks_ingested": 5},
+    ):
+        await _run_inline_ingestion_task(mock_redis, "job-abc", "text", "tenant-1")
+
+    assert mock_redis.setex.call_count == 2
+    first_call = mock_redis.setex.call_args_list[0][0]
+    second_call = mock_redis.setex.call_args_list[1][0]
+    assert first_call[0] == "inline_job:job-abc"
+    assert '"in_progress"' in first_call[2]
+    assert second_call[0] == "inline_job:job-abc"
+    assert '"complete"' in second_call[2]
+    assert '"chunks_ingested": 5' in second_call[2]

@@ -70,7 +70,9 @@ def test_fast_extraction_never_hallucinates_schema_relation_on_cooccurrence():
         "Bob did not work at FTX. "
         "Figma was acquired by Adobe."
     )
-    entities, relations = extract_entities_and_relations_fast(text, schema, language="en")
+    entities, relations = extract_entities_and_relations_fast(
+        text, schema, language="en"
+    )
     assert len(entities) >= 3
 
     # Check relation tuples: (from, to, type)
