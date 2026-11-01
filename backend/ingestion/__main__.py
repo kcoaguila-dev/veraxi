@@ -25,6 +25,9 @@ def run_ingestion(
     model: str | None = None,
     chunk_size: int = 200,
     chunk_overlap: int = 50,
+    source: str | None = None,
+    document_id: str | None = None,
+    source_type: str = "document",
 ):
     # 1. Initialize clients
     qdrant = QdrantStorageClient.from_config(config)
@@ -43,7 +46,15 @@ def run_ingestion(
 
     vectors = [item[1] for item in chunks_and_embeddings]
     sparse_vectors = [item[2] for item in chunks_and_embeddings]
-    payloads = [{"text": item[0]} for item in chunks_and_embeddings]
+    payloads = [
+        {
+            "text": item[0],
+            "source": source or "unknown",
+            "document_id": document_id or "default",
+            "source_type": source_type,
+        }
+        for item in chunks_and_embeddings
+    ]
 
     # 3. Write to Qdrant
     qdrant_point_ids_list = qdrant.insert_points(

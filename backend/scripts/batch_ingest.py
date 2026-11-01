@@ -312,6 +312,9 @@ def main():
                 language="en",
                 chunk_size=args.chunk_size,
                 chunk_overlap=args.chunk_overlap,
+                source=filename,
+                document_id=filename,
+                source_type="book",
             )
             logger.info(f"Successfully ingested {filename}: {result}")
         except Exception:
