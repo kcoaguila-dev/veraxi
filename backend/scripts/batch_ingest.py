@@ -30,17 +30,11 @@ def compute_sha256(file_path: str) -> str:
 
 
 def _extract_pdf_pypdf(file_path: str) -> str:
-    """Fast PDF text extraction via pypdf."""
+    """Fast PDF text extraction via pypdf with page markers."""
     try:
-        import pypdf
+        from backend.ingestion.document_parser import extract_pdf_with_pypdf
 
-        reader = pypdf.PdfReader(file_path)
-        pages_text = []
-        for page in reader.pages:
-            t = page.extract_text()
-            if t:
-                pages_text.append(t)
-        return "\n\n".join(pages_text)
+        return extract_pdf_with_pypdf(file_path, include_page_markers=True)
     except Exception as e:
         logger.warning(f"pypdf extraction failed for {file_path}: {e}")
         return ""
