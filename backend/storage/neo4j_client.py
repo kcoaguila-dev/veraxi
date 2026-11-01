@@ -1,4 +1,5 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
+import logging
 import uuid
 from typing import Any
 from unittest.mock import Mock
@@ -6,6 +7,8 @@ from unittest.mock import Mock
 from neo4j import GraphDatabase
 
 from backend import context as byod_context
+
+logger = logging.getLogger(__name__)
 
 
 from backend.ingestion.entity_resolution import (
@@ -24,8 +27,8 @@ def close_all_neo4j_drivers():
     for driver in list(_DRIVER_CACHE.values()):
         try:
             driver.close()
-        except Exception:
-            pass
+        except Exception as err:
+            logger.debug("Failed closing cached Neo4j driver: %s", err)
     _DRIVER_CACHE.clear()
     _ENSURED_LABELS_CACHE.clear()
 
@@ -203,7 +206,7 @@ class Neo4jStorageClient:
         if not rel_type.replace("_", "").isalnum():
             raise ValueError("Relationship type must be alphanumeric/underscores")
 
-        now_iso = datetime.now(timezone.utc).isoformat()
+        now_iso = datetime.now(UTC).isoformat()
         props = (properties or {}).copy()
         props.setdefault("last_confirmed_at", now_iso)
         props.setdefault("active", True)

@@ -25,8 +25,8 @@ def close_all_qdrant_clients():
     for client in list(_CLIENT_CACHE.values()):
         try:
             client.close()
-        except Exception:
-            pass
+        except Exception as err:
+            logger.debug("Failed closing cached Qdrant client: %s", err)
     _CLIENT_CACHE.clear()
     _INITIALIZED_COLLECTIONS.clear()
 
@@ -91,8 +91,8 @@ class QdrantStorageClient:
         if force or not getattr(self, "_is_pooled", False):
             try:
                 self.client.close()
-            except Exception:
-                pass
+            except Exception as err:
+                logger.debug("Failed closing Qdrant client: %s", err)
 
     def create_collection(
         self,

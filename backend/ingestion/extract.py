@@ -330,13 +330,11 @@ def _is_passive_reversed(tok1: Any, tok2: Any, path_tokens: list[Any]) -> bool:
         head2_dep == "agent" or head2_lower == "by"
     ):
         return True
-    if head2_dep == "agent" and any(
+    return head2_dep == "agent" and any(
         getattr(ch, "dep_", "") in ("auxpass", "nsubjpass")
         for t in path_tokens
         for ch in getattr(t, "children", [])
-    ):
-        return True
-    return False
+    )
 
 
 def _extract_relations_from_sentence(sent, entity_name_to_type, allowed_relations):

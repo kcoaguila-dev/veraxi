@@ -25,12 +25,14 @@ def _chunk_plain_segment(
     text_len = len(text)
     while start < text_len:
         end = start + chunk_size
-        if end < text_len:
-            # Check if slicing in middle of word
-            if not text[end].isspace() and not text[end - 1].isspace():
-                split_at = text.rfind(" ", start + overlap + 1, end)
-                if split_at > start + overlap:
-                    end = split_at
+        if (
+            end < text_len
+            and not text[end].isspace()
+            and not text[end - 1].isspace()
+        ):
+            split_at = text.rfind(" ", start + overlap + 1, end)
+            if split_at > start + overlap:
+                end = split_at
         chunk = text[start:end]
         chunks.append(chunk)
         if end >= text_len:
