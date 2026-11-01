@@ -78,3 +78,42 @@ async def test_fish_audio_adds_model_header_for_free_tier():
         assert "model" not in payload, (
             "The 'model' parameter must be passed in the headers, not the JSON payload"
         )
+
+
+def test_tts_blocks_ssrf_metadata_url():
+    # Attempting to query cloud metadata via custom TTS URL must return 400
+    response = client.post(
+        "/api/chat/audio/fish",
+        headers={
+            "x-fish-speech-url": "http://169.254.169.254/latest/meta-data/",
+            "x-fish-audio-key": "test_key",
+        },
+        json={"text": "SSRF test"},
+    )
+    assert response.status_code == 400
+    assert "Disallowed TTS endpoint URL" in response.json()["detail"]
+
+    response_voices = client.get(
+        "/api/voices",
+        params={"gpt_sovits_url": "http://169.254.169.254/endpoint"},
+    )
+    assert response_voices.status_code == 400
+    assert "Disallowed TTS endpoint URL" in response_voices.json()["detail"]
+
+
+def test_get_audio_resolves_hashed_cache_file(tmp_path):
+    import os
+    from pathlib import Path
+
+    tts_cache = Path(__file__).parent.parent / "tts" / "cache"
+    tts_cache.mkdir(parents=True, exist_ok=True)
+    msg_id = "test-msg-hash-lookup"
+    cache_file = tts_cache / f"{msg_id}_fakehash123.wav"
+    try:
+        cache_file.write_bytes(b"cached audio wav payload")
+        response = client.get(f"/api/chat/audio/{msg_id}")
+        assert response.status_code == 200
+        assert response.content == b"cached audio wav payload"
+    finally:
+        if cache_file.exists():
+            os.remove(cache_file)

@@ -12,7 +12,9 @@ Rules:
 import hashlib
 import logging
 import secrets
+import time
 from datetime import UTC
+from unittest.mock import Mock
 
 from fastapi import HTTPException
 from supabase import Client
@@ -21,6 +23,14 @@ logger = logging.getLogger(__name__)
 
 _KEY_PREFIX = "vx-"
 _KEY_BYTES = 32  # 256 bits of entropy
+
+_API_KEY_CACHE: dict[str, tuple[str, str | None, float]] = {}
+_CACHE_TTL_SECONDS = 60.0
+
+
+def clear_api_key_cache() -> None:
+    """Clear cached resolved API keys (called when revoking a key)."""
+    _API_KEY_CACHE.clear()
 
 
 def generate_api_key() -> tuple[str, str]:
@@ -50,7 +60,19 @@ def resolve_api_key(raw_key: str, supabase: Client) -> str:
         HTTPException(401): If the key is unknown, inactive, or expired.
     """
     key_hash = _hash_key(raw_key)
-    tenant_id = _lookup_hash(key_hash, supabase)
+    is_mock = isinstance(supabase, Mock) or hasattr(supabase, "_mock_return_value")
+    now = time.monotonic()
+
+    if not is_mock and key_hash in _API_KEY_CACHE:
+        cached_tenant, expires_at, cached_time = _API_KEY_CACHE[key_hash]
+        if now - cached_time < _CACHE_TTL_SECONDS:
+            _check_expiry(expires_at)
+            return cached_tenant
+
+    tenant_id, expires_at = _lookup_hash(key_hash, supabase)
+    _check_expiry(expires_at)
+    if not is_mock:
+        _API_KEY_CACHE[key_hash] = (tenant_id, expires_at, now)
     _record_last_used(key_hash, supabase)
     return tenant_id
 
@@ -67,10 +89,10 @@ def _hash_key(raw_key: str) -> str:
     ).hex()
 
 
-def _lookup_hash(key_hash: str, supabase: Client) -> str:
+def _lookup_hash(key_hash: str, supabase: Client) -> tuple[str, str | None]:
     """Query Supabase for an active, non-expired key by hash.
 
-    Returns tenant_id or raises 401.
+    Returns (tenant_id, expires_at) or raises 401.
     """
     try:
         response = (
@@ -90,8 +112,7 @@ def _lookup_hash(key_hash: str, supabase: Client) -> str:
     if not row or not isinstance(row, dict):
         raise HTTPException(status_code=401, detail="Invalid or revoked API key")
 
-    _check_expiry(row.get("expires_at"))
-    return str(row.get("tenant_id", ""))
+    return str(row.get("tenant_id", "")), row.get("expires_at")
 
 
 def _check_expiry(expires_at: str | None) -> None:

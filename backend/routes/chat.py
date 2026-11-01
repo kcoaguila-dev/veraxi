@@ -12,6 +12,7 @@ import sentry_sdk
 from backend.mcp_server.llm_loop import (
     answer_question,
     generate_chat_title,
+    setup_postgres_checkpointer_once,
     stream_answer_question,
 )
 from backend.mcp_server.orchestrator import _get_workflow
@@ -271,6 +272,36 @@ async def notify_sync_event(
         logger.error(f"Failed to publish sync event: {e}")
 
 
+async def _delete_postgres_checkpoints(thread_ids: list[str]) -> None:
+    if not thread_ids:
+        return
+    try:
+        from backend.config import get_config as _get_config
+
+        config_obj = _get_config()
+        if not config_obj.postgres_url:
+            return
+        import psycopg
+
+        async with await psycopg.AsyncConnection.connect(
+            config_obj.postgres_url
+        ) as conn:
+            await conn.execute(
+                "DELETE FROM checkpoints WHERE thread_id = ANY(%s)", (thread_ids,)
+            )
+            await conn.execute(
+                "DELETE FROM checkpoint_writes WHERE thread_id = ANY(%s)", (thread_ids,)
+            )
+            await conn.execute(
+                "DELETE FROM checkpoint_blobs WHERE thread_id = ANY(%s)", (thread_ids,)
+            )
+            await conn.commit()
+    except Exception as e:
+        logger.debug(
+            f"Failed to delete Postgres checkpoints for threads {thread_ids}: {e}"
+        )
+
+
 def register_chat_routes(
     app_router, get_tenant_id, verify_infrastructure_access, limiter, config
 ):
@@ -328,7 +359,7 @@ def register_chat_routes(
         async with AsyncPostgresSaver.from_conn_string(
             config_obj.postgres_url
         ) as memory:
-            await memory.setup()
+            await setup_postgres_checkpointer_once(memory, config_obj.postgres_url)
             workflow = _get_workflow()
             app = workflow.compile(checkpointer=memory)
             for thread in payload.threads:
@@ -520,23 +551,20 @@ def register_chat_routes(
         if tenant_id == "local_guest":
             return {"threads": []}
         try:
-            threads = await request.app.state.redis.smembers(
-                f"tenant:{tenant_id}:threads"
-            )
-            titles = await request.app.state.redis.hgetall(
-                f"tenant:{tenant_id}:thread_titles"
-            )
-            pinned = await request.app.state.redis.smembers(
-                f"tenant:{tenant_id}:pinned_threads"
-            )
-            archived = await request.app.state.redis.smembers(
-                f"tenant:{tenant_id}:archived_threads"
-            )
-            projects = await request.app.state.redis.hgetall(
-                f"tenant:{tenant_id}:thread_projects"
-            )
-            timestamps = await request.app.state.redis.hgetall(
-                f"tenant:{tenant_id}:thread_timestamps"
+            (
+                threads,
+                titles,
+                pinned,
+                archived,
+                projects,
+                timestamps,
+            ) = await asyncio.gather(
+                request.app.state.redis.smembers(f"tenant:{tenant_id}:threads"),
+                request.app.state.redis.hgetall(f"tenant:{tenant_id}:thread_titles"),
+                request.app.state.redis.smembers(f"tenant:{tenant_id}:pinned_threads"),
+                request.app.state.redis.smembers(f"tenant:{tenant_id}:archived_threads"),
+                request.app.state.redis.hgetall(f"tenant:{tenant_id}:thread_projects"),
+                request.app.state.redis.hgetall(f"tenant:{tenant_id}:thread_timestamps"),
             )
             return {
                 "threads": _build_thread_list(
@@ -582,7 +610,7 @@ def register_chat_routes(
             async with AsyncPostgresSaver.from_conn_string(
                 config_obj.postgres_url
             ) as memory:
-                await memory.setup()
+                await setup_postgres_checkpointer_once(memory, config_obj.postgres_url)
                 state = await memory.aget_tuple(
                     {"configurable": {"thread_id": thread_id}}
                 )
@@ -639,7 +667,7 @@ def register_chat_routes(
                 async with AsyncPostgresSaver.from_conn_string(
                     config_obj.postgres_url
                 ) as memory:
-                    await memory.setup()
+                    await setup_postgres_checkpointer_once(memory, config_obj.postgres_url)
                     state = await memory.aget_tuple(
                         {"configurable": {"thread_id": thread_id}}
                     )
@@ -741,11 +769,31 @@ def register_chat_routes(
         tenant_id: str = Depends(get_tenant_id),
     ):
         try:
+            if tenant_id != "local_guest":
+                is_owner = await request.app.state.redis.sismember(
+                    f"tenant:{tenant_id}:threads", payload.thread_id
+                )
+                if not is_owner:
+                    raise HTTPException(status_code=404, detail="Thread not found")
+
             from backend.config import get_config as _get_config
             from langgraph.checkpoint.redis.aio import AsyncRedisSaver
 
             config_obj = _get_config()
-            async with AsyncRedisSaver.from_conn_string(config_obj.redis_url) as memory:
+            if config_obj.postgres_url:
+                from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+
+                saver_ctx = AsyncPostgresSaver.from_conn_string(config_obj.postgres_url)
+            else:
+                from langgraph.checkpoint.redis.aio import AsyncRedisSaver
+
+                saver_ctx = AsyncRedisSaver.from_conn_string(config_obj.redis_url)
+
+            async with saver_ctx as memory:
+                if config_obj.postgres_url:
+                    await setup_postgres_checkpointer_once(
+                        memory, config_obj.postgres_url
+                    )
                 state = await memory.aget_tuple(
                     {"configurable": {"thread_id": payload.thread_id}}
                 )
@@ -798,6 +846,12 @@ def register_chat_routes(
         request: Request,
         tenant_id: str = Depends(get_tenant_id),
     ):
+        if tenant_id != "local_guest":
+            is_owner = await request.app.state.redis.sismember(
+                f"tenant:{tenant_id}:threads", thread_id
+            )
+            if not is_owner:
+                raise HTTPException(status_code=404, detail="Thread not found")
         await request.app.state.redis.hset(
             f"tenant:{tenant_id}:thread_titles", thread_id, payload.title
         )
@@ -807,6 +861,12 @@ def register_chat_routes(
     async def toggle_pin_thread(
         thread_id: str, request: Request, tenant_id: str = Depends(get_tenant_id)
     ):
+        if tenant_id != "local_guest":
+            is_owner = await request.app.state.redis.sismember(
+                f"tenant:{tenant_id}:threads", thread_id
+            )
+            if not is_owner:
+                raise HTTPException(status_code=404, detail="Thread not found")
         is_pinned = await request.app.state.redis.sismember(
             f"tenant:{tenant_id}:pinned_threads", thread_id
         )
@@ -824,6 +884,12 @@ def register_chat_routes(
     async def toggle_archive_thread(
         thread_id: str, request: Request, tenant_id: str = Depends(get_tenant_id)
     ):
+        if tenant_id != "local_guest":
+            is_owner = await request.app.state.redis.sismember(
+                f"tenant:{tenant_id}:threads", thread_id
+            )
+            if not is_owner:
+                raise HTTPException(status_code=404, detail="Thread not found")
         is_archived = await request.app.state.redis.sismember(
             f"tenant:{tenant_id}:archived_threads", thread_id
         )
@@ -841,30 +907,36 @@ def register_chat_routes(
     async def delete_thread(
         thread_id: str, request: Request, tenant_id: str = Depends(get_tenant_id)
     ):
-        await request.app.state.redis.srem(f"tenant:{tenant_id}:threads", thread_id)
-        await request.app.state.redis.hdel(
-            f"tenant:{tenant_id}:thread_titles", thread_id
+        await asyncio.gather(
+            request.app.state.redis.srem(f"tenant:{tenant_id}:threads", thread_id),
+            request.app.state.redis.hdel(f"tenant:{tenant_id}:thread_titles", thread_id),
+            request.app.state.redis.srem(f"tenant:{tenant_id}:pinned_threads", thread_id),
+            request.app.state.redis.srem(f"tenant:{tenant_id}:archived_threads", thread_id),
+            request.app.state.redis.hdel(f"tenant:{tenant_id}:thread_projects", thread_id),
+            request.app.state.redis.hdel(f"tenant:{tenant_id}:thread_timestamps", thread_id),
         )
-        await request.app.state.redis.srem(
-            f"tenant:{tenant_id}:pinned_threads", thread_id
-        )
-        await request.app.state.redis.srem(
-            f"tenant:{tenant_id}:archived_threads", thread_id
-        )
-        await request.app.state.redis.hdel(
-            f"tenant:{tenant_id}:thread_projects", thread_id
-        )
+        await _delete_postgres_checkpoints([thread_id])
         return {"status": "deleted"}
 
     @app_router.delete("/api/chat/threads")
     async def delete_all_threads(
         request: Request, tenant_id: str = Depends(get_tenant_id)
     ):
-        await request.app.state.redis.delete(f"tenant:{tenant_id}:threads")
-        await request.app.state.redis.delete(f"tenant:{tenant_id}:thread_titles")
-        await request.app.state.redis.delete(f"tenant:{tenant_id}:pinned_threads")
-        await request.app.state.redis.delete(f"tenant:{tenant_id}:archived_threads")
-        await request.app.state.redis.delete(f"tenant:{tenant_id}:thread_projects")
+        threads = await request.app.state.redis.smembers(f"tenant:{tenant_id}:threads")
+        tids = [
+            t.decode("utf-8") if isinstance(t, bytes) else str(t)
+            for t in (threads or [])
+        ]
+        await asyncio.gather(
+            request.app.state.redis.delete(f"tenant:{tenant_id}:threads"),
+            request.app.state.redis.delete(f"tenant:{tenant_id}:thread_titles"),
+            request.app.state.redis.delete(f"tenant:{tenant_id}:pinned_threads"),
+            request.app.state.redis.delete(f"tenant:{tenant_id}:archived_threads"),
+            request.app.state.redis.delete(f"tenant:{tenant_id}:thread_projects"),
+            request.app.state.redis.delete(f"tenant:{tenant_id}:thread_timestamps"),
+        )
+        if tids:
+            await _delete_postgres_checkpoints(tids)
         return {"status": "all_deleted"}
 
     @app_router.post("/api/chat/threads/{thread_id}/duplicate")
@@ -875,6 +947,14 @@ def register_chat_routes(
 
         if tenant_id == "local_guest":
             return {"status": "ok", "new_thread_id": new_thread_id}
+
+        is_owner = await request.app.state.redis.sismember(
+            f"tenant:{tenant_id}:threads", thread_id
+        )
+        if not is_owner:
+            raise HTTPException(
+                status_code=403, detail="Thread not found or access denied."
+            )
 
         titles = await request.app.state.redis.hgetall(
             f"tenant:{tenant_id}:thread_titles"
@@ -897,7 +977,7 @@ def register_chat_routes(
                 async with AsyncPostgresSaver.from_conn_string(
                     config_obj.postgres_url
                 ) as memory:
-                    await memory.setup()
+                    await setup_postgres_checkpointer_once(memory, config_obj.postgres_url)
                     state = await memory.aget_tuple(
                         {"configurable": {"thread_id": thread_id}}
                     )

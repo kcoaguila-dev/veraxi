@@ -1,9 +1,11 @@
 """File attachment endpoints — upload, list, delete."""
 
+import asyncio
 import json
 import logging
 import os
 import uuid
+from pathlib import Path
 
 import magic
 import sentry_sdk
@@ -12,6 +14,8 @@ from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api", tags=["files"])
+
+MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024  # 25 MB
 
 
 from backend.ingestion.document_parser import (
@@ -35,9 +39,23 @@ def register_file_routes(
             file_id = str(uuid.uuid4())
             _, file_extension = os.path.splitext(file.filename or "")
             file_path = os.path.join("uploads", f"{file_id}{file_extension}")
-            content = await file.read()
-            with open(file_path, "wb") as f:  # noqa: ASYNC230
-                f.write(content)
+
+            chunks = []
+            total_size = 0
+            while True:
+                chunk = await file.read(1024 * 1024)
+                if not chunk:
+                    break
+                total_size += len(chunk)
+                if total_size > MAX_ATTACHMENT_BYTES:
+                    raise HTTPException(
+                        status_code=413,
+                        detail=f"File too large (max {MAX_ATTACHMENT_BYTES // (1024 * 1024)}MB)",
+                    )
+                chunks.append(chunk)
+            content = b"".join(chunks)
+
+            await asyncio.to_thread(Path(file_path).write_bytes, content)
             file_size = len(content)
             import time
 
@@ -51,8 +69,9 @@ def register_file_routes(
             await request.app.state.redis.hset(
                 f"tenant:{tenant_id}:files", file_id, json.dumps(file_metadata)
             )
-            mime_type = magic.from_file(file_path, mime=True)
-            extracted_text = _extract_attachment_text(
+            mime_type = await asyncio.to_thread(magic.from_file, file_path, mime=True)
+            extracted_text = await asyncio.to_thread(
+                _extract_attachment_text,
                 file_path,
                 file.filename,
                 content,
@@ -60,6 +79,8 @@ def register_file_routes(
                 parser=config.document_parser,
             )
             return {"text": extracted_text, "file_id": file_id}
+        except HTTPException:
+            raise
         except Exception as e:
             sentry_sdk.capture_exception(e)
             logger.error(f"Error uploading attachment: {e}")
@@ -90,8 +111,14 @@ def register_file_routes(
             )
             if file_meta_raw:
                 file_meta = json.loads(file_meta_raw.decode("utf-8"))
-                if "path" in file_meta and os.path.exists(file_meta["path"]):
-                    os.remove(file_meta["path"])
+                target_path = file_meta.get("path")
+                if target_path:
+                    abs_target = os.path.abspath(target_path)
+                    uploads_dir = os.path.abspath("uploads")
+                    if abs_target.startswith(uploads_dir + os.sep) and os.path.exists(
+                        abs_target
+                    ):
+                        await asyncio.to_thread(os.remove, abs_target)
                 await request.app.state.redis.hdel(f"tenant:{tenant_id}:files", file_id)
             return {"success": True}
         except Exception as e:

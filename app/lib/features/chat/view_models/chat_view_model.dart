@@ -5,196 +5,14 @@ import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:just_audio/just_audio.dart';
 import 'package:veraxi_app/core/api_key_storage.dart';
-import 'package:veraxi_app/core/tts_settings_storage.dart';
-import 'package:veraxi_app/core/web_speech_service.dart';
 import 'package:veraxi_app/core/network/api_client.dart';
 import 'package:veraxi_app/core/network/tts_repository.dart';
 import 'package:veraxi_app/features/chat/data/chat_repository.dart';
 import 'package:veraxi_app/features/chat/data/local_chat_migration_service.dart';
 import 'package:veraxi_app/core/repositories/memory_repository.dart';
-import 'package:veraxi_app/features/chat/view_models/model_download_provider.dart';
-
-class ToolEvent {
-  final String id;
-  final String name;
-  final Map<String, dynamic> args;
-  final dynamic result;
-  final bool isComplete;
-  final int? durationMs;
-  final String? summary;
-
-  ToolEvent({
-    required this.id,
-    required this.name,
-    this.args = const {},
-    this.result,
-    this.isComplete = false,
-    this.durationMs,
-    this.summary,
-  });
-
-  ToolEvent copyWith({
-    String? id,
-    String? name,
-    Map<String, dynamic>? args,
-    dynamic result,
-    bool? isComplete,
-    int? durationMs,
-    String? summary,
-  }) {
-    return ToolEvent(
-      id: id ?? this.id,
-      name: name ?? this.name,
-      args: args ?? this.args,
-      result: result ?? this.result,
-      isComplete: isComplete ?? this.isComplete,
-      durationMs: durationMs ?? this.durationMs,
-      summary: summary ?? this.summary,
-    );
-  }
-}
-
-class ChatMessage {
-  final String? id;
-  final String role; // 'user' or 'assistant'
-  final String content;
-  final bool isStreaming;
-  final String? activeTool; // E.g. "Step 1: Searching Neo4j..."
-  final String? reasoning; // Collapsible chain of thought / reasoning trace
-  final double? reasoningDurationSeconds; // E.g. "Thought for 4.2s"
-  final List<ToolEvent> toolEvents;
-  final bool isError;
-  final int feedback; // 1 (up), -1 (down), 0 (none)
-  final String? modelName; // Store the AI model that generated this message
-  final Map<String, dynamic>? metrics;
-
-  ChatMessage({
-    this.id,
-    required this.role,
-    required this.content,
-    this.isStreaming = false,
-    this.activeTool,
-    this.reasoning,
-    this.reasoningDurationSeconds,
-    this.toolEvents = const [],
-    this.isError = false,
-    this.feedback = 0,
-    this.modelName,
-    this.metrics,
-  });
-
-  bool get isUser => role == 'user';
-  String get text => content;
-
-  ChatMessage copyWith(
-      {String? id,
-      String? content,
-      bool? isStreaming,
-      String? activeTool,
-      String? reasoning,
-      double? reasoningDurationSeconds,
-      List<ToolEvent>? toolEvents,
-      bool? isError,
-      int? feedback,
-      String? modelName,
-      Map<String, dynamic>? metrics}) {
-    return ChatMessage(
-      id: id ?? this.id,
-      role: role,
-      content: content ?? this.content,
-      isStreaming: isStreaming ?? this.isStreaming,
-      activeTool: activeTool, // allow null to clear tool
-      reasoning: reasoning ?? this.reasoning,
-      reasoningDurationSeconds:
-          reasoningDurationSeconds ?? this.reasoningDurationSeconds,
-      toolEvents: toolEvents ?? this.toolEvents,
-      isError: isError ?? this.isError,
-      feedback: feedback ?? this.feedback,
-      modelName: modelName ?? this.modelName,
-      metrics: metrics ?? this.metrics,
-    );
-  }
-}
-
-class ChatState {
-  final String? threadId;
-  final List<ChatMessage> messages;
-  final List<Map<String, dynamic>> pastThreads;
-  final bool isLoadingHistory;
-  final bool isLoadingThreads;
-  final bool isLoading;
-  final bool isTemporary;
-  final bool showTelemetry;
-  final String? error;
-  final String? currentlyPlayingMessageId;
-  final String? activeProjectId;
-  final String? activeProjectName;
-  final bool showProjectDashboard;
-  final bool showAllProjectsDashboard;
-
-  ChatState({
-    this.threadId,
-    this.messages = const [],
-    this.pastThreads = const [],
-    this.isLoadingHistory = false,
-    this.isLoadingThreads = false,
-    this.isLoading = false,
-    this.isTemporary = false,
-    this.showTelemetry = false,
-    this.error,
-    this.currentlyPlayingMessageId,
-    this.activeProjectId,
-    this.activeProjectName,
-    this.showProjectDashboard = false,
-    this.showAllProjectsDashboard = false,
-  });
-
-  ChatState copyWith({
-    String? threadId,
-    bool clearThreadId = false,
-    List<ChatMessage>? messages,
-    List<Map<String, dynamic>>? pastThreads,
-    bool? isLoadingHistory,
-    bool? isLoadingThreads,
-    bool? isLoading,
-    bool? isTemporary,
-    bool? showTelemetry,
-    String? error,
-    bool clearError = false,
-    String? currentlyPlayingMessageId,
-    bool clearPlayingId = false,
-    String? activeProjectId,
-    bool clearActiveProject = false,
-    String? activeProjectName,
-    bool? showProjectDashboard,
-    bool? showAllProjectsDashboard,
-  }) {
-    return ChatState(
-      threadId: clearThreadId ? null : (threadId ?? this.threadId),
-      messages: messages ?? this.messages,
-      pastThreads: pastThreads ?? this.pastThreads,
-      isLoadingHistory: isLoadingHistory ?? this.isLoadingHistory,
-      isLoadingThreads: isLoadingThreads ?? this.isLoadingThreads,
-      isLoading: isLoading ?? this.isLoading,
-      isTemporary: isTemporary ?? this.isTemporary,
-      showTelemetry: showTelemetry ?? this.showTelemetry,
-      error: clearError ? null : (error ?? this.error),
-      currentlyPlayingMessageId: clearPlayingId
-          ? null
-          : (currentlyPlayingMessageId ?? this.currentlyPlayingMessageId),
-      activeProjectId:
-          clearActiveProject ? null : (activeProjectId ?? this.activeProjectId),
-      activeProjectName: clearActiveProject
-          ? null
-          : (activeProjectName ?? this.activeProjectName),
-      showProjectDashboard: showProjectDashboard ?? this.showProjectDashboard,
-      showAllProjectsDashboard:
-          showAllProjectsDashboard ?? this.showAllProjectsDashboard,
-    );
-  }
-}
+export 'chat_state.dart';
+import 'package:veraxi_app/features/chat/view_models/chat_state.dart';
 
 final chatViewModelProvider =
     StateNotifierProvider<ChatViewModel, ChatState>((ref) {
@@ -207,169 +25,21 @@ final chatViewModelProvider =
   return ChatViewModel(repo, ttsRepo, memoryRepo, migrationService);
 });
 
-final providerModelsProvider = Provider<Map<String, List<String>>>((ref) {
-  final localModelsAsync = ref.watch(localGgufModelsProvider);
-  final localModels = localModelsAsync.valueOrNull ?? [];
-
-  return {
-    'openai': [
-      'gpt-5.5',
-      'gpt-5.5-pro',
-      'gpt-5.4',
-      'gpt-5.4-pro',
-      'gpt-5.4-mini',
-      'gpt-5.4-nano',
-      'gpt-5.3-codex',
-      'gpt-5.2',
-      'gpt-5.2-chat',
-      'gpt-5.2-pro',
-      'gpt-5.1',
-      'gpt-5.1-chat-latest',
-      'gpt-5',
-      'gpt-5-chat-latest',
-      'gpt-5-mini',
-      'o3-mini',
-      'o1-pro',
-      'o1',
-      'o1-mini',
-      'o1-preview',
-      'gpt-4o',
-      'gpt-4o-mini',
-      'gpt-4-turbo',
-      'gpt-4-turbo-preview',
-      'gpt-4-0125-preview',
-      'gpt-4-1106-preview',
-      'gpt-4-1106-vision-preview',
-      'gpt-4',
-      'gpt-4-0613',
-      'gpt-4-0314',
-      'gpt-4-32k',
-      'gpt-4-32k-0314',
-      'gpt-3.5-turbo',
-      'gpt-3.5-turbo-0125',
-      'gpt-3.5-turbo-1106',
-      'gpt-3.5-turbo-0613',
-      'gpt-3.5-turbo-16k',
-      'gpt-3.5-turbo-16k-0613',
-      'gpt-3.5-0301',
-      'gpt-3.5-turbo-instruct',
-      'davinci-002',
-      'babbage-002'
-    ],
-    'anthropic': [
-      'claude-fable-5',
-      'claude-opus-5',
-      'claude-opus-4-8',
-      'claude-opus-4-7',
-      'claude-sonnet-5',
-      'claude-sonnet-4-6',
-      'claude-opus-4-6',
-      'claude-opus-4-20250514',
-      'claude-3-7-sonnet-20250219',
-      'claude-3-5-sonnet-latest',
-      'claude-3-5-sonnet-20241022',
-      'claude-3-5-haiku-latest',
-      'claude-3-5-haiku-20241022',
-      'claude-3-opus-20240229',
-      'claude-3-sonnet-20240229',
-      'claude-3-haiku-20240307'
-    ],
-    'deepseek': [
-      'deepseek-chat',
-      'deepseek-coder',
-      'deepseek-reasoner',
-      'deepseek-r1'
-    ],
-    'kimi': [
-      'moonshot-v1-8k',
-      'moonshot-v1-32k',
-      'moonshot-v1-128k',
-      'moonshot-v1-auto'
-    ],
-    'google': [
-      'gemini-3.6-flash',
-      'gemini-3.5-flash',
-      'gemini-3.5-flash-lite',
-      'gemini-3.1-pro-preview',
-      'gemini-3.1-pro-preview-customtools',
-      'gemini-3.1-flash-lite-preview',
-      'gemini-3-pro-preview',
-      'gemini-3-flash-preview',
-      'gemini-2.5-pro',
-      'gemini-2.5-flash',
-      'gemini-2.5-flash-lite'
-    ],
-    'mistral': [
-      'codestral-2405',
-      'codestral-2411-rc5',
-      'codestral-2412',
-      'codestral-2501',
-      'codestral-latest',
-      'codestral-mamba-2407',
-      'codestral-mamba-latest',
-      'devstral-small-2505',
-      'devstral-small-latest',
-      'ministral-3b-2410',
-      'ministral-3b-latest',
-      'ministral-8b-2410',
-      'ministral-8b-latest',
-      'mistral-embed',
-      'mistral-large-2402',
-      'mistral-large-2407',
-      'mistral-large-latest',
-      'mistral-medium',
-      'mistral-medium-2312',
-      'mistral-medium-latest',
-      'mistral-small',
-      'mistral-small-2312',
-      'mistral-small-2402',
-      'mistral-small-2409',
-      'mistral-small-latest',
-      'mistral-tiny',
-      'pixtral-12b-2409',
-      'pixtral-12b-latest',
-      'pixtral-large-2411',
-      'pixtral-large-latest'
-    ],
-    'groq': [
-      'allam-2-7b',
-      'canopylabs/orpheus-arabic-saudi',
-      'canopylabs/orpheus-v1-english',
-      'groq/compound',
-      'groq/compound-mini',
-      'llama-3.1-8b-instant',
-      'llama-3.3-70b-versatile',
-      'meta-llama/llama-prompt-guard-2-22m',
-      'meta-llama/llama-prompt-guard-2-86m',
-      'openai/gpt-oss-120b',
-      'qwen/qwen3.6-27b'
-    ],
-    'local': localModels,
-  };
-});
-
 class ChatViewModel extends StateNotifier<ChatState> {
   @visibleForTesting
   void setStateForTesting(ChatState s) => state = s;
 
   final IChatRepository _repository;
-  final TTSRepository _ttsRepository;
   final MemoryRepository _memoryRepository;
   final LocalChatMigrationService? _localChatMigrationService;
-  final AudioPlayer _audioPlayer = AudioPlayer();
   DateTime? _currentRequestStartTime;
   StreamSubscription<AuthState>? _authSubscription;
   StreamSubscription<Map<String, dynamic>>? _syncSubscription;
 
-  ChatViewModel(this._repository, this._ttsRepository, this._memoryRepository,
+  ChatViewModel(this._repository, TTSRepository? _, this._memoryRepository,
       [this._localChatMigrationService])
       : super(ChatState()) {
     _init();
-    _audioPlayer.playerStateStream.listen((playerState) {
-      if (playerState.processingState == ProcessingState.completed) {
-        state = state.copyWith(clearPlayingId: true);
-      }
-    });
 
     // Listen to Auth State changes to reload threads if they failed initially
     // (e.g., due to an expired token on app startup that was just refreshed)
@@ -435,8 +105,14 @@ class ChatViewModel extends StateNotifier<ChatState> {
   }
 
   Future<void> _migrateLocalChats() async {
+    Session? session;
     try {
-      if (Supabase.instance.client.auth.currentSession == null) return;
+      session = Supabase.instance.client.auth.currentSession;
+    } catch (_) {
+      return;
+    }
+    if (session == null) return;
+    try {
       await _localChatMigrationService?.migrate();
     } catch (error, stackTrace) {
       Sentry.captureException(error, stackTrace: stackTrace);
@@ -457,7 +133,6 @@ class ChatViewModel extends StateNotifier<ChatState> {
   void dispose() {
     _authSubscription?.cancel();
     _syncSubscription?.cancel();
-    _audioPlayer.dispose();
     super.dispose();
   }
 
@@ -987,7 +662,7 @@ class ChatViewModel extends StateNotifier<ChatState> {
       bool? isError,
       Map<String, dynamic>? metrics}) {
     if (state.messages.isEmpty) return;
-    final msgs = List<ChatMessage>.from(state.messages);
+    final msgs = List<ChatMessage>.of(state.messages, growable: false);
     final last = msgs.last;
 
     msgs[msgs.length - 1] = ChatMessage(
@@ -1083,120 +758,6 @@ class ChatViewModel extends StateNotifier<ChatState> {
     }
   }
 
-  /// Speaks [text] aloud.
-  ///
-  /// Uses GPT-SoVITS via backend if a custom voice is selected.
-  /// Falls back to the browser's built-in Web Speech API otherwise.
-  Future<void> playAudio(String text, {required String messageId}) async {
-    try {
-      final wasPlayingSameMessage =
-          state.currentlyPlayingMessageId == messageId;
-
-      // Check if we are already playing something via just_audio
-      if (_audioPlayer.playing) {
-        await _audioPlayer.stop();
-      }
-
-      if (WebSpeechService.instance.isSpeaking) {
-        WebSpeechService.instance.stop();
-      }
-
-      // If neither was actually reporting as "playing" to the view model (e.g. mock test environments),
-      // we still need to respect the toggle behavior conceptually if the IDs match
-      if (wasPlayingSameMessage) {
-        state = state.copyWith(clearPlayingId: true);
-        return; // True toggle off
-      }
-
-      state = state.copyWith(currentlyPlayingMessageId: messageId);
-
-      final storage = TTSSettingsStorage();
-      final engine = await storage.getEngine() ?? 'Browser';
-      String voiceId = await storage.getVoiceId() ?? 'default_system';
-      final gptSovitsUrl =
-          await storage.getGptSovitsUrl() ?? 'http://localhost:9880';
-
-      if (engine == 'GPT-SoVITS') {
-        if (voiceId == 'default_system') {
-          // Auto-fix corrupted state if user never opened settings menu
-          try {
-            final voices =
-                await _ttsRepository.getVoices(gptSovitsUrl: gptSovitsUrl);
-            final customVoices =
-                voices.where((v) => v['id'] != 'default_system').toList();
-            if (customVoices.isNotEmpty) {
-              voiceId = customVoices.first['id'] as String;
-              await storage.saveVoiceId(voiceId);
-            }
-          } catch (e, stack) {
-            Sentry.captureException(e, stackTrace: stack);
-          }
-        }
-
-        // Use custom backend synthesis
-        final audioBytes = await _ttsRepository.getAudioBytes(text, voiceId,
-            gptSovitsUrl: gptSovitsUrl);
-        if (kIsWeb) {
-          await _audioPlayer.setAudioSource(AudioSource.uri(
-              Uri.dataFromBytes(audioBytes, mimeType: 'audio/wav')));
-        } else {
-          await _audioPlayer.setAudioSource(BytesAudioSource(audioBytes));
-        }
-        await _audioPlayer.play();
-        state = state.copyWith(clearError: true);
-        return;
-      }
-
-      if (engine == 'Fish Audio') {
-        final fishApiKey = await storage.getFishAudioApiKey() ?? '';
-        final fishModel = await storage.getFishAudioModel() ?? 's2.1-pro';
-        final fishRefId = await storage.getFishAudioReferenceId() ?? '';
-
-        final audioBytes = await _ttsRepository.getFishAudioBytes(
-            text, fishApiKey, fishModel, fishRefId);
-        if (kIsWeb) {
-          await _audioPlayer.setAudioSource(AudioSource.uri(
-              Uri.dataFromBytes(audioBytes, mimeType: 'audio/wav')));
-        } else {
-          await _audioPlayer.setAudioSource(BytesAudioSource(audioBytes));
-        }
-        await _audioPlayer.play();
-        state = state.copyWith(clearError: true);
-        return;
-      }
-
-      // Fallback to Web Speech API
-      if (!WebSpeechService.instance.isSupported) {
-        state = state.copyWith(
-            error: 'Text-to-speech is not supported in this browser.');
-        return;
-      }
-      WebSpeechService.instance.speak(text);
-      state = state.copyWith(clearError: true);
-    } catch (e, st) {
-      Sentry.captureException(e, stackTrace: st);
-
-      // Try fallback if backend failed
-      try {
-        if (WebSpeechService.instance.isSupported) {
-          WebSpeechService.instance.speak(text);
-          state = state.copyWith(clearError: true);
-        } else {
-          state = state.copyWith(error: 'Failed to play audio: $e');
-        }
-      } catch (fallbackError) {
-        state = state.copyWith(error: 'Failed to play audio: $e');
-      }
-    }
-  }
-
-  /// Stops any currently playing TTS audio.
-  void stopAudio() {
-    _audioPlayer.stop();
-    WebSpeechService.instance.stop();
-    state = state.copyWith(clearPlayingId: true);
-  }
-
   Future<void> renameThread(String threadId, String newTitle) async {
     try {
       await _repository.renameThread(threadId, newTitle);
@@ -1272,28 +833,5 @@ class ChatViewModel extends StateNotifier<ChatState> {
       state = state.copyWith(error: 'Failed to share chat: $e');
       return null;
     }
-  }
-}
-
-// ignore: experimental_member_use
-class BytesAudioSource extends StreamAudioSource {
-  final List<int> bytes;
-  BytesAudioSource(this.bytes);
-
-  @override
-  // ignore: experimental_member_use
-  // ignore: experimental_member_use
-  // ignore: experimental_member_use
-  Future<StreamAudioResponse> request([int? start, int? end]) async {
-    start ??= 0;
-    end ??= bytes.length;
-    // ignore: experimental_member_use
-    return StreamAudioResponse(
-      sourceLength: bytes.length,
-      contentLength: end - start,
-      offset: start,
-      stream: Stream.value(bytes.sublist(start, end)),
-      contentType: 'audio/mpeg',
-    );
   }
 }

@@ -1,21 +1,61 @@
 """TTS endpoints — voice listing, upload, and audio synthesis."""
 
+import asyncio
+import glob
 import hashlib
+import ipaddress
 import logging
 import os
 import re
 import shutil
 from html import unescape
+from pathlib import Path
+from urllib.parse import urlparse
 
 import emoji
 import sentry_sdk
-from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api", tags=["tts"])
+
+
+def _validate_tts_url(url: str, is_enterprise: bool = False) -> str:
+    """Validate user-provided custom TTS base URL to prevent SSRF attacks."""
+    if not url:
+        return url
+    parsed = urlparse(url)
+    if parsed.scheme not in ("http", "https"):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid TTS URL scheme: {parsed.scheme}. Only HTTP/HTTPS are allowed.",
+        )
+    hostname = parsed.hostname
+    if not hostname:
+        raise HTTPException(status_code=400, detail="Invalid TTS URL: missing host")
+
+    lower_host = hostname.lower()
+    # Unconditionally block cloud metadata and link-local endpoints
+    if lower_host in ("metadata.google.internal", "metadata", "instance-data"):
+        raise HTTPException(status_code=400, detail="Disallowed TTS endpoint URL")
+
+    try:
+        ip = ipaddress.ip_address(lower_host)
+        # Block link-local (e.g. 169.254.169.254 AWS/GCP metadata), unspecified (0.0.0.0)
+        if ip.is_link_local or ip.is_unspecified:
+            raise HTTPException(status_code=400, detail="Disallowed TTS endpoint URL")
+        # In enterprise deployment, also forbid private and loopback networks
+        if is_enterprise and (ip.is_private or ip.is_loopback):
+            raise HTTPException(status_code=400, detail="Disallowed TTS endpoint URL")
+    except ValueError:
+        # Not a raw IP address; check hostname
+        if lower_host == "localhost" and is_enterprise:
+            raise HTTPException(status_code=400, detail="Disallowed TTS endpoint URL")
+
+    return url
 
 
 def clean_text_for_tts(text: str) -> str:
@@ -84,11 +124,17 @@ def register_tts_routes(
     """Register all TTS routes with injected auth dependencies."""
 
     @app_router.get("/api/voices", response_model=VoiceListResponse)
-    async def get_voices(gpt_sovits_url: str | None = None):
+    async def get_voices(
+        gpt_sovits_url: str | None = None,
+        _tenant_id: str = Depends(get_tenant_id),
+    ):
         from backend.tts.gpt_sovits_client import GPTSoVITSClient
         from backend.tts.voices import get_all_voices
 
         if gpt_sovits_url:
+            gpt_sovits_url = _validate_tts_url(
+                gpt_sovits_url, is_enterprise=config.is_enterprise
+            )
             client = GPTSoVITSClient(base_url=gpt_sovits_url)
             try:
                 await client.check_connection()
@@ -99,12 +145,15 @@ def register_tts_routes(
         return {"voices": get_all_voices()}
 
     @app_router.post("/api/voices", response_model=VoiceListResponse)
-    async def save_voices(request: VoiceSaveRequest):
+    async def save_voices(
+        request: VoiceSaveRequest,
+        _tenant_id: str = Depends(get_tenant_id),
+    ):
         from backend.tts.voices import get_all_voices
         from backend.tts.voices import save_voices as save_voices_to_disk
 
         try:
-            save_voices_to_disk(request.voices)
+            await asyncio.to_thread(save_voices_to_disk, request.voices)
         except Exception as e:
             sentry_sdk.capture_exception(e)
             raise HTTPException(status_code=500, detail=str(e))
@@ -115,6 +164,7 @@ def register_tts_routes(
         name: str = Form(...),
         prompt_text: str = Form(...),
         file: UploadFile = File(...),  # noqa: B008
+        _tenant_id: str = Depends(get_tenant_id),
     ):
         from backend.tts.voices import add_voice, get_all_voices
 
@@ -125,11 +175,16 @@ def register_tts_routes(
             os.makedirs(voices_dir, exist_ok=True)
             safe_filename = (file.filename or "audio.wav").replace(" ", "_")
             file_path = safe_join(voices_dir, safe_filename)
-            with open(file_path, "wb") as buffer:  # noqa: ASYNC230
-                shutil.copyfileobj(file.file, buffer)
+
+            def _write_voice_file():
+                with open(file_path, "wb") as buffer:
+                    shutil.copyfileobj(file.file, buffer)
+
+            await asyncio.to_thread(_write_voice_file)
             voice_id = safe_filename.rsplit(".", 1)[0].lower()
             ref_audio_path = f"voices/{safe_filename}"
-            add_voice(
+            await asyncio.to_thread(
+                add_voice,
                 voice_id=voice_id,
                 name=name,
                 ref_audio_path=ref_audio_path,
@@ -142,10 +197,11 @@ def register_tts_routes(
             raise HTTPException(status_code=500, detail=str(e))
 
     @app_router.post("/api/chat/audio/fish")
-    async def chat_audio_fish(request: FishAudioRequest, req: Request):
-        import asyncio
-        from pathlib import Path
-
+    async def chat_audio_fish(
+        request: FishAudioRequest,
+        req: Request,
+        _tenant_id: str = Depends(get_tenant_id),
+    ):
         import httpx
 
         fish_api_key = req.headers.get("x-fish-audio-key")
@@ -153,6 +209,11 @@ def register_tts_routes(
 
         if not fish_speech_url and not fish_api_key:
             raise HTTPException(status_code=401, detail="Fish Audio API key missing")
+
+        if fish_speech_url:
+            fish_speech_url = _validate_tts_url(
+                fish_speech_url, is_enterprise=config.is_enterprise
+            )
 
         model = request.model or "s2.1-pro-free"
         cache_key = f"{request.reference_id or 'default'}_{model}"
@@ -226,19 +287,43 @@ def register_tts_routes(
             )
 
     @app_router.get("/api/chat/audio/{message_id}")
-    async def get_audio(message_id: str):
+    async def get_audio(
+        message_id: str,
+        _tenant_id: str = Depends(get_tenant_id),
+    ):
         cache_dir = os.path.join(
             os.path.dirname(os.path.dirname(__file__)), "tts", "cache"
         )
-        cached_file_path = safe_join(cache_dir, f"{message_id}.wav")
-        if os.path.exists(cached_file_path):
-            return FileResponse(
-                cached_file_path, media_type="audio/wav", filename="audio.wav"
-            )
+        if not os.path.exists(cache_dir):
+            raise HTTPException(status_code=404, detail="Audio not found")
+
+        # 1. Exact match message_id.wav
+        try:
+            exact_file = safe_join(cache_dir, f"{message_id}.wav")
+            if os.path.exists(exact_file):
+                return FileResponse(
+                    exact_file, media_type="audio/wav", filename="audio.wav"
+                )
+        except HTTPException:
+            pass
+
+        # 2. Hashed file match: {message_id}_{hash}.wav
+        if "/" not in message_id and "\\" not in message_id and ".." not in message_id:
+            matches = glob.glob(os.path.join(cache_dir, f"{message_id}_*.wav"))
+            if matches:
+                newest_match = max(matches, key=os.path.getmtime)
+                return FileResponse(
+                    newest_match, media_type="audio/wav", filename="audio.wav"
+                )
+
         raise HTTPException(status_code=404, detail="Audio not found")
 
     @app_router.post("/api/chat/audio")
-    async def chat_audio(request: AudioRequest, req: Request):
+    async def chat_audio(
+        request: AudioRequest,
+        req: Request,
+        _tenant_id: str = Depends(get_tenant_id),
+    ):
         from backend.tts.gpt_sovits_client import GPTSoVITSClient
         from backend.tts.voices import get_voice
 
@@ -266,6 +351,10 @@ def register_tts_routes(
                 status_code=400, detail="Voice not configured for backend synthesis"
             )
         gpt_sovits_url = req.headers.get("x-gpt-sovits-url")
+        if gpt_sovits_url:
+            gpt_sovits_url = _validate_tts_url(
+                gpt_sovits_url, is_enterprise=config.is_enterprise
+            )
         client = GPTSoVITSClient(base_url=gpt_sovits_url)
         cleaned_text = clean_text_for_tts(request.text)
         try:
@@ -277,9 +366,6 @@ def register_tts_routes(
                 text_lang=voice.get("text_lang", "en"),
             )
             if request.message_id:
-                import asyncio
-                from pathlib import Path
-
                 cache_dir = os.path.join(
                     os.path.dirname(os.path.dirname(__file__)), "tts", "cache"
                 )

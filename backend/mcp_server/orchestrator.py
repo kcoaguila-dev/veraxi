@@ -330,11 +330,15 @@ def _apply_observability_settings(tool_settings: dict | None):
     api_key = obs.get("langsmith_api_key", "")
 
     if enabled and api_key:
-        os.environ["LANGCHAIN_TRACING_V2"] = "true"
-        os.environ["LANGCHAIN_API_KEY"] = api_key
-        os.environ["LANGCHAIN_PROJECT"] = "Veraxi"
+        if os.environ.get("LANGCHAIN_TRACING_V2") != "true":
+            os.environ["LANGCHAIN_TRACING_V2"] = "true"
+        if os.environ.get("LANGCHAIN_API_KEY") != api_key:
+            os.environ["LANGCHAIN_API_KEY"] = api_key
+        if os.environ.get("LANGCHAIN_PROJECT") != "Veraxi":
+            os.environ["LANGCHAIN_PROJECT"] = "Veraxi"
     else:
-        os.environ["LANGCHAIN_TRACING_V2"] = "false"
+        if os.environ.get("LANGCHAIN_TRACING_V2") != "false":
+            os.environ["LANGCHAIN_TRACING_V2"] = "false"
 
 
 def route_evaluation(state: AgentState) -> str:
@@ -443,6 +447,33 @@ async def evaluate_context(state: AgentState):
     if not context_str or "No results found." in context_str:
         logger.info("CRAG: No DB results found. Grading as irrelevant.")
         return {"context_relevance": "no"}
+
+    # Short-circuit if only non-retrieval tools were called (e.g. code runner, time, external MCP)
+    last_aimsg = next(
+        (
+            m
+            for m in reversed(messages)
+            if hasattr(m, "tool_calls") and m.tool_calls
+        ),
+        None,
+    )
+    called_tool_names = (
+        {tc.get("name") for tc in last_aimsg.tool_calls}
+        if last_aimsg
+        else set()
+    )
+    retrieval_tool_names = {
+        "search_vectors",
+        "query_graph",
+        "mcp_search_vectors",
+        "mcp_query_graph",
+        "mcp_merge_rank",
+    }
+    if called_tool_names and not (called_tool_names & retrieval_tool_names):
+        logger.info(
+            "CRAG: Non-retrieval tools invoked. Skipping document relevance grading."
+        )
+        return {"context_relevance": "yes"}
 
     logger.info("CRAG: Evaluating retrieved context...")
 

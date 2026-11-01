@@ -779,27 +779,31 @@ async def execute_tools_internal(
     graph_hits = []
     telemetry_hits = []
 
-    for tool_call in tool_calls:
-        tool_name = tool_call["name"]
-        tool_input = tool_call["args"]
+    async def _dispatch_single_tool(tc: dict) -> tuple[list[Any], list[Any], list[Any]]:
+        t_name = tc.get("name", "")
+        t_input = tc.get("args", {})
+        logger.info(f"LangGraph Agent called tool: {t_name} with args: {t_input}")
 
-        logger.info(f"LangGraph Agent called tool: {tool_name} with args: {tool_input}")
-
-        if tool_name.startswith("mcp__"):
-            t_hits, _ = await _execute_mcp_tool(tool_name, tool_input, tool_settings)
-            telemetry_hits.extend(t_hits)
+        if t_name.startswith("mcp__"):
+            m_hits, _ = await _execute_mcp_tool(t_name, t_input, tool_settings)
+            return [], [], m_hits
         else:
             loop = asyncio.get_running_loop()
-            v_hits, g_hits = await loop.run_in_executor(
+            v, g = await loop.run_in_executor(
                 None,
                 _execute_single_tool,
-                tool_name,
-                tool_input,
+                t_name,
+                t_input,
                 tenant_id,
                 tool_settings,
             )
-            vector_hits.extend(v_hits)
-            graph_hits.extend(g_hits)
+            return v, g, []
+
+    tool_results = await asyncio.gather(*[_dispatch_single_tool(tc) for tc in tool_calls])
+    for v, g, t in tool_results:
+        vector_hits.extend(v)
+        graph_hits.extend(g)
+        telemetry_hits.extend(t)
 
     merged_docs = merge_rank(vector_hits, graph_hits)
     merged = telemetry_hits + merged_docs

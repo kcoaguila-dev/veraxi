@@ -16,9 +16,14 @@ def search_vectors(
 
     COLLECTION_NAME = config.qdrant_collection_name
 
-    # Embed the query
-    query_vector = embed_text(query_text)
-    sparse_query_vector = embed_text_sparse(query_text)
+    # Embed the query in parallel (dense + sparse)
+    from concurrent.futures import ThreadPoolExecutor
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        future_dense = executor.submit(embed_text, query_text)
+        future_sparse = executor.submit(embed_text_sparse, query_text)
+        query_vector = future_dense.result()
+        sparse_query_vector = future_sparse.result()
 
     # Perform search
     results = qdrant_client.search_hybrid(

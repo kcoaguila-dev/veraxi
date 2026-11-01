@@ -1,12 +1,13 @@
 """Personal API Key management endpoints."""
 
+import asyncio
 import logging
 
 import sentry_sdk
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from backend.security.api_keys import generate_api_key
+from backend.security.api_keys import clear_api_key_cache, generate_api_key
 
 logger = logging.getLogger(__name__)
 
@@ -28,16 +29,19 @@ def register_api_key_routes(app_router, get_tenant_id, _get_supabase):
         if not sb:
             return {"api_keys": []}
         try:
-            response = (
-                sb.table("api_keys")
-                .select(
-                    "id, name, key_prefix, is_active, created_at, last_used_at, expires_at"
+            def _query():
+                return (
+                    sb.table("api_keys")
+                    .select(
+                        "id, name, key_prefix, is_active, created_at, last_used_at, expires_at"
+                    )
+                    .eq("tenant_id", tenant_id)
+                    .eq("is_active", True)
+                    .order("created_at", desc=True)
+                    .execute()
                 )
-                .eq("tenant_id", tenant_id)
-                .eq("is_active", True)
-                .order("created_at", desc=True)
-                .execute()
-            )
+
+            response = await asyncio.to_thread(_query)
             return {"api_keys": response.data or []}
         except Exception as e:
             sentry_sdk.capture_exception(e)
@@ -56,7 +60,7 @@ def register_api_key_routes(app_router, get_tenant_id, _get_supabase):
                 detail="API keys are not supported in stateless local mode",
             )
 
-        raw_key, key_hash = generate_api_key()
+        raw_key, key_hash = await asyncio.to_thread(generate_api_key)
         key_prefix = raw_key[:10]
         insert_data = {
             "tenant_id": tenant_id,
@@ -66,7 +70,10 @@ def register_api_key_routes(app_router, get_tenant_id, _get_supabase):
             "expires_at": payload.expires_at,
         }
         try:
-            response = sb.table("api_keys").insert(insert_data).execute()
+            def _insert():
+                return sb.table("api_keys").insert(insert_data).execute()
+
+            response = await asyncio.to_thread(_insert)
             key_id = response.data[0]["id"]
             logger.info(f"New API key created for tenant {tenant_id}")
             return {
@@ -91,15 +98,19 @@ def register_api_key_routes(app_router, get_tenant_id, _get_supabase):
                 detail="API keys are not supported in stateless local mode",
             )
         try:
-            result = (
-                sb.table("api_keys")
-                .update({"is_active": False})
-                .eq("id", key_id)
-                .eq("tenant_id", tenant_id)
-                .execute()
-            )
+            def _update():
+                return (
+                    sb.table("api_keys")
+                    .update({"is_active": False})
+                    .eq("id", key_id)
+                    .eq("tenant_id", tenant_id)
+                    .execute()
+                )
+
+            result = await asyncio.to_thread(_update)
             if not result.data:
                 raise HTTPException(status_code=404, detail="API key not found")
+            clear_api_key_cache()
             logger.info(f"API key {key_id} revoked for tenant {tenant_id}")
             return {"status": "revoked"}
         except HTTPException:

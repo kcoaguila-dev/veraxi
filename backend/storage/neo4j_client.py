@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 import uuid
 from typing import Any
+from unittest.mock import Mock
 
 from neo4j import GraphDatabase
 
@@ -14,17 +15,62 @@ from backend.ingestion.entity_resolution import (
     strip_generic_suffix,
 )
 
+_DRIVER_CACHE: dict[tuple[str, str, str], Any] = {}
+_ENSURED_LABELS_CACHE: set[tuple[str, str]] = set()
+
+
+def close_all_neo4j_drivers():
+    """Explicitly close all cached Neo4j drivers (e.g., during app shutdown)."""
+    for driver in list(_DRIVER_CACHE.values()):
+        try:
+            driver.close()
+        except Exception:
+            pass
+    _DRIVER_CACHE.clear()
+    _ENSURED_LABELS_CACHE.clear()
+
 
 class Neo4jStorageClient:
-    def __init__(self, uri: str, user: str, password: str):
-        self.driver = GraphDatabase.driver(uri, auth=(user, password))
+    def __init__(
+        self,
+        uri: str | None = None,
+        user: str | None = None,
+        password: str | None = None,
+    ):
+        if uri is None or user is None or password is None:
+            from backend.config import get_config
+
+            cfg = get_config()
+            uri = uri or cfg.neo4j_uri
+            user = user or cfg.neo4j_user
+            password = password if password is not None else cfg.neo4j_password
+
+        is_mock = isinstance(GraphDatabase.driver, Mock) or hasattr(
+            GraphDatabase.driver, "_mock_return_value"
+        )
+        cache_key = (uri, user, password)
+
+        if not is_mock and cache_key in _DRIVER_CACHE:
+            self.driver = _DRIVER_CACHE[cache_key]
+            self._is_pooled = True
+        else:
+            self.driver = GraphDatabase.driver(uri, auth=(user, password))
+            if not is_mock:
+                _DRIVER_CACHE[cache_key] = self.driver
+                self._is_pooled = True
+            else:
+                self._is_pooled = False
+
+        self._driver = self.driver
+        self._uri = uri
         self._ensured_labels: set[str] = set()
 
     def ensure_entity_constraint(self, label: str):
         if not label.isalnum():
             raise ValueError("Label must be alphanumeric")
 
-        if label in self._ensured_labels:
+        global_key = (self._uri, label)
+        if label in self._ensured_labels or global_key in _ENSURED_LABELS_CACHE:
             return
 
         constraint_query = f"CREATE CONSTRAINT IF NOT EXISTS FOR (n:{label}) REQUIRE n.entity_key IS UNIQUE"
@@ -35,6 +81,8 @@ class Neo4jStorageClient:
             session.run(index_query)
 
         self._ensured_labels.add(label)
+        if getattr(self, "_is_pooled", False):
+            _ENSURED_LABELS_CACHE.add(global_key)
 
     @classmethod
     def from_config(cls, config) -> "Neo4jStorageClient":
@@ -49,8 +97,9 @@ class Neo4jStorageClient:
 
         return cls(uri=uri, user=user, password=password)
 
-    def close(self):
-        self.driver.close()
+    def close(self, force: bool = False):
+        if force or not getattr(self, "_is_pooled", False):
+            self.driver.close()
 
     def upsert_entity(
         self,

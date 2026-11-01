@@ -74,13 +74,17 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     super.dispose();
   }
 
-  void _scrollToBottom() {
-    if (_scrollController.hasClients) {
+  void _scrollToBottom({bool animate = true}) {
+    if (!_scrollController.hasClients) return;
+    final target = _scrollController.position.maxScrollExtent;
+    if (animate) {
       _scrollController.animateTo(
-        _scrollController.position.maxScrollExtent + 100, // Overscroll slightly
-        duration: const Duration(milliseconds: 300),
+        target + 100, // Overscroll slightly
+        duration: const Duration(milliseconds: 250),
         curve: Curves.easeOut,
       );
+    } else {
+      _scrollController.jumpTo(target);
     }
   }
 
@@ -102,12 +106,19 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       }
     }
 
-    // Auto-scroll when messages change
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!_isScrolledUp) {
-        _scrollToBottom();
-      }
-    });
+    ref.listen<List<ChatMessage>>(
+      chatViewModelProvider.select((s) => s.messages),
+      (previous, next) {
+        if (!_isScrolledUp && next.isNotEmpty) {
+          final isStreaming = next.last.isStreaming;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted && !_isScrolledUp) {
+              _scrollToBottom(animate: !isStreaming);
+            }
+          });
+        }
+      },
+    );
 
     ref.listen(audioPlayerServiceProvider, (previous, next) {
       if (next.errorMessage != null) {

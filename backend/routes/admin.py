@@ -1,8 +1,11 @@
 """Admin endpoints — stats, models, config, health."""
 
+import ipaddress
 import logging
 import os
 import re
+import sys
+from urllib.parse import urlparse
 
 import httpx
 import sentry_sdk
@@ -20,6 +23,38 @@ router = APIRouter(tags=["admin"])
 # Simple cache for models
 _models_cache: dict = {}
 _models_cache_time: float = 0
+
+
+def _validate_provider_url(url: str, is_enterprise: bool = False) -> str:
+    """Validate user-provided provider URL to prevent SSRF attacks."""
+    if not url:
+        return url
+    parsed = urlparse(url)
+    if parsed.scheme not in ("http", "https"):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid URL scheme: {parsed.scheme}. Only HTTP/HTTPS are allowed.",
+        )
+    hostname = parsed.hostname
+    if not hostname:
+        raise HTTPException(status_code=400, detail="Invalid URL: missing host")
+
+    lower_host = hostname.lower()
+    # Unconditionally block cloud metadata and link-local endpoints
+    if lower_host in ("metadata.google.internal", "metadata", "instance-data"):
+        raise HTTPException(status_code=400, detail="Disallowed provider URL")
+
+    try:
+        ip = ipaddress.ip_address(lower_host)
+        if ip.is_link_local or ip.is_unspecified:
+            raise HTTPException(status_code=400, detail="Disallowed provider URL")
+        if is_enterprise and (ip.is_private or ip.is_loopback):
+            raise HTTPException(status_code=400, detail="Disallowed provider URL")
+    except ValueError:
+        if lower_host == "localhost" and is_enterprise:
+            raise HTTPException(status_code=400, detail="Disallowed provider URL")
+
+    return url
 
 
 def register_admin_routes(
@@ -81,7 +116,17 @@ def register_admin_routes(
         global _models_cache, _models_cache_time
         import time
 
-        if time.time() - _models_cache_time > 300 or not _models_cache:
+        gateway_mod = sys.modules.get("backend.api_gateway")
+        force_cache_reset = (
+            gateway_mod is not None
+            and getattr(gateway_mod, "_cached_models", True) is None
+        )
+
+        if (
+            force_cache_reset
+            or time.time() - _models_cache_time > 300
+            or not _models_cache
+        ):
             config = get_config()
             models_dict = dict(DEFAULT_PROVIDER_MODELS)
             if config.llm_api_key and (
@@ -129,6 +174,10 @@ def register_admin_routes(
         # Fetch Local models if BYOD header is provided
         local_url = request.headers.get("x-byod-local-url")
         if local_url:
+            config = get_config()
+            local_url = _validate_provider_url(
+                local_url, is_enterprise=config.is_enterprise
+            )
             base_local = local_url.rstrip("/")
             try:
                 async with httpx.AsyncClient() as client:
@@ -156,8 +205,3 @@ def register_admin_routes(
     @app_router.get("/health")
     async def health_check():
         return {"status": "ok"}
-
-    @app_router.get("/api/test-log")
-    async def test_log():
-        logger.warning("THIS IS A TEST LOG FROM API GATEWAY")
-        return {"status": "logged"}

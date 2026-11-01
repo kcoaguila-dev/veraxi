@@ -58,24 +58,27 @@ def _activate_tenant_subscription(
 ) -> None:
     if not tenant_id:
         return
-    try:
-        from supabase import Client, create_client
 
-        supabase_client: Client = create_client(
-            config.supabase_url, config.supabase_service_key
-        )
-        supabase_client.table("users").update({"is_subscribed": True}).eq(
-            "id", tenant_id
-        ).execute()
-        logger.info(f"Database updated: user {tenant_id} is now subscribed.")
+    async def _async_activate() -> None:
+        try:
+            from supabase import Client, create_client
 
-        async def _update_redis() -> None:
+            def _update_db():
+                supabase_client: Client = create_client(
+                    config.supabase_url, config.supabase_service_key
+                )
+                supabase_client.table("users").update({"is_subscribed": True}).eq(
+                    "id", tenant_id
+                ).execute()
+
+            await asyncio.to_thread(_update_db)
+            logger.info(f"Database updated: user {tenant_id} is now subscribed.")
             await redis.setex(f"tenant:{tenant_id}:subscription_status", 86400, "true")
+        except Exception as e:
+            sentry_sdk.capture_exception(e)
+            logger.error(f"Failed to update database for tenant {tenant_id}: {e}")
 
-        asyncio.create_task(_update_redis())
-    except Exception as e:
-        sentry_sdk.capture_exception(e)
-        logger.error(f"Failed to update database for tenant {tenant_id}: {e}")
+    asyncio.create_task(_async_activate())
 
 
 def register_payment_routes(
@@ -112,22 +115,26 @@ def register_payment_routes(
                 if request.plan == "annual"
                 else "Veraxi Pro Monthly"
             )
-            session = stripe.checkout.Session.create(
-                line_items=[
-                    {
-                        "price_data": {
-                            "currency": "usd",
-                            "product_data": {"name": plan_name},
-                            "unit_amount": unit_amount,
-                        },
-                        "quantity": 1,
-                    }
-                ],
-                mode="payment",
-                success_url=f"{base_url}/#/admin?success=true",
-                cancel_url=f"{base_url}/#/admin?canceled=true",
-                client_reference_id=tenant_id,
-            )
+
+            def _create_session():
+                return stripe.checkout.Session.create(
+                    line_items=[
+                        {
+                            "price_data": {
+                                "currency": "usd",
+                                "product_data": {"name": plan_name},
+                                "unit_amount": unit_amount,
+                            },
+                            "quantity": 1,
+                        }
+                    ],
+                    mode="payment",
+                    success_url=f"{base_url}/#/admin?success=true",
+                    cancel_url=f"{base_url}/#/admin?canceled=true",
+                    client_reference_id=tenant_id,
+                )
+
+            session = await asyncio.to_thread(_create_session)
             return {"checkout_url": session.url}
         except Exception as e:
             sentry_sdk.capture_exception(e)

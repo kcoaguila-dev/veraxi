@@ -6,6 +6,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:veraxi_app/core/network/tts_repository.dart';
 import 'package:veraxi_app/core/tts_settings_storage.dart';
+import 'package:veraxi_app/core/web_speech_service.dart';
 import 'package:veraxi_app/features/chat/view_models/chat_view_model.dart';
 
 class AudioPlayerState {
@@ -122,8 +123,19 @@ class AudioPlayerService extends StateNotifier<AudioPlayerState> {
 
     if (state.playingMessageId == messageId &&
         state.playingVoiceSignature == currentSignature) {
-      if (state.isLoading)
+      if (state.isLoading) {
         return; // Ignore click if already loading this message
+      }
+      if (engine == 'Browser') {
+        if (state.isPlaying) {
+          WebSpeechService.instance.stop();
+          state = state.copyWith(isPlaying: false);
+        } else {
+          WebSpeechService.instance.speak(text);
+          state = state.copyWith(isPlaying: true);
+        }
+        return;
+      }
       if (state.isPlaying) {
         await _player.pause();
       } else {
@@ -133,6 +145,7 @@ class AudioPlayerService extends StateNotifier<AudioPlayerState> {
     }
 
     await _player.stop();
+    WebSpeechService.instance.stop();
 
     state = state.copyWith(
         playingMessageId: messageId,
@@ -169,11 +182,12 @@ class AudioPlayerService extends StateNotifier<AudioPlayerState> {
           messageId: messageId,
         );
       } else {
-        // Fallback to Web Speech API or fail
-        // Since we are in the unified player, WebSpeech doesn't give us bytes.
-        // We throw an exception and let the catch block handle it or just do nothing.
-        throw Exception(
-            'Browser TTS selected, cannot play via unified audio player.');
+        if (!WebSpeechService.instance.isSupported) {
+          throw Exception('Text-to-speech is not supported in this browser.');
+        }
+        WebSpeechService.instance.speak(text);
+        state = state.copyWith(isLoading: false, isPlaying: true);
+        return;
       }
 
       if (state.playingMessageId != messageId) {
@@ -246,7 +260,9 @@ class AudioPlayerService extends StateNotifier<AudioPlayerState> {
   }
 
   Future<void> pause() async {
+    WebSpeechService.instance.pause();
     await _player.pause();
+    state = state.copyWith(isPlaying: false);
   }
 
   Future<void> seek(Duration position) async {
@@ -259,12 +275,14 @@ class AudioPlayerService extends StateNotifier<AudioPlayerState> {
   }
 
   void closePlayer() {
+    WebSpeechService.instance.stop();
     _player.stop();
     state = AudioPlayerState();
   }
 
   @override
   void dispose() {
+    WebSpeechService.instance.stop();
     _player.dispose();
     super.dispose();
   }

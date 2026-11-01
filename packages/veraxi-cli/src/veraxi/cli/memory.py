@@ -41,6 +41,8 @@ def run_remember(
     mem_id = str(uuid.uuid4())[:8]
 
     superseded_nodes = []
+    persisted = False
+    storage = "none"
 
     try:
         from backend.config import get_config
@@ -104,8 +106,40 @@ def run_remember(
             neo4j.execute_write(link_query, {"new_id": mem_id, "old_id": s["id"]})
 
         neo4j.close()
+        persisted = True
+        storage = "graph"
     except Exception as e:
-        print(f"Warning: Local storage write failed ({e}).", file=sys.stderr)
+        print(f"Warning: Local storage write failed ({e}). Attempting offline fallback.", file=sys.stderr)
+        try:
+            dest_dir = os.path.join(os.getcwd(), ".veraxi")
+            os.makedirs(dest_dir, exist_ok=True)
+            local_rules_path = os.path.join(dest_dir, "rules.json")
+            existing_data = {"version": "1.0", "project": project_scope, "exported_at": now_iso, "memories": []}
+            if os.path.isfile(local_rules_path):
+                with open(local_rules_path, "r", encoding="utf-8") as f:
+                    try:
+                        existing_data = json.load(f)
+                    except Exception:
+                        pass
+            memories_list = existing_data.setdefault("memories", [])
+            memories_list.append({
+                "id": mem_id,
+                "name": insight,
+                "details": insight,
+                "tag": tag,
+                "type": memory_type,
+                "status": "active",
+                "project": project_scope,
+                "tenant_id": tenant_id,
+                "created_at": now_iso,
+                "superseded": [s["id"] for s in superseded_nodes],
+            })
+            with open(local_rules_path, "w", encoding="utf-8") as f:
+                json.dump(existing_data, f, indent=2)
+            persisted = True
+            storage = "local_fallback"
+        except Exception as fb_err:
+            print(f"Error: Offline fallback persistence also failed: {fb_err}", file=sys.stderr)
 
     result_data = {
         "id": mem_id,
@@ -116,6 +150,8 @@ def run_remember(
         "status": "active",
         "created_at": now_iso,
         "superseded": [s["id"] for s in superseded_nodes],
+        "persisted": persisted,
+        "storage": storage,
     }
 
     if as_json:
@@ -126,9 +162,16 @@ def run_remember(
     green = "\033[32m"
     cyan = "\033[36m"
     yellow = "\033[33m"
+    red = "\033[31m"
     reset = "\033[0m"
 
-    print(f"\n{bold}{green}✓ Saved architectural memory{reset} [{cyan}{mem_id}{reset}]:")
+    if storage == "graph":
+        print(f"\n{bold}{green}✓ Saved architectural memory{reset} [{cyan}{mem_id}{reset}]:")
+    elif storage == "local_fallback":
+        print(f"\n{bold}{yellow}✓ Saved architectural memory to local fallback (.veraxi/rules.json){reset} [{cyan}{mem_id}{reset}]:")
+    else:
+        print(f"\n{bold}{red}✗ Failed to persist architectural memory{reset} [{cyan}{mem_id}{reset}]:", file=sys.stderr)
+
     print(f"  \"{insight}\"")
     print(f"  Status: {green}active{reset} | Scope: {cyan}{project_scope}{reset} | Tag: {yellow}{tag}{reset} | Type: {memory_type}")
 

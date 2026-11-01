@@ -112,16 +112,20 @@ _ALLOWED_MIMES = [
 ]
 
 
+_INLINE_INGESTION_SEMAPHORE = asyncio.Semaphore(2)
+
+
 async def _run_inline_ingestion_task(redis, job_id: str, *args) -> None:
     """Execute ingestion in-process and persist job status to Redis for status polling."""
     from backend.worker import process_ingestion_task
 
     key = f"inline_job:{job_id}"
     try:
-        await redis.setex(
-            key, 3600, json.dumps({"status": "in_progress", "result": None})
-        )
-        result = await process_ingestion_task({"redis": redis}, *args)
+        async with _INLINE_INGESTION_SEMAPHORE:
+            await redis.setex(
+                key, 3600, json.dumps({"status": "in_progress", "result": None})
+            )
+            result = await process_ingestion_task({"redis": redis}, *args)
         if isinstance(result, dict) and result.get("status") == "error":
             payload = {
                 "status": "error",
@@ -256,8 +260,8 @@ def register_ingestion_routes(
             logger.info(
                 f"Converting file {file.filename} with {config.document_parser}..."
             )
-            markdown_text = _convert_document_to_markdown(
-                tmp_path, parser=config.document_parser
+            markdown_text = await asyncio.to_thread(
+                _convert_document_to_markdown, tmp_path, parser=config.document_parser
             )
             os.unlink(tmp_path)
             logger.info(
@@ -303,8 +307,10 @@ def register_ingestion_routes(
             logger.info(
                 f"Converting URL {url_request.url} with {config.document_parser}..."
             )
-            markdown_text = _convert_document_to_markdown(
-                url_request.url, parser=config.document_parser
+            markdown_text = await asyncio.to_thread(
+                _convert_document_to_markdown,
+                url_request.url,
+                parser=config.document_parser,
             )
             logger.info(
                 f"Enqueueing {len(markdown_text)} bytes of markdown from {url_request.url}"

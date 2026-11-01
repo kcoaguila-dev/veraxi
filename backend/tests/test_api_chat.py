@@ -29,6 +29,12 @@ class MockRedis:
     async def sadd(self, key, value):
         return 1
 
+    async def srem(self, key, value):
+        return 1
+
+    async def sismember(self, key, value):
+        return True
+
     async def hset(self, *args, **kwargs):
         return 1
 
@@ -36,6 +42,9 @@ class MockRedis:
         return {}
 
     async def hdel(self, *args, **kwargs):
+        return 1
+
+    async def delete(self, *args, **kwargs):
         return 1
 
 
@@ -451,3 +460,26 @@ async def test_chat_endpoint_forwards_custom_system_prompt_streaming(override_re
         mock_stream_fn.assert_called_once()
         tool_settings = mock_stream_fn.call_args.kwargs.get("tool_settings", {})
         assert tool_settings.get("custom_system_prompt") == "Act as a pirate."
+
+
+@pytest.mark.asyncio
+async def test_duplicate_thread_rejects_non_owner(override_redis):
+    # Mock sismember to return False (non-owner)
+    with patch.object(
+        app.state.redis, "sismember", new_callable=AsyncMock, return_value=False
+    ):
+        response = client.post("/api/chat/threads/foreign-thread-123/duplicate")
+        assert response.status_code == 403
+        assert "Thread not found or access denied" in response.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_delete_thread_success(override_redis):
+    with patch(
+        "backend.routes.chat._delete_postgres_checkpoints",
+        new_callable=AsyncMock,
+    ) as mock_del_pg:
+        response = client.delete("/api/chat/threads/thread-to-delete")
+        assert response.status_code == 200
+        assert response.json()["status"] == "deleted"
+        mock_del_pg.assert_called_once_with(["thread-to-delete"])

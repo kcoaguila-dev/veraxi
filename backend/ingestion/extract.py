@@ -179,7 +179,9 @@ def extract_entities_and_relations(
         raise ValueError("A valid schema must be provided for extraction.")
 
     config = get_config()
-    client = OpenAI(**config.get_llm_client_args())
+    llm_args = config.get_llm_client_args()
+    llm_args.setdefault("timeout", 10.0)
+    client = OpenAI(**llm_args)
 
     try:
         response = client.chat.completions.create(

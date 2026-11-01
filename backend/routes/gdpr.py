@@ -1,5 +1,6 @@
 """GDPR compliance endpoints — data export and deletion."""
 
+import asyncio
 import datetime
 import logging
 
@@ -42,12 +43,20 @@ def register_gdpr_routes(
             async with AsyncRedisSaver.from_conn_string(
                 get_config().redis_url
             ) as memory:
-                for t in threads:
-                    tid = t.decode("utf-8")
-                    title = titles.get(t, b"").decode("utf-8")
-                    state = await memory.aget_tuple(
-                        {"configurable": {"thread_id": tid}}
+                sem = asyncio.Semaphore(10)
+
+                async def _fetch_thread_export(t):
+                    tid = t.decode("utf-8") if isinstance(t, bytes) else str(t)
+                    title_raw = titles.get(t, b"")
+                    title = (
+                        title_raw.decode("utf-8")
+                        if isinstance(title_raw, bytes)
+                        else str(title_raw)
                     )
+                    async with sem:
+                        state = await memory.aget_tuple(
+                            {"configurable": {"thread_id": tid}}
+                        )
                     messages = []
                     if state:
                         raw_messages = state.checkpoint.get("channel_values", {}).get(
@@ -57,8 +66,11 @@ def register_gdpr_routes(
                             messages.append(
                                 {"type": m.__class__.__name__, "content": m.content}
                             )
-                    export_data["threads"].append(
-                        {"thread_id": tid, "title": title, "messages": messages}
+                    return {"thread_id": tid, "title": title, "messages": messages}
+
+                if threads:
+                    export_data["threads"] = list(
+                        await asyncio.gather(*(_fetch_thread_export(t) for t in threads))
                     )
             return export_data
         except Exception as e:
@@ -75,7 +87,8 @@ def register_gdpr_routes(
             # 1. Delete from Neo4j
             neo4j_client = Neo4jStorageClient()
             try:
-                neo4j_client._driver.execute_query(
+                await asyncio.to_thread(
+                    neo4j_client._driver.execute_query,
                     "MATCH (n) WHERE n.tenant_id = $tenant_id DETACH DELETE n",
                     {"tenant_id": tenant_id},
                 )
@@ -86,18 +99,20 @@ def register_gdpr_routes(
             try:
                 from qdrant_client.http import models as rest
 
-                qdrant_client.client.delete(
+                selector = rest.FilterSelector(
+                    filter=rest.Filter(
+                        must=[
+                            rest.FieldCondition(
+                                key="tenant_id",
+                                match=rest.MatchValue(value=tenant_id),
+                            )
+                        ]
+                    )
+                )
+                await asyncio.to_thread(
+                    qdrant_client.client.delete,
                     collection_name=qdrant_client.collection_name,
-                    points_selector=rest.FilterSelector(
-                        filter=rest.Filter(
-                            must=[
-                                rest.FieldCondition(
-                                    key="tenant_id",
-                                    match=rest.MatchValue(value=tenant_id),
-                                )
-                            ]
-                        )
-                    ),
+                    points_selector=selector,
                 )
             except Exception as e:
                 logger.error(f"Error deleting Qdrant data: {e}")
@@ -105,37 +120,43 @@ def register_gdpr_routes(
             threads = await request.app.state.redis.smembers(
                 f"tenant:{tenant_id}:threads"
             )
-            try:
-                import psycopg
+            if threads:
+                tids = [
+                    t.decode("utf-8") if isinstance(t, bytes) else str(t)
+                    for t in threads
+                ]
+                try:
+                    import psycopg
 
-                async with await psycopg.AsyncConnection.connect(
-                    get_config().postgres_url
-                ) as conn:
-                    for thread_id in threads:
-                        tid = (
-                            thread_id.decode()
-                            if isinstance(thread_id, bytes)
-                            else thread_id
+                    async with await psycopg.AsyncConnection.connect(
+                        get_config().postgres_url
+                    ) as conn:
+                        await conn.execute(
+                            "DELETE FROM checkpoints WHERE thread_id = ANY(%s)",
+                            (tids,),
                         )
                         await conn.execute(
-                            "DELETE FROM checkpoints WHERE thread_id = %s", (tid,)
+                            "DELETE FROM checkpoint_writes WHERE thread_id = ANY(%s)",
+                            (tids,),
                         )
                         await conn.execute(
-                            "DELETE FROM checkpoint_writes WHERE thread_id = %s", (tid,)
+                            "DELETE FROM checkpoint_blobs WHERE thread_id = ANY(%s)",
+                            (tids,),
                         )
-                        await conn.execute(
-                            "DELETE FROM checkpoint_blobs WHERE thread_id = %s", (tid,)
-                        )
-                    await conn.commit()
-            except Exception as e:
-                logger.error(f"Error deleting Postgres chat history: {e}")
-            await request.app.state.redis.delete(f"tenant:{tenant_id}:threads")
-            await request.app.state.redis.delete(f"tenant:{tenant_id}:thread_titles")
-            await request.app.state.redis.delete(f"tenant:{tenant_id}:pinned_threads")
-            await request.app.state.redis.delete(f"tenant:{tenant_id}:archived_threads")
-            await request.app.state.redis.delete(f"tenant:{tenant_id}:thread_projects")
-            await request.app.state.redis.delete(
-                f"tenant:{tenant_id}:thread_timestamps"
+                        await conn.commit()
+                except Exception as e:
+                    logger.error(f"Error deleting Postgres chat history: {e}")
+
+            redis_keys = [
+                f"tenant:{tenant_id}:threads",
+                f"tenant:{tenant_id}:thread_titles",
+                f"tenant:{tenant_id}:pinned_threads",
+                f"tenant:{tenant_id}:archived_threads",
+                f"tenant:{tenant_id}:thread_projects",
+                f"tenant:{tenant_id}:thread_timestamps",
+            ]
+            await asyncio.gather(
+                *(request.app.state.redis.delete(k) for k in redis_keys)
             )
             return {"status": "success", "message": "All user data deleted"}
         except Exception as e:

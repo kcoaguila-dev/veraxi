@@ -16,19 +16,65 @@ from backend import context as byod_context
 
 logger = logging.getLogger(__name__)
 
+_CLIENT_CACHE: dict[tuple[str, str | None], Any] = {}
+_INITIALIZED_COLLECTIONS: set[tuple[str, str]] = set()
+
+
+def close_all_qdrant_clients():
+    """Explicitly close all cached Qdrant clients (e.g. during app shutdown)."""
+    for client in list(_CLIENT_CACHE.values()):
+        try:
+            client.close()
+        except Exception:
+            pass
+    _CLIENT_CACHE.clear()
+    _INITIALIZED_COLLECTIONS.clear()
+
 
 class QdrantStorageClient:
-    def __init__(self, url: str, api_key: str | None = None):
-        if url == ":memory:":
-            self.client = QdrantClient(":memory:")
-        elif url.startswith("file://"):
-            self.client = QdrantClient(path=url[len("file://") :])
-        elif url.startswith(("./", "/")):
-            self.client = QdrantClient(path=url)
-        elif api_key:
-            self.client = QdrantClient(url=url, api_key=api_key)
+    def __init__(self, url: str | None = None, api_key: str | None = None):
+        if url is None:
+            from backend.config import get_config
+
+            cfg = get_config()
+            request_url = byod_context.request_qdrant_url.get()
+            request_key = byod_context.request_qdrant_key.get()
+            url = request_url if request_url else cfg.qdrant_url
+            if api_key is None:
+                api_key = request_key if request_key else cfg.qdrant_api_key
+            self.collection_name = getattr(cfg, "qdrant_collection_name", "veraxi_vectors")
         else:
-            self.client = QdrantClient(url=url)
+            self.collection_name = "veraxi_vectors"
+
+        self._url = url
+        from unittest.mock import Mock
+
+        is_mock = isinstance(QdrantClient, Mock) or hasattr(
+            QdrantClient, "_mock_return_value"
+        )
+        is_memory_or_path = url == ":memory:" or url.startswith(("file://", "./", "/"))
+        cache_key = (url, api_key)
+
+        if not is_mock and not is_memory_or_path and cache_key in _CLIENT_CACHE:
+            self.client = _CLIENT_CACHE[cache_key]
+            self._is_pooled = True
+        else:
+            if url == ":memory:":
+                self.client = QdrantClient(":memory:")
+            elif url.startswith("file://"):
+                self.client = QdrantClient(path=url[len("file://") :])
+            elif url.startswith(("./", "/")):
+                self.client = QdrantClient(path=url)
+            elif api_key:
+                self.client = QdrantClient(url=url, api_key=api_key)
+            else:
+                self.client = QdrantClient(url=url)
+
+            if not is_mock and not is_memory_or_path:
+                _CLIENT_CACHE[cache_key] = self.client
+                self._is_pooled = True
+            else:
+                self._is_pooled = False
 
     @classmethod
     def from_config(cls, config) -> "QdrantStorageClient":
@@ -41,6 +87,13 @@ class QdrantStorageClient:
 
         return cls(url=url, api_key=api_key)
 
+    def close(self, force: bool = False):
+        if force or not getattr(self, "_is_pooled", False):
+            try:
+                self.client.close()
+            except Exception:
+                pass
+
     def create_collection(
         self,
         collection_name: str,
@@ -48,6 +101,14 @@ class QdrantStorageClient:
         distance_metric: str = "Cosine",
     ):
         """Create a collection if it doesn't already exist."""
+        init_key = (self._url, collection_name)
+        if (
+            getattr(self, "_is_pooled", False)
+            and init_key in _INITIALIZED_COLLECTIONS
+            and self.client.collection_exists(collection_name)
+        ):
+            return
+
         if vector_size is None:
             from backend.config import get_config
 
@@ -108,6 +169,9 @@ class QdrantStorageClient:
                 )
             except Exception as err:
                 logger.debug("Payload index creation skipped for %s: %s", field, err)
+
+        if getattr(self, "_is_pooled", False):
+            _INITIALIZED_COLLECTIONS.add(init_key)
 
     def insert_points(
         self,

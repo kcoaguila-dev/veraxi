@@ -1,6 +1,5 @@
 import json
 import logging
-import os
 import time
 import uuid
 from collections.abc import AsyncGenerator
@@ -16,6 +15,7 @@ from backend.mcp_server.formatter import (
     _sanitize_thread_title,
 )
 from backend.mcp_server.orchestrator import (
+    _apply_observability_settings,
     _create_chat_llm,
     _get_workflow,
     _request_api_key,
@@ -27,6 +27,16 @@ from backend.prompts import TITLE_GENERATION_PROMPT
 logger = logging.getLogger(__name__)
 
 _FALLBACK_MEMORY_SAVER = MemorySaver()
+_POSTGRES_SETUP_DONE: set[str] = set()
+
+
+async def setup_postgres_checkpointer_once(
+    memory: AsyncPostgresSaver, postgres_url: str
+) -> None:
+    """Ensure setup() is called only once per connection string to prevent DDL migration on every request."""
+    if postgres_url not in _POSTGRES_SETUP_DONE:
+        await memory.setup()
+        _POSTGRES_SETUP_DONE.add(postgres_url)
 
 
 async def generate_chat_title(
@@ -47,22 +57,6 @@ async def generate_chat_title(
         ]
     )
     return _sanitize_thread_title(response.content)
-
-
-def _apply_observability_settings(tool_settings: dict | None):
-    if not tool_settings:
-        return
-
-    obs = tool_settings.get("observability", {})
-    enabled = obs.get("langsmith_enabled", False)
-    api_key = obs.get("langsmith_api_key", "")
-
-    if enabled and api_key:
-        os.environ["LANGCHAIN_TRACING_V2"] = "true"
-        os.environ["LANGCHAIN_API_KEY"] = api_key
-        os.environ["LANGCHAIN_PROJECT"] = "Veraxi"
-    else:
-        os.environ["LANGCHAIN_TRACING_V2"] = "false"
 
 
 async def answer_question(
@@ -119,7 +113,7 @@ async def answer_question(
             async with AsyncPostgresSaver.from_conn_string(
                 config_obj.postgres_url
             ) as memory:
-                await memory.setup()
+                await setup_postgres_checkpointer_once(memory, config_obj.postgres_url)
                 app = workflow.compile(checkpointer=memory)
                 final_state = await app.ainvoke(initial_state, config=config)
     finally:
@@ -516,7 +510,7 @@ async def stream_answer_question(
             async with AsyncPostgresSaver.from_conn_string(
                 config_obj.postgres_url
             ) as memory:
-                await memory.setup()
+                await setup_postgres_checkpointer_once(memory, config_obj.postgres_url)
                 app = workflow.compile(checkpointer=memory)
                 async for evt in _process_stream(
                     app.astream_events(initial_state, config=config, version="v2")

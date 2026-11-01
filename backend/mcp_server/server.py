@@ -2,12 +2,26 @@ import json
 
 from mcp.server.mcpserver import MCPServer
 
+from backend.config import get_config
 from backend.mcp_server.context import tenant_context
+from backend.mcp_server.handlers.tool_registry import TOOL_HANDLERS
 from backend.mcp_server.tools.get_schema import get_graph_schema
 from backend.mcp_server.tools.get_stats import get_database_stats
 from backend.prompts import CRAG_ORCHESTRATOR_PROMPT, INGEST_KNOWLEDGE_PROMPT
 
 mcp_server = MCPServer("veraxi_mcp")
+
+
+def _dispatch(tool_name: str, args: dict) -> str:
+    tenant_id = tenant_context.get()
+    res = TOOL_HANDLERS[tool_name](args, tenant_id)
+    return res[0].text if res else "[]"
+
+
+async def _adispatch(tool_name: str, args: dict) -> str:
+    tenant_id = tenant_context.get()
+    res = await TOOL_HANDLERS[tool_name](args, tenant_id)
+    return res[0].text if res else "[]"
 
 
 @mcp_server.resource("veraxi://schema")
@@ -41,13 +55,7 @@ def prompt_crag_orchestrator() -> str:
     description="[FAST - Vector Only (<50ms)] Semantic vector search over document chunks. Use when searching purely by text similarity without graph relationship traversal.",
 )
 def mcp_search_vectors(query_text: str, limit: int = 10) -> str:
-    tenant_id = tenant_context.get()
-    args = {k: v for k, v in locals().items() if k != "tenant_id"}
-    from backend.mcp_server.handlers.tool_registry import _handle_search_vectors
-
-    res = _handle_search_vectors(args, tenant_id)
-    # The old handler returns list[TextContent]. MCPServer expects str.
-    return res[0].text
+    return _dispatch("mcp_search_vectors", {"query_text": query_text, "limit": limit})
 
 
 @mcp_server.tool(
@@ -55,12 +63,7 @@ def mcp_search_vectors(query_text: str, limit: int = 10) -> str:
     description="[FAST - Graph Only (<50ms)] Multi-hop relationship traversal from a known entity in Neo4j. Use when exploring entity connections, dependencies, or causal chains.",
 )
 def mcp_query_graph(entity_name: str, max_hops: int = 2) -> str:
-    tenant_id = tenant_context.get()
-    args = {k: v for k, v in locals().items() if k != "tenant_id"}
-    from backend.mcp_server.handlers.tool_registry import _handle_query_graph
-
-    res = _handle_query_graph(args, tenant_id)
-    return res[0].text if res else "[]"
+    return _dispatch("mcp_query_graph", {"entity_name": entity_name, "max_hops": max_hops})
 
 
 @mcp_server.tool(
@@ -68,13 +71,7 @@ def mcp_query_graph(entity_name: str, max_hops: int = 2) -> str:
     description="Insert structured nodes and relations into the Neo4j Knowledge Graph. The Host AI should extract these from unstructured text first.",
 )
 def mcp_insert_graph_nodes(nodes: list, relations: list) -> str:
-    tenant_id = tenant_context.get()
-    args = {k: v for k, v in locals().items() if k != "tenant_id"}
-    from backend.mcp_server.handlers.tool_registry import _handle_insert_graph_nodes
-
-    res = _handle_insert_graph_nodes(args, tenant_id)
-    # The old handler returns list[TextContent]. MCPServer expects str.
-    return res[0].text
+    return _dispatch("mcp_insert_graph_nodes", {"nodes": nodes, "relations": relations})
 
 
 @mcp_server.tool(
@@ -82,13 +79,7 @@ def mcp_insert_graph_nodes(nodes: list, relations: list) -> str:
     description="Generate embeddings and insert text chunks into the Qdrant Vector Database.",
 )
 def mcp_insert_vectors(texts: list) -> str:
-    tenant_id = tenant_context.get()
-    args = {k: v for k, v in locals().items() if k != "tenant_id"}
-    from backend.mcp_server.handlers.tool_registry import _handle_insert_vectors
-
-    res = _handle_insert_vectors(args, tenant_id)
-    # The old handler returns list[TextContent]. MCPServer expects str.
-    return res[0].text
+    return _dispatch("mcp_insert_vectors", {"texts": texts})
 
 
 @mcp_server.tool(
@@ -98,13 +89,10 @@ def mcp_insert_vectors(texts: list) -> str:
 def mcp_merge_rank(
     query_text: str, entity_name: str = "", limit: int = 10, max_hops: int = 2
 ) -> str:
-    tenant_id = tenant_context.get()
-    args = {k: v for k, v in locals().items() if k != "tenant_id"}
-    from backend.mcp_server.handlers.tool_registry import _handle_merge_rank
-
-    res = _handle_merge_rank(args, tenant_id)
-    # The old handler returns list[TextContent]. MCPServer expects str.
-    return res[0].text
+    return _dispatch(
+        "mcp_merge_rank",
+        {"query_text": query_text, "entity_name": entity_name, "limit": limit, "max_hops": max_hops},
+    )
 
 
 @mcp_server.tool(
@@ -112,13 +100,7 @@ def mcp_merge_rank(
     description="Retrieves all unique Node Labels and Relationship Types currently in the Neo4j database. Call this before inserting data to understand the current schema.",
 )
 def mcp_get_graph_schema() -> str:
-    tenant_id = tenant_context.get()
-    args = {k: v for k, v in locals().items() if k != "tenant_id"}
-    from backend.mcp_server.handlers.tool_registry import _handle_get_graph_schema
-
-    res = _handle_get_graph_schema(args, tenant_id)
-    # The old handler returns list[TextContent]. MCPServer expects str.
-    return res[0].text
+    return _dispatch("mcp_get_graph_schema", {})
 
 
 @mcp_server.tool(
@@ -126,13 +108,7 @@ def mcp_get_graph_schema() -> str:
     description="Deletes a specific entity and all its relationships from Neo4j.",
 )
 def mcp_delete_entity(entity_name: str) -> str:
-    tenant_id = tenant_context.get()
-    args = {k: v for k, v in locals().items() if k != "tenant_id"}
-    from backend.mcp_server.handlers.tool_registry import _handle_delete_entity
-
-    res = _handle_delete_entity(args, tenant_id)
-    # The old handler returns list[TextContent]. MCPServer expects str.
-    return res[0].text
+    return _dispatch("mcp_delete_entity", {"entity_name": entity_name})
 
 
 @mcp_server.tool(
@@ -140,13 +116,7 @@ def mcp_delete_entity(entity_name: str) -> str:
     description="Deletes a specific document chunk from Qdrant using its document ID.",
 )
 def mcp_delete_document(document_id: str) -> str:
-    tenant_id = tenant_context.get()
-    args = {k: v for k, v in locals().items() if k != "tenant_id"}
-    from backend.mcp_server.handlers.tool_registry import _handle_delete_document
-
-    res = _handle_delete_document(args, tenant_id)
-    # The old handler returns list[TextContent]. MCPServer expects str.
-    return res[0].text
+    return _dispatch("mcp_delete_document", {"document_id": document_id})
 
 
 @mcp_server.tool(
@@ -154,13 +124,7 @@ def mcp_delete_document(document_id: str) -> str:
     description="Updates the properties of an existing Neo4j entity. Only provide the properties you want to add or overwrite.",
 )
 def mcp_update_entity(entity_name: str, properties: dict) -> str:
-    tenant_id = tenant_context.get()
-    args = {k: v for k, v in locals().items() if k != "tenant_id"}
-    from backend.mcp_server.handlers.tool_registry import _handle_update_entity
-
-    res = _handle_update_entity(args, tenant_id)
-    # The old handler returns list[TextContent]. MCPServer expects str.
-    return res[0].text
+    return _dispatch("mcp_update_entity", {"entity_name": entity_name, "properties": properties})
 
 
 @mcp_server.tool(
@@ -168,13 +132,7 @@ def mcp_update_entity(entity_name: str, properties: dict) -> str:
     description="Retrieves high-level statistics about the size of the database (nodes, relationships, vectors).",
 )
 def mcp_get_database_stats() -> str:
-    tenant_id = tenant_context.get()
-    args = {k: v for k, v in locals().items() if k != "tenant_id"}
-    from backend.mcp_server.handlers.tool_registry import _handle_get_database_stats
-
-    res = _handle_get_database_stats(args, tenant_id)
-    # The old handler returns list[TextContent]. MCPServer expects str.
-    return res[0].text
+    return _dispatch("mcp_get_database_stats", {})
 
 
 @mcp_server.tool(
@@ -182,15 +140,7 @@ def mcp_get_database_stats() -> str:
     description="Runs a Graph Data Science community detection algorithm to find clusters of connected entities.",
 )
 def mcp_run_community_detection(min_size: int = 2) -> str:
-    tenant_id = tenant_context.get()
-    args = {k: v for k, v in locals().items() if k != "tenant_id"}
-    from backend.mcp_server.handlers.tool_registry import (
-        _handle_run_community_detection,
-    )
-
-    res = _handle_run_community_detection(args, tenant_id)
-    # The old handler returns list[TextContent]. MCPServer expects str.
-    return res[0].text
+    return _dispatch("mcp_run_community_detection", {"min_size": min_size})
 
 
 @mcp_server.tool(
@@ -198,13 +148,10 @@ def mcp_run_community_detection(min_size: int = 2) -> str:
     description="Deletes a specific relationship edge between two entities without deleting the entities themselves.",
 )
 def mcp_delete_relationship(from_entity: str, to_entity: str, rel_type: str) -> str:
-    tenant_id = tenant_context.get()
-    args = {k: v for k, v in locals().items() if k != "tenant_id"}
-    from backend.mcp_server.handlers.tool_registry import _handle_delete_relationship
-
-    res = _handle_delete_relationship(args, tenant_id)
-    # The old handler returns list[TextContent]. MCPServer expects str.
-    return res[0].text
+    return _dispatch(
+        "mcp_delete_relationship",
+        {"from_entity": from_entity, "to_entity": to_entity, "rel_type": rel_type},
+    )
 
 
 @mcp_server.tool(
@@ -212,15 +159,10 @@ def mcp_delete_relationship(from_entity: str, to_entity: str, rel_type: str) -> 
     description="Updates or adds metadata properties to an existing vector document chunk in Qdrant.",
 )
 def mcp_update_document_metadata(document_id: str, payload: dict) -> str:
-    tenant_id = tenant_context.get()
-    args = {k: v for k, v in locals().items() if k != "tenant_id"}
-    from backend.mcp_server.handlers.tool_registry import (
-        _handle_update_document_metadata,
+    return _dispatch(
+        "mcp_update_document_metadata",
+        {"document_id": document_id, "payload": payload},
     )
-
-    res = _handle_update_document_metadata(args, tenant_id)
-    # The old handler returns list[TextContent]. MCPServer expects str.
-    return res[0].text
 
 
 @mcp_server.tool(
@@ -228,13 +170,10 @@ def mcp_update_document_metadata(document_id: str, payload: dict) -> str:
     description="Evaluates what percentage of a generated response is mathematically supported by the retrieved context. Returns a float between 0.0 and 1.0.",
 )
 def mcp_evaluate_grounding(response_text: str, context_text: str) -> str:
-    tenant_id = tenant_context.get()
-    args = {k: v for k, v in locals().items() if k != "tenant_id"}
-    from backend.mcp_server.handlers.tool_registry import _handle_evaluate_grounding
-
-    res = _handle_evaluate_grounding(args, tenant_id)
-    # The old handler returns list[TextContent]. MCPServer expects str.
-    return res[0].text
+    return _dispatch(
+        "mcp_evaluate_grounding",
+        {"response_text": response_text, "context_text": context_text},
+    )
 
 
 @mcp_server.tool(
@@ -242,13 +181,7 @@ def mcp_evaluate_grounding(response_text: str, context_text: str) -> str:
     description="Fallback mechanism to search the live web when internal retrieval yields insufficient context. Returns a list of JSON snippets.",
 )
 def mcp_web_search(query: str | None = None, max_results: int = 3) -> str:
-    tenant_id = tenant_context.get()
-    args = {k: v for k, v in locals().items() if k != "tenant_id"}
-    from backend.mcp_server.handlers.tool_registry import _handle_web_search
-
-    res = _handle_web_search(args, tenant_id)
-    # The old handler returns list[TextContent]. MCPServer expects str.
-    return res[0].text
+    return _dispatch("mcp_web_search", {"query": query, "max_results": max_results})
 
 
 @mcp_server.tool(
@@ -256,13 +189,7 @@ def mcp_web_search(query: str | None = None, max_results: int = 3) -> str:
     description="Lists available agentic skills for tool augmentation.",
 )
 def mcp_skills() -> str:
-    tenant_id = tenant_context.get()
-    args = {k: v for k, v in locals().items() if k != "tenant_id"}
-    from backend.mcp_server.handlers.tool_registry import _handle_skills
-
-    res = _handle_skills(args, tenant_id)
-    # The old handler returns list[TextContent]. MCPServer expects str.
-    return res[0].text
+    return _dispatch("mcp_skills", {})
 
 
 @mcp_server.tool(
@@ -270,13 +197,7 @@ def mcp_skills() -> str:
     description="Executes Python code in a local subprocess with timeout and sanitised environment (no secret access). Returns stdout/stderr.",
 )
 def mcp_run_code(code: str) -> str:
-    tenant_id = tenant_context.get()
-    args = {k: v for k, v in locals().items() if k != "tenant_id"}
-    from backend.mcp_server.handlers.tool_registry import _handle_run_code
-
-    res = _handle_run_code(args, tenant_id)
-    # The old handler returns list[TextContent]. MCPServer expects str.
-    return res[0].text
+    return _dispatch("mcp_run_code", {"code": code})
 
 
 @mcp_server.tool(
@@ -284,13 +205,7 @@ def mcp_run_code(code: str) -> str:
     description="Lists all artifacts stored in the workspace for the current tenant.",
 )
 def mcp_list_artifacts() -> str:
-    tenant_id = tenant_context.get()
-    args = {k: v for k, v in locals().items() if k != "tenant_id"}
-    from backend.mcp_server.handlers.tool_registry import _handle_list_artifacts
-
-    res = _handle_list_artifacts(args, tenant_id)
-    # The old handler returns list[TextContent]. MCPServer expects str.
-    return res[0].text
+    return _dispatch("mcp_list_artifacts", {})
 
 
 @mcp_server.tool(
@@ -298,13 +213,7 @@ def mcp_list_artifacts() -> str:
     description="Reads the content of a specific artifact by its name.",
 )
 def mcp_read_artifact(artifact_name: str) -> str:
-    tenant_id = tenant_context.get()
-    args = {k: v for k, v in locals().items() if k != "tenant_id"}
-    from backend.mcp_server.handlers.tool_registry import _handle_read_artifact
-
-    res = _handle_read_artifact(args, tenant_id)
-    # The old handler returns list[TextContent]. MCPServer expects str.
-    return res[0].text
+    return _dispatch("mcp_read_artifact", {"artifact_name": artifact_name})
 
 
 @mcp_server.tool(
@@ -320,13 +229,18 @@ def mcp_ingest_document(
     chunk_overlap: int = 50,
     wait_for_completion: bool = False,
 ) -> str:
-    tenant_id = tenant_context.get()
-    args = {k: v for k, v in locals().items() if k != "tenant_id"}
-    from backend.mcp_server.handlers.tool_registry import _handle_ingest_document
-
-    res = _handle_ingest_document(args, tenant_id)
-    # The old handler returns list[TextContent]. MCPServer expects str.
-    return res[0].text
+    return _dispatch(
+        "mcp_ingest_document",
+        {
+            "file_path": file_path,
+            "url": url,
+            "fast_extraction": fast_extraction,
+            "language": language,
+            "chunk_size": chunk_size,
+            "chunk_overlap": chunk_overlap,
+            "wait_for_completion": wait_for_completion,
+        },
+    )
 
 
 @mcp_server.tool(
@@ -334,13 +248,7 @@ def mcp_ingest_document(
     description="Polls the status of an active ingestion job.",
 )
 def mcp_get_ingest_status(job_id: str) -> str:
-    tenant_id = tenant_context.get()
-    args = {k: v for k, v in locals().items() if k != "tenant_id"}
-    from backend.mcp_server.handlers.tool_registry import _handle_get_ingest_status
-
-    res = _handle_get_ingest_status(args, tenant_id)
-    # The old handler returns list[TextContent]. MCPServer expects str.
-    return res[0].text
+    return _dispatch("mcp_get_ingest_status", {"job_id": job_id})
 
 
 @mcp_server.tool(
@@ -350,13 +258,10 @@ def mcp_get_ingest_status(job_id: str) -> str:
 def mcp_dynamic_web_graph(
     query: str, language: str = "en", max_results: int = 5
 ) -> str:
-    tenant_id = tenant_context.get()
-    args = {k: v for k, v in locals().items() if k != "tenant_id"}
-    from backend.mcp_server.handlers.tool_registry import _handle_dynamic_web_graph
-
-    res = _handle_dynamic_web_graph(args, tenant_id)
-    # The old handler returns list[TextContent]. MCPServer expects str.
-    return res[0].text
+    return _dispatch(
+        "mcp_dynamic_web_graph",
+        {"query": query, "language": language, "max_results": max_results},
+    )
 
 
 @mcp_server.tool(
@@ -366,12 +271,10 @@ def mcp_dynamic_web_graph(
 def mcp_ephemeral_web_rag(
     query: str | None = None, max_results: int = 3, urls: list | None = None
 ) -> str:
-    tenant_id = tenant_context.get()
-    args = {k: v for k, v in locals().items() if k != "tenant_id"}
-    from backend.mcp_server.handlers.tool_registry import _handle_ephemeral_web_rag
-
-    res = _handle_ephemeral_web_rag(args, tenant_id)
-    return res[0].text
+    return _dispatch(
+        "mcp_ephemeral_web_rag",
+        {"query": query, "max_results": max_results, "urls": urls},
+    )
 
 
 @mcp_server.tool(
@@ -379,12 +282,7 @@ def mcp_ephemeral_web_rag(
     description="[HEAVY - Long Running (15-30s)] Multi-agent debate swarm with adversarial Skeptic fact-checking. Dispatches Vector, Knowledge Graph, and Web specialists, synthesizes evidence with strict citations, and enforces an adversarial verification loop. ONLY call when the user explicitly asks for 'deep research', 'exhaustive audit', or 'multi-agent debate'. Do not use for routine lookups.",
 )
 async def mcp_agentic_debate(query: str) -> str:
-    tenant_id = tenant_context.get()
-    args = {"query": query}
-    from backend.mcp_server.handlers.tool_registry import _handle_agentic_debate
-
-    res = await _handle_agentic_debate(args, tenant_id)
-    return res[0].text
+    return await _adispatch("mcp_agentic_debate", {"query": query})
 
 
 @mcp_server.tool(
@@ -394,13 +292,10 @@ async def mcp_agentic_debate(query: str) -> str:
 def mcp_export_data(
     data: list, format: str = "csv", output_name: str = "veraxi_export"
 ) -> str:
-    tenant_id = tenant_context.get()
-    args = {k: v for k, v in locals().items() if k != "tenant_id"}
-    from backend.mcp_server.handlers.tool_registry import _handle_export_data
-
-    res = _handle_export_data(args, tenant_id)
-    # The old handler returns list[TextContent]. MCPServer expects str.
-    return res[0].text
+    return _dispatch(
+        "mcp_export_data",
+        {"data": data, "format": format, "output_name": output_name},
+    )
 
 
 @mcp_server.tool(
@@ -408,12 +303,7 @@ def mcp_export_data(
     description="Extracts a comprehensive research dossier from ingested documents using Hybrid Vector Search (Dense + SPLADE) fused with existing Neo4j entity anchors. Generates structured evidence chunks and instructions for Host AI to extract high-precision causal triples.",
 )
 def mcp_build_lazy_dossier(query: str, limit: int = 15) -> str:
-    tenant_id = tenant_context.get()
-    args = {k: v for k, v in locals().items() if k != "tenant_id"}
-    from backend.mcp_server.handlers.tool_registry import _handle_build_lazy_dossier
-
-    res = _handle_build_lazy_dossier(args, tenant_id)
-    return res[0].text
+    return _dispatch("mcp_build_lazy_dossier", {"query": query, "limit": limit})
 
 
 @mcp_server.tool(
@@ -421,14 +311,7 @@ def mcp_build_lazy_dossier(query: str, limit: int = 15) -> str:
     description="Purges all raw sentence-level co-occurrence ('MENTIONED_WITH') relationships from Neo4j for the current tenant. Leaves all entity nodes, book titles, and Qdrant vector links intact to eliminate graph noise.",
 )
 def mcp_purge_noisy_relationships() -> str:
-    tenant_id = tenant_context.get()
-    args = {k: v for k, v in locals().items() if k != "tenant_id"}
-    from backend.mcp_server.handlers.tool_registry import (
-        _handle_purge_noisy_relationships,
-    )
-
-    res = _handle_purge_noisy_relationships(args, tenant_id)
-    return res[0].text
+    return _dispatch("mcp_purge_noisy_relationships", {})
 
 
 AGENT_TOOLS: frozenset[str] = frozenset(
@@ -466,7 +349,5 @@ def apply_mcp_profile(server: MCPServer, profile: str) -> None:
             if prompt_name not in AGENT_PROMPTS:
                 server.remove_prompt(prompt_name)
 
-
-from backend.config import get_config
 
 apply_mcp_profile(mcp_server, get_config().mcp_tool_profile)

@@ -1,5 +1,7 @@
+from concurrent.futures import ThreadPoolExecutor
 import hashlib
 import logging
+import threading
 
 from backend.config import get_config
 from backend.ingestion.chunk_embed import chunk_and_embed
@@ -14,6 +16,8 @@ from backend.storage.neo4j_client import Neo4jStorageClient
 from backend.storage.qdrant_client import QdrantStorageClient
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
+
+_LLM_EXTRACTION_SEMAPHORE = threading.BoundedSemaphore(8)
 
 
 def run_ingestion(
@@ -111,9 +115,25 @@ def run_ingestion(
         )
     else:
         logging.info("Using Deep Extraction (LLM) for entity extraction.")  # noqa: LOG015
-        entities, relations = extract_entities_and_relations(
-            text, schema, model_name=model
-        )
+        if len(cleaned_chunks_and_embeddings) <= 1:
+            entities, relations = extract_entities_and_relations(
+                text, schema, model_name=model
+            )
+        else:
+            entities = []
+            relations = []
+
+            def _extract_chunk(chunk_text: str):
+                with _LLM_EXTRACTION_SEMAPHORE:
+                    return extract_entities_and_relations(
+                        chunk_text, schema, model_name=model
+                    )
+
+            chunk_texts = [item[0] for item in cleaned_chunks_and_embeddings]
+            with ThreadPoolExecutor(max_workers=min(4, len(chunk_texts))) as pool:
+                for chunk_ents, chunk_rels in pool.map(_extract_chunk, chunk_texts):
+                    entities.extend(chunk_ents)
+                    relations.extend(chunk_rels)
 
     # Resolve entities to deduplicate and get alias mapping
     entities, alias_to_canonical = resolve_entities(entities)
@@ -140,11 +160,17 @@ def run_ingestion(
     )
 
     # 6. Critical Link: Update Qdrant points with their corresponding Neo4j Node IDs
+    # Batch updates by grouping points that share the same Neo4j node IDs
+    n_ids_to_q_ids: dict[tuple[str, ...], list[str]] = {}
     for q_id, n_ids in qdrant_id_to_neo4j_ids.items():
+        key = tuple(n_ids)
+        n_ids_to_q_ids.setdefault(key, []).append(q_id)
+
+    for n_ids_tuple, q_ids in n_ids_to_q_ids.items():
         qdrant.client.set_payload(
             collection_name=COLLECTION_NAME,
-            payload={"neo4j_node_ids": n_ids},
-            points=[q_id],
+            payload={"neo4j_node_ids": list(n_ids_tuple)},
+            points=q_ids,
         )
 
     logging.info(  # noqa: LOG015

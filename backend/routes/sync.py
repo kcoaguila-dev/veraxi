@@ -1,3 +1,4 @@
+import asyncio
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -50,15 +51,20 @@ def register_sync_routes(app_router, get_tenant_id, get_supabase, config):
         sb = _require_supabase(get_supabase)
 
         # 1. Check premium status
-        _require_premium(sb, tenant_id, is_enterprise=is_enterprise)
+        await asyncio.to_thread(
+            _require_premium, sb, tenant_id, is_enterprise=is_enterprise
+        )
 
         # 2. Fetch sync data
-        res = (
-            sb.table("user_sync_data")
-            .select("encrypted_blob,salt")
-            .eq("tenant_id", tenant_id)
-            .execute()
-        )
+        def _fetch():
+            return (
+                sb.table("user_sync_data")
+                .select("encrypted_blob,salt")
+                .eq("tenant_id", tenant_id)
+                .execute()
+            )
+
+        res = await asyncio.to_thread(_fetch)
         if not res.data:
             raise HTTPException(status_code=404, detail="No sync data found.")
 
@@ -80,16 +86,25 @@ def register_sync_routes(app_router, get_tenant_id, get_supabase, config):
         sb = _require_supabase(get_supabase)
 
         # 1. Check premium status
-        _require_premium(sb, tenant_id, is_enterprise=is_enterprise)
+        await asyncio.to_thread(
+            _require_premium, sb, tenant_id, is_enterprise=is_enterprise
+        )
 
         # 2. Upsert sync data
-        sb.table("user_sync_data").upsert(
-            {
-                "tenant_id": tenant_id,
-                "encrypted_blob": request.encrypted_blob,
-                "salt": request.salt,
-                "updated_at": "now()",
-            }
-        ).execute()
+        def _upsert():
+            return (
+                sb.table("user_sync_data")
+                .upsert(
+                    {
+                        "tenant_id": tenant_id,
+                        "encrypted_blob": request.encrypted_blob,
+                        "salt": request.salt,
+                        "updated_at": "now()",
+                    }
+                )
+                .execute()
+            )
+
+        await asyncio.to_thread(_upsert)
 
         return {"status": "success"}

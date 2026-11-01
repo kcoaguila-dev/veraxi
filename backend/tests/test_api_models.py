@@ -73,3 +73,13 @@ async def test_get_models_with_openai_success():
         # Others should come from fallback
         assert "Anthropic" in data
         assert "DeepSeek" in data
+
+
+def test_get_models_blocks_ssrf_local_url():
+    # Attempting to query cloud metadata via x-byod-local-url must return 400
+    response = client.get(
+        "/api/models",
+        headers={"x-byod-local-url": "http://169.254.169.254/latest/meta-data/"},
+    )
+    assert response.status_code == 400
+    assert "Disallowed provider URL" in response.json()["detail"]

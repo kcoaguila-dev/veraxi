@@ -6,11 +6,13 @@ import 'package:veraxi_app/features/chat/data/local_chat_database.dart';
 
 class LocalChatMigrationService {
   final ApiClient apiClient;
-  final LocalChatDatabase database;
+  LocalChatDatabase? _database;
 
   LocalChatMigrationService(
       {required this.apiClient, LocalChatDatabase? database})
-      : database = database ?? LocalChatDatabase();
+      : _database = database;
+
+  LocalChatDatabase get database => _database ??= LocalChatDatabase();
 
   Future<int> migrate() async {
     final threads = await _exportThreads();
@@ -24,23 +26,31 @@ class LocalChatMigrationService {
   }
 
   Future<List<Map<String, dynamic>>> _exportThreads() async {
-    final threadRows = await (database.select(database.localThreads)
+    final db = database;
+    final threadRows = await (db.select(db.localThreads)
           ..orderBy([
             (thread) => OrderingTerm(
                 expression: thread.timestamp, mode: OrderingMode.desc),
           ]))
         .get();
 
+    if (threadRows.isEmpty) return const [];
+
+    final allMessageRows = await (db.select(db.localMessages)
+          ..orderBy([
+            (message) => OrderingTerm(
+                expression: message.timestamp, mode: OrderingMode.asc),
+          ]))
+        .get();
+
+    final messagesByThread = <String, List<LocalMessage>>{};
+    for (final msg in allMessageRows) {
+      messagesByThread.putIfAbsent(msg.threadId, () => []).add(msg);
+    }
+
     final exported = <Map<String, dynamic>>[];
     for (final thread in threadRows) {
-      final messageRows = await (database.select(database.localMessages)
-            ..where((message) => message.threadId.equals(thread.threadId))
-            ..orderBy([
-              (message) => OrderingTerm(
-                  expression: message.timestamp, mode: OrderingMode.asc),
-            ]))
-          .get();
-
+      final messageRows = messagesByThread[thread.threadId] ?? const [];
       exported.add({
         'thread_id': thread.threadId,
         'title': thread.title,

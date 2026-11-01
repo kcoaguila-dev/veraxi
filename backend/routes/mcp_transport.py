@@ -70,6 +70,32 @@ def register_mcp_transport_routes(
             )
 
     async def handle_post_message_with_tenant(scope, receive, send):
+        if scope["type"] == "http":
+            try:
+                headers = dict(scope.get("headers", []))
+
+                def _get_h(k: bytes) -> str | None:
+                    v = headers.get(k)
+                    return v.decode("latin-1") if v else None
+
+                auth = _get_h(b"authorization")
+                tenant_id = None
+                if auth and auth.startswith("Bearer "):
+                    from fastapi.security import HTTPAuthorizationCredentials
+
+                    creds = HTTPAuthorizationCredentials(
+                        scheme="Bearer", credentials=auth[7:]
+                    )
+                    dummy_req = Request(scope)
+                    tenant_id = get_tenant_id(dummy_req, creds)
+                elif _get_h(b"x-tenant-id"):
+                    tenant_id = _get_h(b"x-tenant-id")
+
+                if tenant_id:
+                    tenant_context.set(tenant_id)
+            except Exception as e:
+                logger.debug(f"Could not extract tenant for /messages: {e}")
+
         await sse.handle_post_message(scope, receive, send)
 
     app_router.mount("/messages", handle_post_message_with_tenant)
