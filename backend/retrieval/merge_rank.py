@@ -42,6 +42,17 @@ class MergedResult:
     payload: dict
 
 
+def _is_near_duplicate(text_a: str, text_b: str, threshold: float = 0.75) -> bool:
+    """Check if two texts share high token overlap (Jaccard similarity)."""
+    words_a = set(text_a.lower().split())
+    words_b = set(text_b.lower().split())
+    if len(words_a) < 6 or len(words_b) < 6:
+        return False
+    intersection = len(words_a & words_b)
+    union = len(words_a | words_b)
+    return (intersection / union) >= threshold
+
+
 def merge_rank(
     vector_hits: list[VectorHit],
     graph_hits: list[GraphHit],
@@ -94,7 +105,24 @@ def merge_rank(
     ]
     merged.sort(key=lambda r: r.fused_score, reverse=True)
 
-    if limit is not None:
-        merged = merged[:limit]
+    # Retrieval-time near-duplicate suppression (MMR / Diversity filter)
+    # Prevents near-identical chunks from different editions or repeating paragraphs
+    # from crowding out distinct insights in the LLM context window.
+    deduped: list[MergedResult] = []
+    for item in merged:
+        text = item.payload.get("text", "") if isinstance(item.payload, dict) else ""
+        if text and any(
+            _is_near_duplicate(
+                text,
+                d.payload.get("text", "")
+                if isinstance(d.payload, dict)
+                else "",
+            )
+            for d in deduped
+        ):
+            continue
+        deduped.append(item)
+        if limit is not None and len(deduped) >= limit:
+            break
 
-    return merged
+    return deduped

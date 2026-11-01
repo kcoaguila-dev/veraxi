@@ -101,3 +101,24 @@ def test_different_k_changes_fusion_but_not_order_for_single_source():
     assert [r.id for r in low_k] == [r.id for r in high_k] == ["a", "b"]
     # But the actual fused scores differ since k changes the damping.
     assert low_k[0].fused_score != high_k[0].fused_score
+
+
+def test_near_duplicate_chunks_are_suppressed():
+    # Hit "dup1" and "dup2" share almost identical text (from two editions or boilerplate)
+    # "unique3" has distinct text. "dup2" should be suppressed in favor of "unique3".
+    text_edition_4 = "Financial shenanigans and accounting irregularities involve deceptive revenue recognition methods."
+    text_edition_2 = "Financial shenanigans and accounting irregularities involve deceptive revenue recognition practices."
+    text_distinct = "David Einhorn investigated Allied Capital for valuation fraud and aggressive debt structures."
+
+    vector_hits = [
+        VectorHit(id="dup1", score=0.95, payload={"text": text_edition_4}),
+        VectorHit(id="dup2", score=0.90, payload={"text": text_edition_2}),
+        VectorHit(id="unique3", score=0.85, payload={"text": text_distinct}),
+    ]
+
+    result = merge_rank(vector_hits, [], limit=2)
+
+    # dup2 must be dropped because it is a near-duplicate of dup1 (>85% word overlap)
+    # unique3 must be retained in the top 2
+    assert len(result) == 2
+    assert [r.id for r in result] == ["dup1", "unique3"]

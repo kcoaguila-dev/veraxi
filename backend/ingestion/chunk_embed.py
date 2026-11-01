@@ -67,7 +67,20 @@ def chunk_and_embed(
     text: str, chunk_size: int = 200, chunk_overlap: int = 50, batch_size: int = 64
 ) -> list[tuple[str, list[float], dict]]:
     """Chunks text and returns list of (chunk_text, dense_vector, sparse_vector)."""
-    chunks = chunk_text(text, chunk_size=chunk_size, overlap=chunk_overlap)
+    raw_chunks = chunk_text(text, chunk_size=chunk_size, overlap=chunk_overlap)
+    if not raw_chunks:
+        return []
+
+    # Ingestion-time boilerplate & duplicate suppression:
+    # Drops verbatim repeating headers, footers, or duplicate paragraphs within the document.
+    seen_texts: set[str] = set()
+    chunks: list[str] = []
+    for c in raw_chunks:
+        norm = " ".join(c.strip().split())
+        if norm and norm not in seen_texts:
+            seen_texts.add(norm)
+            chunks.append(c)
+
     if not chunks:
         return []
 
