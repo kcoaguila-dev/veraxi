@@ -1,11 +1,9 @@
 """Native fact-check proof engine for Veraxi MCP server."""
 
-import json
 import logging
 import re
 from typing import Any
 
-from backend.config import get_config
 from backend.evaluation.grounding import evaluate_groundedness
 from backend.ingestion.document_parser import extract_verbatim_quote
 from backend.mcp_server.tools.search_vectors import search_vectors

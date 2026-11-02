@@ -280,7 +280,7 @@ def _handle_evaluate_grounding(args: dict, tenant_id: str) -> list[TextContent]:
             "> **Result:** **❌ BLOCKED: BYOK API Key Required**",
             f'> **Evaluated Claim:** *"{resp_text[:200]}"*',
             "",
-            f"- **Error:** {str(exc)}",
+            f"- **Error:** {exc!s}",
             "- **Resolution:** Provide your personal API key via `api_key` for LLM mode, or use `method='deterministic'` for free local scoring.",
         ]
         return [TextContent(type="text", text="\n".join(report))]
