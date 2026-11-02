@@ -181,6 +181,30 @@ REGISTERED_TOOLS = [
         },
     ),
     Tool(
+        name="mcp_fact_check",
+        description="[FACT-CHECK PROOF ENGINE] Verify any claim against the knowledge base. Extracts verbatim sub-sentence quote, exact page number, and clickable PDF link (OSC 8 / Markdown), returning a formatted proof card.",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "claim": {
+                    "type": "string",
+                    "description": "The claim or statement to fact-check against the indexed books.",
+                },
+                "min_score": {
+                    "type": "number",
+                    "description": "Minimum grounding threshold (default: 0.8).",
+                    "default": 0.8,
+                },
+                "peek": {
+                    "type": "boolean",
+                    "description": "Whether to include physical PDF page excerpt preview.",
+                    "default": True,
+                },
+            },
+            "required": ["claim"],
+        },
+    ),
+    Tool(
         name="mcp_web_search",
         description="Fallback mechanism to search the live web when internal retrieval yields insufficient context. Returns a list of JSON snippets.",
         input_schema={

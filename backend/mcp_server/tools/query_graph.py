@@ -1,6 +1,10 @@
+import logging
+
 from backend.config import get_config
 from backend.retrieval.merge_rank import GraphHit
 from backend.storage.neo4j_client import Neo4jStorageClient
+
+logger = logging.getLogger(__name__)
 
 
 def query_graph(
@@ -69,5 +73,26 @@ def query_graph(
             if row.get("relation_source"):
                 payload["relation_source"] = row.get("relation_source")
             hits.append(GraphHit(id=q_id, payload=payload))
+
+    # Hydrate GraphHits with document chunk text, page_number, and source from Qdrant
+    if hits:
+        try:
+            from backend.storage.qdrant_client import QdrantStorageClient
+
+            qdrant = QdrantStorageClient.from_config(config)
+            q_ids = [h.id for h in hits]
+            q_points = qdrant.get_points(config.qdrant_collection_name, q_ids)
+            q_map = {
+                p["id"]: p.get("payload", {})
+                for p in q_points
+                if isinstance(p, dict) and "id" in p
+            }
+            for h in hits:
+                if h.id in q_map:
+                    for k, v in q_map[h.id].items():
+                        if k not in h.payload or not h.payload[k]:
+                            h.payload[k] = v
+        except Exception as exc:
+            logger.debug(f"Failed to hydrate graph hits from Qdrant payloads: {exc}")
 
     return hits

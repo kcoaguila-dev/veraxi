@@ -757,6 +757,12 @@ def _build_context_string(merged_results: list[Any]) -> str:
                 meta_tags.append(f"source: {doc_source}")
             if res.payload.get("page_number") is not None:
                 meta_tags.append(f"page: {res.payload['page_number']}")
+            if res.payload.get("breadcrumb"):
+                meta_tags.append(f"section: {res.payload['breadcrumb']}")
+            if res.payload.get("is_table"):
+                meta_tags.append("type: table")
+            if res.payload.get("bbox"):
+                meta_tags.append(f"bbox: {res.payload['bbox']}")
             if res.payload.get("last_confirmed_at"):
                 meta_tags.append(f"confirmed_at: {res.payload['last_confirmed_at']}")
         header = ", ".join(meta_tags)
@@ -799,7 +805,9 @@ async def execute_tools_internal(
             )
             return v, g, []
 
-    tool_results = await asyncio.gather(*[_dispatch_single_tool(tc) for tc in tool_calls])
+    tool_results = await asyncio.gather(
+        *[_dispatch_single_tool(tc) for tc in tool_calls]
+    )
     for v, g, t in tool_results:
         vector_hits.extend(v)
         graph_hits.extend(g)

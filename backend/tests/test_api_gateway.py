@@ -322,3 +322,41 @@ async def test_run_inline_ingestion_task_persists_status():
     assert second_call[0] == "inline_job:job-abc"
     assert '"complete"' in second_call[2]
     assert '"chunks_ingested": 5' in second_call[2]
+
+
+def test_mcp_messages_endpoints_no_307_redirect(client):
+    """Verify that both /messages and /messages/ do NOT issue 307 redirects."""
+    # Test unslashed path: must directly handle the request (not 307 redirect)
+    res_unslashed = client.post(
+        "/messages?session_id=00000000000000000000000000000000",
+        headers={"Content-Type": "application/json"},
+        json={"jsonrpc": "2.0", "id": 1, "method": "ping"},
+        follow_redirects=False,
+    )
+    assert res_unslashed.status_code != 307
+    # Transport will return 404 because session does not exist, but no redirect occurs
+    assert res_unslashed.status_code == 404
+    assert "Could not find session" in res_unslashed.text
+
+    # Test slashed path: must also directly handle the request
+    res_slashed = client.post(
+        "/messages/?session_id=00000000000000000000000000000000",
+        headers={"Content-Type": "application/json"},
+        json={"jsonrpc": "2.0", "id": 1, "method": "ping"},
+        follow_redirects=False,
+    )
+    assert res_slashed.status_code != 307
+    assert res_slashed.status_code == 404
+    assert "Could not find session" in res_slashed.text
+
+
+def test_proxy_headers_preserve_https(client):
+    """Verify that ProxyHeadersMiddleware preserves client IP and https scheme."""
+    res = client.get(
+        "/health",
+        headers={
+            "X-Forwarded-Proto": "https",
+            "X-Forwarded-For": "198.51.100.42",
+        },
+    )
+    assert res.status_code == 200

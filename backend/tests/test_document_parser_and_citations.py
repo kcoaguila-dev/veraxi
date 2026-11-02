@@ -31,6 +31,35 @@ def test_strip_and_resolve_page_number():
     assert "Chapter two starts here." in cleaned_p2
 
 
+def test_strip_and_resolve_citation_metadata_rich():
+    from backend.ingestion.document_parser import (
+        extract_verbatim_quote,
+        strip_and_resolve_citation_metadata,
+    )
+
+    raw = "<!-- page:14 | breadcrumb:Part One > Overview | bbox:25.4,380.7,361.9,72.3 | table:true -->\n| Item | Val |\n|---|---|\n| Cash | 100 |"
+    cleaned, page, breadcrumb, bbox, is_table = strip_and_resolve_citation_metadata(raw)
+    assert page == 14
+    assert breadcrumb == "Part One > Overview"
+    assert bbox == [25.4, 380.7, 361.9, 72.3]
+    assert is_table is True
+    assert "<!-- page:14" not in cleaned
+    assert "| Item | Val |" in cleaned
+
+    # Verbatim quote test
+    passage = (
+        "Operating cash flows declined significantly during the fiscal period. "
+        "Inventories rose 150 percent while revenues grew by only 20 percent. "
+        "Management deferred several key vendor payments to bolster cash balances."
+    )
+    quote = extract_verbatim_quote(
+        "inventories rose faster than revenues", passage, max_words=20
+    )
+    assert (
+        "Inventories rose 150 percent while revenues grew by only 20 percent" in quote
+    )
+
+
 def test_document_parser_plain_text(tmp_path):
     txt_file = tmp_path / "sample.txt"
     txt_file.write_text("Hello from plain text file.", encoding="utf-8")

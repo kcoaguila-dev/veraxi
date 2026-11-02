@@ -89,17 +89,74 @@ def extract_text(
         try:
             from io import BytesIO
 
-            from docling.document_converter import DocumentConverter
+            from docling.datamodel.pipeline_options import PdfPipelineOptions
+            from docling.document_converter import DocumentConverter, PdfFormatOption
 
             from backend.ingestion.vision import should_escalate_to_vlm
 
             logger.info(
-                "Parsing PDF with Docling AI models & TableFormer (this may take a moment)..."
+                "Parsing PDF with Docling AI models & TableFormer (high-fidelity layout & financial tables)..."
             )
-            converter = DocumentConverter()
+            pipeline_opts = PdfPipelineOptions()
+            pipeline_opts.do_ocr = False
+            pipeline_opts.do_table_structure = True
+            converter = DocumentConverter(
+                format_options={"pdf": PdfFormatOption(pipeline_options=pipeline_opts)}
+            )
             result = converter.convert(target_path)
             doc = result.document
-            markdown = doc.export_to_markdown()
+
+            # Preserve exact page markers, section breadcrumbs, table flags, and bboxes
+            page_items: list[str] = []
+            header_stack: list[tuple[int, str]] = []
+            current_page_no = None
+
+            for item, level in doc.iterate_items():
+                item_type = type(item).__name__
+                prov = getattr(item, "prov", None)
+                pno = prov[0].page_no if prov else current_page_no
+                if pno is not None:
+                    current_page_no = pno
+
+                bbox_str = None
+                if prov and hasattr(prov[0], "bbox"):
+                    b = prov[0].bbox
+                    bbox_str = f"{b.l:.1f},{b.t:.1f},{b.r:.1f},{b.b:.1f}"
+
+                if item_type == "SectionHeaderItem" and hasattr(item, "text"):
+                    title = item.text.strip()
+                    lvl = level or 1
+                    while header_stack and header_stack[-1][0] >= lvl:
+                        header_stack.pop()
+                    if title:
+                        header_stack.append((lvl, title))
+
+                breadcrumb = " > ".join(t for _, t in header_stack)
+                is_table = item_type == "TableItem"
+
+                marker_parts = [f"page:{current_page_no}"]
+                if breadcrumb:
+                    marker_parts.append(f"breadcrumb:{breadcrumb}")
+                if bbox_str:
+                    marker_parts.append(f"bbox:{bbox_str}")
+                if is_table:
+                    marker_parts.append("table:true")
+
+                marker = "<!-- " + " | ".join(marker_parts) + " -->"
+
+                text = ""
+                if hasattr(item, "export_to_markdown"):
+                    try:
+                        text = item.export_to_markdown(doc=doc)
+                    except TypeError:
+                        text = item.export_to_markdown()
+                elif hasattr(item, "text"):
+                    text = item.text
+
+                if text.strip():
+                    page_items.append(f"\n\n{marker}\n{text.strip()}")
+
+            markdown = "\n".join(page_items) if page_items else doc.export_to_markdown()
 
             if has_active_vision:
                 visual_summaries = []

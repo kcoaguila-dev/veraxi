@@ -276,24 +276,46 @@ def _cluster_entities(group: list[dict[str, Any]]) -> list[list[dict[str, Any]]]
     if not valid_group:
         return [[e] for e in group]
 
-    # Pre-group by entity_key, alias intersection, and acronym matches
+    # Pre-group by entity_key, alias intersection, and acronym matches via inverted index
     pre_clusters: list[list[dict[str, Any]]] = []
+    form_to_cluster_idx: dict[str, int] = {}
+    acronym_to_cluster_idx: dict[str, int] = {}
 
     for ent in valid_group:
+        forms = _entity_norm_forms(ent)
         matched_cluster_idx = -1
-        for idx, cluster in enumerate(pre_clusters):
-            for c_ent in cluster:
-                if _entities_share_alias_or_acronym(ent, c_ent):
-                    matched_cluster_idx = idx
-                    break
 
-            if matched_cluster_idx != -1:
+        # Direct alias/form match via inverted index
+        for f in forms:
+            if f in form_to_cluster_idx:
+                matched_cluster_idx = form_to_cluster_idx[f]
                 break
+
+        # Acronym matching via inverted index
+        if matched_cluster_idx == -1:
+            for f in forms:
+                for acr in acronym_candidates(f):
+                    if acr in acronym_to_cluster_idx:
+                        matched_cluster_idx = acronym_to_cluster_idx[acr]
+                        break
+                if f in acronym_to_cluster_idx:
+                    matched_cluster_idx = acronym_to_cluster_idx[f]
+                    break
+                if matched_cluster_idx != -1:
+                    break
 
         if matched_cluster_idx != -1:
             pre_clusters[matched_cluster_idx].append(ent)
         else:
+            matched_cluster_idx = len(pre_clusters)
             pre_clusters.append([ent])
+
+        for f in forms:
+            form_to_cluster_idx[f] = matched_cluster_idx
+            for acr in acronym_candidates(f):
+                acronym_to_cluster_idx[acr] = matched_cluster_idx
+            if len(f.split()) == 1 and 2 <= len(f) <= 6:
+                acronym_to_cluster_idx[f] = matched_cluster_idx
 
     # Extract the longest name from each pre_cluster as its canonical name for embedding
     canonical_names = []

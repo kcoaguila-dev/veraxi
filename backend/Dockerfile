@@ -32,4 +32,4 @@ USER appuser
 EXPOSE 8080
 
 # Start server (Reads $PORT from Cloud Run, defaults to 8000 locally)
-CMD ["sh", "-c", "uvicorn backend.api_gateway:app --host 0.0.0.0 --port ${PORT:-8000}"]
+CMD ["sh", "-c", "uvicorn backend.api_gateway:app --host 0.0.0.0 --port ${PORT:-8000} --proxy-headers --forwarded-allow-ips='*'"]

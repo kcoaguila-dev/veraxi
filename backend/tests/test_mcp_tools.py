@@ -238,3 +238,43 @@ def test_mcp_schema_demarcation_and_optional_entity():
             max_hops=2,
             tenant_id="test_tenant",
         )
+
+
+def test_fact_check_tool_registration_and_proof_formatting():
+    from backend.mcp_server.handlers.tool_registry import (
+        REGISTERED_TOOLS,
+        _format_mcp_proof_card,
+        _handle_fact_check,
+    )
+    from backend.retrieval.merge_rank import VectorHit
+
+    tools_by_name = {t.name: t for t in REGISTERED_TOOLS}
+    assert "mcp_fact_check" in tools_by_name
+    assert "[FACT-CHECK PROOF ENGINE]" in tools_by_name["mcp_fact_check"].description
+
+    # Test _format_mcp_proof_card
+    sample_hits = [
+        VectorHit(
+            id="hit-1",
+            score=0.95,
+            payload={
+                "text": "The company reported revenue of $500 million in Q4 2023.",
+                "source": "Annual Report.pdf",
+                "page_number": 42,
+            },
+        )
+    ]
+    card = _format_mcp_proof_card("company revenue Q4 2023", sample_hits)
+    assert "### 🛡️ Grounded Evidence Citations (Veraxi Hybrid GraphRAG)" in card
+    assert "Annual Report.pdf" in card
+    assert "Page 42" in card
+    assert "revenue of $500 million" in card
+
+    # Test _handle_fact_check with mocked run_check
+    with patch("backend.cli.check.run_check") as mock_run_check:
+        mock_run_check.side_effect = lambda *args, **kwargs: print("FACT CHECK PASSED")
+        result = _handle_fact_check(
+            {"claim": "test claim", "peek": False}, tenant_id="t1"
+        )
+        assert len(result) == 1
+        assert "FACT CHECK PASSED" in result[0].text

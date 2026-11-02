@@ -3,7 +3,7 @@ from functools import lru_cache
 from typing import Any
 
 _CJK_RE = re.compile(r"([\u4e00-\u9fff\u3040-\u30ff\uac00-\ud7af])")
-_PAGE_SPLIT_RE = re.compile(r"(<!--\s*page:\d+\s*-->)")
+_PAGE_SPLIT_RE = re.compile(r"(<!--\s*page:\d+.*?-->)")
 
 
 def _pretokenize_cjk(text: str) -> str:
@@ -25,11 +25,7 @@ def _chunk_plain_segment(
     text_len = len(text)
     while start < text_len:
         end = start + chunk_size
-        if (
-            end < text_len
-            and not text[end].isspace()
-            and not text[end - 1].isspace()
-        ):
+        if end < text_len and not text[end].isspace() and not text[end - 1].isspace():
             split_at = text.rfind(" ", start + overlap + 1, end)
             if split_at > start + overlap:
                 end = split_at

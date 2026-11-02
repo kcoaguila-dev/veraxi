@@ -69,33 +69,41 @@ def register_mcp_transport_routes(
                 mcp_server._lowlevel_server.create_initialization_options(),
             )
 
-    async def handle_post_message_with_tenant(scope, receive, send):
-        if scope["type"] == "http":
-            try:
-                headers = dict(scope.get("headers", []))
+    class _SsePostMessageHandler:
+        """Pure ASGI handler for MCP SSE message posts.
+        Directly attached via add_route on both unslashed (/messages) and slashed (/messages/)
+        to eliminate 307 redirects and protocol downgrade behind reverse proxies.
+        """
 
-                def _get_h(k: bytes) -> str | None:
-                    v = headers.get(k)
-                    return v.decode("latin-1") if v else None
+        async def __call__(self, scope, receive, send):
+            if scope["type"] == "http":
+                try:
+                    headers = dict(scope.get("headers", []))
 
-                auth = _get_h(b"authorization")
-                tenant_id = None
-                if auth and auth.startswith("Bearer "):
-                    from fastapi.security import HTTPAuthorizationCredentials
+                    def _get_h(k: bytes) -> str | None:
+                        v = headers.get(k)
+                        return v.decode("latin-1") if v else None
 
-                    creds = HTTPAuthorizationCredentials(
-                        scheme="Bearer", credentials=auth[7:]
-                    )
-                    dummy_req = Request(scope)
-                    tenant_id = get_tenant_id(dummy_req, creds)
-                elif _get_h(b"x-tenant-id"):
-                    tenant_id = _get_h(b"x-tenant-id")
+                    auth = _get_h(b"authorization")
+                    tenant_id = None
+                    if auth and auth.startswith("Bearer "):
+                        from fastapi.security import HTTPAuthorizationCredentials
 
-                if tenant_id:
-                    tenant_context.set(tenant_id)
-            except Exception as e:
-                logger.debug(f"Could not extract tenant for /messages: {e}")
+                        creds = HTTPAuthorizationCredentials(
+                            scheme="Bearer", credentials=auth[7:]
+                        )
+                        dummy_req = Request(scope)
+                        tenant_id = get_tenant_id(dummy_req, creds)
+                    elif _get_h(b"x-tenant-id"):
+                        tenant_id = _get_h(b"x-tenant-id")
 
-        await sse.handle_post_message(scope, receive, send)
+                    if tenant_id:
+                        tenant_context.set(tenant_id)
+                except Exception as e:
+                    logger.debug(f"Could not extract tenant for /messages: {e}")
 
-    app_router.mount("/messages", handle_post_message_with_tenant)
+            await sse.handle_post_message(scope, receive, send)
+
+    sse_handler = _SsePostMessageHandler()
+    app_router.add_route("/messages", sse_handler, methods=["POST", "OPTIONS"])
+    app_router.add_route("/messages/", sse_handler, methods=["POST", "OPTIONS"])

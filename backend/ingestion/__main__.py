@@ -5,7 +5,9 @@ import threading
 
 from backend.config import get_config
 from backend.ingestion.chunk_embed import chunk_and_embed
-from backend.ingestion.document_parser import strip_and_resolve_page_number
+from backend.ingestion.document_parser import (
+    strip_and_resolve_citation_metadata,
+)
 from backend.ingestion.entity_resolution import resolve_entities
 from backend.ingestion.extract import (
     extract_entities_and_relations,
@@ -73,10 +75,13 @@ def run_ingestion(
     payloads = []
     cleaned_chunks_and_embeddings = []
     current_page: int | None = None
+    current_breadcrumb: str | None = None
 
     for idx, (raw_chunk, vec, sparse_vec) in enumerate(chunks_and_embeddings):
-        clean_chunk, current_page = strip_and_resolve_page_number(
-            raw_chunk, current_page
+        clean_chunk, current_page, current_breadcrumb, bbox, is_table = (
+            strip_and_resolve_citation_metadata(
+                raw_chunk, current_page, current_breadcrumb
+            )
         )
         vectors.append(vec)
         sparse_vectors.append(sparse_vec)
@@ -91,6 +96,12 @@ def run_ingestion(
         }
         if current_page is not None:
             payload["page_number"] = current_page
+        if current_breadcrumb:
+            payload["breadcrumb"] = current_breadcrumb
+        if bbox:
+            payload["bbox"] = bbox
+        if is_table:
+            payload["is_table"] = True
         payloads.append(payload)
 
     # 3. Write to Qdrant

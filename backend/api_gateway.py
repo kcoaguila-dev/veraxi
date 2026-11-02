@@ -21,6 +21,7 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 from supabase import Client, create_client
+from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 from backend import context as byod_context
 from backend.config import get_config
@@ -140,6 +141,7 @@ class ByodContextMiddleware:
 
 
 app.add_middleware(ByodContextMiddleware)
+app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
 
 
 # ---------------------------------------------------------------------------

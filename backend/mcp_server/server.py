@@ -63,7 +63,9 @@ def mcp_search_vectors(query_text: str, limit: int = 10) -> str:
     description="[FAST - Graph Only (<50ms)] Multi-hop relationship traversal from a known entity in Neo4j. Use when exploring entity connections, dependencies, or causal chains.",
 )
 def mcp_query_graph(entity_name: str, max_hops: int = 2) -> str:
-    return _dispatch("mcp_query_graph", {"entity_name": entity_name, "max_hops": max_hops})
+    return _dispatch(
+        "mcp_query_graph", {"entity_name": entity_name, "max_hops": max_hops}
+    )
 
 
 @mcp_server.tool(
@@ -91,7 +93,12 @@ def mcp_merge_rank(
 ) -> str:
     return _dispatch(
         "mcp_merge_rank",
-        {"query_text": query_text, "entity_name": entity_name, "limit": limit, "max_hops": max_hops},
+        {
+            "query_text": query_text,
+            "entity_name": entity_name,
+            "limit": limit,
+            "max_hops": max_hops,
+        },
     )
 
 
@@ -124,7 +131,9 @@ def mcp_delete_document(document_id: str) -> str:
     description="Updates the properties of an existing Neo4j entity. Only provide the properties you want to add or overwrite.",
 )
 def mcp_update_entity(entity_name: str, properties: dict) -> str:
-    return _dispatch("mcp_update_entity", {"entity_name": entity_name, "properties": properties})
+    return _dispatch(
+        "mcp_update_entity", {"entity_name": entity_name, "properties": properties}
+    )
 
 
 @mcp_server.tool(
@@ -173,6 +182,17 @@ def mcp_evaluate_grounding(response_text: str, context_text: str) -> str:
     return _dispatch(
         "mcp_evaluate_grounding",
         {"response_text": response_text, "context_text": context_text},
+    )
+
+
+@mcp_server.tool(
+    name="mcp_fact_check",
+    description="[FACT-CHECK PROOF ENGINE] Verify any financial claim against the knowledge base. Extracts verbatim sub-sentence quote, exact page number, and clickable PDF link (OSC 8 / Markdown), returning a formatted proof card with page peek.",
+)
+def mcp_fact_check(claim: str, min_score: float = 0.8, peek: bool = True) -> str:
+    return _dispatch(
+        "mcp_fact_check",
+        {"claim": claim, "min_score": min_score, "peek": peek},
     )
 
 
@@ -325,6 +345,7 @@ AGENT_TOOLS: frozenset[str] = frozenset(
         "mcp_ingest_document",
         "mcp_get_ingest_status",
         "mcp_get_database_stats",
+        "mcp_fact_check",
     ]
 )
 

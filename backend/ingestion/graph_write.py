@@ -49,19 +49,23 @@ def write_to_graph(
     # Match chunk texts to surface aliases to map qdrant_point_ids to canonical entities
     linked_qdrant_ids = set()
 
+    # Pre-normalize chunk texts once to avoid quadratic repeated regexes across all entities
+    norm_chunks = [
+        (normalize_name(chunk_text), point_id)
+        for chunk_text, point_id in payload.qdrant_point_ids.items()
+    ]
+
     for entity in payload.entities:
         name = entity["name"]
         aliases = list({name} | set(entity.get("aliases", [])))
+        norm_aliases = [normalize_name(a) for a in aliases if normalize_name(a)]
 
         # Find which chunks contain any of this entity's aliases
         matched_point_ids = []
-        for chunk_text, point_id in payload.qdrant_point_ids.items():
-            chunk_text_norm = normalize_name(chunk_text)
-            for alias in aliases:
-                if normalize_name(alias) in chunk_text_norm:
-                    matched_point_ids.append(point_id)
-                    linked_qdrant_ids.add(point_id)
-                    break  # Once we link the chunk to this entity, move to next chunk
+        for chunk_text_norm, point_id in norm_chunks:
+            if any(norm_a in chunk_text_norm for norm_a in norm_aliases):
+                matched_point_ids.append(point_id)
+                linked_qdrant_ids.add(point_id)
 
         # Ensure we always link at least one chunk if available and none matched
         if not matched_point_ids and payload.qdrant_point_ids:

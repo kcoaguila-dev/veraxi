@@ -30,6 +30,54 @@ __all__ = ["REGISTERED_TOOLS", "TOOL_HANDLERS"]
 logger = logging.getLogger(__name__)
 
 
+def _format_mcp_proof_card(query: str, hits: list) -> str:
+    from urllib.parse import quote as url_quote
+
+    from backend.ingestion.document_parser import extract_verbatim_quote
+    from veraxi.cli.check import _resolve_pdf_path
+
+    card_lines = [
+        "### 🛡️ Grounded Evidence Citations (Veraxi Hybrid GraphRAG)",
+        f'> **Query:** *"{query}"*',
+        "",
+        "| # | Document | Location | Action | Verbatim Proof Quote |",
+        "|---|---|---|---|---|",
+    ]
+
+    for idx, hit in enumerate(hits, start=1):
+        payload = getattr(hit, "payload", {}) or {}
+        source = (
+            payload.get("source") or payload.get("document_id") or "Unknown Document"
+        )
+        short_source = (source[:38] + "...") if len(source) > 40 else source
+        page_num = payload.get("page_number")
+        page_str = f"**Page {page_num}**" if page_num is not None else "Page N/A"
+
+        pdf_path = _resolve_pdf_path(source)
+        action_str = "N/A"
+        if pdf_path and page_num is not None:
+            url_path = url_quote(pdf_path, safe="/:")
+            action_str = (
+                f"[📄 Open PDF Page {page_num}](file://{url_path}#page={page_num})"
+            )
+
+        chunk_text = payload.get("text", "")
+        quote = (
+            extract_verbatim_quote(query, chunk_text, max_words=25)
+            .replace("|", "&#124;")
+            .replace("\n", " ")
+            .strip()
+            if chunk_text
+            else ""
+        )
+        card_lines.append(
+            f'| **{idx}** | *{short_source}* | {page_str} | {action_str} | *"{quote}"* |'
+        )
+
+    card_lines.append("")
+    return "\n".join(card_lines)
+
+
 def _handle_search_vectors(args: dict, tenant_id: str) -> list[TextContent]:
     config = get_config()
     results = search_vectors(
@@ -38,7 +86,12 @@ def _handle_search_vectors(args: dict, tenant_id: str) -> list[TextContent]:
         tenant_id=tenant_id,
     )
     dict_results = [dataclasses.asdict(r) for r in results]
-    return [TextContent(type="text", text=json.dumps(dict_results))]
+    proof_card = _format_mcp_proof_card(args["query_text"], results)
+    output_text = (
+        f"{proof_card}\n<details>\n<summary><b>🔍 Raw Retrieval Data ({len(dict_results)} hits)</b></summary>\n\n"
+        f"```json\n{json.dumps(dict_results, indent=2)}\n```\n</details>"
+    )
+    return [TextContent(type="text", text=output_text)]
 
 
 def _handle_query_graph(args: dict, tenant_id: str) -> list[TextContent]:
@@ -111,8 +164,12 @@ def _handle_merge_rank(args: dict, tenant_id: str) -> list[TextContent]:
         v_hits, g_hits, limit=args.get("limit", config.default_search_limit)
     )
     dict_results = [dataclasses.asdict(r) for r in results]
-
-    return [TextContent(type="text", text=json.dumps(dict_results))]
+    proof_card = _format_mcp_proof_card(args["query_text"], results)
+    output_text = (
+        f"{proof_card}\n<details>\n<summary><b>🔍 Raw Retrieval Data ({len(dict_results)} hits)</b></summary>\n\n"
+        f"```json\n{json.dumps(dict_results, indent=2)}\n```\n</details>"
+    )
+    return [TextContent(type="text", text=output_text)]
 
 
 def _handle_get_graph_schema(args: dict, tenant_id: str) -> list[TextContent]:
@@ -162,8 +219,24 @@ def _handle_update_document_metadata(args: dict, tenant_id: str) -> list[TextCon
 def _handle_evaluate_grounding(args: dict, tenant_id: str) -> list[TextContent]:
     from backend.mcp_server.tools.evaluate_grounding import mcp_evaluate_grounding
 
-    score = mcp_evaluate_grounding(args["response_text"], args["context_text"])
-    return [TextContent(type="text", text=str(score))]
+    resp_text = args.get("response_text", "")
+    context_text = args.get("context_text", "")
+    score = mcp_evaluate_grounding(resp_text, context_text)
+
+    passed = (score or 0.0) >= 0.8
+    badge = "✅ PASSED" if passed else "❌ FAILED"
+
+    report = [
+        "### 🛡️ Grounding & Verification Evaluation",
+        f"> **Grounding Score:** `{score}` | **Result:** **{badge}**",
+        f'> **Evaluated Claim:** *"{resp_text[:200]}"*',
+        "",
+        f"- **Verification Verdict:** {'Factual alignment confirmed by knowledge base' if passed else 'Disputed or unsupported by retrieved context'}",
+        f"- **Context Length:** {len(context_text)} characters",
+        "",
+        f"Score: {score}",
+    ]
+    return [TextContent(type="text", text="\n".join(report))]
 
 
 def _handle_web_search(args: dict, tenant_id: str) -> list[TextContent]:
@@ -284,12 +357,39 @@ def _handle_purge_noisy_relationships(args: dict, tenant_id: str) -> list[TextCo
     return [TextContent(type="text", text=json.dumps(results, indent=2))]
 
 
+def _handle_fact_check(args: dict, tenant_id: str) -> list[TextContent]:
+    from contextlib import redirect_stderr, redirect_stdout
+    import io
+
+    from veraxi.cli.check import run_check
+
+    claim = args.get("claim", "")
+    min_score = float(args.get("min_score", 0.8))
+    peek = bool(args.get("peek", True))
+
+    buf = io.StringIO()
+    try:
+        with redirect_stdout(buf), redirect_stderr(buf):
+            run_check(
+                text=claim,
+                min_score=min_score,
+                tenant_id=tenant_id,
+                peek=peek,
+                as_json=False,
+            )
+    except SystemExit:
+        pass
+
+    return [TextContent(type="text", text=buf.getvalue())]
+
+
 TOOL_HANDLERS = {
     "mcp_search_vectors": _handle_search_vectors,
     "mcp_query_graph": _handle_query_graph,
     "mcp_insert_graph_nodes": _handle_insert_graph_nodes,
     "mcp_insert_vectors": _handle_insert_vectors,
     "mcp_merge_rank": _handle_merge_rank,
+    "mcp_fact_check": _handle_fact_check,
     "mcp_get_graph_schema": _handle_get_graph_schema,
     "mcp_delete_entity": _handle_delete_entity,
     "mcp_delete_document": _handle_delete_document,
