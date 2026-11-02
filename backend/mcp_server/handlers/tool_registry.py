@@ -262,10 +262,36 @@ def _handle_evaluate_grounding(args: dict, tenant_id: str) -> list[TextContent]:
 
     resp_text = args.get("response_text", "")
     context_text = args.get("context_text", "")
-    score = mcp_evaluate_grounding(resp_text, context_text)
+    method = args.get("method", "auto")
+    api_key = args.get("api_key")
+    model_name = args.get("model_name")
+
+    try:
+        score = mcp_evaluate_grounding(
+            resp_text,
+            context_text,
+            method=method,
+            api_key=api_key,
+            model_name=model_name,
+        )
+    except ValueError as exc:
+        report = [
+            "### 🛡️ Grounding & Verification Evaluation",
+            "> **Result:** **❌ BLOCKED: BYOK API Key Required**",
+            f'> **Evaluated Claim:** *"{resp_text[:200]}"*',
+            "",
+            f"- **Error:** {str(exc)}",
+            "- **Resolution:** Provide your personal API key via `api_key` for LLM mode, or use `method='deterministic'` for free local scoring.",
+        ]
+        return [TextContent(type="text", text="\n".join(report))]
 
     passed = (score or 0.0) >= 0.8
     badge = "✅ PASSED" if passed else "❌ FAILED"
+    mode_desc = (
+        "Deterministic (Local Fast Overlap - $0 Server Cost)"
+        if (method == "deterministic" or (method == "auto" and not api_key))
+        else f"LLM Entailment (User BYOK: {model_name or 'default'})"
+    )
 
     report = [
         "### 🛡️ Grounding & Verification Evaluation",
@@ -273,6 +299,7 @@ def _handle_evaluate_grounding(args: dict, tenant_id: str) -> list[TextContent]:
         f'> **Evaluated Claim:** *"{resp_text[:200]}"*',
         "",
         f"- **Verification Verdict:** {'Factual alignment confirmed by knowledge base' if passed else 'Disputed or unsupported by retrieved context'}",
+        f"- **Evaluation Mode:** {mode_desc}",
         f"- **Context Length:** {len(context_text)} characters",
         "",
         f"Score: {score}",

@@ -170,12 +170,32 @@ REGISTERED_TOOLS = [
     ),
     Tool(
         name="mcp_evaluate_grounding",
-        description="Evaluates what percentage of a generated response is mathematically supported by the retrieved context. Returns a float between 0.0 and 1.0.",
+        description="Evaluates what percentage of a generated response is mathematically supported by the retrieved context. Supports 'deterministic' ($0 cost, fast, local) and 'llm' (deep semantic entailment via user BYOK key) modes. Returns a float between 0.0 and 1.0.",
         input_schema={
             "type": "object",
             "properties": {
-                "response_text": {"type": "string"},
-                "context_text": {"type": "string"},
+                "response_text": {
+                    "type": "string",
+                    "description": "The response or claim to evaluate.",
+                },
+                "context_text": {
+                    "type": "string",
+                    "description": "The reference or retrieved context.",
+                },
+                "method": {
+                    "type": "string",
+                    "enum": ["auto", "deterministic", "llm"],
+                    "description": "Evaluation method. Default is 'auto' (deterministic unless api_key is supplied).",
+                    "default": "auto",
+                },
+                "api_key": {
+                    "type": "string",
+                    "description": "Optional user API key for LLM mode (BYOK). Required if method='llm'.",
+                },
+                "model_name": {
+                    "type": "string",
+                    "description": "Optional model override for LLM mode (e.g., 'gpt-4o-mini', 'gemini-2.0-flash').",
+                },
             },
             "required": ["response_text", "context_text"],
         },

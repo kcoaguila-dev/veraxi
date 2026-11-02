@@ -142,9 +142,14 @@ def perform_fact_check(
 
     score = None
     try:
-        score = evaluate_groundedness(response_text=claim, context_text=context)
+        score = evaluate_groundedness(
+            response_text=claim,
+            context_text=context,
+            method="deterministic",
+            require_byok=True,
+        )
     except Exception as exc:
-        logger.debug(f"LLM grounding evaluation failed, using fallback: {exc}")
+        logger.debug(f"Deterministic grounding evaluation failed, using fallback: {exc}")
 
     if score is None:
         source_names = [ev.get("source", "") for ev in evidence_records]

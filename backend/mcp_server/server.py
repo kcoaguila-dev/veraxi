@@ -176,12 +176,24 @@ def mcp_update_document_metadata(document_id: str, payload: dict) -> str:
 
 @mcp_server.tool(
     name="mcp_evaluate_grounding",
-    description="Evaluates what percentage of a generated response is mathematically supported by the retrieved context. Returns a float between 0.0 and 1.0.",
+    description="Evaluates what percentage of a generated response is mathematically supported by the retrieved context. Supports 'deterministic' ($0 cost, fast, local) and 'llm' (deep semantic entailment via user BYOK key) modes. Returns a float between 0.0 and 1.0.",
 )
-def mcp_evaluate_grounding(response_text: str, context_text: str) -> str:
+def mcp_evaluate_grounding(
+    response_text: str,
+    context_text: str,
+    method: str = "auto",
+    api_key: str | None = None,
+    model_name: str | None = None,
+) -> str:
     return _dispatch(
         "mcp_evaluate_grounding",
-        {"response_text": response_text, "context_text": context_text},
+        {
+            "response_text": response_text,
+            "context_text": context_text,
+            "method": method,
+            "api_key": api_key,
+            "model_name": model_name,
+        },
     )
 
 

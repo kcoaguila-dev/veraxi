@@ -496,3 +496,54 @@ def test_internal_token_auth_and_infrastructure_access(client, mock_redis):
     )
     assert auth_res.status_code == 200
     assert auth_res.json()["status"] == "complete"
+
+
+def test_mcp_streamable_evaluate_grounding_tiered(client):
+    """Verify that POST /mcp executes mcp_evaluate_grounding in tiered mode."""
+    # 1. Default / auto (runs deterministic, $0 cost)
+    res_auto = client.post(
+        "/mcp",
+        headers={"Content-Type": "application/json"},
+        json={
+            "jsonrpc": "2.0",
+            "id": 10,
+            "method": "tools/call",
+            "params": {
+                "name": "mcp_evaluate_grounding",
+                "arguments": {
+                    "response_text": "Antigravity was designed by Google DeepMind.",
+                    "context_text": "Antigravity is an agentic coding assistant designed by Google DeepMind.",
+                },
+            },
+        },
+    )
+    assert res_auto.status_code == 200
+    data_auto = res_auto.json()
+    assert not data_auto.get("error")
+    report = data_auto["result"]["content"][0]["text"]
+    assert "PASSED" in report
+    assert "Deterministic (Local Fast Overlap - $0 Server Cost)" in report
+
+    # 2. method="llm" without api_key (blocked by BYOK protection)
+    res_llm_blocked = client.post(
+        "/mcp",
+        headers={"Content-Type": "application/json"},
+        json={
+            "jsonrpc": "2.0",
+            "id": 11,
+            "method": "tools/call",
+            "params": {
+                "name": "mcp_evaluate_grounding",
+                "arguments": {
+                    "response_text": "Antigravity was designed by Google DeepMind.",
+                    "context_text": "Antigravity is an agentic coding assistant designed by Google DeepMind.",
+                    "method": "llm",
+                },
+            },
+        },
+    )
+    assert res_llm_blocked.status_code == 200
+    data_blocked = res_llm_blocked.json()
+    report_blocked = data_blocked["result"]["content"][0]["text"]
+    assert "BLOCKED: BYOK API Key Required" in report_blocked
+
