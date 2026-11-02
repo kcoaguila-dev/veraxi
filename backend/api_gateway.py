@@ -73,8 +73,15 @@ async def lifespan(app: FastAPI):
         app.state.redis = InMemoryRedisPool()
     else:
         app.state.redis = await create_pool(RedisSettings.from_dsn(config.redis_url))
-    yield
-    await app.state.redis.close()
+
+    from backend.routes.mcp_transport import reset_streamable_session_manager
+
+    session_manager = reset_streamable_session_manager()
+    try:
+        async with session_manager.run():
+            yield
+    finally:
+        await app.state.redis.close()
 
 
 app = FastAPI(

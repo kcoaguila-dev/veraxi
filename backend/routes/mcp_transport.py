@@ -14,12 +14,109 @@ logger = logging.getLogger(__name__)
 
 sse = SseServerTransport("/messages")
 
+_streamable_session_manager: StreamableHTTPSessionManager | None = None
 
-class _NoOpResponse(Response):
-    """Empty response sentinel when the underlying ASGI handler has already written response."""
+
+def get_streamable_session_manager() -> StreamableHTTPSessionManager:
+    """Return the active StreamableHTTPSessionManager singleton, creating one if needed."""
+    global _streamable_session_manager
+    if _streamable_session_manager is None:
+        _streamable_session_manager = StreamableHTTPSessionManager(
+            app=mcp_server._lowlevel_server,
+            stateless=True,
+            json_response=True,
+        )
+    return _streamable_session_manager
+
+
+def reset_streamable_session_manager() -> StreamableHTTPSessionManager:
+    """Instantiate a new StreamableHTTPSessionManager for server startup/lifespan."""
+    global _streamable_session_manager
+    _streamable_session_manager = StreamableHTTPSessionManager(
+        app=mcp_server._lowlevel_server,
+        stateless=True,
+        json_response=True,
+    )
+    return _streamable_session_manager
+
+
+class _StreamableHttpApp:
+    """Pure ASGI handler for Stateless MCP Streamable HTTP endpoint.
+    Eliminates session 404s and directly processes ASGI receive/send without FastAPI response wrapping.
+    """
+
+    def __init__(self, app_router, get_tenant_id):
+        self.app_router = app_router
+        self.get_tenant_id = get_tenant_id
+
+    async def _resolve_tenant(self, scope, creds) -> str | None:
+        dummy_req = Request(scope)
+        resolve_fn = getattr(self.app_router, "dependency_overrides", {}).get(
+            self.get_tenant_id, self.get_tenant_id
+        )
+        try:
+            import inspect
+
+            sig = inspect.signature(resolve_fn)
+            if len(sig.parameters) == 0:
+                res = resolve_fn()
+            elif len(sig.parameters) == 1:
+                res = resolve_fn(dummy_req)
+            else:
+                res = resolve_fn(dummy_req, creds)
+            if inspect.iscoroutine(res):
+                return await res
+            return res
+        except Exception as e:
+            logger.debug(f"Tenant resolution error on /mcp: {e}")
+            return None
 
     async def __call__(self, scope, receive, send):
-        pass
+        if scope["type"] == "http":
+            if scope.get("method") == "OPTIONS":
+                response = Response(status_code=204)
+                await response(scope, receive, send)
+                return
+
+            headers = dict(scope.get("headers", []))
+
+            def _get_h(k: bytes) -> str | None:
+                v = headers.get(k)
+                return v.decode("latin-1") if v else None
+
+            tenant_id = None
+            if _get_h(b"x-tenant-id"):
+                tenant_id = _get_h(b"x-tenant-id")
+            else:
+                auth = _get_h(b"authorization")
+                creds = None
+                if auth and auth.startswith("Bearer "):
+                    from fastapi.security import HTTPAuthorizationCredentials
+
+                    creds = HTTPAuthorizationCredentials(
+                        scheme="Bearer", credentials=auth[7:]
+                    )
+                tenant_id = await self._resolve_tenant(scope, creds)
+
+            if not tenant_id:
+                res = Response(
+                    content='{"jsonrpc":"2.0","error":{"code":-32000,"message":"Unauthorized: Missing or invalid credentials"}}',
+                    status_code=401,
+                    media_type="application/json",
+                )
+                await res(scope, receive, send)
+                return
+
+            tenant_context.set(tenant_id)
+
+            # Ensure Accept header includes application/json
+            if b"accept" not in headers or not headers[b"accept"]:
+                new_headers = list(scope.get("headers", []))
+                new_headers.append((b"accept", b"application/json, text/event-stream"))
+                scope["headers"] = new_headers
+
+        session_manager = get_streamable_session_manager()
+        await session_manager.handle_request(scope, receive, send)
 
 
 def register_mcp_transport_routes(
@@ -27,30 +124,13 @@ def register_mcp_transport_routes(
 ):
     """Register MCP transport routes (SSE and Stateless Streamable HTTP)."""
 
-    @app_router.api_route("/mcp", methods=["GET", "POST", "DELETE"])
-    @app_router.api_route("/mcp/", methods=["GET", "POST", "DELETE"])
-    @limiter.limit(config.rate_limit_sse)
-    async def handle_streamable_mcp(
-        request: Request, tenant_id: str = Depends(get_tenant_id)
-    ):
-        """Stateless MCP Streamable HTTP endpoint.
-        Eliminates session 404s on multi-worker / Cloud Run serverless deployments.
-        """
-        logger.debug(
-            f"Handling stateless MCP Streamable HTTP request for tenant: {tenant_id}"
-        )
-        tenant_context.set(tenant_id)
-
-        session_manager = StreamableHTTPSessionManager(
-            app=mcp_server._lowlevel_server,
-            stateless=True,
-            json_response=True,
-        )
-        async with session_manager.run():
-            await session_manager.handle_request(
-                request.scope, request.receive, request._send
-            )
-        return _NoOpResponse()
+    streamable_handler = _StreamableHttpApp(app_router, get_tenant_id)
+    app_router.add_route(
+        "/mcp", streamable_handler, methods=["GET", "POST", "DELETE", "OPTIONS"]
+    )
+    app_router.add_route(
+        "/mcp/", streamable_handler, methods=["GET", "POST", "DELETE", "OPTIONS"]
+    )
 
     @app_router.get("/sse")
     @limiter.limit(config.rate_limit_sse)

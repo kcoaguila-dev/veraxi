@@ -367,3 +367,54 @@ def test_mcp_streamable_endpoint_routes():
     routes = [r.path for r in app.routes]
     assert "/mcp" in routes
     assert "/mcp/" in routes
+
+
+def test_mcp_streamable_initialize(client):
+    """Verify that POST /mcp executes JSON-RPC initialize without hang or redirect."""
+    res = client.post(
+        "/mcp",
+        headers={"Content-Type": "application/json"},
+        json={
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "initialize",
+            "params": {
+                "protocolVersion": "2024-11-05",
+                "capabilities": {},
+                "clientInfo": {"name": "test-client", "version": "1.0"},
+            },
+        },
+    )
+    assert res.status_code == 200
+    data = res.json()
+    assert data["jsonrpc"] == "2.0"
+    assert data["id"] == 1
+    assert data["result"]["protocolVersion"] == "2024-11-05"
+    assert "capabilities" in data["result"]
+
+
+def test_mcp_streamable_tool_call(client):
+    """Verify that POST /mcp executes JSON-RPC tools/call in stateless mode."""
+    with patch(
+        "backend.mcp_server.tools.get_stats.get_database_stats",
+        return_value={"neo4j_nodes": 42, "neo4j_relationships": 100, "qdrant_vectors": 50},
+    ):
+        res = client.post(
+            "/mcp",
+            headers={"Content-Type": "application/json"},
+            json={
+                "jsonrpc": "2.0",
+                "id": 2,
+                "method": "tools/call",
+                "params": {
+                    "name": "mcp_get_database_stats",
+                    "arguments": {},
+                },
+            },
+        )
+    assert res.status_code == 200
+    data = res.json()
+    assert data["jsonrpc"] == "2.0"
+    assert data["id"] == 2
+    assert not data.get("error")
+    assert "result" in data

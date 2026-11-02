@@ -30,11 +30,39 @@ __all__ = ["REGISTERED_TOOLS", "TOOL_HANDLERS"]
 logger = logging.getLogger(__name__)
 
 
+def _resolve_pdf_path(source: str) -> str | None:
+    """Resolve a document source identifier to an on-disk PDF path if available."""
+    import glob
+    import os
+    import re
+
+    if not source:
+        return None
+    if os.path.isfile(source):
+        return os.path.abspath(source)
+
+    search_dirs = [
+        "/home/ubuntu/Documents/book",
+        os.path.expanduser("~/Documents/book"),
+        "/app/data",
+        os.getcwd(),
+    ]
+    norm_source = re.sub(r"[^a-zA-Z0-9]", "", source.lower())
+    for d in search_dirs:
+        if not os.path.isdir(d):
+            continue
+        for cand in glob.glob(os.path.join(d, "*")):
+            base = os.path.basename(cand)
+            norm_cand = re.sub(r"[^a-zA-Z0-9]", "", base.lower())
+            if norm_source[:25] in norm_cand or norm_cand[:25] in norm_source:
+                return os.path.abspath(cand)
+    return None
+
+
 def _format_mcp_proof_card(query: str, hits: list) -> str:
     from urllib.parse import quote as url_quote
 
     from backend.ingestion.document_parser import extract_verbatim_quote
-    from veraxi.cli.check import _resolve_pdf_path
 
     card_lines = [
         "### 🛡️ Grounded Evidence Citations (Veraxi Hybrid GraphRAG)",
@@ -361,7 +389,15 @@ def _handle_fact_check(args: dict, tenant_id: str) -> list[TextContent]:
     from contextlib import redirect_stderr, redirect_stdout
     import io
 
-    from veraxi.cli.check import run_check
+    try:
+        from veraxi.cli.check import run_check
+    except ImportError:
+        return [
+            TextContent(
+                type="text",
+                text="Fact check tool requires veraxi-cli package installed.",
+            )
+        ]
 
     claim = args.get("claim", "")
     min_score = float(args.get("min_score", 0.8))
