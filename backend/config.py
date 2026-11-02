@@ -95,6 +95,7 @@ class Config:
     max_tenant_nodes: int
     internal_api_url: str
     admin_tenant_ids: list[str]
+    internal_service_key: str = ""
     vision_enabled: bool = False
     vision_base_url: str = ""
     vision_api_key: str = ""
@@ -198,6 +199,9 @@ class Config:
             ),
             internal_api_url=os.environ.get(
                 "INTERNAL_API_URL", "http://localhost:8000/api"
+            ),
+            internal_service_key=os.environ.get(
+                "INTERNAL_SERVICE_KEY", os.environ.get("SUPABASE_SERVICE_KEY", "")
             ),
             admin_tenant_ids=[
                 t.strip()

@@ -418,3 +418,81 @@ def test_mcp_streamable_tool_call(client):
     assert data["id"] == 2
     assert not data.get("error")
     assert "result" in data
+
+
+def test_mcp_streamable_query_graph(client):
+    """Verify that POST /mcp executes JSON-RPC tools/call for mcp_query_graph without serialization crash."""
+    from backend.retrieval.merge_rank import GraphHit
+
+    mock_hit = GraphHit(
+        id="point-1",
+        payload={"name": "Einhorn", "source": "Book.pdf", "page_number": 10},
+    )
+    with patch(
+        "backend.mcp_server.handlers.tool_registry.query_graph",
+        return_value=[mock_hit],
+    ):
+        res = client.post(
+            "/mcp",
+            headers={"Content-Type": "application/json"},
+            json={
+                "jsonrpc": "2.0",
+                "id": 3,
+                "method": "tools/call",
+                "params": {
+                    "name": "mcp_query_graph",
+                    "arguments": {"entity_name": "Einhorn"},
+                },
+            },
+        )
+    assert res.status_code == 200
+    data = res.json()
+    assert not data.get("error")
+    assert "result" in data
+    assert "point-1" in data["result"]["content"][0]["text"]
+
+
+def test_mcp_streamable_fact_check(client):
+    """Verify that POST /mcp executes JSON-RPC tools/call for mcp_fact_check without missing CLI error."""
+    with patch("backend.evaluation.grounding.evaluate_groundedness", return_value=0.9):
+        res = client.post(
+            "/mcp",
+            headers={"Content-Type": "application/json"},
+            json={
+                "jsonrpc": "2.0",
+                "id": 4,
+                "method": "tools/call",
+                "params": {
+                    "name": "mcp_fact_check",
+                    "arguments": {
+                        "claim": "Short selling exposes financial fraud.",
+                        "min_score": 0.8,
+                    },
+                },
+            },
+        )
+    assert res.status_code == 200
+    data = res.json()
+    assert not data.get("error")
+    assert "PASSED" in data["result"]["content"][0]["text"]
+
+
+def test_internal_token_auth_and_infrastructure_access(client, mock_redis):
+    """Verify that internal service calls presenting x-internal-token can query /api/admin/ingest/status."""
+    from backend.config import get_config
+
+    mock_redis.get.return_value = (
+        '{"status": "complete", "result": {"chunks_ingested": 1}}'
+    )
+    cfg = get_config()
+    cfg.internal_service_key = "test_internal_secret"
+
+    auth_res = client.get(
+        "/api/admin/ingest/status/job-123",
+        headers={
+            "x-tenant-id": "internal-tenant",
+            "x-internal-token": "test_internal_secret",
+        },
+    )
+    assert auth_res.status_code == 200
+    assert auth_res.json()["status"] == "complete"

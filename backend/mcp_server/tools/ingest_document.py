@@ -37,9 +37,13 @@ def mcp_ingest_document(
         return {"error": "Must provide either file_path or url."}
 
     # Internal API url for the web server
-    api_base = get_config().internal_api_url
+    cfg = get_config()
+    api_base = cfg.internal_api_url
 
-    headers = {"x-tenant-id": tenant_id}
+    headers = {
+        "x-tenant-id": tenant_id,
+        "x-internal-token": cfg.internal_service_key,
+    }
 
     try:
         if file_path:
@@ -119,8 +123,12 @@ def mcp_get_ingest_status(tenant_id: str, job_id: str) -> dict[str, Any]:
     """
     Polls the status of an active ingestion job.
     """
-    api_base = get_config().internal_api_url
-    headers = {"x-tenant-id": tenant_id}
+    cfg = get_config()
+    api_base = cfg.internal_api_url
+    headers = {
+        "x-tenant-id": tenant_id,
+        "x-internal-token": cfg.internal_service_key,
+    }
 
     try:
         with httpx.Client(timeout=10) as client:

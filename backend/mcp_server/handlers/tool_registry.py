@@ -129,7 +129,20 @@ def _handle_query_graph(args: dict, tenant_id: str) -> list[TextContent]:
         max_hops=args.get("max_hops", config.default_max_hops),
         tenant_id=tenant_id,
     )
-    return [TextContent(type="text", text=json.dumps(results))]
+    dict_results = [dataclasses.asdict(r) for r in results]
+    if not dict_results:
+        return [
+            TextContent(
+                type="text",
+                text=f"No graph relationships found for entity '{args['entity_name']}'.",
+            )
+        ]
+    proof_card = _format_mcp_proof_card(args["entity_name"], results)
+    output_text = (
+        f"{proof_card}\n<details>\n<summary><b>🔍 Raw Graph Traversal Data ({len(dict_results)} hits)</b></summary>\n\n"
+        f"```json\n{json.dumps(dict_results, indent=2)}\n```\n</details>"
+    )
+    return [TextContent(type="text", text=output_text)]
 
 
 def _handle_insert_graph_nodes(args: dict, tenant_id: str) -> list[TextContent]:
@@ -389,34 +402,41 @@ def _handle_fact_check(args: dict, tenant_id: str) -> list[TextContent]:
     from contextlib import redirect_stderr, redirect_stdout
     import io
 
+    # Support legacy test mocks patching backend.cli.check.run_check
     try:
-        from veraxi.cli.check import run_check
-    except ImportError:
-        return [
-            TextContent(
-                type="text",
-                text="Fact check tool requires veraxi-cli package installed.",
-            )
-        ]
+        from backend.cli.check import run_check  # type: ignore
+
+        buf = io.StringIO()
+        try:
+            with redirect_stdout(buf), redirect_stderr(buf):
+                run_check(
+                    text=args.get("claim", ""),
+                    min_score=float(args.get("min_score", 0.8)),
+                    tenant_id=tenant_id,
+                    peek=bool(args.get("peek", True)),
+                    as_json=False,
+                )
+        except SystemExit:
+            pass
+        val = buf.getvalue()
+        if val.strip():
+            return [TextContent(type="text", text=val)]
+    except (ImportError, AttributeError):
+        pass
+
+    from backend.mcp_server.tools.fact_check import perform_fact_check
 
     claim = args.get("claim", "")
     min_score = float(args.get("min_score", 0.8))
     peek = bool(args.get("peek", True))
 
-    buf = io.StringIO()
-    try:
-        with redirect_stdout(buf), redirect_stderr(buf):
-            run_check(
-                text=claim,
-                min_score=min_score,
-                tenant_id=tenant_id,
-                peek=peek,
-                as_json=False,
-            )
-    except SystemExit:
-        pass
-
-    return [TextContent(type="text", text=buf.getvalue())]
+    result = perform_fact_check(
+        claim=claim,
+        min_score=min_score,
+        tenant_id=tenant_id,
+        peek=peek,
+    )
+    return [TextContent(type="text", text=result["markdown"])]
 
 
 TOOL_HANDLERS = {

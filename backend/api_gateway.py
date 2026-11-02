@@ -224,6 +224,19 @@ def get_tenant_id(
         if header_tenant:
             return header_tenant
         return "local_personal_user"
+
+    # Allow authenticated internal loopback/service calls
+    internal_token = request.headers.get("x-internal-token")
+    if (
+        internal_token
+        and config.internal_service_key
+        and internal_token == config.internal_service_key
+    ):
+        header_tenant = request.headers.get("x-tenant-id")
+        if header_tenant:
+            return header_tenant
+        return "internal_admin"
+
     if not credentials:
         logger.warning(
             "No credentials provided in request headers (Authorization header missing or invalid)"
@@ -277,6 +290,18 @@ async def verify_infrastructure_access(
     tenant_id: str = Depends(get_tenant_id),
 ) -> str:
     if tenant_id == "local_guest":
+        return tenant_id
+
+    # Internal service token or ephemeral namespaces bypass subscription checks
+    internal_token = request.headers.get("x-internal-token")
+    if (
+        internal_token
+        and config.internal_service_key
+        and internal_token == config.internal_service_key
+    ):
+        return tenant_id
+
+    if tenant_id.startswith("ephemeral_"):
         return tenant_id
 
     if not config.is_enterprise or not config.auth_enabled:
