@@ -360,3 +360,10 @@ def test_proxy_headers_preserve_https(client):
         },
     )
     assert res.status_code == 200
+
+
+def test_mcp_streamable_endpoint_routes():
+    """Verify that both /mcp and /mcp/ routes are directly registered on the application router."""
+    routes = [r.path for r in app.routes]
+    assert "/mcp" in routes
+    assert "/mcp/" in routes

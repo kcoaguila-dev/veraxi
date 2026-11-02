@@ -28,6 +28,7 @@ def register_mcp_transport_routes(
     """Register MCP transport routes (SSE and Stateless Streamable HTTP)."""
 
     @app_router.api_route("/mcp", methods=["GET", "POST", "DELETE"])
+    @app_router.api_route("/mcp/", methods=["GET", "POST", "DELETE"])
     @limiter.limit(config.rate_limit_sse)
     async def handle_streamable_mcp(
         request: Request, tenant_id: str = Depends(get_tenant_id)

@@ -3,10 +3,11 @@ api.veraxi.me {
         output stdout
     }
 
-    # Route all backend endpoints (REST API, MCP SSE transport, and OpenAPI docs)
+    # Route all backend endpoints (REST API, MCP transports, and OpenAPI docs)
     reverse_proxy /api/* backend:8000
     reverse_proxy /sse* backend:8000
     reverse_proxy /messages* backend:8000
+    reverse_proxy /mcp* backend:8000
     reverse_proxy /docs* backend:8000
     reverse_proxy /openapi.json backend:8000
     
