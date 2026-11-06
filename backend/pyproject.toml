@@ -48,7 +48,7 @@ dependencies = [
     "trafilatura>=2.3.0",
     "langgraph-checkpoint-postgres",
     "psycopg[binary]",
-    "mcp-types>=2.2.0",
+    "mcp-types>=2.3.0",
     "python-dotenv>=1.2.3",
     "duckduckgo_search>=7.0.0",
 ]
