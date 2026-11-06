@@ -1,10 +1,13 @@
 import logging
+import sentry_sdk
 
 from backend.config import get_config
 from backend.retrieval.merge_rank import GraphHit
 from backend.storage.neo4j_client import Neo4jStorageClient
 
 logger = logging.getLogger(__name__)
+
+MAX_ALLOWED_HOPS = 3
 
 
 def query_graph(
@@ -20,7 +23,7 @@ def query_graph(
 
     # max_hops is an integer and controlled/validated by us (or typed as int from MCP tool).
     # We must ensure it's a positive integer to avoid injection.
-    max_hops = max(1, int(max_hops))
+    max_hops = min(max(1, int(max_hops)), MAX_ALLOWED_HOPS)
 
     # We parameterize the entity_name and tenant_id
     query = f"""
@@ -35,7 +38,11 @@ def query_graph(
     MATCH (start)-[rels*1..{max_hops}]-(end)
     WHERE end.qdrant_point_ids IS NOT NULL
       AND end.tenant_id = $tenant_id
-    WITH DISTINCT end, last(rels) AS last_rel LIMIT 50
+    WITH end, last(rels) AS last_rel, size(rels) AS hop_distance
+    ORDER BY hop_distance ASC
+    WITH DISTINCT end, head(collect(last_rel)) AS last_rel, min(hop_distance) AS min_hops
+    ORDER BY min_hops ASC
+    LIMIT 50
     UNWIND end.qdrant_point_ids AS qid
     RETURN DISTINCT end.id AS id,
            qid AS qdrant_point_id,
@@ -93,6 +100,7 @@ def query_graph(
                         if k not in h.payload or not h.payload[k]:
                             h.payload[k] = v
         except Exception as exc:
-            logger.debug(f"Failed to hydrate graph hits from Qdrant payloads: {exc}")
+            sentry_sdk.capture_exception(exc)
+            logger.warning(f"Failed to hydrate graph hits from Qdrant payloads: {exc}")
 
     return hits

@@ -280,3 +280,93 @@ def test_fact_check_tool_registration_and_proof_formatting():
         )
         assert len(result) == 1
         assert "FACT CHECK PASSED" in result[0].text
+
+@patch("backend.mcp_server.tools.query_graph.get_config")
+@patch("backend.mcp_server.tools.query_graph.Neo4jStorageClient")
+def test_query_graph_clamps_max_hops_and_orders_by_distance(mock_neo4j_class, mock_get_config):
+    mock_instance = mock_neo4j_class.from_config.return_value
+    mock_instance.execute_read.return_value = []
+
+    query_graph("Alice", max_hops=10, tenant_id="t1")
+
+    call_args = mock_instance.execute_read.call_args[0]
+    query = call_args[0]
+
+    assert "*1..3]" in query
+    assert "ORDER BY hop_distance ASC" in query
+    assert "ORDER BY min_hops ASC" in query
+
+
+@patch("backend.mcp_server.tools.query_graph.get_config")
+@patch("backend.mcp_server.tools.query_graph.Neo4jStorageClient")
+@patch("backend.mcp_server.tools.query_graph.sentry_sdk.capture_exception")
+def test_query_graph_hydration_failure_reports_to_sentry(mock_sentry, mock_neo4j_class, mock_get_config):
+    mock_neo4j_instance = mock_neo4j_class.from_config.return_value
+    mock_neo4j_instance.execute_read.return_value = [
+        {
+            "id": "node-1",
+            "qdrant_point_id": "uuid-1",
+            "labels": ["Person"],
+            "props": {"name": "Alice"},
+        }
+    ]
+
+    with patch("backend.storage.qdrant_client.QdrantStorageClient.from_config") as mock_qdrant_from_config:
+        mock_qdrant_from_config.side_effect = RuntimeError("Qdrant unreachable")
+
+        hits = query_graph("Alice")
+
+        assert len(hits) == 1
+        assert hits[0].id == "uuid-1"
+        mock_sentry.assert_called_once()
+        assert isinstance(mock_sentry.call_args[0][0], RuntimeError)
+
+
+def test_handle_merge_rank_seeds_graph_from_query_text_when_payload_lacks_title():
+    from backend.mcp_server.handlers.tool_registry import _handle_merge_rank
+    from backend.retrieval.merge_rank import VectorHit
+
+    with (
+        patch("backend.mcp_server.handlers.tool_registry.search_vectors") as mock_sv,
+        patch("backend.mcp_server.handlers.tool_registry.query_graph") as mock_qg,
+    ):
+        mock_sv.return_value = [
+            VectorHit(
+                id="c1",
+                score=0.9,
+                payload={"text": "Standard chunk with no title"},
+            )
+        ]
+        mock_qg.return_value = []
+
+        _handle_merge_rank({"query_text": "Acme Corp debt covenant"}, tenant_id="t1")
+
+        mock_qg.assert_called_once_with(
+            entity_name="Acme Corp debt covenant",
+            max_hops=2,
+            tenant_id="t1",
+        )
+
+
+import asyncio
+
+@patch("backend.retrieval.merge_rank.merge_rank")
+def test_execute_tools_internal_passes_query_text_to_merge_rank(mock_merge_rank):
+    from backend.mcp_server.tool_dispatch import execute_tools_internal
+
+    with patch("backend.mcp_server.tool_dispatch._execute_single_tool") as mock_exec_single:
+        mock_exec_single.return_value = ([], [])
+        mock_merge_rank.return_value = []
+
+        tool_calls = [{"name": "search_vectors", "args": {"query_text": "leverage ratio"}}]
+
+        asyncio.run(
+            execute_tools_internal(
+                tool_calls,
+                tenant_id="t1",
+                tool_settings={"file_search_enabled": True}
+            )
+        )
+
+        mock_merge_rank.assert_called_once()
+        assert mock_merge_rank.call_args[1].get("query_text") == "leverage ratio"
