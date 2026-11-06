@@ -209,7 +209,11 @@ def _handle_merge_rank(args: dict, tenant_id: str) -> list[TextContent]:
                 if g_hits:
                     break
 
-        if not seeded_from_payload and not g_hits and args.get("query_text", "").strip():
+        if (
+            not seeded_from_payload
+            and not g_hits
+            and args.get("query_text", "").strip()
+        ):
             g_hits = query_graph(
                 entity_name=args["query_text"].strip(),
                 max_hops=args.get("max_hops", config.default_max_hops),

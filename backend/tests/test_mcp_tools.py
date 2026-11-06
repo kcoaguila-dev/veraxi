@@ -281,9 +281,12 @@ def test_fact_check_tool_registration_and_proof_formatting():
         assert len(result) == 1
         assert "FACT CHECK PASSED" in result[0].text
 
+
 @patch("backend.mcp_server.tools.query_graph.get_config")
 @patch("backend.mcp_server.tools.query_graph.Neo4jStorageClient")
-def test_query_graph_clamps_max_hops_and_orders_by_distance(mock_neo4j_class, mock_get_config):
+def test_query_graph_clamps_max_hops_and_orders_by_distance(
+    mock_neo4j_class, mock_get_config
+):
     mock_instance = mock_neo4j_class.from_config.return_value
     mock_instance.execute_read.return_value = []
 
@@ -300,7 +303,9 @@ def test_query_graph_clamps_max_hops_and_orders_by_distance(mock_neo4j_class, mo
 @patch("backend.mcp_server.tools.query_graph.get_config")
 @patch("backend.mcp_server.tools.query_graph.Neo4jStorageClient")
 @patch("backend.mcp_server.tools.query_graph.sentry_sdk.capture_exception")
-def test_query_graph_hydration_failure_reports_to_sentry(mock_sentry, mock_neo4j_class, mock_get_config):
+def test_query_graph_hydration_failure_reports_to_sentry(
+    mock_sentry, mock_neo4j_class, mock_get_config
+):
     mock_neo4j_instance = mock_neo4j_class.from_config.return_value
     mock_neo4j_instance.execute_read.return_value = [
         {
@@ -311,7 +316,9 @@ def test_query_graph_hydration_failure_reports_to_sentry(mock_sentry, mock_neo4j
         }
     ]
 
-    with patch("backend.storage.qdrant_client.QdrantStorageClient.from_config") as mock_qdrant_from_config:
+    with patch(
+        "backend.storage.qdrant_client.QdrantStorageClient.from_config"
+    ) as mock_qdrant_from_config:
         mock_qdrant_from_config.side_effect = RuntimeError("Qdrant unreachable")
 
         hits = query_graph("Alice")
@@ -350,21 +357,24 @@ def test_handle_merge_rank_seeds_graph_from_query_text_when_payload_lacks_title(
 
 import asyncio
 
+
 @patch("backend.retrieval.merge_rank.merge_rank")
 def test_execute_tools_internal_passes_query_text_to_merge_rank(mock_merge_rank):
     from backend.mcp_server.tool_dispatch import execute_tools_internal
 
-    with patch("backend.mcp_server.tool_dispatch._execute_single_tool") as mock_exec_single:
+    with patch(
+        "backend.mcp_server.tool_dispatch._execute_single_tool"
+    ) as mock_exec_single:
         mock_exec_single.return_value = ([], [])
         mock_merge_rank.return_value = []
 
-        tool_calls = [{"name": "search_vectors", "args": {"query_text": "leverage ratio"}}]
+        tool_calls = [
+            {"name": "search_vectors", "args": {"query_text": "leverage ratio"}}
+        ]
 
         asyncio.run(
             execute_tools_internal(
-                tool_calls,
-                tenant_id="t1",
-                tool_settings={"file_search_enabled": True}
+                tool_calls, tenant_id="t1", tool_settings={"file_search_enabled": True}
             )
         )
 

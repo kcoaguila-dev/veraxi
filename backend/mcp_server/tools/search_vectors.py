@@ -4,7 +4,10 @@ from backend.ingestion.chunk_embed import embed_text, embed_text_sparse
 from backend.retrieval.merge_rank import VectorHit
 from backend.storage.qdrant_client import QdrantStorageClient
 
-_EMBED_EXECUTOR = ThreadPoolExecutor(max_workers=4, thread_name_prefix="veraxi-query-embed")
+_EMBED_EXECUTOR = ThreadPoolExecutor(
+    max_workers=4, thread_name_prefix="veraxi-query-embed"
+)
+
 
 def search_vectors(
     query_text: str, limit: int = 10, tenant_id: str = "default"
