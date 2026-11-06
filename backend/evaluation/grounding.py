@@ -8,28 +8,229 @@ import sentry_sdk
 from openai import OpenAI
 
 from backend.config import get_config
+from backend.evaluation.lexical import (
+    _CJK_RE,
+    COMPARATOR_OPPOSITES,
+    MULTILINGUAL_NEGATIONS,
+    get_stopwords,
+    is_meaningful_token,
+    normalize_numbers as _normalize_numbers,
+    pretokenize_cjk,
+    stem_word as _stem,
+)
 
 logger = logging.getLogger(__name__)
 
-STOPWORDS = {
-    "a", "about", "above", "after", "again", "against", "all", "am", "an", "and",
-    "any", "are", "aren't", "as", "at", "be", "because", "been", "before", "being",
-    "below", "between", "both", "but", "by", "can", "cannot", "could", "did", "do",
-    "does", "doing", "down", "during", "each", "few", "for", "from", "further", "had",
-    "has", "have", "having", "he", "her", "here", "hers", "herself", "him", "himself",
-    "his", "how", "i", "if", "in", "into", "is", "isn't", "it", "its", "itself",
-    "me", "more", "most", "my", "myself", "no", "nor", "not", "of", "off", "on",
-    "once", "only", "or", "other", "ought", "our", "ours", "ourselves", "out", "over",
-    "own", "same", "she", "should", "so", "some", "such", "than", "that", "the",
-    "their", "theirs", "them", "themselves", "then", "there", "these", "they", "this",
-    "those", "through", "to", "too", "under", "until", "up", "very", "was", "wasn't",
-    "we", "were", "weren't", "what", "when", "where", "which", "while", "who", "whom",
-    "why", "with", "would", "you", "your", "yours", "yourself", "yourselves",
-}
+# Default English stopwords for backward compatibility
+STOPWORDS = get_stopwords("en", include_negations=False)
 
 
-def _stem(word: str) -> str:
-    return re.sub(r"(ing|ed|es|s|tion|ly)$", "", word.lower())
+def _compute_lexical_claim_score(
+    meaningful_tokens: list[str],
+    context_tokens: set[str],
+    context_stems: set[str],
+    context_bigrams: set[tuple[str, str]],
+) -> float:
+    """Computes unigram and bigram alignment between meaningful claim tokens and context."""
+    matches = sum(
+        1 for w in meaningful_tokens if w in context_tokens or _stem(w) in context_stems
+    )
+    unigram_precision = matches / len(meaningful_tokens)
+
+    sent_bigrams = [
+        (meaningful_tokens[i], meaningful_tokens[i + 1])
+        for i in range(len(meaningful_tokens) - 1)
+    ]
+    if sent_bigrams:
+        bigram_matches = sum(1 for bg in sent_bigrams if bg in context_bigrams)
+        bigram_precision = bigram_matches / len(sent_bigrams)
+        return 0.7 * unigram_precision + 0.3 * bigram_precision
+    return unigram_precision
+
+
+def _apply_numeric_alignment_penalty(
+    claim_score: float, sentence: str, context_text: str
+) -> float:
+    """Penalizes claims that assert specific numbers or percentages absent from the context."""
+    raw_sent_numbers = re.findall(r"\b\d+(?:\.\d+)?%?\b", sentence.lower())
+    sent_numbers = set(raw_sent_numbers)
+    if not sent_numbers:
+        return claim_score
+
+    raw_context_numbers = re.findall(r"\b\d+(?:\.\d+)?%?\b", context_text.lower())
+    context_numbers = set(raw_context_numbers)
+    matched_numbers = sent_numbers & context_numbers
+    num_ratio = len(matched_numbers) / len(sent_numbers)
+    if num_ratio < 0.5:
+        return min(claim_score, num_ratio * 0.4)
+    return claim_score
+
+
+def _find_best_matching_context_sentence(
+    meaningful_set: set[str], raw_context_sentences: list[str]
+) -> tuple[str, int]:
+    """Finds the context sentence with maximum token overlap for fine-grained claim matching."""
+    best_sent = ""
+    best_overlap = 0
+    for cs in raw_context_sentences:
+        cs_tokens = set(w.lower() for w in re.findall(r"\w+", cs))
+        overlap = len(meaningful_set & cs_tokens)
+        if overlap > best_overlap:
+            best_overlap = overlap
+            best_sent = cs
+    return best_sent, best_overlap
+
+
+def _extract_comparator_local_anchors(
+    sentence: str,
+    comp: str,
+    meaningful_set: set[str],
+    claim_stems: set[str],
+    window: int = 3,
+) -> tuple[set[str], set[str]]:
+    """Extracts meaningful anchor tokens from the claim within a local clause/token window of comp."""
+    # Isolate clause containing comp if sentence has clause delimiters
+    clauses = [c.strip() for c in re.split(r"[,;:—–]", sentence) if c.strip()]
+    target_clause = sentence
+    for clause in clauses:
+        clause_words = [w.lower() for w in re.findall(r"\w+", clause)]
+        if comp in clause_words:
+            target_clause = clause
+            break
+
+    words = [w.lower() for w in re.findall(r"\w+", target_clause)]
+    comp_positions = [idx for idx, w in enumerate(words) if w == comp]
+    if not comp_positions:
+        return meaningful_set, claim_stems
+
+    local_words: set[str] = set()
+    for pos in comp_positions:
+        start = max(0, pos - window)
+        end = min(len(words), pos + window + 1)
+        for idx in range(start, end):
+            if idx != pos and (words[idx] in meaningful_set or _stem(words[idx]) in claim_stems):
+                local_words.add(words[idx])
+
+    if not local_words:
+        return meaningful_set, claim_stems
+
+    local_stems = {_stem(w) for w in local_words if len(w) > 2}
+    return local_words, local_stems
+
+
+def _has_scoped_comparator_contradiction(
+    sentence: str,
+    tokens: list[str],
+    meaningful_set: set[str],
+    claim_stems: set[str],
+    raw_context_sentences: list[str],
+    max_token_distance: int = 4,
+) -> bool:
+    """
+    Checks if a claim asserts a directional/temporal comparator whose opposite is asserted
+    within proximity (<= max_token_distance) of the claim comparator's local anchor tokens
+    in the context sentence.
+    """
+    sent_comps = [w for w in tokens if w in COMPARATOR_OPPOSITES]
+    if not sent_comps:
+        return False
+
+    best_ctx_sent, best_overlap = _find_best_matching_context_sentence(
+        meaningful_set, raw_context_sentences
+    )
+    if not best_ctx_sent or best_overlap < 2:
+        return False
+
+    best_ctx_tokens = [w.lower() for w in re.findall(r"\w+", best_ctx_sent)]
+
+    for comp in sent_comps:
+        local_anchors, local_stems = _extract_comparator_local_anchors(
+            sentence, comp, meaningful_set, claim_stems, window=max_token_distance
+        )
+        opponents = COMPARATOR_OPPOSITES[comp]
+        opp_indices = [idx for idx, w in enumerate(best_ctx_tokens) if w in opponents]
+        ctx_local_match_indices = [
+            idx
+            for idx, w in enumerate(best_ctx_tokens)
+            if w in local_anchors or _stem(w) in local_stems
+        ]
+        has_scoped_opp = any(
+            abs(opp_i - m_i) <= max_token_distance
+            for opp_i in opp_indices
+            for m_i in ctx_local_match_indices
+        )
+        if has_scoped_opp and comp not in best_ctx_tokens:
+            return True
+
+    return False
+
+
+def _has_scoped_negation_contradiction(
+    sentence: str,
+    tokens: list[str],
+    meaningful_set: set[str],
+    effective_stopwords: frozenset[str],
+    context_text: str,
+    claim_stems: set[str],
+    raw_context_sentences: list[str],
+) -> bool:
+    """Verifies predicate-level and clause-level polarity to prevent negation hallucinations."""
+    neg_words = MULTILINGUAL_NEGATIONS
+    sent_has_neg = any(w in neg_words for w in tokens) or "n't" in sentence.lower()
+
+    # Check predicate-level negation pairs: e.g. "not record", "never report"
+    sent_words = [w.lower() for w in re.findall(r"\w+", sentence)]
+    neg_pairs = []
+    for i in range(len(sent_words) - 1):
+        if (
+            sent_words[i] in neg_words
+            and sent_words[i + 1] not in effective_stopwords
+            and sent_words[i + 1] not in neg_words
+        ):
+            neg_pairs.append((sent_words[i], sent_words[i + 1]))
+
+    if neg_pairs:
+        ctx_words = [w.lower() for w in re.findall(r"\w+", context_text)]
+        ctx_pairs = set(
+            (ctx_words[i], ctx_words[i + 1]) for i in range(len(ctx_words) - 1)
+        )
+        ctx_pairs_stemmed = set(
+            (ctx_words[i], _stem(ctx_words[i + 1])) for i in range(len(ctx_words) - 1)
+        )
+        has_matching_neg = any(
+            np in ctx_pairs or (np[0], _stem(np[1])) in ctx_pairs_stemmed
+            for np in neg_pairs
+        )
+        if not has_matching_neg:
+            return True
+        return False
+
+    best_ctx_sent, best_overlap = _find_best_matching_context_sentence(
+        meaningful_set, raw_context_sentences
+    )
+    if best_overlap >= 2:
+        best_ctx_tokens = [w.lower() for w in re.findall(r"\w+", best_ctx_sent)]
+        ctx_neg_indices = [
+            idx for idx, w in enumerate(best_ctx_tokens) if w in neg_words or "n't" in w
+        ]
+        ctx_match_indices = [
+            idx
+            for idx, w in enumerate(best_ctx_tokens)
+            if w in meaningful_set or _stem(w) in claim_stems
+        ]
+        ctx_has_scoped_neg = bool(
+            ctx_neg_indices
+            and ctx_match_indices
+            and any(
+                abs(n_i - m_i) <= 2
+                for n_i in ctx_neg_indices
+                for m_i in ctx_match_indices
+            )
+        )
+        if sent_has_neg != ctx_has_scoped_neg:
+            return True
+
+    return False
 
 
 def evaluate_deterministic_grounding(response_text: str, context_text: str) -> float | None:
@@ -43,22 +244,52 @@ def evaluate_deterministic_grounding(response_text: str, context_text: str) -> f
     if not context_text or not context_text.strip():
         return 0.0
 
+    # Strip citation and page metadata headers so metadata titles & numbers don't pollute context
+    context_text = re.sub(
+        r"\[Document:[^\]]*\]|<!--\s*page:\d+.*?-->",
+        "",
+        context_text,
+        flags=re.IGNORECASE,
+    ).strip()
+
+    response_text = _normalize_numbers(pretokenize_cjk(response_text))
+    context_text = _normalize_numbers(pretokenize_cjk(context_text))
+
+    effective_stopwords = get_stopwords(
+        text=f"{response_text} {context_text}", include_negations=False
+    )
+
     # Tokenize context
     context_tokens = set(re.findall(r"\w+", context_text.lower()))
     context_stems = {_stem(t) for t in context_tokens if len(t) > 2}
 
-    # Extract context bigrams
+    # Extract context bigrams and CJK compound tokens
     raw_ctx_words = [
         w.lower()
         for w in re.findall(r"\w+", context_text)
-        if len(w) >= 2 and w.lower() not in STOPWORDS
+        if is_meaningful_token(w) and w.lower() not in effective_stopwords
     ]
     context_bigrams = set()
     for i in range(len(raw_ctx_words) - 1):
         context_bigrams.add((raw_ctx_words[i], raw_ctx_words[i + 1]))
 
+    cjk_ctx = [w for w in raw_ctx_words if _CJK_RE.search(w)]
+    for i in range(len(cjk_ctx) - 1):
+        context_tokens.add(f"{cjk_ctx[i]}{cjk_ctx[i + 1]}")
+
+    # Split context into sentences for fine-grained polarity matching (avoid splitting on decimal dots like 3.0x or 5.5%)
+    raw_context_sentences = [
+        cs.strip()
+        for cs in re.split(r"(?<!\d)[.!?]+(?:\s+|$)|[\n]+", context_text)
+        if cs.strip()
+    ]
+
     # Split response into sentence claims
-    sentences = [s.strip() for s in re.split(r"[.!?\n]+", response_text) if s.strip()]
+    sentences = [
+        s.strip()
+        for s in re.split(r"(?<!\d)[.!?]+(?:\s+|$)|[\n]+", response_text)
+        if s.strip()
+    ]
     if not sentences:
         return None
 
@@ -77,29 +308,49 @@ def evaluate_deterministic_grounding(response_text: str, context_text: str) -> f
             sentence_scores.append(1.0)
             continue
 
-        tokens = [w.lower() for w in re.findall(r"\w+", sentence) if len(w) >= 2]
-        meaningful_tokens = [w for w in tokens if w not in STOPWORDS]
+        tokens = [w.lower() for w in re.findall(r"\w+", sentence) if is_meaningful_token(w)]
+        meaningful_tokens = [
+            w for w in tokens if w not in effective_stopwords and w not in MULTILINGUAL_NEGATIONS
+        ]
         if not meaningful_tokens:
             continue
 
+        # For CJK, construct 2-character compound tokens so multi-character terms match reliably
+        cjk_sent = [w for w in meaningful_tokens if _CJK_RE.search(w)]
+        if len(cjk_sent) >= 2:
+            for i in range(len(cjk_sent) - 1):
+                meaningful_tokens.append(f"{cjk_sent[i]}{cjk_sent[i + 1]}")
+
         # Token matches (exact or stemmed)
-        matches = 0
-        for w in meaningful_tokens:
-            if w in context_tokens or _stem(w) in context_stems:
-                matches += 1
-        unigram_precision = matches / len(meaningful_tokens)
+        # 1. Lexical unigram and bigram alignment
+        claim_score = _compute_lexical_claim_score(
+            meaningful_tokens, context_tokens, context_stems, context_bigrams
+        )
 
-        # Bigram matches
-        sent_bigrams = []
-        for i in range(len(meaningful_tokens) - 1):
-            sent_bigrams.append((meaningful_tokens[i], meaningful_tokens[i + 1]))
+        # 2. Numeric and percentage alignment check
+        claim_score = _apply_numeric_alignment_penalty(
+            claim_score, sentence, context_text
+        )
 
-        if sent_bigrams:
-            bigram_matches = sum(1 for bg in sent_bigrams if bg in context_bigrams)
-            bigram_precision = bigram_matches / len(sent_bigrams)
-            claim_score = 0.7 * unigram_precision + 0.3 * bigram_precision
-        else:
-            claim_score = unigram_precision
+        # 3. Directional / quantitative comparator contradiction check
+        meaningful_set = set(meaningful_tokens)
+        claim_stems = {_stem(t) for t in meaningful_tokens if len(t) > 2}
+        if _has_scoped_comparator_contradiction(
+            sentence, tokens, meaningful_set, claim_stems, raw_context_sentences
+        ):
+            claim_score = min(claim_score, 0.25)
+
+        # 4. Negation polarity check
+        if _has_scoped_negation_contradiction(
+            sentence,
+            tokens,
+            meaningful_set,
+            effective_stopwords,
+            context_text,
+            claim_stems,
+            raw_context_sentences,
+        ):
+            claim_score = min(claim_score, 0.25)
 
         sentence_scores.append(claim_score)
 

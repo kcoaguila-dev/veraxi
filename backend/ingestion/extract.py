@@ -481,10 +481,11 @@ def extract_entities_and_relations_fast(
     """
     nlp = _load_spacy_model(language)
 
-    # Add custom stop words
+    # Build request-local effective stop words without mutating global nlp.Defaults.stop_words
+    effective_stop_words = set(nlp.Defaults.stop_words)
     if custom_stop_words:
         for word in custom_stop_words:
-            nlp.Defaults.stop_words.add(word.lower())
+            effective_stop_words.add(word.lower())
 
     # Ensure large texts (such as whole books) do not trigger spaCy max_length errors
     nlp.max_length = max(len(text) + 50000, 5000000)
@@ -519,8 +520,14 @@ def extract_entities_and_relations_fast(
 
     # Extract Entities
     for ent in doc.ents:
-        # Check if the root of the entity is a stop word
-        if ent.root.is_stop or ent.text.lower() in nlp.Defaults.stop_words:
+        # Check if the root of the entity is a stop word or custom stop word
+        ent_text_lower = ent.text.lower()
+        root_text_lower = ent.root.text.lower()
+        if (
+            ent.root.is_stop
+            or root_text_lower in effective_stop_words
+            or ent_text_lower in effective_stop_words
+        ):
             continue
 
         name = ent.text.strip()

@@ -209,10 +209,12 @@ def test_mcp_schema_demarcation_and_optional_entity():
     assert "[FAST - Graph Only" in tools_by_name["mcp_query_graph"].description
     assert "[DEEP WEB CRAWL & RAG" in tools_by_name["mcp_ephemeral_web_rag"].description
 
-    # Verify entity_name is optional in mcp_merge_rank schema
+    # Verify entity_name is optional in mcp_merge_rank schema and rerank is configurable
     merge_rank_schema = tools_by_name["mcp_merge_rank"].input_schema
     assert merge_rank_schema["required"] == ["query_text"]
     assert "entity_name" not in merge_rank_schema["required"]
+    assert "rerank" in merge_rank_schema["properties"]
+    assert merge_rank_schema["properties"]["rerank"]["type"] == "boolean"
 
     # Verify _handle_merge_rank works cleanly without entity_name
     with (

@@ -71,6 +71,15 @@ class _DenseEmbeddingAdapter:
         self.model_name = config.embedding_model_name
         self.dimension = config.embedding_dimension
         self.is_remote = bool(self.api_key or self.base_url)
+        _matryoshka_prefixes = (
+            "text-embedding-3",
+            "nomic-embed",
+            "jina-embeddings",
+        )
+        self.is_matryoshka = (
+            self.is_remote
+            and any(p in self.model_name for p in _matryoshka_prefixes)
+        )
 
         if self.is_remote:
             from openai import OpenAI
@@ -95,7 +104,10 @@ class _DenseEmbeddingAdapter:
         if not texts:
             return []
         if self.is_remote and self.client:
-            res = self.client.embeddings.create(model=self.model_name, input=texts)
+            create_kwargs: dict[str, Any] = {"model": self.model_name, "input": texts}
+            if self.is_matryoshka and self.dimension:
+                create_kwargs["dimensions"] = self.dimension
+            res = self.client.embeddings.create(**create_kwargs)
             return [item.embedding for item in res.data]
         raw = list(self.model.passage_embed(texts, batch_size=batch_size))
         return [r.tolist() if hasattr(r, "tolist") else list(r) for r in raw]
@@ -104,7 +116,10 @@ class _DenseEmbeddingAdapter:
         if not text:
             return [0.0] * self.dimension
         if self.is_remote and self.client:
-            res = self.client.embeddings.create(model=self.model_name, input=[text])
+            create_kwargs: dict[str, Any] = {"model": self.model_name, "input": [text]}
+            if self.is_matryoshka and self.dimension:
+                create_kwargs["dimensions"] = self.dimension
+            res = self.client.embeddings.create(**create_kwargs)
             return res.data[0].embedding
         raw = next(iter(self.model.query_embed([text])))
         return raw.tolist() if hasattr(raw, "tolist") else list(raw)

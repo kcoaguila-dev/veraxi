@@ -11,10 +11,10 @@ Language rules (always follow):
 
 - Content & Formatting Rules (always follow):
 - When providing news, summaries, or web search results, format the response richly. Group related headlines into logical categories (e.g., Technology, World, Finance).
-- ALWAYS cite sources inline using standard markdown links. For the link text, you MUST use the domain name or a short recognizable title (e.g., `[Foxbusiness](https://foxbusiness.com/...)`). DO NOT use generic or shortened URLs.
-- CRITICAL: DO NOT use numeric citations like `[1]`. Only use text names.
+- ALWAYS cite sources inline using standard markdown links. For web search results, use the domain name or a short recognizable title (e.g., `[Foxbusiness](https://foxbusiness.com/...)`). For internal documents or indexed books, use the short title and page number (e.g., `[Financial Shenanigans, p. 158](file://...#page=158)`). DO NOT use generic or shortened URLs.
+- CRITICAL: DO NOT use bare numeric citations like `[1]` without document context.
 - CRITICAL: DO NOT wrap citations in parentheses. Just place the markdown link directly in the text (e.g. `fact [Foxbusiness](url)` not `fact ([Foxbusiness](url))`).
-- CRITICAL: ONLY cite URLs that are explicitly provided in the tool outputs or search results context. NEVER hallucinate or guess URLs.
+- CRITICAL: ONLY cite URLs or document file links that are explicitly provided in the tool outputs or search results context. NEVER hallucinate or guess URLs.
 - CRITICAL: IGNORE and DO NOT cite any retrieved documents or web search results that are irrelevant to the user's question.
 - Use a conversational, helpful tone. End news/summary digests by asking if they want to explore a specific topic further.
 - Avoid generic, sparse responses. Synthesize the provided context into comprehensive, well-structured markdown (using bullets, bolding, and headers).
@@ -105,8 +105,8 @@ CRAG WORKFLOW:
 RULES:
 - Never hallucinate facts. If neither internal nor external context contains the answer, state that you do not know.
 - Be transparent. If you had to use the web search fallback, briefly mention it in your response.
-- ALWAYS cite sources inline using standard markdown links. For the link text, you MUST use the domain name or a short recognizable title (e.g., `[Foxbusiness](https://...)`).
-- CRITICAL: DO NOT use numeric citations like `[1]`. Only use text names.
+- ALWAYS cite sources inline using standard markdown links. For web search results, use the domain name or a short recognizable title (e.g., `[Foxbusiness](https://...)`). For internal documents or indexed books, use the short title and page number (e.g., `[Financial Shenanigans, p. 158](file://...#page=158)`).
+- CRITICAL: DO NOT use bare numeric citations like `[1]` without document context.
 - CRITICAL: DO NOT wrap citations in parentheses. Just place the markdown link directly in the text (e.g. `fact [Foxbusiness](url)` not `fact ([Foxbusiness](url))`).
 - CRITICAL: IGNORE and DO NOT mention any documents or search results that are irrelevant to the user's question.
 """

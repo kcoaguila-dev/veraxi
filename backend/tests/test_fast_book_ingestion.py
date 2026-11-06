@@ -22,9 +22,12 @@ def test_batched_chunk_and_embed():
         sample_text, chunk_size=100, chunk_overlap=20, batch_size=4
     )
     assert len(results) > 0
+    from backend.config import get_config
+
+    expected_dim = get_config().embedding_dimension
     for chunk, dense_vec, sparse_vec in results:
         assert isinstance(chunk, str)
-        assert len(dense_vec) == 384
+        assert len(dense_vec) == expected_dim
         assert "indices" in sparse_vec
         assert "values" in sparse_vec
         assert len(sparse_vec["indices"]) == len(sparse_vec["values"])

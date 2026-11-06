@@ -1,10 +1,13 @@
 # backend/config.py
+import logging
 import os
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 
 from dotenv import load_dotenv
+
+logger = logging.getLogger(__name__)
 
 env_path = Path(__file__).parent / ".env"
 load_dotenv(dotenv_path=env_path)
@@ -111,6 +114,12 @@ class Config:
     entity_resolution_threshold: float = 0.90
     document_parser: str = "pypdf"
     worker_mode: str = "inline"
+    qdrant_quantization_enabled: bool = True
+    qdrant_rescore_oversampling: float = 2.0
+    qdrant_prefetch_multiplier: int = 2
+    reranker_enabled: bool = False
+    reranker_model_name: str = "Xenova/ms-marco-MiniLM-L-6-v2"
+    near_duplicate_threshold: float = 0.75
 
     @classmethod
     def from_env(cls) -> "Config":
@@ -133,12 +142,67 @@ class Config:
         document_parser = (
             os.environ.get("DOCUMENT_PARSER") or profile_defaults["parser"]
         )
-        embedding_dimension = int(
-            os.environ.get(
-                "EMBEDDING_DIMENSION",
-                str(_MODEL_DIMENSIONS.get(embedding_model_name, 384)),
+
+        # Warn if explicit EMBEDDING_MODEL_NAME differs from profile's dense model
+        if (
+            os.environ.get("EMBEDDING_MODEL_NAME")
+            and profile in _INGESTION_PROFILES
+            and embedding_model_name != profile_defaults["dense"]
+        ):
+            logger.warning(
+                "Configuration note: INGESTION_PROFILE='%s' defaults dense model to '%s', "
+                "but EMBEDDING_MODEL_NAME is explicitly set to '%s'. Using '%s'.",
+                profile,
+                profile_defaults["dense"],
+                embedding_model_name,
+                embedding_model_name,
             )
+
+        known_dimension = _MODEL_DIMENSIONS.get(embedding_model_name)
+        env_dim_str = os.environ.get("EMBEDDING_DIMENSION")
+
+        _MATRYOSHKA_MODELS = {
+            "text-embedding-3-small",
+            "text-embedding-3-large",
+            "nomic-ai/nomic-embed-text-v1.5",
+            "nomic-ai/nomic-embed-text-v1.5-Q",
+            "jinaai/jina-embeddings-v3",
+        }
+        is_remote_embed = bool(
+            os.environ.get("EMBEDDING_API_KEY") or os.environ.get("EMBEDDING_BASE_URL")
         )
+
+        if env_dim_str is not None:
+            embedding_dimension = int(env_dim_str)
+            if embedding_dimension <= 0:
+                raise ValueError(
+                    f"Invalid EMBEDDING_DIMENSION: {embedding_dimension}. Dimension must be a positive integer."
+                )
+            if known_dimension is not None and embedding_dimension != known_dimension:
+                if (
+                    is_remote_embed
+                    and embedding_model_name in _MATRYOSHKA_MODELS
+                    and embedding_dimension <= known_dimension
+                ):
+                    logger.info(
+                        "Matryoshka dimension override: Model '%s' (native %d) configured for truncated dimension %d via remote API.",
+                        embedding_model_name,
+                        known_dimension,
+                        embedding_dimension,
+                    )
+                else:
+                    err_msg = (
+                        f"Configuration mismatch: Model '{embedding_model_name}' natively has dimension {known_dimension}, "
+                        f"but EMBEDDING_DIMENSION is configured as {embedding_dimension}. "
+                        "Vector dimension mismatch guarantees Qdrant insertion and search failures. "
+                        f"Set EMBEDDING_DIMENSION={known_dimension} or unset it to let Veraxi auto-configure."
+                    )
+                    logger.error(err_msg)
+                    raise ValueError(err_msg)
+        else:
+            embedding_dimension = int(
+                str(known_dimension if known_dimension is not None else 384)
+            )
         embedding_base_url = os.environ.get("EMBEDDING_BASE_URL", "")
         embedding_threads = int(os.environ.get("EMBEDDING_THREADS", "2"))
         entity_resolution_threshold = float(
@@ -225,6 +289,24 @@ class Config:
             entity_resolution_threshold=entity_resolution_threshold,
             document_parser=document_parser,
             worker_mode=worker_mode,
+            qdrant_quantization_enabled=os.environ.get(
+                "QDRANT_QUANTIZATION", "true"
+            ).lower()
+            == "true",
+            qdrant_rescore_oversampling=float(
+                os.environ.get("QDRANT_RESCORE_OVERSAMPLING", "2.0")
+            ),
+            qdrant_prefetch_multiplier=int(
+                os.environ.get("QDRANT_PREFETCH_MULTIPLIER", "2")
+            ),
+            reranker_enabled=os.environ.get("RERANKER_ENABLED", "false").lower()
+            == "true",
+            reranker_model_name=os.environ.get(
+                "RERANKER_MODEL_NAME", "Xenova/ms-marco-MiniLM-L-6-v2"
+            ),
+            near_duplicate_threshold=float(
+                os.environ.get("NEAR_DUPLICATE_THRESHOLD", "0.75")
+            ),
         )
 
     def get_llm_client_args(self, model_name: str | None = None) -> dict:

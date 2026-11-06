@@ -53,7 +53,6 @@ services:
       - REDIS_URL=${REDIS_URL:-redis://redis:6379/0}
       - IS_ENTERPRISE=${IS_ENTERPRISE:-true}
       - WORKER_MODE=${WORKER_MODE:-inline}
-      - INGESTION_PROFILE=${INGESTION_PROFILE:-lite}
     env_file:
       - ./backend/.env
     depends_on:
@@ -80,7 +79,6 @@ services:
     environment:
       - IS_ENTERPRISE=${IS_ENTERPRISE:-true}
       - WORKER_MODE=${WORKER_MODE:-inline}
-      - INGESTION_PROFILE=${INGESTION_PROFILE:-lite}
     env_file:
       - ./backend/.env
 

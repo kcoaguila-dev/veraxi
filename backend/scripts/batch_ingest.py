@@ -422,6 +422,15 @@ def main():
                 file_hash=file_hash,
             )
             logger.info(f"Successfully ingested {filename}: {result}")
+        except (ValueError, RuntimeError) as e:
+            err_lower = str(e).lower()
+            if "dimension" in err_lower or "refusing to delete" in err_lower:
+                logger.error(
+                    "Fatal schema/dimension incompatibility detected: %s. Aborting batch ingestion to prevent wasted compute.",
+                    e,
+                )
+                raise
+            logger.exception("Ingestion failed for %s", filename)
         except Exception:
             logger.exception("Ingestion failed for %s", filename)
 

@@ -122,3 +122,140 @@ def test_near_duplicate_chunks_are_suppressed():
     # unique3 must be retained in the top 2
     assert len(result) == 2
     assert [r.id for r in result] == ["dup1", "unique3"]
+
+
+def test_merge_rank_cross_encoder_rerank():
+    from unittest.mock import MagicMock, patch
+
+    vector_hits = [
+        VectorHit(id="hit1", score=0.9, payload={"text": "Generic financial overview without specifics."}),
+        VectorHit(id="hit2", score=0.8, payload={"text": "Allied Capital valuation fraud analysis by Greenlight."}),
+    ]
+
+    mock_encoder = MagicMock()
+    # Cross-encoder scores hit2 much higher for query "Allied Capital fraud"
+    mock_encoder.rerank.return_value = [0.1, 0.95]
+
+    with patch("backend.retrieval.merge_rank._get_cross_encoder", return_value=mock_encoder):
+        result = merge_rank(
+            vector_hits,
+            [],
+            query_text="Allied Capital fraud",
+            rerank=True,
+        )
+
+        assert len(result) == 2
+        # hit2 should be elevated to position 1 due to high cross-encoder relevance
+        assert result[0].id == "hit2"
+        assert result[1].id == "hit1"
+        mock_encoder.rerank.assert_called_once()
+
+
+def test_cross_encoder_preserves_dual_source_corroboration():
+    from unittest.mock import MagicMock, patch
+
+    # "shared" is corroborated by both vector and graph.
+    # "single" is vector-only, but gets top score from cross-encoder.
+    vector_hits = [
+        VectorHit(id="shared", score=0.9, payload={"text": "Evidence corroborated by both graph and text."}),
+        VectorHit(id="single", score=0.85, payload={"text": "Single vector evidence with high cross encoder rank."}),
+    ]
+    graph_hits = [
+        GraphHit(id="shared", payload={"name": "shared_entity"}),
+    ]
+
+    mock_encoder = MagicMock()
+    # CE ranks "single" #1 (0.95) and "shared" #2 (0.2)
+    mock_encoder.rerank.return_value = [0.2, 0.95]
+
+    with patch("backend.retrieval.merge_rank._get_cross_encoder", return_value=mock_encoder):
+        result = merge_rank(
+            vector_hits,
+            graph_hits,
+            query_text="Evidence query",
+            rerank=True,
+        )
+
+        assert len(result) == 2
+        # "shared" has 3 rank inputs (vector #1, graph #1, CE #2) so it retains top position
+        # over "single" which only has 2 rank inputs (vector #2, CE #1)
+        assert result[0].id == "shared"
+        assert result[1].id == "single"
+
+
+def test_merge_rank_near_duplicate_custom_threshold():
+    from unittest.mock import MagicMock, patch
+
+    text_a = "Financial irregularities involve deceptive revenue recognition methods."
+    text_b = "Financial irregularities involve deceptive revenue recognition practices."
+
+    vector_hits = [
+        VectorHit(id="hit_a", score=0.95, payload={"text": text_a}),
+        VectorHit(id="hit_b", score=0.90, payload={"text": text_b}),
+    ]
+
+    mock_cfg = MagicMock()
+    # With threshold 1.0, near-duplicates are NOT suppressed
+    mock_cfg.near_duplicate_threshold = 1.0
+    mock_cfg.reranker_enabled = False
+
+    with patch("backend.config.get_config", return_value=mock_cfg):
+        result = merge_rank(vector_hits, [], limit=2)
+        assert len(result) == 2
+        assert [r.id for r in result] == ["hit_a", "hit_b"]
+
+
+
+def test_cross_encoder_failure_reports_to_sentry_and_falls_back():
+    from unittest.mock import MagicMock, patch
+
+    vector_hits = [
+        VectorHit(id="hit1", score=0.9, payload={"text": "Chunk text 1"}),
+        VectorHit(id="hit2", score=0.8, payload={"text": "Chunk text 2"}),
+    ]
+
+    mock_encoder = MagicMock()
+    mock_encoder.rerank.side_effect = RuntimeError("ONNX session error")
+
+    with (
+        patch("backend.retrieval.merge_rank._get_cross_encoder", return_value=mock_encoder),
+        patch("sentry_sdk.capture_exception") as mock_sentry,
+    ):
+        result = merge_rank(
+            vector_hits,
+            [],
+            query_text="Sample query",
+            rerank=True,
+        )
+
+        assert len(result) == 2
+        # Falls back cleanly to RRF order
+        assert [r.id for r in result] == ["hit1", "hit2"]
+        mock_sentry.assert_called_once()
+
+
+def test_format_reranker_document_enriches_graph_hit():
+    from backend.retrieval.merge_rank import MergedResult, _format_reranker_document
+
+    # Text payload returns text directly
+    doc_with_text = MergedResult(
+        id="1", fused_score=0.1, sources=["vector"], payload={"text": "Sample text"}
+    )
+    assert _format_reranker_document(doc_with_text) == "Sample text"
+
+    # Pure graph hit with name, labels, and relation_type
+    doc_graph = MergedResult(
+        id="2",
+        fused_score=0.1,
+        sources=["graph"],
+        payload={
+            "name": "Acme Corp",
+            "labels": ["Organization", "Company"],
+            "relation_type": "INVESTED_IN",
+        },
+    )
+    doc_str = _format_reranker_document(doc_graph)
+    assert "Acme Corp" in doc_str
+    assert "Organization, Company" in doc_str
+    assert "relation: INVESTED_IN" in doc_str
+

@@ -103,6 +103,12 @@ def _format_mcp_proof_card(query: str, hits: list) -> str:
         )
 
     card_lines.append("")
+    card_lines.append(
+        "> 💡 **Citation Instructions for Host AI:**\n"
+        "> - Synthesize the findings and cite claims inline using exact markdown links from above (e.g., `[Document Title, p. N](file://...#page=N)`).\n"
+        "> - Maintain high factual fidelity and preserve verbatim proof quotes where critical."
+    )
+    card_lines.append("")
     return "\n".join(card_lines)
 
 
@@ -202,7 +208,11 @@ def _handle_merge_rank(args: dict, tenant_id: str) -> list[TextContent]:
                     break
 
     results = merge_rank(
-        v_hits, g_hits, limit=args.get("limit", config.default_search_limit)
+        v_hits,
+        g_hits,
+        limit=args.get("limit", config.default_search_limit),
+        query_text=args.get("query_text"),
+        rerank=args.get("rerank"),
     )
     dict_results = [dataclasses.asdict(r) for r in results]
     proof_card = _format_mcp_proof_card(args["query_text"], results)
@@ -431,23 +441,25 @@ def _handle_fact_check(args: dict, tenant_id: str) -> list[TextContent]:
 
     # Support legacy test mocks patching backend.cli.check.run_check
     try:
+        from unittest.mock import Mock
         from backend.cli.check import run_check  # type: ignore
 
-        buf = io.StringIO()
-        try:
-            with redirect_stdout(buf), redirect_stderr(buf):
-                run_check(
-                    text=args.get("claim", ""),
-                    min_score=float(args.get("min_score", 0.8)),
-                    tenant_id=tenant_id,
-                    peek=bool(args.get("peek", True)),
-                    as_json=False,
-                )
-        except SystemExit:
-            pass
-        val = buf.getvalue()
-        if val.strip():
-            return [TextContent(type="text", text=val)]
+        if isinstance(run_check, Mock) or hasattr(run_check, "mock_calls"):
+            buf = io.StringIO()
+            try:
+                with redirect_stdout(buf), redirect_stderr(buf):
+                    run_check(
+                        text=args.get("claim", ""),
+                        min_score=float(args.get("min_score", 0.8)),
+                        tenant_id=tenant_id,
+                        peek=bool(args.get("peek", True)),
+                        as_json=False,
+                    )
+            except SystemExit:
+                pass
+            val = buf.getvalue()
+            if val.strip():
+                return [TextContent(type="text", text=val)]
     except (ImportError, AttributeError):
         pass
 

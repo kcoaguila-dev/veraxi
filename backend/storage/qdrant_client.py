@@ -99,20 +99,21 @@ class QdrantStorageClient:
         collection_name: str,
         vector_size: int | None = None,
         distance_metric: str = "Cosine",
+        force_recreate: bool = False,
     ):
         """Create a collection if it doesn't already exist."""
-        init_key = (self._url, collection_name)
+        if vector_size is None:
+            from backend.config import get_config
+
+            vector_size = get_config().embedding_dimension
+
+        init_key = (self._url, collection_name, vector_size)
         if (
             getattr(self, "_is_pooled", False)
             and init_key in _INITIALIZED_COLLECTIONS
             and self.client.collection_exists(collection_name)
         ):
             return
-
-        if vector_size is None:
-            from backend.config import get_config
-
-            vector_size = get_config().embedding_dimension
 
         # Safely map the string to the official Qdrant Enum
         d_enum = Distance.COSINE
@@ -137,11 +138,50 @@ class QdrantStorageClient:
                 existing_size is not None and existing_size != vector_size
             )
             if recreate_needed:
+                points_count = getattr(collection_info, "points_count", 0) or 0
+                if points_count > 0 and not force_recreate:
+                    err_msg = (
+                        f"Refusing to delete existing collection '{collection_name}' with {points_count} points. "
+                        f"Existing vector dimension is {existing_size}, but requested dimension is {vector_size}. "
+                        "Match EMBEDDING_DIMENSION / EMBEDDING_MODEL_NAME in your configuration, or explicitly set force_recreate=True."
+                    )
+                    logger.error(err_msg)
+                    raise ValueError(err_msg)
+
+                logger.warning(
+                    "Recreating collection '%s' (existing dimension %s -> new dimension %s)",
+                    collection_name,
+                    existing_size,
+                    vector_size,
+                )
                 self.client.delete_collection(collection_name)
+        except ValueError as ve:
+            if "Refusing to delete" in str(ve):
+                raise
         except Exception as e:
             import sentry_sdk
 
             sentry_sdk.capture_exception(e)
+
+        from backend.config import get_config
+
+        cfg = get_config()
+
+        quantization_config = None
+        if getattr(cfg, "qdrant_quantization_enabled", True):
+            from qdrant_client.models import (
+                ScalarQuantization,
+                ScalarQuantizationConfig,
+                ScalarType,
+            )
+
+            quantization_config = ScalarQuantization(
+                scalar=ScalarQuantizationConfig(
+                    type=ScalarType.INT8,
+                    quantile=0.99,
+                    always_ram=True,
+                )
+            )
 
         if not self.client.collection_exists(collection_name):
             self.client.create_collection(
@@ -150,6 +190,7 @@ class QdrantStorageClient:
                 sparse_vectors_config={
                     "text-sparse": SparseVectorParams(modifier=Modifier.IDF)
                 },
+                quantization_config=quantization_config,
             )
 
         from qdrant_client.http import models
@@ -263,6 +304,22 @@ class QdrantStorageClient:
 
         from qdrant_client.http.exceptions import UnexpectedResponse
 
+        from backend.config import get_config
+
+        cfg = get_config()
+        prefetch_mult = getattr(cfg, "qdrant_prefetch_multiplier", 2)
+        oversampling = getattr(cfg, "qdrant_rescore_oversampling", 2.0)
+        prefetch_limit = max(limit * prefetch_mult, 20)
+
+        search_params = None
+        if getattr(cfg, "qdrant_quantization_enabled", True):
+            search_params = models.SearchParams(
+                quantization=models.QuantizationSearchParams(
+                    rescore=True,
+                    oversampling=oversampling,
+                )
+            )
+
         try:
             results = self.client.query_points(
                 collection_name=collection_name,
@@ -274,19 +331,32 @@ class QdrantStorageClient:
                         ),
                         using="text-sparse",
                         filter=query_filter,
-                        limit=limit,
+                        limit=prefetch_limit,
                     ),
                     models.Prefetch(
-                        query=query_vector, using="", filter=query_filter, limit=limit
+                        query=query_vector,
+                        using="",
+                        filter=query_filter,
+                        params=search_params,
+                        limit=prefetch_limit,
                     ),
                 ],
                 query=models.FusionQuery(fusion=models.Fusion.RRF),
+                search_params=search_params,
                 limit=limit,
                 with_payload=True,
             ).points
         except UnexpectedResponse as e:
             if "Not found: Collection" in str(e):
                 return []
+            if "Vector dimension error" in str(e):
+                err_msg = (
+                    f"Vector dimension mismatch in collection '{collection_name}': {e}. "
+                    "The query vector dimension does not match the collection's indexed vector dimension. "
+                    "Check EMBEDDING_MODEL_NAME and INGESTION_PROFILE."
+                )
+                logger.error(err_msg)
+                raise RuntimeError(err_msg) from e
             raise
 
         # Convert to same output format

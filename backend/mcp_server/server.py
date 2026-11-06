@@ -89,16 +89,23 @@ def mcp_insert_vectors(texts: list) -> str:
     description="[DEFAULT - Fast (<100ms)] Primary hybrid GraphRAG search tool. Use for 95% of queries, codebase navigation, fact lookup, and general Q&A. Searches vector embeddings and traverses entity relationships in Neo4j.",
 )
 def mcp_merge_rank(
-    query_text: str, entity_name: str = "", limit: int = 10, max_hops: int = 2
+    query_text: str,
+    entity_name: str = "",
+    limit: int = 10,
+    max_hops: int = 2,
+    rerank: bool | None = None,
 ) -> str:
+    payload = {
+        "query_text": query_text,
+        "entity_name": entity_name,
+        "limit": limit,
+        "max_hops": max_hops,
+    }
+    if rerank is not None:
+        payload["rerank"] = rerank
     return _dispatch(
         "mcp_merge_rank",
-        {
-            "query_text": query_text,
-            "entity_name": entity_name,
-            "limit": limit,
-            "max_hops": max_hops,
-        },
+        payload,
     )
 
 

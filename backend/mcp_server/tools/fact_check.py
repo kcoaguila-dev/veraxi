@@ -5,6 +5,12 @@ import re
 from typing import Any
 
 from backend.evaluation.grounding import evaluate_groundedness
+from backend.evaluation.lexical import (
+    get_stopwords,
+    is_meaningful_token,
+    pretokenize_cjk,
+    stem_word,
+)
 from backend.ingestion.document_parser import extract_verbatim_quote
 from backend.mcp_server.tools.search_vectors import search_vectors
 
@@ -15,45 +21,23 @@ def _compute_fallback_grounding(
     claim: str, evidence: str, sources: list[str] | None = None
 ) -> float:
     """Deterministic token-level overlap score with light stemming and source awareness."""
-
-    def _stem(w: str) -> str:
-        return re.sub(r"(ing|ed|s|es|tion|ly)$", "", w.lower())
-
     source_text = " ".join(sources or []).lower()
     full_evidence = f"{evidence} {source_text}".lower()
-    evidence_tokens = set(re.findall(r"\w+", full_evidence))
+    evidence_tokens = set(re.findall(r"\w+", pretokenize_cjk(full_evidence)))
 
-    claim_tokens = [w.lower() for w in re.findall(r"\w+", claim) if len(w) > 2]
-    stopwords = {
-        "the",
-        "and",
-        "for",
-        "with",
-        "that",
-        "this",
-        "from",
-        "was",
-        "were",
-        "what",
-        "why",
-        "how",
-        "has",
-        "have",
-        "had",
-        "can",
-        "could",
-        "should",
-        "would",
-        "about",
-        "such",
-    }
+    stopwords = get_stopwords(text=f"{claim} {full_evidence}", include_negations=False)
+    claim_tokens = [
+        w.lower()
+        for w in re.findall(r"\w+", pretokenize_cjk(claim))
+        if is_meaningful_token(w)
+    ]
     meaningful = [w for w in claim_tokens if w not in stopwords]
     if not meaningful:
         return 1.0
 
     matches = 0
     for w in meaningful:
-        st = _stem(w)
+        st = stem_word(w)
         if w in evidence_tokens or (st and any(st in ew for ew in evidence_tokens)):
             matches += 1
     return round(matches / max(1, len(meaningful)), 2)
@@ -90,11 +74,12 @@ def perform_fact_check(
         context_chunks = []
 
         for h in hits:
-            payload = (
-                getattr(h, "payload", {})
-                if hasattr(h, "payload")
-                else (h if isinstance(h, dict) else {})
-            )
+            if hasattr(h, "payload"):
+                payload = getattr(h, "payload", {}) or {}
+            elif isinstance(h, dict):
+                payload = h.get("payload", h) if "payload" in h else h
+            else:
+                payload = {}
             chunk_text = payload.get("text", "")
             if not chunk_text:
                 continue
@@ -135,8 +120,31 @@ def perform_fact_check(
     except Exception as exc:
         logger.debug(f"Failed to retrieve vector context for fact check: {exc}")
 
-    if not context:
-        context = claim
+    if not context or not evidence_records:
+        # If no supporting evidence passages were retrieved, the claim is unsupported by definition.
+        # DO NOT fall back to context = claim, which caused false 100% passes.
+        status_badge = "🔴 **FACT CHECK FAILED [Disputed or unverified claims]**"
+        md_lines = [
+            "### 🛡️ VERAXI FORENSIC FACT-CHECK PROOF CARD",
+            f'> **Claim:** *"{claim}"*',
+            "",
+            f"- **Verification:** {status_badge}",
+            f"- **Grounding Score:** `0.00` (Required Threshold: `{min_score:.2f}`)",
+            "",
+            "#### 📑 Forensic Evidence Citations (0 passages retrieved)",
+            "| # | Document | Location | Verbatim Proof Quote |",
+            "|---|---|---|---|",
+            "",
+            "> ⚠️ *No relevant evidence passages were retrieved from the knowledge base to support this claim.*",
+        ]
+        return {
+            "score": 0.0,
+            "min_score": min_score,
+            "passed": False,
+            "error": "No supporting evidence retrieved from knowledge base.",
+            "evidence": [],
+            "markdown": "\n".join(md_lines),
+        }
 
     score = None
     try:

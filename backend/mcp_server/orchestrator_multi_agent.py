@@ -43,7 +43,14 @@ async def vector_specialist_node(state: DebateState):
                 or hit.payload.get("content")
                 or str(hit.payload)
             )
-            snippets.append(f"[Vector Source {i}] (chunk {hit.id}): {text}")
+            source = (
+                hit.payload.get("source")
+                or hit.payload.get("document_id")
+                or "Unknown Document"
+            )
+            page = hit.payload.get("page_number")
+            loc = f" | Page {page}" if page is not None else ""
+            snippets.append(f"[Vector Source {i}: {source}{loc}] (chunk {hit.id}): {text}")
         vector_data = "\n\n".join(snippets) if snippets else ""
     except Exception as e:
         logger.warning(f"Vector specialist search failed: {e}")

@@ -454,7 +454,20 @@ def test_mcp_streamable_query_graph(client):
 
 def test_mcp_streamable_fact_check(client):
     """Verify that POST /mcp executes JSON-RPC tools/call for mcp_fact_check without missing CLI error."""
-    with patch("backend.evaluation.grounding.evaluate_groundedness", return_value=0.9):
+    mock_hit = {
+        "payload": {
+            "text": "Short selling exposes financial fraud and corporate deception.",
+            "source": "Audit_Report.pdf",
+            "page_number": 1,
+        }
+    }
+    with (
+        patch(
+            "backend.mcp_server.tools.fact_check.search_vectors",
+            return_value=[mock_hit],
+        ),
+        patch("backend.evaluation.grounding.evaluate_groundedness", return_value=0.9),
+    ):
         res = client.post(
             "/mcp",
             headers={"Content-Type": "application/json"},

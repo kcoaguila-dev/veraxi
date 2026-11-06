@@ -75,6 +75,20 @@ def _peek_pdf_page(
     return None
 
 
+try:
+    from backend.evaluation.lexical import (
+        get_stopwords,
+        is_meaningful_token,
+        pretokenize_cjk,
+        stem_word,
+    )
+except Exception:
+    get_stopwords = None
+    is_meaningful_token = None
+    pretokenize_cjk = None
+    stem_word = None
+
+
 def _format_osc8_link(uri: str, label: str) -> str:
     """Generate ANSI OSC 8 clickable terminal hyperlink."""
     return f"\033]8;;{uri}\033\\{label}\033]8;;\033\\"
@@ -84,45 +98,38 @@ def _compute_fallback_grounding(
     claim: str, evidence: str, sources: list[str] | None = None
 ) -> float:
     """Deterministic token-level overlap score with light stemming and source awareness."""
-
-    def _stem(w: str) -> str:
-        return re.sub(r"(ing|ed|s|es|tion|ly)$", "", w.lower())
-
     source_text = " ".join(sources or []).lower()
     full_evidence = f"{evidence} {source_text}".lower()
-    evidence_tokens = set(re.findall(r"\w+", full_evidence))
 
-    claim_tokens = [w.lower() for w in re.findall(r"\w+", claim) if len(w) > 2]
-    stopwords = {
-        "the",
-        "and",
-        "for",
-        "with",
-        "that",
-        "this",
-        "from",
-        "was",
-        "were",
-        "what",
-        "why",
-        "how",
-        "has",
-        "have",
-        "had",
-        "can",
-        "could",
-        "should",
-        "would",
-        "about",
-        "such",
-    }
+    if pretokenize_cjk and get_stopwords and stem_word and is_meaningful_token:
+        evidence_tokens = set(re.findall(r"\w+", pretokenize_cjk(full_evidence)))
+        stopwords = get_stopwords(text=f"{claim} {full_evidence}", include_negations=False)
+        claim_tokens = [
+            w.lower()
+            for w in re.findall(r"\w+", pretokenize_cjk(claim))
+            if is_meaningful_token(w)
+        ]
+        stem_fn = stem_word
+    else:
+        def _stem(w: str) -> str:
+            return re.sub(r"(ing|ed|s|es|tion|ly)$", "", w.lower())
+
+        stem_fn = _stem
+        evidence_tokens = set(re.findall(r"\w+", full_evidence))
+        claim_tokens = [w.lower() for w in re.findall(r"\w+", claim) if len(w) > 2]
+        stopwords = {
+            "the", "and", "for", "with", "that", "this", "from", "was", "were",
+            "what", "why", "how", "has", "have", "had", "can", "could", "should",
+            "would", "about", "such",
+        }
+
     meaningful = [w for w in claim_tokens if w not in stopwords]
     if not meaningful:
         return 1.0
 
     matches = 0
     for w in meaningful:
-        st = _stem(w)
+        st = stem_fn(w)
         if w in evidence_tokens or (st and any(st in ew for ew in evidence_tokens)):
             matches += 1
     return round(matches / max(1, len(meaningful)), 2)
@@ -186,11 +193,12 @@ def run_check(
             context_chunks = []
 
             for h in hits:
-                payload = (
-                    getattr(h, "payload", {})
-                    if hasattr(h, "payload")
-                    else (h if isinstance(h, dict) else {})
-                )
+                if hasattr(h, "payload"):
+                    payload = getattr(h, "payload", {}) or {}
+                elif isinstance(h, dict):
+                    payload = h.get("payload", h) if "payload" in h else h
+                else:
+                    payload = {}
                 chunk_text = payload.get("text", "")
                 if not chunk_text:
                     continue
@@ -244,21 +252,21 @@ def run_check(
         except Exception as exc:
             logger.debug(f"Failed to retrieve vector context: {exc}")
 
-    if not context:
-        context = text
-
     # 3. Grounding evaluation
     score = None
-    try:
-        from backend.evaluation.grounding import evaluate_groundedness
+    if context:
+        try:
+            from backend.evaluation.grounding import evaluate_groundedness
 
-        score = evaluate_groundedness(response_text=text, context_text=context)
-    except Exception as exc:
-        logger.debug(f"LLM grounding evaluation failed, using fallback: {exc}")
+            score = evaluate_groundedness(response_text=text, context_text=context)
+        except Exception as exc:
+            logger.debug(f"LLM grounding evaluation failed, using fallback: {exc}")
 
-    if score is None:
-        source_names = [ev.get("source", "") for ev in evidence_records]
-        score = _compute_fallback_grounding(text, context, source_names)
+        if score is None:
+            source_names = [ev.get("source", "") for ev in evidence_records]
+            score = _compute_fallback_grounding(text, context, source_names)
+    else:
+        score = 0.0
 
     passed = score >= min_score
 

@@ -208,8 +208,21 @@ def extract_verbatim_quote(query: str, text: str, max_words: int = 35) -> str:
     if not query or not text:
         return ""
     # Split text into sentences
-    sentences = re.split(r"(?<=[.!?])\s+|\n+", text)
-    sentences = [s.strip() for s in sentences if len(s.strip().split()) >= 4]
+    raw_sentences = re.split(r"(?<=[.!?])\s+|\n+", text)
+    sentences = [s.strip() for s in raw_sentences if len(s.strip().split()) >= 4]
+
+    # Filter out Table of Contents rows and pipe-heavy OCR artifacts
+    content_sentences = []
+    for s in sentences:
+        if s.count("|") >= 2 and len(re.findall(r"[a-zA-Z]{3,}", s)) < 6:
+            continue
+        if ("..." in s or "....." in s) and re.search(r"\d+$", s.strip()):
+            continue
+        content_sentences.append(s)
+
+    if content_sentences:
+        sentences = content_sentences
+
     if not sentences:
         return text[:150].strip()
 

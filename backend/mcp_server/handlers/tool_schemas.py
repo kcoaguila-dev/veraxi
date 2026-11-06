@@ -85,6 +85,10 @@ REGISTERED_TOOLS = [
                 },
                 "limit": {"type": "integer", "default": 10},
                 "max_hops": {"type": "integer", "default": 2},
+                "rerank": {
+                    "type": "boolean",
+                    "description": "Optional runtime override to enable or disable CPU ONNX cross-encoder reranking on top candidates. If omitted, uses server setting.",
+                },
             },
             "required": ["query_text"],
         },
