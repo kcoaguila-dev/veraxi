@@ -90,29 +90,40 @@ def _extract_comparator_local_anchors(
 ) -> tuple[set[str], set[str]]:
     """Extracts meaningful anchor tokens from the claim within a local clause/token window of comp."""
     # Isolate clause containing comp if sentence has clause delimiters
-    clauses = [c.strip() for c in re.split(r"[,;:—–]", sentence) if c.strip()]
-    target_clause = sentence
+    clauses = [
+        c.strip()
+        for c in re.split(r"(?i)[,;:—–]|\b(?:and|but|while|whereas|although|though)\b", sentence)
+        if c.strip()
+    ]
+    target_clauses = []
     for clause in clauses:
         clause_words = [w.lower() for w in re.findall(r"\w+", clause)]
         if comp in clause_words:
-            target_clause = clause
-            break
+            target_clauses.append(clause_words)
 
-    words = [w.lower() for w in re.findall(r"\w+", target_clause)]
-    comp_positions = [idx for idx, w in enumerate(words) if w == comp]
-    if not comp_positions:
-        return meaningful_set, claim_stems
+    if not target_clauses:
+        # Fallback to whole sentence if comp not found in clauses (edge case)
+        target_clauses = [[w.lower() for w in re.findall(r"\w+", sentence)]]
 
     local_words: set[str] = set()
-    for pos in comp_positions:
-        start = max(0, pos - window)
-        end = min(len(words), pos + window + 1)
-        for idx in range(start, end):
-            if idx != pos and (words[idx] in meaningful_set or _stem(words[idx]) in claim_stems):
-                local_words.add(words[idx])
+    for words in target_clauses:
+        comp_positions = [idx for idx, w in enumerate(words) if w == comp]
+        for pos in comp_positions:
+            start = max(0, pos - window)
+            end = min(len(words), pos + window + 1)
+            for idx in range(start, end):
+                if idx == pos:
+                    continue
+                w = words[idx]
+                if (
+                    w in meaningful_set
+                    or _stem(w) in claim_stems
+                    or any(ch.isdigit() for ch in w)
+                ):
+                    local_words.add(w)
 
     if not local_words:
-        return meaningful_set, claim_stems
+        return set(), set()
 
     local_stems = {_stem(w) for w in local_words if len(w) > 2}
     return local_words, local_stems
@@ -145,8 +156,11 @@ def _has_scoped_comparator_contradiction(
 
     for comp in sent_comps:
         local_anchors, local_stems = _extract_comparator_local_anchors(
-            sentence, comp, meaningful_set, claim_stems, window=max_token_distance
+            sentence, comp, meaningful_set, claim_stems
         )
+        if not local_anchors and not local_stems:
+            continue
+
         opponents = COMPARATOR_OPPOSITES[comp]
         opp_indices = [idx for idx, w in enumerate(best_ctx_tokens) if w in opponents]
         ctx_local_match_indices = [

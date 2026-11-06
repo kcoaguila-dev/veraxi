@@ -259,3 +259,57 @@ def test_format_reranker_document_enriches_graph_hit():
     assert "Organization, Company" in doc_str
     assert "relation: INVESTED_IN" in doc_str
 
+
+def test_get_cross_encoder_thread_safe_single_instantiation():
+    import concurrent.futures
+    import time
+    from unittest.mock import patch, MagicMock
+    from backend.retrieval.merge_rank import _get_cross_encoder
+
+    _get_cross_encoder.cache_clear()
+
+    mock_encoder = MagicMock()
+
+    def mock_init(*args, **kwargs):
+        time.sleep(0.05)
+        return mock_encoder
+
+    with patch("fastembed.rerank.cross_encoder.TextCrossEncoder", side_effect=mock_init) as mock_cls:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
+            futures = [executor.submit(_get_cross_encoder, "test-model", 2) for _ in range(8)]
+            results = [f.result() for f in futures]
+
+        assert mock_cls.call_count == 1
+        for res in results:
+            assert res is mock_encoder
+
+
+def test_cross_encoder_partial_failure_preserves_original_scores():
+    from unittest.mock import patch
+    from backend.retrieval.merge_rank import merge_rank, VectorHit
+
+    hits = [
+        VectorHit(id="doc_a", score=0.9, payload={"text": "document a"}),
+        VectorHit(id="doc_b", score=0.8, payload={"text": "document b"}),
+    ]
+
+    with patch("backend.retrieval.merge_rank._get_cross_encoder") as mock_get_encoder:
+        mock_encoder = mock_get_encoder.return_value
+        # Mock rerank to raise an exception mid-iteration
+        def faulty_rerank(*args, **kwargs):
+            yield 0.99
+            raise ValueError("Rust tokenizer panic!")
+
+        mock_encoder.rerank = faulty_rerank
+
+        # Enable rerank by passing rerank=True
+        results = merge_rank(vector_hits=hits, graph_hits=[], k=60, limit=None, query_text="test", rerank=True)
+
+        # Verify the original ranking scores without failure (because merge_rank fallback behavior must revert any rerank changes)
+        assert len(results) == 2
+        # Original logic fallback retains scores as RRF scores calculated before _rerank_with_cross_encoder.
+        # Since vector items are ordered 1 and 2, RRF base scores are 1/61 and 1/62.
+        assert results[0].fused_score == (1.0 / 61)
+        assert results[1].fused_score == (1.0 / 62)
+        assert results[0].id == "doc_a"
+        assert results[1].id == "doc_b"

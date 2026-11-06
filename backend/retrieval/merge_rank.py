@@ -11,7 +11,6 @@ merge/ranking logic elsewhere.
 """
 
 from dataclasses import dataclass, field
-from functools import lru_cache
 import logging
 import threading
 
@@ -20,14 +19,29 @@ logger = logging.getLogger(__name__)
 DEFAULT_RRF_K = 60
 
 _CROSS_ENCODER_LOCK = threading.Lock()
+_CROSS_ENCODER_CACHE: dict[tuple[str, int], object] = {}
 
 
-@lru_cache(maxsize=4)
 def _get_cross_encoder(model_name: str, threads: int = 2):
+    key = (model_name, threads)
+    if key in _CROSS_ENCODER_CACHE:
+        return _CROSS_ENCODER_CACHE[key]
+
     with _CROSS_ENCODER_LOCK:
+        if key in _CROSS_ENCODER_CACHE:
+            return _CROSS_ENCODER_CACHE[key]
+
         from fastembed.rerank.cross_encoder import TextCrossEncoder
 
-        return TextCrossEncoder(model_name=model_name, threads=threads)
+        encoder = TextCrossEncoder(model_name=model_name, threads=threads)
+        if len(_CROSS_ENCODER_CACHE) >= 4:
+            oldest_key = next(iter(_CROSS_ENCODER_CACHE))
+            del _CROSS_ENCODER_CACHE[oldest_key]
+
+        _CROSS_ENCODER_CACHE[key] = encoder
+        return encoder
+
+_get_cross_encoder.cache_clear = _CROSS_ENCODER_CACHE.clear
 
 
 @dataclass
@@ -129,13 +143,17 @@ def _rerank_with_cross_encoder(
         encoder = _get_cross_encoder(model_name, threads=threads)
 
         docs = [_format_reranker_document(item) for item in candidates]
-        ce_scores = list(encoder.rerank(query=query_text, documents=docs))
+
+        with _CROSS_ENCODER_LOCK:
+            ce_scores = list(encoder.rerank(query=query_text, documents=docs))
 
         ranked_indices = sorted(
             range(len(candidates)),
             key=lambda idx: float(ce_scores[idx]),
             reverse=True,
         )
+
+        new_scores = []
         for ce_rank, orig_idx in enumerate(ranked_indices, start=1):
             item = candidates[orig_idx]
             try:
@@ -144,9 +162,12 @@ def _rerank_with_cross_encoder(
                 sigmoid_val = 1.0 / (1.0 + math.exp(-clamped_val))
             except Exception:
                 sigmoid_val = 0.5
-            item.fused_score = (
-                item.fused_score + (1.0 / (k + ce_rank)) + (1e-4 * sigmoid_val)
-            )
+
+            new_fused_score = item.fused_score + (1.0 / (k + ce_rank)) + (1e-4 * sigmoid_val)
+            new_scores.append((orig_idx, new_fused_score))
+
+        for orig_idx, new_fused_score in new_scores:
+            candidates[orig_idx].fused_score = new_fused_score
 
         candidates.sort(key=lambda r: r.fused_score, reverse=True)
     except Exception as err:
