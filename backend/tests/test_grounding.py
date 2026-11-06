@@ -362,3 +362,20 @@ def test_cjk_grounding_paraphrase_preserves_single_character_tokens():
 
 
 
+
+def test_scoped_comparator_numeric_introductory_clause_no_false_positive():
+    context = "After the debt restructuring in March, the debt leverage ratio must remain under 3.0x."
+    claim = "Before 2026, the debt leverage ratio must remain under 3.0x."
+
+    score = evaluate_groundedness(claim, context, method="deterministic")
+    assert score is not None
+    assert score >= 0.65
+
+
+def test_scoped_comparator_coordinated_conjunction_clause():
+    context = "The facility was amended after the debt review and the debt leverage ratio must remain under 3.0x."
+    claim = "Before the audit and while the debt leverage ratio must remain under 3.0x."
+
+    score = evaluate_groundedness(claim, context, method="deterministic")
+    assert score is not None
+    assert score >= 0.65
