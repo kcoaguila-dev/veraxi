@@ -195,6 +195,7 @@ def _handle_merge_rank(args: dict, tenant_id: str) -> list[TextContent]:
         )
     else:
         # Seed graph traversal from entity candidates found in vector chunk payloads
+        seeded_from_payload = False
         for v in v_hits[:3]:
             payload = getattr(v, "payload", {}) or {}
             candidate = payload.get("entity_name") or payload.get("title")
@@ -204,8 +205,20 @@ def _handle_merge_rank(args: dict, tenant_id: str) -> list[TextContent]:
                     max_hops=args.get("max_hops", config.default_max_hops),
                     tenant_id=tenant_id,
                 )
+                seeded_from_payload = True
                 if g_hits:
                     break
+
+        if (
+            not seeded_from_payload
+            and not g_hits
+            and args.get("query_text", "").strip()
+        ):
+            g_hits = query_graph(
+                entity_name=args["query_text"].strip(),
+                max_hops=args.get("max_hops", config.default_max_hops),
+                tenant_id=tenant_id,
+            )
 
     results = merge_rank(
         v_hits,

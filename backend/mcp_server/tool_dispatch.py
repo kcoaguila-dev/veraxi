@@ -745,6 +745,16 @@ async def _execute_mcp_tool(
                 logger.error(f"Failed to cleanup git worktree: {e}")
 
 
+def _extract_primary_query(tool_calls: list[dict]) -> str | None:
+    for tc in tool_calls:
+        args = tc.get("args", {})
+        for key in ("query_text", "query", "entity_name"):
+            val = args.get(key)
+            if val and isinstance(val, str) and val.strip():
+                return val.strip()
+    return None
+
+
 def _build_context_string(merged_results: list[Any]) -> str:
     """Build a formatted context string from fused results."""
     context_parts = []
@@ -813,7 +823,8 @@ async def execute_tools_internal(
         graph_hits.extend(g)
         telemetry_hits.extend(t)
 
-    merged_docs = merge_rank(vector_hits, graph_hits)
+    primary_query = _extract_primary_query(tool_calls)
+    merged_docs = merge_rank(vector_hits, graph_hits, query_text=primary_query)
     merged = telemetry_hits + merged_docs
 
     context_sections = []

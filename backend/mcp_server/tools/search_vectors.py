@@ -1,7 +1,12 @@
+from concurrent.futures import ThreadPoolExecutor
 from backend.config import get_config
 from backend.ingestion.chunk_embed import embed_text, embed_text_sparse
 from backend.retrieval.merge_rank import VectorHit
 from backend.storage.qdrant_client import QdrantStorageClient
+
+_EMBED_EXECUTOR = ThreadPoolExecutor(
+    max_workers=4, thread_name_prefix="veraxi-query-embed"
+)
 
 
 def search_vectors(
@@ -17,13 +22,10 @@ def search_vectors(
     COLLECTION_NAME = config.qdrant_collection_name
 
     # Embed the query in parallel (dense + sparse)
-    from concurrent.futures import ThreadPoolExecutor
-
-    with ThreadPoolExecutor(max_workers=2) as executor:
-        future_dense = executor.submit(embed_text, query_text)
-        future_sparse = executor.submit(embed_text_sparse, query_text)
-        query_vector = future_dense.result()
-        sparse_query_vector = future_sparse.result()
+    future_dense = _EMBED_EXECUTOR.submit(embed_text, query_text)
+    future_sparse = _EMBED_EXECUTOR.submit(embed_text_sparse, query_text)
+    query_vector = future_dense.result()
+    sparse_query_vector = future_sparse.result()
 
     # Perform search
     results = qdrant_client.search_hybrid(
