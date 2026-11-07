@@ -103,12 +103,13 @@ def test_delete_vector(qdrant_client, patch_env, test_tenant):
     config = get_config()
     qdrant_client.create_collection(config.qdrant_collection_name)
     doc_id = str(uuid.uuid4())
+    dim = config.embedding_dimension
     qdrant_client.client.upsert(
         collection_name=config.qdrant_collection_name,
         points=[
             PointStruct(
                 id=doc_id,
-                vector={"": [0.1] * 384, "text-sparse": {"indices": [], "values": []}},
+                vector={"": [0.1] * dim, "text-sparse": {"indices": [], "values": []}},
                 payload={"tenant_id": test_tenant, "text": "to be deleted"},
             )
         ],
@@ -160,12 +161,13 @@ def test_update_document_metadata(qdrant_client, patch_env, test_tenant):
     config = get_config()
     qdrant_client.create_collection(config.qdrant_collection_name)
     doc_id = str(uuid.uuid4())
+    dim = config.embedding_dimension
     qdrant_client.client.upsert(
         collection_name=config.qdrant_collection_name,
         points=[
             PointStruct(
                 id=doc_id,
-                vector={"": [0.1] * 384, "text-sparse": {"indices": [], "values": []}},
+                vector={"": [0.1] * dim, "text-sparse": {"indices": [], "values": []}},
                 payload={"tenant_id": test_tenant, "original": True},
             )
         ],

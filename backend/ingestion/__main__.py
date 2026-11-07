@@ -9,12 +9,16 @@ from backend.ingestion.chunk_embed import chunk_and_embed
 from backend.ingestion.document_parser import (
     strip_and_resolve_citation_metadata,
 )
-from backend.ingestion.entity_resolution import resolve_entities
+from backend.ingestion.entity_resolution import normalize_name, resolve_entities
 from backend.ingestion.extract import (
     extract_entities_and_relations,
     extract_entities_and_relations_fast,
 )
-from backend.ingestion.graph_write import IngestionPayload, write_to_graph
+from backend.ingestion.graph_write import (
+    IngestionPayload,
+    _alias_matches_chunk,
+    write_to_graph,
+)
 from backend.storage.neo4j_client import Neo4jStorageClient
 from backend.storage.qdrant_client import QdrantStorageClient
 
@@ -28,23 +32,27 @@ def _tag_entities_with_chunk_provenance(
     entities: list[dict[str, Any]],
     chunk_items: list[tuple[str, str]],
 ) -> None:
-    """Tags extracted entities with source_point_ids based on occurrence in chunks."""
+    """Tags extracted entities with source_point_ids based on word-boundary occurrence in chunks."""
+    if not entities or not chunk_items:
+        return
+    norm_chunks = [
+        (normalize_name(c_text), set(normalize_name(c_text).split()), c_pid)
+        for c_text, c_pid in chunk_items
+    ]
     for ent in entities:
         if ent.get("source_point_ids"):
             continue
-        ent_name = ent.get("name", "").strip().lower()
+        ent_name = ent.get("name", "").strip()
         if not ent_name:
             continue
-        aliases = [
-            str(a).strip().lower()
-            for a in ent.get("aliases", [])
-            if isinstance(a, str) and str(a).strip()
-        ]
-        search_terms = [ent_name] + aliases
+        aliases = list({ent_name} | set(ent.get("aliases", [])))
+        norm_aliases = [normalize_name(a) for a in aliases if normalize_name(a)]
         matched_pids = []
-        for c_text, c_pid in chunk_items:
-            c_text_lower = c_text.lower()
-            if any(term in c_text_lower for term in search_terms):
+        for chunk_text_norm, chunk_tokens, c_pid in norm_chunks:
+            if any(
+                _alias_matches_chunk(norm_a, chunk_text_norm, chunk_tokens)
+                for norm_a in norm_aliases
+            ):
                 matched_pids.append(c_pid)
         if matched_pids:
             ent["source_point_ids"] = list(dict.fromkeys(matched_pids))
@@ -181,7 +189,9 @@ def run_ingestion(
 
                 chunk_items = [
                     (item[0], pid)
-                    for item, pid in zip(cleaned_chunks_and_embeddings, qdrant_point_ids_list)
+                    for item, pid in zip(
+                        cleaned_chunks_and_embeddings, qdrant_point_ids_list
+                    )
                 ]
                 with ThreadPoolExecutor(max_workers=min(4, len(chunk_items))) as pool:
                     for chunk_ents, chunk_rels in pool.map(_extract_chunk, chunk_items):
@@ -197,7 +207,11 @@ def run_ingestion(
             from_entity = alias_to_canonical.get(rel["from_entity"], rel["from_entity"])
             to_entity = alias_to_canonical.get(rel["to_entity"], rel["to_entity"])
             rewritten_relations.append(
-                {"from_entity": from_entity, "to_entity": to_entity, "type": rel["type"]}
+                {
+                    "from_entity": from_entity,
+                    "to_entity": to_entity,
+                    "type": rel["type"],
+                }
             )
 
         payload = IngestionPayload(
@@ -208,21 +222,31 @@ def run_ingestion(
         )
 
         # 5. Write to Neo4j
-        entity_id_map, qdrant_id_to_neo4j_ids, qdrant_id_to_entity_names = write_to_graph(
-            neo4j, payload, tenant_id=tenant_id
+        entity_id_map, qdrant_id_to_neo4j_ids, qdrant_id_to_entity_names = (
+            write_to_graph(neo4j, payload, tenant_id=tenant_id)
         )
 
         # 6. Critical Link: Update Qdrant points with their corresponding Neo4j Node IDs and entity names
         # Retrieve existing payloads for these points to merge non-destructively
-        existing_points = qdrant.get_points(COLLECTION_NAME, list(qdrant_id_to_neo4j_ids.keys()))
-        existing_payloads = {p["id"]: p.get("payload", {}) for p in existing_points if isinstance(p, dict) and "id" in p}
+        existing_points = qdrant.get_points(
+            COLLECTION_NAME, list(qdrant_id_to_neo4j_ids.keys())
+        )
+        existing_payloads = {
+            p["id"]: p.get("payload", {})
+            for p in existing_points
+            if isinstance(p, dict) and "id" in p
+        }
 
         updates_by_point_id: dict[str, dict] = {}
         for q_id, n_ids in qdrant_id_to_neo4j_ids.items():
             curr_payload = existing_payloads.get(q_id, {})
-            merged_n_ids = list(dict.fromkeys(curr_payload.get("neo4j_node_ids", []) + n_ids))
+            merged_n_ids = list(
+                dict.fromkeys(curr_payload.get("neo4j_node_ids", []) + n_ids)
+            )
             new_names = qdrant_id_to_entity_names.get(q_id, [])
-            merged_names = list(dict.fromkeys(curr_payload.get("entity_names", []) + new_names))
+            merged_names = list(
+                dict.fromkeys(curr_payload.get("entity_names", []) + new_names)
+            )
 
             update_payload: dict = {"neo4j_node_ids": merged_n_ids}
             if merged_names:
@@ -236,6 +260,7 @@ def run_ingestion(
         )
     except Exception as exc:
         import sentry_sdk
+
         sentry_sdk.capture_exception(exc)
         logger.error(
             f"Ingestion failed after inserting points into Qdrant. Executing compensating rollback: {exc}"

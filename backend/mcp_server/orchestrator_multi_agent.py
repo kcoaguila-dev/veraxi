@@ -11,7 +11,7 @@ from backend.mcp_server.tools.web_search import mcp_web_search
 logger = logging.getLogger(__name__)
 
 
-class DebateState(TypedDict):
+class DebateState(TypedDict, total=False):
     query: str
     tenant_id: str
     vector_data: str
@@ -24,6 +24,8 @@ class DebateState(TypedDict):
     is_approved: bool
     iterations: int
     tool_settings: dict
+    vector_hits: list
+    graph_hits: list
 
 
 async def vector_specialist_node(state: DebateState):
@@ -50,13 +52,16 @@ async def vector_specialist_node(state: DebateState):
             )
             page = hit.payload.get("page_number")
             loc = f" | Page {page}" if page is not None else ""
-            snippets.append(f"[Vector Source {i}: {source}{loc}] (chunk {hit.id}): {text}")
+            snippets.append(
+                f"[Vector Source {i}: {source}{loc}] (chunk {hit.id}): {text}"
+            )
         vector_data = "\n\n".join(snippets) if snippets else ""
     except Exception as e:
         logger.warning(f"Vector specialist search failed: {e}")
+        hits = []
         vector_data = ""
 
-    return {"vector_data": vector_data}
+    return {"vector_data": vector_data, "vector_hits": hits}
 
 
 async def graph_specialist_node(state: DebateState):
@@ -106,9 +111,10 @@ async def graph_specialist_node(state: DebateState):
         graph_data = "\n".join(graph_snippets) if graph_snippets else ""
     except Exception as e:
         logger.warning(f"Graph specialist query failed: {e}")
+        graph_hits = []
         graph_data = ""
 
-    return {"graph_data": graph_data}
+    return {"graph_data": graph_data, "graph_hits": graph_hits}
 
 
 async def web_specialist_node(state: DebateState):
@@ -133,6 +139,42 @@ async def web_specialist_node(state: DebateState):
 async def synthesizer_node(state: DebateState):
     """Evidence Synthesizer: Fuses findings from Vector, Graph, and Web specialists into unified evidence."""
     sections = []
+    vector_hits = state.get("vector_hits") or []
+    graph_hits = state.get("graph_hits") or []
+    query = state.get("query", "")
+
+    if vector_hits or graph_hits:
+        try:
+            from backend.retrieval.merge_rank import merge_rank
+
+            fused_results = merge_rank(
+                vector_hits=vector_hits,
+                graph_hits=graph_hits,
+                query_text=query,
+            )
+            fused_snippets = []
+            for i, res in enumerate(fused_results[:6], 1):
+                text = (
+                    res.payload.get("text")
+                    or res.payload.get("content")
+                    or str(res.payload)
+                )
+                src = (
+                    res.payload.get("source")
+                    or res.payload.get("document_id")
+                    or "Knowledge Store"
+                )
+                fused_snippets.append(
+                    f"[Fused Evidence {i}: {src}] (Score: {res.fused_score:.3f}): {text}"
+                )
+            if fused_snippets:
+                sections.append(
+                    "### Fused Hybrid Evidence (RRF Ranked):\n"
+                    + "\n\n".join(fused_snippets)
+                )
+        except Exception as e:
+            logger.warning(f"Failed running merge_rank in synthesizer_node: {e}")
+
     if state.get("vector_data"):
         sections.append("### Vector Evidence (Qdrant):\n" + state["vector_data"])
     if state.get("graph_data"):
@@ -157,7 +199,7 @@ async def writer_node(state: DebateState):
 
     prompt = f"""You are the Writer agent in a multi-agent GraphRAG research team.
 Your job is to answer the user's query based ONLY on the provided Research Data.
-You must cite your sources inline using brackets like [Vector Source X], [Graph Relation X], or [Web Source X].
+You must cite your sources inline using brackets like [Fused Evidence X], [Vector Source X], [Graph Relation X], or [Web Source X].
 
 User Query: {query}
 
@@ -223,6 +265,7 @@ Writer's Draft:
         critique = eval_result.critique
     except Exception as e:
         import sentry_sdk
+
         sentry_sdk.capture_exception(e)
         logger.error(f"Skeptic node evaluation failed: {e}")
         # Fail closed on evaluation failure: require high deterministic score to approve

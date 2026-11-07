@@ -23,13 +23,11 @@ def update_entity(
     neo4j = Neo4jStorageClient.from_config(config)
 
     safe_props = {
-        k: v
-        for k, v in (properties or {}).items()
-        if k not in RESERVED_ENTITY_PROPS
+        k: v for k, v in (properties or {}).items() if k not in RESERVED_ENTITY_PROPS
     }
 
     query = """
-    MATCH (n {tenant_id: $tenant_id})
+    MATCH (n:Entity {tenant_id: $tenant_id})
     WHERE toLower(n.name) = toLower($entity_name)
        OR any(a IN coalesce(n.aliases, []) WHERE toLower(a) = toLower($entity_name))
     SET n += $properties

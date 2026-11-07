@@ -15,7 +15,7 @@ def delete_relationship(
     neo4j = Neo4jStorageClient.from_config(config)
 
     query = f"""
-    MATCH (a {{tenant_id: $tenant_id}})-[r:{rel_type}]->(b {{tenant_id: $tenant_id}})
+    MATCH (a:Entity {{tenant_id: $tenant_id}})-[r:{rel_type}]->(b:Entity {{tenant_id: $tenant_id}})
     WHERE (toLower(a.name) = toLower($from_entity) OR any(alias IN coalesce(a.aliases, []) WHERE toLower(alias) = toLower($from_entity)))
       AND (toLower(b.name) = toLower($to_entity) OR any(alias IN coalesce(b.aliases, []) WHERE toLower(alias) = toLower($to_entity)))
     DELETE r

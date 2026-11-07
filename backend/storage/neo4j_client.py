@@ -88,12 +88,18 @@ class Neo4jStorageClient:
 
         constraint_query = f"CREATE CONSTRAINT IF NOT EXISTS FOR (n:{label}) REQUIRE n.entity_key IS UNIQUE"
         index_query = f"CREATE INDEX IF NOT EXISTS FOR (n:{label}) ON (n.acronym_key)"
-        name_index_query = f"CREATE INDEX IF NOT EXISTS FOR (n:{label}) ON (n.tenant_id, n.name)"
+        name_index_query = (
+            f"CREATE INDEX IF NOT EXISTS FOR (n:{label}) ON (n.tenant_id, n.name)"
+        )
+        tenant_index_query = (
+            f"CREATE INDEX IF NOT EXISTS FOR (n:{label}) ON (n.tenant_id)"
+        )
 
         with self.driver.session() as session:
             session.run(constraint_query)
             session.run(index_query)
             session.run(name_index_query)
+            session.run(tenant_index_query)
 
         self._ensured_labels.add(label)
         if getattr(self, "_is_pooled", False):

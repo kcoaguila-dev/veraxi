@@ -65,7 +65,9 @@ def _scrub_entity_from_qdrant_points(
             )
     except Exception as exc:
         sentry_sdk.capture_exception(exc)
-        logger.warning(f"Could not purge entity {names_to_scrub} from Qdrant payloads: {exc}")
+        logger.warning(
+            f"Could not purge entity {names_to_scrub} from Qdrant payloads: {exc}"
+        )
 
 
 def delete_entity(entity_name: str, tenant_id: str = "default") -> str:
@@ -77,16 +79,14 @@ def delete_entity(entity_name: str, tenant_id: str = "default") -> str:
     neo4j = Neo4jStorageClient.from_config(config)
 
     fetch_query = """
-    MATCH (n)
-    WHERE n.tenant_id = $tenant_id
-      AND (toLower(n.name) = toLower($entity_name) OR any(a IN coalesce(n.aliases, []) WHERE toLower(a) = toLower($entity_name)))
+    MATCH (n:Entity {tenant_id: $tenant_id})
+    WHERE (toLower(n.name) = toLower($entity_name) OR any(a IN coalesce(n.aliases, []) WHERE toLower(a) = toLower($entity_name)))
     RETURN n.id AS id, n.name AS name, coalesce(n.aliases, []) AS aliases, coalesce(n.qdrant_point_ids, []) AS q_ids
     """
 
     delete_query = """
-    MATCH (n)
-    WHERE n.tenant_id = $tenant_id
-      AND (toLower(n.name) = toLower($entity_name) OR any(a IN coalesce(n.aliases, []) WHERE toLower(a) = toLower($entity_name)))
+    MATCH (n:Entity {tenant_id: $tenant_id})
+    WHERE (toLower(n.name) = toLower($entity_name) OR any(a IN coalesce(n.aliases, []) WHERE toLower(a) = toLower($entity_name)))
     DETACH DELETE n
     RETURN count(n) AS deleted_count
     """

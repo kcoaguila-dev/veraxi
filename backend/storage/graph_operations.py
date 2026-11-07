@@ -40,9 +40,8 @@ def _find_existing_node_id(
     )
 
     match_query = """
-    MATCH (n {tenant_id: $tenant_id})
-    WHERE (n:Entity OR NOT n:Chunk)
-      AND (
+    MATCH (n:Entity {tenant_id: $tenant_id})
+    WHERE (
         n.name = $name
         OR toLower(n.name) IN $lower_candidates
         OR ($ent_key IS NOT NULL AND n.entity_key = $ent_key)
@@ -83,7 +82,9 @@ def _backpropagate_links_to_qdrant(
 
         qdrant_client = QdrantStorageClient.from_config(config)
         all_point_ids = list(qdrant_links.keys())
-        existing_points = qdrant_client.get_points(config.qdrant_collection_name, all_point_ids)
+        existing_points = qdrant_client.get_points(
+            config.qdrant_collection_name, all_point_ids
+        )
         updates_by_point_id: dict[str, dict] = {}
         for pt in existing_points:
             pt_id = pt.get("id")
@@ -91,8 +92,12 @@ def _backpropagate_links_to_qdrant(
                 continue
             add_nids, add_names = qdrant_links[pt_id]
             pt_payload = pt.get("payload", {})
-            merged_nids = list(dict.fromkeys(pt_payload.get("neo4j_node_ids", []) + add_nids))
-            merged_names = list(dict.fromkeys(pt_payload.get("entity_names", []) + add_names))
+            merged_nids = list(
+                dict.fromkeys(pt_payload.get("neo4j_node_ids", []) + add_nids)
+            )
+            merged_names = list(
+                dict.fromkeys(pt_payload.get("entity_names", []) + add_names)
+            )
             updates_by_point_id[pt_id] = {
                 "neo4j_node_ids": merged_nids,
                 "entity_names": merged_names,
@@ -201,7 +206,9 @@ def _upsert_single_graph_relation(
 
     from_id = entity_name_to_node_id.get(from_name) if from_name else None
     if not from_id and from_name:
-        from_id = _find_existing_node_id(neo4j_client, tenant_id=tenant_id, name=from_name)
+        from_id = _find_existing_node_id(
+            neo4j_client, tenant_id=tenant_id, name=from_name
+        )
         if from_id:
             entity_name_to_node_id[from_name] = from_id
 

@@ -180,3 +180,21 @@ def test_write_to_graph_word_boundary_linking_prevents_substring_false_positives
     assert "p2" in q2n
     assert q2names.get("p2") == ["AI"]
     assert "p1" not in q2names
+
+
+def test_tag_entities_with_chunk_provenance_prevents_substring_false_positives():
+    from backend.ingestion.__main__ import _tag_entities_with_chunk_provenance
+
+    entities = [
+        {"name": "AI", "type": "Concept", "aliases": ["AI"]},
+        {"name": "US", "type": "Location", "aliases": []},
+    ]
+    chunk_items = [
+        ("Please wait for the status report.", "pid-wait-status"),
+        ("The AI policy in the US is evolving.", "pid-target"),
+    ]
+
+    _tag_entities_with_chunk_provenance(entities, chunk_items)
+
+    assert entities[0].get("source_point_ids") == ["pid-target"]
+    assert entities[1].get("source_point_ids") == ["pid-target"]

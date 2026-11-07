@@ -78,10 +78,8 @@ def query_graph(
     # Tier 1: Token match or whole-phrase boundary containment (raw and punctuation-normalized)
     # Tier 2: Substring match on longer entity names
     query = f"""
-    MATCH (start)
-    WHERE (start:Entity OR NOT start:Chunk)
-      AND start.tenant_id = $tenant_id
-      AND (
+    MATCH (start:Entity {{tenant_id: $tenant_id}})
+    WHERE (
         start.name = $entity_name
         OR toLower(start.name) = $lower_name
         OR any(a IN coalesce(start.aliases, []) WHERE toLower(a) = $lower_name)
@@ -147,7 +145,11 @@ def query_graph(
 
         if q_id not in seen:
             seen.add(q_id)
-            payload = row.get("props", {}).copy() if isinstance(row.get("props"), dict) else {}
+            payload = (
+                row.get("props", {}).copy()
+                if isinstance(row.get("props"), dict)
+                else {}
+            )
             payload["labels"] = row.get("labels", [])
             src = row.get("source_entity")
             if src:
@@ -240,6 +242,8 @@ def seed_graph_hits_from_vectors(
                     g_hits.append(h)
         except Exception as exc:
             sentry_sdk.capture_exception(exc)
-            logger.warning(f"Fallback query_graph failed for query '{query_text}': {exc}")
+            logger.warning(
+                f"Fallback query_graph failed for query '{query_text}': {exc}"
+            )
 
     return g_hits

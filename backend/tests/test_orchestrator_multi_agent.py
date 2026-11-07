@@ -101,6 +101,40 @@ async def test_synthesizer_node():
 
 
 @pytest.mark.asyncio
+async def test_synthesizer_node_with_rrf_merge_rank():
+    from backend.retrieval.merge_rank import GraphHit, VectorHit
+
+    v_hits = [
+        VectorHit(
+            id="v1",
+            score=0.9,
+            payload={
+                "text": "Option pricing and volatility smile.",
+                "source": "FinanceDoc.pdf",
+            },
+        )
+    ]
+    g_hits = [
+        GraphHit(
+            id="g1",
+            payload={
+                "text": "Black-Scholes model connects implied volatility to price."
+            },
+        )
+    ]
+    state = {
+        "query": "volatility smile",
+        "vector_hits": v_hits,
+        "graph_hits": g_hits,
+        "vector_data": "[Vector Source 1]: Option pricing",
+        "graph_data": "[Graph Relation 1]: (BSM)->(Smile)",
+    }
+    res = await synthesizer_node(state)  # type: ignore
+    assert "Fused Hybrid Evidence (RRF Ranked)" in res["research_data"]
+    assert "Option pricing" in res["research_data"]
+
+
+@pytest.mark.asyncio
 async def test_writer_node():
     mock_llm = AsyncMock()
     mock_llm.ainvoke.return_value = AIMessage(
@@ -174,7 +208,9 @@ async def test_skeptic_node_fails_closed_on_llm_error():
         }
         res = await skeptic_node(state)  # type: ignore
         assert res["is_approved"] is False
-        assert "Automated skeptic LLM evaluation encountered an error" in res["critique"]
+        assert (
+            "Automated skeptic LLM evaluation encountered an error" in res["critique"]
+        )
 
 
 def test_debate_router():
