@@ -24,7 +24,11 @@ def search_vectors(
     # Embed the query in parallel (dense + sparse)
     future_dense = _EMBED_EXECUTOR.submit(embed_text, query_text)
     future_sparse = _EMBED_EXECUTOR.submit(embed_text_sparse, query_text)
-    query_vector = future_dense.result()
+    try:
+        query_vector = future_dense.result()
+    except Exception:
+        future_sparse.cancel()
+        raise
     sparse_query_vector = future_sparse.result()
 
     # Perform search

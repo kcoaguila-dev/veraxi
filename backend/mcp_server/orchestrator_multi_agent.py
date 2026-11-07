@@ -66,32 +66,42 @@ async def graph_specialist_node(state: DebateState):
     logger.info(f"Multi-Agent: Graph Specialist querying paths for '{query}'...")
 
     try:
-        from backend.storage.neo4j_client import Neo4jStorageClient
+        from backend.mcp_server.tools.query_graph import (
+            query_graph,
+            seed_graph_hits_from_vectors,
+        )
+        from backend.mcp_server.tools.search_vectors import search_vectors
 
-        # Extract candidate tokens from query to match entity names
-        tokens = [t.strip("?,.!") for t in query.split() if len(t) > 3]
-        graph_snippets = []
-
-        config = get_config()
-        neo4j = Neo4jStorageClient.from_config(config)
-        try:
-            query_cypher = """
-            MATCH (a)-[r]-(b)
-            WHERE (a.tenant_id = $tenant_id OR a.tenant_id IS NULL)
-              AND any(token IN $tokens WHERE toLower(a.name) CONTAINS toLower(token) OR toLower(b.name) CONTAINS toLower(token))
-            RETURN DISTINCT a.name AS from_ent, type(r) AS rel, b.name AS to_ent, properties(r) AS props
-            LIMIT 10
-            """
-            records = neo4j.execute_read(
-                query_cypher, {"tenant_id": tenant_id, "tokens": tokens}
+        graph_hits = query_graph(entity_name=query, max_hops=2, tenant_id=tenant_id)
+        if not graph_hits:
+            v_hits = search_vectors(query, limit=3, tenant_id=tenant_id)
+            graph_hits = seed_graph_hits_from_vectors(
+                v_hits=v_hits,
+                query_text=query,
+                max_hops=2,
+                tenant_id=tenant_id,
+                max_seeds=3,
+                query_graph_fn=query_graph,
             )
-            for i, rec in enumerate(records, 1):
-                props_str = f" ({rec['props']})" if rec.get("props") else ""
+
+        graph_snippets = []
+        for i, hit in enumerate(graph_hits[:10], 1):
+            payload = hit.payload or {}
+            src = payload.get("source_entity")
+            name = payload.get("name") or payload.get("title") or hit.id
+            rel = payload.get("relation_type") or "CONNECTED_TO"
+            labels = payload.get("labels", [])
+            lbl_str = f" ({', '.join(labels)})" if labels else ""
+            txt = payload.get("text")
+            txt_str = f' - "{txt[:120]}..."' if txt else ""
+            if src:
                 graph_snippets.append(
-                    f"[Graph Relation {i}]: ({rec['from_ent']}) ──[{rec['rel']}]──▶ ({rec['to_ent']}){props_str}"
+                    f"[Graph Relation {i}]: ({src}) ──[{rel}]──▶ ({name}{lbl_str}){txt_str}"
                 )
-        finally:
-            neo4j.close()
+            else:
+                graph_snippets.append(
+                    f"[Graph Relation {i}]: ({name}{lbl_str}) [rel: {rel}]{txt_str}"
+                )
 
         graph_data = "\n".join(graph_snippets) if graph_snippets else ""
     except Exception as e:
@@ -212,9 +222,15 @@ Writer's Draft:
         is_approved = eval_result.is_approved and (grounding_score >= 0.70)
         critique = eval_result.critique
     except Exception as e:
+        import sentry_sdk
+        sentry_sdk.capture_exception(e)
         logger.error(f"Skeptic node evaluation failed: {e}")
-        is_approved = True
-        critique = ""
+        # Fail closed on evaluation failure: require high deterministic score to approve
+        is_approved = grounding_score >= 0.85
+        critique = (
+            f"Automated skeptic LLM evaluation encountered an error ({e}). "
+            f"Verification required deterministic grounding >= 0.85 (got {grounding_score:.2f})."
+        )
 
     logger.info(
         f"Multi-Agent: Skeptic approval: {is_approved} (Grounding Score: {grounding_score:.2f})"

@@ -81,6 +81,33 @@ def _find_best_matching_context_sentence(
     return best_sent, best_overlap
 
 
+def _is_anchor_token(token: str, meaningful_set: set[str], claim_stems: set[str]) -> bool:
+    return (
+        token in meaningful_set
+        or _stem(token) in claim_stems
+        or any(ch.isdigit() for ch in token)
+    )
+
+
+def _scan_clause_window(
+    words: list[str],
+    comp: str,
+    window: int,
+    meaningful_set: set[str],
+    claim_stems: set[str],
+) -> set[str]:
+    """Scans ±window tokens around occurrences of comp in a clause."""
+    anchors: set[str] = set()
+    comp_positions = [idx for idx, w in enumerate(words) if w == comp]
+    for pos in comp_positions:
+        start = max(0, pos - window)
+        end = min(len(words), pos + window + 1)
+        for idx in range(start, end):
+            if idx != pos and _is_anchor_token(words[idx], meaningful_set, claim_stems):
+                anchors.add(words[idx])
+    return anchors
+
+
 def _extract_comparator_local_anchors(
     sentence: str,
     comp: str,
@@ -107,19 +134,17 @@ def _extract_comparator_local_anchors(
 
     local_words: set[str] = set()
     for words in target_clauses:
-        comp_positions = [idx for idx, w in enumerate(words) if w == comp]
-        for pos in comp_positions:
-            start = max(0, pos - window)
-            end = min(len(words), pos + window + 1)
-            for idx in range(start, end):
-                if idx == pos:
-                    continue
-                w = words[idx]
-                if (
-                    w in meaningful_set
-                    or _stem(w) in claim_stems
-                    or any(ch.isdigit() for ch in w)
-                ):
+        local_words.update(
+            _scan_clause_window(words, comp, window, meaningful_set, claim_stems)
+        )
+
+    # Clause-bounded fallback: if the ±window scan found no anchors (e.g. comparator
+    # is separated from meaningful words by multiple stopwords in the same clause),
+    # collect meaningful/numeric tokens from target_clauses only, preventing cross-clause leakage.
+    if not local_words:
+        for words in target_clauses:
+            for w in words:
+                if w != comp and _is_anchor_token(w, meaningful_set, claim_stems):
                     local_words.add(w)
 
     if not local_words:

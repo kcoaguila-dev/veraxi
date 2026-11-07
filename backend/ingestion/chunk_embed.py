@@ -13,8 +13,36 @@ def _pretokenize_cjk(text: str) -> str:
     return _CJK_RE.sub(r" \1 ", text)
 
 
+def _find_best_split_index(text: str, start: int, end: int, overlap: int) -> int:
+    """Finds the best split position within [start + overlap + 1, end], preferring sentence ends over spaces."""
+    min_split = start + overlap + 1
+    if min_split >= end:
+        return end
+
+    search_window = text[min_split:end]
+
+    # 1. Search for sentence terminators followed by whitespace or newline
+    best_sent_idx = -1
+    for sep in ("\n\n", ".\n", "!\n", "?\n", "\n", ". ", "! ", "? "):
+        pos = search_window.rfind(sep)
+        if pos != -1:
+            candidate = min_split + pos + (1 if sep.startswith((".", "!", "?")) else len(sep))
+            if candidate > best_sent_idx and candidate <= end:
+                best_sent_idx = candidate
+
+    if best_sent_idx > min_split:
+        return best_sent_idx
+
+    # 2. Fall back to word boundary (space)
+    space_pos = text.rfind(" ", min_split, end)
+    if space_pos > min_split:
+        return space_pos
+
+    return end
+
+
 def _chunk_plain_segment(
-    text: str, chunk_size: int = 200, overlap: int = 50
+    text: str, chunk_size: int = 800, overlap: int = 150
 ) -> list[str]:
     """Chunk a single plain text segment into segments of chunk_size with overlap."""
     if not text:
@@ -24,11 +52,9 @@ def _chunk_plain_segment(
     start = 0
     text_len = len(text)
     while start < text_len:
-        end = start + chunk_size
-        if end < text_len and not text[end].isspace() and not text[end - 1].isspace():
-            split_at = text.rfind(" ", start + overlap + 1, end)
-            if split_at > start + overlap:
-                end = split_at
+        end = min(text_len, start + chunk_size)
+        if end < text_len:
+            end = _find_best_split_index(text, start, end, overlap)
         chunk = text[start:end]
         chunks.append(chunk)
         if end >= text_len:
@@ -38,7 +64,7 @@ def _chunk_plain_segment(
     return chunks
 
 
-def chunk_text(text: str, chunk_size: int = 200, overlap: int = 50) -> list[str]:
+def chunk_text(text: str, chunk_size: int = 800, overlap: int = 150) -> list[str]:
     """Chunk text into segments of chunk_size with overlap, preserving <!-- page:N --> markers intact."""
     if not text:
         return []
@@ -212,7 +238,7 @@ def embed_text_sparse(text: str) -> dict:
 
 
 def chunk_and_embed(
-    text: str, chunk_size: int = 200, chunk_overlap: int = 50, batch_size: int = 64
+    text: str, chunk_size: int = 800, chunk_overlap: int = 150, batch_size: int = 64
 ) -> list[tuple[str, list[float], dict]]:
     """Chunks text and returns list of (chunk_text, dense_vector, sparse_vector)."""
     raw_chunks = chunk_text(text, chunk_size=chunk_size, overlap=chunk_overlap)

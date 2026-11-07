@@ -17,7 +17,10 @@ from backend.mcp_server.tools.ingest_document import (
     mcp_ingest_document,
 )
 from backend.mcp_server.tools.insert_vector import insert_vectors
-from backend.mcp_server.tools.query_graph import query_graph
+from backend.mcp_server.tools.query_graph import (
+    query_graph,
+    seed_graph_hits_from_vectors,
+)
 from backend.mcp_server.tools.run_analytics import run_community_detection
 from backend.mcp_server.tools.search_vectors import search_vectors
 from backend.mcp_server.tools.update_document import update_document_metadata
@@ -186,39 +189,22 @@ def _handle_merge_rank(args: dict, tenant_id: str) -> list[TextContent]:
     )
 
     entity_name = (args.get("entity_name") or "").strip()
-    g_hits = []
+    max_hops = args.get("max_hops", config.default_max_hops)
     if entity_name:
         g_hits = query_graph(
             entity_name=entity_name,
-            max_hops=args.get("max_hops", config.default_max_hops),
+            max_hops=max_hops,
             tenant_id=tenant_id,
         )
     else:
-        # Seed graph traversal from entity candidates found in vector chunk payloads
-        seeded_from_payload = False
-        for v in v_hits[:3]:
-            payload = getattr(v, "payload", {}) or {}
-            candidate = payload.get("entity_name") or payload.get("title")
-            if candidate and isinstance(candidate, str):
-                g_hits = query_graph(
-                    entity_name=candidate,
-                    max_hops=args.get("max_hops", config.default_max_hops),
-                    tenant_id=tenant_id,
-                )
-                seeded_from_payload = True
-                if g_hits:
-                    break
-
-        if (
-            not seeded_from_payload
-            and not g_hits
-            and args.get("query_text", "").strip()
-        ):
-            g_hits = query_graph(
-                entity_name=args["query_text"].strip(),
-                max_hops=args.get("max_hops", config.default_max_hops),
-                tenant_id=tenant_id,
-            )
+        g_hits = seed_graph_hits_from_vectors(
+            v_hits=v_hits,
+            query_text=args.get("query_text", ""),
+            max_hops=max_hops,
+            tenant_id=tenant_id,
+            max_seeds=3,
+            query_graph_fn=query_graph,
+        )
 
     results = merge_rank(
         v_hits,
@@ -237,7 +223,7 @@ def _handle_merge_rank(args: dict, tenant_id: str) -> list[TextContent]:
 
 
 def _handle_get_graph_schema(args: dict, tenant_id: str) -> list[TextContent]:
-    results = get_graph_schema()
+    results = get_graph_schema(tenant_id=tenant_id)
     return [TextContent(type="text", text=json.dumps(results))]
 
 
@@ -262,7 +248,7 @@ def _handle_get_database_stats(args: dict, tenant_id: str) -> list[TextContent]:
 
 
 def _handle_run_community_detection(args: dict, tenant_id: str) -> list[TextContent]:
-    results = run_community_detection(args.get("min_size", 2))
+    results = run_community_detection(args.get("min_size", 2), tenant_id=tenant_id)
     return [TextContent(type="text", text=json.dumps(results))]
 
 

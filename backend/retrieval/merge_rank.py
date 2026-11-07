@@ -24,12 +24,14 @@ _CROSS_ENCODER_CACHE: dict[tuple[str, int], object] = {}
 
 def _get_cross_encoder(model_name: str, threads: int = 2):
     key = (model_name, threads)
-    if key in _CROSS_ENCODER_CACHE:
-        return _CROSS_ENCODER_CACHE[key]
+    cached = _CROSS_ENCODER_CACHE.get(key)
+    if cached is not None:
+        return cached
 
     with _CROSS_ENCODER_LOCK:
-        if key in _CROSS_ENCODER_CACHE:
-            return _CROSS_ENCODER_CACHE[key]
+        cached = _CROSS_ENCODER_CACHE.get(key)
+        if cached is not None:
+            return cached
 
         from fastembed.rerank.cross_encoder import TextCrossEncoder
 
@@ -91,6 +93,9 @@ def _format_reranker_document(item: MergedResult) -> str:
     if text and isinstance(text, str):
         return text
     parts = []
+    source_entity = item.payload.get("source_entity")
+    if source_entity:
+        parts.append(f"{source_entity} ->")
     name = item.payload.get("name") or item.payload.get("title")
     if name:
         parts.append(str(name))

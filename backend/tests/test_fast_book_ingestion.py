@@ -149,3 +149,34 @@ def test_resolve_entities_scalability():
     assert duration < 10.0
     assert len(resolved) <= len(base_names)
     assert len(alias_mapping) >= len(base_names)
+
+
+def test_chunk_text_prefers_sentence_boundaries():
+    text = "Sentence one is clear. Sentence two is very informative. Sentence three finishes."
+    chunks = chunk_text(text, chunk_size=55, overlap=10)
+    assert len(chunks) >= 2
+    assert all(len(c) <= 55 for c in chunks)
+    assert chunks[0].endswith(".")
+
+
+def test_write_to_graph_word_boundary_linking_prevents_substring_false_positives():
+    from unittest.mock import MagicMock
+    from backend.ingestion.graph_write import IngestionPayload, write_to_graph
+
+    mock_neo4j = MagicMock()
+    mock_neo4j.upsert_entity.return_value = "node_ai"
+
+    payload = IngestionPayload(
+        entities=[{"name": "AI", "type": "Concept", "aliases": ["AI"]}],
+        relations=[],
+        qdrant_point_ids={
+            "Please wait here for confirmation.": "p1",
+            "Modern AI systems are advancing rapidly.": "p2",
+        },
+    )
+
+    _, q2n, q2names = write_to_graph(mock_neo4j, payload, tenant_id="t1")
+    # 'AI' must ONLY link to p2, not p1 ('wait' must not match 'AI')
+    assert "p2" in q2n
+    assert q2names.get("p2") == ["AI"]
+    assert "p1" not in q2names

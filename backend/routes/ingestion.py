@@ -43,8 +43,8 @@ class UrlIngestRequest(BaseModel):
     language: str = "en"
     custom_stop_words: list[str] = []
     model: str = "gemini-2.5-flash-lite"
-    chunk_size: int = 200
-    chunk_overlap: int = 50
+    chunk_size: int = 800
+    chunk_overlap: int = 150
 
 
 class SchemaDefinition(BaseModel):
@@ -225,8 +225,8 @@ def register_ingestion_routes(
         language: str = Form("en"),
         custom_stop_words: str = Form(""),
         model: str = Form("gemini-2.5-flash-lite"),
-        chunk_size: int = Form(200),
-        chunk_overlap: int = Form(50),
+        chunk_size: int = Form(800),
+        chunk_overlap: int = Form(150),
         tenant_id: str = Depends(get_tenant_id),
     ):
         try:

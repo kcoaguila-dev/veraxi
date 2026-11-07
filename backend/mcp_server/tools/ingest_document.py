@@ -14,8 +14,8 @@ def mcp_ingest_document(
     language: str = "en",
     model: str = "gemini-2.5-flash-lite",
     custom_stop_words: str = "",
-    chunk_size: int = 200,
-    chunk_overlap: int = 50,
+    chunk_size: int = 800,
+    chunk_overlap: int = 150,
     wait_for_completion: bool = False,
 ) -> dict[str, Any]:
     """

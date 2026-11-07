@@ -221,6 +221,67 @@ def extract_text(
     return ""
 
 
+def _purge_replaced_document_from_neo4j(
+    config, qdrant, tenant_id: str, filename: str
+) -> None:
+    """Purges replaced document chunk references from Neo4j, paginating all point IDs."""
+    try:
+        from qdrant_client.http import models
+
+        from backend.storage.neo4j_client import Neo4jStorageClient
+
+        scroll_filter = models.Filter(
+            must=[
+                models.FieldCondition(
+                    key="tenant_id",
+                    match=models.MatchValue(value=tenant_id),
+                ),
+                models.FieldCondition(
+                    key="document_id",
+                    match=models.MatchValue(value=filename),
+                ),
+            ]
+        )
+
+        purged_pids: list[str] = []
+        offset = None
+        while True:
+            points_page, offset = qdrant.client.scroll(
+                collection_name=config.qdrant_collection_name,
+                scroll_filter=scroll_filter,
+                limit=1000,
+                offset=offset,
+                with_payload=False,
+                with_vectors=False,
+            )
+            purged_pids.extend(str(pt.id) for pt in points_page)
+            if offset is None or not points_page:
+                break
+
+        if purged_pids:
+            neo4j = Neo4jStorageClient.from_config(config)
+            cleanse_query = """
+            MATCH (n)
+            WHERE n.tenant_id = $tenant_id AND any(pid IN $purged_pids WHERE pid IN coalesce(n.qdrant_point_ids, []))
+            SET n.qdrant_point_ids = [pid IN n.qdrant_point_ids WHERE NOT pid IN $purged_pids]
+            WITH n
+            WHERE size(n.qdrant_point_ids) = 0
+            DETACH DELETE n
+            """
+            batch_size = 500
+            for i in range(0, len(purged_pids), batch_size):
+                batch_pids = purged_pids[i : i + batch_size]
+                neo4j.execute_write(
+                    cleanse_query,
+                    {"purged_pids": batch_pids, "tenant_id": tenant_id},
+                )
+            neo4j.close()
+    except Exception as purge_exc:
+        logger.warning(
+            f"Could not purge Neo4j chunks for replaced document '{filename}': {purge_exc}"
+        )
+
+
 def main():
     parser = argparse.ArgumentParser(description="Veraxi Batch Ingestion CLI")
     parser.add_argument(
@@ -261,10 +322,10 @@ def main():
         help="Override vision base URL (e.g. http://localhost:11434/v1)",
     )
     parser.add_argument(
-        "--chunk-size", type=int, default=300, help="Chunk size for embedding"
+        "--chunk-size", type=int, default=800, help="Chunk size for embedding"
     )
     parser.add_argument(
-        "--chunk-overlap", type=int, default=50, help="Chunk overlap for embedding"
+        "--chunk-overlap", type=int, default=150, help="Chunk overlap for embedding"
     )
     parser.add_argument(
         "--replace",
@@ -382,6 +443,8 @@ def main():
 
         # 2. Document Replacement Check: Purge existing edition/document chunks if --replace requested
         if args.replace:
+            _purge_replaced_document_from_neo4j(config, qdrant, tenant_id, filename)
+
             deleted_count = qdrant.delete_by_document(
                 config.qdrant_collection_name,
                 document_id=filename,

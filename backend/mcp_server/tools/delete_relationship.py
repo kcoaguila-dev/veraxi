@@ -15,20 +15,20 @@ def delete_relationship(
     neo4j = Neo4jStorageClient.from_config(config)
 
     query = f"""
-    MATCH (a {{name: $from_entity, tenant_id: $tenant_id}})-[r:{rel_type}]->(b {{name: $to_entity, tenant_id: $tenant_id}})
+    MATCH (a {{tenant_id: $tenant_id}})-[r:{rel_type}]->(b {{tenant_id: $tenant_id}})
+    WHERE (toLower(a.name) = toLower($from_entity) OR any(alias IN coalesce(a.aliases, []) WHERE toLower(alias) = toLower($from_entity)))
+      AND (toLower(b.name) = toLower($to_entity) OR any(alias IN coalesce(b.aliases, []) WHERE toLower(alias) = toLower($to_entity)))
     DELETE r
     RETURN count(r) AS deleted_count
     """
 
     try:
-        results = neo4j.execute_read(
-            query,
-            {
-                "from_entity": from_entity,
-                "to_entity": to_entity,
-                "tenant_id": tenant_id,
-            },
-        )
+        params = {
+            "from_entity": from_entity,
+            "to_entity": to_entity,
+            "tenant_id": tenant_id,
+        }
+        results = neo4j.execute_write(query, params)
         count = results[0]["deleted_count"] if results else 0
         return f"Successfully deleted {count} '{rel_type}' relationship(s) between '{from_entity}' and '{to_entity}'."
     finally:

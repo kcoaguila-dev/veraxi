@@ -379,3 +379,31 @@ def test_scoped_comparator_coordinated_conjunction_clause():
     score = evaluate_groundedness(claim, context, method="deterministic")
     assert score is not None
     assert score >= 0.65
+
+
+def test_extract_comparator_local_anchors_clause_bounded_fallback():
+    from backend.evaluation.grounding import _extract_comparator_local_anchors
+
+    sentence = "Before it can be processed, the payment arrives."
+    comp = "before"
+    meaningful_set = {"processed", "payment", "arrives"}
+    claim_stems = {"process", "payment", "arriv"}
+
+    # Window of 3 from "before" covers "it", "can", "be" (indices 1, 2, 3) - all stopwords.
+    # The clause-bounded fallback should still find "processed" within target_clauses without leaking "payment"/"arrives".
+    local_words, local_stems = _extract_comparator_local_anchors(
+        sentence, comp, meaningful_set, claim_stems, window=3
+    )
+
+    assert "processed" in local_words
+    assert "payment" not in local_words
+    assert "arrives" not in local_words
+
+
+def test_scoped_comparator_contradiction_detected_with_stopword_distance():
+    context = "After it can be processed, the invoice will be archived."
+    claim = "Before it can be processed, the invoice will be archived."
+
+    score = evaluate_groundedness(claim, context, method="deterministic")
+    assert score is not None
+    assert score <= 0.3

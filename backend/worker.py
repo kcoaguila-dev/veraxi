@@ -17,8 +17,8 @@ async def process_ingestion_task(
     language: str = "en",
     custom_stop_words: list | None = None,
     model: str = "gemini-2.5-flash-lite",
-    chunk_size: int = 200,
-    chunk_overlap: int = 50,
+    chunk_size: int = 800,
+    chunk_overlap: int = 150,
     source: str | None = None,
 ):
     """

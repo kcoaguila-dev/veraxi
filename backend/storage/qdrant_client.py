@@ -46,8 +46,12 @@ class QdrantStorageClient:
         else:
             self.collection_name = "veraxi_vectors"
 
-        self._url = url
         from unittest.mock import Mock
+
+        if not isinstance(url, str) or isinstance(url, Mock):
+            url = ":memory:"
+
+        self._url = url
 
         is_mock = isinstance(QdrantClient, Mock) or hasattr(
             QdrantClient, "_mock_return_value"
@@ -282,6 +286,33 @@ class QdrantStorageClient:
             )
             points.extend(retrieved)
         return [{"id": p.id, "payload": p.payload, "vector": p.vector} for p in points]
+
+    def batch_set_payloads(
+        self, collection_name: str, payload_by_point_id: dict[str, dict[str, Any]]
+    ) -> None:
+        """Batch updates payloads across multiple points, grouping identical payloads."""
+        if not payload_by_point_id:
+            return
+
+        import json
+
+        grouped: dict[str, list[str]] = {}
+        payload_map: dict[str, dict[str, Any]] = {}
+        for pt_id, payload in payload_by_point_id.items():
+            key = json.dumps(payload, sort_keys=True)
+            grouped.setdefault(key, []).append(pt_id)
+            payload_map[key] = payload
+
+        batch_size = 100
+        for key, pids in grouped.items():
+            payload = payload_map[key]
+            for i in range(0, len(pids), batch_size):
+                chunk_pids = pids[i : i + batch_size]
+                self.client.set_payload(
+                    collection_name=collection_name,
+                    payload=payload,
+                    points=chunk_pids,
+                )
 
     def search_hybrid(
         self,

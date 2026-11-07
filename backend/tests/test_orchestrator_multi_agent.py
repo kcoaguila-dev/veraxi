@@ -45,10 +45,13 @@ async def test_vector_specialist_node():
 async def test_graph_specialist_node():
     mock_records = [
         {
-            "from_ent": "Black-Scholes-Merton",
-            "rel": "APPLIED_TO",
-            "to_ent": "Options Pricing",
-            "props": {"year": 1973},
+            "id": "node-bsm-1",
+            "source_entity": "Black-Scholes-Merton",
+            "qdrant_point_id": "neo4j:node-bsm-1",
+            "labels": ["Concept"],
+            "props": {"name": "Options Pricing", "year": 1973},
+            "relation_type": "APPLIED_TO",
+            "min_hops": 1,
         }
     ]
     with patch(
@@ -146,6 +149,32 @@ async def test_skeptic_node_approved():
         assert res["is_approved"] is True
         assert res["grounding_score"] == 0.95
         assert res["critique"] == ""
+
+
+@pytest.mark.asyncio
+async def test_skeptic_node_fails_closed_on_llm_error():
+    mock_llm = MagicMock()
+    mock_structured = AsyncMock()
+    mock_structured.ainvoke.side_effect = RuntimeError("OpenAI rate limit / timeout")
+    mock_llm.with_structured_output.return_value = mock_structured
+
+    with (
+        patch(
+            "backend.mcp_server.orchestrator_multi_agent._create_chat_llm",
+            return_value=mock_llm,
+        ),
+        patch(
+            "backend.mcp_server.tools.evaluate_grounding.mcp_evaluate_grounding",
+            return_value="0.60",
+        ),
+    ):
+        state = {
+            "draft": "Unverified claim that failed LLM verification.",
+            "research_data": "Evidence text",
+        }
+        res = await skeptic_node(state)  # type: ignore
+        assert res["is_approved"] is False
+        assert "Automated skeptic LLM evaluation encountered an error" in res["critique"]
 
 
 def test_debate_router():

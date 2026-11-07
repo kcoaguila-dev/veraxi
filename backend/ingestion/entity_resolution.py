@@ -250,6 +250,17 @@ def _merge_cluster(cluster: list[dict[str, Any]]) -> dict[str, Any]:
 
     canonical_ent["properties"] = merged_props
     canonical_ent["aliases"] = all_aliases
+
+    all_source_point_ids: list[str] = []
+    seen_pids: set[str] = set()
+    for ent in cluster:
+        for pid in ent.get("source_point_ids", []) or []:
+            if pid and pid not in seen_pids:
+                seen_pids.add(pid)
+                all_source_point_ids.append(pid)
+    if all_source_point_ids:
+        canonical_ent["source_point_ids"] = all_source_point_ids
+
     return canonical_ent
 
 

@@ -759,7 +759,8 @@ def _build_context_string(merged_results: list[Any]) -> str:
     """Build a formatted context string from fused results."""
     context_parts = []
     for i, res in enumerate(merged_results, 1):
-        source_info = " and ".join(res.sources)
+        raw_sources = getattr(res, "sources", ["retrieval"])
+        source_info = " and ".join(raw_sources) if isinstance(raw_sources, list) else str(raw_sources)
         meta_tags = [f"from {source_info}"]
         if isinstance(res.payload, dict):
             doc_source = res.payload.get("source") or res.payload.get("relation_source")
@@ -824,6 +825,27 @@ async def execute_tools_internal(
         telemetry_hits.extend(t)
 
     primary_query = _extract_primary_query(tool_calls)
+    if vector_hits and not graph_hits and (tool_settings or {}).get("file_search_enabled", False):
+        from backend.config import get_config
+        from backend.mcp_server.tools.query_graph import (
+            query_graph,
+            seed_graph_hits_from_vectors,
+        )
+
+        config = get_config()
+        loop = asyncio.get_running_loop()
+        seeded_graph = await loop.run_in_executor(
+            None,
+            seed_graph_hits_from_vectors,
+            vector_hits,
+            primary_query or "",
+            config.default_max_hops,
+            tenant_id,
+            3,
+            query_graph,
+        )
+        graph_hits.extend(seeded_graph)
+
     merged_docs = merge_rank(vector_hits, graph_hits, query_text=primary_query)
     merged = telemetry_hits + merged_docs
 

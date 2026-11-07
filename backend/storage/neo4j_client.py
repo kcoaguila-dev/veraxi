@@ -48,9 +48,19 @@ class Neo4jStorageClient:
             user = user or cfg.neo4j_user
             password = password if password is not None else cfg.neo4j_password
 
-        is_mock = isinstance(GraphDatabase.driver, Mock) or hasattr(
-            GraphDatabase.driver, "_mock_return_value"
+        is_mock = (
+            isinstance(GraphDatabase.driver, Mock)
+            or hasattr(GraphDatabase.driver, "_mock_return_value")
+            or isinstance(uri, Mock)
+            or not isinstance(uri, str)
         )
+        if not isinstance(uri, str) or isinstance(uri, Mock):
+            uri = "bolt://localhost:7687"
+        if not isinstance(user, str) or isinstance(user, Mock):
+            user = "neo4j"
+        if not isinstance(password, str) or isinstance(password, Mock):
+            password = "password"
+
         cache_key = (uri, user, password)
 
         if not is_mock and cache_key in _DRIVER_CACHE:
@@ -68,7 +78,7 @@ class Neo4jStorageClient:
         self._uri = uri
         self._ensured_labels: set[str] = set()
 
-    def ensure_entity_constraint(self, label: str):
+    def _ensure_single_label_constraint(self, label: str):
         if not label.isalnum():
             raise ValueError("Label must be alphanumeric")
 
@@ -78,14 +88,21 @@ class Neo4jStorageClient:
 
         constraint_query = f"CREATE CONSTRAINT IF NOT EXISTS FOR (n:{label}) REQUIRE n.entity_key IS UNIQUE"
         index_query = f"CREATE INDEX IF NOT EXISTS FOR (n:{label}) ON (n.acronym_key)"
+        name_index_query = f"CREATE INDEX IF NOT EXISTS FOR (n:{label}) ON (n.tenant_id, n.name)"
 
         with self.driver.session() as session:
             session.run(constraint_query)
             session.run(index_query)
+            session.run(name_index_query)
 
         self._ensured_labels.add(label)
         if getattr(self, "_is_pooled", False):
             _ENSURED_LABELS_CACHE.add(global_key)
+
+    def ensure_entity_constraint(self, label: str):
+        self._ensure_single_label_constraint(label)
+        if label != "Chunk" and label != "Entity":
+            self._ensure_single_label_constraint("Entity")
 
     @classmethod
     def from_config(cls, config) -> "Neo4jStorageClient":
@@ -173,11 +190,13 @@ class Neo4jStorageClient:
             if existing_lookup and existing_lookup["ek"]:
                 ent_key = existing_lookup["ek"]
 
+            extra_label = ":Entity" if label != "Chunk" and label != "Entity" else ""
             query = f"""
             MERGE (n:{label} {{entity_key: $entity_key}})
             ON CREATE SET n.id = $new_id, n.tenant_id = $tenant_id, n.name = $name,
                           n.aliases = [], n.qdrant_point_ids = []
-            SET n += $properties,
+            SET n{extra_label},
+                n += $properties,
                 n.acronym_key = coalesce(n.acronym_key, $acronym_key),
                 n.name = CASE WHEN size($name) > size(n.name) THEN $name ELSE n.name END,
                 n.aliases = reduce(acc = n.aliases, a IN $aliases | CASE WHEN a IN acc THEN acc ELSE acc + a END),
@@ -239,8 +258,9 @@ class Neo4jStorageClient:
         if not label.isalnum():
             raise ValueError("Label must be alphanumeric")
 
+        extra_label = ":Entity" if label != "Chunk" and label != "Entity" else ""
         query = f"""
-        CREATE (n:{label} $props)
+        CREATE (n:{label}{extra_label} $props)
         RETURN n.id AS id
         """
 
@@ -283,7 +303,8 @@ class Neo4jStorageClient:
 
     def execute_write(
         self, query: str, parameters: dict[str, Any] | None = None
-    ) -> None:
+    ) -> list[dict[str, Any]]:
         """Execute a write query with parameters."""
         with self.driver.session() as session:
-            session.run(query, parameters or {})
+            result = session.run(query, parameters or {})
+            return [record.data() for record in result]

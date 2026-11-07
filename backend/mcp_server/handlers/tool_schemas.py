@@ -38,7 +38,17 @@ REGISTERED_TOOLS = [
                         "properties": {
                             "type": {"type": "string"},
                             "name": {"type": "string"},
+                            "aliases": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                                "description": "Alternative names or acronyms for this entity.",
+                            },
                             "properties": {"type": "object"},
+                            "qdrant_point_ids": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                                "description": "Corresponding Qdrant vector chunk IDs that reference this entity.",
+                            },
                         },
                         "required": ["type", "name"],
                     },

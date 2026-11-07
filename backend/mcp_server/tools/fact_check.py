@@ -12,7 +12,12 @@ from backend.evaluation.lexical import (
     stem_word,
 )
 from backend.ingestion.document_parser import extract_verbatim_quote
+from backend.mcp_server.tools.query_graph import (
+    query_graph,
+    seed_graph_hits_from_vectors,
+)
 from backend.mcp_server.tools.search_vectors import search_vectors
+from backend.retrieval.merge_rank import merge_rank
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +48,74 @@ def _compute_fallback_grounding(
     return round(matches / max(1, len(meaningful)), 2)
 
 
+def _retrieve_fact_check_hits(claim: str, top_k: int, tenant_id: str) -> list[Any]:
+    """Retrieve fused vector and graph hits for the claim."""
+    v_hits = search_vectors(query_text=claim[:400], limit=top_k, tenant_id=tenant_id)
+    g_hits = seed_graph_hits_from_vectors(
+        v_hits=v_hits,
+        query_text=claim[:400],
+        max_hops=2,
+        tenant_id=tenant_id,
+        max_seeds=3,
+        query_graph_fn=query_graph,
+    )
+    if g_hits:
+        return merge_rank(v_hits, g_hits, limit=top_k, query_text=claim[:400])
+    return v_hits
+
+
+def _extract_evidence_from_hits(
+    claim: str, hits: list[Any]
+) -> tuple[str, list[dict[str, Any]]]:
+    """Extract context text and structured evidence records from retrieved hits."""
+    context_chunks = []
+    evidence_records = []
+
+    for h in hits:
+        if hasattr(h, "payload"):
+            payload = getattr(h, "payload", {}) or {}
+        elif isinstance(h, dict):
+            payload = h.get("payload", h) if "payload" in h else h
+        else:
+            payload = {}
+        chunk_text = payload.get("text", "")
+        if not chunk_text:
+            continue
+        page_num = payload.get("page_number")
+        source = (
+            payload.get("source")
+            or payload.get("document_id")
+            or "Unknown Document"
+        )
+        breadcrumb = payload.get("breadcrumb")
+        is_table = bool(payload.get("is_table"))
+
+        header_prefix = f"[Document: {source}"
+        if page_num:
+            header_prefix += f" | Page: {page_num}"
+        if breadcrumb:
+            header_prefix += f" | Section: {breadcrumb}"
+        header_prefix += "]\n"
+        context_chunks.append(header_prefix + chunk_text)
+
+        quote = extract_verbatim_quote(claim, chunk_text, max_words=35)
+        evidence_records.append(
+            {
+                "id": getattr(h, "id", None),
+                "score": getattr(h, "score", None),
+                "source": source,
+                "page": page_num,
+                "breadcrumb": breadcrumb,
+                "is_table": is_table,
+                "verbatim_quote": quote,
+                "chunk_text": chunk_text,
+            }
+        )
+
+    context = "\n---\n".join(context_chunks) if context_chunks else ""
+    return context, evidence_records
+
+
 def perform_fact_check(
     claim: str,
     min_score: float = 0.8,
@@ -68,55 +141,8 @@ def perform_fact_check(
     context = ""
 
     try:
-        hits = search_vectors(
-            query_text=claim[:400], limit=top_k, tenant_id=tenant_id
-        )
-        context_chunks = []
-
-        for h in hits:
-            if hasattr(h, "payload"):
-                payload = getattr(h, "payload", {}) or {}
-            elif isinstance(h, dict):
-                payload = h.get("payload", h) if "payload" in h else h
-            else:
-                payload = {}
-            chunk_text = payload.get("text", "")
-            if not chunk_text:
-                continue
-            page_num = payload.get("page_number")
-            source = (
-                payload.get("source")
-                or payload.get("document_id")
-                or "Unknown Document"
-            )
-            breadcrumb = payload.get("breadcrumb")
-            is_table = bool(payload.get("is_table"))
-
-            header_prefix = f"[Document: {source}"
-            if page_num:
-                header_prefix += f" | Page: {page_num}"
-            if breadcrumb:
-                header_prefix += f" | Section: {breadcrumb}"
-            header_prefix += "]\n"
-            context_chunks.append(header_prefix + chunk_text)
-
-            quote = extract_verbatim_quote(claim, chunk_text, max_words=35)
-
-            evidence_records.append(
-                {
-                    "id": getattr(h, "id", None),
-                    "score": getattr(h, "score", None),
-                    "source": source,
-                    "page": page_num,
-                    "breadcrumb": breadcrumb,
-                    "is_table": is_table,
-                    "verbatim_quote": quote,
-                    "chunk_text": chunk_text,
-                }
-            )
-
-        if context_chunks:
-            context = "\n---\n".join(context_chunks)
+        hits = _retrieve_fact_check_hits(claim, top_k, tenant_id)
+        context, evidence_records = _extract_evidence_from_hits(claim, hits)
     except Exception as exc:
         logger.debug(f"Failed to retrieve vector context for fact check: {exc}")
 

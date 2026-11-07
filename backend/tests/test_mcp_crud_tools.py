@@ -23,7 +23,6 @@ def test_tenant():
 @pytest.fixture
 def neo4j_client(patch_env):
     config = get_config()
-    print(f"DEBUG IN FIXTURE: config.neo4j_uri={config.neo4j_uri}")
     client = Neo4jStorageClient.from_config(config)
     yield client
     client.close()
@@ -116,7 +115,7 @@ def test_delete_vector(qdrant_client, patch_env, test_tenant):
     )
 
     # Test
-    result = delete_vector(doc_id)
+    result = delete_vector(doc_id, tenant_id=test_tenant)
     assert "Successfully" in result
 
     # Verify
@@ -135,7 +134,7 @@ def test_get_schema(neo4j_client, test_tenant):
     )
 
     # Test
-    schema_info = get_graph_schema()
+    schema_info = get_graph_schema(tenant_id=test_tenant)
 
     assert "TestLabel" in schema_info["node_labels"]
     assert "OtherLabel" in schema_info["node_labels"]
