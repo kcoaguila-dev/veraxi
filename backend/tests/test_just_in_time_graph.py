@@ -17,7 +17,7 @@ def test_tenant():
     return f"test-jit-{uuid.uuid4().hex[:8]}"
 
 
-def test_insert_and_merge_graph_nodes(test_tenant):
+def test_insert_and_merge_graph_nodes(test_tenant, patch_env):
     config = get_config()
     neo4j = Neo4jStorageClient.from_config(config)
 
@@ -88,7 +88,7 @@ def test_insert_and_merge_graph_nodes(test_tenant):
         neo4j.close()
 
 
-def test_purge_cooccurrence_relationships(test_tenant):
+def test_purge_cooccurrence_relationships(test_tenant, patch_env):
     config = get_config()
     neo4j = Neo4jStorageClient.from_config(config)
 
