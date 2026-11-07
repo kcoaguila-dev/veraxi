@@ -1,8 +1,11 @@
 # Python
 __pycache__/
 *.pyc
+.venv
 .venv/
+**/.venv
 **/.venv/
+backend/.venv
 backend/.venv/
 venv/
 *.egg-info/
