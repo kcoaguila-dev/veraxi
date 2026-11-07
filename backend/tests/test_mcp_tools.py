@@ -816,7 +816,7 @@ def test_write_to_graph_multi_chunk_unmatched_entity_not_attributed_to_chunk_0()
         qdrant_point_ids=chunk_pairs,
     )
 
-    _, q2n, _ = write_to_graph(mock_neo4j, payload, tenant_id="tenant-123")
+    _, _q2n, _ = write_to_graph(mock_neo4j, payload, tenant_id="tenant-123")
     call_kwargs = mock_neo4j.upsert_entity.call_args_list[0][1]
     assert call_kwargs["name"] == "Quantum Electrodynamics"
     # Should NOT default to pid-intro-1

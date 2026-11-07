@@ -19,6 +19,7 @@ from backend.storage.neo4j_client import Neo4jStorageClient
 from backend.storage.qdrant_client import QdrantStorageClient
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
+logger = logging.getLogger(__name__)
 
 _LLM_EXTRACTION_SEMAPHORE = threading.BoundedSemaphore(8)
 
@@ -142,7 +143,6 @@ def run_ingestion(
         (item[0], pid)
         for item, pid in zip(cleaned_chunks_and_embeddings, qdrant_point_ids_list)
     ]
-    qdrant_point_ids = dict(chunk_point_pairs)
 
     try:
         # 4. Extract entities and relations
@@ -237,14 +237,14 @@ def run_ingestion(
     except Exception as exc:
         import sentry_sdk
         sentry_sdk.capture_exception(exc)
-        logging.error(
+        logger.error(
             f"Ingestion failed after inserting points into Qdrant. Executing compensating rollback: {exc}"
         )
         try:
             qdrant.delete_points(COLLECTION_NAME, qdrant_point_ids_list)
         except Exception as rb_exc:
             sentry_sdk.capture_exception(rb_exc)
-            logging.error(f"Compensating rollback of Qdrant points failed: {rb_exc}")
+            logger.error(f"Compensating rollback of Qdrant points failed: {rb_exc}")
         neo4j.close()
         raise
 

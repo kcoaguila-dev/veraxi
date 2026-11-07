@@ -24,9 +24,9 @@ MULTILINGUAL_NEGATIONS: frozenset[str] = frozenset({
     # French
     "pas", "jamais", "aucun", "aucune", "sans", "point", "guère", "rien", "ne",
     # Spanish
-    "no", "nunca", "jamás", "sin", "ninguno", "ninguna", "nada", "tampoco", "ni",
+    "nunca", "jamás", "sin", "ninguno", "ninguna", "nada", "tampoco", "ni",
     # Portuguese
-    "não", "nao", "nunca", "jamais", "sem", "nenhum", "nenhuma", "nada", "tampouco",
+    "não", "nao", "sem", "nenhum", "nenhuma", "tampouco",
     # Italian
     "non", "mai", "senza", "nessuno", "nessuna", "niente", "neanche", "nemmeno",
     # Dutch
@@ -50,9 +50,9 @@ FORENSIC_COMPARATORS: frozenset[str] = frozenset({
     # French
     "sous", "plus", "moins", "avant", "après", "entre", "seulement", "doit",
     # Spanish
-    "bajo", "sobre", "más", "menos", "antes", "después", "entre", "solo", "solamente", "debe",
+    "bajo", "sobre", "más", "menos", "antes", "después", "solo", "solamente", "debe",
     # Italian
-    "sotto", "sopra", "più", "meno", "prima", "dopo", "tra", "fra", "solo", "deve",
+    "sotto", "sopra", "più", "meno", "prima", "dopo", "tra", "fra", "deve",
     # Dutch
     "onder", "boven", "meer", "minder", "tussen", "alleen", "moet",
     # Russian

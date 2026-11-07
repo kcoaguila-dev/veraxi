@@ -391,7 +391,7 @@ def test_extract_comparator_local_anchors_clause_bounded_fallback():
 
     # Window of 3 from "before" covers "it", "can", "be" (indices 1, 2, 3) - all stopwords.
     # The clause-bounded fallback should still find "processed" within target_clauses without leaking "payment"/"arrives".
-    local_words, local_stems = _extract_comparator_local_anchors(
+    local_words, _local_stems = _extract_comparator_local_anchors(
         sentence, comp, meaningful_set, claim_stems, window=3
     )
 

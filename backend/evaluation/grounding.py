@@ -73,7 +73,7 @@ def _find_best_matching_context_sentence(
     best_sent = ""
     best_overlap = 0
     for cs in raw_context_sentences:
-        cs_tokens = set(w.lower() for w in re.findall(r"\w+", cs))
+        cs_tokens = {w.lower() for w in re.findall(r"\w+", cs)}
         overlap = len(meaningful_set & cs_tokens)
         if overlap > best_overlap:
             best_overlap = overlap
@@ -230,19 +230,17 @@ def _has_scoped_negation_contradiction(
 
     if neg_pairs:
         ctx_words = [w.lower() for w in re.findall(r"\w+", context_text)]
-        ctx_pairs = set(
+        ctx_pairs = {
             (ctx_words[i], ctx_words[i + 1]) for i in range(len(ctx_words) - 1)
-        )
-        ctx_pairs_stemmed = set(
+        }
+        ctx_pairs_stemmed = {
             (ctx_words[i], _stem(ctx_words[i + 1])) for i in range(len(ctx_words) - 1)
-        )
+        }
         has_matching_neg = any(
             np in ctx_pairs or (np[0], _stem(np[1])) in ctx_pairs_stemmed
             for np in neg_pairs
         )
-        if not has_matching_neg:
-            return True
-        return False
+        return not has_matching_neg
 
     best_ctx_sent, best_overlap = _find_best_matching_context_sentence(
         meaningful_set, raw_context_sentences
