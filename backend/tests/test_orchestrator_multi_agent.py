@@ -132,6 +132,8 @@ async def test_synthesizer_node_with_rrf_merge_rank():
     res = await synthesizer_node(state)  # type: ignore
     assert "Fused Hybrid Evidence (RRF Ranked)" in res["research_data"]
     assert "Option pricing" in res["research_data"]
+    assert "### Vector Evidence (Qdrant):" not in res["research_data"]
+    assert "### Graph Relations (Neo4j):" in res["research_data"]
 
 
 @pytest.mark.asyncio

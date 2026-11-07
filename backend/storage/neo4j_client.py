@@ -264,6 +264,8 @@ class Neo4jStorageClient:
         if not label.isalnum():
             raise ValueError("Label must be alphanumeric")
 
+        self.ensure_entity_constraint(label)
+
         extra_label = ":Entity" if label != "Chunk" and label != "Entity" else ""
         query = f"""
         CREATE (n:{label}{extra_label} $props)

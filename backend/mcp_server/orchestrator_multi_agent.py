@@ -136,6 +136,51 @@ async def web_specialist_node(state: DebateState):
     return {"web_data": web_data}
 
 
+def _build_fused_evidence_section(
+    vector_hits: list,
+    graph_hits: list,
+    query: str,
+) -> str:
+    """Builds unified RRF-ranked hybrid evidence from vector and graph specialist hits."""
+    if not vector_hits and not graph_hits:
+        return ""
+
+    try:
+        from backend.retrieval.merge_rank import merge_rank
+
+        fused_results = merge_rank(
+            vector_hits=vector_hits,
+            graph_hits=graph_hits,
+            query_text=query,
+        )
+        fused_snippets = []
+        for i, res in enumerate(fused_results[:6], 1):
+            text = (
+                res.payload.get("text")
+                or res.payload.get("content")
+                or str(res.payload)
+            )
+            src = (
+                res.payload.get("source")
+                or res.payload.get("document_id")
+                or "Knowledge Store"
+            )
+            page = res.payload.get("page_number")
+            loc = f" | Page {page}" if page is not None else ""
+            fused_snippets.append(
+                f"[Fused Evidence {i}: {src}{loc}] (chunk {res.id}, Score: {res.fused_score:.3f}): {text}"
+            )
+        if fused_snippets:
+            return (
+                "### Fused Hybrid Evidence (RRF Ranked):\n"
+                + "\n\n".join(fused_snippets)
+            )
+    except Exception as e:
+        logger.warning(f"Failed running merge_rank in synthesizer_node: {e}")
+
+    return ""
+
+
 async def synthesizer_node(state: DebateState):
     """Evidence Synthesizer: Fuses findings from Vector, Graph, and Web specialists into unified evidence."""
     sections = []
@@ -143,40 +188,13 @@ async def synthesizer_node(state: DebateState):
     graph_hits = state.get("graph_hits") or []
     query = state.get("query", "")
 
-    if vector_hits or graph_hits:
-        try:
-            from backend.retrieval.merge_rank import merge_rank
-
-            fused_results = merge_rank(
-                vector_hits=vector_hits,
-                graph_hits=graph_hits,
-                query_text=query,
-            )
-            fused_snippets = []
-            for i, res in enumerate(fused_results[:6], 1):
-                text = (
-                    res.payload.get("text")
-                    or res.payload.get("content")
-                    or str(res.payload)
-                )
-                src = (
-                    res.payload.get("source")
-                    or res.payload.get("document_id")
-                    or "Knowledge Store"
-                )
-                fused_snippets.append(
-                    f"[Fused Evidence {i}: {src}] (Score: {res.fused_score:.3f}): {text}"
-                )
-            if fused_snippets:
-                sections.append(
-                    "### Fused Hybrid Evidence (RRF Ranked):\n"
-                    + "\n\n".join(fused_snippets)
-                )
-        except Exception as e:
-            logger.warning(f"Failed running merge_rank in synthesizer_node: {e}")
-
-    if state.get("vector_data"):
+    fused_section = _build_fused_evidence_section(vector_hits, graph_hits, query)
+    if fused_section:
+        sections.append(fused_section)
+    elif state.get("vector_data"):
+        # Fallback to raw vector_data if vector_hits are absent or fusion failed
         sections.append("### Vector Evidence (Qdrant):\n" + state["vector_data"])
+
     if state.get("graph_data"):
         sections.append("### Graph Relations (Neo4j):\n" + state["graph_data"])
     if state.get("web_data"):

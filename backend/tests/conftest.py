@@ -86,6 +86,8 @@ def patch_env(neo4j_container, qdrant_container, monkeypatch):
         "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
     )
     monkeypatch.setenv("EMBEDDING_DIMENSION", "384")
+    monkeypatch.setenv("EMBEDDING_API_KEY", "")
+    monkeypatch.setenv("EMBEDDING_BASE_URL", "")
 
     # Needs a dummy key for Anthropic if not set, else config fails
     if not os.environ.get("LLM_API_KEY"):
@@ -94,7 +96,18 @@ def patch_env(neo4j_container, qdrant_container, monkeypatch):
     if not os.environ.get("ANTHROPIC_API_KEY"):
         monkeypatch.setenv("ANTHROPIC_API_KEY", "test-dummy-key")
 
-    # Clear the config lru_cache so it picks up the new env vars
+    from backend.ingestion.chunk_embed import (
+        get_embedding_model,
+        get_sparse_embedding_model,
+    )
+
+    # Clear the config and embedding model lru_caches so they pick up new env vars
     get_config.cache_clear()
+    get_embedding_model.cache_clear()
+    get_sparse_embedding_model.cache_clear()
 
     yield
+
+    get_config.cache_clear()
+    get_embedding_model.cache_clear()
+    get_sparse_embedding_model.cache_clear()

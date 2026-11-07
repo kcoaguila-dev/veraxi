@@ -66,6 +66,7 @@ def query_graph(
     """
     config = get_config()
     neo4j = Neo4jStorageClient.from_config(config)
+    neo4j.ensure_entity_constraint("Entity")
 
     # max_hops is an integer and controlled/validated by us (or typed as int from MCP tool).
     # We must ensure it's a positive integer to avoid injection.
