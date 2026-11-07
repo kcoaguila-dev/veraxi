@@ -191,12 +191,12 @@ class Neo4jStorageClient:
                 ent_key = existing_lookup["ek"]
 
             extra_label = ":Entity" if label != "Chunk" and label != "Entity" else ""
+            extra_set = f"n{extra_label},\n                " if extra_label else ""
             query = f"""
             MERGE (n:{label} {{entity_key: $entity_key}})
             ON CREATE SET n.id = $new_id, n.tenant_id = $tenant_id, n.name = $name,
                           n.aliases = [], n.qdrant_point_ids = []
-            SET n{extra_label},
-                n += $properties,
+            SET {extra_set}n += $properties,
                 n.acronym_key = coalesce(n.acronym_key, $acronym_key),
                 n.name = CASE WHEN size($name) > size(n.name) THEN $name ELSE n.name END,
                 n.aliases = reduce(acc = n.aliases, a IN $aliases | CASE WHEN a IN acc THEN acc ELSE acc + a END),
