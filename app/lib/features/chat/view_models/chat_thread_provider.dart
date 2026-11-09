@@ -290,6 +290,16 @@ class ChatThreadViewModel extends Notifier<ChatThreadState> {
           rawError.contains("API_KEY_INVALID") ||
           rawError.contains("AuthenticationError")) {
         uiError = "Please check your API key in Settings -> API Keys.";
+      } else if (rawError.contains("model_not_found") ||
+          rawError.contains("does not have access to model") ||
+          rawError.contains("selected model is unavailable")) {
+        uiError =
+            "The selected model is unavailable. Please choose another model.";
+      } else if (rawError.contains("quota") ||
+          rawError.contains("rate limit") ||
+          rawError.contains("RateLimitError")) {
+        uiError =
+            "This provider has reached its quota or rate limit. Please switch models or try again later.";
       } else if (rawError.contains("Internal server error:")) {
         final match = RegExp(r"Internal server error: ([^:]+): (.+)")
             .firstMatch(rawError);

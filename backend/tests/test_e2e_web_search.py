@@ -24,7 +24,7 @@ async def test_e2e_web_search_live_backend():
                 json={
                     "question": "What is today's news?",
                     "stream": True,
-                    "model": "llama-3.1-8b-instant",
+                    "model": "openai/gpt-oss-20b",
                     "api_key": groq_api_key,
                 },
                 timeout=60.0,

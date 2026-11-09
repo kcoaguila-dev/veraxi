@@ -85,6 +85,19 @@ class ImportThreadsRequest(BaseModel):
     threads: list[ImportedThread]
 
 
+def _friendly_provider_error(error: Exception) -> str:
+    """Return actionable provider errors without exposing raw SDK payloads."""
+    message = str(error).lower()
+    if "model_not_found" in message or "does not have access to model" in message:
+        return "The selected model is unavailable. Please choose another model."
+    if "ratelimit" in message or "rate limit" in message or "quota" in message:
+        return (
+            "This provider has reached its quota or rate limit. "
+            "Please switch models or try again later."
+        )
+    return f"Internal server error: {type(error).__name__}: {error!s}"
+
+
 async def _generate_and_save_title(
     question,
     tenant_id,
@@ -266,7 +279,7 @@ async def _stream_events(
     except Exception as e:
         sentry_sdk.capture_exception(e)
         logger.exception("Error in streaming")
-        yield f"data: {json.dumps({'error': f'Internal server error: {type(e).__name__}: {e!s}'})}\n\n"
+        yield f"data: {json.dumps({'error': _friendly_provider_error(e)})}\n\n"
         yield "data: [DONE]\n\n"
 
 
@@ -552,7 +565,7 @@ def register_chat_routes(
             logger.exception("Error processing question")
             raise HTTPException(
                 status_code=500,
-                detail=f"Internal server error: {type(e).__name__}: {e!s}",
+                detail=_friendly_provider_error(e),
             )
 
     @app_router.get("/api/chat/threads")

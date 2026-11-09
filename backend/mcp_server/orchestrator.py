@@ -51,6 +51,11 @@ def normalize_litellm_model(
     if not model_name:
         return model_name, base_url
 
+    from backend.models_config import DEFAULT_PROVIDER_MODELS
+
+    if model_name in DEFAULT_PROVIDER_MODELS.get("groq", []):
+        return f"groq/{model_name}", base_url
+
     known_prefixes = (
         "gemini/",
         "anthropic/",
@@ -91,8 +96,6 @@ def normalize_litellm_model(
         return model_name, None
     if m.startswith(("gpt", "o1", "o3", "davinci", "babbage", "chatgpt")):
         return f"openai/{model_name}", None
-
-    from backend.models_config import DEFAULT_PROVIDER_MODELS
 
     for provider, models in DEFAULT_PROVIDER_MODELS.items():
         if model_name in models:

@@ -33,7 +33,11 @@ def _get_supported_models() -> dict[str, list[str]]:
             "OpenAI": ["gpt-4o", "gpt-4o-mini", "o3-mini", "o1", "gpt-4-turbo"],
             "Anthropic": ["claude-3-7-sonnet-20250219", "claude-3-5-sonnet-latest", "claude-3-5-haiku-latest"],
             "Google Gemini": ["gemini-2.0-flash", "gemini-1.5-pro", "gemini-1.5-flash"],
-            "Groq": ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "mixtral-8x7b-32768"],
+            "Groq": [
+                "llama-3.3-70b-versatile",
+                "openai/gpt-oss-20b",
+                "openai/gpt-oss-120b",
+            ],
             "DeepSeek": ["deepseek-chat", "deepseek-reasoner"],
             "Ollama": ["llama3:latest", "mistral:latest", "qwen2.5:latest"],
         }

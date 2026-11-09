@@ -119,7 +119,8 @@ class CloudChatRepository implements IChatRepository {
         model.startsWith('allam') ||
         model.startsWith('canopy') ||
         model.startsWith('groq') ||
-        model.startsWith('meta')) return 'groq';
+        model.startsWith('meta') ||
+        model.startsWith('openai/gpt-oss-')) return 'groq';
     if (model == 'local-model') return 'local';
     return 'unknown';
   }
