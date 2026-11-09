@@ -10,6 +10,7 @@ from pathlib import Path
 import magic
 import sentry_sdk
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
+from fastapi.responses import FileResponse
 
 logger = logging.getLogger(__name__)
 
@@ -23,10 +24,87 @@ from backend.ingestion.document_parser import (
 )
 
 
+def _is_safe_document_path(target_path: str) -> bool:
+    """Verifies that the target path is resolved and strictly inside approved document directories."""
+    resolved_path = os.path.realpath(target_path)
+    allowed_candidates = [
+        os.path.join(os.getcwd(), "uploads"),
+        os.path.join(os.getcwd(), "seed"),
+        "/app/data",
+        os.path.expanduser("~/Documents/book"),
+        "/home/ubuntu/Documents/book",
+    ]
+    custom_dir = os.environ.get("DOCUMENTS_DIR")
+    if custom_dir:
+        allowed_candidates.append(custom_dir)
+
+    allowed_dirs = {os.path.realpath(d) for d in allowed_candidates if os.path.exists(d)}
+    return any(
+        resolved_path.startswith(d + os.sep) or resolved_path == d
+        for d in allowed_dirs
+    )
+
+
+def _detect_pdf_content(file_path: str) -> bool:
+    """Checks if a file is a PDF via extension or magic bytes."""
+    if file_path.lower().endswith(".pdf"):
+        return True
+    try:
+        with open(file_path, "rb") as f:
+            header = f.read(5)
+            return header.startswith(b"%PDF-")
+    except Exception:
+        return False
+
+
 def register_file_routes(
     app_router, get_tenant_id, verify_infrastructure_access, limiter, config
 ):
     """Register all file routes with injected auth dependencies."""
+
+    @app_router.api_route("/api/documents/raw", methods=["GET", "HEAD"])
+    async def view_raw_document(path: str, request: Request):
+        """Streams an on-disk document for inline browser/webview viewing.
+
+        Enforces directory whitelisting, detects PDF headers for extensionless files,
+        and sets Content-Disposition inline so browsers render with #page=N support.
+        """
+        if not path:
+            raise HTTPException(status_code=400, detail="Document path required")
+
+        resolved_path = os.path.realpath(path)
+        if not os.path.isfile(resolved_path):
+            try:
+                from backend.mcp_server.handlers.tool_registry import _resolve_pdf_path
+
+                cand = _resolve_pdf_path(path)
+                if cand and os.path.isfile(cand):
+                    resolved_path = os.path.realpath(cand)
+            except Exception as e:
+                logger.debug(f"Fuzzy resolution failed for {path}: {e}")
+
+        if not _is_safe_document_path(resolved_path):
+            raise HTTPException(
+                status_code=403, detail="Access to specified path is forbidden"
+            )
+
+        if not os.path.isfile(resolved_path):
+            raise HTTPException(status_code=404, detail="Document not found")
+
+        is_pdf = _detect_pdf_content(resolved_path)
+        media_type = "application/pdf" if is_pdf else "application/octet-stream"
+        filename = os.path.basename(resolved_path)
+        if is_pdf and not filename.lower().endswith(".pdf"):
+            filename = f"{filename}.pdf"
+
+        return FileResponse(
+            path=resolved_path,
+            media_type=media_type,
+            headers={
+                "Content-Disposition": f'inline; filename="{filename}"',
+                "Access-Control-Allow-Origin": "*",
+            },
+        )
 
     @app_router.post("/api/chat/upload_attachment")
     async def upload_attachment(

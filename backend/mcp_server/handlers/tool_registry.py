@@ -1,6 +1,9 @@
 import dataclasses
+import glob
 import json
 import logging
+import os
+import re
 
 from mcp.types import TextContent
 
@@ -35,26 +38,30 @@ logger = logging.getLogger(__name__)
 
 def _resolve_pdf_path(source: str) -> str | None:
     """Resolve a document source identifier to an on-disk PDF path if available."""
-    import glob
-    import os
-    import re
-
     if not source:
         return None
     if os.path.isfile(source):
+        if not source.lower().endswith(".pdf") and os.path.isfile(source + ".pdf"):
+            return os.path.abspath(source + ".pdf")
         return os.path.abspath(source)
 
     search_dirs = [
-        "/home/ubuntu/Documents/book",
+        os.environ.get("DOCUMENTS_DIR"),
         os.path.expanduser("~/Documents/book"),
+        "/home/ubuntu/Documents/book",
         "/app/data",
+        os.path.join(os.getcwd(), "seed"),
         os.getcwd(),
     ]
     norm_source = re.sub(r"[^a-zA-Z0-9]", "", source.lower())
     for d in search_dirs:
-        if not os.path.isdir(d):
+        if not d or not os.path.isdir(d):
             continue
-        for cand in glob.glob(os.path.join(d, "*")):
+        cands = sorted(
+            glob.glob(os.path.join(d, "*")),
+            key=lambda c: (0 if c.lower().endswith(".pdf") else 1),
+        )
+        for cand in cands:
             base = os.path.basename(cand)
             norm_cand = re.sub(r"[^a-zA-Z0-9]", "", base.lower())
             if norm_source[:25] in norm_cand or norm_cand[:25] in norm_source:
@@ -62,10 +69,34 @@ def _resolve_pdf_path(source: str) -> str | None:
     return None
 
 
+def _resolve_pdf_printed_page(pdf_path: str, canvas_page: int) -> str | None:
+    """Reads PDF /PageLabels dictionary and maps 1-based canvas page to printed folio string."""
+    try:
+        import pypdf
+
+        reader = pypdf.PdfReader(pdf_path)
+        idx = canvas_page - 1
+        if (
+            hasattr(reader, "page_labels")
+            and reader.page_labels
+            and 0 <= idx < len(reader.page_labels)
+        ):
+            lbl = reader.page_labels[idx]
+            if lbl:
+                return str(lbl)
+    except Exception as exc:
+        logger.debug(f"Failed to resolve printed page label for {pdf_path}: {exc}")
+    return None
+
+
 def _format_mcp_proof_card(query: str, hits: list) -> str:
     from urllib.parse import quote as url_quote
 
+    from backend.config import get_config
     from backend.ingestion.document_parser import extract_verbatim_quote
+
+    config = get_config()
+    base_api = config.internal_api_url.rstrip("/")
 
     card_lines = [
         "### 🛡️ Grounded Evidence Citations (Veraxi Hybrid GraphRAG)",
@@ -82,15 +113,28 @@ def _format_mcp_proof_card(query: str, hits: list) -> str:
         )
         short_source = (source[:38] + "...") if len(source) > 40 else source
         page_num = payload.get("page_number")
-        page_str = f"**Page {page_num}**" if page_num is not None else "Page N/A"
 
         pdf_path = _resolve_pdf_path(source)
+        printed_num = (
+            _resolve_pdf_printed_page(pdf_path, page_num)
+            if (pdf_path and page_num)
+            else None
+        )
+
+        if printed_num and str(printed_num) != str(page_num):
+            page_str = f"**p. {printed_num}** *(PDF sheet {page_num})*"
+            btn_label = f"📖 Open PDF p. {printed_num} (Sheet {page_num})"
+        elif page_num is not None:
+            page_str = f"**Page {page_num}**"
+            btn_label = f"📖 Open PDF Page {page_num}"
+        else:
+            page_str = "Page N/A"
+            btn_label = "📖 Open PDF"
+
         action_str = "N/A"
         if pdf_path and page_num is not None:
-            url_path = url_quote(pdf_path, safe="/:")
-            action_str = (
-                f"[📄 Open PDF Page {page_num}](file://{url_path}#page={page_num})"
-            )
+            url_path = url_quote(os.path.basename(pdf_path))
+            action_str = f"[{btn_label}]({base_api}/documents/raw?path={url_path}#page={page_num})"
 
         chunk_text = payload.get("text", "")
         quote = (
@@ -108,7 +152,7 @@ def _format_mcp_proof_card(query: str, hits: list) -> str:
     card_lines.append("")
     card_lines.append(
         "> 💡 **Citation Instructions for Host AI:**\n"
-        "> - Synthesize the findings and cite claims inline using exact markdown links from above (e.g., `[Document Title, p. N](file://...#page=N)`).\n"
+        f"> - Synthesize the findings and cite claims inline using exact markdown links from above (e.g., `[Document Title, p. N]({base_api}/documents/raw?path=...#page=N)`).\n"
         "> - Maintain high factual fidelity and preserve verbatim proof quotes where critical."
     )
     card_lines.append("")

@@ -30,6 +30,16 @@ class _CitationChipState extends State<CitationChip> {
   bool _isHoveringChip = false;
   bool _isHoveringCard = false;
 
+  void _openEffectiveUrl() {
+    if (_effectiveUrl.isEmpty) return;
+    if (_effectiveUrl.startsWith('file://') && _effectiveUrl.contains('#')) {
+      final cleanUrl = _effectiveUrl.split('#').first;
+      launchUrlString(cleanUrl);
+      return;
+    }
+    launchUrlString(_effectiveUrl);
+  }
+
   void _checkHide() {
     Future.delayed(const Duration(milliseconds: 100), () {
       if (mounted && !_isHoveringChip && !_isHoveringCard) {
@@ -234,7 +244,7 @@ class _CitationChipState extends State<CitationChip> {
           },
           child: InkWell(
             onTap: () {
-              if (_effectiveUrl.isNotEmpty) launchUrlString(_effectiveUrl);
+              _openEffectiveUrl();
             },
             borderRadius: BorderRadius.circular(4),
             child: Container(
@@ -290,7 +300,7 @@ class _CitationChipState extends State<CitationChip> {
       elevation: 12,
       child: InkWell(
         onTap: () {
-          if (_effectiveUrl.isNotEmpty) launchUrlString(_effectiveUrl);
+          _openEffectiveUrl();
         },
         borderRadius: BorderRadius.circular(12),
         child: Container(

@@ -99,10 +99,13 @@ def extract_in_text_aliases(text: str) -> dict[str, set[str]]:
             continue
         # In parentheses, require either an uppercase acronym (e.g. TSMC, Fed, EGFR)
         # or a title-cased proper noun phrase, rejecting generic phrases
-        is_uppercase_acronym = short_form.isupper() and 2 <= len(short_form) <= 6
+        clean_short = re.sub(r"^(?:the|a|an)\s+", "", short_form, flags=re.IGNORECASE)
+        if not clean_short:
+            continue
+        is_uppercase_acronym = clean_short.isupper() and 2 <= len(clean_short) <= 6
         is_title_case_noun = (
-            short_form[0].isupper()
-            and all(w[0].isupper() for w in short_form.split() if len(w) > 3)
+            clean_short[0].isupper()
+            and all(w[0].isupper() for w in clean_short.split() if len(w) > 3)
         )
         if not is_uppercase_acronym and not is_title_case_noun:
             continue
