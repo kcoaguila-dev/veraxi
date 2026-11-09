@@ -271,8 +271,21 @@ class ChatThreadViewModel extends Notifier<ChatThreadState> {
 
   void _handleStreamEvent(Map<String, dynamic> event) {
     if (event.containsKey('error')) {
+      final rawError = event['error'].toString();
+      String uiError = rawError;
+      if (rawError.contains("API key") ||
+          rawError.contains("API_KEY_INVALID") ||
+          rawError.contains("AuthenticationError")) {
+        uiError = "Please check your API key in Settings -> API Keys.";
+      } else if (rawError.contains("Internal server error:")) {
+        final match = RegExp(r"Internal server error: ([^:]+): (.+)")
+            .firstMatch(rawError);
+        if (match != null) {
+          uiError = match.group(2) ?? rawError;
+        }
+      }
       _updateLastMessage(
-          content: "Error: ${event['error']}",
+          content: "Error: $uiError",
           isStreaming: false,
           isError: true);
       return;

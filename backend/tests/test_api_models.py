@@ -83,3 +83,53 @@ def test_get_models_blocks_ssrf_local_url():
     )
     assert response.status_code == 400
     assert "Disallowed provider URL" in response.json()["detail"]
+
+
+def test_normalize_litellm_model_prefixes():
+    from backend.mcp_server.orchestrator import normalize_litellm_model
+
+    # Gemini model without prefix -> gemini/
+    model, base_url = normalize_litellm_model("gemini-3.6-flash")
+    assert model == "gemini/gemini-3.6-flash"
+    assert base_url is None
+
+    # Claude model without prefix -> anthropic/
+    model, base_url = normalize_litellm_model("claude-3-5-sonnet-20241022")
+    assert model == "anthropic/claude-3-5-sonnet-20241022"
+    assert base_url is None
+
+    # DeepSeek model without prefix -> deepseek/
+    model, base_url = normalize_litellm_model("deepseek-chat")
+    assert model == "deepseek/deepseek-chat"
+    assert base_url is None
+
+    # Groq model without prefix -> groq/
+    model, base_url = normalize_litellm_model("llama-3.3-70b-versatile")
+    assert model == "groq/llama-3.3-70b-versatile"
+    assert base_url is None
+
+    # Already prefixed models remain untouched
+    model, base_url = normalize_litellm_model("gemini/gemini-2.5-flash")
+    assert model == "gemini/gemini-2.5-flash"
+    assert base_url is None
+
+    # Custom local endpoint
+    model, base_url = normalize_litellm_model("custom-llm", "http://localhost:11434")
+    assert model == "ollama/custom-llm"
+    assert base_url == "http://localhost:11434"
+
+
+def test_create_chat_llm_preserves_byok_api_key():
+    from backend.mcp_server.orchestrator import _create_chat_llm
+
+    # Even if is_enterprise is True in config, the per-request BYOK API key must be preserved
+    with patch("backend.mcp_server.orchestrator.get_config") as mock_cfg:
+        mock_cfg.return_value.is_enterprise = True
+        mock_cfg.return_value.llm_api_key = "server-key"
+        mock_cfg.return_value.llm_base_url = None
+
+        llm = _create_chat_llm("gemini-3.6-flash", "user-byok-gemini-key")
+        assert llm.model == "gemini/gemini-3.6-flash"
+        assert llm.api_key == "user-byok-gemini-key"
+        assert getattr(llm, "api_base", None) is None
+

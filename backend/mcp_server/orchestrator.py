@@ -39,27 +39,110 @@ _request_base_url: ContextVar[str | None] = ContextVar(
 )
 
 
+def normalize_litellm_model(
+    model_name: str, base_url: str | None = None
+) -> tuple[str, str | None]:
+    """
+    Ensures model names have the correct provider prefix required by LiteLLM.
+    LiteLLM routes bare model names (like 'gemini-3.6-flash' or 'claude-3-5-sonnet')
+    to Vertex AI or raises ProviderNotFound unless properly prefixed with 'gemini/',
+    'anthropic/', etc.
+    """
+    if not model_name:
+        return model_name, base_url
+
+    known_prefixes = (
+        "gemini/",
+        "anthropic/",
+        "deepseek/",
+        "mistral/",
+        "groq/",
+        "moonshot/",
+        "openai/",
+        "ollama/",
+        "openrouter/",
+        "azure/",
+        "bedrock/",
+        "vertex_ai/",
+    )
+    if any(model_name.startswith(p) for p in known_prefixes):
+        return model_name, base_url
+
+    m = model_name.lower()
+
+    if base_url:
+        if "11434" in base_url or m.startswith("ollama"):
+            return f"ollama/{model_name}", base_url
+        return f"openai/{model_name}", base_url
+
+    if m.startswith("gemini"):
+        return f"gemini/{model_name}", None
+    if m.startswith("claude"):
+        return f"anthropic/{model_name}", None
+    if m.startswith("deepseek"):
+        return f"deepseek/{model_name}", None
+    if m.startswith(("mistral", "codestral", "pixtral", "ministral", "devstral")):
+        return f"mistral/{model_name}", None
+    if m.startswith("moonshot"):
+        return f"moonshot/{model_name}", None
+    if m.startswith(("llama", "allam", "canopylabs", "meta-llama", "qwen", "groq")):
+        if not model_name.startswith("groq/"):
+            return f"groq/{model_name}", None
+        return model_name, None
+    if m.startswith(("gpt", "o1", "o3", "davinci", "babbage", "chatgpt")):
+        return f"openai/{model_name}", None
+
+    from backend.models_config import DEFAULT_PROVIDER_MODELS
+
+    for provider, models in DEFAULT_PROVIDER_MODELS.items():
+        if model_name in models:
+            p = provider.lower()
+            if p == "google":
+                return f"gemini/{model_name}", None
+            if p == "anthropic":
+                return f"anthropic/{model_name}", None
+            if p == "deepseek":
+                return f"deepseek/{model_name}", None
+            if p == "mistral":
+                return f"mistral/{model_name}", None
+            if p == "kimi":
+                return f"moonshot/{model_name}", None
+            if p == "groq":
+                return f"groq/{model_name}", None
+            if p == "openai":
+                return f"openai/{model_name}", None
+
+    return model_name, base_url
+
+
 def _create_chat_llm(model_name: str, api_key: str | None, base_url: str | None = None):
     """Build the configured chat LLM client via unified LiteLLM routing."""
     config = get_config()
 
-    if config.is_enterprise:
-        api_key = None
-        base_url = None
+    cfg_api_key = getattr(config, "llm_api_key", None)
+    if not isinstance(cfg_api_key, str):
+        cfg_api_key = None
 
-    llm_args = config.get_llm_client_args(model_name=model_name)
-    if api_key:
-        llm_args["api_key"] = api_key
-    if base_url:
-        llm_args["base_url"] = base_url
+    cfg_base_url = getattr(config, "llm_base_url", None)
+    if not isinstance(cfg_base_url, str):
+        cfg_base_url = None
 
-    # Convert api_base to the format litellm expects if necessary
-    if "base_url" in llm_args:
-        llm_args["api_base"] = llm_args.pop("base_url")
+    effective_api_key = api_key if isinstance(api_key, str) else cfg_api_key
+    effective_base_url = base_url if isinstance(base_url, str) else cfg_base_url
+
+    normalized_model, final_base_url = normalize_litellm_model(
+        model_name, effective_base_url
+    )
+
+    llm_args: dict[str, Any] = {}
+    if effective_api_key:
+        llm_args["api_key"] = effective_api_key
+    if final_base_url:
+        llm_args["api_base"] = final_base_url
 
     # LiteLLM routing directly via ChatLiteLLM
     return ChatLiteLLM(
-        model=model_name,
+        model=normalized_model,
         temperature=0,
         **llm_args,
     )

@@ -3,9 +3,7 @@ from collections.abc import Sequence
 from typing import Any
 
 from langchain_core.messages import BaseMessage, SystemMessage
-from langchain_litellm import ChatLiteLLM
 
-from backend.config import get_config
 from backend.prompts import CHAT_SYSTEM_PROMPT
 
 
@@ -88,32 +86,6 @@ def _sanitize_thread_title(raw_title: str) -> str:
     if len(title) > 60:
         title = title[:57] + "..."
     return title
-
-
-def _create_chat_llm(model_name: str, api_key: str | None, base_url: str | None = None):
-    """Build the configured chat LLM client via unified LiteLLM routing."""
-    config = get_config()
-
-    if config.is_enterprise:
-        api_key = None
-        base_url = None
-
-    llm_args = config.get_llm_client_args(model_name=model_name)
-    if api_key:
-        llm_args["api_key"] = api_key
-    if base_url:
-        llm_args["base_url"] = base_url
-
-    # Convert api_base to the format litellm expects if necessary
-    if "base_url" in llm_args:
-        llm_args["api_base"] = llm_args.pop("base_url")
-
-    # LiteLLM routing directly via ChatLiteLLM
-    return ChatLiteLLM(
-        model=model_name,
-        temperature=0,
-        **llm_args,
-    )
 
 
 def _prepend_system_messages(
