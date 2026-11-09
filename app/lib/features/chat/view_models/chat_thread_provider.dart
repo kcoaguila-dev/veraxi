@@ -285,9 +285,7 @@ class ChatThreadViewModel extends Notifier<ChatThreadState> {
         }
       }
       _updateLastMessage(
-          content: "Error: $uiError",
-          isStreaming: false,
-          isError: true);
+          content: "Error: $uiError", isStreaming: false, isError: true);
       return;
     }
     final type = event['event'];

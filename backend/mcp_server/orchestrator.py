@@ -112,7 +112,7 @@ def normalize_litellm_model(
             if p == "openai":
                 return f"openai/{model_name}", None
 
-    return model_name, base_url
+    return f"openai/{model_name}", base_url
 
 
 def _create_chat_llm(model_name: str, api_key: str | None, base_url: str | None = None):

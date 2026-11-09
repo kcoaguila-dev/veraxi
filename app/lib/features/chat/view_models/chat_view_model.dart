@@ -507,9 +507,7 @@ class ChatViewModel extends StateNotifier<ChatState> {
         }
       }
       _updateLastMessage(
-          content: "Error: $uiError",
-          isStreaming: false,
-          isError: true);
+          content: "Error: $uiError", isStreaming: false, isError: true);
       return;
     }
 
