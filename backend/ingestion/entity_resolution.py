@@ -73,9 +73,7 @@ def is_clean_entity_name(name: str) -> bool:
     if len(alphas) / max(1, len(non_spaces)) < 0.45:
         return False
     # Reject pure punctuation / symbol noise
-    if re.fullmatch(r"[\W\d_]+", trimmed):
-        return False
-    return True
+    return not bool(re.fullmatch(r"[\W\d_]+", trimmed))
 
 
 def extract_in_text_aliases(text: str) -> dict[str, set[str]]:
@@ -372,11 +370,12 @@ def _cluster_entities(group: list[dict[str, Any]]) -> list[list[dict[str, Any]]]
                     if acr in acronym_to_cluster_idx:
                         matched_cluster_idx = acronym_to_cluster_idx[acr]
                         break
-                if f in acronym_to_cluster_idx:
-                    # Guard 2-char tokens: only match if ent or cluster has raw uppercase representation
-                    if len(f) > 2 or any(len(r) == 2 for r in raw_names_upper):
-                        matched_cluster_idx = acronym_to_cluster_idx[f]
-                        break
+                # Guard 2-char tokens: only match if ent or cluster has raw uppercase representation
+                if f in acronym_to_cluster_idx and (
+                    len(f) > 2 or any(len(r) == 2 for r in raw_names_upper)
+                ):
+                    matched_cluster_idx = acronym_to_cluster_idx[f]
+                    break
                 if matched_cluster_idx != -1:
                     break
 
@@ -390,9 +389,12 @@ def _cluster_entities(group: list[dict[str, Any]]) -> list[list[dict[str, Any]]]
             form_to_cluster_idx[f] = matched_cluster_idx
             for acr in acronym_candidates(f):
                 acronym_to_cluster_idx[acr] = matched_cluster_idx
-            if len(f.split()) == 1 and 2 <= len(f) <= 6:
-                if len(f) > 2 or any(len(r) == 2 for r in raw_names_upper):
-                    acronym_to_cluster_idx[f] = matched_cluster_idx
+            if (
+                len(f.split()) == 1
+                and 2 <= len(f) <= 6
+                and (len(f) > 2 or any(len(r) == 2 for r in raw_names_upper))
+            ):
+                acronym_to_cluster_idx[f] = matched_cluster_idx
 
     # Extract the longest name from each pre_cluster as its canonical name for embedding
     canonical_names = []
