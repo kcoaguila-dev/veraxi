@@ -89,6 +89,7 @@ honor system.
 - **PEP 668 Virtual Environment Enforcement**: Never use global `pip` or global Python interpreters. The host OS (Debian/Ubuntu) enforces PEP 668 ("externally-managed-environment"). Always execute commands explicitly through the virtual environment (e.g., `backend/.venv/bin/pip` or `backend/.venv/bin/pytest`).
 - **Secrets Management**: Never hardcode credentials, URLs, or DSNs in the source code. Backend secrets must be loaded via `os.environ` and documented in `.env.example`. Frontend secrets must be passed via `--dart-define` and retrieved using `String.fromEnvironment`.
 - **IDE State Synchronization**: If you add a new dependency, you must account for the IDE's Language Server caching. If an import fails immediately after installation, do not assume the code is broken; inform the user to reload the Language Server.
+- **Flutter Monorepo & MCP Root Awareness**: In this monorepo, Flutter resides strictly under `app/`. When utilizing the Dart MCP server (`dart mcp-server`), always register or target the root as `file://<workspace_root>/app` (via `add_roots` if using roots-fallback). For static verification before completing tasks, run `cd app && dart analyze` and `cd app && flutter test`.
 
 ## Code Quality & CodeScene Constraints
 
