@@ -46,7 +46,11 @@ def _tag_entities_with_chunk_provenance(
         if not ent_name:
             continue
         aliases = list({ent_name} | set(ent.get("aliases", [])))
-        norm_aliases = [normalize_name(a) for a in aliases if normalize_name(a)]
+        norm_aliases = [
+            normalize_name(a)
+            for a in aliases
+            if normalize_name(a) and (len(normalize_name(a)) >= 3 or a.isupper())
+        ]
         matched_pids = []
         for chunk_text_norm, chunk_tokens, c_pid in norm_chunks:
             if any(

@@ -3,7 +3,7 @@ from functools import lru_cache
 from typing import Any
 
 _CJK_RE = re.compile(r"([\u4e00-\u9fff\u3040-\u30ff\uac00-\ud7af])")
-_PAGE_SPLIT_RE = re.compile(r"(<!--\s*page:\d+.*?-->)")
+_PAGE_SPLIT_RE = re.compile(r"(<!--\s*page:\d+.*?-->)", re.DOTALL)
 
 
 def _pretokenize_cjk(text: str) -> str:

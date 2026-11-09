@@ -41,6 +41,43 @@ _PARENTHETICAL_RE = re.compile(
 )
 
 
+_STRUCTURAL_PREFIX_RE = re.compile(
+    r"^(?:chapter|part|section|table|figure|exhibit|page|see\s+chapter)\b",
+    re.IGNORECASE,
+)
+
+
+def is_clean_entity_name(name: str) -> bool:
+    """Validate that an entity candidate is a well-formed textual entity,
+
+    filtering out markdown table borders, HTML fragments, newlines, and OCR noise.
+    """
+    if not isinstance(name, str):
+        return False
+    trimmed = name.strip()
+    # Length guard
+    if len(trimmed) < 2 or len(trimmed) > 80:
+        return False
+    # Reject table pipes, angle brackets, newlines, or control chars
+    if any(c in trimmed for c in ("|", "<", ">", "\n", "\r", "\t")):
+        return False
+    # Structural heading or reference rejection
+    if _STRUCTURAL_PREFIX_RE.match(trimmed):
+        return False
+    # Require at least 2 alphabetic characters
+    alphas = [c for c in trimmed if c.isalpha()]
+    if len(alphas) < 2:
+        return False
+    # Ratio: alphabetic characters should compose >= 45% of non-space characters
+    non_spaces = [c for c in trimmed if not c.isspace()]
+    if len(alphas) / max(1, len(non_spaces)) < 0.45:
+        return False
+    # Reject pure punctuation / symbol noise
+    if re.fullmatch(r"[\W\d_]+", trimmed):
+        return False
+    return True
+
+
 def extract_in_text_aliases(text: str) -> dict[str, set[str]]:
     """
     Domain-agnostic Schwartz-Hearst style parenthetical & apposition alias extractor.
@@ -58,11 +95,21 @@ def extract_in_text_aliases(text: str) -> dict[str, set[str]]:
     for match in _PARENTHETICAL_RE.finditer(text):
         long_form = (match.group(1) or match.group(2) or "").strip()
         short_form = match.group(3).strip()
+        if not is_clean_entity_name(long_form) or not is_clean_entity_name(short_form):
+            continue
+        # In parentheses, require either an uppercase acronym (e.g. TSMC, Fed, EGFR)
+        # or a title-cased proper noun phrase, rejecting generic phrases
+        is_uppercase_acronym = short_form.isupper() and 2 <= len(short_form) <= 6
+        is_title_case_noun = (
+            short_form[0].isupper()
+            and all(w[0].isupper() for w in short_form.split() if len(w) > 3)
+        )
+        if not is_uppercase_acronym and not is_title_case_noun:
+            continue
         norm_long = strip_generic_suffix(normalize_name(long_form))
         norm_short = strip_generic_suffix(normalize_name(short_form))
         if not norm_long or not norm_short or norm_long == norm_short:
             continue
-        # Reject pure numbers or years in parentheses like "Revenue (2024)"
         if norm_short.isdigit() or len(norm_short) < 2:
             continue
         alias_map.setdefault(norm_long, set()).add(short_form)
@@ -116,7 +163,13 @@ def acronym_candidates(norm: str) -> set[str]:
 
 
 def is_acronym_match(a: str, b: str) -> bool:
-    """True if one side is a 2-6 letter acronym matching acronym candidates of the other side."""
+    """True if one side is a 2-6 letter acronym matching acronym candidates of the other side.
+
+    To prevent runaway false merges (e.g. 'Ed' -> 'Elyse Douglas', 'Al' -> 'Allied-Signal'),
+    single-token candidates of length 2 must be all-uppercase in their original string.
+    """
+    raw_a = a.strip()
+    raw_b = b.strip()
     norm_a = normalize_name(a)
     norm_b = normalize_name(b)
     stripped_a = strip_generic_suffix(norm_a)
@@ -129,6 +182,7 @@ def is_acronym_match(a: str, b: str) -> bool:
     if (
         len(tokens_a) == 1
         and 2 <= len(tokens_a[0]) <= 6
+        and (len(tokens_a[0]) > 2 or raw_a.isupper())
         and (
             tokens_a[0] in acronym_candidates(norm_b)
             or tokens_a[0] in acronym_candidates(stripped_b)
@@ -140,6 +194,7 @@ def is_acronym_match(a: str, b: str) -> bool:
     return (
         len(tokens_b) == 1
         and 2 <= len(tokens_b[0]) <= 6
+        and (len(tokens_b[0]) > 2 or raw_b.isupper())
         and (
             tokens_b[0] in acronym_candidates(norm_a)
             or tokens_b[0] in acronym_candidates(stripped_a)
@@ -303,6 +358,11 @@ def _cluster_entities(group: list[dict[str, Any]]) -> list[list[dict[str, Any]]]
                 break
 
         # Acronym matching via inverted index
+        raw_names = [ent.get("name", "")] + list(ent.get("aliases", []) or [])
+        raw_names_upper = {
+            r.strip() for r in raw_names if isinstance(r, str) and r.strip().isupper()
+        }
+
         if matched_cluster_idx == -1:
             for f in forms:
                 for acr in acronym_candidates(f):
@@ -310,8 +370,10 @@ def _cluster_entities(group: list[dict[str, Any]]) -> list[list[dict[str, Any]]]
                         matched_cluster_idx = acronym_to_cluster_idx[acr]
                         break
                 if f in acronym_to_cluster_idx:
-                    matched_cluster_idx = acronym_to_cluster_idx[f]
-                    break
+                    # Guard 2-char tokens: only match if ent or cluster has raw uppercase representation
+                    if len(f) > 2 or any(len(r) == 2 for r in raw_names_upper):
+                        matched_cluster_idx = acronym_to_cluster_idx[f]
+                        break
                 if matched_cluster_idx != -1:
                     break
 
@@ -326,7 +388,8 @@ def _cluster_entities(group: list[dict[str, Any]]) -> list[list[dict[str, Any]]]
             for acr in acronym_candidates(f):
                 acronym_to_cluster_idx[acr] = matched_cluster_idx
             if len(f.split()) == 1 and 2 <= len(f) <= 6:
-                acronym_to_cluster_idx[f] = matched_cluster_idx
+                if len(f) > 2 or any(len(r) == 2 for r in raw_names_upper):
+                    acronym_to_cluster_idx[f] = matched_cluster_idx
 
     # Extract the longest name from each pre_cluster as its canonical name for embedding
     canonical_names = []

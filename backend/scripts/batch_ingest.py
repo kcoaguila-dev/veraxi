@@ -124,7 +124,7 @@ def extract_text(
                     bbox_str = f"{b.l:.1f},{b.t:.1f},{b.r:.1f},{b.b:.1f}"
 
                 if item_type == "SectionHeaderItem" and hasattr(item, "text"):
-                    title = item.text.strip()
+                    title = " ".join(item.text.split())
                     lvl = level or 1
                     while header_stack and header_stack[-1][0] >= lvl:
                         header_stack.pop()

@@ -6,6 +6,7 @@ import sentry_sdk
 from openai import OpenAI
 
 from backend.config import get_config
+from backend.ingestion.entity_resolution import is_clean_entity_name
 from backend.prompts import get_extraction_prompt
 
 logger = logging.getLogger(__name__)
@@ -25,7 +26,11 @@ def _clean_llm_json_output(output: str) -> str:
 
 
 def _is_valid_entity(ent_type: Any, name: Any, allowed_entities: list[str]) -> bool:
-    return ent_type in allowed_entities and isinstance(name, str) and bool(name.strip())
+    return (
+        ent_type in allowed_entities
+        and isinstance(name, str)
+        and is_clean_entity_name(name)
+    )
 
 
 def _validate_single_relation(
@@ -105,7 +110,7 @@ def _validate_entities(
             [
                 str(a).strip()
                 for a in raw_aliases
-                if isinstance(a, str) and str(a).strip()
+                if isinstance(a, str) and is_clean_entity_name(str(a))
             ]
             if isinstance(raw_aliases, list)
             else []
@@ -531,7 +536,7 @@ def extract_entities_and_relations_fast(
             continue
 
         name = ent.text.strip()
-        if not name:
+        if not is_clean_entity_name(name):
             continue
 
         # Try to map to the dynamic schema, otherwise use the spaCy label

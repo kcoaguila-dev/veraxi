@@ -64,11 +64,17 @@ def _match_entity_to_chunks(
     source_pids = entity.get("source_point_ids") or []
     valid_source_pids = [pid for pid in source_pids if pid in all_point_ids]
     if valid_source_pids:
-        matched.extend(valid_source_pids)
+        # Provenance lock: when exact chunk provenance exists, return immediately
+        # to prevent runaway multi-chunk false attribution across entire books.
+        return list(dict.fromkeys(valid_source_pids))
 
     # 2. Exact word boundary / phrase matching on normalized aliases
     aliases = list({name} | set(entity.get("aliases", [])))
-    norm_aliases = [normalize_name(a) for a in aliases if normalize_name(a)]
+    norm_aliases = [
+        normalize_name(a)
+        for a in aliases
+        if normalize_name(a) and (len(normalize_name(a)) >= 3 or a.isupper())
+    ]
 
     for chunk_text_norm, chunk_tokens, point_id in norm_chunks:
         if point_id not in matched and any(

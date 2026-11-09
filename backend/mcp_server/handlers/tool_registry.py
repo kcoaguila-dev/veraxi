@@ -115,6 +115,18 @@ def _format_mcp_proof_card(query: str, hits: list) -> str:
     return "\n".join(card_lines)
 
 
+def _serialize_hits_for_mcp(hits: list) -> list[dict]:
+    """Serialize hits for MCP output while stripping large internal ID arrays to prevent context blowup."""
+    clean_hits = []
+    for h in hits:
+        d = dataclasses.asdict(h)
+        if isinstance(d.get("payload"), dict):
+            d["payload"].pop("neo4j_node_ids", None)
+            d["payload"].pop("qdrant_point_ids", None)
+        clean_hits.append(d)
+    return clean_hits
+
+
 def _handle_search_vectors(args: dict, tenant_id: str) -> list[TextContent]:
     config = get_config()
     results = search_vectors(
@@ -122,7 +134,7 @@ def _handle_search_vectors(args: dict, tenant_id: str) -> list[TextContent]:
         limit=args.get("limit", config.default_search_limit),
         tenant_id=tenant_id,
     )
-    dict_results = [dataclasses.asdict(r) for r in results]
+    dict_results = _serialize_hits_for_mcp(results)
     proof_card = _format_mcp_proof_card(args["query_text"], results)
     output_text = (
         f"{proof_card}\n<details>\n<summary><b>🔍 Raw Retrieval Data ({len(dict_results)} hits)</b></summary>\n\n"
@@ -138,7 +150,7 @@ def _handle_query_graph(args: dict, tenant_id: str) -> list[TextContent]:
         max_hops=args.get("max_hops", config.default_max_hops),
         tenant_id=tenant_id,
     )
-    dict_results = [dataclasses.asdict(r) for r in results]
+    dict_results = _serialize_hits_for_mcp(results)
     if not dict_results:
         return [
             TextContent(
@@ -176,8 +188,6 @@ def _handle_insert_vectors(args: dict, tenant_id: str) -> list[TextContent]:
 
 
 def _handle_merge_rank(args: dict, tenant_id: str) -> list[TextContent]:
-    import dataclasses
-
     from backend.retrieval.merge_rank import merge_rank
 
     config = get_config()
@@ -213,7 +223,7 @@ def _handle_merge_rank(args: dict, tenant_id: str) -> list[TextContent]:
         query_text=args.get("query_text"),
         rerank=args.get("rerank"),
     )
-    dict_results = [dataclasses.asdict(r) for r in results]
+    dict_results = _serialize_hits_for_mcp(results)
     proof_card = _format_mcp_proof_card(args["query_text"], results)
     output_text = (
         f"{proof_card}\n<details>\n<summary><b>🔍 Raw Retrieval Data ({len(dict_results)} hits)</b></summary>\n\n"

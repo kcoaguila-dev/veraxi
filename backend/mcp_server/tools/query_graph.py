@@ -49,6 +49,8 @@ def _hydrate_graph_hits_from_qdrant(config, hits: list[GraphHit]) -> None:
             for h in hits:
                 if h.id in q_map:
                     for k, v in q_map[h.id].items():
+                        if k in ("neo4j_node_ids", "qdrant_point_ids"):
+                            continue
                         if k not in h.payload or not h.payload[k]:
                             h.payload[k] = v
     except Exception as exc:
@@ -151,6 +153,7 @@ def query_graph(
                 if isinstance(row.get("props"), dict)
                 else {}
             )
+            payload.pop("qdrant_point_ids", None)
             payload["labels"] = row.get("labels", [])
             src = row.get("source_entity")
             if src:

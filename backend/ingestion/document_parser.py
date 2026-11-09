@@ -7,7 +7,7 @@ import sentry_sdk
 
 logger = logging.getLogger(__name__)
 
-_PAGE_MARKER_RE = re.compile(r"<!--\s*page:(\d+)(.*?)\s*-->")
+_PAGE_MARKER_RE = re.compile(r"<!--\s*page:(\d+)(.*?)\s*-->", re.DOTALL)
 
 
 def extract_pdf_with_pypdf(file_path: str, include_page_markers: bool = True) -> str:
@@ -83,7 +83,7 @@ def convert_document_to_markdown(
                 bbox_str = f"{b.l:.1f},{b.t:.1f},{b.r:.1f},{b.b:.1f}"
 
             if item_type == "SectionHeaderItem" and hasattr(item, "text"):
-                title = item.text.strip()
+                title = " ".join(item.text.split())
                 lvl = level or 1
                 while header_stack and header_stack[-1][0] >= lvl:
                     header_stack.pop()
