@@ -88,6 +88,9 @@ void main() {
     await tester.tap(find.text('Fish Audio'));
     await tester.pumpAndSettle();
 
+    // Verify that API Key input appears when not self-hosted
+    expect(find.text('API Key'), findsOneWidget);
+
     // Verify that Model ID input appears
     expect(find.text('Model ID'), findsOneWidget);
 

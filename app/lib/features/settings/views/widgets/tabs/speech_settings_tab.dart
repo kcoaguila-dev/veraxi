@@ -106,6 +106,18 @@ class SpeechSettingsTab extends ConsumerWidget {
                       .setFishSpeechUrl(value);
                 },
               ),
+            if (!ttsState.isSelfHostedFish)
+              SettingsUI.buildTextFieldRow(
+                context,
+                'API Key',
+                TextEditingController(text: ttsState.fishAudioApiKey),
+                obscureText: true,
+                onSubmitted: (value) {
+                  ref
+                      .read(ttsSettingsViewModelProvider.notifier)
+                      .setFishAudioApiKey(value);
+                },
+              ),
             SettingsUI.buildTextFieldRow(
               context,
               'Model ID',
