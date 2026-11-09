@@ -457,7 +457,7 @@ def _load_spacy_model(language: str):
                 spacy.cli.download(candidate)
                 nlp = spacy.load(candidate)
                 break
-            except Exception as err:
+            except (Exception, SystemExit) as err:
                 logger.warning(
                     f"Could not load or download spaCy model {candidate}: {err}"
                 )

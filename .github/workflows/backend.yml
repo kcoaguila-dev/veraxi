@@ -39,6 +39,7 @@ jobs:
         python -m pip install --upgrade pip
         pip install --no-cache-dir -e packages/veraxi-cli
         pip install --no-cache-dir -e "backend/[dev]"
+        python -m spacy download en_core_web_sm || true
 
     - name: Lint with Ruff
       run: |
