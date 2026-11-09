@@ -60,10 +60,17 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   Future<void> _loadSavedModel() async {
     final prefs = await SharedPreferences.getInstance();
     final savedModel = prefs.getString('selected_model');
-    if (savedModel != null && mounted) {
+    final availableModels = ref
+        .read(providerModelsProvider)
+        .values
+        .expand((models) => models)
+        .toSet();
+    if (savedModel != null && availableModels.contains(savedModel) && mounted) {
       setState(() {
         _selectedModel = savedModel;
       });
+    } else if (savedModel != null) {
+      await prefs.remove('selected_model');
     }
   }
 

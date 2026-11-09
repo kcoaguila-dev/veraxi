@@ -37,9 +37,6 @@ _request_api_key: ContextVar[str | None] = ContextVar("_request_api_key", defaul
 _request_base_url: ContextVar[str | None] = ContextVar(
     "_request_base_url", default=None
 )
-_DEPRECATED_MODEL_ALIASES = {
-    "llama-3.1-8b-instant": "groq/openai/gpt-oss-20b",
-}
 
 
 def normalize_litellm_model(
@@ -55,11 +52,6 @@ def normalize_litellm_model(
         return model_name, base_url
 
     from backend.models_config import DEFAULT_PROVIDER_MODELS
-
-    model_key = model_name.rsplit("/", 1)[-1].lower()
-    replacement = _DEPRECATED_MODEL_ALIASES.get(model_key)
-    if replacement is not None:
-        return replacement, base_url
 
     if model_name in DEFAULT_PROVIDER_MODELS.get("groq", []):
         return f"groq/{model_name}", base_url

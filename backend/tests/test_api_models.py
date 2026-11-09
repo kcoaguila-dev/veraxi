@@ -108,15 +108,6 @@ def test_normalize_litellm_model_prefixes():
     assert model == "groq/llama-3.3-70b-versatile"
     assert base_url is None
 
-    # Deprecated Groq aliases are remapped to the current replacement model.
-    model, base_url = normalize_litellm_model("llama-3.1-8b-instant")
-    assert model == "groq/openai/gpt-oss-20b"
-    assert base_url is None
-
-    model, base_url = normalize_litellm_model("groq/llama-3.1-8b-instant")
-    assert model == "groq/openai/gpt-oss-20b"
-    assert base_url is None
-
     # Groq hosts OpenAI-compatible GPT OSS models; do not route them to OpenAI.
     model, base_url = normalize_litellm_model("openai/gpt-oss-20b")
     assert model == "groq/openai/gpt-oss-20b"

@@ -1,10 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-const _deprecatedModelReplacements = {
-  'llama-3.1-8b-instant': 'openai/gpt-oss-20b',
-};
-
 /// State for model selection, persisted via SharedPreferences.
 class ModelSelectionState {
   final String selectedModel;
@@ -49,22 +45,11 @@ class ModelSelectionViewModel extends Notifier<ModelSelectionState> {
     final savedModel = prefs.getString('selected_model');
     final savedProvider = prefs.getString('selected_provider');
     final savedPinned = prefs.getStringList('pinned_models');
-    final migratedModel =
-        _deprecatedModelReplacements[savedModel] ?? savedModel;
-    final migratedPinned = (savedPinned ?? [])
-        .map((model) => _deprecatedModelReplacements[model] ?? model)
-        .toSet();
     state = state.copyWith(
-      selectedModel: migratedModel ?? state.selectedModel,
+      selectedModel: savedModel ?? state.selectedModel,
       selectedProvider: savedProvider,
-      pinnedModels: migratedPinned,
+      pinnedModels: (savedPinned ?? []).toSet(),
     );
-    if (migratedModel != null && migratedModel != savedModel) {
-      await prefs.setString('selected_model', migratedModel);
-    }
-    if (savedPinned != null && migratedPinned.length != savedPinned.length) {
-      await prefs.setStringList('pinned_models', migratedPinned.toList());
-    }
   }
 
   Future<void> selectModel(String model, {String? provider}) async {
