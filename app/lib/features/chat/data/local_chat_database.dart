@@ -25,6 +25,7 @@ class LocalMessages extends Table {
   TextColumn get modelName => text().nullable()();
   TextColumn get metrics => text().nullable()(); // JSON encoded
   TextColumn get toolEvents => text().nullable()(); // JSON encoded
+  TextColumn get activity => text().nullable()(); // JSON encoded activity steps
   DateTimeColumn get timestamp => dateTime().nullable()();
 
   @override
@@ -36,5 +37,15 @@ class LocalChatDatabase extends _$LocalChatDatabase {
   LocalChatDatabase() : super(openConnection());
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
+
+  @override
+  MigrationStrategy get migration => MigrationStrategy(
+        onCreate: (Migrator m) => m.createAll(),
+        onUpgrade: (Migrator m, int from, int to) async {
+          if (from < 2) {
+            await m.addColumn(localMessages, localMessages.activity);
+          }
+        },
+      );
 }

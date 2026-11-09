@@ -140,6 +140,17 @@ def _process_single_message(msg, tool_results, feedback_dict):
                     "isComplete": True,
                 }
             )
+    activity = []
+    if tool_events:
+        activity.append(
+            {
+                "number": 1,
+                "name": "Tool activity",
+                "description": "Tools used while preparing this answer.",
+                "status": "complete",
+                "toolEvents": tool_events,
+            }
+        )
     return {
         "id": str(msg_id),
         "role": "user" if msg_type == "HumanMessage" else "assistant",
@@ -148,6 +159,7 @@ def _process_single_message(msg, tool_results, feedback_dict):
         "model_name": getattr(msg, "additional_kwargs", {}).get("model_name"),
         "metrics": metrics if isinstance(metrics, dict) else None,
         "toolEvents": tool_events,
+        "activity": activity,
     }
 
 

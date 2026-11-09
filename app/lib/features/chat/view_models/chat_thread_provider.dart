@@ -102,6 +102,18 @@ class ChatThreadViewModel extends Notifier<ChatThreadState> {
                   ))
               .toList();
         }
+        final activity = _decodeActivity(m['activity']);
+        final restoredActivity = activity.isNotEmpty || toolEvents.isEmpty
+            ? activity
+            : [
+                ActivityStep(
+                  number: 1,
+                  name: 'Activity',
+                  description: 'Tools used while answering',
+                  status: ActivityStepStatus.complete,
+                  toolEvents: toolEvents,
+                ),
+              ];
         return ChatMessage(
           id: m['id'] as String?,
           role: m['role'] as String,
@@ -109,6 +121,7 @@ class ChatThreadViewModel extends Notifier<ChatThreadState> {
           feedback: m['feedback'] as int? ?? 0,
           modelName: m['model_name'] as String?,
           toolEvents: toolEvents,
+          activity: restoredActivity,
           metrics: m['metrics'] is Map
               ? Map<String, dynamic>.from(m['metrics'] as Map)
               : null,
@@ -285,7 +298,10 @@ class ChatThreadViewModel extends Notifier<ChatThreadState> {
         }
       }
       _updateLastMessage(
-          content: "Error: $uiError", isStreaming: false, isError: true);
+          content: "Error: $uiError",
+          isStreaming: false,
+          isError: true,
+          activity: _markRunningActivityAsErrored());
       return;
     }
     final type = event['event'];
@@ -320,6 +336,38 @@ class ChatThreadViewModel extends Notifier<ChatThreadState> {
           state = state.copyWith(messages: msgs);
         }
       }
+    } else if (type == 'on_step_start') {
+      final stepNumber = (event['step'] as num?)?.toInt() ?? 1;
+      final name = event['name'] as String? ?? 'Processing';
+      final description =
+          event['description'] as String? ?? 'Working on your request...';
+      if (state.messages.isNotEmpty) {
+        final last = state.messages.last;
+        final activity = List<ActivityStep>.from(last.activity);
+        final index = activity.indexWhere((step) => step.number == stepNumber);
+        for (var i = 0; i < activity.length; i++) {
+          if (i != index && activity[i].status == ActivityStepStatus.running) {
+            activity[i] = activity[i].copyWith(
+              status: ActivityStepStatus.complete,
+            );
+          }
+        }
+        final next = ActivityStep(
+          number: stepNumber,
+          name: name,
+          description: description,
+          toolEvents: index >= 0 ? activity[index].toolEvents : const [],
+        );
+        if (index >= 0) {
+          activity[index] = next;
+        } else {
+          activity.add(next);
+        }
+        _updateLastMessage(
+          activeTool: 'Step $stepNumber: $description',
+          activity: activity,
+        );
+      }
     } else if (type == 'on_tool_start') {
       final toolName = event['name'];
       final runId =
@@ -335,8 +383,17 @@ class ChatThreadViewModel extends Notifier<ChatThreadState> {
           args: args is Map ? Map<String, dynamic>.from(args) : {},
           isComplete: false,
         ));
+        final toolEvent = newEvents.last;
+        final activity = _addToolToActivity(
+          last.activity,
+          (event['step'] as num?)?.toInt(),
+          toolEvent,
+        );
         _updateLastMessage(
-            activeTool: '$friendlyName...', toolEvents: newEvents);
+          activeTool: '$friendlyName...',
+          toolEvents: newEvents,
+          activity: activity,
+        );
       } else {
         _updateLastMessage(activeTool: '$friendlyName...');
       }
@@ -352,7 +409,31 @@ class ChatThreadViewModel extends Notifier<ChatThreadState> {
           }
           return t;
         }).toList();
-        _updateLastMessage(activeTool: null, toolEvents: newEvents);
+        final activity = last.activity.map((step) {
+          final tools = step.toolEvents.map((tool) {
+            if (tool.id == runId) {
+              return tool.copyWith(
+                isComplete: true,
+                result: artifact ?? output,
+                durationMs: (event['duration_ms'] as num?)?.toInt(),
+                summary: event['summary'] as String?,
+              );
+            }
+            return tool;
+          }).toList();
+          if (!tools.any((tool) => tool.id == runId)) return step;
+          return step.copyWith(
+            toolEvents: tools,
+            status: event['status'] == 'error'
+                ? ActivityStepStatus.error
+                : step.status,
+          );
+        }).toList();
+        _updateLastMessage(
+          activeTool: null,
+          toolEvents: newEvents,
+          activity: activity,
+        );
       } else {
         _updateLastMessage(activeTool: null);
       }
@@ -369,8 +450,20 @@ class ChatThreadViewModel extends Notifier<ChatThreadState> {
           updatedMetrics['generation_seconds'] = elapsed;
         }
       }
+      final activity = state.messages.isNotEmpty
+          ? state.messages.last.activity.map((step) {
+              if (step.status != ActivityStepStatus.error) {
+                return step.copyWith(status: ActivityStepStatus.complete);
+              }
+              return step;
+            }).toList()
+          : const <ActivityStep>[];
       _updateLastMessage(
-          isStreaming: false, activeTool: null, metrics: updatedMetrics);
+        isStreaming: false,
+        activeTool: null,
+        metrics: updatedMetrics,
+        activity: activity,
+      );
       state = state.copyWith(isLoading: false);
       _currentRequestStartTime = null;
       ref.read(chatHistoryProvider.notifier).loadThreads();
@@ -382,6 +475,7 @@ class ChatThreadViewModel extends Notifier<ChatThreadState> {
     bool? isStreaming,
     String? activeTool,
     List<ToolEvent>? toolEvents,
+    List<ActivityStep>? activity,
     bool? isError,
     Map<String, dynamic>? metrics,
   }) {
@@ -393,10 +487,78 @@ class ChatThreadViewModel extends Notifier<ChatThreadState> {
       isStreaming: isStreaming,
       activeTool: activeTool,
       toolEvents: toolEvents,
+      activity: activity,
       isError: isError,
       metrics: metrics,
     );
     state = state.copyWith(messages: msgs);
+  }
+
+  List<ActivityStep> _markRunningActivityAsErrored() {
+    if (state.messages.isEmpty) return const [];
+    return state.messages.last.activity.map((step) {
+      if (step.status == ActivityStepStatus.running) {
+        return step.copyWith(status: ActivityStepStatus.error);
+      }
+      return step;
+    }).toList();
+  }
+
+  List<ActivityStep> _decodeActivity(dynamic raw) {
+    if (raw is! List) return const [];
+    return raw.whereType<Map>().map((item) {
+      final tools = item['toolEvents'];
+      return ActivityStep(
+        number: (item['number'] as num?)?.toInt() ?? 1,
+        name: item['name'] as String? ?? 'Activity',
+        description: item['description'] as String? ?? '',
+        status: ActivityStepStatus.values.firstWhere(
+          (status) => status.name == item['status'],
+          orElse: () => ActivityStepStatus.complete,
+        ),
+        durationMs: (item['durationMs'] as num?)?.toInt(),
+        summary: item['summary'] as String?,
+        toolEvents: tools is List
+            ? tools.whereType<Map>().map((tool) {
+                return ToolEvent(
+                  id: tool['id'] as String? ?? '',
+                  name: tool['name'] as String? ?? 'tool',
+                  args: tool['args'] is Map
+                      ? Map<String, dynamic>.from(tool['args'] as Map)
+                      : const {},
+                  result: tool['result'],
+                  isComplete: tool['isComplete'] as bool? ?? true,
+                  durationMs: (tool['durationMs'] as num?)?.toInt(),
+                  summary: tool['summary'] as String?,
+                );
+              }).toList()
+            : const [],
+      );
+    }).toList();
+  }
+
+  List<ActivityStep> _addToolToActivity(
+      List<ActivityStep> current, int? stepNumber, ToolEvent toolEvent) {
+    final activity = List<ActivityStep>.from(current);
+    final targetNumber =
+        stepNumber ?? (activity.isNotEmpty ? activity.last.number : 1);
+    final targetIndex =
+        activity.indexWhere((step) => step.number == targetNumber);
+    if (targetIndex < 0) {
+      activity.add(ActivityStep(
+        number: targetNumber,
+        name: 'Activity',
+        status: ActivityStepStatus.running,
+        toolEvents: [toolEvent],
+      ));
+      return activity;
+    }
+    final step = activity[targetIndex];
+    activity[targetIndex] = step.copyWith(
+      status: ActivityStepStatus.running,
+      toolEvents: [...step.toolEvents, toolEvent],
+    );
+    return activity;
   }
 
   String _friendlyToolLabel(String toolName) {

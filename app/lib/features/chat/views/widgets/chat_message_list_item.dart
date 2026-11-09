@@ -7,6 +7,7 @@ import 'package:veraxi_app/core/theme_extension.dart';
 import 'package:veraxi_app/features/chat/view_models/chat_view_model.dart';
 import 'package:veraxi_app/features/chat/views/widgets/chat_message_metrics.dart';
 import 'package:veraxi_app/features/chat/views/widgets/tool_event_card.dart';
+import 'package:veraxi_app/features/chat/views/widgets/chat_activity_disclosure.dart';
 import 'package:veraxi_app/features/chat/views/widgets/markdown_citation_builder.dart';
 import 'package:veraxi_app/features/chat/views/widgets/markdown_code_builder.dart';
 import 'package:veraxi_app/core/providers/active_sources_provider.dart';
@@ -214,8 +215,12 @@ class ChatMessageListItem extends ConsumerWidget {
                                   ),
                                 ),
 
-                              // 3. Completed & In-Flight Tool Events (Rich Collapsible Cards)
-                              if (msg.toolEvents.isNotEmpty)
+                              if (msg.activity.isNotEmpty)
+                                ChatActivityDisclosure(
+                                  activity: msg.activity,
+                                  isStreaming: msg.isStreaming,
+                                )
+                              else if (msg.toolEvents.isNotEmpty)
                                 Padding(
                                   padding: const EdgeInsets.only(bottom: 16.0),
                                   child: Column(

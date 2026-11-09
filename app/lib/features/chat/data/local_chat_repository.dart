@@ -62,6 +62,7 @@ class LocalChatRepository implements IChatRepository {
               'metrics': m.metrics != null ? jsonDecode(m.metrics!) : null,
               'toolEvents':
                   m.toolEvents != null ? jsonDecode(m.toolEvents!) : [],
+              'activity': m.activity != null ? jsonDecode(m.activity!) : [],
             })
         .toList();
   }
@@ -130,6 +131,7 @@ class LocalChatRepository implements IChatRepository {
     String aiResponseContent = '';
     Map<String, dynamic>? finalMetrics;
     List<dynamic> toolEvents = [];
+    final activity = <Map<String, dynamic>>[];
     final aiMessageId = _uuid.v4();
 
     if (!isTemporary) {
@@ -145,14 +147,53 @@ class LocalChatRepository implements IChatRepository {
         if (chunk != null) {
           aiResponseContent += chunk;
         }
+      } else if (event['event'] == 'on_step_start') {
+        activity.add({
+          'number': (event['step'] as num?)?.toInt() ?? activity.length + 1,
+          'name': event['name'] ?? 'Activity',
+          'description': event['description'] ?? '',
+          'status': 'running',
+          'toolEvents': <Map<String, dynamic>>[],
+        });
       } else if (event['event'] == 'on_tool_start' ||
           event['event'] == 'on_tool_end') {
         toolEvents.add(event); // Simplistic tracking for local storage
+        if (activity.isNotEmpty && event['event'] == 'on_tool_start') {
+          final tools =
+              activity.last['toolEvents'] as List<Map<String, dynamic>>;
+          tools.add({
+            'id': event['run_id'] ?? '',
+            'name': event['name'] ?? 'tool',
+            'args': event['data']?['input'] ?? {},
+            'isComplete': false,
+          });
+        }
+        if (activity.isNotEmpty && event['event'] == 'on_tool_end') {
+          final runId = event['run_id'];
+          for (final step in activity) {
+            final tools = step['toolEvents'] as List<Map<String, dynamic>>;
+            for (final tool in tools) {
+              if (tool['id'] == runId) {
+                tool
+                  ..['isComplete'] = true
+                  ..['result'] =
+                      event['data']?['artifact'] ?? event['data']?['output']
+                  ..['durationMs'] = event['duration_ms']
+                  ..['summary'] = event['summary'];
+                if (event['status'] == 'error') step['status'] = 'error';
+              }
+            }
+          }
+        }
       } else if (event['event'] == 'metadata' &&
           event['data']?['metrics'] != null) {
         finalMetrics = event['data']['metrics'];
       }
       yield event;
+    }
+
+    for (final step in activity) {
+      if (step['status'] == 'running') step['status'] = 'complete';
     }
 
     if (!isTemporary) {
@@ -166,6 +207,7 @@ class LocalChatRepository implements IChatRepository {
             metrics:
                 Value(finalMetrics != null ? jsonEncode(finalMetrics) : null),
             toolEvents: Value(jsonEncode(toolEvents)),
+            activity: Value(jsonEncode(activity)),
             timestamp: Value(DateTime.now()),
           ));
     }

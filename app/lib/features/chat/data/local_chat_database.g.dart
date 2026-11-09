@@ -412,6 +412,12 @@ class $LocalMessagesTable extends LocalMessages
   late final GeneratedColumn<String> toolEvents = GeneratedColumn<String>(
       'tool_events', aliasedName, true,
       type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _activityMeta =
+      const VerificationMeta('activity');
+  @override
+  late final GeneratedColumn<String> activity = GeneratedColumn<String>(
+      'activity', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
   static const VerificationMeta _timestampMeta =
       const VerificationMeta('timestamp');
   @override
@@ -428,6 +434,7 @@ class $LocalMessagesTable extends LocalMessages
         modelName,
         metrics,
         toolEvents,
+        activity,
         timestamp
       ];
   @override
@@ -481,6 +488,10 @@ class $LocalMessagesTable extends LocalMessages
           toolEvents.isAcceptableOrUnknown(
               data['tool_events']!, _toolEventsMeta));
     }
+    if (data.containsKey('activity')) {
+      context.handle(_activityMeta,
+          activity.isAcceptableOrUnknown(data['activity']!, _activityMeta));
+    }
     if (data.containsKey('timestamp')) {
       context.handle(_timestampMeta,
           timestamp.isAcceptableOrUnknown(data['timestamp']!, _timestampMeta));
@@ -510,6 +521,8 @@ class $LocalMessagesTable extends LocalMessages
           .read(DriftSqlType.string, data['${effectivePrefix}metrics']),
       toolEvents: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}tool_events']),
+      activity: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}activity']),
       timestamp: attachedDatabase.typeMapping
           .read(DriftSqlType.dateTime, data['${effectivePrefix}timestamp']),
     );
@@ -530,6 +543,7 @@ class LocalMessage extends DataClass implements Insertable<LocalMessage> {
   final String? modelName;
   final String? metrics;
   final String? toolEvents;
+  final String? activity;
   final DateTime? timestamp;
   const LocalMessage(
       {required this.id,
@@ -540,6 +554,7 @@ class LocalMessage extends DataClass implements Insertable<LocalMessage> {
       this.modelName,
       this.metrics,
       this.toolEvents,
+      this.activity,
       this.timestamp});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -557,6 +572,9 @@ class LocalMessage extends DataClass implements Insertable<LocalMessage> {
     }
     if (!nullToAbsent || toolEvents != null) {
       map['tool_events'] = Variable<String>(toolEvents);
+    }
+    if (!nullToAbsent || activity != null) {
+      map['activity'] = Variable<String>(activity);
     }
     if (!nullToAbsent || timestamp != null) {
       map['timestamp'] = Variable<DateTime>(timestamp);
@@ -580,6 +598,9 @@ class LocalMessage extends DataClass implements Insertable<LocalMessage> {
       toolEvents: toolEvents == null && nullToAbsent
           ? const Value.absent()
           : Value(toolEvents),
+      activity: activity == null && nullToAbsent
+          ? const Value.absent()
+          : Value(activity),
       timestamp: timestamp == null && nullToAbsent
           ? const Value.absent()
           : Value(timestamp),
@@ -598,6 +619,7 @@ class LocalMessage extends DataClass implements Insertable<LocalMessage> {
       modelName: serializer.fromJson<String?>(json['modelName']),
       metrics: serializer.fromJson<String?>(json['metrics']),
       toolEvents: serializer.fromJson<String?>(json['toolEvents']),
+      activity: serializer.fromJson<String?>(json['activity']),
       timestamp: serializer.fromJson<DateTime?>(json['timestamp']),
     );
   }
@@ -613,6 +635,7 @@ class LocalMessage extends DataClass implements Insertable<LocalMessage> {
       'modelName': serializer.toJson<String?>(modelName),
       'metrics': serializer.toJson<String?>(metrics),
       'toolEvents': serializer.toJson<String?>(toolEvents),
+      'activity': serializer.toJson<String?>(activity),
       'timestamp': serializer.toJson<DateTime?>(timestamp),
     };
   }
@@ -626,6 +649,7 @@ class LocalMessage extends DataClass implements Insertable<LocalMessage> {
           Value<String?> modelName = const Value.absent(),
           Value<String?> metrics = const Value.absent(),
           Value<String?> toolEvents = const Value.absent(),
+          Value<String?> activity = const Value.absent(),
           Value<DateTime?> timestamp = const Value.absent()}) =>
       LocalMessage(
         id: id ?? this.id,
@@ -636,6 +660,7 @@ class LocalMessage extends DataClass implements Insertable<LocalMessage> {
         modelName: modelName.present ? modelName.value : this.modelName,
         metrics: metrics.present ? metrics.value : this.metrics,
         toolEvents: toolEvents.present ? toolEvents.value : this.toolEvents,
+        activity: activity.present ? activity.value : this.activity,
         timestamp: timestamp.present ? timestamp.value : this.timestamp,
       );
   LocalMessage copyWithCompanion(LocalMessagesCompanion data) {
@@ -649,6 +674,7 @@ class LocalMessage extends DataClass implements Insertable<LocalMessage> {
       metrics: data.metrics.present ? data.metrics.value : this.metrics,
       toolEvents:
           data.toolEvents.present ? data.toolEvents.value : this.toolEvents,
+      activity: data.activity.present ? data.activity.value : this.activity,
       timestamp: data.timestamp.present ? data.timestamp.value : this.timestamp,
     );
   }
@@ -664,6 +690,7 @@ class LocalMessage extends DataClass implements Insertable<LocalMessage> {
           ..write('modelName: $modelName, ')
           ..write('metrics: $metrics, ')
           ..write('toolEvents: $toolEvents, ')
+          ..write('activity: $activity, ')
           ..write('timestamp: $timestamp')
           ..write(')'))
         .toString();
@@ -671,7 +698,7 @@ class LocalMessage extends DataClass implements Insertable<LocalMessage> {
 
   @override
   int get hashCode => Object.hash(id, threadId, role, content, feedback,
-      modelName, metrics, toolEvents, timestamp);
+      modelName, metrics, toolEvents, activity, timestamp);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -684,6 +711,7 @@ class LocalMessage extends DataClass implements Insertable<LocalMessage> {
           other.modelName == this.modelName &&
           other.metrics == this.metrics &&
           other.toolEvents == this.toolEvents &&
+          other.activity == this.activity &&
           other.timestamp == this.timestamp);
 }
 
@@ -696,6 +724,7 @@ class LocalMessagesCompanion extends UpdateCompanion<LocalMessage> {
   final Value<String?> modelName;
   final Value<String?> metrics;
   final Value<String?> toolEvents;
+  final Value<String?> activity;
   final Value<DateTime?> timestamp;
   final Value<int> rowid;
   const LocalMessagesCompanion({
@@ -707,6 +736,7 @@ class LocalMessagesCompanion extends UpdateCompanion<LocalMessage> {
     this.modelName = const Value.absent(),
     this.metrics = const Value.absent(),
     this.toolEvents = const Value.absent(),
+    this.activity = const Value.absent(),
     this.timestamp = const Value.absent(),
     this.rowid = const Value.absent(),
   });
@@ -719,6 +749,7 @@ class LocalMessagesCompanion extends UpdateCompanion<LocalMessage> {
     this.modelName = const Value.absent(),
     this.metrics = const Value.absent(),
     this.toolEvents = const Value.absent(),
+    this.activity = const Value.absent(),
     this.timestamp = const Value.absent(),
     this.rowid = const Value.absent(),
   })  : id = Value(id),
@@ -734,6 +765,7 @@ class LocalMessagesCompanion extends UpdateCompanion<LocalMessage> {
     Expression<String>? modelName,
     Expression<String>? metrics,
     Expression<String>? toolEvents,
+    Expression<String>? activity,
     Expression<DateTime>? timestamp,
     Expression<int>? rowid,
   }) {
@@ -746,6 +778,7 @@ class LocalMessagesCompanion extends UpdateCompanion<LocalMessage> {
       if (modelName != null) 'model_name': modelName,
       if (metrics != null) 'metrics': metrics,
       if (toolEvents != null) 'tool_events': toolEvents,
+      if (activity != null) 'activity': activity,
       if (timestamp != null) 'timestamp': timestamp,
       if (rowid != null) 'rowid': rowid,
     });
@@ -760,6 +793,7 @@ class LocalMessagesCompanion extends UpdateCompanion<LocalMessage> {
       Value<String?>? modelName,
       Value<String?>? metrics,
       Value<String?>? toolEvents,
+      Value<String?>? activity,
       Value<DateTime?>? timestamp,
       Value<int>? rowid}) {
     return LocalMessagesCompanion(
@@ -771,6 +805,7 @@ class LocalMessagesCompanion extends UpdateCompanion<LocalMessage> {
       modelName: modelName ?? this.modelName,
       metrics: metrics ?? this.metrics,
       toolEvents: toolEvents ?? this.toolEvents,
+      activity: activity ?? this.activity,
       timestamp: timestamp ?? this.timestamp,
       rowid: rowid ?? this.rowid,
     );
@@ -803,6 +838,9 @@ class LocalMessagesCompanion extends UpdateCompanion<LocalMessage> {
     if (toolEvents.present) {
       map['tool_events'] = Variable<String>(toolEvents.value);
     }
+    if (activity.present) {
+      map['activity'] = Variable<String>(activity.value);
+    }
     if (timestamp.present) {
       map['timestamp'] = Variable<DateTime>(timestamp.value);
     }
@@ -823,6 +861,7 @@ class LocalMessagesCompanion extends UpdateCompanion<LocalMessage> {
           ..write('modelName: $modelName, ')
           ..write('metrics: $metrics, ')
           ..write('toolEvents: $toolEvents, ')
+          ..write('activity: $activity, ')
           ..write('timestamp: $timestamp, ')
           ..write('rowid: $rowid')
           ..write(')'))
@@ -1042,6 +1081,7 @@ typedef $$LocalMessagesTableCreateCompanionBuilder = LocalMessagesCompanion
   Value<String?> modelName,
   Value<String?> metrics,
   Value<String?> toolEvents,
+  Value<String?> activity,
   Value<DateTime?> timestamp,
   Value<int> rowid,
 });
@@ -1055,6 +1095,7 @@ typedef $$LocalMessagesTableUpdateCompanionBuilder = LocalMessagesCompanion
   Value<String?> modelName,
   Value<String?> metrics,
   Value<String?> toolEvents,
+  Value<String?> activity,
   Value<DateTime?> timestamp,
   Value<int> rowid,
 });
@@ -1091,6 +1132,9 @@ class $$LocalMessagesTableFilterComposer
 
   ColumnFilters<String> get toolEvents => $composableBuilder(
       column: $table.toolEvents, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get activity => $composableBuilder(
+      column: $table.activity, builder: (column) => ColumnFilters(column));
 
   ColumnFilters<DateTime> get timestamp => $composableBuilder(
       column: $table.timestamp, builder: (column) => ColumnFilters(column));
@@ -1129,6 +1173,9 @@ class $$LocalMessagesTableOrderingComposer
   ColumnOrderings<String> get toolEvents => $composableBuilder(
       column: $table.toolEvents, builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<String> get activity => $composableBuilder(
+      column: $table.activity, builder: (column) => ColumnOrderings(column));
+
   ColumnOrderings<DateTime> get timestamp => $composableBuilder(
       column: $table.timestamp, builder: (column) => ColumnOrderings(column));
 }
@@ -1165,6 +1212,9 @@ class $$LocalMessagesTableAnnotationComposer
 
   GeneratedColumn<String> get toolEvents => $composableBuilder(
       column: $table.toolEvents, builder: (column) => column);
+
+  GeneratedColumn<String> get activity =>
+      $composableBuilder(column: $table.activity, builder: (column) => column);
 
   GeneratedColumn<DateTime> get timestamp =>
       $composableBuilder(column: $table.timestamp, builder: (column) => column);
@@ -1205,6 +1255,7 @@ class $$LocalMessagesTableTableManager extends RootTableManager<
             Value<String?> modelName = const Value.absent(),
             Value<String?> metrics = const Value.absent(),
             Value<String?> toolEvents = const Value.absent(),
+            Value<String?> activity = const Value.absent(),
             Value<DateTime?> timestamp = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
@@ -1217,6 +1268,7 @@ class $$LocalMessagesTableTableManager extends RootTableManager<
             modelName: modelName,
             metrics: metrics,
             toolEvents: toolEvents,
+            activity: activity,
             timestamp: timestamp,
             rowid: rowid,
           ),
@@ -1229,6 +1281,7 @@ class $$LocalMessagesTableTableManager extends RootTableManager<
             Value<String?> modelName = const Value.absent(),
             Value<String?> metrics = const Value.absent(),
             Value<String?> toolEvents = const Value.absent(),
+            Value<String?> activity = const Value.absent(),
             Value<DateTime?> timestamp = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
@@ -1241,6 +1294,7 @@ class $$LocalMessagesTableTableManager extends RootTableManager<
             modelName: modelName,
             metrics: metrics,
             toolEvents: toolEvents,
+            activity: activity,
             timestamp: timestamp,
             rowid: rowid,
           ),

@@ -461,7 +461,10 @@ class ChatViewModel extends StateNotifier<ChatState> {
         }
 
         _updateLastMessage(
-            content: finalContent, isStreaming: false, isError: true);
+            content: finalContent,
+            isStreaming: false,
+            isError: true,
+            activity: _markRunningActivityAsErrored());
         state = state.copyWith(isLoading: false);
         break;
       }
@@ -507,7 +510,10 @@ class ChatViewModel extends StateNotifier<ChatState> {
         }
       }
       _updateLastMessage(
-          content: "Error: $uiError", isStreaming: false, isError: true);
+          content: "Error: $uiError",
+          isStreaming: false,
+          isError: true,
+          activity: _markRunningActivityAsErrored());
       return;
     }
 
@@ -547,9 +553,38 @@ class ChatViewModel extends StateNotifier<ChatState> {
       return;
     }
     if (type == 'on_step_start') {
-      final step = event['step'] ?? 1;
-      final desc = event['description'] ?? event['name'] ?? 'Processing...';
-      _updateLastMessage(activeTool: 'Step $step: $desc');
+      final step = (event['step'] as num?)?.toInt() ?? 1;
+      final name = event['name'] as String? ?? 'Processing';
+      final description =
+          event['description'] as String? ?? 'Working on your request...';
+      final current = state.messages.last;
+      final activity = List<ActivityStep>.from(current.activity);
+      final existingIndex = activity.indexWhere((item) => item.number == step);
+      for (var index = 0; index < activity.length; index++) {
+        if (index != existingIndex &&
+            activity[index].status == ActivityStepStatus.running) {
+          activity[index] = activity[index].copyWith(
+            status: ActivityStepStatus.complete,
+          );
+        }
+      }
+      final nextStep = ActivityStep(
+        number: step,
+        name: name,
+        description: description,
+        status: ActivityStepStatus.running,
+        toolEvents:
+            existingIndex >= 0 ? activity[existingIndex].toolEvents : const [],
+      );
+      if (existingIndex >= 0) {
+        activity[existingIndex] = nextStep;
+      } else {
+        activity.add(nextStep);
+      }
+      _updateLastMessage(
+        activeTool: 'Step $step: $description',
+        activity: activity,
+      );
       return;
     } else if (type == 'on_reasoning_stream') {
       final text = event['data']?['text'] ?? '';
@@ -606,14 +641,23 @@ class ChatViewModel extends StateNotifier<ChatState> {
       if (state.messages.isNotEmpty) {
         final last = state.messages.last;
         final newEvents = List<ToolEvent>.from(last.toolEvents);
-        newEvents.add(ToolEvent(
+        final toolEvent = ToolEvent(
           id: runId,
           name: toolName,
           args: args is Map ? Map<String, dynamic>.from(args) : {},
           isComplete: false,
-        ));
+        );
+        newEvents.add(toolEvent);
+        final activity = _addToolToActivity(
+          last.activity,
+          step is num ? step.toInt() : null,
+          toolEvent,
+        );
         _updateLastMessage(
-            activeTool: '$stepPrefix$friendlyName...', toolEvents: newEvents);
+          activeTool: '$stepPrefix$friendlyName...',
+          toolEvents: newEvents,
+          activity: activity,
+        );
       } else {
         _updateLastMessage(activeTool: '$stepPrefix$friendlyName...');
       }
@@ -635,7 +679,31 @@ class ChatViewModel extends StateNotifier<ChatState> {
           }
           return t;
         }).toList();
-        _updateLastMessage(activeTool: null, toolEvents: newEvents);
+        final activity = last.activity.map((step) {
+          final updatedTools = step.toolEvents.map((tool) {
+            if (tool.id == runId) {
+              return tool.copyWith(
+                isComplete: true,
+                result: artifact ?? output,
+                durationMs: (event['duration_ms'] as num?)?.toInt(),
+                summary: event['summary'] as String?,
+              );
+            }
+            return tool;
+          }).toList();
+          if (!updatedTools.any((tool) => tool.id == runId)) return step;
+          return step.copyWith(
+            toolEvents: updatedTools,
+            status: event['status'] == 'error'
+                ? ActivityStepStatus.error
+                : step.status,
+          );
+        }).toList();
+        _updateLastMessage(
+          activeTool: null,
+          toolEvents: newEvents,
+          activity: activity,
+        );
       } else {
         _updateLastMessage(activeTool: null); // Clear tool indicator
       }
@@ -653,8 +721,20 @@ class ChatViewModel extends StateNotifier<ChatState> {
           updatedMetrics['generation_seconds'] = elapsed;
         }
       }
+      final activity = state.messages.isNotEmpty
+          ? state.messages.last.activity.map((step) {
+              if (step.status != ActivityStepStatus.error) {
+                return step.copyWith(status: ActivityStepStatus.complete);
+              }
+              return step;
+            }).toList()
+          : const <ActivityStep>[];
       _updateLastMessage(
-          isStreaming: false, activeTool: null, metrics: updatedMetrics);
+        isStreaming: false,
+        activeTool: null,
+        metrics: updatedMetrics,
+        activity: activity,
+      );
       state = state.copyWith(isLoading: false);
       _currentRequestStartTime = null;
 
@@ -670,6 +750,7 @@ class ChatViewModel extends StateNotifier<ChatState> {
       String? reasoning,
       double? reasoningDurationSeconds,
       List<ToolEvent>? toolEvents,
+      List<ActivityStep>? activity,
       bool? isError,
       Map<String, dynamic>? metrics}) {
     if (state.messages.isEmpty) return;
@@ -686,12 +767,47 @@ class ChatViewModel extends StateNotifier<ChatState> {
       reasoningDurationSeconds:
           reasoningDurationSeconds ?? last.reasoningDurationSeconds,
       toolEvents: toolEvents ?? last.toolEvents,
+      activity: activity ?? last.activity,
       isError: isError ?? last.isError,
       feedback: last.feedback,
       modelName: last.modelName,
       metrics: metrics ?? last.metrics,
     );
     state = state.copyWith(messages: msgs);
+  }
+
+  List<ActivityStep> _addToolToActivity(
+      List<ActivityStep> current, int? stepNumber, ToolEvent toolEvent) {
+    final activity = List<ActivityStep>.from(current);
+    final targetNumber =
+        stepNumber ?? (activity.isNotEmpty ? activity.last.number : 1);
+    final targetIndex =
+        activity.indexWhere((step) => step.number == targetNumber);
+    if (targetIndex < 0) {
+      activity.add(ActivityStep(
+        number: targetNumber,
+        name: 'Activity',
+        status: ActivityStepStatus.running,
+        toolEvents: [toolEvent],
+      ));
+      return activity;
+    }
+    final step = activity[targetIndex];
+    activity[targetIndex] = step.copyWith(
+      status: ActivityStepStatus.running,
+      toolEvents: [...step.toolEvents, toolEvent],
+    );
+    return activity;
+  }
+
+  List<ActivityStep> _markRunningActivityAsErrored() {
+    if (state.messages.isEmpty) return const [];
+    return state.messages.last.activity.map((step) {
+      if (step.status == ActivityStepStatus.running) {
+        return step.copyWith(status: ActivityStepStatus.error);
+      }
+      return step;
+    }).toList();
   }
 
   void clearError() {

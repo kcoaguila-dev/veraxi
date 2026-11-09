@@ -41,6 +41,47 @@ class ToolEvent {
   }
 }
 
+enum ActivityStepStatus { running, complete, error }
+
+class ActivityStep {
+  final int number;
+  final String name;
+  final String description;
+  final ActivityStepStatus status;
+  final int? durationMs;
+  final List<ToolEvent> toolEvents;
+  final String? summary;
+
+  const ActivityStep({
+    required this.number,
+    required this.name,
+    this.description = '',
+    this.status = ActivityStepStatus.running,
+    this.durationMs,
+    this.toolEvents = const [],
+    this.summary,
+  });
+
+  ActivityStep copyWith({
+    String? name,
+    String? description,
+    ActivityStepStatus? status,
+    int? durationMs,
+    List<ToolEvent>? toolEvents,
+    String? summary,
+  }) {
+    return ActivityStep(
+      number: number,
+      name: name ?? this.name,
+      description: description ?? this.description,
+      status: status ?? this.status,
+      durationMs: durationMs ?? this.durationMs,
+      toolEvents: toolEvents ?? this.toolEvents,
+      summary: summary ?? this.summary,
+    );
+  }
+}
+
 class ChatMessage {
   final String? id;
   final String role; // 'user' or 'assistant'
@@ -50,6 +91,7 @@ class ChatMessage {
   final String? reasoning; // Collapsible chain of thought / reasoning trace
   final double? reasoningDurationSeconds; // E.g. "Thought for 4.2s"
   final List<ToolEvent> toolEvents;
+  final List<ActivityStep> activity;
   final bool isError;
   final int feedback; // 1 (up), -1 (down), 0 (none)
   final String? modelName; // Store the AI model that generated this message
@@ -64,6 +106,7 @@ class ChatMessage {
     this.reasoning,
     this.reasoningDurationSeconds,
     this.toolEvents = const [],
+    this.activity = const [],
     this.isError = false,
     this.feedback = 0,
     this.modelName,
@@ -73,18 +116,20 @@ class ChatMessage {
   bool get isUser => role == 'user';
   String get text => content;
 
-  ChatMessage copyWith(
-      {String? id,
-      String? content,
-      bool? isStreaming,
-      String? activeTool,
-      String? reasoning,
-      double? reasoningDurationSeconds,
-      List<ToolEvent>? toolEvents,
-      bool? isError,
-      int? feedback,
-      String? modelName,
-      Map<String, dynamic>? metrics}) {
+  ChatMessage copyWith({
+    String? id,
+    String? content,
+    bool? isStreaming,
+    String? activeTool,
+    String? reasoning,
+    double? reasoningDurationSeconds,
+    List<ToolEvent>? toolEvents,
+    List<ActivityStep>? activity,
+    bool? isError,
+    int? feedback,
+    String? modelName,
+    Map<String, dynamic>? metrics,
+  }) {
     return ChatMessage(
       id: id ?? this.id,
       role: role,
@@ -95,6 +140,7 @@ class ChatMessage {
       reasoningDurationSeconds:
           reasoningDurationSeconds ?? this.reasoningDurationSeconds,
       toolEvents: toolEvents ?? this.toolEvents,
+      activity: activity ?? this.activity,
       isError: isError ?? this.isError,
       feedback: feedback ?? this.feedback,
       modelName: modelName ?? this.modelName,

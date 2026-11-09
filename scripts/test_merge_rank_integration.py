@@ -7,7 +7,7 @@ from backend.retrieval.merge_rank import merge_rank
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s: %(message)s", datefmt="%H:%M:%S")
 
-def test_integration(vector_query: str, graph_query: str):
+def run_integration(vector_query: str, graph_query: str):
     """
     Non-destructive integration script to verify merge_rank against existing data.
     """
@@ -41,4 +41,4 @@ if __name__ == "__main__":
     parser.add_argument("--graph", type=str, default="Microsoft Research", help="Entity name for the Graph DB query")
     
     args = parser.parse_args()
-    test_integration(args.vector, args.graph)
+    run_integration(args.vector, args.graph)
