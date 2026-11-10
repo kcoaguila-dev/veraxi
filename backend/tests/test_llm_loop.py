@@ -216,8 +216,6 @@ async def test_get_tools(mock_config):
 
 @pytest.mark.asyncio
 async def test_call_model(mock_config):
-    from langchain_core.messages import AIMessage, HumanMessage
-
     from backend.mcp_server.orchestrator import call_model
 
     msg = HumanMessage(content="Hello")
@@ -241,8 +239,6 @@ async def test_call_model(mock_config):
 
 @pytest.mark.asyncio
 async def test_call_model_does_not_replay_reasoning_content(mock_config):
-    from langchain_core.messages import AIMessage, HumanMessage
-
     from backend.mcp_server.orchestrator import call_model
 
     mock_llm = AsyncMock()

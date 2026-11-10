@@ -7,6 +7,7 @@ import time
 import urllib.parse
 import urllib.request
 from collections.abc import Sequence
+from contextvars import ContextVar
 from typing import Annotated, Any, TypedDict
 
 import sentry_sdk
@@ -31,8 +32,6 @@ from backend.mcp_server.tool_dispatch import get_tools
 
 logger = logging.getLogger(__name__)
 
-from contextvars import ContextVar
-
 _request_model: ContextVar[str | None] = ContextVar("_request_model", default=None)
 
 
@@ -45,6 +44,8 @@ def _sanitize_messages_for_provider(
         message_copy.additional_kwargs.pop("reasoning_content", None)
         sanitized.append(message_copy)
     return sanitized
+
+
 _request_api_key: ContextVar[str | None] = ContextVar("_request_api_key", default=None)
 _request_base_url: ContextVar[str | None] = ContextVar(
     "_request_base_url", default=None
