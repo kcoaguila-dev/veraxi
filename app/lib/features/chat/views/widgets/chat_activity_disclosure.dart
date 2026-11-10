@@ -51,10 +51,10 @@ class _ChatActivityDisclosureState extends State<ChatActivityDisclosure> {
         child: Container(
           margin: const EdgeInsets.only(bottom: 12),
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.04),
+            color: Colors.white.withValues(alpha: 0.025),
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
-              color: _accentColor(hasError, isRunning).withValues(alpha: 0.28),
+              color: Colors.white.withValues(alpha: 0.12),
             ),
           ),
           child: Column(
@@ -97,7 +97,7 @@ class _ChatActivityDisclosureState extends State<ChatActivityDisclosure> {
                           ),
                         ),
                       ),
-                      if (!isRunning && !hasError)
+                      if (widget.activity.isNotEmpty && !isRunning && !hasError)
                         Text(
                           '$completed/${widget.activity.length}',
                           style: const TextStyle(
@@ -111,7 +111,7 @@ class _ChatActivityDisclosureState extends State<ChatActivityDisclosure> {
               ),
               if (_expanded)
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(14, 0, 10, 10),
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
                   child: Column(
                     children: [
                       if (hasReasoning)
@@ -150,48 +150,68 @@ class _ReasoningView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(
-          color: Colors.purpleAccent.withValues(alpha: 0.06),
-          borderRadius: BorderRadius.circular(6),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+      padding: const EdgeInsets.only(top: 10, bottom: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const _TimelineMarker(
+            color: Colors.purpleAccent,
+            icon: Icons.psychology_outlined,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(Icons.psychology_outlined,
-                    size: 15, color: Colors.purpleAccent),
-                const SizedBox(width: 6),
                 Text(
                   durationSeconds != null
-                      ? 'Reasoning trace · '
+                      ? 'Thought process · '
                           '${durationSeconds!.toStringAsFixed(1)}s'
-                      : 'Reasoning trace',
+                      : 'Thought process',
                   style: const TextStyle(
-                    fontSize: 11.5,
+                    fontSize: 12,
                     fontWeight: FontWeight.w600,
                     color: Colors.white70,
                   ),
                 ),
+                const SizedBox(height: 5),
+                Text(
+                  reasoning,
+                  style: const TextStyle(
+                    fontSize: 11.5,
+                    fontFamily: 'monospace',
+                    color: Colors.white54,
+                    height: 1.4,
+                  ),
+                ),
               ],
             ),
-            const SizedBox(height: 7),
-            Text(
-              reasoning,
-              style: const TextStyle(
-                fontSize: 11.5,
-                fontFamily: 'monospace',
-                color: Colors.white60,
-                height: 1.4,
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
+    );
+  }
+}
+
+class _TimelineMarker extends StatelessWidget {
+  const _TimelineMarker({
+    required this.color,
+    required this.icon,
+  });
+
+  final Color color;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 20,
+      height: 20,
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        shape: BoxShape.circle,
+      ),
+      child: Icon(icon, size: 12, color: color),
     );
   }
 }
@@ -212,29 +232,25 @@ class _ActivityStepView extends StatelessWidget {
             : Colors.greenAccent.shade400;
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(vertical: 7),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Padding(
-            padding: const EdgeInsets.only(top: 2),
-            child: Icon(
-              isError
-                  ? Icons.error_outline_rounded
-                  : isRunning
-                      ? Icons.radio_button_checked_rounded
-                      : Icons.check_circle_outline_rounded,
-              size: 14,
-              color: statusColor,
-            ),
+          _TimelineMarker(
+            color: statusColor,
+            icon: isError
+                ? Icons.error_outline_rounded
+                : isRunning
+                    ? Icons.radio_button_checked_rounded
+                    : Icons.check_rounded,
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Step ${step.number}: ${step.name}',
+                  step.name,
                   style: const TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
@@ -266,14 +282,12 @@ class _ActivityStepView extends StatelessWidget {
                     ),
                   ),
                 if (step.toolEvents.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 6),
-                    child: Column(
-                      children: [
-                        for (final event in step.toolEvents)
-                          ToolEventCard(event: event),
-                      ],
-                    ),
+                  Column(
+                    children: [
+                      const SizedBox(height: 6),
+                      for (final event in step.toolEvents)
+                        ToolEventCard(event: event),
+                    ],
                   ),
               ],
             ),
