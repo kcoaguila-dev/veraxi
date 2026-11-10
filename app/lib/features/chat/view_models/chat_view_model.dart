@@ -195,48 +195,7 @@ class ChatViewModel extends StateNotifier<ChatState> {
 
   List<ActivityStep> _decodeActivity(dynamic rawActivity) {
     if (rawActivity is! List) return const [];
-    return rawActivity
-        .whereType<Map>()
-        .map(
-          (step) => ActivityStep(
-            number: (step['number'] as num?)?.toInt() ?? 1,
-            name: step['name'] as String? ?? 'Activity',
-            description: step['description'] as String? ?? '',
-            status: _activityStatus(step['status'] as String?),
-            durationMs: (step['durationMs'] as num?)?.toInt(),
-            summary: step['summary'] as String?,
-            toolEvents: _decodeToolEvents(step['toolEvents']),
-          ),
-        )
-        .toList();
-  }
-
-  List<ToolEvent> _decodeToolEvents(dynamic rawToolEvents) {
-    if (rawToolEvents is! List) return const [];
-    return rawToolEvents
-        .whereType<Map>()
-        .map(
-          (event) => ToolEvent(
-            id: event['id'] as String? ?? '',
-            name: event['name'] as String? ?? '',
-            args: event['args'] is Map
-                ? Map<String, dynamic>.from(event['args'] as Map)
-                : {},
-            result: event['result'],
-            isComplete: event['isComplete'] as bool? ?? true,
-            durationMs: (event['durationMs'] as num?)?.toInt(),
-            summary: event['summary'] as String?,
-          ),
-        )
-        .toList();
-  }
-
-  ActivityStepStatus _activityStatus(String? status) {
-    return switch (status) {
-      'error' => ActivityStepStatus.error,
-      'running' => ActivityStepStatus.running,
-      _ => ActivityStepStatus.complete,
-    };
+    return rawActivity.whereType<Map>().map(ActivityStep.fromJson).toList();
   }
 
   Future<void> selectThread(String threadId) async {
@@ -435,7 +394,15 @@ class ChatViewModel extends StateNotifier<ChatState> {
         )) {
           _handleStreamEvent(event);
         }
-        _updateLastMessage(isStreaming: false);
+        final responseMetrics = state.messages.isNotEmpty
+            ? Map<String, dynamic>.from(state.messages.last.metrics ?? {})
+            : null;
+        responseMetrics?['response_at'] =
+            DateTime.now().toUtc().toIso8601String();
+        _updateLastMessage(
+          isStreaming: false,
+          metrics: responseMetrics,
+        );
         state = state.copyWith(isLoading: false);
         success = true;
       } catch (e, st) {
@@ -760,18 +727,18 @@ class ChatViewModel extends StateNotifier<ChatState> {
     } else if (type == 'on_chain_end' && event['name'] == 'LangGraph') {
       // Graph finished
       Map<String, dynamic>? updatedMetrics;
-      if (_currentRequestStartTime != null && state.messages.isNotEmpty) {
+      if (state.messages.isNotEmpty) {
         final lastMsg = state.messages.last;
-        if (lastMsg.metrics != null) {
+        updatedMetrics = Map<String, dynamic>.from(lastMsg.metrics ?? {});
+        if (_currentRequestStartTime != null) {
           final elapsed = DateTime.now()
                   .difference(_currentRequestStartTime!)
                   .inMilliseconds /
               1000.0;
-          updatedMetrics = Map<String, dynamic>.from(lastMsg.metrics!);
           updatedMetrics['generation_seconds'] = elapsed;
-          updatedMetrics['response_at'] =
-              DateTime.now().toUtc().toIso8601String();
         }
+        updatedMetrics['response_at'] =
+            DateTime.now().toUtc().toIso8601String();
       }
       final activity = state.messages.isNotEmpty
           ? state.messages.last.activity.map((step) {

@@ -20,6 +20,20 @@ class ToolEvent {
     this.summary,
   });
 
+  factory ToolEvent.fromJson(Map<dynamic, dynamic> json) {
+    return ToolEvent(
+      id: json['id'] as String? ?? '',
+      name: json['name'] as String? ?? 'tool',
+      args: json['args'] is Map
+          ? Map<String, dynamic>.from(json['args'] as Map)
+          : const {},
+      result: json['result'],
+      isComplete: json['isComplete'] as bool? ?? true,
+      durationMs: (json['durationMs'] as num?)?.toInt(),
+      summary: json['summary'] as String?,
+    );
+  }
+
   ToolEvent copyWith({
     String? id,
     String? name,
@@ -61,6 +75,24 @@ class ActivityStep {
     this.toolEvents = const [],
     this.summary,
   });
+
+  factory ActivityStep.fromJson(Map<dynamic, dynamic> json) {
+    final rawTools = json['toolEvents'];
+    return ActivityStep(
+      number: (json['number'] as num?)?.toInt() ?? 1,
+      name: json['name'] as String? ?? 'Activity',
+      description: json['description'] as String? ?? '',
+      status: ActivityStepStatus.values.firstWhere(
+        (status) => status.name == json['status'],
+        orElse: () => ActivityStepStatus.complete,
+      ),
+      durationMs: (json['durationMs'] as num?)?.toInt(),
+      summary: json['summary'] as String?,
+      toolEvents: rawTools is List
+          ? rawTools.whereType<Map>().map(ToolEvent.fromJson).toList()
+          : const [],
+    );
+  }
 
   ActivityStep copyWith({
     String? name,

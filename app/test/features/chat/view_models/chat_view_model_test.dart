@@ -63,6 +63,7 @@ void main() {
                   'id': 'assistant-1',
                   'role': 'assistant',
                   'content': 'Answer',
+                  'metrics': {'response_at': '2026-11-10T05:00:00Z'},
                   'activity': [
                     {
                       'number': 1,
@@ -102,6 +103,10 @@ void main() {
           viewModel
               .state.messages.single.activity.single.toolEvents.single.name,
           'query_graph');
+      expect(
+        viewModel.state.messages.single.metrics?['response_at'],
+        '2026-11-10T05:00:00Z',
+      );
     });
   });
 }

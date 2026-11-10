@@ -233,6 +233,15 @@ class ChatThreadViewModel extends Notifier<ChatThreadState> {
             )) {
           _handleStreamEvent(event);
         }
+        final responseMetrics = state.messages.isNotEmpty
+            ? Map<String, dynamic>.from(state.messages.last.metrics ?? {})
+            : null;
+        responseMetrics?['response_at'] =
+            DateTime.now().toUtc().toIso8601String();
+        _updateLastMessage(
+          isStreaming: false,
+          metrics: responseMetrics,
+        );
         state = state.copyWith(isLoading: false);
         success = true;
       } catch (e, st) {
@@ -449,18 +458,18 @@ class ChatThreadViewModel extends Notifier<ChatThreadState> {
       }
     } else if (type == 'on_chain_end' && event['name'] == 'LangGraph') {
       Map<String, dynamic>? updatedMetrics;
-      if (_currentRequestStartTime != null && state.messages.isNotEmpty) {
+      if (state.messages.isNotEmpty) {
         final lastMsg = state.messages.last;
-        if (lastMsg.metrics != null) {
+        updatedMetrics = Map<String, dynamic>.from(lastMsg.metrics ?? {});
+        if (_currentRequestStartTime != null) {
           final elapsed = DateTime.now()
                   .difference(_currentRequestStartTime!)
                   .inMilliseconds /
               1000.0;
-          updatedMetrics = Map<String, dynamic>.from(lastMsg.metrics!);
           updatedMetrics['generation_seconds'] = elapsed;
-          updatedMetrics['response_at'] =
-              DateTime.now().toUtc().toIso8601String();
         }
+        updatedMetrics['response_at'] =
+            DateTime.now().toUtc().toIso8601String();
       }
       final activity = state.messages.isNotEmpty
           ? state.messages.last.activity.map((step) {
@@ -518,35 +527,7 @@ class ChatThreadViewModel extends Notifier<ChatThreadState> {
 
   List<ActivityStep> _decodeActivity(dynamic raw) {
     if (raw is! List) return const [];
-    return raw.whereType<Map>().map((item) {
-      final tools = item['toolEvents'];
-      return ActivityStep(
-        number: (item['number'] as num?)?.toInt() ?? 1,
-        name: item['name'] as String? ?? 'Activity',
-        description: item['description'] as String? ?? '',
-        status: ActivityStepStatus.values.firstWhere(
-          (status) => status.name == item['status'],
-          orElse: () => ActivityStepStatus.complete,
-        ),
-        durationMs: (item['durationMs'] as num?)?.toInt(),
-        summary: item['summary'] as String?,
-        toolEvents: tools is List
-            ? tools.whereType<Map>().map((tool) {
-                return ToolEvent(
-                  id: tool['id'] as String? ?? '',
-                  name: tool['name'] as String? ?? 'tool',
-                  args: tool['args'] is Map
-                      ? Map<String, dynamic>.from(tool['args'] as Map)
-                      : const {},
-                  result: tool['result'],
-                  isComplete: tool['isComplete'] as bool? ?? true,
-                  durationMs: (tool['durationMs'] as num?)?.toInt(),
-                  summary: tool['summary'] as String?,
-                );
-              }).toList()
-            : const [],
-      );
-    }).toList();
+    return raw.whereType<Map>().map(ActivityStep.fromJson).toList();
   }
 
   List<ActivityStep> _addToolToActivity(
