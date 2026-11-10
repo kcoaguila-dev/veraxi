@@ -23,6 +23,7 @@ void main() {
     repository = CloudChatRepository(
         apiClient: apiClient, apiKeyStorage: ApiKeyStorage());
     registerFallbackValue(Uri.parse('http://test.com'));
+    registerFallbackValue(http.Request('POST', Uri.parse('http://test.com')));
   });
 
   test('getThreads parses json correctly', () async {
@@ -55,5 +56,27 @@ void main() {
     expect(models['OpenAI']?.length, 2);
     expect(models['OpenAI']?.first, 'gpt-4-turbo');
     expect(models['Anthropic']?.first, 'claude-3-5-sonnet-latest');
+  });
+
+  test('streamChat sends GPT OSS model with the saved Groq key', () async {
+    const groqKey = 'gsk_test_key';
+    await ApiKeyStorage().saveKey('groq', groqKey, expiresIn: 'never');
+
+    late http.Request request;
+    when(() => mockHttpClient.send(any())).thenAnswer((invocation) async {
+      request = invocation.positionalArguments.first as http.Request;
+      return http.StreamedResponse(
+        Stream<List<int>>.fromIterable([
+          utf8.encode('data: {"event":"done"}\n\n'),
+        ]),
+        200,
+      );
+    });
+
+    await repository.streamChat('hello', model: 'openai/gpt-oss-20b').toList();
+
+    final body = jsonDecode(request.body) as Map<String, dynamic>;
+    expect(body['model'], 'openai/gpt-oss-20b');
+    expect(body['api_key'], groqKey);
   });
 }
