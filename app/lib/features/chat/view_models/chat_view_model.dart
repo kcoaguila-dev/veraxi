@@ -165,6 +165,18 @@ class ChatViewModel extends StateNotifier<ChatState> {
                 ))
             .toList();
       }
+      final activity = _decodeActivity(m['activity']);
+      final restoredActivity = activity.isNotEmpty || toolEvents.isEmpty
+          ? activity
+          : [
+              ActivityStep(
+                number: 1,
+                name: 'Activity',
+                description: 'Tools used while answering',
+                status: ActivityStepStatus.complete,
+                toolEvents: toolEvents,
+              ),
+            ];
 
       return ChatMessage(
         id: m['id'] as String?,
@@ -173,11 +185,58 @@ class ChatViewModel extends StateNotifier<ChatState> {
         feedback: m['feedback'] as int? ?? 0,
         modelName: m['model_name'] as String?,
         toolEvents: toolEvents,
+        activity: restoredActivity,
         metrics: m['metrics'] is Map
             ? Map<String, dynamic>.from(m['metrics'] as Map)
             : null,
       );
     }).toList();
+  }
+
+  List<ActivityStep> _decodeActivity(dynamic rawActivity) {
+    if (rawActivity is! List) return const [];
+    return rawActivity
+        .whereType<Map>()
+        .map(
+          (step) => ActivityStep(
+            number: (step['number'] as num?)?.toInt() ?? 1,
+            name: step['name'] as String? ?? 'Activity',
+            description: step['description'] as String? ?? '',
+            status: _activityStatus(step['status'] as String?),
+            durationMs: (step['durationMs'] as num?)?.toInt(),
+            summary: step['summary'] as String?,
+            toolEvents: _decodeToolEvents(step['toolEvents']),
+          ),
+        )
+        .toList();
+  }
+
+  List<ToolEvent> _decodeToolEvents(dynamic rawToolEvents) {
+    if (rawToolEvents is! List) return const [];
+    return rawToolEvents
+        .whereType<Map>()
+        .map(
+          (event) => ToolEvent(
+            id: event['id'] as String? ?? '',
+            name: event['name'] as String? ?? '',
+            args: event['args'] is Map
+                ? Map<String, dynamic>.from(event['args'] as Map)
+                : {},
+            result: event['result'],
+            isComplete: event['isComplete'] as bool? ?? true,
+            durationMs: (event['durationMs'] as num?)?.toInt(),
+            summary: event['summary'] as String?,
+          ),
+        )
+        .toList();
+  }
+
+  ActivityStepStatus _activityStatus(String? status) {
+    return switch (status) {
+      'error' => ActivityStepStatus.error,
+      'running' => ActivityStepStatus.running,
+      _ => ActivityStepStatus.complete,
+    };
   }
 
   Future<void> selectThread(String threadId) async {

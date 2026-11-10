@@ -54,5 +54,54 @@ void main() {
       expect(viewModel.state.isLoadingThreads, isFalse);
       expect(viewModel.state.pastThreads, isEmpty);
     });
+
+    test('restores activity steps when a thread is reloaded', () async {
+      SharedPreferences.setMockInitialValues({});
+      when(() => mockChatRepository.getThreadHistory('thread-1'))
+          .thenAnswer((_) async => [
+                {
+                  'id': 'assistant-1',
+                  'role': 'assistant',
+                  'content': 'Answer',
+                  'activity': [
+                    {
+                      'number': 1,
+                      'name': 'Search context',
+                      'description': 'Finding relevant sources',
+                      'status': 'complete',
+                      'durationMs': 420,
+                      'toolEvents': [
+                        {
+                          'id': 'tool-1',
+                          'name': 'query_graph',
+                          'args': {'query': 'hello'},
+                          'result': 'result',
+                          'isComplete': true,
+                          'durationMs': 120,
+                        },
+                      ],
+                    },
+                  ],
+                },
+              ]);
+
+      final viewModel = ChatViewModel(
+        mockChatRepository,
+        mockTTSRepository,
+        mockMemoryRepository,
+      );
+
+      await viewModel.selectThread('thread-1');
+
+      expect(viewModel.state.messages, hasLength(1));
+      expect(viewModel.state.messages.single.activity, hasLength(1));
+      expect(viewModel.state.messages.single.activity.single.name,
+          'Search context');
+      expect(viewModel.state.messages.single.activity.single.durationMs, 420);
+      expect(
+          viewModel
+              .state.messages.single.activity.single.toolEvents.single.name,
+          'query_graph');
+    });
   });
 }
