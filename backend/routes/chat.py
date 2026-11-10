@@ -201,9 +201,7 @@ def _extract_messages_from_state(
     ]
     if activity_history:
         assistant_messages = [
-            message
-            for message in messages
-            if message["role"] == "assistant" and not message["toolEvents"]
+            message for message in messages if message["role"] == "assistant"
         ]
         for message, activity in zip(
             assistant_messages[-len(activity_history) :], activity_history
