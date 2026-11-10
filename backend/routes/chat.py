@@ -263,10 +263,16 @@ def _complete_activity(activity: list[dict]) -> None:
             step["status"] = "complete"
 
 
+def _fail_activity(activity: list[dict]) -> None:
+    for step in activity:
+        if step["status"] == "running":
+            step["status"] = "error"
+
+
 async def _save_activity_history(
     redis, tenant_id: str, thread_id: str, activity: list[dict]
 ) -> None:
-    if tenant_id == "local_guest" or not activity:
+    if tenant_id == "local_guest":
         return
     key = f"tenant:{tenant_id}:thread_activities"
     existing = await redis.hget(key, thread_id)
@@ -370,6 +376,12 @@ async def _stream_events(
     except Exception as e:
         sentry_sdk.capture_exception(e)
         logger.exception("Error in streaming")
+        _fail_activity(activity)
+        try:
+            await _save_activity_history(redis, tenant_id, thread_id, activity)
+        except Exception as save_error:
+            sentry_sdk.capture_exception(save_error)
+            logger.exception("Error saving activity after stream failure")
         yield f"data: {json.dumps({'error': _friendly_provider_error(e)})}\n\n"
         yield "data: [DONE]\n\n"
 

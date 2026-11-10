@@ -84,6 +84,29 @@ async def test_activity_history_is_appended_per_thread():
 
 
 @pytest.mark.asyncio
+async def test_empty_activity_is_saved_to_preserve_response_order():
+    class FakeRedis:
+        def __init__(self):
+            self.values = {}
+
+        async def hget(self, key, field):
+            return self.values.get((key, field))
+
+        async def hset(self, key, field, value):
+            self.values[(key, field)] = value.encode()
+
+    redis = FakeRedis()
+    await _save_activity_history(redis, "tenant-1", "thread-1", [])
+    await _save_activity_history(redis, "tenant-1", "thread-1", [{"name": "step-2"}])
+
+    saved = redis.values[("tenant:tenant-1:thread_activities", "thread-1")]
+    assert [entry["activity"] for entry in json.loads(saved)] == [
+        [],
+        [{"name": "step-2"}],
+    ]
+
+
+@pytest.mark.asyncio
 async def test_stream_events_persist_activity_before_done():
     from backend.routes.chat import _stream_events
 
@@ -130,3 +153,53 @@ async def test_stream_events_persist_activity_before_done():
     assert output[-1] == "data: [DONE]\n\n"
     saved = redis.values[("tenant:tenant-1:thread_activities", "thread-1")]
     assert json.loads(saved)[0]["activity"][0]["status"] == "complete"
+
+
+@pytest.mark.asyncio
+async def test_stream_failure_persists_partial_activity():
+    from backend.routes.chat import _stream_events
+
+    class FakeRedis:
+        def __init__(self):
+            self.values = {}
+
+        async def hget(self, key, field):
+            return self.values.get((key, field))
+
+        async def hset(self, key, field, value):
+            self.values[(key, field)] = value.encode()
+
+    async def stream_events(*args, **kwargs):
+        yield {
+            "event": "on_step_start",
+            "step": 1,
+            "name": "Planning",
+            "description": "Finding evidence",
+        }
+        raise RuntimeError("provider disconnected")
+
+    redis = FakeRedis()
+    request = SimpleNamespace(
+        question="hello",
+        tool_settings=None,
+        custom_system_prompt=None,
+        is_temporary=False,
+        base_url=None,
+        calculate_grounding=False,
+        model="test-model",
+    )
+
+    with pytest.MonkeyPatch.context() as monkeypatch:
+        monkeypatch.setattr(
+            "backend.routes.chat.stream_answer_question", stream_events
+        )
+        output = [
+            chunk
+            async for chunk in _stream_events(
+                request, "tenant-1", "thread-1", "key", None, redis
+            )
+        ]
+
+    assert output[-1] == "data: [DONE]\n\n"
+    saved = redis.values[("tenant:tenant-1:thread_activities", "thread-1")]
+    assert json.loads(saved)[0]["activity"][0]["status"] == "error"

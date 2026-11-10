@@ -26,6 +26,9 @@ client = TestClient(app)
 
 # Helper to mock Redis for the app state
 class MockRedis:
+    async def hget(self, *args):
+        return None
+
     async def sadd(self, key, value):
         return 1
 
