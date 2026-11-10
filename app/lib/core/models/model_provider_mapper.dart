@@ -12,6 +12,7 @@ class ModelProviderMapper {
   static String resolve(String? model) {
     if (model == null || model.isEmpty) return 'unknown';
     final normalized = model.toLowerCase();
+    if (normalized.startsWith('openai/gpt-oss-')) return 'groq';
     if (normalized.startsWith('gemini')) return 'google';
     if (normalized.startsWith('gpt') ||
         normalized.startsWith('o1') ||

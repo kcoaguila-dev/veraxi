@@ -9,6 +9,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:veraxi_app/core/network/api_client.dart';
 import 'package:veraxi_app/core/api_key_storage.dart';
+import 'package:veraxi_app/core/models/model_provider_mapper.dart';
 
 import 'package:veraxi_app/features/chat/data/local_chat_repository.dart';
 import 'package:veraxi_app/features/chat/data/local_chat_data_source.dart'
@@ -102,29 +103,6 @@ class CloudChatRepository implements IChatRepository {
     return List<Map<String, dynamic>>.from(data['messages'] ?? []);
   }
 
-  String _getProviderFromModel(String? model) {
-    if (model == null || model.isEmpty) return 'unknown';
-    model = model.toLowerCase();
-    if (model.startsWith('gemini')) return 'google';
-    if (model.startsWith('gpt') ||
-        model.startsWith('o1') ||
-        model.startsWith('o3')) return 'openai';
-    if (model.startsWith('claude')) return 'anthropic';
-    if (model.startsWith('deepseek')) return 'deepseek';
-    if (model.startsWith('moonshot')) return 'kimi';
-    if (model.endsWith('.gguf')) return 'local';
-    if (model.contains(':')) return 'ollama';
-    if (model.startsWith('llama') ||
-        model.startsWith('qwen') ||
-        model.startsWith('allam') ||
-        model.startsWith('canopy') ||
-        model.startsWith('groq') ||
-        model.startsWith('meta') ||
-        model.startsWith('openai/gpt-oss-')) return 'groq';
-    if (model == 'local-model') return 'local';
-    return 'unknown';
-  }
-
   @override
   Stream<Map<String, dynamic>> streamChat(String question,
       {String? threadId,
@@ -146,7 +124,7 @@ class CloudChatRepository implements IChatRepository {
       final request = http.Request('POST', uri);
       request.headers.addAll(headers);
 
-      final provider = _getProviderFromModel(model);
+      final provider = ModelProviderMapper.resolve(model);
       final apiKey = await apiKeyStorage.getKey(provider);
       String? baseUrl;
 

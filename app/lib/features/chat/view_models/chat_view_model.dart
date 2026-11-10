@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:veraxi_app/core/api_key_storage.dart';
+import 'package:veraxi_app/core/models/model_provider_mapper.dart';
 import 'package:veraxi_app/core/network/api_client.dart';
 import 'package:veraxi_app/core/network/tts_repository.dart';
 import 'package:veraxi_app/features/chat/data/chat_repository.dart';
@@ -276,27 +277,7 @@ class ChatViewModel extends StateNotifier<ChatState> {
       return;
     }
 
-    String getProviderFromModel(String? m) {
-      if (m == null || m.isEmpty) return 'unknown';
-      m = m.toLowerCase();
-      if (m.startsWith('gemini')) return 'google';
-      if (m.startsWith('gpt') || m.startsWith('o1') || m.startsWith('o3'))
-        return 'openai';
-      if (m.startsWith('claude')) return 'anthropic';
-      if (m.startsWith('mistral')) return 'mistral';
-      if (m.startsWith('deepseek')) return 'deepseek';
-      if (m.endsWith('.gguf')) return 'local';
-      if (m.contains(':')) return 'ollama';
-      if (m.startsWith('llama') ||
-          m.startsWith('qwen') ||
-          m.startsWith('allam') ||
-          m.startsWith('canopy') ||
-          m.startsWith('groq') ||
-          m.startsWith('meta')) return 'groq';
-      return 'unknown';
-    }
-
-    final provider = getProviderFromModel(model);
+    final provider = ModelProviderMapper.resolve(model);
     final hasExpired = await ApiKeyStorage().isKeyExpired(provider);
     if (hasExpired) {
       final expireDate = await ApiKeyStorage().getKeyExpirationDate(provider);
