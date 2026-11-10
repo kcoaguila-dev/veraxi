@@ -58,6 +58,32 @@ def test_activity_events_are_restored_on_history_reads():
     assert messages[-1]["activity"][0]["toolEvents"][0]["durationMs"] == 42
 
 
+def test_activity_is_restored_to_final_answers_after_multiple_tool_calls():
+    first_activity = [{"number": 1, "name": "First search"}]
+    second_activity = [{"number": 1, "name": "Second search"}]
+    messages = _extract_messages_from_state(
+        [
+            AIMessage(
+                content="",
+                tool_calls=[{"name": "query_graph", "args": {}, "id": "run-1"}],
+            ),
+            AIMessage(content="first answer"),
+            AIMessage(
+                content="",
+                tool_calls=[{"name": "query_graph", "args": {}, "id": "run-2"}],
+            ),
+            AIMessage(content="second answer"),
+        ],
+        activity_history=[first_activity, second_activity],
+    )
+
+    answers = [message for message in messages if message["content"]]
+    assert [message["activity"] for message in answers] == [
+        first_activity,
+        second_activity,
+    ]
+
+
 @pytest.mark.asyncio
 async def test_activity_history_is_appended_per_thread():
     class FakeRedis:

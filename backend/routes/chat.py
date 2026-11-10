@@ -200,14 +200,20 @@ def _extract_messages_from_state(
         if (p := _process_single_message(msg, tool_results, feedback_dict))
     ]
     if activity_history:
-        assistant_messages = [
-            message for message in messages if message["role"] == "assistant"
-        ]
+        assistant_messages = _final_assistant_messages(messages)
         for message, activity in zip(
             assistant_messages[-len(activity_history) :], activity_history
         ):
             message["activity"] = activity
     return messages
+
+
+def _final_assistant_messages(messages: list[dict]) -> list[dict]:
+    return [
+        message
+        for message in messages
+        if message["role"] == "assistant" and not message["toolEvents"]
+    ]
 
 
 def _record_activity_event(
@@ -786,6 +792,7 @@ def register_chat_routes(
                             message
                             for message in raw_messages
                             if message.__class__.__name__ == "AIMessage"
+                            and not getattr(message, "tool_calls", None)
                         ]
                         for message, response_at in zip(
                             assistant_messages[-len(response_times) :],
