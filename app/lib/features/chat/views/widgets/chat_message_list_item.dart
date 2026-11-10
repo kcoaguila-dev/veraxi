@@ -48,6 +48,7 @@ class ChatMessageListItem extends ConsumerWidget {
       required BuildContext context,
       required WidgetRef ref}) {
     final isUser = msg.role == 'user';
+    final responseAt = _responseAt(msg);
     final name = isUser
         ? 'User'
         : (msg.modelName != null && msg.modelName!.isNotEmpty
@@ -389,10 +390,10 @@ class ChatMessageListItem extends ConsumerWidget {
                                                   .withValues(alpha: 0.5)),
                                         ),
                                       ),
-                                      if (_responseAt(msg) != null) ...[
+                                      if (responseAt != null) ...[
                                         const SizedBox(width: 16),
                                         _RelativeTimeLabel(
-                                          timestamp: _responseAt(msg)!,
+                                          timestamp: responseAt,
                                           color: theme.colorScheme.onSurface
                                               .withValues(alpha: 0.55),
                                         ),
