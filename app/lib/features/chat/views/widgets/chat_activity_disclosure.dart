@@ -7,12 +7,14 @@ class ChatActivityDisclosure extends StatefulWidget {
     super.key,
     required this.activity,
     this.isStreaming = false,
-    this.responseAt,
+    this.reasoning,
+    this.reasoningDurationSeconds,
   });
 
   final List<ActivityStep> activity;
   final bool isStreaming;
-  final DateTime? responseAt;
+  final String? reasoning;
+  final double? reasoningDurationSeconds;
 
   @override
   State<ChatActivityDisclosure> createState() => _ChatActivityDisclosureState();
@@ -30,12 +32,15 @@ class _ChatActivityDisclosureState extends State<ChatActivityDisclosure> {
         widget.activity.any((step) => step.status == ActivityStepStatus.error);
     final isRunning = widget.activity
         .any((step) => step.status == ActivityStepStatus.running);
+    final hasReasoning = widget.reasoning?.isNotEmpty ?? false;
     final summary = isRunning && widget.isStreaming
         ? 'Working through ${widget.activity.length} steps'
         : hasError
             ? 'Activity completed with an issue'
-            : 'Worked through ${widget.activity.length} '
-                '${widget.activity.length == 1 ? 'step' : 'steps'}';
+            : widget.activity.isNotEmpty
+                ? 'Worked through ${widget.activity.length} '
+                    '${widget.activity.length == 1 ? 'step' : 'steps'}'
+                : 'Thought process';
 
     return Semantics(
       container: true,
@@ -92,17 +97,6 @@ class _ChatActivityDisclosureState extends State<ChatActivityDisclosure> {
                           ),
                         ),
                       ),
-                      if (widget.responseAt != null && !widget.isStreaming)
-                        Tooltip(
-                          message: _absoluteTime(widget.responseAt!),
-                          child: Text(
-                            _relativeTime(widget.responseAt!),
-                            style: const TextStyle(
-                              fontSize: 11,
-                              color: Colors.white54,
-                            ),
-                          ),
-                        ),
                       if (!isRunning && !hasError)
                         Text(
                           '$completed/${widget.activity.length}',
@@ -120,6 +114,11 @@ class _ChatActivityDisclosureState extends State<ChatActivityDisclosure> {
                   padding: const EdgeInsets.fromLTRB(14, 0, 10, 10),
                   child: Column(
                     children: [
+                      if (hasReasoning)
+                        _ReasoningView(
+                          reasoning: widget.reasoning!,
+                          durationSeconds: widget.reasoningDurationSeconds,
+                        ),
                       for (final step in widget.activity)
                         _ActivityStepView(step: step),
                     ],
@@ -132,28 +131,68 @@ class _ChatActivityDisclosureState extends State<ChatActivityDisclosure> {
     );
   }
 
-  String _relativeTime(DateTime responseAt) {
-    final elapsed = DateTime.now().difference(responseAt);
-    if (elapsed.inSeconds < 10) return 'just now';
-    if (elapsed.inMinutes < 1) return '${elapsed.inSeconds}s ago';
-    if (elapsed.inHours < 1) return '${elapsed.inMinutes}m ago';
-    if (elapsed.inDays < 1) return '${elapsed.inHours}h ago';
-    if (elapsed.inDays < 7) return '${elapsed.inDays}d ago';
-    return '${responseAt.month}/${responseAt.day}/${responseAt.year}';
-  }
-
-  String _absoluteTime(DateTime responseAt) {
-    final local = responseAt.toLocal();
-    return '${local.year}-${local.month.toString().padLeft(2, '0')}-'
-        '${local.day.toString().padLeft(2, '0')} '
-        '${local.hour.toString().padLeft(2, '0')}:'
-        '${local.minute.toString().padLeft(2, '0')}';
-  }
-
   Color _accentColor(bool hasError, bool isRunning) {
     if (hasError) return Colors.orangeAccent;
     if (isRunning && widget.isStreaming) return Colors.lightBlueAccent;
     return Colors.greenAccent.shade400;
+  }
+}
+
+class _ReasoningView extends StatelessWidget {
+  const _ReasoningView({
+    required this.reasoning,
+    this.durationSeconds,
+  });
+
+  final String reasoning;
+  final double? durationSeconds;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: Colors.purpleAccent.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.psychology_outlined,
+                    size: 15, color: Colors.purpleAccent),
+                const SizedBox(width: 6),
+                Text(
+                  durationSeconds != null
+                      ? 'Reasoning trace · '
+                          '${durationSeconds!.toStringAsFixed(1)}s'
+                      : 'Reasoning trace',
+                  style: const TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white70,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 7),
+            Text(
+              reasoning,
+              style: const TextStyle(
+                fontSize: 11.5,
+                fontFamily: 'monospace',
+                color: Colors.white60,
+                height: 1.4,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 

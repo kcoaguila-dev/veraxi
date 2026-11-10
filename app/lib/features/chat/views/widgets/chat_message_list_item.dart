@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:veraxi_app/features/chat/view_models/audio_player_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -203,23 +205,14 @@ class ChatMessageListItem extends ConsumerWidget {
                                           color: Colors.white30),
                                 ),
 
-                              // 2. Reasoning Trace / Thought Process (Collapsible)
-                              if (msg.reasoning != null &&
-                                  msg.reasoning!.isNotEmpty)
-                                Padding(
-                                  padding: const EdgeInsets.only(bottom: 12.0),
-                                  child: _ReasoningDisclosure(
-                                    reasoning: msg.reasoning!,
-                                    durationSeconds:
-                                        msg.reasoningDurationSeconds,
-                                  ),
-                                ),
-
-                              if (msg.activity.isNotEmpty)
+                              if (msg.activity.isNotEmpty ||
+                                  (msg.reasoning?.isNotEmpty ?? false))
                                 ChatActivityDisclosure(
                                   activity: msg.activity,
                                   isStreaming: msg.isStreaming,
-                                  responseAt: _responseAt(msg),
+                                  reasoning: msg.reasoning,
+                                  reasoningDurationSeconds:
+                                      msg.reasoningDurationSeconds,
                                 )
                               else if (msg.toolEvents.isNotEmpty)
                                 Padding(
@@ -396,6 +389,14 @@ class ChatMessageListItem extends ConsumerWidget {
                                                   .withValues(alpha: 0.5)),
                                         ),
                                       ),
+                                      if (_responseAt(msg) != null) ...[
+                                        const SizedBox(width: 16),
+                                        _RelativeTimeLabel(
+                                          timestamp: _responseAt(msg)!,
+                                          color: theme.colorScheme.onSurface
+                                              .withValues(alpha: 0.55),
+                                        ),
+                                      ],
                                       if (msg.toolEvents.any((e) =>
                                           (e.name.contains('web_search') ||
                                               e.name.contains('merge_rank')) &&
@@ -522,82 +523,76 @@ class ChatMessageListItem extends ConsumerWidget {
   }
 }
 
-class _ReasoningDisclosure extends StatefulWidget {
-  final String reasoning;
-  final double? durationSeconds;
-  const _ReasoningDisclosure({
-    required this.reasoning,
-    this.durationSeconds,
+class _RelativeTimeLabel extends StatefulWidget {
+  const _RelativeTimeLabel({
+    required this.timestamp,
+    required this.color,
   });
 
+  final DateTime timestamp;
+  final Color color;
+
   @override
-  State<_ReasoningDisclosure> createState() => _ReasoningDisclosureState();
+  State<_RelativeTimeLabel> createState() => _RelativeTimeLabelState();
 }
 
-class _ReasoningDisclosureState extends State<_ReasoningDisclosure> {
-  bool _expanded = false;
+class _RelativeTimeLabelState extends State<_RelativeTimeLabel> {
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _scheduleNextUpdate();
+  }
+
+  @override
+  void didUpdateWidget(_RelativeTimeLabel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.timestamp != widget.timestamp) _scheduleNextUpdate();
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  void _scheduleNextUpdate() {
+    _timer?.cancel();
+    final age = DateTime.now().difference(widget.timestamp);
+    final delay = age.inMinutes < 1
+        ? const Duration(seconds: 1)
+        : age.inHours < 1
+            ? Duration(seconds: 60 - age.inSeconds % 60)
+            : age.inDays < 1
+                ? Duration(seconds: 3600 - age.inSeconds % 3600)
+                : Duration(seconds: 86400 - age.inSeconds % 86400);
+    _timer = Timer(delay, () {
+      if (!mounted) return;
+      setState(() {});
+      _scheduleNextUpdate();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 6),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.04),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: Colors.purpleAccent.withValues(alpha: 0.25),
-          width: 1,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          InkWell(
-            onTap: () => setState(() => _expanded = !_expanded),
-            borderRadius: BorderRadius.circular(8),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-              child: Row(
-                children: [
-                  Icon(
-                    _expanded
-                        ? Icons.keyboard_arrow_down_rounded
-                        : Icons.keyboard_arrow_right_rounded,
-                    size: 16,
-                    color: Colors.white70,
-                  ),
-                  const SizedBox(width: 6),
-                  const Icon(Icons.psychology_outlined,
-                      size: 15, color: Colors.purpleAccent),
-                  const SizedBox(width: 6),
-                  Text(
-                    widget.durationSeconds != null
-                        ? 'Thought for ${widget.durationSeconds!.toStringAsFixed(1)}s'
-                        : 'Thought Process & Reasoning Trace',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white70,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          if (_expanded)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
-              child: Text(
-                widget.reasoning,
-                style: const TextStyle(
-                  fontSize: 11.5,
-                  fontFamily: 'monospace',
-                  color: Colors.white60,
-                  height: 1.4,
-                ),
-              ),
-            ),
-        ],
+    final age = DateTime.now().difference(widget.timestamp);
+    final label = age.inSeconds < 10
+        ? 'just now'
+        : age.inMinutes < 1
+            ? '${age.inSeconds}s ago'
+            : age.inHours < 1
+                ? '${age.inMinutes}m ago'
+                : age.inDays < 1
+                    ? '${age.inHours}h ago'
+                    : age.inDays < 7
+                        ? '${age.inDays}d ago'
+                        : '${widget.timestamp.month}/${widget.timestamp.day}/${widget.timestamp.year}';
+    return Tooltip(
+      message: widget.timestamp.toLocal().toString(),
+      child: Text(
+        label,
+        style: TextStyle(fontSize: 11, color: widget.color),
       ),
     );
   }
