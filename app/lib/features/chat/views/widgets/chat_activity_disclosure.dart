@@ -25,22 +25,16 @@ class _ChatActivityDisclosureState extends State<ChatActivityDisclosure> {
 
   @override
   Widget build(BuildContext context) {
-    final completed = widget.activity
-        .where((step) => step.status == ActivityStepStatus.complete)
-        .length;
     final hasError =
         widget.activity.any((step) => step.status == ActivityStepStatus.error);
     final isRunning = widget.activity
         .any((step) => step.status == ActivityStepStatus.running);
     final hasReasoning = widget.reasoning?.isNotEmpty ?? false;
-    final summary = isRunning && widget.isStreaming
-        ? 'Working through ${widget.activity.length} steps'
-        : hasError
-            ? 'Activity completed with an issue'
-            : widget.activity.isNotEmpty
-                ? 'Worked through ${widget.activity.length} '
-                    '${widget.activity.length == 1 ? 'step' : 'steps'}'
-                : 'Thought process';
+    final summary = _summary(
+      hasError: hasError,
+      isRunning: isRunning,
+      hasReasoning: hasReasoning,
+    );
 
     return Semantics(
       container: true,
@@ -51,11 +45,8 @@ class _ChatActivityDisclosureState extends State<ChatActivityDisclosure> {
         child: Container(
           margin: const EdgeInsets.only(bottom: 12),
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.025),
+            color: _expanded ? Colors.white.withValues(alpha: 0.025) : null,
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(
-              color: Colors.white.withValues(alpha: 0.12),
-            ),
           ),
           child: Column(
             children: [
@@ -63,10 +54,7 @@ class _ChatActivityDisclosureState extends State<ChatActivityDisclosure> {
                 onTap: () => setState(() => _expanded = !_expanded),
                 borderRadius: BorderRadius.circular(8),
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 8,
-                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 5),
                   child: Row(
                     children: [
                       Icon(
@@ -74,37 +62,18 @@ class _ChatActivityDisclosureState extends State<ChatActivityDisclosure> {
                             ? Icons.keyboard_arrow_down_rounded
                             : Icons.keyboard_arrow_right_rounded,
                         size: 17,
-                        color: Colors.white70,
+                        color: Colors.white54,
                       ),
-                      const SizedBox(width: 6),
-                      Icon(
-                        hasError
-                            ? Icons.warning_amber_rounded
-                            : isRunning && widget.isStreaming
-                                ? Icons.sync_rounded
-                                : Icons.check_circle_outline_rounded,
-                        size: 15,
-                        color: _accentColor(hasError, isRunning),
-                      ),
-                      const SizedBox(width: 7),
+                      const SizedBox(width: 4),
                       Expanded(
                         child: Text(
                           summary,
                           style: const TextStyle(
                             fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.white70,
+                            color: Colors.white60,
                           ),
                         ),
                       ),
-                      if (widget.activity.isNotEmpty && !isRunning && !hasError)
-                        Text(
-                          '$completed/${widget.activity.length}',
-                          style: const TextStyle(
-                            fontSize: 11,
-                            color: Colors.white54,
-                          ),
-                        ),
                     ],
                   ),
                 ),
@@ -131,10 +100,17 @@ class _ChatActivityDisclosureState extends State<ChatActivityDisclosure> {
     );
   }
 
-  Color _accentColor(bool hasError, bool isRunning) {
-    if (hasError) return Colors.orangeAccent;
-    if (isRunning && widget.isStreaming) return Colors.lightBlueAccent;
-    return Colors.greenAccent.shade400;
+  String _summary({
+    required bool hasError,
+    required bool isRunning,
+    required bool hasReasoning,
+  }) {
+    if (isRunning && widget.isStreaming) return 'Working...';
+    if (hasError) return 'Activity completed with an issue';
+    if (widget.activity.isNotEmpty) {
+      return widget.activity.map((step) => step.name).join(', ');
+    }
+    return hasReasoning ? 'Thought process' : 'Activity';
   }
 }
 

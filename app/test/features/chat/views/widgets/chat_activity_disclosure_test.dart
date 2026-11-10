@@ -25,15 +25,14 @@ void main() {
       ),
     );
 
-    expect(find.text('Worked through 1 step'), findsOneWidget);
+    expect(find.text('Search context'), findsOneWidget);
     expect(find.text('Thought process'), findsNothing);
-    expect(find.text('Search context'), findsNothing);
 
-    await tester.tap(find.text('Worked through 1 step'));
+    await tester.tap(find.text('Search context'));
     await tester.pumpAndSettle();
 
     expect(find.text('Thought process · 1.2s'), findsOneWidget);
     expect(find.text('Inspecting the available context.'), findsOneWidget);
-    expect(find.text('Search context'), findsOneWidget);
+    expect(find.text('Search context'), findsNWidgets(2));
   });
 }
