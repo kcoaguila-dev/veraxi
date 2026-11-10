@@ -154,6 +154,7 @@ def register_gdpr_routes(
                 f"tenant:{tenant_id}:archived_threads",
                 f"tenant:{tenant_id}:thread_projects",
                 f"tenant:{tenant_id}:thread_timestamps",
+                f"tenant:{tenant_id}:thread_activities",
             ]
             await asyncio.gather(
                 *(request.app.state.redis.delete(k) for k in redis_keys)

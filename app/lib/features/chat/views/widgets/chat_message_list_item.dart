@@ -219,6 +219,7 @@ class ChatMessageListItem extends ConsumerWidget {
                                 ChatActivityDisclosure(
                                   activity: msg.activity,
                                   isStreaming: msg.isStreaming,
+                                  responseAt: _responseAt(msg),
                                 )
                               else if (msg.toolEvents.isNotEmpty)
                                 Padding(
@@ -414,9 +415,6 @@ class ChatMessageListItem extends ConsumerWidget {
                                           },
                                         ),
                                       ],
-                                      if (_buildWorkedForBadge(theme, msg) !=
-                                          null)
-                                        _buildWorkedForBadge(theme, msg)!,
                                     ],
                                   ),
                                 ),
@@ -444,46 +442,16 @@ class ChatMessageListItem extends ConsumerWidget {
 
   // Removed hardcoded _allProviderModels
 
-  Widget? _buildWorkedForBadge(ThemeData theme, ChatMessage msg) {
-    if (msg.metrics == null) return null;
-    final double? genSec =
-        (msg.metrics!['generation_seconds'] as num?)?.toDouble();
-    final String workedText = genSec != null
-        ? 'Worked for ${genSec.toStringAsFixed(1)}s'
-        : (msg.metrics!['worked_for']?.toString() ?? '');
-    if (workedText.isEmpty) return null;
-
-    return Container(
-      margin: const EdgeInsets.only(left: 14),
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.onSurface.withValues(alpha: 0.06),
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(
-          color: theme.colorScheme.onSurface.withValues(alpha: 0.1),
-          width: 0.5,
-        ),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            Icons.schedule_rounded,
-            size: 11,
-            color: theme.colorScheme.onSurface.withValues(alpha: 0.45),
-          ),
-          const SizedBox(width: 4),
-          Text(
-            workedText,
-            style: TextStyle(
-              fontSize: 11,
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.55),
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
-      ),
-    );
+  DateTime? _responseAt(ChatMessage msg) {
+    final value = msg.metrics?['response_at'];
+    if (value is num) {
+      return DateTime.fromMillisecondsSinceEpoch(
+        (value * 1000).round(),
+        isUtc: true,
+      );
+    }
+    if (value is String) return DateTime.tryParse(value);
+    return null;
   }
 
   Widget _providerDotFor(String model, {double size = 14}) {

@@ -458,6 +458,8 @@ class ChatThreadViewModel extends Notifier<ChatThreadState> {
               1000.0;
           updatedMetrics = Map<String, dynamic>.from(lastMsg.metrics!);
           updatedMetrics['generation_seconds'] = elapsed;
+          updatedMetrics['response_at'] =
+              DateTime.now().toUtc().toIso8601String();
         }
       }
       final activity = state.messages.isNotEmpty

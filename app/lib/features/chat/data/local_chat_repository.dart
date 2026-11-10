@@ -197,6 +197,8 @@ class LocalChatRepository implements IChatRepository {
     }
 
     if (!isTemporary) {
+      finalMetrics ??= {};
+      finalMetrics['response_at'] = DateTime.now().toUtc().toIso8601String();
       // Save AI Message when done
       await db.into(db.localMessages).insert(LocalMessagesCompanion.insert(
             id: aiMessageId,
@@ -204,8 +206,7 @@ class LocalChatRepository implements IChatRepository {
             role: 'assistant',
             content: aiResponseContent,
             modelName: Value(model),
-            metrics:
-                Value(finalMetrics != null ? jsonEncode(finalMetrics) : null),
+            metrics: Value(jsonEncode(finalMetrics)),
             toolEvents: Value(jsonEncode(toolEvents)),
             activity: Value(jsonEncode(activity)),
             timestamp: Value(DateTime.now()),
@@ -307,6 +308,7 @@ class LocalChatRepository implements IChatRepository {
             modelName: Value(m.modelName),
             metrics: Value(m.metrics),
             toolEvents: Value(m.toolEvents),
+            activity: Value(m.activity),
             timestamp: Value(m.timestamp),
           ));
     }

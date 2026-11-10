@@ -7,10 +7,12 @@ class ChatActivityDisclosure extends StatefulWidget {
     super.key,
     required this.activity,
     this.isStreaming = false,
+    this.responseAt,
   });
 
   final List<ActivityStep> activity;
   final bool isStreaming;
+  final DateTime? responseAt;
 
   @override
   State<ChatActivityDisclosure> createState() => _ChatActivityDisclosureState();
@@ -32,7 +34,8 @@ class _ChatActivityDisclosureState extends State<ChatActivityDisclosure> {
         ? 'Working through ${widget.activity.length} steps'
         : hasError
             ? 'Activity completed with an issue'
-            : 'Worked through ${widget.activity.length} steps';
+            : 'Worked through ${widget.activity.length} '
+                '${widget.activity.length == 1 ? 'step' : 'steps'}';
 
     return Semantics(
       container: true,
@@ -89,6 +92,17 @@ class _ChatActivityDisclosureState extends State<ChatActivityDisclosure> {
                           ),
                         ),
                       ),
+                      if (widget.responseAt != null && !widget.isStreaming)
+                        Tooltip(
+                          message: _absoluteTime(widget.responseAt!),
+                          child: Text(
+                            _relativeTime(widget.responseAt!),
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: Colors.white54,
+                            ),
+                          ),
+                        ),
                       if (!isRunning && !hasError)
                         Text(
                           '$completed/${widget.activity.length}',
@@ -116,6 +130,24 @@ class _ChatActivityDisclosureState extends State<ChatActivityDisclosure> {
         ),
       ),
     );
+  }
+
+  String _relativeTime(DateTime responseAt) {
+    final elapsed = DateTime.now().difference(responseAt);
+    if (elapsed.inSeconds < 10) return 'just now';
+    if (elapsed.inMinutes < 1) return '${elapsed.inSeconds}s ago';
+    if (elapsed.inHours < 1) return '${elapsed.inMinutes}m ago';
+    if (elapsed.inDays < 1) return '${elapsed.inHours}h ago';
+    if (elapsed.inDays < 7) return '${elapsed.inDays}d ago';
+    return '${responseAt.month}/${responseAt.day}/${responseAt.year}';
+  }
+
+  String _absoluteTime(DateTime responseAt) {
+    final local = responseAt.toLocal();
+    return '${local.year}-${local.month.toString().padLeft(2, '0')}-'
+        '${local.day.toString().padLeft(2, '0')} '
+        '${local.hour.toString().padLeft(2, '0')}:'
+        '${local.minute.toString().padLeft(2, '0')}';
   }
 
   Color _accentColor(bool hasError, bool isRunning) {

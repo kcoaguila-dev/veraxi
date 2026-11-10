@@ -74,6 +74,7 @@ class LocalChatMigrationService {
       'feedback': message.feedback,
       'model_name': message.modelName,
       'metrics': _decodeJson(message.metrics),
+      'activity': _decodeJson(message.activity),
     };
   }
 

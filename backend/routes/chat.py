@@ -69,6 +69,7 @@ class ImportedMessage(BaseModel):
     feedback: int = 0
     model_name: str | None = None
     metrics: dict | None = None
+    activity: list[dict] = Field(default_factory=list)
 
 
 class ImportedThread(BaseModel):
@@ -154,8 +155,11 @@ def _process_single_message(msg, tool_results, feedback_dict):
                 }
             )
     activity = []
+    saved_activity = getattr(msg, "additional_kwargs", {}).get("activity")
+    if isinstance(saved_activity, list):
+        activity = saved_activity
     if tool_events:
-        activity.append(
+        activity = [
             {
                 "number": 1,
                 "name": "Tool activity",
@@ -163,7 +167,7 @@ def _process_single_message(msg, tool_results, feedback_dict):
                 "status": "complete",
                 "toolEvents": tool_events,
             }
-        )
+        ] + activity
     return {
         "id": str(msg_id),
         "role": "user" if msg_type == "HumanMessage" else "assistant",
@@ -177,7 +181,9 @@ def _process_single_message(msg, tool_results, feedback_dict):
 
 
 def _extract_messages_from_state(
-    raw_messages: list, feedback_dict: dict | None = None
+    raw_messages: list,
+    feedback_dict: dict | None = None,
+    activity_history: list[list[dict]] | None = None,
 ) -> list:
     if feedback_dict is None:
         feedback_dict = {}
@@ -188,11 +194,92 @@ def _extract_messages_from_state(
             or msg.__class__.__name__ == "ToolMessage"
         ):
             tool_results[msg.tool_call_id] = msg.content
-    return [
+    messages = [
         p
         for msg in raw_messages
         if (p := _process_single_message(msg, tool_results, feedback_dict))
     ]
+    if activity_history:
+        assistant_messages = [
+            message
+            for message in messages
+            if message["role"] == "assistant" and not message["toolEvents"]
+        ]
+        for message, activity in zip(
+            assistant_messages[-len(activity_history) :], activity_history
+        ):
+            message["activity"] = activity
+    return messages
+
+
+def _record_activity_event(
+    activity: list[dict], event: dict
+) -> None:
+    event_type = event.get("event")
+    if event_type == "on_step_start":
+        activity.append(
+            {
+                "number": int(event.get("step") or len(activity) + 1),
+                "name": event.get("name") or "Activity",
+                "description": event.get("description") or "",
+                "status": "running",
+                "toolEvents": [],
+            }
+        )
+        return
+    if not activity:
+        return
+    if event_type == "on_tool_start":
+        activity[-1]["toolEvents"].append(
+            {
+                "id": event.get("run_id") or "",
+                "name": event.get("name") or "tool",
+                "args": (event.get("data") or {}).get("input") or {},
+                "isComplete": False,
+            }
+        )
+        return
+    if event_type != "on_tool_end":
+        return
+    run_id = event.get("run_id")
+    for step in activity:
+        for tool in step["toolEvents"]:
+            if tool["id"] != run_id:
+                continue
+            data = event.get("data") or {}
+            tool.update(
+                {
+                    "isComplete": True,
+                    "result": data.get("artifact") or data.get("output"),
+                    "durationMs": event.get("duration_ms"),
+                    "summary": event.get("summary"),
+                }
+            )
+            if event.get("status") == "error":
+                step["status"] = "error"
+
+
+def _complete_activity(activity: list[dict]) -> None:
+    for step in activity:
+        if step["status"] == "running":
+            step["status"] = "complete"
+
+
+async def _save_activity_history(
+    redis, tenant_id: str, thread_id: str, activity: list[dict]
+) -> None:
+    if tenant_id == "local_guest" or not activity:
+        return
+    key = f"tenant:{tenant_id}:thread_activities"
+    existing = await redis.hget(key, thread_id)
+    history = json.loads(existing.decode("utf-8")) if existing else []
+    history.append(
+        {
+            "activity": activity,
+            "response_at": time.time(),
+        }
+    )
+    await redis.hset(key, thread_id, json.dumps(history))
 
 
 def _build_thread_list(threads, titles, pinned, archived, projects, timestamps):
@@ -228,6 +315,8 @@ def _to_imported_langchain_messages(messages: list[ImportedMessage]):
             message_kwargs["model_name"] = message.model_name
         if message.metrics:
             message_kwargs["metrics"] = message.metrics
+        if message.activity:
+            message_kwargs["activity"] = message.activity
         message_type = HumanMessage if message.role == "user" else AIMessage
         imported.append(
             message_type(
@@ -240,8 +329,9 @@ def _to_imported_langchain_messages(messages: list[ImportedMessage]):
 
 
 async def _stream_events(
-    chat_request, tenant_id, thread_id, api_key_override, title_task
+    chat_request, tenant_id, thread_id, api_key_override, title_task, redis
 ):
+    activity: list[dict] = []
     try:
         yield f"data: {json.dumps({'event': 'metadata', 'data': {'thread_id': thread_id}})}\n\n"
         ts = chat_request.tool_settings or {}
@@ -259,6 +349,7 @@ async def _stream_events(
             calculate_grounding=chat_request.calculate_grounding,
             tool_settings=ts,
         ):
+            _record_activity_event(activity, event)
 
             def custom_encoder(obj):
                 if hasattr(obj, "model_dump"):
@@ -275,6 +366,8 @@ async def _stream_events(
                     yield f"data: {json.dumps({'event': 'metadata', 'data': {'thread_title': title}})}\n\n"
             except Exception as e:
                 logger.error(f"Error waiting for title task: {e}")
+        _complete_activity(activity)
+        await _save_activity_history(redis, tenant_id, thread_id, activity)
         yield "data: [DONE]\n\n"
     except Exception as e:
         sentry_sdk.capture_exception(e)
@@ -525,7 +618,12 @@ def register_chat_routes(
             if chat_request.stream:
                 return StreamingResponse(
                     _stream_events(
-                        chat_request, tenant_id, thread_id, api_key_override, title_task
+                        chat_request,
+                        tenant_id,
+                        thread_id,
+                        api_key_override,
+                        title_task,
+                        request.app.state.redis,
                     ),
                     media_type="text/event-stream",
                 )
@@ -654,8 +752,46 @@ def register_chat_routes(
             except Exception as e:
                 sentry_sdk.capture_exception(e)
                 logger.error(f"Failed to fetch feedback: {e}")
+            activity_history = []
+            try:
+                activity_raw = await request.app.state.redis.hget(
+                    f"tenant:{tenant_id}:thread_activities", thread_id
+                )
+                if activity_raw:
+                    decoded = json.loads(activity_raw.decode("utf-8"))
+                    if isinstance(decoded, list):
+                        activity_history = [
+                            item.get("activity", [])
+                            if isinstance(item, dict)
+                            else item
+                            for item in decoded
+                            if isinstance(item, (dict, list))
+                        ]
+                        response_times = [
+                            item.get("response_at")
+                            for item in decoded
+                            if isinstance(item, dict)
+                        ]
+                        assistant_messages = [
+                            message
+                            for message in raw_messages
+                            if message.__class__.__name__ == "AIMessage"
+                        ]
+                        for message, response_at in zip(
+                            assistant_messages[-len(response_times) :],
+                            response_times,
+                        ):
+                            if response_at is not None:
+                                message.additional_kwargs.setdefault(
+                                    "metrics", {}
+                                )["response_at"] = response_at
+            except Exception as e:
+                sentry_sdk.capture_exception(e)
+                logger.error(f"Failed to fetch activity history: {e}")
             return {
-                "messages": _extract_messages_from_state(raw_messages, feedback_dict)
+                "messages": _extract_messages_from_state(
+                    raw_messages, feedback_dict, activity_history
+                )
             }
         except HTTPException:
             raise
@@ -939,6 +1075,7 @@ def register_chat_routes(
             request.app.state.redis.srem(f"tenant:{tenant_id}:archived_threads", thread_id),
             request.app.state.redis.hdel(f"tenant:{tenant_id}:thread_projects", thread_id),
             request.app.state.redis.hdel(f"tenant:{tenant_id}:thread_timestamps", thread_id),
+            request.app.state.redis.hdel(f"tenant:{tenant_id}:thread_activities", thread_id),
         )
         await _delete_postgres_checkpoints([thread_id])
         return {"status": "deleted"}
@@ -959,6 +1096,7 @@ def register_chat_routes(
             request.app.state.redis.delete(f"tenant:{tenant_id}:archived_threads"),
             request.app.state.redis.delete(f"tenant:{tenant_id}:thread_projects"),
             request.app.state.redis.delete(f"tenant:{tenant_id}:thread_timestamps"),
+            request.app.state.redis.delete(f"tenant:{tenant_id}:thread_activities"),
         )
         if tids:
             await _delete_postgres_checkpoints(tids)
