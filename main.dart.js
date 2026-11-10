@@ -144236,7 +144236,7 @@ r===$&&A.c()
 s=r.geO().e.a
 r=s
 n=r==null?null:r.c}catch(q){}r=n
-p=A.bZM("https://veraxi-backend-877632476404.us-east4.run.app/api")
+p=A.bZM("https://api.veraxi.me/api")
 o=A.aul()
 if(o==null)o=new A.tC(A.b([],t.O))
 return new A.ww(p,o,r,new A.hI())},
