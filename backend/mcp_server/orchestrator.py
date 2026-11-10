@@ -1,4 +1,5 @@
 import asyncio
+import copy
 import json
 import logging
 import os
@@ -33,6 +34,17 @@ logger = logging.getLogger(__name__)
 from contextvars import ContextVar
 
 _request_model: ContextVar[str | None] = ContextVar("_request_model", default=None)
+
+
+def _sanitize_messages_for_provider(
+    messages: Sequence[BaseMessage],
+) -> list[BaseMessage]:
+    sanitized = []
+    for message in messages:
+        message_copy = copy.deepcopy(message)
+        message_copy.additional_kwargs.pop("reasoning_content", None)
+        sanitized.append(message_copy)
+    return sanitized
 _request_api_key: ContextVar[str | None] = ContextVar("_request_api_key", default=None)
 _request_base_url: ContextVar[str | None] = ContextVar(
     "_request_base_url", default=None
@@ -241,6 +253,7 @@ async def call_model(state: AgentState):
         extra_system_messages,
         custom_system_prompt=custom_system_prompt,
     )
+    modified_messages = _sanitize_messages_for_provider(modified_messages)
 
     # Determine if we should bind tools. We do not bind tools if we are executing a fallback,
     # OR if we just received a ToolMessage (to prevent the LLM from hallucinating more tool calls and looping).

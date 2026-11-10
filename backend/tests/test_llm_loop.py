@@ -239,6 +239,43 @@ async def test_call_model(mock_config):
         assert res["messages"][0].content == "Hi there!"
 
 
+@pytest.mark.asyncio
+async def test_call_model_does_not_replay_reasoning_content(mock_config):
+    from langchain_core.messages import AIMessage, HumanMessage
+
+    from backend.mcp_server.orchestrator import call_model
+
+    mock_llm = AsyncMock()
+    mock_llm.ainvoke.return_value = AIMessage(content="Hi there!", additional_kwargs={})
+
+    with patch("backend.mcp_server.orchestrator._create_chat_llm") as mock_create:
+        mock_create.return_value = mock_llm
+        mock_llm.bind_tools.return_value = mock_llm
+
+        state = {
+            "messages": [
+                HumanMessage(content="Hello"),
+                AIMessage(
+                    content="Previous answer",
+                    additional_kwargs={
+                        "reasoning_content": "private provider trace",
+                        "model_name": "test-model",
+                    },
+                ),
+            ],
+            "calculate_grounding": False,
+        }
+
+        await call_model(state)
+
+        sent_messages = mock_llm.ainvoke.call_args.args[0]
+        assert all(
+            "reasoning_content" not in message.additional_kwargs
+            for message in sent_messages
+        )
+        assert state["messages"][1].additional_kwargs["reasoning_content"]
+
+
 def test_execute_single_tool(mock_config):
     from backend.mcp_server.tool_dispatch import _execute_single_tool
 
