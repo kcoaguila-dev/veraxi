@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Callable
+import builtins
 
 
 def _to_bytes(val: Any) -> bytes:
@@ -22,7 +23,7 @@ class InMemoryRedisPool:
     async def get(self, key: str) -> bytes | None:
         return self._kv.get(key)
 
-    async def set(self, key: str, value: Any, *args, **kwargs) -> bool:
+    async def set(self, key: str, value: Any, *args: Any, **kwargs: Any) -> bool:
         self._kv[key] = _to_bytes(value)
         return True
 
@@ -92,7 +93,7 @@ class InMemoryRedisPool:
             s.discard(_to_bytes(v))
         return before - len(s)
 
-    async def smembers(self, name: str) -> set[bytes]:
+    async def smembers(self, name: str) -> builtins.set[bytes]:
         return set(self._sets.get(name, set()))
 
     async def sismember(self, name: str, value: Any) -> bool:

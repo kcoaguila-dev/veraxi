@@ -43,7 +43,8 @@ def _get_cross_encoder(model_name: str, threads: int = 2):
         _CROSS_ENCODER_CACHE[key] = encoder
         return encoder
 
-_get_cross_encoder.cache_clear = _CROSS_ENCODER_CACHE.clear
+
+_get_cross_encoder.cache_clear = _CROSS_ENCODER_CACHE.clear  # type: ignore
 
 
 @dataclass
@@ -168,7 +169,9 @@ def _rerank_with_cross_encoder(
             except Exception:
                 sigmoid_val = 0.5
 
-            new_fused_score = item.fused_score + (1.0 / (k + ce_rank)) + (1e-4 * sigmoid_val)
+            new_fused_score = (
+                item.fused_score + (1.0 / (k + ce_rank)) + (1e-4 * sigmoid_val)
+            )
             new_scores.append((orig_idx, new_fused_score))
 
         for orig_idx, new_fused_score in new_scores:

@@ -17,7 +17,7 @@ from backend import context as byod_context
 logger = logging.getLogger(__name__)
 
 _CLIENT_CACHE: dict[tuple[str, str | None], Any] = {}
-_INITIALIZED_COLLECTIONS: set[tuple[str, str]] = set()
+_INITIALIZED_COLLECTIONS: set[tuple[str, str, int | None]] = set()
 
 
 def close_all_qdrant_clients():
@@ -42,7 +42,9 @@ class QdrantStorageClient:
             url = request_url if request_url else cfg.qdrant_url
             if api_key is None:
                 api_key = request_key if request_key else cfg.qdrant_api_key
-            self.collection_name = getattr(cfg, "qdrant_collection_name", "veraxi_vectors")
+            self.collection_name = getattr(
+                cfg, "qdrant_collection_name", "veraxi_vectors"
+            )
         else:
             self.collection_name = "veraxi_vectors"
 
