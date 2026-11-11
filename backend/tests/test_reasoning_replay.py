@@ -43,8 +43,10 @@ async def test_serializer_level_reasoning_stripping():
         mock_acompletion.return_value = AsyncMock()
         try:
             await llm.ainvoke(messages)
-        except Exception:
-            pass
+        except Exception as e:
+            import logging
+
+            logging.getLogger(__name__).debug(f"Expected error: {e}")
 
         called_kwargs = mock_acompletion.call_args.kwargs
         sent_messages = called_kwargs.get("messages", [])
@@ -81,8 +83,10 @@ async def test_serializer_level_reasoning_stripping_with_tools():
         mock_acompletion.return_value = AsyncMock()
         try:
             await llm.ainvoke(messages)
-        except Exception:
-            pass
+        except Exception as e:
+            import logging
+
+            logging.getLogger(__name__).debug(f"Expected error: {e}")
 
         called_kwargs = mock_acompletion.call_args.kwargs
         sent_messages = called_kwargs.get("messages", [])
