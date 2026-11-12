@@ -18,6 +18,7 @@ class ApiKeysTab extends ConsumerStatefulWidget {
 class _ApiKeysTabState extends ConsumerState<ApiKeysTab> {
   final Map<String, String?> _providerKeys = {};
   final Map<String, String?> _providerExpirations = {};
+  final Map<String, bool> _providerExpired = {};
   bool _isLoadingKeys = true;
 
   @override
@@ -34,6 +35,7 @@ class _ApiKeysTabState extends ConsumerState<ApiKeysTab> {
       _providerKeys[provider] = await storage.getKey(provider);
       _providerExpirations[provider] =
           await storage.getKeyExpirationDate(provider);
+      _providerExpired[provider] = await storage.isKeyExpired(provider);
     }
     if (mounted) {
       setState(() {
@@ -62,6 +64,8 @@ class _ApiKeysTabState extends ConsumerState<ApiKeysTab> {
       } else {
         subtitle = 'Configured • No expiration';
       }
+    } else if (_providerExpired[providerId] == true) {
+      subtitle = 'Expired${expires != null ? ' ($expires)' : ''}';
     } else {
       subtitle = 'Not configured';
     }
