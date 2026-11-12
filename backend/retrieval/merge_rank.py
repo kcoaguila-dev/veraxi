@@ -43,7 +43,7 @@ def _get_cross_encoder(model_name: str, threads: int = 2):
         _CROSS_ENCODER_CACHE[key] = encoder
         return encoder
 
-_get_cross_encoder.cache_clear = _CROSS_ENCODER_CACHE.clear
+_get_cross_encoder.cache_clear = _CROSS_ENCODER_CACHE.clear  # type: ignore[attr-defined]
 
 
 @dataclass
