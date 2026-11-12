@@ -10,6 +10,7 @@ from collections.abc import Sequence
 from contextvars import ContextVar
 from typing import Annotated, Any, TypedDict
 
+import litellm
 import sentry_sdk
 from langchain_core.messages import (
     AIMessage,
@@ -131,6 +132,31 @@ def normalize_litellm_model(
     return f"openai/{model_name}", base_url
 
 
+_TOOL_GENERATION_ERROR_MARKERS = (
+    "tool_use_failed",
+    "failed_generation",
+    "failed to call a function",
+    "invalid tool call",
+    "tool call validation",
+)
+
+
+def _is_tool_generation_error(exc: Exception) -> bool:
+    """True if a provider 400 indicates the model emitted a malformed tool call."""
+    text = str(exc).lower()
+    return any(marker in text for marker in _TOOL_GENERATION_ERROR_MARKERS)
+
+
+class _ReasoningStrippedChatLiteLLM(ChatLiteLLM):
+    def _create_message_dicts(
+        self, messages: list[BaseMessage], stop: list[str] | None
+    ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+        message_dicts, params = super()._create_message_dicts(messages, stop)
+        for msg_dict in message_dicts:
+            msg_dict.pop("reasoning_content", None)
+        return message_dicts, params
+
+
 def _create_chat_llm(model_name: str, api_key: str | None, base_url: str | None = None):
     """Build the configured chat LLM client via unified LiteLLM routing."""
     config = get_config()
@@ -157,7 +183,7 @@ def _create_chat_llm(model_name: str, api_key: str | None, base_url: str | None 
         llm_args["api_base"] = final_base_url
 
     # LiteLLM routing directly via ChatLiteLLM
-    return ChatLiteLLM(
+    return _ReasoningStrippedChatLiteLLM(
         model=normalized_model,
         temperature=0,
         **llm_args,
@@ -284,6 +310,12 @@ async def call_model(state: AgentState):
             break
         except Exception as e:
             import logging
+
+            if isinstance(e, litellm.exceptions.BadRequestError) and not (
+                llm_with_tools is not llm and _is_tool_generation_error(e)
+            ):
+                # Not a malformed tool call: retrying cannot fix it.
+                raise
 
             logging.getLogger(__name__).warning(
                 f"Tool invocation crashed (Attempt {attempt + 1}/{MAX_RETRIES}) for {effective_model}: {e}"
@@ -550,17 +582,11 @@ async def evaluate_context(state: AgentState):
 
     # Short-circuit if only non-retrieval tools were called (e.g. code runner, time, external MCP)
     last_aimsg = next(
-        (
-            m
-            for m in reversed(messages)
-            if hasattr(m, "tool_calls") and m.tool_calls
-        ),
+        (m for m in reversed(messages) if hasattr(m, "tool_calls") and m.tool_calls),
         None,
     )
     called_tool_names = (
-        {tc.get("name") for tc in last_aimsg.tool_calls}
-        if last_aimsg
-        else set()
+        {tc.get("name") for tc in last_aimsg.tool_calls} if last_aimsg else set()
     )
     retrieval_tool_names = {
         "search_vectors",
