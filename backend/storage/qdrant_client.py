@@ -17,7 +17,7 @@ from backend import context as byod_context
 logger = logging.getLogger(__name__)
 
 _CLIENT_CACHE: dict[tuple[str, str | None], Any] = {}
-_INITIALIZED_COLLECTIONS: set[tuple[str, str]] = set()
+_INITIALIZED_COLLECTIONS: set[tuple[str, str, int]] = set()
 
 
 def close_all_qdrant_clients():

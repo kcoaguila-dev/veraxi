@@ -958,6 +958,7 @@ def register_chat_routes(
             from langgraph.checkpoint.redis.aio import AsyncRedisSaver
 
             config_obj = _get_config()
+            saver_ctx: Any
             if config_obj.postgres_url:
                 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 

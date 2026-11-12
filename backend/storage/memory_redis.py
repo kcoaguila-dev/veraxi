@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import builtins
 from typing import Any
 
 
@@ -92,7 +93,7 @@ class InMemoryRedisPool:
             s.discard(_to_bytes(v))
         return before - len(s)
 
-    async def smembers(self, name: str) -> set[bytes]:
+    async def smembers(self, name: str) -> builtins.set[bytes]:
         return set(self._sets.get(name, set()))
 
     async def sismember(self, name: str, value: Any) -> bool:
