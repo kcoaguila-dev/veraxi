@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -166,6 +167,17 @@ class _ApiKeyDialogState extends ConsumerState<ApiKeyDialog> {
                               fontSize: 12,
                               fontWeight: FontWeight.w500),
                         ),
+                        if (kIsWeb) ...[
+                          SizedBox(height: 6),
+                          Text(
+                            'Keys are stored only in this browser. In a private/incognito window they are deleted when you close it.',
+                            style: TextStyle(
+                                color: Theme.of(context)
+                                    .extension<AppThemeExtension>()!
+                                    .textTertiary,
+                                fontSize: 11),
+                          ),
+                        ],
                         SizedBox(height: 12),
 
                         // Expires dropdown
