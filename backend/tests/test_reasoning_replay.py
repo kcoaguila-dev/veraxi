@@ -1,5 +1,6 @@
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
-from unittest.mock import patch, AsyncMock, MagicMock
 
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from backend.mcp_server.orchestrator import (
@@ -27,132 +28,145 @@ def mock_config():
         yield mock_conf
 
 
-@pytest.mark.asyncio
-async def test_serializer_level_reasoning_stripping():
-    # Test a)
+async def _captured_messages(messages):
     llm = _create_chat_llm("openai/gpt-oss-20b", "k")
-
-    messages = [
-        HumanMessage(content="Hello"),
-        AIMessage(content="Hi", additional_kwargs={"reasoning_content": "some trace"}),
-    ]
-
     with patch.object(
         llm.client, "acompletion", new_callable=AsyncMock
     ) as mock_acompletion:
-        mock_acompletion.return_value = AsyncMock()
-        try:
+        mock_acompletion.side_effect = RuntimeError("stop after serialization")
+        with pytest.raises(RuntimeError, match="stop after serialization"):
             await llm.ainvoke(messages)
-        except Exception as e:
-            import logging
+        mock_acompletion.assert_called_once()
+        return mock_acompletion.call_args.kwargs["messages"]
 
-            logging.getLogger(__name__).debug(f"Expected error: {e}")
 
-        called_kwargs = mock_acompletion.call_args.kwargs
-        sent_messages = called_kwargs.get("messages", [])
-        assert len(sent_messages) == 2
-        assert "reasoning_content" not in sent_messages[1]
+@pytest.mark.asyncio
+async def test_serializer_level_reasoning_stripping():
+    sent = await _captured_messages(
+        [
+            HumanMessage(content="Hello"),
+            AIMessage(
+                content="Hi", additional_kwargs={"reasoning_content": "some trace"}
+            ),
+        ]
+    )
+    assert len(sent) == 2
+    assert "reasoning_content" not in sent[1]
 
 
 @pytest.mark.asyncio
 async def test_serializer_level_reasoning_stripping_with_tools():
-    # Test b)
-    llm = _create_chat_llm("openai/gpt-oss-20b", "k")
-
-    messages = [
-        HumanMessage(content="Hello"),
-        AIMessage(
-            content="",
-            additional_kwargs={
-                "reasoning_content": "some trace",
-                "tool_calls": [
-                    {
-                        "id": "t1",
-                        "function": {"name": "f1", "arguments": "{}"},
-                        "type": "function",
-                    }
-                ],
-            },
-        ),
-        ToolMessage(content="tool result", tool_call_id="t1"),
-    ]
-
-    with patch.object(
-        llm.client, "acompletion", new_callable=AsyncMock
-    ) as mock_acompletion:
-        mock_acompletion.return_value = AsyncMock()
-        try:
-            await llm.ainvoke(messages)
-        except Exception as e:
-            import logging
-
-            logging.getLogger(__name__).debug(f"Expected error: {e}")
-
-        called_kwargs = mock_acompletion.call_args.kwargs
-        sent_messages = called_kwargs.get("messages", [])
-        assert len(sent_messages) == 3
-        assert "reasoning_content" not in sent_messages[1]
+    sent = await _captured_messages(
+        [
+            HumanMessage(content="Hello"),
+            AIMessage(
+                content="",
+                additional_kwargs={
+                    "reasoning_content": "some trace",
+                    "tool_calls": [
+                        {
+                            "id": "t1",
+                            "function": {"name": "f1", "arguments": "{}"},
+                            "type": "function",
+                        }
+                    ],
+                },
+            ),
+            ToolMessage(content="tool result", tool_call_id="t1"),
+        ]
+    )
+    assert len(sent) == 3
+    assert "reasoning_content" not in sent[1]
+    assert sent[1].get("tool_calls")
 
 
 def test_routing_pin():
-    # Test c)
     model, base_url = normalize_litellm_model("openai/gpt-oss-20b")
     assert model == "groq/openai/gpt-oss-20b"
     assert base_url is None
 
 
-@pytest.mark.asyncio
-async def test_retry_behavior_non_tool_error(mock_config):
-    # Test d)
-    mock_llm = AsyncMock()
-    # non-tool error
-    mock_llm.ainvoke.side_effect = litellm.exceptions.BadRequestError(
-        message="some random error", model="model", llm_provider="provider"
+def _bad_request(message):
+    return litellm.exceptions.BadRequestError(
+        message=message, model="model", llm_provider="provider"
     )
 
-    with patch("backend.mcp_server.orchestrator._create_chat_llm") as mock_create:
-        mock_create.return_value = mock_llm
-        mock_llm.bind_tools.return_value = mock_llm
 
-        state = {
-            "messages": [HumanMessage(content="Hello")],
-            "calculate_grounding": False,
-        }
+def _state():
+    return {"messages": [HumanMessage(content="Hello")], "calculate_grounding": False}
 
-        with pytest.raises(litellm.exceptions.BadRequestError):
-            await call_model(state)
 
-        assert mock_llm.ainvoke.call_count == 1
+async def _run_call_model(side_effect, fallback=None):
+    """Run call_model with tools bound; returns (tool_llm, plain_llm)."""
+    plain_llm = AsyncMock()
+    tool_llm = AsyncMock()
+    tool_llm.ainvoke.side_effect = side_effect
+    plain_llm.bind_tools = MagicMock(return_value=tool_llm)
+    plain_llm.ainvoke.return_value = fallback or AIMessage(content="fallback")
+    with (
+        patch(
+            "backend.mcp_server.orchestrator._create_chat_llm",
+            return_value=plain_llm,
+        ),
+        patch(
+            "backend.mcp_server.orchestrator.get_tools",
+            new=AsyncMock(return_value=[MagicMock()]),
+        ),
+    ):
+        await call_model(_state())
+    return tool_llm, plain_llm
 
 
 @pytest.mark.asyncio
-async def test_retry_behavior_tool_error(mock_config):
-    # Test d) part 2
-    mock_llm = AsyncMock()
-    # tool error
-    mock_llm.ainvoke.side_effect = litellm.exceptions.BadRequestError(
-        message="tool failed", model="model", llm_provider="provider"
+async def test_non_tool_bad_request_is_not_retried(mock_config):
+    plain_llm = AsyncMock()
+    tool_llm = AsyncMock()
+    tool_llm.ainvoke.side_effect = _bad_request("some random error")
+    plain_llm.bind_tools = MagicMock(return_value=tool_llm)
+    with (
+        patch(
+            "backend.mcp_server.orchestrator._create_chat_llm",
+            return_value=plain_llm,
+        ),
+        patch(
+            "backend.mcp_server.orchestrator.get_tools",
+            new=AsyncMock(return_value=[MagicMock()]),
+        ),
+        pytest.raises(litellm.exceptions.BadRequestError),
+    ):
+        await call_model(_state())
+    assert tool_llm.ainvoke.call_count == 1
+    plain_llm.ainvoke.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_unrelated_error_mentioning_function_is_not_retried(mock_config):
+    """Substring 'function'/'tool' alone must not trigger retries."""
+    plain_llm = AsyncMock()
+    tool_llm = AsyncMock()
+    tool_llm.ainvoke.side_effect = _bad_request(
+        "'reasoning_content' is unsupported for this function-calling model tool"
     )
-    # mock fallback
-    mock_llm.ainvoke.side_effect = [
-        litellm.exceptions.BadRequestError(
-            message="tool failed", model="model", llm_provider="provider"
+    plain_llm.bind_tools = MagicMock(return_value=tool_llm)
+    with (
+        patch(
+            "backend.mcp_server.orchestrator._create_chat_llm",
+            return_value=plain_llm,
         ),
-        litellm.exceptions.BadRequestError(
-            message="tool failed", model="model", llm_provider="provider"
+        patch(
+            "backend.mcp_server.orchestrator.get_tools",
+            new=AsyncMock(return_value=[MagicMock()]),
         ),
-        AIMessage(content="success", additional_kwargs={}),
-    ]
+        pytest.raises(litellm.exceptions.BadRequestError),
+    ):
+        await call_model(_state())
+    assert tool_llm.ainvoke.call_count == 1
 
-    with patch("backend.mcp_server.orchestrator._create_chat_llm") as mock_create:
-        mock_create.return_value = mock_llm
-        mock_llm.bind_tools.return_value = mock_llm
 
-        state = {
-            "messages": [HumanMessage(content="Hello")],
-            "calculate_grounding": False,
-        }
-
-        await call_model(state)
-
-        assert mock_llm.ainvoke.call_count == 3
+@pytest.mark.asyncio
+async def test_tool_generation_error_is_retried(mock_config):
+    err = _bad_request("tool_use_failed: Failed to call a function")
+    tool_llm, _ = await _run_call_model(
+        [err, err, AIMessage(content="success", additional_kwargs={})]
+    )
+    assert tool_llm.ainvoke.call_count == 3
