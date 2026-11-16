@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=84.0.0"]
+requires = ["setuptools>=84.2.1"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
@@ -21,9 +21,9 @@ requires-python = ">=3.12"
 dependencies = [
     "neo4j",
     "qdrant-client",
-    "mcp>=2.2.0",
+    "mcp>=2.3.0",
     "openai",
-    "fastapi>=0.142.2",
+    "fastapi>=0.162.0",
     "uvicorn>=0.54.0",
     "sentry-sdk[fastapi]",
     "emoji",
@@ -36,19 +36,19 @@ dependencies = [
     "supabase",
     "langgraph",
     "langchain<1.5.0",
-    "langchain-core<1.7.0",
+    "langchain-core<1.9.0",
     "langchain-openai",
     "litellm",
-    "langchain-litellm>=0.6.6",
+    "langchain-litellm>=0.11.2",
     "arq",
     "redis",
     "langgraph-checkpoint-redis",
     "langchain-groq",
     "spacy",
-    "trafilatura>=2.3.0",
+    "trafilatura>=2.3.1",
     "langgraph-checkpoint-postgres",
     "psycopg[binary]",
-    "mcp-types>=2.2.0",
+    "mcp-types>=2.3.0",
     "python-dotenv>=1.2.3",
     "duckduckgo_search>=7.0.0",
 ]
@@ -58,13 +58,13 @@ ocr = [
     "docling",
 ]
 browser = [
-    "browser-use>=0.11.0",
-    "playwright>=1.40.0",
+    "browser-use>=1.0.3",
+    "playwright>=1.64.1",
 ]
 full = [
     "docling",
-    "browser-use>=0.11.0",
-    "playwright>=1.40.0",
+    "browser-use>=1.0.3",
+    "playwright>=1.64.1",
     "opentimelineio",
     "stripe",
 ]

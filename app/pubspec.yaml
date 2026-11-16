@@ -12,16 +12,16 @@ dependencies:
   http: ^1.6.0
   riverpod: ^2.6.1
   intl: ^0.19.0
-  sentry_flutter: ^9.30.1
+  sentry_flutter: ^10.2.0
   google_fonts: ^8.2.1
   flutter_markdown: ^0.7.4
   flutter_animate: ^4.5.2
   flutter_secure_storage: ^11.2.0
-  sqflite: ^2.4.2
+  sqflite: ^2.4.6
   path_provider: ^2.1.3
   webview_flutter: ^4.8.0
   go_router: ^17.3.0
-  supabase_flutter: ^2.18.0
+  supabase_flutter: ^2.18.3
   url_launcher: ^6.3.3
   flutter_markdown_plus: ^1.0.12
   flutter_highlighter: ^0.1.1
@@ -32,12 +32,12 @@ dependencies:
   markdown: any
   file_picker: ^13.1.0
   android_intent_plus: ^5.1.0
-  shared_preferences: ^2.2.3
-  flutter_svg: ^2.3.0
-  lucide_icons_flutter: ^3.1.20
+  shared_preferences: ^2.5.6
+  flutter_svg: ^2.3.2
+  lucide_icons_flutter: ^4.0.3
   drift: ^2.22.1
   sqlite3_flutter_libs: ^0.5.25
-  sqlite3: ^2.4.6
+  sqlite3: ^3.9.1
   cryptography: ^2.9.0
   objectbox: ^5.3.2
   objectbox_flutter_libs: ^5.3.2
