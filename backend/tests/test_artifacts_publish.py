@@ -12,6 +12,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from backend.api_gateway import app, get_tenant_id, verify_infrastructure_access
+from backend.routes.artifacts import PUBLIC_PAGE_CSP
 
 OWNER_TENANT = "owner-tenant"
 OTHER_TENANT = "other-tenant"
@@ -118,10 +119,7 @@ def test_public_page_has_banner_escaped_title_and_sandbox(client):
     assert page.headers["x-content-type-options"] == "nosniff"
     assert page.headers["referrer-policy"] == "no-referrer"
     assert "script-src" in page.headers["content-security-policy"]
-    assert (
-        "https://esm.sh"
-        in page.headers["content-security-policy"].replace(";", " ").split()
-    )
+    assert page.headers["content-security-policy"] == PUBLIC_PAGE_CSP
 
 
 def test_unknown_artifact_page_is_404(client):
