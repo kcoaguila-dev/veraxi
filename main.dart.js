@@ -39247,7 +39247,7 @@ q=a5
 s=1
 break}a5.d=!1
 p=$.bFo()
-p.bC(B.f1,"Initialize Supabase v2.18.0",null,null)
+p.bC(B.f1,"Initialize Supabase v2.18.3",null,null)
 o=new A.b_u(new A.aS(new A.ae($.af,t.D),t.h))
 o.KP()
 n=B.a08.b22(o)
@@ -39282,7 +39282,7 @@ a2=A.e_($.bR3(),o,o)
 a2.C(0,b)
 b=new A.aHB(new A.bq8(),i,a2,c,A.r(o,t.QK),a0,a,n.b,d,a1)
 b.y=!0
-a1.bC(B.f1,"Initialize GoTrueClient v2.27.2 with url: "+i+", autoRefreshToken: true, flowType: "+d.b+", tickDuration: "+B.fW.j(0)+", tickThreshold: 3",null,null)
+a1.bC(B.f1,"Initialize GoTrueClient v2.27.3 with url: "+i+", autoRefreshToken: true, flowType: "+d.b+", tickDuration: "+B.fW.j(0)+", tickThreshold: 3",null,null)
 a1.bC(B.c9,"Initialize with headers: "+a2.j(0),null,null)
 d=new A.aHw(i,a2,c)
 d.ga9F()
@@ -39341,7 +39341,7 @@ k.C(0,A.fR(f,o,o))
 o=A.c5r(j,B.ZE,null,null,k,b,null,m,B.fW,null)
 e.ch!==$&&A.b4()
 e.ch=o
-l.bC(B.f1,"Initialize SupabaseClient v2.16.2 with no custom access token",null,null)
+l.bC(B.f1,"Initialize SupabaseClient v2.16.5 with no custom access token",null,null)
 e.aO6()
 a5.b=e
 a5.aVh()
@@ -166999,7 +166999,7 @@ s($,"cp2","bUf",()=>A.c_P())
 s($,"coX","bUb",()=>A.w([B.h4,"Thin",B.l4,"ExtraLight",B.l5,"Light",B.D,"Regular",B.C,"Medium",B.F,"SemiBold",B.ar,"Bold",B.iM,"ExtraBold",B.iN,"Black"],A.ai("jN"),t.N))
 s($,"cpD","bUE",()=>A.iU("supabase.auth"))
 s($,"cj7","bR3",()=>{var q=t.N
-return A.w(["X-Client-Info",A.N2("gotrue-dart","2.27.2",null)],q,q)})
+return A.w(["X-Client-Info",A.N2("gotrue-dart","2.27.3",null)],q,q)})
 s($,"ciH","bEu",()=>A.bZV("2024-01-01",A.a5E("2024-01-01T00:00:00.0Z")))
 s($,"csH","bWS",()=>{var q=t.z,p=A.r(q,q),o=t.N
 q=A.r(q,q)
@@ -168233,7 +168233,7 @@ s($,"clH","auB",()=>A.PZ(t.K))
 s($,"crS","bWd",()=>{var q=t.N
 return A.w(["X-Client-Info",A.N2("postgrest-dart","2.9.1",null)],q,q)})
 s($,"cj8","bEv",()=>{var q=t.N
-return A.w(["X-Client-Info",A.N2("realtime-dart","2.13.0",null)],q,q)})
+return A.w(["X-Client-Info",A.N2("realtime-dart","2.13.2",null)],q,q)})
 s($,"cm1","bET",()=>new A.ae_(B.a9))
 s($,"csb","bFG",()=>new A.b55())
 s($,"csk","bWy",()=>A.bL3("ab2912035e",null,"Flutter","3.50.0 (stable) - Git hash ab2912035e - Git URL https://github.com/flutter/flutter.git",null,"3.50.0 (stable)"))
@@ -168320,9 +168320,9 @@ s($,"cvi","bFY",()=>A.ap("^<asynchronous suspension>\\n?$",!0,!1,!0,!1))
 s($,"cj9","bR5",()=>{var q=t.N
 return A.w(["X-Client-Info",A.N2("storage-dart","2.8.1",null)],q,q)})
 s($,"cja","bR2",()=>{var q=t.z,p=t.N
-return A.fR(A.w(["X-Client-Info",A.N2("supabase-dart","2.16.2",A.bK9(null,null,null))],q,q),p,p)})
+return A.fR(A.w(["X-Client-Info",A.N2("supabase-dart","2.16.5",A.bK9(null,null,null))],q,q),p,p)})
 s($,"cjb","bR1",()=>{var q=t.z,p=t.N
-return A.fR(A.w(["X-Client-Info",A.N2("supabase-flutter","2.18.0",A.bK9(null,null,null))],q,q),p,p)})
+return A.fR(A.w(["X-Client-Info",A.N2("supabase-flutter","2.18.3",A.bK9(null,null,null))],q,q),p,p)})
 s($,"cpC","auG",()=>A.ad(A.ad(A.qu(),"window"),"localStorage"))
 s($,"cpE","bFo",()=>A.iU("supabase.supabase_flutter"))
 s($,"cmQ","il",()=>new A.aff(B.uA,A.d3(null,t.H)))
