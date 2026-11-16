@@ -12,6 +12,7 @@ import 'package:veraxi_app/features/chat/views/widgets/tool_event_card.dart';
 import 'package:veraxi_app/features/chat/views/widgets/chat_activity_disclosure.dart';
 import 'package:veraxi_app/features/chat/views/widgets/markdown_citation_builder.dart';
 import 'package:veraxi_app/features/chat/views/widgets/markdown_code_builder.dart';
+import 'package:veraxi_app/features/chat/view_models/code_artifact_provider.dart';
 import 'package:veraxi_app/core/providers/active_sources_provider.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -240,7 +241,19 @@ class ChatMessageListItem extends ConsumerWidget {
                                     ],
                                   ),
                                   builders: {
-                                    'code': CodeElementBuilder(context),
+                                    'code': CodeElementBuilder(
+                                      context,
+                                      artifacts:
+                                          extractCodeArtifacts(msg.content),
+                                      openArtifact:
+                                          ref.watch(openCodeArtifactProvider),
+                                      onOpenArtifact: (artifact) {
+                                        ref
+                                            .read(openCodeArtifactProvider
+                                                .notifier)
+                                            .state = artifact;
+                                      },
+                                    ),
                                     'a': CitationElementBuilder(message: msg),
                                     'cite':
                                         CitationElementBuilder(message: msg),

@@ -18,6 +18,8 @@ import 'package:veraxi_app/features/chat/view_models/audio_player_service.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
 import 'package:veraxi_app/features/chat/views/widgets/sources_sidebar.dart';
 import 'package:veraxi_app/core/widgets/profile_menu_button.dart';
+import 'package:veraxi_app/features/chat/view_models/code_artifact_provider.dart';
+import 'package:veraxi_app/features/chat/views/widgets/code_artifact_panel.dart';
 
 final activeSourcesProvider =
     StateProvider<List<Map<String, dynamic>>>((ref) => []);
@@ -98,6 +100,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   Widget build(BuildContext context) {
     final state = ref.watch(chatViewModelProvider);
     final isSidebarOpen = ref.watch(sidebarStateProvider);
+    final openArtifact = ref.watch(openCodeArtifactProvider);
     final viewModel = ref.read(chatViewModelProvider.notifier);
     final theme = Theme.of(context);
     final ext = theme.extension<AppThemeExtension>()!;
@@ -116,6 +119,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     ref.listen<List<ChatMessage>>(
       chatViewModelProvider.select((s) => s.messages),
       (previous, next) {
+        // An open code panel belongs to the previous conversation; close
+        // it when the chat is emptied (new chat / thread switch to empty).
+        if (next.isEmpty && ref.read(openCodeArtifactProvider) != null) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              ref.read(openCodeArtifactProvider.notifier).state = null;
+            }
+          });
+        }
         if (!_isScrolledUp && next.isNotEmpty) {
           final isStreaming = next.last.isStreaming;
           WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -504,10 +516,36 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                             ),
                           ),
                         ),
+
+                      // Mobile: the code panel covers the chat full-screen
+                      // instead of splitting beside it.
+                      if (isMobile && openArtifact != null)
+                        Positioned.fill(
+                          child: CodeArtifactPanel(
+                            key: ValueKey(openArtifact),
+                            artifact: openArtifact,
+                            onClose: () => ref
+                                .read(openCodeArtifactProvider.notifier)
+                                .state = null,
+                          ),
+                        ),
                     ],
                   ),
                 ),
               ),
+              // Desktop / web: code panel splits in on the right side,
+              // Claude-style, narrowing the chat column.
+              if (!isMobile && openArtifact != null)
+                SizedBox(
+                  width: 520,
+                  child: CodeArtifactPanel(
+                    key: ValueKey(openArtifact),
+                    artifact: openArtifact,
+                    onClose: () => ref
+                        .read(openCodeArtifactProvider.notifier)
+                        .state = null,
+                  ),
+                ),
             ],
           );
         },
