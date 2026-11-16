@@ -8,6 +8,8 @@ void main() {
       expect(doc, contains('<button>Hi</button>'));
       expect(doc, contains('<body>'));
       expect(doc, contains('background: #141416'));
+      // Fragments get the Tailwind Play CDN, like Claude's harness.
+      expect(doc, contains('cdn.tailwindcss.com'));
     });
 
     test('passes a full document through untouched', () {
@@ -35,7 +37,7 @@ void main() {
   });
 
   group('prepareReactArtifact', () {
-    test('strips imports and records a default-exported function', () {
+    test('resolves imports and records a default-exported function', () {
       const source = '''
 import React, { useState } from 'react';
 import './styles.css';
@@ -48,15 +50,68 @@ export default function Counter() {
       final prepared = prepareReactArtifact(source);
 
       expect(prepared.componentName, 'Counter');
-      expect(prepared.code, isNot(contains('import')));
+      // The react import stays for the import map; the relative
+      // stylesheet import is dropped (no sibling files in a frame).
+      expect(prepared.code, contains("from 'react'"));
+      expect(prepared.code, isNot(contains('styles.css')));
       expect(prepared.code, contains('function Counter()'));
       expect(prepared.code, isNot(contains('export default')));
-      // Hooks are destructured from the React global after import removal.
-      expect(prepared.code, contains('const { useState, useEffect'));
-      // Auto-mount targets the recorded component first.
+      // useState is already imported, so no safety-net import is
+      // added for it.
+      expect('useState'.allMatches(prepared.code).length, 2);
+      // Auto-mount targets the recorded component first, via the
+      // module imports of React and createRoot.
       expect(prepared.shouldAutoMount, isTrue);
       expect(prepared.code, contains("typeof Counter !== 'undefined'"));
-      expect(prepared.code, contains('ReactDOM.createRoot'));
+      expect(prepared.code, contains("from 'react-dom/client'"));
+      expect(prepared.code, contains('__VeraxiCreateRoot'));
+    });
+
+    test('curated packages and subpaths stay for the import map', () {
+      const source = '''
+import { LineChart } from 'recharts';
+import debounce from 'lodash/debounce';
+import { Camera } from 'lucide-react';
+export default function App() { return <div/>; }
+''';
+      final prepared = prepareReactArtifact(source);
+      expect(prepared.code, contains("from 'recharts'"));
+      expect(prepared.code, contains("from 'lodash/debounce'"));
+      expect(prepared.code, contains("from 'lucide-react'"));
+      expect(prepared.code, isNot(contains('esm.sh')));
+    });
+
+    test('unknown bare imports are rewritten to esm.sh URLs', () {
+      const source = '''
+import { format } from 'date-fns';
+import confetti from 'canvas-confetti';
+export default function App() { return <div/>; }
+''';
+      final prepared = prepareReactArtifact(source);
+      expect(
+        prepared.code,
+        contains("from 'https://esm.sh/date-fns?external=react,react-dom'"),
+      );
+      expect(
+        prepared.code,
+        contains(
+            "from 'https://esm.sh/canvas-confetti?external=react,react-dom'"),
+      );
+    });
+
+    test('hooks used without an import get one added', () {
+      const source = '''
+export default function App() {
+  const [n] = useState(0);
+  useEffect(() => {}, []);
+  return <div>{n}</div>;
+}
+''';
+      final prepared = prepareReactArtifact(source);
+      expect(
+        prepared.code,
+        contains("import { useState, useEffect } from 'react';"),
+      );
     });
 
     test('records a bare-name default export and drops the statement', () {
@@ -115,19 +170,31 @@ export default function App() {
       final prepared = prepareReactArtifact(source);
 
       expect('const { useState'.allMatches(prepared.code), hasLength(1));
+      // No safety-net hook import: useState is already bound by hand.
+      expect(prepared.code, isNot(contains('import { useState')));
       expect(prepared.code, isNot(contains('useReducer')));
     });
   });
 
   group('buildReactArtifactDocument', () {
-    test('loads React 18, ReactDOM and Babel from CDN with a root node', () {
+    test('builds the module harness: import map, Tailwind, Babel', () {
       final doc = buildReactArtifactDocument(
           'export default function App() { return <div/>; }');
-      expect(doc, contains('react@18/umd/react.production.min.js'));
-      expect(doc, contains('react-dom@18/umd/react-dom.production.min.js'));
+      expect(doc, contains('<script type="importmap">'));
+      expect(doc, contains('"react": "https://esm.sh/react@18.3.1"'));
+      expect(doc, isNot(contains('"react-dom/client"')));
+      expect(doc, contains('"react-dom/": "https://esm.sh/react-dom@18.3.1/"'));
+      expect(doc, contains('recharts@2.15.0?external=react,react-dom'));
+      expect(doc, contains('lucide-react@0.469.0?external=react,react-dom'));
+      expect(doc, contains('"lodash": "https://esm.sh/lodash@4.17.21"'));
+      expect(doc, contains('cdn.tailwindcss.com'));
       expect(doc, contains('@babel/standalone/babel.min.js'));
+      // No UMD globals any more — modules only.
+      expect(doc, isNot(contains('umd/react.production.min.js')));
       expect(doc, contains('<div id="root"></div>'));
       expect(doc, contains('Babel.transform'));
+      expect(doc, contains("sourceType: 'module'"));
+      expect(doc, contains("script.type = 'module'"));
       expect(doc, contains("['typescript', { isTSX: true"));
       expect(doc, contains('id="veraxi-react-source"'));
     });

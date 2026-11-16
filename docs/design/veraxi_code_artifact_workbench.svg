@@ -1,0 +1,168 @@
+<svg width="1440" height="900" viewBox="0 0 1440 900" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!--
+    Veraxi — Code Artifact Workbench (extends veraxi_code_artifact_panel.svg)
+    Visual contract for feat/artifact-workbench, stacked on the artifact
+    panel (#131) and live preview (#132).
+
+    The panel stops being a read-only viewer and becomes a workbench,
+    following the Open Canvas model (versions array + current index):
+
+    - Header (unchanged layout): Preview|Code toggle at the left for
+      renderable artifacts, title + subtitle, then actions:
+      Run (Python/JavaScript only, code view), Copy, Download (saves
+      the artifact under its real file name), Share (publishes a public
+      link via the backend, Claude-style), Close.
+    - Workbench toolbar under the header:
+      * Edit / Done toggle — the code body is a real editor
+        (re_editor): selection works in both modes, editing only in
+        Edit mode. Leaving Edit mode with changes appends a version.
+      * Version navigation: ‹ v2 / 3 › — every edit and every
+        AI-action result the user keeps becomes a version; Run, Copy,
+        Download, Preview and Share always act on the CURRENT version.
+      * Diff toggle — line diff between the current version and the
+        previous one (+ added / − removed rows).
+      * Quick actions (Canvas-style prompt templates sent to the
+        chat): Fix Bugs, Add Logs, Review, Add Comments. With a text
+        selection they scope to the selected lines (line range shown
+        in the toolbar, e.g. "Lines 4–6 selected"); without one they
+        apply to the whole file. The model's reply arrives as a new
+        message artifact (chat iteration, like Claude).
+    - While the source message is still streaming, the panel follows
+      the live content (it resolves its artifact from chat state by
+      message position instead of holding a snapshot) — until the
+      user makes their first edit; from then on their version wins.
+    - Preview body unchanged (sandboxed frame / native Markdown).
+    - Output strip unchanged (browser-only Run results).
+    Mobile (<800px): same panel as a full-screen overlay; the toolbar
+    wraps to two rows.
+    Palette matches the existing dark chat UI (#212121 app, #171717
+    sidebar, #1E1E1E panel, #2F2F2F chips, #3F3F3F border, added-line
+    wash #14532D at 35%, removed-line wash #7F1D1D at 35%).
+  -->
+  <rect width="1440" height="900" fill="#212121"/>
+
+  <!-- Left chat sidebar -->
+  <rect width="260" height="900" fill="#171717"/>
+  <text x="24" y="44" font-family="Inter, sans-serif" font-size="15" font-weight="600" fill="#ECECEC">Veraxi</text>
+  <rect x="16" y="64" width="228" height="34" rx="8" fill="#2F2F2F"/>
+  <text x="28" y="86" font-family="Inter, sans-serif" font-size="13" fill="#ECECEC">Hello world Python code</text>
+  <text x="28" y="122" font-family="Inter, sans-serif" font-size="13" fill="#878787">PR #128 reasoning traces</text>
+  <text x="28" y="150" font-family="Inter, sans-serif" font-size="13" fill="#878787">GraphRAG retrieval</text>
+
+  <!-- Chat column (narrowed by the panel) -->
+  <text x="292" y="52" font-family="Inter, sans-serif" font-size="13" fill="#B4B4B4">write a hello world python code</text>
+  <text x="292" y="110" font-family="Inter, sans-serif" font-size="13" fill="#ECECEC">Here is a small script, `hello_world.py`:</text>
+  <!-- Artifact card at the end of the message -->
+  <rect x="292" y="560" width="300" height="56" rx="10" fill="#2F2F2F" stroke="#3F3F3F"/>
+  <rect x="306" y="574" width="28" height="28" rx="6" fill="#3F3F3F"/>
+  <text x="313" y="594" font-family="Inter, sans-serif" font-size="13" fill="#ECECEC">&lt;/&gt;</text>
+  <text x="346" y="584" font-family="Inter, sans-serif" font-size="13" font-weight="600" fill="#ECECEC">Hello world</text>
+  <text x="346" y="602" font-family="Inter, sans-serif" font-size="11" fill="#878787">PY</text>
+  <text x="566" y="594" font-family="Inter, sans-serif" font-size="14" fill="#878787">›</text>
+  <text x="292" y="660" font-family="Inter, sans-serif" font-size="12" fill="#878787">Quick actions and edits happen in the panel →</text>
+
+  <!-- Panel (right, 520px) -->
+  <rect x="920" y="0" width="520" height="900" fill="#1E1E1E"/>
+  <rect x="920" y="0" width="1" height="900" fill="#3F3F3F"/>
+
+  <!-- Panel header -->
+  <rect x="936" y="14" width="30" height="30" rx="6" fill="#2F2F2F"/>
+  <text x="944" y="34" font-family="Inter, sans-serif" font-size="13" fill="#ECECEC">&lt;/&gt;</text>
+  <text x="976" y="28" font-family="Inter, sans-serif" font-size="14" font-weight="600" fill="#ECECEC">hello_world.py</text>
+  <text x="976" y="46" font-family="Inter, sans-serif" font-size="11" fill="#878787">PY · Python</text>
+  <!-- Header actions: Run, Copy, Download, Share, Close -->
+  <g font-family="Inter, sans-serif" font-size="11" fill="#ECECEC">
+    <rect x="1140" y="16" width="52" height="26" rx="7" fill="#2F2F2F" stroke="#3F3F3F"/>
+    <text x="1152" y="33">▶ Run</text>
+    <rect x="1198" y="16" width="56" height="26" rx="7" fill="#2F2F2F" stroke="#3F3F3F"/>
+    <text x="1208" y="33">Copy</text>
+    <rect x="1260" y="16" width="34" height="26" rx="7" fill="#2F2F2F" stroke="#3F3F3F"/>
+    <text x="1270" y="33">↓</text>
+    <rect x="1300" y="16" width="34" height="26" rx="7" fill="#2F2F2F" stroke="#3F3F3F"/>
+    <text x="1310" y="33">↗</text>
+    <text x="1352" y="34" font-size="14" fill="#B4B4B4">✕</text>
+  </g>
+  <rect x="920" y="58" width="520" height="1" fill="#3F3F3F"/>
+
+  <!-- Workbench toolbar -->
+  <g font-family="Inter, sans-serif" font-size="11">
+    <rect x="936" y="68" width="52" height="26" rx="7" fill="#3F3F3F"/>
+    <text x="950" y="85" fill="#FFFFFF" font-weight="600">Edit</text>
+    <!-- Version navigation -->
+    <text x="1006" y="85" fill="#878787" font-size="13">‹</text>
+    <text x="1022" y="85" fill="#ECECEC">v2 / 3</text>
+    <text x="1064" y="85" fill="#878787" font-size="13">›</text>
+    <rect x="1084" y="68" width="48" height="26" rx="7" fill="#2F2F2F" stroke="#3F3F3F"/>
+    <text x="1096" y="85" fill="#ECECEC">Diff</text>
+    <!-- Quick actions -->
+    <rect x="1144" y="68" width="66" height="26" rx="7" fill="#2F2F2F" stroke="#3F3F3F"/>
+    <text x="1154" y="85" fill="#ECECEC">Fix Bugs</text>
+    <rect x="1216" y="68" width="64" height="26" rx="7" fill="#2F2F2F" stroke="#3F3F3F"/>
+    <text x="1226" y="85" fill="#ECECEC">Add Logs</text>
+    <rect x="1286" y="68" width="56" height="26" rx="7" fill="#2F2F2F" stroke="#3F3F3F"/>
+    <text x="1296" y="85" fill="#ECECEC">Review</text>
+    <rect x="1348" y="68" width="76" height="26" rx="7" fill="#2F2F2F" stroke="#3F3F3F"/>
+    <text x="1356" y="85" fill="#ECECEC">Comments</text>
+  </g>
+  <text x="936" y="112" font-family="Inter, sans-serif" font-size="11" fill="#878787">Lines 4–6 selected — quick actions apply to the selection</text>
+  <rect x="920" y="122" width="520" height="1" fill="#3F3F3F"/>
+
+  <!-- Editor body: gutter + code, lines 4-6 selected -->
+  <rect x="920" y="123" width="520" height="430" fill="#0F0F0F"/>
+  <g font-family="'Fira Code', monospace" font-size="12.5">
+    <text x="952" y="152" fill="#5A5A5A" text-anchor="end">1</text>
+    <text x="966" y="152" fill="#C678DD">def</text>
+    <text x="1006" y="152" fill="#61AFEF"> greet</text>
+    <text x="1058" y="152" fill="#ABB2BF">(name):</text>
+    <text x="952" y="176" fill="#5A5A5A" text-anchor="end">2</text>
+    <text x="966" y="176" fill="#ABB2BF">    msg =</text>
+    <text x="1032" y="176" fill="#98C379"> f"Hello, {name}!"</text>
+    <text x="952" y="200" fill="#5A5A5A" text-anchor="end">3</text>
+    <text x="966" y="200" fill="#C678DD">    return</text>
+    <text x="1024" y="200" fill="#ABB2BF"> msg</text>
+    <!-- selection wash lines 4-6 -->
+    <rect x="920" y="206" width="520" height="72" fill="#3B82F6" opacity="0.14"/>
+    <text x="952" y="224" fill="#5A5A5A" text-anchor="end">4</text>
+    <text x="966" y="224" fill="#C678DD">def</text>
+    <text x="1006" y="224" fill="#61AFEF"> main</text>
+    <text x="1046" y="224" fill="#ABB2BF">():</text>
+    <text x="952" y="248" fill="#5A5A5A" text-anchor="end">5</text>
+    <text x="966" y="248" fill="#ABB2BF">    name =</text>
+    <text x="1036" y="248" fill="#98C379"> "World"</text>
+    <text x="952" y="272" fill="#5A5A5A" text-anchor="end">6</text>
+    <text x="966" y="272" fill="#ABB2BF">    print(greet(name))</text>
+    <text x="952" y="296" fill="#5A5A5A" text-anchor="end">7</text>
+    <text x="966" y="296" fill="#ABB2BF"></text>
+    <text x="952" y="320" fill="#5A5A5A" text-anchor="end">8</text>
+    <text x="966" y="320" fill="#C678DD">if</text>
+    <text x="1006" y="320" fill="#ABB2BF"> __name__ ==</text>
+    <text x="1078" y="320" fill="#98C379"> "__main__"</text>
+    <text x="1086" y="320" fill="#ABB2BF">:</text>
+    <text x="952" y="344" fill="#5A5A5A" text-anchor="end">9</text>
+    <text x="966" y="344" fill="#ABB2BF">    main()</text>
+  </g>
+
+  <!-- Diff view (when Diff is on, replaces editor body) -->
+  <rect x="936" y="580" width="488" height="118" rx="8" fill="#141416" stroke="#3F3F3F"/>
+  <text x="952" y="604" font-family="Inter, sans-serif" font-size="11" fill="#878787">DIFF · v1 → v2</text>
+  <g font-family="'Fira Code', monospace" font-size="12">
+    <rect x="944" y="614" width="472" height="20" fill="#7F1D1D" opacity="0.35"/>
+    <text x="952" y="628" fill="#FCA5A5">−   name = "World"</text>
+    <rect x="944" y="636" width="472" height="20" fill="#14532D" opacity="0.35"/>
+    <text x="952" y="650" fill="#BBF7D0">+   name = input("Name? ")</text>
+    <text x="952" y="672" fill="#878787">    print(greet(name))</text>
+  </g>
+
+  <!-- Output strip -->
+  <rect x="920" y="724" width="520" height="64" fill="#09090B"/>
+  <rect x="920" y="724" width="520" height="1" fill="#2A2A2A"/>
+  <text x="936" y="748" font-family="Inter, sans-serif" font-size="11" font-weight="700" fill="#22C55E">✓ Sandbox Output</text>
+  <text x="936" y="770" font-family="'Fira Code', monospace" font-size="12" fill="#E2E8F0">Hello, World!</text>
+
+  <!-- Notes -->
+  <g font-family="Inter, sans-serif" font-size="12" fill="#878787">
+    <text x="936" y="828">Download saves hello_world.py · Share publishes a public link</text>
+    <text x="936" y="850">(backend page, separate sandboxed frame, unpublishable).</text>
+    <text x="936" y="872">No paid services: editor is open source, preview CDNs are free,</text>
+  </g>
+</svg>

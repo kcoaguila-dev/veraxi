@@ -1,12 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:flutter_highlighter/flutter_highlighter.dart';
-import 'package:flutter_highlighter/themes/atom-one-dark.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:re_editor/re_editor.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
+import 'package:veraxi_app/features/chat/view_models/artifact_line_diff.dart';
+import 'package:veraxi_app/features/chat/view_models/artifact_quick_actions.dart';
 import 'package:veraxi_app/features/chat/view_models/code_artifact_provider.dart';
+import 'package:sentry_flutter/sentry_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:veraxi_app/features/chat/view_models/artifact_publish_provider.dart';
+import 'package:veraxi_app/features/chat/views/widgets/artifact_download.dart';
+import 'package:veraxi_app/features/chat/views/widgets/artifact_editor_theme.dart';
 import 'package:veraxi_app/features/chat/views/widgets/artifact_sandbox.dart';
 
 /// Right-side panel that shows a [CodeArtifact] when its card is tapped
@@ -20,36 +27,140 @@ import 'package:veraxi_app/features/chat/views/widgets/artifact_sandbox.dart';
 /// Mermaid, Markdown) open on a live **Preview** with a **Code** toggle;
 /// plain code opens on the highlighted listing. The header also carries
 /// a Copy action, a Run action for the languages the existing client
-/// sandbox actually executes (Python / JavaScript, code view only), and
-/// a close button.
-class CodeArtifactPanel extends StatefulWidget {
-  final CodeArtifact artifact;
+/// sandbox actually executes (Python / JavaScript, code view only), a
+/// Download action, a Share action (publishes a public link through
+/// the backend), and a close button.
+///
+/// The code view is a workbench, not just a viewer (the Open Canvas
+/// model): the code sits in a real editor (re_editor) whose text can be
+/// selected in any mode and edited in Edit mode. Leaving Edit mode with
+/// changes appends a **version** — versions are a plain list plus a
+/// current index, navigable from the toolbar, with a line **Diff**
+/// between the current version and the previous one. Run, Copy, and
+/// the Preview always act on the current version.
+class CodeArtifactPanel extends ConsumerStatefulWidget {
+  /// The open artifact: tap-time snapshot plus the coordinates used
+  /// to resolve its live content while the source message streams.
+  final OpenCodeArtifact open;
   final VoidCallback onClose;
+
+  /// Sends a quick-action prompt to the chat (wired by the chat
+  /// screen to its sendMessage with the currently selected model).
+  /// When null, the quick-action row is not shown — controls only
+  /// appear when they can do something.
+  final ValueChanged<String>? onQuickAction;
 
   const CodeArtifactPanel({
     super.key,
-    required this.artifact,
+    required this.open,
     required this.onClose,
+    this.onQuickAction,
   });
 
   @override
-  State<CodeArtifactPanel> createState() => _CodeArtifactPanelState();
+  ConsumerState<CodeArtifactPanel> createState() => _CodeArtifactPanelState();
 }
 
-class _CodeArtifactPanelState extends State<CodeArtifactPanel> {
+class _CodeArtifactPanelState extends ConsumerState<CodeArtifactPanel> {
   bool _copied = false;
   bool _isRunning = false;
   SandboxResult? _sandboxResult;
 
   /// Renderable artifacts open on their live preview, like Claude;
   /// everything else has no preview state at all.
-  late bool _showPreview = widget.artifact.isPreviewable;
+  late bool _showPreview = widget.open.artifact.isPreviewable;
+
+  /// The artifact as last resolved live from chat state (identity
+  /// fields — title, file name, language). Updated every build.
+  late CodeArtifact _resolvedArtifact = widget.open.artifact;
+
+  /// Version history for this panel session: the artifact's original
+  /// code plus one entry per committed edit. [_versionIndex] is the
+  /// version on screen.
+  late final List<String> _versions = [widget.open.artifact.code];
+  int _versionIndex = 0;
+  bool _editing = false;
+  bool _showDiff = false;
+
+  late final CodeLineEditingController _editorController =
+      CodeLineEditingController.fromText(widget.open.artifact.code);
+
+  /// 1-based line range of the editor's current selection, or null
+  /// when nothing (or only whitespace) is selected. Drives the
+  /// toolbar's selection hint and scopes quick actions.
+  int? _selectionStartLine;
+  int? _selectionEndLine;
+
+  @override
+  void initState() {
+    super.initState();
+    _editorController.addListener(_syncSelection);
+  }
+
+  @override
+  void dispose() {
+    _editorController.removeListener(_syncSelection);
+    _editorController.dispose();
+    super.dispose();
+  }
+
+  void _syncSelection() {
+    final selection = _editorController.selection;
+    final hasSelection = _editorController.selectedText.trim().isNotEmpty;
+    final start = hasSelection
+        ? (selection.baseIndex < selection.extentIndex
+                ? selection.baseIndex
+                : selection.extentIndex) +
+            1
+        : null;
+    final end = hasSelection
+        ? (selection.baseIndex < selection.extentIndex
+                ? selection.extentIndex
+                : selection.baseIndex) +
+            1
+        : null;
+    if (start != _selectionStartLine || end != _selectionEndLine) {
+      setState(() {
+        _selectionStartLine = start;
+        _selectionEndLine = end;
+      });
+    }
+  }
+
+  /// Builds the action's prompt from the current version (and the
+  /// editor selection, when there is one) and hands it to the chat.
+  void _runQuickAction(ArtifactQuickAction action) {
+    final handler = widget.onQuickAction;
+    if (handler == null) return;
+    final selected = _editorController.selectedText;
+    final hasSelection = selected.trim().isNotEmpty;
+    handler(action.buildPrompt(
+      artifact: _currentArtifact,
+      currentCode: _currentCode,
+      selectedText: hasSelection ? selected : null,
+      selectionStartLine: hasSelection ? _selectionStartLine : null,
+      selectionEndLine: hasSelection ? _selectionEndLine : null,
+    ));
+  }
+
+  /// The code every action acts on: the editor's live text while
+  /// editing, the current version otherwise.
+  String get _currentCode =>
+      _editing ? _editorController.text : _versions[_versionIndex];
+
+  /// The artifact as currently versioned — same identity, current code.
+  CodeArtifact get _currentArtifact => CodeArtifact(
+        title: _resolvedArtifact.title,
+        fileName: _resolvedArtifact.fileName,
+        language: _resolvedArtifact.language,
+        code: _currentCode,
+      );
 
   bool get _canRun =>
-      !_showPreview && isSandboxRunnableLanguage(widget.artifact.language);
+      !_showPreview && isSandboxRunnableLanguage(_resolvedArtifact.language);
 
   Future<void> _copyCode() async {
-    await Clipboard.setData(ClipboardData(text: widget.artifact.code));
+    await Clipboard.setData(ClipboardData(text: _currentCode));
     if (!mounted) return;
     setState(() => _copied = true);
     Future.delayed(const Duration(seconds: 2), () {
@@ -57,12 +168,148 @@ class _CodeArtifactPanelState extends State<CodeArtifactPanel> {
     });
   }
 
+  /// Share: publishes the current version (or refreshes the page
+  /// when the code has moved on since the last publish), then shows
+  /// the public link. Publishing failures surface as a snackbar —
+  /// most commonly the guest case, which the backend rejects.
+  Future<void> _share() async {
+    final controller = ref.read(artifactPublishProvider.notifier);
+    final publishState = ref.read(artifactPublishProvider);
+    if (publishState.publishedUrl == null ||
+        publishState.isStale(_currentCode)) {
+      await controller.publish(_currentArtifact, _currentCode);
+    }
+    if (!mounted) return;
+    final after = ref.read(artifactPublishProvider);
+    if (after.publishedUrl != null) {
+      await _showShareDialog(after.publishedUrl!);
+    } else if (after.error != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(after.error!),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
+  Future<void> _showShareDialog(String url) async {
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Share artifact'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Anyone with this link can view the artifact. '
+                'It is labeled as user-generated and unverified.',
+                style: TextStyle(fontSize: 13),
+              ),
+              const SizedBox(height: 12),
+              SelectableText(
+                url,
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () async {
+                await Clipboard.setData(ClipboardData(text: url));
+                if (dialogContext.mounted) {
+                  Navigator.of(dialogContext).pop();
+                }
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Link copied'),
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                }
+              },
+              child: const Text('Copy link'),
+            ),
+            TextButton(
+              onPressed: () {
+                launchUrl(
+                  Uri.parse(url),
+                  mode: LaunchMode.externalApplication,
+                );
+              },
+              child: const Text('Open'),
+            ),
+            TextButton(
+              onPressed: () async {
+                await ref.read(artifactPublishProvider.notifier).unpublish();
+                if (dialogContext.mounted) {
+                  Navigator.of(dialogContext).pop();
+                }
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Unpublished — the link no longer works'),
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                }
+              },
+              child: const Text('Unpublish'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Close'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  /// Downloads the current version under the artifact's real file
+  /// name (browser download on web, a saved file on native).
+  Future<void> _download() async {
+    final artifact = _currentArtifact;
+    try {
+      final savedPath = await downloadArtifactFile(
+        fileName: artifact.downloadFileName,
+        content: artifact.code,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            savedPath != null
+                ? 'Saved to $savedPath'
+                : 'Downloading ${artifact.downloadFileName}',
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } catch (e) {
+      await Sentry.captureException(e);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Download failed'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
   Future<void> _runCode() async {
     if (_isRunning) return;
     setState(() => _isRunning = true);
     final result = await runCodeInClientSandbox(
-      widget.artifact.language,
-      widget.artifact.code,
+      _resolvedArtifact.language,
+      _currentCode,
     );
     if (mounted) {
       setState(() {
@@ -72,12 +319,55 @@ class _CodeArtifactPanelState extends State<CodeArtifactPanel> {
     }
   }
 
+  /// Edit toggle. Leaving Edit mode with unsaved changes commits them
+  /// as a new version, discarding any "future" versions past the
+  /// current index first (the usual undo-branch rule).
+  void _toggleEditing() {
+    if (_editing) {
+      final edited = _editorController.text;
+      if (edited != _versions[_versionIndex]) {
+        setState(() {
+          _versions
+            ..removeRange(_versionIndex + 1, _versions.length)
+            ..add(edited);
+          _versionIndex++;
+        });
+      }
+    }
+    setState(() => _editing = !_editing);
+  }
+
+  void _stepVersion(int delta) {
+    final next = _versionIndex + delta;
+    if (next < 0 || next >= _versions.length) return;
+    setState(() => _versionIndex = next);
+    _editorController.codeLines = CodeLines.fromText(_versions[next]);
+  }
+
   @override
   Widget build(BuildContext context) {
+    // Follow the artifact's live content while its message streams:
+    // the resolved artifact replaces the tap-time snapshot. Once the
+    // user commits an edit of their own, their versions win and the
+    // stream no longer overwrites them.
+    final live = ref.watch(openCodeArtifactLiveProvider);
+    if (live != null) _resolvedArtifact = live;
+    ref.listen<CodeArtifact?>(openCodeArtifactLiveProvider, (previous, next) {
+      if (next == null) return;
+      if (_versions.length != 1 || _editing) return;
+      if (next.code == _versions[0]) return;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        setState(() => _versions[0] = next.code);
+        _editorController.codeLines = CodeLines.fromText(next.code);
+      });
+    });
+
     final theme = Theme.of(context);
     final ext = theme.extension<AppThemeExtension>();
     final borderColor = ext?.borderColor ?? const Color(0xFF3F3F3F);
-    final artifact = widget.artifact;
+    final artifact = _currentArtifact;
+    final isPublishing = ref.watch(artifactPublishProvider).isPublishing;
 
     return Container(
       decoration: BoxDecoration(
@@ -87,7 +377,8 @@ class _CodeArtifactPanelState extends State<CodeArtifactPanel> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _buildHeader(ext, borderColor),
+          _buildHeader(ext, borderColor, isPublishing: isPublishing),
+          if (!_showPreview) _buildToolbar(borderColor),
           Expanded(
             child: _showPreview && artifact.isPreviewable
                 ? _buildPreviewBody(artifact)
@@ -102,8 +393,12 @@ class _CodeArtifactPanelState extends State<CodeArtifactPanel> {
         .slideX(begin: 0.04, end: 0, duration: 200.ms);
   }
 
-  Widget _buildHeader(AppThemeExtension? ext, Color borderColor) {
-    final artifact = widget.artifact;
+  Widget _buildHeader(
+    AppThemeExtension? ext,
+    Color borderColor, {
+    required bool isPublishing,
+  }) {
+    final artifact = _currentArtifact;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
@@ -161,6 +456,23 @@ class _CodeArtifactPanelState extends State<CodeArtifactPanel> {
             label: _copied ? 'Copied' : 'Copy',
             onTap: _copyCode,
           ),
+          const SizedBox(width: 6),
+          // Icon-only: the header is width-constrained (Preview toggle
+          // + Copy + Close already compete for the row, and on mobile
+          // the panel is a ~360px overlay). The tooltip names it.
+          _HeaderAction(
+            icon: Icons.download_outlined,
+            label: 'Download',
+            onTap: _download,
+            iconOnly: true,
+          ),
+          const SizedBox(width: 6),
+          _HeaderAction(
+            icon: isPublishing ? null : Icons.share_outlined,
+            label: 'Share',
+            onTap: _share,
+            iconOnly: true,
+          ),
           const SizedBox(width: 4),
           IconButton(
             icon: const Icon(Icons.close, size: 18, color: Color(0xFFB4B4B4)),
@@ -168,6 +480,109 @@ class _CodeArtifactPanelState extends State<CodeArtifactPanel> {
             visualDensity: VisualDensity.compact,
             onPressed: widget.onClose,
           ),
+        ],
+      ),
+    );
+  }
+
+  /// Workbench toolbar: Edit toggle, version navigation, Diff toggle,
+  /// and — when the chat screen wired a handler — the quick-action
+  /// row (Canvas-style prompt templates). A selection hint appears
+  /// while code is selected, since actions then scope to it.
+  Widget _buildToolbar(Color borderColor) {
+    final hasVersions = _versions.length > 1;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: borderColor)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              _HeaderAction(
+                icon: _editing ? Icons.check : Icons.edit_outlined,
+                label: _editing ? 'Done' : 'Edit',
+                onTap: _toggleEditing,
+              ),
+              const SizedBox(width: 10),
+              IconButton(
+                icon: const Icon(Icons.chevron_left, size: 16),
+                color: const Color(0xFFECECEC),
+                disabledColor: const Color(0xFF5A5A5A),
+                tooltip: 'Previous version',
+                visualDensity: VisualDensity.compact,
+                onPressed: (!_editing && _versionIndex > 0)
+                    ? () => _stepVersion(-1)
+                    : null,
+              ),
+              Text(
+                'v${_versionIndex + 1} / ${_versions.length}',
+                style: const TextStyle(color: Color(0xFFECECEC), fontSize: 12),
+              ),
+              IconButton(
+                icon: const Icon(Icons.chevron_right, size: 16),
+                color: const Color(0xFFECECEC),
+                disabledColor: const Color(0xFF5A5A5A),
+                tooltip: 'Next version',
+                visualDensity: VisualDensity.compact,
+                onPressed: (!_editing && _versionIndex < _versions.length - 1)
+                    ? () => _stepVersion(1)
+                    : null,
+              ),
+              // Diff only exists once there are two versions to compare —
+              // same rule as Run: controls appear when they can do
+              // something.
+              if (hasVersions) ...[
+                const SizedBox(width: 6),
+                _HeaderAction(
+                  icon: Icons.difference_outlined,
+                  label: 'Diff',
+                  onTap: () => setState(() => _showDiff = !_showDiff),
+                  selected: _showDiff,
+                ),
+              ],
+            ],
+          ),
+          if (widget.onQuickAction != null) ...[
+            const SizedBox(height: 8),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  for (final action in ArtifactQuickAction.values) ...[
+                    _HeaderAction(
+                      icon: switch (action) {
+                        ArtifactQuickAction.fixBugs =>
+                          Icons.bug_report_outlined,
+                        ArtifactQuickAction.addLogs => Icons.terminal_outlined,
+                        ArtifactQuickAction.review =>
+                          Icons.rate_review_outlined,
+                        ArtifactQuickAction.addComments =>
+                          Icons.comment_outlined,
+                      },
+                      label: action.label,
+                      onTap: () => _runQuickAction(action),
+                    ),
+                    const SizedBox(width: 6),
+                  ],
+                ],
+              ),
+            ),
+          ],
+          if (_selectionStartLine != null) ...[
+            const SizedBox(height: 6),
+            Text(
+              'Lines $_selectionStartLine–$_selectionEndLine selected — '
+              'actions apply to the selection',
+              style: const TextStyle(
+                color: Color(0xFF878787),
+                fontSize: 11,
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -234,45 +649,97 @@ class _CodeArtifactPanelState extends State<CodeArtifactPanel> {
   }
 
   Widget _buildCodeBody(CodeArtifact artifact) {
-    final lineCount = artifact.lineCount;
-    final gutterWidth = 16.0 + 9.0 * '$lineCount'.length;
-    final textStyle = GoogleFonts.firaCode(fontSize: 13, height: 1.5);
-    final gutterText = [
-      for (var i = 1; i <= lineCount; i++) '$i',
-    ].join('\n');
-
+    if (_showDiff && !_editing && _versionIndex > 0) {
+      return _buildDiffBody();
+    }
     return Container(
       color: const Color(0xFF0F0F0F),
-      child: SingleChildScrollView(
-        child: SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+      child: CodeEditor(
+        controller: _editorController,
+        readOnly: !_editing,
+        showCursorWhenReadOnly: false,
+        wordWrap: false,
+        padding: const EdgeInsets.fromLTRB(4, 16, 24, 16),
+        style: CodeEditorStyle(
+          fontSize: 13,
+          fontHeight: 1.5,
+          fontFamily: 'Fira Code',
+          backgroundColor: const Color(0xFF0F0F0F),
+          textColor: const Color(0xFFABB2BF),
+          codeTheme: artifactEditorTheme(artifact.language),
+        ),
+        indicatorBuilder: (context, controller, chunkController, notifier) {
+          return Row(
             children: [
-              Container(
-                width: gutterWidth + 16,
-                padding: const EdgeInsets.fromLTRB(12, 16, 8, 16),
-                alignment: Alignment.topRight,
-                child: Text(
-                  gutterText,
-                  textAlign: TextAlign.right,
-                  style: GoogleFonts.firaCode(
-                    fontSize: 13,
-                    height: 1.5,
-                    color: const Color(0xFF5A5A5A),
-                  ),
+              DefaultCodeLineNumber(
+                controller: controller,
+                notifier: notifier,
+                textStyle: GoogleFonts.firaCode(
+                  fontSize: 13,
+                  height: 1.5,
+                  color: const Color(0xFF5A5A5A),
+                ),
+                focusedTextStyle: GoogleFonts.firaCode(
+                  fontSize: 13,
+                  height: 1.5,
+                  color: const Color(0xFFB4B4B4),
                 ),
               ),
-              HighlightView(
-                artifact.code,
-                language: artifact.highlightLanguage,
-                theme: atomOneDarkTheme,
-                padding: const EdgeInsets.fromLTRB(4, 16, 24, 16),
-                textStyle: textStyle,
+              DefaultCodeChunkIndicator(
+                width: 16,
+                controller: chunkController,
+                notifier: notifier,
               ),
             ],
-          ),
-        ),
+          );
+        },
+      ),
+    );
+  }
+
+  /// Line diff between the current version and the previous one.
+  Widget _buildDiffBody() {
+    final entries = computeLineDiff(
+      _versions[_versionIndex - 1],
+      _versions[_versionIndex],
+    );
+    return Container(
+      color: const Color(0xFF0F0F0F),
+      child: ListView.builder(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        itemCount: entries.length,
+        itemBuilder: (context, i) {
+          final entry = entries[i];
+          final (bg, fg, marker) = switch (entry.kind) {
+            LineDiffKind.added => (
+                const Color(0xFF14532D).withValues(alpha: 0.35),
+                const Color(0xFFBBF7D0),
+                '+',
+              ),
+            LineDiffKind.removed => (
+                const Color(0xFF7F1D1D).withValues(alpha: 0.35),
+                const Color(0xFFFCA5A5),
+                '−',
+              ),
+            LineDiffKind.unchanged => (
+                Colors.transparent,
+                const Color(0xFF878787),
+                ' ',
+              ),
+          };
+          return Container(
+            color: bg,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 1),
+            child: Text(
+              '$marker ${entry.text}',
+              style: GoogleFonts.firaCode(
+                fontSize: 12.5,
+                height: 1.5,
+                color: fg,
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -418,22 +885,34 @@ class _HeaderAction extends StatelessWidget {
   final String label;
   final VoidCallback onTap;
 
+  /// Renders the chip in its "active" state (e.g. Diff toggled on).
+  final bool selected;
+
+  /// Renders just the icon (the label becomes the tooltip) for
+  /// width-constrained spots in the header.
+  final bool iconOnly;
+
   const _HeaderAction({
     required this.icon,
     required this.label,
     required this.onTap,
+    this.selected = false,
+    this.iconOnly = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: const Color(0xFF2F2F2F),
+    final chip = Material(
+      color: selected ? const Color(0xFF3F3F3F) : const Color(0xFF2F2F2F),
       borderRadius: BorderRadius.circular(8),
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(8),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          padding: EdgeInsets.symmetric(
+            horizontal: iconOnly ? 8 : 10,
+            vertical: 6,
+          ),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(8),
             border: Border.all(color: const Color(0xFF3F3F3F)),
@@ -443,7 +922,7 @@ class _HeaderAction extends StatelessWidget {
             children: [
               if (icon != null) ...[
                 Icon(icon, size: 14, color: const Color(0xFFECECEC)),
-                const SizedBox(width: 5),
+                if (!iconOnly) const SizedBox(width: 5),
               ] else ...[
                 const SizedBox(
                   width: 14,
@@ -455,17 +934,19 @@ class _HeaderAction extends StatelessWidget {
                 ),
                 const SizedBox(width: 5),
               ],
-              Text(
-                label,
-                style: const TextStyle(
-                  color: Color(0xFFECECEC),
-                  fontSize: 12,
+              if (!iconOnly)
+                Text(
+                  label,
+                  style: const TextStyle(
+                    color: Color(0xFFECECEC),
+                    fontSize: 12,
+                  ),
                 ),
-              ),
             ],
           ),
         ),
       ),
     );
+    return iconOnly ? Tooltip(message: label, child: chip) : chip;
   }
 }
