@@ -103,6 +103,11 @@ class _CodeArtifactPanelState extends ConsumerState<CodeArtifactPanel> {
   /// work with its initial state before the restore lands.
   bool _workRestoreDone = false;
 
+  /// Whether the storage-cap notice has been shown this session:
+  /// the user is told once when a save drops their oldest saved
+  /// work, not on every save after that.
+  bool _capNoticeShown = false;
+
   /// The work-store key for this artifact, or null when it has no
   /// stable coordinates (its panel work then stays disposable).
   String? get _workKey => artifactWorkKey(
@@ -168,12 +173,17 @@ class _CodeArtifactPanelState extends ConsumerState<CodeArtifactPanel> {
   }
 
   /// Persists the panel's current work (versions, current version,
-  /// published link) to the local work store.
+  /// published link) to the local work store. When the store is at
+  /// its cap and this save drops the oldest saved work, the user
+  /// is told — once per session, in plain terms — instead of the
+  /// work vanishing silently.
   void _saveWork() {
     final key = _workKey;
     if (key == null || !_workRestoreDone) return;
     final publish = ref.read(artifactPublishProvider);
-    ref.read(artifactWorkStoreProvider).save(
+    ref
+        .read(artifactWorkStoreProvider)
+        .save(
           key,
           ArtifactWorkState(
             versions: List.of(_versions),
@@ -183,7 +193,22 @@ class _CodeArtifactPanelState extends ConsumerState<CodeArtifactPanel> {
             publishedUrl: publish.publishedUrl,
             publishedCode: publish.publishedCode,
           ),
-        );
+        )
+        .then((evicted) {
+      if (evicted == 0 || !mounted || _capNoticeShown) return;
+      _capNoticeShown = true;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Saved artifact work is full '
+            '(${ArtifactWorkStore.maxEntries} artifacts) — the oldest '
+            'saved work was removed to make room.',
+          ),
+          behavior: SnackBarBehavior.floating,
+          duration: Duration(seconds: 6),
+        ),
+      );
+    });
   }
 
   @override

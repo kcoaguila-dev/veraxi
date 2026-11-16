@@ -972,17 +972,256 @@ class LocalMessagesCompanion extends UpdateCompanion<LocalMessage> {
   }
 }
 
+class $ArtifactWorkEntriesTable extends ArtifactWorkEntries
+    with TableInfo<$ArtifactWorkEntriesTable, ArtifactWorkEntry> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $ArtifactWorkEntriesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _workKeyMeta =
+      const VerificationMeta('workKey');
+  @override
+  late final GeneratedColumn<String> workKey = GeneratedColumn<String>(
+      'work_key', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _stateJsonMeta =
+      const VerificationMeta('stateJson');
+  @override
+  late final GeneratedColumn<String> stateJson = GeneratedColumn<String>(
+      'state_json', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _updatedAtMsMeta =
+      const VerificationMeta('updatedAtMs');
+  @override
+  late final GeneratedColumn<int> updatedAtMs = GeneratedColumn<int>(
+      'updated_at_ms', aliasedName, false,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(0));
+  @override
+  List<GeneratedColumn> get $columns => [workKey, stateJson, updatedAtMs];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'artifact_work_entries';
+  @override
+  VerificationContext validateIntegrity(Insertable<ArtifactWorkEntry> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('work_key')) {
+      context.handle(_workKeyMeta,
+          workKey.isAcceptableOrUnknown(data['work_key']!, _workKeyMeta));
+    } else if (isInserting) {
+      context.missing(_workKeyMeta);
+    }
+    if (data.containsKey('state_json')) {
+      context.handle(_stateJsonMeta,
+          stateJson.isAcceptableOrUnknown(data['state_json']!, _stateJsonMeta));
+    } else if (isInserting) {
+      context.missing(_stateJsonMeta);
+    }
+    if (data.containsKey('updated_at_ms')) {
+      context.handle(
+          _updatedAtMsMeta,
+          updatedAtMs.isAcceptableOrUnknown(
+              data['updated_at_ms']!, _updatedAtMsMeta));
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {workKey};
+  @override
+  ArtifactWorkEntry map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return ArtifactWorkEntry(
+      workKey: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}work_key'])!,
+      stateJson: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}state_json'])!,
+      updatedAtMs: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}updated_at_ms'])!,
+    );
+  }
+
+  @override
+  $ArtifactWorkEntriesTable createAlias(String alias) {
+    return $ArtifactWorkEntriesTable(attachedDatabase, alias);
+  }
+}
+
+class ArtifactWorkEntry extends DataClass
+    implements Insertable<ArtifactWorkEntry> {
+  final String workKey;
+  final String stateJson;
+  final int updatedAtMs;
+  const ArtifactWorkEntry(
+      {required this.workKey,
+      required this.stateJson,
+      required this.updatedAtMs});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['work_key'] = Variable<String>(workKey);
+    map['state_json'] = Variable<String>(stateJson);
+    map['updated_at_ms'] = Variable<int>(updatedAtMs);
+    return map;
+  }
+
+  ArtifactWorkEntriesCompanion toCompanion(bool nullToAbsent) {
+    return ArtifactWorkEntriesCompanion(
+      workKey: Value(workKey),
+      stateJson: Value(stateJson),
+      updatedAtMs: Value(updatedAtMs),
+    );
+  }
+
+  factory ArtifactWorkEntry.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return ArtifactWorkEntry(
+      workKey: serializer.fromJson<String>(json['workKey']),
+      stateJson: serializer.fromJson<String>(json['stateJson']),
+      updatedAtMs: serializer.fromJson<int>(json['updatedAtMs']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'workKey': serializer.toJson<String>(workKey),
+      'stateJson': serializer.toJson<String>(stateJson),
+      'updatedAtMs': serializer.toJson<int>(updatedAtMs),
+    };
+  }
+
+  ArtifactWorkEntry copyWith(
+          {String? workKey, String? stateJson, int? updatedAtMs}) =>
+      ArtifactWorkEntry(
+        workKey: workKey ?? this.workKey,
+        stateJson: stateJson ?? this.stateJson,
+        updatedAtMs: updatedAtMs ?? this.updatedAtMs,
+      );
+  ArtifactWorkEntry copyWithCompanion(ArtifactWorkEntriesCompanion data) {
+    return ArtifactWorkEntry(
+      workKey: data.workKey.present ? data.workKey.value : this.workKey,
+      stateJson: data.stateJson.present ? data.stateJson.value : this.stateJson,
+      updatedAtMs:
+          data.updatedAtMs.present ? data.updatedAtMs.value : this.updatedAtMs,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ArtifactWorkEntry(')
+          ..write('workKey: $workKey, ')
+          ..write('stateJson: $stateJson, ')
+          ..write('updatedAtMs: $updatedAtMs')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(workKey, stateJson, updatedAtMs);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is ArtifactWorkEntry &&
+          other.workKey == this.workKey &&
+          other.stateJson == this.stateJson &&
+          other.updatedAtMs == this.updatedAtMs);
+}
+
+class ArtifactWorkEntriesCompanion extends UpdateCompanion<ArtifactWorkEntry> {
+  final Value<String> workKey;
+  final Value<String> stateJson;
+  final Value<int> updatedAtMs;
+  final Value<int> rowid;
+  const ArtifactWorkEntriesCompanion({
+    this.workKey = const Value.absent(),
+    this.stateJson = const Value.absent(),
+    this.updatedAtMs = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  ArtifactWorkEntriesCompanion.insert({
+    required String workKey,
+    required String stateJson,
+    this.updatedAtMs = const Value.absent(),
+    this.rowid = const Value.absent(),
+  })  : workKey = Value(workKey),
+        stateJson = Value(stateJson);
+  static Insertable<ArtifactWorkEntry> custom({
+    Expression<String>? workKey,
+    Expression<String>? stateJson,
+    Expression<int>? updatedAtMs,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (workKey != null) 'work_key': workKey,
+      if (stateJson != null) 'state_json': stateJson,
+      if (updatedAtMs != null) 'updated_at_ms': updatedAtMs,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  ArtifactWorkEntriesCompanion copyWith(
+      {Value<String>? workKey,
+      Value<String>? stateJson,
+      Value<int>? updatedAtMs,
+      Value<int>? rowid}) {
+    return ArtifactWorkEntriesCompanion(
+      workKey: workKey ?? this.workKey,
+      stateJson: stateJson ?? this.stateJson,
+      updatedAtMs: updatedAtMs ?? this.updatedAtMs,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (workKey.present) {
+      map['work_key'] = Variable<String>(workKey.value);
+    }
+    if (stateJson.present) {
+      map['state_json'] = Variable<String>(stateJson.value);
+    }
+    if (updatedAtMs.present) {
+      map['updated_at_ms'] = Variable<int>(updatedAtMs.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ArtifactWorkEntriesCompanion(')
+          ..write('workKey: $workKey, ')
+          ..write('stateJson: $stateJson, ')
+          ..write('updatedAtMs: $updatedAtMs, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$LocalChatDatabase extends GeneratedDatabase {
   _$LocalChatDatabase(QueryExecutor e) : super(e);
   $LocalChatDatabaseManager get managers => $LocalChatDatabaseManager(this);
   late final $LocalThreadsTable localThreads = $LocalThreadsTable(this);
   late final $LocalMessagesTable localMessages = $LocalMessagesTable(this);
+  late final $ArtifactWorkEntriesTable artifactWorkEntries =
+      $ArtifactWorkEntriesTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
   @override
   List<DatabaseSchemaEntity> get allSchemaEntities =>
-      [localThreads, localMessages];
+      [localThreads, localMessages, artifactWorkEntries];
 }
 
 typedef $$LocalThreadsTableCreateCompanionBuilder = LocalThreadsCompanion
@@ -1455,6 +1694,154 @@ typedef $$LocalMessagesTableProcessedTableManager = ProcessedTableManager<
     ),
     LocalMessage,
     PrefetchHooks Function()>;
+typedef $$ArtifactWorkEntriesTableCreateCompanionBuilder
+    = ArtifactWorkEntriesCompanion Function({
+  required String workKey,
+  required String stateJson,
+  Value<int> updatedAtMs,
+  Value<int> rowid,
+});
+typedef $$ArtifactWorkEntriesTableUpdateCompanionBuilder
+    = ArtifactWorkEntriesCompanion Function({
+  Value<String> workKey,
+  Value<String> stateJson,
+  Value<int> updatedAtMs,
+  Value<int> rowid,
+});
+
+class $$ArtifactWorkEntriesTableFilterComposer
+    extends Composer<_$LocalChatDatabase, $ArtifactWorkEntriesTable> {
+  $$ArtifactWorkEntriesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get workKey => $composableBuilder(
+      column: $table.workKey, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get stateJson => $composableBuilder(
+      column: $table.stateJson, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get updatedAtMs => $composableBuilder(
+      column: $table.updatedAtMs, builder: (column) => ColumnFilters(column));
+}
+
+class $$ArtifactWorkEntriesTableOrderingComposer
+    extends Composer<_$LocalChatDatabase, $ArtifactWorkEntriesTable> {
+  $$ArtifactWorkEntriesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get workKey => $composableBuilder(
+      column: $table.workKey, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get stateJson => $composableBuilder(
+      column: $table.stateJson, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get updatedAtMs => $composableBuilder(
+      column: $table.updatedAtMs, builder: (column) => ColumnOrderings(column));
+}
+
+class $$ArtifactWorkEntriesTableAnnotationComposer
+    extends Composer<_$LocalChatDatabase, $ArtifactWorkEntriesTable> {
+  $$ArtifactWorkEntriesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get workKey =>
+      $composableBuilder(column: $table.workKey, builder: (column) => column);
+
+  GeneratedColumn<String> get stateJson =>
+      $composableBuilder(column: $table.stateJson, builder: (column) => column);
+
+  GeneratedColumn<int> get updatedAtMs => $composableBuilder(
+      column: $table.updatedAtMs, builder: (column) => column);
+}
+
+class $$ArtifactWorkEntriesTableTableManager extends RootTableManager<
+    _$LocalChatDatabase,
+    $ArtifactWorkEntriesTable,
+    ArtifactWorkEntry,
+    $$ArtifactWorkEntriesTableFilterComposer,
+    $$ArtifactWorkEntriesTableOrderingComposer,
+    $$ArtifactWorkEntriesTableAnnotationComposer,
+    $$ArtifactWorkEntriesTableCreateCompanionBuilder,
+    $$ArtifactWorkEntriesTableUpdateCompanionBuilder,
+    (
+      ArtifactWorkEntry,
+      BaseReferences<_$LocalChatDatabase, $ArtifactWorkEntriesTable,
+          ArtifactWorkEntry>
+    ),
+    ArtifactWorkEntry,
+    PrefetchHooks Function()> {
+  $$ArtifactWorkEntriesTableTableManager(
+      _$LocalChatDatabase db, $ArtifactWorkEntriesTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$ArtifactWorkEntriesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$ArtifactWorkEntriesTableOrderingComposer(
+                  $db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$ArtifactWorkEntriesTableAnnotationComposer(
+                  $db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<String> workKey = const Value.absent(),
+            Value<String> stateJson = const Value.absent(),
+            Value<int> updatedAtMs = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              ArtifactWorkEntriesCompanion(
+            workKey: workKey,
+            stateJson: stateJson,
+            updatedAtMs: updatedAtMs,
+            rowid: rowid,
+          ),
+          createCompanionCallback: ({
+            required String workKey,
+            required String stateJson,
+            Value<int> updatedAtMs = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              ArtifactWorkEntriesCompanion.insert(
+            workKey: workKey,
+            stateJson: stateJson,
+            updatedAtMs: updatedAtMs,
+            rowid: rowid,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ));
+}
+
+typedef $$ArtifactWorkEntriesTableProcessedTableManager = ProcessedTableManager<
+    _$LocalChatDatabase,
+    $ArtifactWorkEntriesTable,
+    ArtifactWorkEntry,
+    $$ArtifactWorkEntriesTableFilterComposer,
+    $$ArtifactWorkEntriesTableOrderingComposer,
+    $$ArtifactWorkEntriesTableAnnotationComposer,
+    $$ArtifactWorkEntriesTableCreateCompanionBuilder,
+    $$ArtifactWorkEntriesTableUpdateCompanionBuilder,
+    (
+      ArtifactWorkEntry,
+      BaseReferences<_$LocalChatDatabase, $ArtifactWorkEntriesTable,
+          ArtifactWorkEntry>
+    ),
+    ArtifactWorkEntry,
+    PrefetchHooks Function()>;
 
 class $LocalChatDatabaseManager {
   final _$LocalChatDatabase _db;
@@ -1463,4 +1850,6 @@ class $LocalChatDatabaseManager {
       $$LocalThreadsTableTableManager(_db, _db.localThreads);
   $$LocalMessagesTableTableManager get localMessages =>
       $$LocalMessagesTableTableManager(_db, _db.localMessages);
+  $$ArtifactWorkEntriesTableTableManager get artifactWorkEntries =>
+      $$ArtifactWorkEntriesTableTableManager(_db, _db.artifactWorkEntries);
 }

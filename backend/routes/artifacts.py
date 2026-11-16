@@ -5,6 +5,13 @@ a signed-in user publishes a code or renderable artifact, gets back a
 public ``/a/{id}`` URL anyone can open, and can unpublish it again.
 Records live in Redis alongside the gateway's other state (thread
 activities in routes/chat.py, attachment metadata in routes/files.py).
+
+The module also hosts the artifact-work sync endpoints
+(``/api/artifacts/work/{thread_id}``): the panel's per-artifact work
+(version history, current version, published link) stored per tenant
+in Redis so it syncs across devices the way chat history does.
+Unlike publish, work sync is private per-tenant data, so every
+tenant — guests included — may use it.
 """
 
 import html
@@ -32,6 +39,12 @@ ARTIFACT_KEY_PREFIX = "published_artifact:"
 MAX_CODE_CHARS = 200_000
 MAX_TITLE_CHARS = 300
 VALID_ARTIFACT_KINDS = {"html", "svg", "mermaid", "react", "markdown", "code"}
+
+# Artifact-work sync limits: a state holds at most this many versions,
+# each at most MAX_CODE_CHARS long, and the whole serialized state
+# must stay under the total cap (413, like oversize published code).
+MAX_WORK_VERSIONS = 200
+MAX_WORK_STATE_CHARS = 1_000_000
 
 # Content-Security-Policy for the public artifact page. A srcdoc
 # iframe's document has no URL of its own and *inherits the embedding
@@ -100,6 +113,14 @@ def _artifact_key(artifact_id: str) -> str:
     return f"{ARTIFACT_KEY_PREFIX}{artifact_id}"
 
 
+def _work_key(tenant_id: str, thread_id: str) -> str:
+    """Redis hash holding one thread's synced artifact work for a
+    tenant, keyed like the tenant's other chat state (routes/chat.py
+    uses ``tenant:{tenant_id}:thread_titles`` and friends). Fields
+    are ``"{message_index}:{artifact_index}"``."""
+    return f"tenant:{tenant_id}:artifact_work:{thread_id}"
+
+
 def _decode(raw) -> str | None:
     if raw is None:
         return None
@@ -130,6 +151,55 @@ def _require_signed_in_tenant(tenant_id: str) -> None:
 
 def _normalize_kind(kind) -> str:
     return kind if kind in VALID_ARTIFACT_KINDS else "code"
+
+
+def _parse_work_payload(body) -> tuple[int, int, dict]:
+    """Validate a PUT /api/artifacts/work body and return
+    ``(message_index, artifact_index, state)``.
+
+    Parsed by hand rather than with a pydantic model so every
+    validation failure is a 400 (a model would answer 422 for type
+    errors). Only the shape is checked: ``state`` must be an object
+    whose ``versions`` is a list of strings within the size limits;
+    all other fields (``updatedAt``, …) are stored opaquely.
+    """
+    if not isinstance(body, dict):
+        raise HTTPException(status_code=400, detail="request body must be an object")
+    message_index = body.get("message_index")
+    artifact_index = body.get("artifact_index")
+    for name, value in (
+        ("message_index", message_index),
+        ("artifact_index", artifact_index),
+    ):
+        if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+            raise HTTPException(
+                status_code=400, detail=f"{name} must be an integer >= 0"
+            )
+    state = body.get("state")
+    if not isinstance(state, dict):
+        raise HTTPException(status_code=400, detail="state must be an object")
+    versions = state.get("versions")
+    if (
+        not isinstance(versions, list)
+        or len(versions) > MAX_WORK_VERSIONS
+        or any(
+            not isinstance(version, str) or len(version) > MAX_CODE_CHARS
+            for version in versions
+        )
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"state.versions must be a list of at most {MAX_WORK_VERSIONS} "
+                f"strings, each at most {MAX_CODE_CHARS} characters"
+            ),
+        )
+    if len(json.dumps(state)) > MAX_WORK_STATE_CHARS:
+        raise HTTPException(
+            status_code=413,
+            detail=f"state too large (max {MAX_WORK_STATE_CHARS} characters)",
+        )
+    return message_index, artifact_index, state
 
 
 # ---------------------------------------------------------------------------
@@ -740,6 +810,65 @@ def register_artifact_routes(
             logger.error(f"Error deleting artifact: {e}")
             raise HTTPException(status_code=500, detail=str(e))
         return {"deleted": True}
+
+    @app_router.put("/api/artifacts/work/{thread_id}")
+    @limiter.limit(config.rate_limit_ingest)
+    async def put_artifact_work(
+        thread_id: str,
+        request: Request,
+        tenant_id: str = Depends(get_tenant_id),
+    ):
+        # No _require_signed_in_tenant here: work sync is private
+        # per-tenant data, and chat history already works for the
+        # guest identity the same way, so every tenant may sync.
+        try:
+            body = await request.json()
+        except Exception:
+            raise HTTPException(
+                status_code=400, detail="request body must be valid JSON"
+            )
+        message_index, artifact_index, state = _parse_work_payload(body)
+        try:
+            store = _get_store(request)
+            await store.hset(
+                _work_key(tenant_id, thread_id),
+                f"{message_index}:{artifact_index}",
+                json.dumps(state),
+            )
+        except HTTPException:
+            raise
+        except Exception as e:
+            sentry_sdk.capture_exception(e)
+            logger.error(f"Error saving artifact work: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+        return {"saved": True}
+
+    @app_router.get("/api/artifacts/work/{thread_id}")
+    async def get_artifact_work(
+        thread_id: str,
+        request: Request,
+        tenant_id: str = Depends(get_tenant_id),
+    ):
+        try:
+            store = _get_store(request)
+            raw_entries = await store.hgetall(_work_key(tenant_id, thread_id))
+        except Exception as e:
+            sentry_sdk.capture_exception(e)
+            logger.error(f"Error loading artifact work: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+        entries = {}
+        for raw_field, raw_value in (raw_entries or {}).items():
+            field = _decode(raw_field)
+            try:
+                entries[field] = json.loads(_decode(raw_value))
+            except (TypeError, ValueError) as e:
+                # A corrupt entry is skipped, not fatal: the rest of
+                # the thread's work still syncs.
+                sentry_sdk.capture_exception(e)
+                logger.warning(
+                    "Corrupt artifact work entry %s in thread %s", field, thread_id
+                )
+        return {"entries": entries}
 
     @app_router.get("/a/{artifact_id}")
     async def get_public_artifact(artifact_id: str, request: Request):

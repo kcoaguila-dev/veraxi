@@ -6,12 +6,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:re_editor/re_editor.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:drift/native.dart';
 import 'package:veraxi_app/features/chat/data/artifact_publish_repository.dart';
 import 'package:veraxi_app/features/chat/data/artifact_work_store.dart';
+import 'package:veraxi_app/features/chat/data/local_chat_database.dart';
 import 'package:veraxi_app/core/theme.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
 import 'package:veraxi_app/features/chat/view_models/artifact_incoming_provider.dart';
+import 'package:veraxi_app/features/chat/view_models/artifact_work_provider.dart';
 import 'package:veraxi_app/features/chat/view_models/artifact_quick_actions.dart';
 import 'package:veraxi_app/features/chat/view_models/chat_state.dart';
 import 'package:veraxi_app/features/chat/view_models/chat_view_model.dart';
@@ -682,9 +684,10 @@ def main():
   testWidgets(
       'panel restores persisted versions and the published link '
       'from a previous session', (tester) async {
-    SharedPreferences.setMockInitialValues({});
+    final db = LocalChatDatabase.withExecutor(NativeDatabase.memory());
+    addTearDown(db.close);
     const editedCode = 'def main():\n    print("Hello, edited!")';
-    await ArtifactWorkStore().save(
+    await ArtifactWorkStore(database: db).save(
       't1:0:0',
       ArtifactWorkState(
         versions: [_helloArtifact.code, editedCode],
@@ -707,6 +710,10 @@ def main():
         ),
         extraOverrides: [
           artifactPublishRepositoryProvider.overrideWithValue(repository),
+          // Local-only store: panel restore is the subject here;
+          // sync behavior is covered by the store's own tests.
+          artifactWorkStoreProvider
+              .overrideWithValue(ArtifactWorkStore(database: db)),
         ],
       ),
     );
@@ -730,6 +737,75 @@ def main():
           kind: any(named: 'kind'),
           existingId: any(named: 'existingId'),
         ));
+  });
+
+  testWidgets(
+      'when a save evicts the oldest work at the storage cap, the '
+      'panel tells the user instead of staying silent', (tester) async {
+    // Seed the local store at exactly its cap (none of the
+    // entries is the artifact under test).
+    final db = LocalChatDatabase.withExecutor(NativeDatabase.memory());
+    addTearDown(db.close);
+    final seedStore = ArtifactWorkStore(database: db);
+    for (var i = 0; i < ArtifactWorkStore.maxEntries; i++) {
+      await seedStore.save(
+        'x:$i:0',
+        ArtifactWorkState(
+          versions: ['code $i'],
+          versionIndex: 0,
+          originalCode: 'code $i',
+        ),
+      );
+    }
+    final liveSource = StateProvider<CodeArtifact>((_) => _helloArtifact);
+    final container = ProviderContainer(
+      overrides: [
+        openCodeArtifactLiveProvider
+            .overrideWith((ref) => ref.watch(liveSource)),
+        artifactWorkStoreProvider
+            .overrideWithValue(ArtifactWorkStore(database: db)),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          theme: AppTheme.lightTheme,
+          home: const Scaffold(
+            body: SizedBox(
+              width: 520,
+              child: CodeArtifactPanel(
+                open: OpenCodeArtifact(
+                  artifact: _helloArtifact,
+                  threadId: 't1',
+                  messageIndex: 0,
+                ),
+                onClose: _noop,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // A stream update lands: the panel saves its work, the store
+    // evicts the oldest entry to stay at the cap, and the user is
+    // told about it.
+    container.read(liveSource.notifier).state = const CodeArtifact(
+      title: 'Hello world',
+      fileName: 'hello_world.py',
+      language: 'python',
+      code: 'def main():\n    print("Hello, Stream!")',
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.textContaining('oldest saved work was removed'),
+      findsOneWidget,
+    );
   });
 }
 
