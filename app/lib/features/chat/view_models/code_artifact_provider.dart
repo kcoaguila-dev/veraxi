@@ -67,6 +67,57 @@ class CodeArtifact {
   int get lineCount =>
       code.isEmpty ? 0 : '\n'.allMatches(code.trimRight()).length + 1;
 
+  /// Lowercase file extension without the dot, or null when the block
+  /// has no file name.
+  String? get fileExtension {
+    final name = fileName;
+    if (name == null) return null;
+    final dot = name.lastIndexOf('.');
+    if (dot < 0 || dot == name.length - 1) return null;
+    return name.substring(dot + 1).toLowerCase();
+  }
+
+  /// Language id the syntax highlighter understands. Highlight.js treats
+  /// HTML and SVG as XML, everything else uses the normalized id.
+  String get highlightLanguage => switch (language) {
+        'html' || 'svg' => 'xml',
+        _ => language,
+      };
+
+  /// How this artifact can be live-previewed in the panel, the way
+  /// Claude's artifact pane previews HTML, React, SVG, Mermaid, and
+  /// Markdown while plain code stays a highlighted listing.
+  CodePreviewKind get previewKind {
+    final ext = fileExtension;
+    if (language == 'svg' || ext == 'svg') return CodePreviewKind.svg;
+    if (language == 'xml' && code.trimLeft().startsWith('<svg')) {
+      return CodePreviewKind.svg;
+    }
+    if (language == 'html' ||
+        language == 'xml' ||
+        ext == 'html' ||
+        ext == 'htm') {
+      return CodePreviewKind.html;
+    }
+    if (language == 'mermaid' || ext == 'mmd') return CodePreviewKind.mermaid;
+    if (language == 'markdown' || ext == 'md' || ext == 'markdown') {
+      return CodePreviewKind.markdown;
+    }
+    if (language == 'jsx' ||
+        language == 'tsx' ||
+        ext == 'jsx' ||
+        ext == 'tsx') {
+      return CodePreviewKind.react;
+    }
+    if ((language == 'javascript' || language == 'typescript') &&
+        _looksLikeReactComponent(code)) {
+      return CodePreviewKind.react;
+    }
+    return CodePreviewKind.none;
+  }
+
+  bool get isPreviewable => previewKind != CodePreviewKind.none;
+
   @override
   bool operator ==(Object other) =>
       other is CodeArtifact &&
@@ -77,6 +128,41 @@ class CodeArtifact {
 
   @override
   int get hashCode => Object.hash(title, fileName, language, code);
+}
+
+/// The kinds of live preview the artifact panel supports, mirroring the
+/// set Claude renders in its artifact pane. Everything else is
+/// [CodePreviewKind.none] and shows as highlighted code only.
+enum CodePreviewKind {
+  none,
+  html,
+  svg,
+  mermaid,
+  react,
+  markdown;
+
+  /// Label for the preview toggle / panel subtitle, e.g. `HTML`.
+  String get label => switch (this) {
+        CodePreviewKind.none => '',
+        CodePreviewKind.html => 'HTML',
+        CodePreviewKind.svg => 'SVG',
+        CodePreviewKind.mermaid => 'Mermaid',
+        CodePreviewKind.react => 'React',
+        CodePreviewKind.markdown => 'Markdown',
+      };
+}
+
+final RegExp _jsxTagPattern = RegExp(r'<[A-Za-z][A-Za-z0-9]*(\s[^>]*)?/?>');
+
+/// Conservative React heuristic for plain `javascript` / `typescript`
+/// blocks: an exported (or React-referencing) component plus JSX markup.
+/// A plain JS snippet with neither stays a code listing, not a preview.
+bool _looksLikeReactComponent(String code) {
+  final hasJsx = _jsxTagPattern.hasMatch(code);
+  if (!hasJsx) return false;
+  return code.contains('export default') ||
+      code.contains('React') ||
+      code.contains('useState');
 }
 
 /// The code artifact currently open in the right-side panel, or null when
@@ -97,7 +183,7 @@ String normalizeCodeLanguage(String raw) {
     'sh' || 'zsh' => 'bash',
     'c++' || 'cc' => 'cpp',
     'c#' => 'cs',
-    'html' => 'xml',
+    'md' => 'markdown',
     _ => language,
   };
 }
@@ -113,7 +199,12 @@ String codeLanguageDisplayName(String normalizedLanguage) {
     'bash' => 'Bash',
     'cpp' => 'C++',
     'cs' => 'C#',
-    'xml' => 'HTML',
+    'html' => 'HTML',
+    'xml' => 'XML',
+    'markdown' => 'Markdown',
+    'mermaid' => 'Mermaid',
+    'svg' => 'SVG',
+    'jsx' || 'tsx' => 'React',
     _ => normalizedLanguage.isEmpty
         ? 'Plain text'
         : '${normalizedLanguage[0].toUpperCase()}${normalizedLanguage.substring(1)}',
@@ -177,6 +268,8 @@ const Set<String> _knownFileExtensions = {
   'scss',
   'sql',
   'md',
+  'svg',
+  'mmd',
   'txt',
   'r',
   'pl',
@@ -227,9 +320,9 @@ final RegExp _fencedBlockPattern = RegExp(
 /// 2. a file name in a comment on the code's first line,
 /// 3. no name — the card falls back to `<Language> code`.
 ///
-/// Unclosed fences (a block still streaming in) are ignored here; the
-/// markdown builder falls back to building an artifact directly for any
-/// block this misses, so a card still renders.
+/// Unclosed fences (a block still streaming in) are ignored here; they
+/// stay in the rendered prose as a plain inline block until the fence
+/// closes and the block becomes a card.
 List<CodeArtifact> extractCodeArtifacts(String markdown) {
   final artifacts = <CodeArtifact>[];
   var proseStart = 0;
@@ -247,4 +340,14 @@ List<CodeArtifact> extractCodeArtifacts(String markdown) {
     proseStart = match.end;
   }
   return artifacts;
+}
+
+/// Returns [markdown] with every fenced code block removed, so the prose
+/// renders on its own and the blocks can be presented as artifact cards
+/// collected at the end of the message, the way Claude shows created
+/// files. Uses the same fence pattern as [extractCodeArtifacts], so the
+/// removed blocks and the extracted artifacts always agree. Unclosed
+/// fences are left in place (see [extractCodeArtifacts]).
+String stripCodeArtifacts(String markdown) {
+  return markdown.replaceAll(_fencedBlockPattern, '').trim();
 }

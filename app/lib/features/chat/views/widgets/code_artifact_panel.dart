@@ -3,22 +3,25 @@ import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_highlighter/flutter_highlighter.dart';
 import 'package:flutter_highlighter/themes/atom-one-dark.dart';
+import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
 import 'package:veraxi_app/features/chat/view_models/code_artifact_provider.dart';
 import 'package:veraxi_app/features/chat/views/widgets/artifact_sandbox.dart';
 
-/// Right-side panel that shows the full code for a [CodeArtifact] when its
-/// card is tapped in the chat — the split view in Claude's UI.
+/// Right-side panel that shows a [CodeArtifact] when its card is tapped
+/// in the chat — the split view in Claude's UI.
 ///
 /// Desktop: rendered as a fixed-width column beside the chat.
 /// Mobile: the caller renders it as a full-screen overlay instead; this
 /// widget simply fills whatever space it is given.
 ///
-/// The header carries the title and extension badge, a Copy action, a Run
-/// action for the languages the existing client sandbox actually executes
-/// (Python / JavaScript), and a close button. The body is syntax
-/// highlighted with a line-number gutter, scrollable in both directions.
+/// Like Claude's artifact pane, renderable artifacts (HTML, React, SVG,
+/// Mermaid, Markdown) open on a live **Preview** with a **Code** toggle;
+/// plain code opens on the highlighted listing. The header also carries
+/// a Copy action, a Run action for the languages the existing client
+/// sandbox actually executes (Python / JavaScript, code view only), and
+/// a close button.
 class CodeArtifactPanel extends StatefulWidget {
   final CodeArtifact artifact;
   final VoidCallback onClose;
@@ -38,9 +41,14 @@ class _CodeArtifactPanelState extends State<CodeArtifactPanel> {
   bool _isRunning = false;
   SandboxResult? _sandboxResult;
 
+  /// Renderable artifacts open on their live preview, like Claude;
+  /// everything else has no preview state at all.
+  late bool _showPreview = widget.artifact.isPreviewable;
+
   bool get _canRun =>
-      widget.artifact.language == 'python' ||
-      widget.artifact.language == 'javascript';
+      !_showPreview &&
+      (widget.artifact.language == 'python' ||
+          widget.artifact.language == 'javascript');
 
   Future<void> _copyCode() async {
     await Clipboard.setData(ClipboardData(text: widget.artifact.code));
@@ -82,7 +90,11 @@ class _CodeArtifactPanelState extends State<CodeArtifactPanel> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _buildHeader(ext, borderColor),
-          Expanded(child: _buildCodeBody(artifact)),
+          Expanded(
+            child: _showPreview && artifact.isPreviewable
+                ? _buildPreviewBody(artifact)
+                : _buildCodeBody(artifact),
+          ),
           if (_sandboxResult != null) _buildOutputStrip(),
         ],
       ),
@@ -101,8 +113,18 @@ class _CodeArtifactPanelState extends State<CodeArtifactPanel> {
       ),
       child: Row(
         children: [
-          const Icon(Icons.code, size: 18, color: Color(0xFFECECEC)),
-          const SizedBox(width: 10),
+          // Claude puts the Preview/Code switch at the far left of the
+          // header; plain code keeps the code icon there instead.
+          if (artifact.isPreviewable) ...[
+            _PreviewToggle(
+              showPreview: _showPreview,
+              onChanged: (preview) => setState(() => _showPreview = preview),
+            ),
+            const SizedBox(width: 12),
+          ] else ...[
+            const Icon(Icons.code, size: 18, color: Color(0xFFECECEC)),
+            const SizedBox(width: 10),
+          ],
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -119,8 +141,7 @@ class _CodeArtifactPanelState extends State<CodeArtifactPanel> {
                   ),
                 ),
                 Text(
-                  '${artifact.extensionLabel} · '
-                  '${codeLanguageDisplayName(artifact.language)}',
+                  _subtitleFor(artifact),
                   style: TextStyle(
                     color: ext?.textTertiary ?? const Color(0xFF878787),
                     fontSize: 11,
@@ -150,6 +171,66 @@ class _CodeArtifactPanelState extends State<CodeArtifactPanel> {
             onPressed: widget.onClose,
           ),
         ],
+      ),
+    );
+  }
+
+  /// `PY · Python` style subtitle. When the badge is just the language
+  /// name uppercased (`HTML`, `DART`), the display name alone is shown
+  /// so the subtitle never reads `HTML · HTML`.
+  String _subtitleFor(CodeArtifact artifact) {
+    final displayName = codeLanguageDisplayName(artifact.language);
+    if (artifact.isPreviewable) {
+      return '${artifact.previewKind.label} preview';
+    }
+    if (artifact.extensionLabel.toLowerCase() == artifact.language) {
+      return displayName;
+    }
+    return '${artifact.extensionLabel} · $displayName';
+  }
+
+  Widget _buildPreviewBody(CodeArtifact artifact) {
+    if (artifact.previewKind == CodePreviewKind.markdown) {
+      // Markdown previews natively — no frame needed.
+      final theme = Theme.of(context);
+      return Container(
+        color: const Color(0xFF141416),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(20),
+          child: MarkdownBody(
+            data: artifact.code,
+            styleSheet: MarkdownStyleSheet(
+              p: theme.textTheme.bodyMedium?.copyWith(
+                color: const Color(0xFFE2E8F0),
+                height: 1.6,
+              ),
+              h1: theme.textTheme.headlineSmall
+                  ?.copyWith(color: Colors.white, fontWeight: FontWeight.w700),
+              h2: theme.textTheme.titleLarge
+                  ?.copyWith(color: Colors.white, fontWeight: FontWeight.w700),
+              h3: theme.textTheme.titleMedium
+                  ?.copyWith(color: Colors.white, fontWeight: FontWeight.w600),
+              code: GoogleFonts.firaCode(
+                backgroundColor: Colors.transparent,
+                color: const Color(0xFFE2E8F0),
+                fontSize: 13,
+              ),
+              codeblockDecoration: BoxDecoration(
+                color: const Color(0xFF0F0F0F),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              listBullet: const TextStyle(color: Color(0xFFE2E8F0)),
+            ),
+          ),
+        ),
+      );
+    }
+    // HTML / SVG / Mermaid / React run in the sandboxed frame.
+    return Container(
+      color: const Color(0xFF141416),
+      child: buildArtifactPreviewContent(
+        kind: artifact.previewKind.name,
+        code: artifact.code,
       ),
     );
   }
@@ -186,9 +267,7 @@ class _CodeArtifactPanelState extends State<CodeArtifactPanel> {
               ),
               HighlightView(
                 artifact.code,
-                language: artifact.language == 'plaintext'
-                    ? 'plaintext'
-                    : artifact.language,
+                language: artifact.highlightLanguage,
                 theme: atomOneDarkTheme,
                 padding: const EdgeInsets.fromLTRB(4, 16, 24, 16),
                 textStyle: textStyle,
@@ -269,6 +348,68 @@ class _CodeArtifactPanelState extends State<CodeArtifactPanel> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Preview | Code segmented toggle shown for renderable artifacts,
+/// mirroring the tabs in Claude's artifact pane.
+class _PreviewToggle extends StatelessWidget {
+  final bool showPreview;
+  final ValueChanged<bool> onChanged;
+
+  const _PreviewToggle({
+    required this.showPreview,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFF141416),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFF3F3F3F)),
+      ),
+      padding: const EdgeInsets.all(2),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _segment('Preview', Icons.visibility_outlined, showPreview, true),
+          _segment('Code', Icons.code, !showPreview, false),
+        ],
+      ),
+    );
+  }
+
+  Widget _segment(String label, IconData icon, bool selected, bool value) {
+    return Material(
+      color: selected ? const Color(0xFF3F3F3F) : Colors.transparent,
+      borderRadius: BorderRadius.circular(6),
+      child: InkWell(
+        onTap: () => onChanged(value),
+        borderRadius: BorderRadius.circular(6),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon,
+                  size: 13,
+                  color: selected ? Colors.white : const Color(0xFF878787)),
+              const SizedBox(width: 5),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: selected ? Colors.white : const Color(0xFF878787),
+                  fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

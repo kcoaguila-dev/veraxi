@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:http/http.dart' as http;
+import 'package:veraxi_app/features/chat/views/widgets/artifact_html_documents.dart';
 import 'dart:convert';
 
 /// Result of executing code in client or local sandbox.
@@ -124,75 +125,9 @@ class _SandboxedArtifactViewState extends State<SandboxedArtifactView> {
   }
 
   void _loadContent() {
-    String htmlContent;
-    if (widget.kind == 'mermaid') {
-      final escapedCode = widget.code
-          .replaceAll('&', '&amp;')
-          .replaceAll('<', '&lt;')
-          .replaceAll('>', '&gt;');
-      htmlContent = '''
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
-  <style>
-    body {
-      margin: 0;
-      padding: 24px;
-      background: #141416;
-      color: #E2E8F0;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      min-height: 85vh;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    }
-    .mermaid {
-      display: flex;
-      justify-content: center;
-      width: 100%;
-    }
-  </style>
-</head>
-<body>
-  <pre class="mermaid">
-$escapedCode
-  </pre>
-  <script>
-    mermaid.initialize({
-      startOnLoad: true,
-      theme: 'dark',
-      securityLevel: 'loose'
-    });
-  </script>
-</body>
-</html>
-''';
-    } else {
-      htmlContent = '''
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <style>
-    body {
-      margin: 0;
-      padding: 16px;
-      background: #141416;
-      color: #E2E8F0;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    }
-  </style>
-</head>
-<body>
-${widget.code}
-</body>
-</html>
-''';
-    }
-    _controller.loadHtmlString(htmlContent);
+    _controller.loadHtmlString(
+      buildArtifactDocument(widget.kind, widget.code),
+    );
   }
 
   @override
@@ -313,4 +248,45 @@ Widget buildSandboxedArtifactPreview({
   required String code,
 }) {
   return SandboxedArtifactView(kind: kind, code: code);
+}
+
+/// Chrome-free preview content for the artifact panel: just the WebView,
+/// filling whatever space the caller gives it.
+class ArtifactPreviewContent extends StatefulWidget {
+  final String kind;
+  final String code;
+
+  const ArtifactPreviewContent({
+    super.key,
+    required this.kind,
+    required this.code,
+  });
+
+  @override
+  State<ArtifactPreviewContent> createState() => _ArtifactPreviewContentState();
+}
+
+class _ArtifactPreviewContentState extends State<ArtifactPreviewContent> {
+  late final WebViewController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setBackgroundColor(const Color(0xFF141416))
+      ..loadHtmlString(buildArtifactDocument(widget.kind, widget.code));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return WebViewWidget(controller: _controller);
+  }
+}
+
+Widget buildArtifactPreviewContent({
+  required String kind,
+  required String code,
+}) {
+  return ArtifactPreviewContent(kind: kind, code: code);
 }

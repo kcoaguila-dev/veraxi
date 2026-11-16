@@ -7,6 +7,7 @@ import 'dart:ui_web' as ui_web;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
+import 'package:veraxi_app/features/chat/views/widgets/artifact_html_documents.dart';
 
 /// Result of executing code in client or local sandbox.
 class SandboxResult {
@@ -254,73 +255,7 @@ class _SandboxedArtifactViewWebState extends State<SandboxedArtifactViewWeb> {
   }
 
   String _generateHtmlDoc() {
-    if (widget.kind == 'mermaid') {
-      final escapedCode = widget.code
-          .replaceAll('&', '&amp;')
-          .replaceAll('<', '&lt;')
-          .replaceAll('>', '&gt;');
-      return '''
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
-  <style>
-    body {
-      margin: 0;
-      padding: 24px;
-      background: #141416;
-      color: #E2E8F0;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      min-height: 85vh;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    }
-    .mermaid {
-      display: flex;
-      justify-content: center;
-      width: 100%;
-    }
-  </style>
-</head>
-<body>
-  <pre class="mermaid">
-$escapedCode
-  </pre>
-  <script>
-    mermaid.initialize({
-      startOnLoad: true,
-      theme: 'dark',
-      securityLevel: 'loose'
-    });
-  </script>
-</body>
-</html>
-''';
-    }
-
-    return '''
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <style>
-    body {
-      margin: 0;
-      padding: 16px;
-      background: #141416;
-      color: #E2E8F0;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    }
-  </style>
-</head>
-<body>
-${widget.code}
-</body>
-</html>
-''';
+    return buildArtifactDocument(widget.kind, widget.code);
   }
 
   @override
@@ -425,4 +360,57 @@ Widget buildSandboxedArtifactPreview({
   required String code,
 }) {
   return SandboxedArtifactViewWeb(kind: kind, code: code);
+}
+
+/// Chrome-free preview content for the artifact panel: just the
+/// sandboxed frame, filling whatever space the caller gives it. The
+/// iframe keeps `sandbox="allow-scripts"` without `allow-same-origin`,
+/// so artifact scripts run in an opaque origin — the same isolation
+/// Claude's artifact pane uses.
+class ArtifactPreviewContentWeb extends StatefulWidget {
+  final String kind;
+  final String code;
+
+  const ArtifactPreviewContentWeb({
+    super.key,
+    required this.kind,
+    required this.code,
+  });
+
+  @override
+  State<ArtifactPreviewContentWeb> createState() =>
+      _ArtifactPreviewContentWebState();
+}
+
+class _ArtifactPreviewContentWebState extends State<ArtifactPreviewContentWeb> {
+  late final String _viewType;
+  html.IFrameElement? _iframe;
+
+  @override
+  void initState() {
+    super.initState();
+    _viewType = 'veraxi-artifact-panel-${_webArtifactCounter++}';
+    _iframe = html.IFrameElement()
+      ..style.border = 'none'
+      ..style.width = '100%'
+      ..style.height = '100%'
+      ..setAttribute('sandbox', 'allow-scripts')
+      ..srcdoc = buildArtifactDocument(widget.kind, widget.code);
+    ui_web.platformViewRegistry.registerViewFactory(
+      _viewType,
+      (int viewId) => _iframe!,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return HtmlElementView(viewType: _viewType);
+  }
+}
+
+Widget buildArtifactPreviewContent({
+  required String kind,
+  required String code,
+}) {
+  return ArtifactPreviewContentWeb(kind: kind, code: code);
 }

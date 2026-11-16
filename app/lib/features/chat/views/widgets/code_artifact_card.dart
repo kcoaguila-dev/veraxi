@@ -5,9 +5,10 @@ import 'package:veraxi_app/features/chat/view_models/code_artifact_provider.dart
 /// The compact, clickable rectangle shown in the chat flow in place of a
 /// full inline code block — the Veraxi equivalent of Claude's file card.
 ///
-/// Shows a code icon, the artifact title (humanized file name when the
-/// assistant named the file), and the extension badge (`PY`, `DART`, …).
-/// Tapping it opens the full code in the right-side panel.
+/// Shows a type icon (a globe for HTML, like Claude's card), the artifact
+/// title (humanized file name when the assistant named the file), and the
+/// extension badge (`PY`, `DART`, …). Tapping it opens the artifact in
+/// the right-side panel.
 class CodeArtifactCard extends StatelessWidget {
   final CodeArtifact artifact;
   final bool isOpen;
@@ -57,8 +58,8 @@ class CodeArtifactCard extends StatelessWidget {
                       color: ext?.borderColor ?? const Color(0xFF3F3F3F),
                     ),
                   ),
-                  child: const Icon(Icons.code,
-                      size: 18, color: Color(0xFFECECEC)),
+                  child: Icon(_iconFor(artifact),
+                      size: 18, color: const Color(0xFFECECEC)),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -91,7 +92,11 @@ class CodeArtifactCard extends StatelessWidget {
                 ),
                 const SizedBox(width: 8),
                 Icon(
-                  isOpen ? Icons.chevron_right : Icons.open_in_new_outlined,
+                  isOpen
+                      ? Icons.chevron_right
+                      : artifact.isPreviewable
+                          ? Icons.visibility_outlined
+                          : Icons.open_in_new_outlined,
                   size: 16,
                   color: ext?.textTertiary ?? const Color(0xFF878787),
                 ),
@@ -101,5 +106,17 @@ class CodeArtifactCard extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  /// Leading tile icon per artifact kind, mirroring Claude's cards
+  /// (globe for a web page, image for SVG, doc for Markdown).
+  IconData _iconFor(CodeArtifact artifact) {
+    return switch (artifact.previewKind) {
+      CodePreviewKind.html => Icons.language,
+      CodePreviewKind.svg => Icons.image_outlined,
+      CodePreviewKind.mermaid => Icons.account_tree_outlined,
+      CodePreviewKind.markdown => Icons.description_outlined,
+      CodePreviewKind.react || CodePreviewKind.none => Icons.code,
+    };
   }
 }
