@@ -46,9 +46,7 @@ class _CodeArtifactPanelState extends State<CodeArtifactPanel> {
   late bool _showPreview = widget.artifact.isPreviewable;
 
   bool get _canRun =>
-      !_showPreview &&
-      (widget.artifact.language == 'python' ||
-          widget.artifact.language == 'javascript');
+      !_showPreview && isSandboxRunnableLanguage(widget.artifact.language);
 
   Future<void> _copyCode() async {
     await Clipboard.setData(ClipboardData(text: widget.artifact.code));

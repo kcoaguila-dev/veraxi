@@ -170,6 +170,20 @@ bool _looksLikeReactComponent(String code) {
 /// cleared by the panel's close button or when the chat is emptied.
 final openCodeArtifactProvider = StateProvider<CodeArtifact?>((ref) => null);
 
+/// Languages the client sandbox can actually execute on the user's
+/// device (Python via Pyodide, JavaScript in the sandbox frame). Run
+/// controls are only shown for these — a Run button for any other
+/// language could only ever produce an error. Must stay in step with
+/// the dispatch in `runCodeInClientSandbox` (artifact_sandbox_web /
+/// artifact_sandbox_stub).
+bool isSandboxRunnableLanguage(String language) {
+  final lang = language.toLowerCase();
+  return lang == 'python' ||
+      lang == 'py' ||
+      lang == 'javascript' ||
+      lang == 'js';
+}
+
 /// Normalizes the language tag from a markdown fence into the id the
 /// syntax highlighter expects. Single source for the alias table that
 /// used to live only inside the markdown code builder.
