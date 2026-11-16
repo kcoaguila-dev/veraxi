@@ -2,11 +2,9 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:html' as html;
-import 'dart:js' as js;
 import 'dart:ui_web' as ui_web;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:http/http.dart' as http;
 import 'package:veraxi_app/features/chat/views/widgets/artifact_html_documents.dart';
 
 /// Result of executing code in client or local sandbox.
@@ -22,68 +20,25 @@ class SandboxResult {
   });
 }
 
-int _pyodideExecutionCounter = 0;
+int _sandboxRunCounter = 0;
 
-/// Fallback executor running Python inside an isolated browser iframe via Pyodide CDN.
-Future<SandboxResult> _runPythonInBrowserWasm(String code) async {
-  final runId = 'pyodide_run_${_pyodideExecutionCounter++}';
+/// Runs a runner document inside a hidden sandboxed iframe and waits
+/// for it to post its JSON result back. The iframe has
+/// `sandbox="allow-scripts"` without `allow-same-origin`, so the code
+/// executes in an opaque origin on the user's own machine — never on
+/// Veraxi's servers, and never in the app's own JS context.
+Future<SandboxResult> _runInSandboxedFrame(
+  String document, {
+  required String runId,
+  required Duration timeout,
+  required String timeoutMessage,
+}) async {
   final completer = Completer<SandboxResult>();
-  final encodedCode = base64Encode(utf8.encode(code));
-
-  final runnerHtml = '''
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <script src="https://cdn.jsdelivr.net/pyodide/v0.26.2/full/pyodide.js"></script>
-</head>
-<body>
-<script>
-(async function() {
-  try {
-    let pyodide = await loadPyodide();
-    await pyodide.runPythonAsync(`
-import sys
-import io
-sys_stdout_backup = sys.stdout
-sys_stderr_backup = sys.stderr
-sys.stdout = io.StringIO()
-sys.stderr = io.StringIO()
-`);
-    let rawCode = atob("${encodedCode}");
-    let exitCode = 0;
-    try {
-      await pyodide.runPythonAsync(rawCode);
-    } catch(err) {
-      exitCode = 1;
-      await pyodide.runPythonAsync(`sys.stderr.write("""\${err}\\n""")`);
-    }
-    let stdout = await pyodide.runPythonAsync("sys.stdout.getvalue()");
-    let stderr = await pyodide.runPythonAsync("sys.stderr.getvalue()");
-    window.parent.postMessage(JSON.stringify({
-      runId: "${runId}",
-      stdout: stdout,
-      stderr: stderr,
-      exitCode: exitCode
-    }), "*");
-  } catch(setupErr) {
-    window.parent.postMessage(JSON.stringify({
-      runId: "${runId}",
-      stdout: "",
-      stderr: "Pyodide initialization failed: " + setupErr,
-      exitCode: 1
-    }), "*");
-  }
-})();
-</script>
-</body>
-</html>
-''';
 
   final iframe = html.IFrameElement()
     ..style.display = 'none'
     ..setAttribute('sandbox', 'allow-scripts')
-    ..srcdoc = runnerHtml;
+    ..srcdoc = document;
 
   StreamSubscription<html.MessageEvent>? sub;
   Timer? timeoutTimer;
@@ -94,15 +49,11 @@ sys.stderr = io.StringIO()
     iframe.remove();
   }
 
-  timeoutTimer = Timer(const Duration(seconds: 25), () {
+  timeoutTimer = Timer(timeout, () {
     if (!completer.isCompleted) {
       cleanup();
       completer.complete(
-        const SandboxResult(
-          stdout: '',
-          stderr: 'Pyodide WASM execution timed out after 25s.',
-          exitCode: 124,
-        ),
+        SandboxResult(stdout: '', stderr: timeoutMessage, exitCode: 124),
       );
     }
   });
@@ -133,80 +84,49 @@ sys.stderr = io.StringIO()
   return completer.future;
 }
 
-/// Executes code inside client WASM / browser context or forwards to backend MCP.
+/// Executes code entirely in the user's browser: JavaScript in a
+/// sandboxed iframe, Python in the same iframe via Pyodide (WASM).
+/// Nothing is sent to a Veraxi server for execution, and a language
+/// the sandbox cannot run returns an honest error instead of a
+/// simulated success.
 Future<SandboxResult> runCodeInClientSandbox(
     String language, String code) async {
   final lang = language.toLowerCase();
+  final runId = 'sandbox_run_${_sandboxRunCounter++}';
 
-  // If JavaScript, run directly in JS context
   if (lang == 'javascript' || lang == 'js') {
-    try {
-      final res = js.context.callMethod('eval', [code]);
-      return SandboxResult(
-        stdout: res?.toString() ?? '(undefined)',
-        stderr: '',
-        exitCode: 0,
-      );
-    } catch (e) {
-      return SandboxResult(
-        stdout: '',
-        stderr: e.toString(),
-        exitCode: 1,
-      );
-    }
+    return _runInSandboxedFrame(
+      buildJavaScriptRunnerDocument(
+        code,
+        runId: runId,
+        postResultBody: postResultToParentWindow,
+      ),
+      runId: runId,
+      timeout: const Duration(seconds: 15),
+      timeoutMessage: 'JavaScript execution timed out after 15s.',
+    );
   }
 
-  // If Python, try to reach backend MCP streamable endpoint first
   if (lang == 'python' || lang == 'py') {
-    try {
-      final uri = Uri.parse('/mcp');
-      final resp = await http
-          .post(
-            uri,
-            headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({
-              'jsonrpc': '2.0',
-              'id': 1,
-              'method': 'tools/call',
-              'params': {
-                'name': 'run_python_code',
-                'arguments': {'code': code},
-              },
-            }),
-          )
-          .timeout(const Duration(seconds: 10));
-
-      if (resp.statusCode == 200) {
-        final data = jsonDecode(resp.body) as Map<String, dynamic>;
-        final result = data['result'] as Map<String, dynamic>? ?? {};
-        final content = (result['content'] as List<dynamic>?)?.firstOrNull;
-        if (content is Map<String, dynamic> && content['text'] != null) {
-          final parsed = jsonDecode(content['text'] as String);
-          return SandboxResult(
-            stdout: parsed['stdout'] ?? '',
-            stderr: parsed['stderr'] ?? '',
-            exitCode: parsed['exit_code'] ?? 0,
-          );
-        }
-      }
-    } catch (_) {
-      // Offline fallback: execute in browser WASM via Pyodide
-      try {
-        return await _runPythonInBrowserWasm(code);
-      } catch (wasmErr) {
-        return SandboxResult(
-          stdout: '',
-          stderr: 'Pyodide WASM error: $wasmErr',
-          exitCode: 1,
-        );
-      }
-    }
+    return _runInSandboxedFrame(
+      buildPythonRunnerDocument(
+        code,
+        runId: runId,
+        postResultBody: postResultToParentWindow,
+      ),
+      runId: runId,
+      // The first run also downloads the Pyodide runtime (~10 MB).
+      timeout: const Duration(seconds: 60),
+      timeoutMessage: 'Python execution timed out after 60s '
+          '(the first run downloads the in-browser Python runtime).',
+    );
   }
 
   return SandboxResult(
-    stdout: '[$language Sandbox] Execution complete',
-    stderr: '',
-    exitCode: 0,
+    stdout: '',
+    stderr: 'Running $language is not supported in the browser sandbox. '
+        'Supported languages: Python, JavaScript.',
+    exitCode: 1,
   );
 }
 

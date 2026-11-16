@@ -19,6 +19,8 @@
 /// source preparation is unit-testable without a browser.
 library;
 
+import 'dart:convert';
+
 /// Dispatches to the document builder for [kind]
 /// (`html`, `svg`, `mermaid`, `react`). Unknown kinds fall back to the
 /// HTML wrapper.
@@ -327,6 +329,162 @@ ${prepared.code}
       }
     })();
   </script>
+</body>
+</html>
+''';
+}
+
+/// The two statements a runner document uses to hand its result back to
+/// the host. Web iframes post to their parent window; the native WebView
+/// posts to its JavaScript channel. Only these two literals are ever
+/// passed — [postResultBody] is host code, never user input.
+const String postResultToParentWindow =
+    'window.parent.postMessage(JSON.stringify(payload), "*");';
+const String postResultToWebViewChannel =
+    'VeraxiRunner.postMessage(JSON.stringify(payload));';
+
+/// Builds the document that runs [code] as JavaScript entirely on the
+/// user's device (browser-only Run): the code executes inside the
+/// sandboxed frame, `console.*` output is captured, and the completion
+/// value (when not `undefined`) is appended to stdout the way a REPL
+/// would print it. The result is posted to the host as JSON:
+/// `{runId, stdout, stderr, exitCode}`.
+///
+/// The code travels base64-encoded so a literal `</script>` inside it
+/// cannot break out of the document.
+String buildJavaScriptRunnerDocument(
+  String code, {
+  required String runId,
+  required String postResultBody,
+}) {
+  final encodedCode = base64Encode(utf8.encode(code));
+  return '''
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body>
+<script>
+(function() {
+  var stdoutLines = [];
+  var stderrLines = [];
+  function format(value) {
+    if (typeof value === 'string') return value;
+    try {
+      var json = JSON.stringify(value);
+      return json === undefined ? String(value) : json;
+    } catch (e) {
+      return String(value);
+    }
+  }
+  function formatArgs(args) {
+    return Array.prototype.map.call(args, format).join(' ');
+  }
+  console.log = function() { stdoutLines.push(formatArgs(arguments)); };
+  console.info = console.log;
+  console.debug = console.log;
+  console.warn = function() { stderrLines.push(formatArgs(arguments)); };
+  console.error = function() { stderrLines.push(formatArgs(arguments)); };
+  function post(payload) {
+    $postResultBody
+  }
+  try {
+    var src = decodeURIComponent(escape(atob("$encodedCode")));
+    var result = (0, eval)(src);
+    if (result !== undefined) stdoutLines.push(format(result));
+    post({
+      runId: "$runId",
+      stdout: stdoutLines.join("\\n"),
+      stderr: stderrLines.join("\\n"),
+      exitCode: 0
+    });
+  } catch (err) {
+    if (stderrLines.length) stderrLines.push("");
+    stderrLines.push(err && err.stack ? String(err.stack) : String(err));
+    post({
+      runId: "$runId",
+      stdout: stdoutLines.join("\\n"),
+      stderr: stderrLines.join("\\n"),
+      exitCode: 1
+    });
+  }
+})();
+</script>
+</body>
+</html>
+''';
+}
+
+/// Builds the document that runs [code] as Python entirely on the
+/// user's device via Pyodide (WebAssembly CPython loaded from CDN):
+/// stdout/stderr are captured inside the Python session, exceptions
+/// print their traceback to stderr, and the result is posted to the
+/// host as JSON: `{runId, stdout, stderr, exitCode}`.
+///
+/// The first run downloads Pyodide (~10 MB) into the frame's cache;
+/// later runs reuse it. The code travels base64-encoded so a literal
+/// `</script>` inside it cannot break out of the document.
+String buildPythonRunnerDocument(
+  String code, {
+  required String runId,
+  required String postResultBody,
+}) {
+  final encodedCode = base64Encode(utf8.encode(code));
+  return '''
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="https://cdn.jsdelivr.net/pyodide/v0.26.2/full/pyodide.js"></script>
+</head>
+<body>
+<script>
+(async function() {
+  function post(payload) {
+    $postResultBody
+  }
+  try {
+    var pyodide = await loadPyodide();
+    var rawCode = decodeURIComponent(escape(atob("$encodedCode")));
+    pyodide.globals.set("__veraxi_user_code", rawCode);
+    var result = await pyodide.runPythonAsync(`
+import sys
+import io
+import traceback
+
+sys.stdout = io.StringIO()
+sys.stderr = io.StringIO()
+__veraxi_exit = 0
+try:
+    exec(compile(__veraxi_user_code, "<sandbox>", "exec"),
+         {"__name__": "__main__"})
+except SystemExit as __veraxi_e:
+    if isinstance(__veraxi_e.code, int):
+        __veraxi_exit = __veraxi_e.code
+    elif __veraxi_e.code is not None:
+        print(__veraxi_e.code, file=sys.stderr)
+        __veraxi_exit = 1
+except BaseException:
+    traceback.print_exc()
+    __veraxi_exit = 1
+(sys.stdout.getvalue(), sys.stderr.getvalue(), __veraxi_exit)
+`);
+    var parts = result.toJs();
+    post({
+      runId: "$runId",
+      stdout: parts[0],
+      stderr: parts[1],
+      exitCode: parts[2]
+    });
+  } catch (setupErr) {
+    post({
+      runId: "$runId",
+      stdout: "",
+      stderr: "Python runtime failed to load: " + setupErr,
+      exitCode: 1
+    });
+  }
+})();
+</script>
 </body>
 </html>
 ''';

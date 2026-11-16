@@ -141,4 +141,58 @@ export default function App() {
           contains('mermaid.min.js'));
     });
   });
+
+  group('runner documents (browser-only Run)', () {
+    test('javascript runner captures console output and posts the result', () {
+      final doc = buildJavaScriptRunnerDocument(
+        'console.log("hi"); 40 + 2',
+        runId: 'run-1',
+        postResultBody: postResultToParentWindow,
+      );
+      expect(doc, contains('console.log = function()'));
+      expect(doc, contains('console.error = function()'));
+      expect(doc, contains('(0, eval)'));
+      expect(doc, contains('runId: "run-1"'));
+      expect(
+          doc, contains('window.parent.postMessage(JSON.stringify(payload)'));
+      // The code itself travels base64-encoded, never inlined raw.
+      expect(doc, isNot(contains('console.log("hi"); 40 + 2')));
+    });
+
+    test('javascript runner can post over the WebView channel instead', () {
+      final doc = buildJavaScriptRunnerDocument(
+        '1 + 1',
+        runId: 'run-2',
+        postResultBody: postResultToWebViewChannel,
+      );
+      expect(doc, contains('VeraxiRunner.postMessage(JSON.stringify('));
+      expect(doc, isNot(contains('window.parent.postMessage')));
+    });
+
+    test('python runner loads Pyodide and captures stdout in-session', () {
+      final doc = buildPythonRunnerDocument(
+        'print("hello")',
+        runId: 'run-3',
+        postResultBody: postResultToParentWindow,
+      );
+      expect(doc, contains('cdn.jsdelivr.net/pyodide/v0.26.2'));
+      expect(doc, contains('loadPyodide()'));
+      expect(doc, contains('sys.stdout = io.StringIO()'));
+      expect(doc, contains('traceback.print_exc()'));
+      expect(doc, contains('SystemExit'));
+      expect(doc, contains('runId: "run-3"'));
+      expect(doc, isNot(contains('print("hello")')));
+    });
+
+    test('a literal closing script tag in the code cannot break out', () {
+      final doc = buildJavaScriptRunnerDocument(
+        'var s = "</script><script>alert(1)</scr" + "ipt>";',
+        runId: 'run-4',
+        postResultBody: postResultToParentWindow,
+      );
+      // Only the runner's own two script tags exist in the document.
+      expect('</script>'.allMatches(doc), hasLength(1));
+      expect(doc, isNot(contains('alert(1)</scr')));
+    });
+  });
 }
