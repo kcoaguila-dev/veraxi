@@ -3,6 +3,7 @@ import copy
 import json
 import logging
 import os
+import re
 import time
 import urllib.parse
 import urllib.request
@@ -45,6 +46,33 @@ def _sanitize_messages_for_provider(
         message_copy.additional_kwargs.pop("reasoning_content", None)
         sanitized.append(message_copy)
     return sanitized
+
+
+_THINK_BLOCK_RE = re.compile(r"<think>(.*?)</think>", re.DOTALL)
+
+
+def _extract_think_block(response: AIMessage) -> None:
+    """Move an inline ``<think>...</think>`` block into reasoning_content.
+
+    Streaming (llm_loop.py) separates <think> blocks into reasoning events
+    only while the answer is being generated, so without this the trace is
+    lost for non-streamed responses and never reaches the persisted
+    AIMessage. Storing it in additional_kwargs is safe for multi-turn
+    replay: _sanitize_messages_for_provider and the ChatLiteLLM serializer
+    both strip reasoning_content before messages are sent to a provider.
+    """
+    if response.additional_kwargs.get("reasoning_content"):
+        return
+    content = response.content
+    if not isinstance(content, str) or "<think>" not in content:
+        return
+    match = _THINK_BLOCK_RE.search(content)
+    if not match:
+        return
+    reasoning = match.group(1)
+    if reasoning:
+        response.additional_kwargs["reasoning_content"] = reasoning
+    response.content = content[: match.start()] + content[match.end() :]
 
 
 _request_api_key: ContextVar[str | None] = ContextVar("_request_api_key", default=None)
@@ -341,6 +369,10 @@ async def call_model(state: AgentState):
 
     if not response:
         raise RuntimeError("Failed to get response from LLM")
+
+    # Persist any inline <think> reasoning on the message itself so it
+    # survives history reads / web reloads, not just live streaming.
+    _extract_think_block(response)
 
     # Inject the model name into the response so it gets saved to history and sent to frontend
     response.additional_kwargs["model_name"] = effective_model

@@ -14,8 +14,11 @@ class LocalChatRepository implements IChatRepository {
   final LocalChatDatabase db;
   final _uuid = const Uuid();
 
-  LocalChatRepository({required this.apiClient, required this.apiKeyStorage})
-      : db = LocalChatDatabase();
+  LocalChatRepository(
+      {required this.apiClient,
+      required this.apiKeyStorage,
+      LocalChatDatabase? database})
+      : db = database ?? LocalChatDatabase();
 
   @override
   Future<void> assignThreadToProject(String threadId, String? projectId) async {
@@ -63,6 +66,8 @@ class LocalChatRepository implements IChatRepository {
               'toolEvents':
                   m.toolEvents != null ? jsonDecode(m.toolEvents!) : [],
               'activity': m.activity != null ? jsonDecode(m.activity!) : [],
+              'reasoning': m.reasoning,
+              'reasoning_duration_seconds': m.reasoningDurationSeconds,
             })
         .toList();
   }
@@ -132,6 +137,8 @@ class LocalChatRepository implements IChatRepository {
     Map<String, dynamic>? finalMetrics;
     List<dynamic> toolEvents = [];
     final activity = <Map<String, dynamic>>[];
+    final reasoningBuffer = StringBuffer();
+    double? reasoningDurationSeconds;
     final aiMessageId = _uuid.v4();
 
     if (!isTemporary) {
@@ -142,7 +149,17 @@ class LocalChatRepository implements IChatRepository {
     }
 
     await for (final event in stream) {
-      if (event['event'] == 'on_chat_model_stream') {
+      if (event['event'] == 'on_reasoning_stream') {
+        final text = event['data']?['text'];
+        if (text is String) {
+          reasoningBuffer.write(text);
+        }
+      } else if (event['event'] == 'on_reasoning_end') {
+        final seconds = event['data']?['seconds'];
+        if (seconds is num) {
+          reasoningDurationSeconds = seconds.toDouble();
+        }
+      } else if (event['event'] == 'on_chat_model_stream') {
         final chunk = event['data']?['chunk']?['content'];
         if (chunk != null) {
           aiResponseContent += chunk;
@@ -209,6 +226,9 @@ class LocalChatRepository implements IChatRepository {
             metrics: Value(jsonEncode(finalMetrics)),
             toolEvents: Value(jsonEncode(toolEvents)),
             activity: Value(jsonEncode(activity)),
+            reasoning: Value(
+                reasoningBuffer.isEmpty ? null : reasoningBuffer.toString()),
+            reasoningDurationSeconds: Value(reasoningDurationSeconds),
             timestamp: Value(DateTime.now()),
           ));
     }
@@ -309,6 +329,8 @@ class LocalChatRepository implements IChatRepository {
             metrics: Value(m.metrics),
             toolEvents: Value(m.toolEvents),
             activity: Value(m.activity),
+            reasoning: Value(m.reasoning),
+            reasoningDurationSeconds: Value(m.reasoningDurationSeconds),
             timestamp: Value(m.timestamp),
           ));
     }

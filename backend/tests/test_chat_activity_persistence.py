@@ -181,6 +181,103 @@ async def test_stream_events_persist_activity_before_done():
     assert json.loads(saved)[0]["activity"][0]["status"] == "complete"
 
 
+class _FakeRedis:
+    def __init__(self):
+        self.values = {}
+
+    async def hget(self, key, field):
+        return self.values.get((key, field))
+
+    async def hset(self, key, field, value):
+        self.values[(key, field)] = value.encode()
+
+
+def _stream_request():
+    return SimpleNamespace(
+        question="hello",
+        tool_settings=None,
+        custom_system_prompt=None,
+        is_temporary=False,
+        base_url=None,
+        calculate_grounding=False,
+        model="test-model",
+    )
+
+
+@pytest.mark.asyncio
+async def test_save_activity_history_stores_reasoning_when_present():
+    redis = _FakeRedis()
+    await _save_activity_history(
+        redis,
+        "tenant-1",
+        "thread-1",
+        [{"name": "step"}],
+        reasoning="deep thought",
+        reasoning_duration_seconds=4.2,
+    )
+    await _save_activity_history(redis, "tenant-1", "thread-1", [{"name": "s2"}])
+
+    saved = json.loads(redis.values[("tenant:tenant-1:thread_activities", "thread-1")])
+    assert saved[0]["reasoning"] == "deep thought"
+    assert saved[0]["reasoning_duration_seconds"] == 4.2
+    # Turns without reasoning keep the legacy entry shape.
+    assert "reasoning" not in saved[1]
+    assert "reasoning_duration_seconds" not in saved[1]
+
+
+@pytest.mark.asyncio
+async def test_stream_events_persist_reasoning_and_duration():
+    from backend.routes.chat import _stream_events
+
+    async def stream_events(*args, **kwargs):
+        yield {"event": "on_reasoning_stream", "data": {"text": "deep "}}
+        yield {"event": "on_reasoning_stream", "data": {"text": "thought"}}
+        yield {"event": "on_reasoning_end", "data": {"seconds": 4.2}}
+
+    redis = _FakeRedis()
+    with pytest.MonkeyPatch.context() as monkeypatch:
+        monkeypatch.setattr(
+            "backend.routes.chat.stream_answer_question", stream_events
+        )
+        output = [
+            chunk
+            async for chunk in _stream_events(
+                _stream_request(), "tenant-1", "thread-1", "key", None, redis
+            )
+        ]
+
+    assert output[-1] == "data: [DONE]\n\n"
+    saved = json.loads(redis.values[("tenant:tenant-1:thread_activities", "thread-1")])
+    assert saved[0]["reasoning"] == "deep thought"
+    assert saved[0]["reasoning_duration_seconds"] == 4.2
+
+
+@pytest.mark.asyncio
+async def test_stream_failure_persists_partial_reasoning():
+    from backend.routes.chat import _stream_events
+
+    async def stream_events(*args, **kwargs):
+        yield {"event": "on_reasoning_stream", "data": {"text": "partial trace"}}
+        raise RuntimeError("provider disconnected")
+
+    redis = _FakeRedis()
+    with pytest.MonkeyPatch.context() as monkeypatch:
+        monkeypatch.setattr(
+            "backend.routes.chat.stream_answer_question", stream_events
+        )
+        output = [
+            chunk
+            async for chunk in _stream_events(
+                _stream_request(), "tenant-1", "thread-1", "key", None, redis
+            )
+        ]
+
+    assert output[-1] == "data: [DONE]\n\n"
+    saved = json.loads(redis.values[("tenant:tenant-1:thread_activities", "thread-1")])
+    assert saved[0]["reasoning"] == "partial trace"
+    assert "reasoning_duration_seconds" not in saved[0]
+
+
 @pytest.mark.asyncio
 async def test_stream_failure_persists_partial_activity():
     from backend.routes.chat import _stream_events

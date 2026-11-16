@@ -186,6 +186,9 @@ class ChatViewModel extends StateNotifier<ChatState> {
         modelName: m['model_name'] as String?,
         toolEvents: toolEvents,
         activity: restoredActivity,
+        reasoning: m['reasoning'] as String?,
+        reasoningDurationSeconds:
+            (m['reasoning_duration_seconds'] as num?)?.toDouble(),
         metrics: m['metrics'] is Map
             ? Map<String, dynamic>.from(m['metrics'] as Map)
             : null,
@@ -615,7 +618,13 @@ class ChatViewModel extends StateNotifier<ChatState> {
       }
       return;
     } else if (type == 'on_reasoning_end') {
-      final seconds = (event['seconds'] as num?)?.toDouble() ??
+      // The backend SSE payload nests the timing under 'data'; the
+      // top-level keys are kept as a fallback for other producers.
+      final seconds = (event['data']?['seconds'] as num?)?.toDouble() ??
+          (event['seconds'] as num?)?.toDouble() ??
+          ((event['data']?['duration_ms'] as num?) != null
+              ? (event['data']['duration_ms'] as num).toDouble() / 1000.0
+              : null) ??
           ((event['duration_ms'] as num?) != null
               ? (event['duration_ms'] as num).toDouble() / 1000.0
               : null);
