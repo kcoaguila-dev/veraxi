@@ -13,6 +13,7 @@ import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:veraxi_app/features/chat/view_models/artifact_incoming_provider.dart';
 import 'package:veraxi_app/features/chat/view_models/artifact_publish_provider.dart';
+import 'package:veraxi_app/features/chat/view_models/artifact_work_provider.dart';
 import 'package:veraxi_app/features/chat/views/widgets/artifact_download.dart';
 import 'package:veraxi_app/features/chat/views/widgets/artifact_editor_theme.dart';
 import 'package:veraxi_app/features/chat/views/widgets/artifact_sandbox.dart';
@@ -41,7 +42,11 @@ import 'package:veraxi_app/features/chat/views/widgets/artifact_sandbox.dart';
 /// the Preview always act on the current version. When a rewrite
 /// quick action's reply arrives, it is offered as an incoming
 /// version: the user can diff it against the current version and
-/// accept it (it becomes a new version) or reject it.
+/// accept it (it becomes a new version) or reject it. Versions,
+/// the current version, and the published link persist locally
+/// (see ArtifactWorkStore), so panel work survives closing the
+/// panel, the way Claude keeps artifact versions with the
+/// conversation.
 class CodeArtifactPanel extends ConsumerStatefulWidget {
   /// The open artifact: tap-time snapshot plus the coordinates used
   /// to resolve its live content while the source message streams.
@@ -93,6 +98,19 @@ class _CodeArtifactPanelState extends ConsumerState<CodeArtifactPanel> {
   String? _incomingActionLabel;
   bool _showIncomingDiff = false;
 
+  /// Whether the persisted-work restore has finished. Saves are
+  /// held until then, so a fresh panel can never overwrite stored
+  /// work with its initial state before the restore lands.
+  bool _workRestoreDone = false;
+
+  /// The work-store key for this artifact, or null when it has no
+  /// stable coordinates (its panel work then stays disposable).
+  String? get _workKey => artifactWorkKey(
+        threadId: widget.open.threadId,
+        messageIndex: widget.open.messageIndex,
+        artifactIndex: widget.open.artifactIndex,
+      );
+
   late final CodeLineEditingController _editorController =
       CodeLineEditingController.fromText(widget.open.artifact.code);
 
@@ -106,6 +124,66 @@ class _CodeArtifactPanelState extends ConsumerState<CodeArtifactPanel> {
   void initState() {
     super.initState();
     _editorController.addListener(_syncSelection);
+    if (_workKey == null) {
+      _workRestoreDone = true;
+    } else {
+      _restoreWork();
+    }
+  }
+
+  /// Loads this artifact's persisted panel work (versions, current
+  /// version, published link) from the local work store, so work
+  /// survives closing the panel. A single-version entry whose
+  /// original no longer matches the opened artifact was a stream
+  /// snapshot, not user work, and is left behind.
+  Future<void> _restoreWork() async {
+    final key = _workKey;
+    if (key == null) {
+      _workRestoreDone = true;
+      return;
+    }
+    final saved = await ref.read(artifactWorkStoreProvider).load(key);
+    _workRestoreDone = true;
+    if (!mounted || saved == null || saved.versions.isEmpty) return;
+    if (!saved.hasUserWork && saved.originalCode != widget.open.artifact.code) {
+      return;
+    }
+    setState(() {
+      _versions
+        ..clear()
+        ..addAll(saved.versions);
+      _versionIndex = saved.versionIndex.clamp(0, _versions.length - 1);
+      _showDiff = false;
+    });
+    _editorController.codeLines = CodeLines.fromText(_versions[_versionIndex]);
+    final publishedId = saved.publishedId;
+    final publishedUrl = saved.publishedUrl;
+    if (publishedId != null && publishedUrl != null) {
+      ref.read(artifactPublishProvider.notifier).restore(
+            id: publishedId,
+            url: publishedUrl,
+            code: saved.publishedCode,
+          );
+    }
+  }
+
+  /// Persists the panel's current work (versions, current version,
+  /// published link) to the local work store.
+  void _saveWork() {
+    final key = _workKey;
+    if (key == null || !_workRestoreDone) return;
+    final publish = ref.read(artifactPublishProvider);
+    ref.read(artifactWorkStoreProvider).save(
+          key,
+          ArtifactWorkState(
+            versions: List.of(_versions),
+            versionIndex: _versionIndex,
+            originalCode: _versions.first,
+            publishedId: publish.publishedId,
+            publishedUrl: publish.publishedUrl,
+            publishedCode: publish.publishedCode,
+          ),
+        );
   }
 
   @override
@@ -347,6 +425,7 @@ class _CodeArtifactPanelState extends ConsumerState<CodeArtifactPanel> {
       _versionIndex++;
     });
     _editorController.codeLines = CodeLines.fromText(code);
+    _saveWork();
   }
 
   /// Edit toggle. Leaving Edit mode with unsaved changes commits them
@@ -389,6 +468,7 @@ class _CodeArtifactPanelState extends ConsumerState<CodeArtifactPanel> {
     if (next < 0 || next >= _versions.length) return;
     setState(() => _versionIndex = next);
     _editorController.codeLines = CodeLines.fromText(_versions[next]);
+    _saveWork();
   }
 
   @override
@@ -407,6 +487,7 @@ class _CodeArtifactPanelState extends ConsumerState<CodeArtifactPanel> {
         if (!mounted) return;
         setState(() => _versions[0] = next.code);
         _editorController.codeLines = CodeLines.fromText(next.code);
+        _saveWork();
       });
     });
     // A completed quick-action reply is offered exactly once as an
@@ -431,6 +512,16 @@ class _CodeArtifactPanelState extends ConsumerState<CodeArtifactPanel> {
         });
       });
     }
+
+    // Persist the published link whenever it changes (publish,
+    // republish, unpublish), merged with the current versions.
+    ref.listen<ArtifactPublishState>(artifactPublishProvider, (previous, next) {
+      if (previous?.publishedId != next.publishedId ||
+          previous?.publishedUrl != next.publishedUrl ||
+          previous?.publishedCode != next.publishedCode) {
+        _saveWork();
+      }
+    });
 
     final theme = Theme.of(context);
     final ext = theme.extension<AppThemeExtension>();

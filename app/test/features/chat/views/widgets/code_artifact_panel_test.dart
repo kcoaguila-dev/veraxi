@@ -6,7 +6,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:re_editor/re_editor.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:veraxi_app/features/chat/data/artifact_publish_repository.dart';
+import 'package:veraxi_app/features/chat/data/artifact_work_store.dart';
 import 'package:veraxi_app/core/theme.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
 import 'package:veraxi_app/features/chat/view_models/artifact_incoming_provider.dart';
@@ -35,6 +37,7 @@ Widget _hostPanel(
   VoidCallback? onClose,
   ValueChanged<String>? onQuickAction,
   List<Override> extraOverrides = const [],
+  OpenCodeArtifact? openOverride,
 }) {
   return ProviderScope(
     overrides: [
@@ -47,7 +50,7 @@ Widget _hostPanel(
         body: SizedBox(
           width: 520,
           child: CodeArtifactPanel(
-            open: OpenCodeArtifact(artifact: artifact),
+            open: openOverride ?? OpenCodeArtifact(artifact: artifact),
             onClose: onClose ?? _noop,
             onQuickAction: onQuickAction,
           ),
@@ -674,6 +677,59 @@ def main():
       expect(find.text('New version from Fix Bugs'), findsNothing);
       expect(find.text('v2 / 2'), findsNothing);
     });
+  });
+
+  testWidgets(
+      'panel restores persisted versions and the published link '
+      'from a previous session', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    const editedCode = 'def main():\n    print("Hello, edited!")';
+    await ArtifactWorkStore().save(
+      't1:0:0',
+      ArtifactWorkState(
+        versions: [_helloArtifact.code, editedCode],
+        versionIndex: 1,
+        originalCode: _helloArtifact.code,
+        publishedId: 'abc',
+        publishedUrl: 'https://veraxi.me/a/abc',
+        publishedCode: editedCode,
+      ),
+    );
+    final repository = MockArtifactPublishRepository();
+
+    await tester.pumpWidget(
+      _hostPanel(
+        _helloArtifact,
+        openOverride: const OpenCodeArtifact(
+          artifact: _helloArtifact,
+          threadId: 't1',
+          messageIndex: 0,
+        ),
+        extraOverrides: [
+          artifactPublishRepositoryProvider.overrideWithValue(repository),
+        ],
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // The restored session lands on the second version.
+    expect(find.text('v2 / 2'), findsOneWidget);
+
+    // The published link was restored too: Share opens the link
+    // dialog directly, without publishing again (the restored code
+    // is exactly what was published, so it is not stale).
+    await tester.tap(find.byTooltip('Share'));
+    await tester.pumpAndSettle();
+    expect(find.text('Share artifact'), findsOneWidget);
+    expect(find.text('https://veraxi.me/a/abc'), findsOneWidget);
+    verifyNever(() => repository.publish(
+          title: any(named: 'title'),
+          fileName: any(named: 'fileName'),
+          language: any(named: 'language'),
+          code: any(named: 'code'),
+          kind: any(named: 'kind'),
+          existingId: any(named: 'existingId'),
+        ));
   });
 }
 

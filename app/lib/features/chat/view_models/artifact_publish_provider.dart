@@ -80,6 +80,17 @@ class ArtifactPublishController extends StateNotifier<ArtifactPublishState> {
     }
   }
 
+  /// Restores a link published in an earlier panel session (the
+  /// panel loads it from the local work store) without calling the
+  /// backend — the page itself never went away.
+  void restore({required String id, required String url, String? code}) {
+    state = ArtifactPublishState(
+      publishedId: id,
+      publishedUrl: url,
+      publishedCode: code,
+    );
+  }
+
   /// Unpublishes: the public URL stops working and the local link
   /// is forgotten.
   Future<void> unpublish() async {
