@@ -70,6 +70,8 @@ class ImportedMessage(BaseModel):
     model_name: str | None = None
     metrics: dict | None = None
     activity: list[dict] = Field(default_factory=list)
+    reasoning: str | None = None
+    reasoning_duration_seconds: float | None = None
 
 
 class ImportedThread(BaseModel):
@@ -125,6 +127,18 @@ async def _generate_and_save_title(
         return None
 
 
+def _reasoning_from_kwargs(msg) -> tuple[str | None, float | None]:
+    """Read the persisted reasoning trace off a message, if it carries one."""
+    kwargs = getattr(msg, "additional_kwargs", {}) or {}
+    reasoning = kwargs.get("reasoning_content")
+    if not isinstance(reasoning, str) or not reasoning:
+        reasoning = None
+    duration = kwargs.get("reasoning_duration_seconds")
+    if isinstance(duration, bool) or not isinstance(duration, (int, float)):
+        duration = None
+    return reasoning, float(duration) if duration is not None else None
+
+
 def _process_single_message(msg, tool_results, feedback_dict):
     msg_type = msg.__class__.__name__
     if msg_type not in ["HumanMessage", "AIMessage"]:
@@ -168,6 +182,7 @@ def _process_single_message(msg, tool_results, feedback_dict):
                 "toolEvents": tool_events,
             }
         ] + activity
+    reasoning, reasoning_duration_seconds = _reasoning_from_kwargs(msg)
     return {
         "id": str(msg_id),
         "role": "user" if msg_type == "HumanMessage" else "assistant",
@@ -177,13 +192,36 @@ def _process_single_message(msg, tool_results, feedback_dict):
         "metrics": metrics if isinstance(metrics, dict) else None,
         "toolEvents": tool_events,
         "activity": activity,
+        "reasoning": reasoning,
+        "reasoning_duration_seconds": reasoning_duration_seconds,
     }
+
+
+def _apply_saved_reasoning(message: dict, saved: dict | None) -> None:
+    """Fill reasoning from the saved per-turn record when the message
+    itself does not carry a (non-empty) trace."""
+    if not isinstance(saved, dict):
+        return
+    saved_reasoning = saved.get("reasoning")
+    if (
+        not message.get("reasoning")
+        and isinstance(saved_reasoning, str)
+        and saved_reasoning
+    ):
+        message["reasoning"] = saved_reasoning
+    if message.get("reasoning_duration_seconds") is None:
+        saved_duration = saved.get("reasoning_duration_seconds")
+        if isinstance(saved_duration, (int, float)) and not isinstance(
+            saved_duration, bool
+        ):
+            message["reasoning_duration_seconds"] = float(saved_duration)
 
 
 def _extract_messages_from_state(
     raw_messages: list,
     feedback_dict: dict | None = None,
     activity_history: list[list[dict]] | None = None,
+    reasoning_history: list[dict | None] | None = None,
 ) -> list:
     if feedback_dict is None:
         feedback_dict = {}
@@ -205,6 +243,12 @@ def _extract_messages_from_state(
             assistant_messages[-len(activity_history) :], activity_history
         ):
             message["activity"] = activity
+    if reasoning_history:
+        assistant_messages = _final_assistant_messages(messages)
+        for message, saved_reasoning in zip(
+            assistant_messages[-len(reasoning_history) :], reasoning_history
+        ):
+            _apply_saved_reasoning(message, saved_reasoning)
     return messages
 
 
@@ -276,19 +320,27 @@ def _fail_activity(activity: list[dict]) -> None:
 
 
 async def _save_activity_history(
-    redis, tenant_id: str, thread_id: str, activity: list[dict]
+    redis,
+    tenant_id: str,
+    thread_id: str,
+    activity: list[dict],
+    reasoning: str | None = None,
+    reasoning_duration_seconds: float | None = None,
 ) -> None:
     if tenant_id == "local_guest":
         return
     key = f"tenant:{tenant_id}:thread_activities"
     existing = await redis.hget(key, thread_id)
     history = json.loads(existing.decode("utf-8")) if existing else []
-    history.append(
-        {
-            "activity": activity,
-            "response_at": time.time(),
-        }
-    )
+    entry: dict[str, Any] = {
+        "activity": activity,
+        "response_at": time.time(),
+    }
+    if reasoning:
+        entry["reasoning"] = reasoning
+    if reasoning_duration_seconds is not None:
+        entry["reasoning_duration_seconds"] = float(reasoning_duration_seconds)
+    history.append(entry)
     await redis.hset(key, thread_id, json.dumps(history))
 
 
@@ -327,6 +379,12 @@ def _to_imported_langchain_messages(messages: list[ImportedMessage]):
             message_kwargs["metrics"] = message.metrics
         if message.activity:
             message_kwargs["activity"] = message.activity
+        if message.reasoning:
+            message_kwargs["reasoning_content"] = message.reasoning
+        if message.reasoning_duration_seconds is not None:
+            message_kwargs["reasoning_duration_seconds"] = (
+                message.reasoning_duration_seconds
+            )
         message_type = HumanMessage if message.role == "user" else AIMessage
         imported.append(
             message_type(
@@ -338,10 +396,35 @@ def _to_imported_langchain_messages(messages: list[ImportedMessage]):
     return imported
 
 
+def _record_reasoning_event(
+    event: dict,
+    reasoning_parts: list[str],
+    reasoning_duration_seconds: float | None,
+) -> float | None:
+    """Accumulate the streamed reasoning trace for one turn.
+
+    Returns the updated duration (the end event may arrive after earlier
+    chunks, and a failed stream keeps whatever was captured so far).
+    """
+    event_type = event.get("event")
+    data = event.get("data") or {}
+    if event_type == "on_reasoning_stream":
+        text = data.get("text")
+        if isinstance(text, str) and text:
+            reasoning_parts.append(text)
+    elif event_type == "on_reasoning_end":
+        seconds = data.get("seconds")
+        if isinstance(seconds, (int, float)) and not isinstance(seconds, bool):
+            return float(seconds)
+    return reasoning_duration_seconds
+
+
 async def _stream_events(
     chat_request, tenant_id, thread_id, api_key_override, title_task, redis
 ):
     activity: list[dict] = []
+    reasoning_parts: list[str] = []
+    reasoning_duration_seconds: float | None = None
     try:
         yield f"data: {json.dumps({'event': 'metadata', 'data': {'thread_id': thread_id}})}\n\n"
         ts = chat_request.tool_settings or {}
@@ -360,6 +443,9 @@ async def _stream_events(
             tool_settings=ts,
         ):
             _record_activity_event(activity, event)
+            reasoning_duration_seconds = _record_reasoning_event(
+                event, reasoning_parts, reasoning_duration_seconds
+            )
 
             def custom_encoder(obj):
                 if hasattr(obj, "model_dump"):
@@ -377,14 +463,28 @@ async def _stream_events(
             except Exception as e:
                 logger.error(f"Error waiting for title task: {e}")
         _complete_activity(activity)
-        await _save_activity_history(redis, tenant_id, thread_id, activity)
+        await _save_activity_history(
+            redis,
+            tenant_id,
+            thread_id,
+            activity,
+            reasoning="".join(reasoning_parts) or None,
+            reasoning_duration_seconds=reasoning_duration_seconds,
+        )
         yield "data: [DONE]\n\n"
     except Exception as e:
         sentry_sdk.capture_exception(e)
         logger.exception("Error in streaming")
         _fail_activity(activity)
         try:
-            await _save_activity_history(redis, tenant_id, thread_id, activity)
+            await _save_activity_history(
+                redis,
+                tenant_id,
+                thread_id,
+                activity,
+                reasoning="".join(reasoning_parts) or None,
+                reasoning_duration_seconds=reasoning_duration_seconds,
+            )
         except Exception as save_error:
             sentry_sdk.capture_exception(save_error)
             logger.exception("Error saving activity after stream failure")
@@ -769,6 +869,7 @@ def register_chat_routes(
                 sentry_sdk.capture_exception(e)
                 logger.error(f"Failed to fetch feedback: {e}")
             activity_history = []
+            reasoning_history: list[dict | None] = []
             try:
                 activity_raw = await request.app.state.redis.hget(
                     f"tenant:{tenant_id}:thread_activities", thread_id
@@ -780,6 +881,18 @@ def register_chat_routes(
                             item.get("activity", [])
                             if isinstance(item, dict)
                             else item
+                            for item in decoded
+                            if isinstance(item, (dict, list))
+                        ]
+                        reasoning_history = [
+                            {
+                                "reasoning": item.get("reasoning"),
+                                "reasoning_duration_seconds": item.get(
+                                    "reasoning_duration_seconds"
+                                ),
+                            }
+                            if isinstance(item, dict)
+                            else None
                             for item in decoded
                             if isinstance(item, (dict, list))
                         ]
@@ -807,7 +920,10 @@ def register_chat_routes(
                 logger.error(f"Failed to fetch activity history: {e}")
             return {
                 "messages": _extract_messages_from_state(
-                    raw_messages, feedback_dict, activity_history
+                    raw_messages,
+                    feedback_dict,
+                    activity_history,
+                    reasoning_history=reasoning_history,
                 )
             }
         except HTTPException:

@@ -108,5 +108,41 @@ void main() {
         '2026-11-10T05:00:00Z',
       );
     });
+
+    test('restores reasoning and its duration when a thread is reloaded',
+        () async {
+      SharedPreferences.setMockInitialValues({});
+      when(() => mockChatRepository.getThreadHistory('thread-1'))
+          .thenAnswer((_) async => [
+                {
+                  'id': 'assistant-1',
+                  'role': 'assistant',
+                  'content': 'Answer',
+                  'reasoning': 'deep thought',
+                  'reasoning_duration_seconds': 4.2,
+                },
+                {
+                  'id': 'assistant-2',
+                  'role': 'assistant',
+                  'content': 'Answer without reasoning',
+                  'reasoning': null,
+                  'reasoning_duration_seconds': null,
+                },
+              ]);
+
+      final viewModel = ChatViewModel(
+        mockChatRepository,
+        mockTTSRepository,
+        mockMemoryRepository,
+      );
+
+      await viewModel.selectThread('thread-1');
+
+      expect(viewModel.state.messages, hasLength(2));
+      expect(viewModel.state.messages.first.reasoning, 'deep thought');
+      expect(viewModel.state.messages.first.reasoningDurationSeconds, 4.2);
+      expect(viewModel.state.messages.last.reasoning, isNull);
+      expect(viewModel.state.messages.last.reasoningDurationSeconds, isNull);
+    });
   });
 }

@@ -122,6 +122,9 @@ class ChatThreadViewModel extends Notifier<ChatThreadState> {
           modelName: m['model_name'] as String?,
           toolEvents: toolEvents,
           activity: restoredActivity,
+          reasoning: m['reasoning'] as String?,
+          reasoningDurationSeconds:
+              (m['reasoning_duration_seconds'] as num?)?.toDouble(),
           metrics: m['metrics'] is Map
               ? Map<String, dynamic>.from(m['metrics'] as Map)
               : null,
@@ -342,7 +345,34 @@ class ChatThreadViewModel extends Notifier<ChatThreadState> {
       }
       return;
     }
-    if (type == 'on_chat_model_stream') {
+    if (type == 'on_reasoning_stream') {
+      final text = event['data']?['text'] ?? '';
+      if (text is String && text.isNotEmpty && state.messages.isNotEmpty) {
+        final last = state.messages.last;
+        final msgs = List<ChatMessage>.from(state.messages);
+        msgs[msgs.length - 1] =
+            last.copyWith(reasoning: (last.reasoning ?? '') + text);
+        state = state.copyWith(messages: msgs);
+      }
+    } else if (type == 'on_reasoning_end') {
+      // The backend SSE payload nests the timing under 'data'; the
+      // top-level keys are kept as a fallback for other producers.
+      final seconds = (event['data']?['seconds'] as num?)?.toDouble() ??
+          (event['seconds'] as num?)?.toDouble() ??
+          ((event['data']?['duration_ms'] as num?) != null
+              ? (event['data']['duration_ms'] as num).toDouble() / 1000.0
+              : null) ??
+          ((event['duration_ms'] as num?) != null
+              ? (event['duration_ms'] as num).toDouble() / 1000.0
+              : null);
+      if (seconds != null && state.messages.isNotEmpty) {
+        final last = state.messages.last;
+        final msgs = List<ChatMessage>.from(state.messages);
+        msgs[msgs.length - 1] =
+            last.copyWith(reasoningDurationSeconds: seconds);
+        state = state.copyWith(messages: msgs);
+      }
+    } else if (type == 'on_chat_model_stream') {
       final chunk = event['data']?['chunk'];
       if (chunk != null) {
         final content = chunk['content'];

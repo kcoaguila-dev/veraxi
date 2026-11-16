@@ -75,6 +75,8 @@ class LocalChatMigrationService {
       'model_name': message.modelName,
       'metrics': _decodeJson(message.metrics),
       'activity': _decodeJson(message.activity),
+      'reasoning': message.reasoning,
+      'reasoning_duration_seconds': message.reasoningDurationSeconds,
     };
   }
 

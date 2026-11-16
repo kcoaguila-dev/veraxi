@@ -26,6 +26,8 @@ class LocalMessages extends Table {
   TextColumn get metrics => text().nullable()(); // JSON encoded
   TextColumn get toolEvents => text().nullable()(); // JSON encoded
   TextColumn get activity => text().nullable()(); // JSON encoded activity steps
+  TextColumn get reasoning => text().nullable()();
+  RealColumn get reasoningDurationSeconds => real().nullable()();
   DateTimeColumn get timestamp => dateTime().nullable()();
 
   @override
@@ -36,8 +38,12 @@ class LocalMessages extends Table {
 class LocalChatDatabase extends _$LocalChatDatabase {
   LocalChatDatabase() : super(openConnection());
 
+  /// Test seam: run against an in-memory / file executor instead of the
+  /// on-device database file.
+  LocalChatDatabase.withExecutor(super.executor);
+
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -45,6 +51,11 @@ class LocalChatDatabase extends _$LocalChatDatabase {
         onUpgrade: (Migrator m, int from, int to) async {
           if (from < 2) {
             await m.addColumn(localMessages, localMessages.activity);
+          }
+          if (from < 3) {
+            await m.addColumn(localMessages, localMessages.reasoning);
+            await m.addColumn(
+                localMessages, localMessages.reasoningDurationSeconds);
           }
         },
       );
