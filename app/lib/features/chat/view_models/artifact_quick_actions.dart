@@ -20,6 +20,11 @@ enum ArtifactQuickAction {
   /// Chip label in the panel toolbar.
   final String label;
 
+  /// Whether the action's reply is a rewritten file (the panel then
+  /// watches for the reply and offers it as an incoming version).
+  /// Review answers in prose, so there is nothing to accept.
+  bool get producesRewrite => this != ArtifactQuickAction.review;
+
   String get _instruction => switch (this) {
         ArtifactQuickAction.fixBugs =>
           'Fix the bugs in this code. Reply with the complete updated '

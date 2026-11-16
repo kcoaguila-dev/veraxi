@@ -526,8 +526,12 @@ String buildJavaScriptRunnerDocument(
 /// host as JSON: `{runId, stdout, stderr, exitCode}`.
 ///
 /// The first run downloads Pyodide (~10 MB) into the frame's cache;
-/// later runs reuse it. The code travels base64-encoded so a literal
-/// `</script>` inside it cannot break out of the document.
+/// later runs reuse it. Packages the code imports (numpy, pandas,
+/// matplotlib, …) are auto-loaded from Pyodide's distribution the
+/// same way — downloaded on first use, cached afterwards, so plain
+/// stdlib code pays nothing for them. The code travels
+/// base64-encoded so a literal `</script>` inside it cannot break
+/// out of the document.
 String buildPythonRunnerDocument(
   String code, {
   required String runId,
@@ -550,6 +554,15 @@ String buildPythonRunnerDocument(
   try {
     var pyodide = await loadPyodide();
     var rawCode = decodeURIComponent(escape(atob("$encodedCode")));
+    // Auto-load the packages the code imports (numpy, pandas, ...)
+    // from Pyodide's distribution. A package Pyodide does not ship
+    // is not fatal here: execution proceeds and Python's own
+    // ModuleNotFoundError names the missing module in the traceback.
+    try {
+      await pyodide.loadPackagesFromImports(rawCode);
+    } catch (pkgErr) {
+      console.warn("Package auto-load failed:", pkgErr);
+    }
     pyodide.globals.set("__veraxi_user_code", rawCode);
     var result = await pyodide.runPythonAsync(`
 import sys

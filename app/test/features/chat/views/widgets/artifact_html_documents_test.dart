@@ -251,6 +251,22 @@ export default function App() {
       expect(doc, isNot(contains('print("hello")')));
     });
 
+    test('python runner auto-loads imported packages (numpy/pandas)', () {
+      final doc = buildPythonRunnerDocument(
+        'import pandas',
+        runId: 'run-5',
+        postResultBody: postResultToParentWindow,
+      );
+      // Imported packages load from Pyodide's distribution before
+      // the user code executes; a load failure is non-fatal so the
+      // run still surfaces Python's own ModuleNotFoundError.
+      expect(doc, contains('loadPackagesFromImports(rawCode)'));
+      expect(
+        doc.indexOf('loadPackagesFromImports'),
+        lessThan(doc.indexOf('runPythonAsync')),
+      );
+    });
+
     test('a literal closing script tag in the code cannot break out', () {
       final doc = buildJavaScriptRunnerDocument(
         'var s = "</script><script>alert(1)</scr" + "ipt>";',

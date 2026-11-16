@@ -9,6 +9,8 @@ import 'package:re_editor/re_editor.dart';
 import 'package:veraxi_app/features/chat/data/artifact_publish_repository.dart';
 import 'package:veraxi_app/core/theme.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
+import 'package:veraxi_app/features/chat/view_models/artifact_incoming_provider.dart';
+import 'package:veraxi_app/features/chat/view_models/artifact_quick_actions.dart';
 import 'package:veraxi_app/features/chat/view_models/chat_state.dart';
 import 'package:veraxi_app/features/chat/view_models/chat_view_model.dart';
 import 'package:veraxi_app/features/chat/view_models/code_artifact_provider.dart';
@@ -574,6 +576,104 @@ def main():
 
     verify(() => repository.unpublish('abc')).called(1);
     expect(find.text('Share artifact'), findsNothing);
+  });
+
+  group('incoming quick-action versions', () {
+    const open = OpenCodeArtifact(
+      artifact: _helloArtifact,
+      threadId: 't1',
+      messageIndex: 0,
+    );
+
+    /// Seeds a thread whose quick-action reply (fixed code) has
+    /// completed, with the action registered as pending, and hosts
+    /// the real panel against the real providers.
+    Future<ProviderContainer> pumpPanelWithReply(
+      WidgetTester tester,
+    ) async {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      container.read(openCodeArtifactProvider.notifier).state = open;
+      container.read(chatViewModelProvider.notifier).setStateForTesting(
+            ChatState(
+              threadId: 't1',
+              messages: [
+                ChatMessage(
+                  role: 'assistant',
+                  content: 'Here\'s `hello_world.py`:\n\n'
+                      '```python\n'
+                      'def main():\n'
+                      '    print("Hello, World!")\n'
+                      '```',
+                ),
+                ChatMessage(role: 'user', content: 'Fix the bugs...'),
+                ChatMessage(
+                  role: 'assistant',
+                  content: 'Fixed:\n\n'
+                      '```python\n'
+                      'def main():\n'
+                      '    print("Hello, fixed!")\n'
+                      '```',
+                ),
+              ],
+            ),
+          );
+      container.read(pendingQuickActionProvider.notifier).state =
+          const PendingQuickAction(
+        open: open,
+        action: ArtifactQuickAction.fixBugs,
+      );
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            theme: AppTheme.lightTheme,
+            home: Scaffold(
+              body: SizedBox(
+                width: 520,
+                child: CodeArtifactPanel(
+                  open: open,
+                  onClose: _noop,
+                  onQuickAction: (_) {},
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      return container;
+    }
+
+    testWidgets(
+        'the reply is offered as an incoming version; accepting '
+        'appends it as a new version', (tester) async {
+      final container = await pumpPanelWithReply(tester);
+
+      expect(find.text('New version from Fix Bugs'), findsOneWidget);
+      expect(find.text('Accept'), findsOneWidget);
+      expect(find.text('Reject'), findsOneWidget);
+      // The pending action was consumed exactly once.
+      expect(container.read(pendingQuickActionProvider), isNull);
+
+      await tester.tap(find.text('Accept'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('New version from Fix Bugs'), findsNothing);
+      expect(find.text('v2 / 2'), findsOneWidget);
+    });
+
+    testWidgets('rejecting keeps the current version only', (tester) async {
+      await pumpPanelWithReply(tester);
+
+      expect(find.text('New version from Fix Bugs'), findsOneWidget);
+      await tester.tap(find.text('Reject'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('New version from Fix Bugs'), findsNothing);
+      expect(find.text('v2 / 2'), findsNothing);
+    });
   });
 }
 

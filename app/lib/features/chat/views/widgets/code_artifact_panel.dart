@@ -11,6 +11,7 @@ import 'package:veraxi_app/features/chat/view_models/artifact_quick_actions.dart
 import 'package:veraxi_app/features/chat/view_models/code_artifact_provider.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:veraxi_app/features/chat/view_models/artifact_incoming_provider.dart';
 import 'package:veraxi_app/features/chat/view_models/artifact_publish_provider.dart';
 import 'package:veraxi_app/features/chat/views/widgets/artifact_download.dart';
 import 'package:veraxi_app/features/chat/views/widgets/artifact_editor_theme.dart';
@@ -37,7 +38,10 @@ import 'package:veraxi_app/features/chat/views/widgets/artifact_sandbox.dart';
 /// changes appends a **version** — versions are a plain list plus a
 /// current index, navigable from the toolbar, with a line **Diff**
 /// between the current version and the previous one. Run, Copy, and
-/// the Preview always act on the current version.
+/// the Preview always act on the current version. When a rewrite
+/// quick action's reply arrives, it is offered as an incoming
+/// version: the user can diff it against the current version and
+/// accept it (it becomes a new version) or reject it.
 class CodeArtifactPanel extends ConsumerStatefulWidget {
   /// The open artifact: tap-time snapshot plus the coordinates used
   /// to resolve its live content while the source message streams.
@@ -81,6 +85,13 @@ class _CodeArtifactPanelState extends ConsumerState<CodeArtifactPanel> {
   int _versionIndex = 0;
   bool _editing = false;
   bool _showDiff = false;
+
+  /// A quick action's reply, offered as an incoming version the
+  /// user can diff, accept (it becomes a new version), or reject.
+  /// Null when no reply is waiting.
+  CodeArtifact? _incomingArtifact;
+  String? _incomingActionLabel;
+  bool _showIncomingDiff = false;
 
   late final CodeLineEditingController _editorController =
       CodeLineEditingController.fromText(widget.open.artifact.code);
@@ -129,11 +140,17 @@ class _CodeArtifactPanelState extends ConsumerState<CodeArtifactPanel> {
 
   /// Builds the action's prompt from the current version (and the
   /// editor selection, when there is one) and hands it to the chat.
+  /// Rewrite actions also register as pending, so their reply can
+  /// be offered back here as an incoming version.
   void _runQuickAction(ArtifactQuickAction action) {
     final handler = widget.onQuickAction;
     if (handler == null) return;
     final selected = _editorController.selectedText;
     final hasSelection = selected.trim().isNotEmpty;
+    if (action.producesRewrite && widget.open.messageIndex != null) {
+      ref.read(pendingQuickActionProvider.notifier).state =
+          PendingQuickAction(open: widget.open, action: action);
+    }
     handler(action.buildPrompt(
       artifact: _currentArtifact,
       currentCode: _currentCode,
@@ -319,22 +336,52 @@ class _CodeArtifactPanelState extends ConsumerState<CodeArtifactPanel> {
     }
   }
 
+  /// Appends [code] as the new current version, discarding any
+  /// "future" versions past the current index first (the usual
+  /// undo-branch rule), and shows it in the editor.
+  void _appendVersion(String code) {
+    setState(() {
+      _versions
+        ..removeRange(_versionIndex + 1, _versions.length)
+        ..add(code);
+      _versionIndex++;
+    });
+    _editorController.codeLines = CodeLines.fromText(code);
+  }
+
   /// Edit toggle. Leaving Edit mode with unsaved changes commits them
-  /// as a new version, discarding any "future" versions past the
-  /// current index first (the usual undo-branch rule).
+  /// as a new version.
   void _toggleEditing() {
     if (_editing) {
       final edited = _editorController.text;
       if (edited != _versions[_versionIndex]) {
-        setState(() {
-          _versions
-            ..removeRange(_versionIndex + 1, _versions.length)
-            ..add(edited);
-          _versionIndex++;
-        });
+        _appendVersion(edited);
       }
     }
     setState(() => _editing = !_editing);
+  }
+
+  /// Accepts the incoming quick-action version: it becomes a new
+  /// version of this artifact (so accepting is itself reversible
+  /// through version navigation).
+  void _acceptIncoming() {
+    final incoming = _incomingArtifact;
+    if (incoming == null) return;
+    setState(() {
+      _incomingArtifact = null;
+      _showIncomingDiff = false;
+      _showDiff = false;
+    });
+    _appendVersion(incoming.code);
+  }
+
+  /// Rejects the incoming quick-action version; the reply stays in
+  /// the chat as a message, it just never becomes a version here.
+  void _rejectIncoming() {
+    setState(() {
+      _incomingArtifact = null;
+      _showIncomingDiff = false;
+    });
   }
 
   void _stepVersion(int delta) {
@@ -362,6 +409,28 @@ class _CodeArtifactPanelState extends ConsumerState<CodeArtifactPanel> {
         _editorController.codeLines = CodeLines.fromText(next.code);
       });
     });
+    // A completed quick-action reply is offered exactly once as an
+    // incoming version: consuming the pending action here keeps
+    // later messages in the thread from ever being mistaken for it.
+    // (A watch + post-frame, not a listen, so a reply that is
+    // already complete when the panel first builds is offered too.)
+    final replyArtifacts = ref.watch(quickActionReplyProvider);
+    if (replyArtifacts != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        final pending = ref.read(pendingQuickActionProvider);
+        if (pending == null) return; // already consumed
+        ref.read(pendingQuickActionProvider.notifier).state = null;
+        if (replyArtifacts.isEmpty) return;
+        final candidate = replyArtifacts.first;
+        if (candidate.code == _currentCode) return;
+        setState(() {
+          _incomingArtifact = candidate;
+          _incomingActionLabel = pending.action.label;
+          _showIncomingDiff = false;
+        });
+      });
+    }
 
     final theme = Theme.of(context);
     final ext = theme.extension<AppThemeExtension>();
@@ -379,6 +448,7 @@ class _CodeArtifactPanelState extends ConsumerState<CodeArtifactPanel> {
         children: [
           _buildHeader(ext, borderColor, isPublishing: isPublishing),
           if (!_showPreview) _buildToolbar(borderColor),
+          if (_incomingArtifact != null) _buildIncomingBar(borderColor),
           Expanded(
             child: _showPreview && artifact.isPreviewable
                 ? _buildPreviewBody(artifact)
@@ -648,9 +718,70 @@ class _CodeArtifactPanelState extends ConsumerState<CodeArtifactPanel> {
     );
   }
 
+  /// The bar offering a quick action's reply as an incoming
+  /// version: diff it against the current version, accept it as a
+  /// new version, or reject it.
+  Widget _buildIncomingBar(Color borderColor) {
+    final label = _incomingActionLabel;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      decoration: BoxDecoration(
+        color: const Color(0xFF14532D).withValues(alpha: 0.25),
+        border: Border(bottom: BorderSide(color: borderColor)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.update, size: 16, color: Color(0xFFBBF7D0)),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              label != null ? 'New version from $label' : 'New version',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Color(0xFFECECEC),
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () =>
+                setState(() => _showIncomingDiff = !_showIncomingDiff),
+            child: Text(
+              'Diff',
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight:
+                    _showIncomingDiff ? FontWeight.w700 : FontWeight.w400,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: _rejectIncoming,
+            child: const Text('Reject', style: TextStyle(fontSize: 12.5)),
+          ),
+          TextButton(
+            onPressed: _acceptIncoming,
+            child: const Text(
+              'Accept',
+              style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildCodeBody(CodeArtifact artifact) {
+    if (_showIncomingDiff && !_editing && _incomingArtifact != null) {
+      return _buildDiffBody(_currentCode, _incomingArtifact!.code);
+    }
     if (_showDiff && !_editing && _versionIndex > 0) {
-      return _buildDiffBody();
+      return _buildDiffBody(
+        _versions[_versionIndex - 1],
+        _versions[_versionIndex],
+      );
     }
     return Container(
       color: const Color(0xFF0F0F0F),
@@ -697,12 +828,9 @@ class _CodeArtifactPanelState extends ConsumerState<CodeArtifactPanel> {
     );
   }
 
-  /// Line diff between the current version and the previous one.
-  Widget _buildDiffBody() {
-    final entries = computeLineDiff(
-      _versions[_versionIndex - 1],
-      _versions[_versionIndex],
-    );
+  /// Line diff between two versions of the artifact.
+  Widget _buildDiffBody(String oldCode, String newCode) {
+    final entries = computeLineDiff(oldCode, newCode);
     return Container(
       color: const Color(0xFF0F0F0F),
       child: ListView.builder(
