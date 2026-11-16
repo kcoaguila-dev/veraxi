@@ -80,41 +80,46 @@ class _InteractiveCodeBlockState extends State<InteractiveCodeBlock> {
                 ),
                 Row(
                   children: [
-                    InkWell(
-                      onTap: _runCode,
-                      child: Row(
-                        children: [
-                          if (hasFailed)
-                            const Icon(Icons.close,
-                                color: Color(0xFFDC2626), size: 14)
-                          else if (_isRunning)
-                            const SizedBox(
-                              width: 14,
-                              height: 14,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white70,
+                    // Run only exists for languages the client sandbox
+                    // can actually execute — same rule as the artifact
+                    // panel. Anything else could only produce an error.
+                    if (isSandboxRunnableLanguage(widget.language)) ...[
+                      InkWell(
+                        onTap: _runCode,
+                        child: Row(
+                          children: [
+                            if (hasFailed)
+                              const Icon(Icons.close,
+                                  color: Color(0xFFDC2626), size: 14)
+                            else if (_isRunning)
+                              const SizedBox(
+                                width: 14,
+                                height: 14,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white70,
+                                ),
+                              )
+                            else
+                              const Icon(Icons.play_arrow_outlined,
+                                  color: Colors.white70, size: 14),
+                            const SizedBox(width: 4),
+                            Text(
+                              _isRunning
+                                  ? 'Running...'
+                                  : (hasFailed ? 'Failed' : 'Run Code'),
+                              style: TextStyle(
+                                color: hasFailed
+                                    ? const Color(0xFFDC2626)
+                                    : Colors.white70,
+                                fontSize: 12,
                               ),
-                            )
-                          else
-                            const Icon(Icons.play_arrow_outlined,
-                                color: Colors.white70, size: 14),
-                          const SizedBox(width: 4),
-                          Text(
-                            _isRunning
-                                ? 'Running...'
-                                : (hasFailed ? 'Failed' : 'Run Code'),
-                            style: TextStyle(
-                              color: hasFailed
-                                  ? const Color(0xFFDC2626)
-                                  : Colors.white70,
-                              fontSize: 12,
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 16),
+                      const SizedBox(width: 16),
+                    ],
                     InkWell(
                       onTap: () {
                         Clipboard.setData(ClipboardData(text: widget.code));
@@ -291,19 +296,26 @@ class CodeElementBuilder extends MarkdownElementBuilder {
     final code = element.textContent;
     final artifact = _artifactFor(language, code);
 
-    if (language == 'xml' && languageClass == 'language-html') {
-      return buildSandboxedArtifactPreview(kind: 'html', code: code);
-    }
-
-    if (languageClass == 'language-mermaid') {
-      return buildSandboxedArtifactPreview(kind: 'mermaid', code: code);
-    }
-
     final onOpen = onOpenArtifact;
     if (onOpen == null) {
-      return InteractiveCodeBlock(language: language, code: code);
+      // No panel wired up (legacy callers): HTML and Mermaid keep their
+      // original inline sandboxed previews, everything else keeps the
+      // full inline code block.
+      if (languageClass == 'language-html') {
+        return buildSandboxedArtifactPreview(kind: 'html', code: code);
+      }
+      if (languageClass == 'language-mermaid') {
+        return buildSandboxedArtifactPreview(kind: 'mermaid', code: code);
+      }
+      return InteractiveCodeBlock(
+        language: artifact.highlightLanguage,
+        code: code,
+      );
     }
 
+    // With the panel available, every block — code, HTML, React, SVG,
+    // Mermaid, Markdown — becomes a card, Claude-style. Renderable
+    // artifacts open on their live preview inside the panel.
     return CodeArtifactCard(
       artifact: artifact,
       isOpen: openArtifact == artifact,

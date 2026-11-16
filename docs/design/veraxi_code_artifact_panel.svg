@@ -6,12 +6,21 @@
     States shown: desktop split view.
     - Left: chat column narrows when a code artifact is open.
     - In-flow: a compact, clickable rectangle card replaces the full
-      inline code block. Card = code icon in a tile, title (humanized
-      filename, e.g. "Hello world"), subtitle = uppercase extension
-      badge (e.g. "PY"), chevron on hover / trailing edge.
+      inline code block. Cards are collected at the END of the message,
+      after all prose (Claude's created-file placement), in document
+      order. Card = type icon in a tile (globe for HTML, code glyph
+      otherwise), title (humanized filename, e.g. "Hello world"),
+      subtitle = uppercase extension badge (e.g. "PY"), chevron on
+      hover / trailing edge.
     - Right: panel (~520px) with header (title + extension, Copy,
       Run where supported, Close), line-number gutter, syntax
       highlighted code, and an output strip after Run.
+    - Renderable artifacts (HTML, React, SVG, Mermaid, Markdown) put a
+      Preview | Code segmented toggle at the LEFT of the panel header
+      and open on the live Preview: HTML/React/SVG/Mermaid run in a
+      sandboxed frame (React transpiled in-frame via Babel + React
+      CDN, auto-mounting the default export), Markdown renders
+      natively.
     Mobile (<800px): the same panel becomes a full-screen overlay;
     the card is unchanged.
     Palette matches the existing dark chat UI (#212121 app,

@@ -148,6 +148,77 @@ second line
     });
   });
 
+  group('previewKind', () {
+    CodeArtifact artifact(String language, String code, {String? fileName}) =>
+        CodeArtifact.fromCode(
+            language: language, code: code, fileName: fileName);
+
+    test('html, svg, mermaid and markdown blocks are previewable', () {
+      expect(artifact('html', '<button>Hi</button>').previewKind,
+          CodePreviewKind.html);
+      expect(artifact('svg', '<svg></svg>').previewKind, CodePreviewKind.svg);
+      expect(artifact('mermaid', 'graph TD; A-->B').previewKind,
+          CodePreviewKind.mermaid);
+      expect(artifact('md', '# Title').previewKind, CodePreviewKind.markdown);
+      expect(artifact('markdown', '# Title').previewKind,
+          CodePreviewKind.markdown);
+    });
+
+    test('file extensions drive the kind when the fence is generic', () {
+      expect(artifact('xml', '<svg></svg>', fileName: 'icon.svg').previewKind,
+          CodePreviewKind.svg);
+      expect(
+          artifact('plaintext', '<p>x</p>', fileName: 'page.html').previewKind,
+          CodePreviewKind.html);
+      expect(artifact('plaintext', '# Hi', fileName: 'notes.md').previewKind,
+          CodePreviewKind.markdown);
+    });
+
+    test('an xml block whose content is an svg is an svg preview', () {
+      expect(artifact('xml', '  <svg viewBox="0 0 1 1"></svg>').previewKind,
+          CodePreviewKind.svg);
+      expect(
+          artifact('xml', '<div>page</div>').previewKind, CodePreviewKind.html);
+    });
+
+    test('jsx and tsx blocks are react previews', () {
+      expect(artifact('jsx', 'export default () => <div/>').previewKind,
+          CodePreviewKind.react);
+      expect(
+          artifact('tsx', 'export default function App() { return <div/>; }')
+              .previewKind,
+          CodePreviewKind.react);
+    });
+
+    test('javascript with a default-exported JSX component is react', () {
+      const code = '''
+import React from 'react';
+export default function Counter() {
+  const [n, setN] = useState(0);
+  return <button>{n}</button>;
+}
+''';
+      expect(artifact('javascript', code).previewKind, CodePreviewKind.react);
+    });
+
+    test('plain javascript and python are not previewable', () {
+      expect(artifact('javascript', 'const x = 1 < 2 ? "a" : "b";').previewKind,
+          CodePreviewKind.none);
+      expect(
+          artifact('python', 'print("hi")').previewKind, CodePreviewKind.none);
+      expect(
+          artifact('dart', 'void main() {}').previewKind, CodePreviewKind.none);
+      expect(artifact('python', 'print("hi")').isPreviewable, isFalse);
+      expect(artifact('html', '<p>x</p>').isPreviewable, isTrue);
+    });
+
+    test('highlight language maps html and svg to xml', () {
+      expect(artifact('html', '<p>x</p>').highlightLanguage, 'xml');
+      expect(artifact('svg', '<svg/>').highlightLanguage, 'xml');
+      expect(artifact('python', 'x = 1').highlightLanguage, 'python');
+    });
+  });
+
   group('helpers', () {
     test('humanizeFileName matches the Claude card titles', () {
       expect(humanizeFileName('hello_world.py'), 'Hello world');
@@ -161,9 +232,39 @@ second line
       expect(normalizeCodeLanguage('js'), 'javascript');
       expect(normalizeCodeLanguage('ts'), 'typescript');
       expect(normalizeCodeLanguage('c++'), 'cpp');
-      expect(normalizeCodeLanguage('html'), 'xml');
+      expect(normalizeCodeLanguage('html'), 'html');
+      expect(normalizeCodeLanguage('md'), 'markdown');
       expect(normalizeCodeLanguage('text'), 'plaintext');
       expect(normalizeCodeLanguage('dart'), 'dart');
+    });
+  });
+
+  group('stripCodeArtifacts', () {
+    test('removes fenced blocks and keeps the surrounding prose', () {
+      const md = 'Intro text.\n\n```python\nprint("hi")\n```\n\nAfter.';
+      final stripped = stripCodeArtifacts(md);
+      expect(stripped, contains('Intro text.'));
+      expect(stripped, contains('After.'));
+      expect(stripped, isNot(contains('print')));
+      expect(stripped, isNot(contains('```')));
+    });
+
+    test('a message that is only a block strips to empty', () {
+      expect(stripCodeArtifacts('```python\nx = 1\n```'), isEmpty);
+    });
+
+    test('leaves an unclosed (streaming) fence in place', () {
+      const md = 'Working:\n\n```python\nprint("part';
+      expect(stripCodeArtifacts(md), md.trim());
+    });
+
+    test('strips exactly the blocks extractCodeArtifacts finds', () {
+      const md = 'A\n\n```dart\nvoid main() {}\n```\n\nB\n\n```js\n1\n```';
+      expect(extractCodeArtifacts(md), hasLength(2));
+      final stripped = stripCodeArtifacts(md);
+      expect(stripped, contains('A'));
+      expect(stripped, contains('B'));
+      expect(stripped, isNot(contains('void main')));
     });
   });
 }

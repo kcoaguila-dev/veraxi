@@ -13,6 +13,7 @@ import 'package:veraxi_app/features/chat/views/widgets/tool_event_card.dart';
 import 'package:veraxi_app/features/chat/views/widgets/chat_activity_disclosure.dart';
 import 'package:veraxi_app/features/chat/views/widgets/markdown_citation_builder.dart';
 import 'package:veraxi_app/features/chat/views/widgets/markdown_code_builder.dart';
+import 'package:veraxi_app/features/chat/views/widgets/code_artifact_card.dart';
 import 'package:veraxi_app/features/chat/view_models/code_artifact_provider.dart';
 import 'package:veraxi_app/core/providers/active_sources_provider.dart';
 
@@ -75,6 +76,13 @@ class ChatMessageListItem extends ConsumerWidget {
                 : Icon(Icons.auto_awesome,
                     color: ext.primaryGradientStart, size: 20),
           );
+
+    // Claude-style artifact cards: fenced code blocks are pulled out of
+    // the prose and their cards are collected at the end of the message,
+    // instead of interrupting the text where the block was written.
+    final artifacts =
+        isUser ? const <CodeArtifact>[] : extractCodeArtifacts(msg.content);
+    final openArtifact = ref.watch(openCodeArtifactProvider);
 
     return Center(
         child: ConstrainedBox(
@@ -231,7 +239,16 @@ class ChatMessageListItem extends ConsumerWidget {
 
                               if (msg.content.isNotEmpty)
                                 MarkdownBody(
-                                  data: msg.content,
+                                  // With artifacts present the prose is
+                                  // rendered without the fenced blocks;
+                                  // their cards follow the body instead.
+                                  // Anything the extractor leaves behind
+                                  // (a still-streaming unclosed fence, an
+                                  // indented block) keeps the legacy
+                                  // inline rendering via the builder.
+                                  data: artifacts.isEmpty
+                                      ? msg.content
+                                      : stripCodeArtifacts(msg.content),
                                   extensionSet: md.ExtensionSet(
                                     md.ExtensionSet.gitHubFlavored
                                         .blockSyntaxes,
@@ -242,19 +259,7 @@ class ChatMessageListItem extends ConsumerWidget {
                                     ],
                                   ),
                                   builders: {
-                                    'code': CodeElementBuilder(
-                                      context,
-                                      artifacts:
-                                          extractCodeArtifacts(msg.content),
-                                      openArtifact:
-                                          ref.watch(openCodeArtifactProvider),
-                                      onOpenArtifact: (artifact) {
-                                        ref
-                                            .read(openCodeArtifactProvider
-                                                .notifier)
-                                            .state = artifact;
-                                      },
-                                    ),
+                                    'code': CodeElementBuilder(context),
                                     'a': CitationElementBuilder(message: msg),
                                     'cite':
                                         CitationElementBuilder(message: msg),
@@ -269,6 +274,19 @@ class ChatMessageListItem extends ConsumerWidget {
                                     codeblockDecoration:
                                         BoxDecoration(), // Handled by builder
                                   ),
+                                ),
+                              // Artifact cards, collected at the end of
+                              // the message like Claude's created-file
+                              // cards, in document order.
+                              for (final artifact in artifacts)
+                                CodeArtifactCard(
+                                  artifact: artifact,
+                                  isOpen: openArtifact == artifact,
+                                  onTap: () {
+                                    ref
+                                        .read(openCodeArtifactProvider.notifier)
+                                        .state = artifact;
+                                  },
                                 ),
                               if (!msg.isStreaming &&
                                   !msg.isError &&

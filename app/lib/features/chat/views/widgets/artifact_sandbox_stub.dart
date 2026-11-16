@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:webview_flutter/webview_flutter.dart';
-import 'package:http/http.dart' as http;
+import 'package:veraxi_app/features/chat/views/widgets/artifact_html_documents.dart';
+import 'dart:async';
 import 'dart:convert';
 
-/// Result of executing code in client or local sandbox.
+/// Result of executing code in the on-device sandbox.
 class SandboxResult {
   final String stdout;
   final String stderr;
@@ -17,65 +18,106 @@ class SandboxResult {
   });
 }
 
-/// Executes code in client sandbox or delegates to local backend tool.
+int _nativeRunCounter = 0;
+
+/// Executes code entirely on the user's device: the shared runner
+/// documents run inside a WebView (JavaScript in its JS engine, Python
+/// via Pyodide WASM) and post their result back over a JavaScript
+/// channel. Nothing is sent to a Veraxi server for execution, and
+/// anything that cannot really run returns an honest error instead of
+/// a simulated success.
 Future<SandboxResult> runCodeInClientSandbox(
     String language, String code) async {
   final lang = language.toLowerCase();
-  if (lang == 'python' || lang == 'py') {
-    try {
-      final uri = Uri.parse('/mcp');
-      final resp = await http
-          .post(
-            uri,
-            headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({
-              'jsonrpc': '2.0',
-              'id': 1,
-              'method': 'tools/call',
-              'params': {
-                'name': 'run_python_code',
-                'arguments': {'code': code},
-              },
-            }),
-          )
-          .timeout(const Duration(seconds: 10));
+  final isPython = lang == 'python' || lang == 'py';
+  final isJavaScript = lang == 'javascript' || lang == 'js';
 
-      if (resp.statusCode == 200) {
-        final data = jsonDecode(resp.body) as Map<String, dynamic>;
-        final result = data['result'] as Map<String, dynamic>? ?? {};
-        final content = (result['content'] as List<dynamic>?)?.firstOrNull;
-        if (content is Map<String, dynamic> && content['text'] != null) {
-          final parsed = jsonDecode(content['text'] as String);
-          return SandboxResult(
-            stdout: parsed['stdout'] ?? '',
-            stderr: parsed['stderr'] ?? '',
-            exitCode: parsed['exit_code'] ?? 0,
-          );
-        }
+  if (!isPython && !isJavaScript) {
+    return SandboxResult(
+      stdout: '',
+      stderr: 'Running $language is not supported in the app sandbox. '
+          'Supported languages: Python, JavaScript.',
+      exitCode: 1,
+    );
+  }
+
+  try {
+    return await _runInDeviceWebView(isPython: isPython, code: code);
+  } catch (e) {
+    return SandboxResult(
+      stdout: '',
+      stderr: 'In-app code execution is unavailable on this device: $e',
+      exitCode: 1,
+    );
+  }
+}
+
+Future<SandboxResult> _runInDeviceWebView({
+  required bool isPython,
+  required String code,
+}) async {
+  final runId = 'native_run_${_nativeRunCounter++}';
+  final completer = Completer<SandboxResult>();
+  final document = isPython
+      ? buildPythonRunnerDocument(
+          code,
+          runId: runId,
+          postResultBody: postResultToWebViewChannel,
+        )
+      : buildJavaScriptRunnerDocument(
+          code,
+          runId: runId,
+          postResultBody: postResultToWebViewChannel,
+        );
+
+  final controller = WebViewController()
+    ..setJavaScriptMode(JavaScriptMode.unrestricted)
+    ..addJavaScriptChannel(
+      'VeraxiRunner',
+      onMessageReceived: (message) {
+        try {
+          final parsed = jsonDecode(message.message);
+          if (parsed is Map &&
+              parsed['runId'] == runId &&
+              !completer.isCompleted) {
+            completer.complete(
+              SandboxResult(
+                stdout: parsed['stdout']?.toString() ?? '',
+                stderr: parsed['stderr']?.toString() ?? '',
+                exitCode:
+                    parsed['exitCode'] is int ? parsed['exitCode'] as int : 1,
+              ),
+            );
+          }
+        } catch (_) {}
+      },
+    );
+
+  // The first Python run also downloads the Pyodide runtime (~10 MB).
+  final timeout = Timer(
+    isPython ? const Duration(seconds: 60) : const Duration(seconds: 15),
+    () {
+      if (!completer.isCompleted) {
+        completer.complete(
+          SandboxResult(
+            stdout: '',
+            stderr: isPython
+                ? 'Python execution timed out after 60s '
+                    '(the first run downloads the in-app Python runtime).'
+                : 'JavaScript execution timed out after 15s.',
+            exitCode: 124,
+          ),
+        );
       }
-    } catch (_) {
-      // Offline fallback: simulate client execution confirmation
-    }
-    return SandboxResult(
-      stdout: '[Python Sandbox] Executed cleanly (${code.length} characters)',
-      stderr: '',
-      exitCode: 0,
-    );
-  }
-
-  if (lang == 'javascript' || lang == 'js') {
-    return SandboxResult(
-      stdout: '[JS Sandbox] Executed snippet (${code.length} characters)',
-      stderr: '',
-      exitCode: 0,
-    );
-  }
-
-  return SandboxResult(
-    stdout: '[$language Sandbox] Executed successfully',
-    stderr: '',
-    exitCode: 0,
+    },
   );
+
+  try {
+    await controller.loadHtmlString(document);
+    return await completer.future;
+  } finally {
+    timeout.cancel();
+  }
 }
 
 /// Sandboxed artifact preview widget for mobile / desktop VM using WebView.
@@ -124,75 +166,9 @@ class _SandboxedArtifactViewState extends State<SandboxedArtifactView> {
   }
 
   void _loadContent() {
-    String htmlContent;
-    if (widget.kind == 'mermaid') {
-      final escapedCode = widget.code
-          .replaceAll('&', '&amp;')
-          .replaceAll('<', '&lt;')
-          .replaceAll('>', '&gt;');
-      htmlContent = '''
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
-  <style>
-    body {
-      margin: 0;
-      padding: 24px;
-      background: #141416;
-      color: #E2E8F0;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      min-height: 85vh;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    }
-    .mermaid {
-      display: flex;
-      justify-content: center;
-      width: 100%;
-    }
-  </style>
-</head>
-<body>
-  <pre class="mermaid">
-$escapedCode
-  </pre>
-  <script>
-    mermaid.initialize({
-      startOnLoad: true,
-      theme: 'dark',
-      securityLevel: 'loose'
-    });
-  </script>
-</body>
-</html>
-''';
-    } else {
-      htmlContent = '''
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <style>
-    body {
-      margin: 0;
-      padding: 16px;
-      background: #141416;
-      color: #E2E8F0;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    }
-  </style>
-</head>
-<body>
-${widget.code}
-</body>
-</html>
-''';
-    }
-    _controller.loadHtmlString(htmlContent);
+    _controller.loadHtmlString(
+      buildArtifactDocument(widget.kind, widget.code),
+    );
   }
 
   @override
@@ -313,4 +289,45 @@ Widget buildSandboxedArtifactPreview({
   required String code,
 }) {
   return SandboxedArtifactView(kind: kind, code: code);
+}
+
+/// Chrome-free preview content for the artifact panel: just the WebView,
+/// filling whatever space the caller gives it.
+class ArtifactPreviewContent extends StatefulWidget {
+  final String kind;
+  final String code;
+
+  const ArtifactPreviewContent({
+    super.key,
+    required this.kind,
+    required this.code,
+  });
+
+  @override
+  State<ArtifactPreviewContent> createState() => _ArtifactPreviewContentState();
+}
+
+class _ArtifactPreviewContentState extends State<ArtifactPreviewContent> {
+  late final WebViewController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setBackgroundColor(const Color(0xFF141416))
+      ..loadHtmlString(buildArtifactDocument(widget.kind, widget.code));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return WebViewWidget(controller: _controller);
+  }
+}
+
+Widget buildArtifactPreviewContent({
+  required String kind,
+  required String code,
+}) {
+  return ArtifactPreviewContent(kind: kind, code: code);
 }
