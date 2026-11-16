@@ -1,0 +1,81 @@
+<svg width="1440" height="900" viewBox="0 0 1440 900" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!--
+    Veraxi — Code Artifact Card + Right Panel (Claude-style)
+    Visual contract for feat/code-artifact-panel.
+
+    States shown: desktop split view.
+    - Left: chat column narrows when a code artifact is open.
+    - In-flow: a compact, clickable rectangle card replaces the full
+      inline code block. Card = code icon in a tile, title (humanized
+      filename, e.g. "Hello world"), subtitle = uppercase extension
+      badge (e.g. "PY"), chevron on hover / trailing edge.
+    - Right: panel (~520px) with header (title + extension, Copy,
+      Run where supported, Close), line-number gutter, syntax
+      highlighted code, and an output strip after Run.
+    Mobile (<800px): the same panel becomes a full-screen overlay;
+    the card is unchanged.
+    Palette matches the existing dark chat UI (#212121 app,
+    #171717 sidebar, #2F2F2F card, #3F3F3F border).
+  -->
+  <rect width="1440" height="900" fill="#212121"/>
+
+  <!-- Left chat sidebar -->
+  <rect width="260" height="900" fill="#171717"/>
+  <text x="24" y="44" font-family="Inter, sans-serif" font-size="15" font-weight="600" fill="#ECECEC">Veraxi</text>
+  <rect x="16" y="64" width="228" height="34" rx="8" fill="#2F2F2F"/>
+  <text x="28" y="86" font-family="Inter, sans-serif" font-size="13" fill="#ECECEC">Hello world Python code</text>
+  <text x="28" y="122" font-family="Inter, sans-serif" font-size="13" fill="#878787">PR #128 reasoning traces</text>
+  <text x="28" y="150" font-family="Inter, sans-serif" font-size="13" fill="#878787">GraphRAG retrieval</text>
+
+  <!-- Chat column (narrowed) -->
+  <text x="292" y="52" font-family="Inter, sans-serif" font-size="13" fill="#B4B4B4">write a hello world python code</text>
+  <rect x="560" y="28" width="300" height="36" rx="18" fill="#2F2F2F"/>
+  <text x="292" y="110" font-family="Inter, sans-serif" font-size="14" fill="#ECECEC">Here's hello_world.py:</text>
+
+  <!-- Clickable artifact card (the rectangle) -->
+  <g>
+    <rect x="292" y="128" width="420" height="64" rx="12" fill="#2F2F2F" stroke="#3F3F3F"/>
+    <rect x="308" y="144" width="32" height="32" rx="8" fill="#1E1E1E" stroke="#3F3F3F"/>
+    <text x="316" y="166" font-family="monospace" font-size="13" fill="#ECECEC">&lt;/&gt;</text>
+    <text x="352" y="156" font-family="Inter, sans-serif" font-size="14" font-weight="500" fill="#ECECEC">Hello world</text>
+    <text x="352" y="176" font-family="Inter, sans-serif" font-size="11" letter-spacing="1" fill="#878787">PY</text>
+    <text x="688" y="166" font-family="Inter, sans-serif" font-size="16" fill="#878787">&#8250;</text>
+  </g>
+  <text x="292" y="224" font-family="Inter, sans-serif" font-size="13" fill="#B4B4B4">Run it with python hello_world.py and it prints Hello, World!</text>
+
+  <!-- Chat input -->
+  <rect x="292" y="800" width="568" height="56" rx="16" fill="#2F2F2F" stroke="#3F3F3F"/>
+  <text x="312" y="834" font-family="Inter, sans-serif" font-size="14" fill="#878787">Reply</text>
+
+  <!-- Right panel -->
+  <g>
+    <rect x="892" y="0" width="548" height="900" fill="#1E1E1E"/>
+    <rect x="892" y="0" width="1" height="900" fill="#3F3F3F"/>
+    <!-- Panel header -->
+    <text x="916" y="38" font-family="Inter, sans-serif" font-size="14" font-weight="600" fill="#ECECEC">Hello world</text>
+    <text x="1006" y="38" font-family="Inter, sans-serif" font-size="11" letter-spacing="1" fill="#878787">PY</text>
+    <rect x="1212" y="18" width="72" height="30" rx="8" fill="#2F2F2F" stroke="#3F3F3F"/>
+    <text x="1228" y="38" font-family="Inter, sans-serif" font-size="12" fill="#ECECEC">Copy</text>
+    <rect x="1292" y="18" width="64" height="30" rx="8" fill="#2F2F2F" stroke="#3F3F3F"/>
+    <text x="1308" y="38" font-family="Inter, sans-serif" font-size="12" fill="#ECECEC">Run</text>
+    <text x="1404" y="40" font-family="Inter, sans-serif" font-size="18" fill="#B4B4B4">&#215;</text>
+    <rect x="892" y="60" width="548" height="1" fill="#3F3F3F"/>
+    <!-- Line gutter + code -->
+    <text x="924" y="96" font-family="monospace" font-size="13" fill="#5A5A5A">1</text>
+    <text x="924" y="120" font-family="monospace" font-size="13" fill="#5A5A5A">2</text>
+    <text x="924" y="168" font-family="monospace" font-size="13" fill="#5A5A5A">5</text>
+    <text x="924" y="192" font-family="monospace" font-size="13" fill="#5A5A5A">6</text>
+    <text x="952" y="96" font-family="monospace" font-size="13" fill="#C586C0">def</text>
+    <text x="984" y="96" font-family="monospace" font-size="13" fill="#DCDCAA">main</text>
+    <text x="1016" y="96" font-family="monospace" font-size="13" fill="#ECECEC">():</text>
+    <text x="976" y="120" font-family="monospace" font-size="13" fill="#DCDCAA">print</text>
+    <text x="1024" y="120" font-family="monospace" font-size="13" fill="#CE9178">("Hello, World!")</text>
+    <text x="952" y="168" font-family="monospace" font-size="13" fill="#C586C0">if</text>
+    <text x="976" y="168" font-family="monospace" font-size="13" fill="#9CDCFE">__name__</text>
+    <text x="1056" y="168" font-family="monospace" font-size="13" fill="#ECECEC">==</text>
+    <text x="1080" y="168" font-family="monospace" font-size="13" fill="#CE9178">"__main__"</text>
+    <text x="1160" y="168" font-family="monospace" font-size="13" fill="#ECECEC">:</text>
+    <text x="976" y="192" font-family="monospace" font-size="13" fill="#DCDCAA">main</text>
+    <text x="1008" y="192" font-family="monospace" font-size="13" fill="#ECECEC">()</text>
+  </g>
+</svg>

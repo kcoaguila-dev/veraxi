@@ -6,6 +6,8 @@ import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:flutter_highlighter/flutter_highlighter.dart';
 import 'package:flutter_highlighter/themes/atom-one-dark.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
+import 'package:veraxi_app/features/chat/view_models/code_artifact_provider.dart';
+import 'package:veraxi_app/features/chat/views/widgets/code_artifact_card.dart';
 import 'artifact_sandbox.dart';
 
 class InteractiveCodeBlock extends StatefulWidget {
@@ -228,7 +230,44 @@ class _InteractiveCodeBlockState extends State<InteractiveCodeBlock> {
 
 class CodeElementBuilder extends MarkdownElementBuilder {
   final BuildContext context;
-  CodeElementBuilder(this.context);
+
+  /// Code blocks pre-extracted from the message markdown, in document
+  /// order, with any file name the assistant mentioned already resolved.
+  /// Consumed one per block element so each card gets its own file name.
+  final List<CodeArtifact> artifacts;
+
+  /// The artifact currently open in the side panel, so its card can
+  /// render in the open state.
+  final CodeArtifact? openArtifact;
+
+  /// Called when a code card is tapped. When null, blocks fall back to
+  /// the legacy full inline [InteractiveCodeBlock] rendering.
+  final void Function(CodeArtifact artifact)? onOpenArtifact;
+
+  int _nextBlockIndex = 0;
+
+  CodeElementBuilder(
+    this.context, {
+    this.artifacts = const [],
+    this.openArtifact,
+    this.onOpenArtifact,
+  });
+
+  CodeArtifact _artifactFor(String language, String code) {
+    if (_nextBlockIndex < artifacts.length) {
+      final candidate = artifacts[_nextBlockIndex++];
+      if (candidate.code.trim() == code.trim()) return candidate;
+      // Same slot in the document but the parser's text differs slightly
+      // (e.g. trailing newline): keep the resolved file name, trust the
+      // parser for the code itself.
+      return CodeArtifact.fromCode(
+        language: language,
+        code: code,
+        fileName: candidate.fileName,
+      );
+    }
+    return CodeArtifact.fromCode(language: language, code: code);
+  }
 
   @override
   Widget? visitElementAfter(md.Element element, TextStyle? preferredStyle) {
@@ -245,21 +284,12 @@ class CodeElementBuilder extends MarkdownElementBuilder {
 
     String language = 'plaintext';
     if (languageClass != null && languageClass.startsWith('language-')) {
-      language = languageClass.substring(9).toLowerCase();
       // Normalize common language aliases for highlight.js
-      if (language == 'python3' || language == 'py') language = 'python';
-      if (language == 'js' || language == 'node') language = 'javascript';
-      if (language == 'ts') language = 'typescript';
-      if (language == 'sh' || language == 'zsh') language = 'bash';
-      if (language == 'c++' || language == 'cc') language = 'cpp';
-      if (language == 'c#') language = 'cs';
-      if (language == 'html') {
-        language = 'xml'; // highglight.js treats html as xml
-      }
-      if (language == 'text') language = 'plaintext';
+      language = normalizeCodeLanguage(languageClass.substring(9));
     }
 
     final code = element.textContent;
+    final artifact = _artifactFor(language, code);
 
     if (language == 'xml' && languageClass == 'language-html') {
       return buildSandboxedArtifactPreview(kind: 'html', code: code);
@@ -269,6 +299,15 @@ class CodeElementBuilder extends MarkdownElementBuilder {
       return buildSandboxedArtifactPreview(kind: 'mermaid', code: code);
     }
 
-    return InteractiveCodeBlock(language: language, code: code);
+    final onOpen = onOpenArtifact;
+    if (onOpen == null) {
+      return InteractiveCodeBlock(language: language, code: code);
+    }
+
+    return CodeArtifactCard(
+      artifact: artifact,
+      isOpen: openArtifact == artifact,
+      onTap: () => onOpen(artifact),
+    );
   }
 }
