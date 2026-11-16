@@ -153,6 +153,15 @@ def _normalize_kind(kind) -> str:
     return kind if kind in VALID_ARTIFACT_KINDS else "code"
 
 
+def _require_non_negative_int(body: dict, name: str) -> int:
+    value = body.get(name)
+    if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+        raise HTTPException(
+            status_code=400, detail=f"{name} must be an integer >= 0"
+        )
+    return value
+
+
 def _parse_work_payload(body) -> tuple[int, int, dict]:
     """Validate a PUT /api/artifacts/work body and return
     ``(message_index, artifact_index, state)``.
@@ -165,16 +174,8 @@ def _parse_work_payload(body) -> tuple[int, int, dict]:
     """
     if not isinstance(body, dict):
         raise HTTPException(status_code=400, detail="request body must be an object")
-    message_index = body.get("message_index")
-    artifact_index = body.get("artifact_index")
-    for name, value in (
-        ("message_index", message_index),
-        ("artifact_index", artifact_index),
-    ):
-        if not isinstance(value, int) or isinstance(value, bool) or value < 0:
-            raise HTTPException(
-                status_code=400, detail=f"{name} must be an integer >= 0"
-            )
+    message_index = _require_non_negative_int(body, "message_index")
+    artifact_index = _require_non_negative_int(body, "artifact_index")
     state = body.get("state")
     if not isinstance(state, dict):
         raise HTTPException(status_code=400, detail="state must be an object")
@@ -758,7 +759,7 @@ def register_artifact_routes(
                     raise HTTPException(
                         status_code=404, detail="Artifact not found"
                     )
-            if existing is not None:
+            if existing is not None and payload.id:
                 artifact_id = payload.id
                 created_at = existing.get("created_at") or now
             else:
@@ -860,7 +861,10 @@ def register_artifact_routes(
         for raw_field, raw_value in (raw_entries or {}).items():
             field = _decode(raw_field)
             try:
-                entries[field] = json.loads(_decode(raw_value))
+                decoded_value = _decode(raw_value)
+                if decoded_value is None:
+                    raise TypeError("Artifact work value decoded to None")
+                entries[field] = json.loads(decoded_value)
             except (TypeError, ValueError) as e:
                 # A corrupt entry is skipped, not fatal: the rest of
                 # the thread's work still syncs.

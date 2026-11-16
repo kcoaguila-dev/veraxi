@@ -118,7 +118,10 @@ def test_public_page_has_banner_escaped_title_and_sandbox(client):
     assert page.headers["x-content-type-options"] == "nosniff"
     assert page.headers["referrer-policy"] == "no-referrer"
     assert "script-src" in page.headers["content-security-policy"]
-    assert "https://esm.sh" in page.headers["content-security-policy"]
+    assert (
+        "https://esm.sh"
+        in page.headers["content-security-policy"].replace(";", " ").split()
+    )
 
 
 def test_unknown_artifact_page_is_404(client):
