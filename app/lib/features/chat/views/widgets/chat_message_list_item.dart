@@ -278,14 +278,31 @@ class ChatMessageListItem extends ConsumerWidget {
                               // Artifact cards, collected at the end of
                               // the message like Claude's created-file
                               // cards, in document order.
-                              for (final artifact in artifacts)
+                              for (var i = 0; i < artifacts.length; i++)
                                 CodeArtifactCard(
-                                  artifact: artifact,
-                                  isOpen: openArtifact == artifact,
+                                  artifact: artifacts[i],
+                                  isOpen:
+                                      openArtifact?.artifact == artifacts[i],
                                   onTap: () {
+                                    // Record where this artifact lives
+                                    // (thread, message position, block
+                                    // position) so the panel can follow
+                                    // its live content while the message
+                                    // is still streaming.
+                                    final chatState =
+                                        ref.read(chatViewModelProvider);
+                                    final messageIndex =
+                                        chatState.messages.indexOf(msg);
                                     ref
                                         .read(openCodeArtifactProvider.notifier)
-                                        .state = artifact;
+                                        .state = OpenCodeArtifact(
+                                      artifact: artifacts[i],
+                                      threadId: chatState.threadId,
+                                      messageIndex: messageIndex >= 0
+                                          ? messageIndex
+                                          : null,
+                                      artifactIndex: i,
+                                    );
                                   },
                                 ),
                               if (!msg.isStreaming &&

@@ -34,7 +34,21 @@ class LocalMessages extends Table {
   Set<Column> get primaryKey => {id};
 }
 
-@DriftDatabase(tables: [LocalThreads, LocalMessages])
+/// One artifact's saved panel work (version history, published
+/// link), keyed by its work-store coordinates
+/// ("thread:message:artifact"). The local cache half of the
+/// artifact work store; the synced copy lives server-side next to
+/// the chat history.
+class ArtifactWorkEntries extends Table {
+  TextColumn get workKey => text()();
+  TextColumn get stateJson => text()(); // JSON encoded ArtifactWorkState
+  IntColumn get updatedAtMs => integer().withDefault(const Constant(0))();
+
+  @override
+  Set<Column> get primaryKey => {workKey};
+}
+
+@DriftDatabase(tables: [LocalThreads, LocalMessages, ArtifactWorkEntries])
 class LocalChatDatabase extends _$LocalChatDatabase {
   LocalChatDatabase() : super(openConnection());
 
@@ -43,7 +57,7 @@ class LocalChatDatabase extends _$LocalChatDatabase {
   LocalChatDatabase.withExecutor(super.executor);
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -56,6 +70,9 @@ class LocalChatDatabase extends _$LocalChatDatabase {
             await m.addColumn(localMessages, localMessages.reasoning);
             await m.addColumn(
                 localMessages, localMessages.reasoningDurationSeconds);
+          }
+          if (from < 4) {
+            await m.createTable(artifactWorkEntries);
           }
         },
       );

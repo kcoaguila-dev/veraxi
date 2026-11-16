@@ -523,10 +523,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                         Positioned.fill(
                           child: CodeArtifactPanel(
                             key: ValueKey(openArtifact),
-                            artifact: openArtifact,
+                            open: openArtifact,
                             onClose: () => ref
                                 .read(openCodeArtifactProvider.notifier)
                                 .state = null,
+                            onQuickAction: (prompt) => viewModel.sendMessage(
+                              prompt,
+                              model: _selectedModel,
+                            ),
                           ),
                         ),
                     ],
@@ -540,10 +544,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   width: 520,
                   child: CodeArtifactPanel(
                     key: ValueKey(openArtifact),
-                    artifact: openArtifact,
+                    open: openArtifact,
                     onClose: () => ref
                         .read(openCodeArtifactProvider.notifier)
                         .state = null,
+                    onQuickAction: (prompt) => viewModel.sendMessage(
+                      prompt,
+                      model: _selectedModel,
+                    ),
                   ),
                 ),
             ],

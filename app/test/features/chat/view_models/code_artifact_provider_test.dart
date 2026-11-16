@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:veraxi_app/features/chat/view_models/chat_state.dart';
 import 'package:veraxi_app/features/chat/view_models/code_artifact_provider.dart';
 
 void main() {
@@ -265,6 +266,94 @@ export default function Counter() {
       expect(stripped, contains('A'));
       expect(stripped, contains('B'));
       expect(stripped, isNot(contains('void main')));
+    });
+  });
+
+  group('resolveOpenCodeArtifact', () {
+    const snapshot = CodeArtifact(
+      title: 'Hello world',
+      fileName: 'hello_world.py',
+      language: 'python',
+      code: 'print("v1")',
+    );
+    const open = OpenCodeArtifact(
+      artifact: snapshot,
+      threadId: 't1',
+      messageIndex: 0,
+      artifactIndex: 0,
+    );
+
+    ChatState stateWith(String content, {String? threadId = 't1'}) {
+      return ChatState(
+        threadId: threadId,
+        messages: [ChatMessage(role: 'assistant', content: content)],
+      );
+    }
+
+    test('follows the live content of a streaming message', () {
+      final resolved = resolveOpenCodeArtifact(
+        open,
+        stateWith('```python\nprint("v2")\n```'),
+      );
+      expect(resolved.code, 'print("v2")');
+    });
+
+    test('falls back to the snapshot for another thread', () {
+      final resolved = resolveOpenCodeArtifact(
+        open,
+        stateWith('```python\nprint("v2")\n```', threadId: 'other'),
+      );
+      expect(resolved, snapshot);
+    });
+
+    test('falls back when the message position is gone', () {
+      final resolved = resolveOpenCodeArtifact(
+        open,
+        ChatState(threadId: 't1', messages: const []),
+      );
+      expect(resolved, snapshot);
+    });
+
+    test('falls back while the fence is still unclosed', () {
+      final resolved = resolveOpenCodeArtifact(
+        open,
+        stateWith('```python\nprint("v2")'),
+      );
+      expect(resolved, snapshot);
+    });
+
+    test('no coordinates means the snapshot is all there is', () {
+      const bare = OpenCodeArtifact(artifact: snapshot);
+      final resolved = resolveOpenCodeArtifact(
+        bare,
+        stateWith('```python\nprint("v2")\n```'),
+      );
+      expect(resolved, snapshot);
+    });
+  });
+
+  group('CodeArtifact.downloadFileName', () {
+    test('uses the real file name when there is one', () {
+      const artifact = CodeArtifact(
+        title: 'Hello world',
+        fileName: 'hello_world.py',
+        language: 'python',
+        code: 'x',
+      );
+      expect(artifact.downloadFileName, 'hello_world.py');
+    });
+
+    test('derives artifact.<ext> from the language otherwise', () {
+      CodeArtifact anon(String language) => CodeArtifact(
+            title: 'code',
+            fileName: null,
+            language: language,
+            code: 'x',
+          );
+      expect(anon('python').downloadFileName, 'artifact.py');
+      expect(anon('javascript').downloadFileName, 'artifact.js');
+      expect(anon('markdown').downloadFileName, 'artifact.md');
+      expect(anon('dart').downloadFileName, 'artifact.dart');
     });
   });
 }

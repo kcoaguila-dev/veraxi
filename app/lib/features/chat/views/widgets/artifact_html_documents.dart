@@ -6,13 +6,18 @@
 /// a WebView on native), so its scripts execute in an opaque origin with
 /// no access to the host app, its cookies, or its storage.
 ///
-/// - HTML runs as authored (fragments are wrapped in a base document;
-///   full documents pass through untouched).
+/// - HTML runs as authored (fragments are wrapped in a base document
+///   with the Tailwind Play CDN available; full documents pass
+///   through untouched).
 /// - SVG markup is centered on the artifact background.
 /// - Mermaid source is rendered by the Mermaid CDN script.
-/// - React/JSX is transpiled in the frame by Babel standalone with
-///   React 18 from CDN, and the top-level component is auto-mounted to
-///   `#root` — no build step, exactly like Claude's React artifacts.
+/// - React/JSX is transpiled in the frame by Babel standalone and run
+///   as an ES module: an import map pins React 18 and a curated set
+///   of libraries (recharts, lodash, lucide-react) to free esm.sh
+///   builds that share the one React copy, any other bare import is
+///   rewritten to its esm.sh URL, and the top-level component is
+///   auto-mounted to `#root` — no build step, no paid service,
+///   exactly like Claude's React artifacts.
 ///
 /// Pure Dart on purpose: both platform sandbox implementations share
 /// these builders so the documents cannot drift apart, and the React
@@ -53,6 +58,7 @@ String buildHtmlArtifactDocument(String code) {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://cdn.tailwindcss.com"></script>
   <style>
 $_baseStyles  </style>
 </head>
@@ -140,9 +146,10 @@ $escapedCode
 
 /// The result of preparing React/JSX source for the in-frame harness.
 class ReactArtifactPreparation {
-  /// Source with imports/exports rewritten for a script-global React,
-  /// `</script>` sequences escaped, hooks destructured, and (when
-  /// [shouldAutoMount]) the auto-mount snippet appended.
+  /// Source prepared to run as an ES module: imports resolved for the
+  /// document's import map (see [buildReactArtifactDocument]),
+  /// `</script>` sequences escaped, missing hook imports added, and
+  /// (when [shouldAutoMount]) the auto-mount snippet appended.
   final String code;
 
   /// The component the source default-exported, when one was found.
@@ -159,8 +166,11 @@ class ReactArtifactPreparation {
   });
 }
 
-final RegExp _importPattern =
-    RegExp(r'''import\s+(?:[\s\S]*?\s+from\s+)?['"][^'"]*['"];?''');
+/// Import statements, capturing the clause (`React, { useState }`,
+/// `{ LineChart }`, `* as ns`, or null for a side-effect import) and
+/// the module specifier.
+final RegExp _importStatementPattern =
+    RegExp(r'''import\s+(?:([\s\S]*?)\s+from\s+)?['"]([^'"]+)['"];?''');
 final RegExp _defaultDeclPattern =
     RegExp(r'export\s+default\s+(function|class)\s+([A-Za-z_$][\w$]*)');
 final RegExp _defaultNamePattern =
@@ -168,27 +178,84 @@ final RegExp _defaultNamePattern =
 final RegExp _exportPrefixPattern =
     RegExp(r'export\s+(?=(?:function|const|let|var|class)\s)');
 final RegExp _manualHooksPattern =
-    RegExp(r'(?:const|let|var)\s*\{[^}]*\}\s*=\s*React\b');
+    RegExp(r'(?:const|let|var)\s*\{([^}]*)\}\s*=\s*React\b');
 
-/// Rewrites a React component file so it can run as a classic script
-/// with `React` / `ReactDOM` as globals, the way Claude's harness and
-/// other in-browser JSX runners do it:
+/// Packages the React document's import map pins to esm.sh builds
+/// (see [buildReactArtifactDocument]). Imports of these — and of
+/// their subpaths — stay exactly as written; the map resolves them.
+const Set<String> _importMappedPackages = {
+  'react',
+  'react-dom',
+  'recharts',
+  'lodash',
+  'lucide-react',
+};
+
+bool _isImportMapped(String specifier) => _importMappedPackages
+    .any((pkg) => specifier == pkg || specifier.startsWith('$pkg/'));
+
+/// esm.sh URL for an unmapped bare specifier. `external=react,
+/// react-dom` keeps the package on the import map's single React
+/// copy — a second React instance would break hooks.
+String _esmUrlFor(String specifier) =>
+    'https://esm.sh/$specifier?external=react,react-dom';
+
+/// Local names bound by an import clause's `{ … }` section, resolving
+/// `name as alias` to the alias (the name the code actually uses).
+Set<String> _namedBindings(String? clause) {
+  if (clause == null) return const {};
+  final braces = RegExp(r'\{([\s\S]*)\}').firstMatch(clause);
+  if (braces == null) return const {};
+  return braces
+      .group(1)!
+      .split(',')
+      .map((part) => part.trim())
+      .where((part) => part.isNotEmpty)
+      .map((part) => part.contains(' as ')
+          ? part.split(' as ').last.trim()
+          : part.replaceFirst('type ', '').trim())
+      .toSet();
+}
+
+/// Prepares a React component file to run as an ES module in the
+/// harness document, the way modern in-browser runners (import maps +
+/// esm.sh) do it:
 ///
-/// - `import` statements are dropped (React is already a global; other
-///   packages cannot be resolved in a single-file frame).
+/// - Imports of `react`, `react-dom`, and the curated packages
+///   (recharts, lodash, lucide-react) — including subpaths — stay as
+///   written; the document's import map resolves them to pinned
+///   esm.sh builds that share one React copy.
+/// - Any other bare import is rewritten to its esm.sh URL with
+///   `external=react,react-dom`, so arbitrary npm packages resolve
+///   too. Relative imports and stylesheet imports are dropped — a
+///   single-file frame has no sibling files.
 /// - `export default function App …` keeps the declaration and records
 ///   `App`; `export default App;` records `App`; any other default
 ///   export becomes `const __VeraxiDefaultComponent = …`.
 /// - Remaining `export` prefixes on declarations are stripped.
-/// - Hooks are destructured from the React global unless the source
-///   already does it itself.
+/// - Hooks the code uses but never imports (nor destructures from a
+///   React binding) get an `import { … } from 'react'` line — the
+///   module-era form of the old global-destructure safety net.
 /// - `</script>` inside the source is escaped to `<\/script>` so it
 ///   cannot terminate the embedding script element early.
-/// - Unless the source mounts itself, a snippet is appended that mounts
-///   the default export — or a component named App / Component / Demo /
-///   Main — into `#root` with React 18's `createRoot`.
+/// - Unless the source mounts itself, a snippet is appended that
+///   mounts the default export — or a component named App / Component
+///   / Demo / Main — into `#root` with React 18's `createRoot`.
 ReactArtifactPreparation prepareReactArtifact(String source) {
-  var code = source.replaceAll(_importPattern, '');
+  final importedFromReact = <String>{};
+  var code = source.replaceAllMapped(_importStatementPattern, (match) {
+    final clause = match.group(1);
+    final specifier = match.group(2)!;
+    if (specifier.endsWith('.css')) return '';
+    if (specifier.startsWith('.') || specifier.startsWith('/')) return '';
+    if (specifier == 'react') {
+      importedFromReact.addAll(_namedBindings(clause));
+      return match.group(0)!;
+    }
+    if (_isImportMapped(specifier)) return match.group(0)!;
+    final url = _esmUrlFor(specifier);
+    return clause == null ? "import '$url';" : "import $clause from '$url';";
+  });
 
   String? componentName;
 
@@ -227,9 +294,17 @@ ReactArtifactPreparation prepareReactArtifact(String source) {
     'useContext',
     'useReducer',
   ];
-  final usesHooks = hookNames.any((h) => code.contains(h));
-  if (usesHooks && !_manualHooksPattern.hasMatch(code)) {
-    code = 'const { ${hookNames.join(', ')} } = React;\n$code';
+  final manuallyBound = <String>{
+    for (final match in _manualHooksPattern.allMatches(code))
+      ..._namedBindings('{${match.group(1)}}'),
+  };
+  final missingHooks = hookNames
+      .where((h) => code.contains(h))
+      .where((h) => !importedFromReact.contains(h))
+      .where((h) => !manuallyBound.contains(h))
+      .toList();
+  if (missingHooks.isNotEmpty) {
+    code = "import { ${missingHooks.join(', ')} } from 'react';\n$code";
   }
 
   final shouldAutoMount =
@@ -246,13 +321,15 @@ ReactArtifactPreparation prepareReactArtifact(String source) {
     final checks =
         candidates.map((n) => "(typeof $n !== 'undefined' && $n)").join(' || ');
     code = '''
+import __VeraxiReact from 'react';
+import { createRoot as __VeraxiCreateRoot } from 'react-dom/client';
 $code
 ;(function () {
   var __VeraxiComponent = $checks || null;
   var __VeraxiRootEl = document.getElementById('root');
   if (__VeraxiComponent) {
-    ReactDOM.createRoot(__VeraxiRootEl).render(
-      React.createElement(__VeraxiComponent)
+    __VeraxiCreateRoot(__VeraxiRootEl).render(
+      __VeraxiReact.createElement(__VeraxiComponent)
     );
   } else {
     __VeraxiRootEl.innerHTML =
@@ -275,10 +352,31 @@ $code
   );
 }
 
-/// The React harness document: React 18 + ReactDOM + Babel standalone
-/// from CDN, the prepared source in an inert text block, and a bootstrap
-/// that transpiles it (JSX + TypeScript) and injects the result as a
-/// classic script. Transform errors are shown in place of the preview.
+/// The import map for the React harness document: React 18 and the
+/// curated library set pinned to free esm.sh builds. The `?external`
+/// pins keep every package on this one React copy (a second copy
+/// breaks hooks); the trailing-slash entries cover subpath imports
+/// (`react/jsx-runtime`, `lodash/debounce`, …).
+const String _reactImportMap = '''
+{
+  "imports": {
+    "react": "https://esm.sh/react@18.3.1",
+    "react/": "https://esm.sh/react@18.3.1/",
+    "react-dom": "https://esm.sh/react-dom@18.3.1",
+    "react-dom/": "https://esm.sh/react-dom@18.3.1/",
+    "recharts": "https://esm.sh/recharts@2.15.0?external=react,react-dom&bundle",
+    "lodash": "https://esm.sh/lodash@4.17.21",
+    "lucide-react": "https://esm.sh/lucide-react@0.469.0?external=react,react-dom&bundle"
+  }
+}
+''';
+
+/// The React harness document: Babel standalone from CDN, the
+/// Tailwind Play CDN, and an import map (above); the prepared source
+/// sits in an inert text block, and a bootstrap transpiles it
+/// (JSX + TypeScript) and injects the result as an ES module.
+/// Transform and module-load errors are shown in place of the
+/// preview.
 String buildReactArtifactDocument(String source) {
   final prepared = prepareReactArtifact(source);
   return '''
@@ -287,9 +385,10 @@ String buildReactArtifactDocument(String source) {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script type="importmap">
+$_reactImportMap  </script>
   <style>
     body {
       margin: 0;
@@ -316,13 +415,19 @@ ${prepared.code}
       try {
         var src = document.getElementById('veraxi-react-source').textContent;
         var out = Babel.transform(src, {
+          sourceType: 'module',
           presets: [
             'react',
             ['typescript', { isTSX: true, allExtensions: true }]
           ]
         }).code;
         var script = document.createElement('script');
+        script.type = 'module';
         script.textContent = out;
+        script.onerror = function () {
+          showError('Failed to load a module — an import could not be ' +
+            'resolved (unknown package or no network).');
+        };
         document.body.appendChild(script);
       } catch (err) {
         showError(err);
@@ -421,8 +526,12 @@ String buildJavaScriptRunnerDocument(
 /// host as JSON: `{runId, stdout, stderr, exitCode}`.
 ///
 /// The first run downloads Pyodide (~10 MB) into the frame's cache;
-/// later runs reuse it. The code travels base64-encoded so a literal
-/// `</script>` inside it cannot break out of the document.
+/// later runs reuse it. Packages the code imports (numpy, pandas,
+/// matplotlib, …) are auto-loaded from Pyodide's distribution the
+/// same way — downloaded on first use, cached afterwards, so plain
+/// stdlib code pays nothing for them. The code travels
+/// base64-encoded so a literal `</script>` inside it cannot break
+/// out of the document.
 String buildPythonRunnerDocument(
   String code, {
   required String runId,
@@ -445,6 +554,15 @@ String buildPythonRunnerDocument(
   try {
     var pyodide = await loadPyodide();
     var rawCode = decodeURIComponent(escape(atob("$encodedCode")));
+    // Auto-load the packages the code imports (numpy, pandas, ...)
+    // from Pyodide's distribution. A package Pyodide does not ship
+    // is not fatal here: execution proceeds and Python's own
+    // ModuleNotFoundError names the missing module in the traceback.
+    try {
+      await pyodide.loadPackagesFromImports(rawCode);
+    } catch (pkgErr) {
+      console.warn("Package auto-load failed:", pkgErr);
+    }
     pyodide.globals.set("__veraxi_user_code", rawCode);
     var result = await pyodide.runPythonAsync(`
 import sys

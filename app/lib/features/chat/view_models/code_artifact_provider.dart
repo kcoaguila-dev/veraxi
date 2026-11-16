@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:veraxi_app/features/chat/view_models/chat_view_model.dart';
 
 /// A single fenced code block from an assistant message, presented the way
 /// Claude presents a created file: a compact card in the chat flow that
@@ -66,6 +67,24 @@ class CodeArtifact {
 
   int get lineCount =>
       code.isEmpty ? 0 : '\n'.allMatches(code.trimRight()).length + 1;
+
+  /// The name this artifact downloads under: its real file name when
+  /// it has one, otherwise `artifact.<ext>` derived from the language.
+  String get downloadFileName {
+    final name = fileName;
+    if (name != null && name.isNotEmpty) return name;
+    final ext = switch (language) {
+      'python' => 'py',
+      'javascript' => 'js',
+      'typescript' => 'ts',
+      'markdown' => 'md',
+      'plaintext' => 'txt',
+      'bash' => 'sh',
+      'cs' => 'cs',
+      _ => language,
+    };
+    return 'artifact.$ext';
+  }
 
   /// Lowercase file extension without the dot, or null when the block
   /// has no file name.
@@ -165,10 +184,82 @@ bool _looksLikeReactComponent(String code) {
       code.contains('useState');
 }
 
-/// The code artifact currently open in the right-side panel, or null when
-/// the panel is closed. Set by tapping a [CodeArtifact] card in a message;
+/// The artifact open in the right-side panel: a snapshot taken when
+/// its card was tapped, plus the coordinates needed to follow the
+/// artifact's live content while its message is still streaming.
+///
+/// The snapshot is the fallback whenever live resolution is impossible
+/// (message gone, thread switched, block not extracted yet).
+class OpenCodeArtifact {
+  /// The artifact as it was when the card was tapped.
+  final CodeArtifact artifact;
+
+  /// Thread the artifact was opened from.
+  final String? threadId;
+
+  /// Index of the source message in `ChatState.messages` at tap time.
+  /// Messages only append within a thread, so the index stays valid
+  /// for the life of the panel. Null when the message could not be
+  /// located (the snapshot is then all the panel has).
+  final int? messageIndex;
+
+  /// Index of this artifact within its message's extracted artifacts.
+  final int artifactIndex;
+
+  const OpenCodeArtifact({
+    required this.artifact,
+    this.threadId,
+    this.messageIndex,
+    this.artifactIndex = 0,
+  });
+
+  @override
+  bool operator ==(Object other) =>
+      other is OpenCodeArtifact &&
+      other.artifact == artifact &&
+      other.threadId == threadId &&
+      other.messageIndex == messageIndex &&
+      other.artifactIndex == artifactIndex;
+
+  @override
+  int get hashCode =>
+      Object.hash(artifact, threadId, messageIndex, artifactIndex);
+}
+
+/// The artifact currently open in the panel, or null when the panel
+/// is closed. Set by tapping a [CodeArtifact] card in a message;
 /// cleared by the panel's close button or when the chat is emptied.
-final openCodeArtifactProvider = StateProvider<CodeArtifact?>((ref) => null);
+final openCodeArtifactProvider =
+    StateProvider<OpenCodeArtifact?>((ref) => null);
+
+/// Resolves the live version of an open artifact from chat state:
+/// re-extracts the artifacts of its source message and returns the
+/// one at the recorded position, so a panel opened mid-stream follows
+/// the code as it arrives. Falls back to the tap-time snapshot when
+/// the position no longer resolves (different thread, message
+/// replaced, fence not closed yet).
+CodeArtifact resolveOpenCodeArtifact(OpenCodeArtifact open, ChatState state) {
+  final messageIndex = open.messageIndex;
+  if (messageIndex == null) return open.artifact;
+  if (open.threadId != state.threadId) return open.artifact;
+  if (messageIndex < 0 || messageIndex >= state.messages.length) {
+    return open.artifact;
+  }
+  final artifacts = extractCodeArtifacts(state.messages[messageIndex].content);
+  if (open.artifactIndex < 0 || open.artifactIndex >= artifacts.length) {
+    return open.artifact;
+  }
+  return artifacts[open.artifactIndex];
+}
+
+/// The open artifact's current content, resolved live from chat
+/// state. Null when no panel is open.
+final openCodeArtifactLiveProvider = Provider<CodeArtifact?>((ref) {
+  final open = ref.watch(openCodeArtifactProvider);
+  if (open == null) return null;
+  final state = ref.watch(chatViewModelProvider);
+  return resolveOpenCodeArtifact(open, state);
+});
 
 /// Languages the client sandbox can actually execute on the user's
 /// device (Python via Pyodide, JavaScript in the sandbox frame). Run
