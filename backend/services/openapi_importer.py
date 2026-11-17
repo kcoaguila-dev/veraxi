@@ -62,9 +62,16 @@ def parse_spec(spec_text: str) -> dict:
 
 async def fetch_spec_text(spec_url: str) -> str:
     """Fetch a spec from an SSRF-validated URL."""
-    validate_external_url(spec_url)
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        response = await client.get(spec_url)
+    from urllib.parse import urlparse, urlunparse
+
+    validated_url = validate_external_url(spec_url)
+    parsed = urlparse(validated_url.strip())
+    scheme = "https" if parsed.scheme == "https" else "http"
+    safe_url = urlunparse(
+        (scheme, parsed.netloc, parsed.path, parsed.params, parsed.query, "")
+    )
+    async with httpx.AsyncClient(timeout=30.0, follow_redirects=False) as client:
+        response = await client.get(safe_url)
         response.raise_for_status()
         return response.text
 
