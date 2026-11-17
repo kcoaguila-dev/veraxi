@@ -61,10 +61,48 @@ async def process_ingestion_task(
     return result
 
 
+async def sync_github_repo_task(
+    ctx,
+    tenant_id: str,
+    integration_id: str,
+    repos: list,
+    include_issues: bool = False,
+):
+    """Background worker task to sync GitHub repos into the knowledge graph.
+
+    Mirrors process_ingestion_task: the tenant ontology is loaded from
+    Redis, and ingestion itself goes through run_ingestion (via
+    services/github_sync.py) so Neo4j ↔ Qdrant dual-write is preserved.
+    """
+    import json
+
+    from supabase import create_client
+
+    from backend.services.github_sync import run_sync_for_integration
+
+    logger.info(f"Worker received GitHub sync task for tenant {tenant_id}")
+    config = get_config()
+    if not config.supabase_url or not config.supabase_service_key:
+        return {"status": "error", "message": "Supabase is not configured"}
+    sb = create_client(config.supabase_url, config.supabase_service_key)
+
+    schema = None
+    redis = ctx.get("redis") if isinstance(ctx, dict) else None
+    if redis is not None:
+        schema_json = await redis.get(f"tenant:{tenant_id}:schema")
+        if schema_json:
+            schema = json.loads(schema_json)
+    result = await run_sync_for_integration(
+        sb, tenant_id, integration_id, repos, include_issues, schema
+    )
+    logger.info(f"Worker completed GitHub sync task for tenant {tenant_id}: {result}")
+    return result
+
+
 class WorkerSettings:
     config = get_config()
     redis_settings = RedisSettings.from_dsn(config.redis_url)
-    functions = [process_ingestion_task]  # noqa: RUF012
+    functions = [process_ingestion_task, sync_github_repo_task]  # noqa: RUF012
 
     # Optional: startup and shutdown logic
     async def on_startup(ctx):

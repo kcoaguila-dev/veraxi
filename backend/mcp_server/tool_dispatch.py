@@ -283,6 +283,15 @@ async def get_tools(tool_settings: dict | None = None, tenant_id: str | None = N
     except Exception as e:
         logger.error(f"Failed to fetch external MCP tools: {e}")
 
+    # Curated GitHub connector tools (only when the tenant has an
+    # active GitHub integration; the registrar no-ops otherwise).
+    try:
+        from backend.mcp_server.tools.github_tools import get_github_tools
+
+        all_tools.extend(await get_github_tools(tenant_id, tool_settings))
+    except Exception as e:
+        logger.error(f"Failed to fetch GitHub connector tools: {e}")
+
     return all_tools
 
 
@@ -751,6 +760,52 @@ def _execute_single_tool(
     return [], []
 
 
+class ToolConfirmationHit:
+    """Result for a mutating external tool call awaiting user approval.
+
+    The payload carries a ``tool_confirmation_required`` object the
+    client renders as an Approve/Reject card; the gated tool is NOT
+    executed. Approval re-enters dispatch with the tool name listed in
+    ``tool_settings["confirmed_tool_names"]`` (see
+    ``POST /api/chat/confirm-tool``).
+    """
+
+    def __init__(self, tool_name: str, tool_input: dict):
+        self.id = "tool_confirmation"
+        self.payload = {
+            "tool_confirmation_required": {
+                "tool_name": tool_name,
+                "args": tool_input,
+                "message": (
+                    f"{tool_name} changes external state and needs the "
+                    "user's approval before it runs."
+                ),
+            }
+        }
+        self.sources = ["Tool Confirmation"]
+
+
+def _tool_requires_confirmation(tool_name: str) -> bool:
+    """True for mutating external tools gated behind user approval."""
+    try:
+        from backend.mcp_server.tools.github_tools import (
+            requires_confirmation as github_requires,
+        )
+
+        if github_requires(tool_name):
+            return True
+    except Exception as e:
+        logger.error(f"GitHub confirmation registry unavailable: {e}")
+    return False
+
+
+def _tool_call_confirmed(tc: dict, tool_settings: dict) -> bool:
+    if tc.get("confirmed") is True:
+        return True
+    confirmed = (tool_settings or {}).get("confirmed_tool_names") or []
+    return tc.get("name", "") in confirmed
+
+
 class McpErrorHit:
     def __init__(self, err: Any, server_name: str = "External"):
         self.id = "mcp_err"
@@ -1026,11 +1081,20 @@ async def execute_tools_internal(
         t_input = tc.get("args", {})
         logger.info(f"LangGraph Agent called tool: {t_name} with args: {t_input}")
 
+        if _tool_requires_confirmation(t_name) and not _tool_call_confirmed(
+            tc, tool_settings
+        ):
+            return [], [], [ToolConfirmationHit(t_name, t_input)]
         if t_name.startswith("mcp__"):
             m_hits, _ = await _execute_mcp_tool(
                 t_name, t_input, tool_settings, tenant_id
             )
             return [], [], m_hits
+        if t_name.startswith("github_"):
+            from backend.mcp_server.tools.github_tools import execute_github_tool
+
+            result_text = await execute_github_tool(t_name, t_input, tenant_id)
+            return [], [], [McpHit(result_text, "", "GitHub")]
         else:
             loop = asyncio.get_running_loop()
             v, g = await loop.run_in_executor(
