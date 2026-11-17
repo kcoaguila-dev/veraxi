@@ -5,7 +5,7 @@ import uuid
 from collections.abc import AsyncGenerator
 from typing import Any
 
-from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 
@@ -57,6 +57,56 @@ async def generate_chat_title(
         ]
     )
     return _sanitize_thread_title(response.content)
+
+
+def _completion_response_text(content) -> str:
+    """Normalize an LLM response payload to plain text.
+
+    Chat models return either a string or a list of content blocks
+    (``{"type": "text", "text": ...}`` dicts / plain strings); the
+    in-artifact AI bridge contract is a single string.
+    """
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        parts: list[str] = []
+        for block in content:
+            if isinstance(block, str):
+                parts.append(block)
+            elif isinstance(block, dict) and isinstance(block.get("text"), str):
+                parts.append(block["text"])
+        return "".join(parts)
+    return str(content)
+
+
+async def run_single_completion(
+    prompt: str,
+    system: str | None = None,
+    model_override: str | None = None,
+    api_key_override: str | None = None,
+    base_url_override: str | None = None,
+    max_tokens: int | None = None,
+) -> str:
+    """Run one non-streaming completion and return its text.
+
+    The single-shot sibling of :func:`generate_chat_title`, used by
+    the in-artifact AI bridge (``window.veraxi.complete``): same
+    BYOK/model override flow, but the caller's own system prompt and
+    token budget instead of the title prompt. Raises whatever the
+    provider raises — callers translate failures for their surface.
+    """
+    config = get_config()
+    effective_model = model_override or config.llm_model_name
+    effective_api_key = api_key_override or config.llm_api_key
+    llm = _create_chat_llm(effective_model, effective_api_key, base_url_override)
+    if max_tokens is not None:
+        llm = llm.bind(max_tokens=max_tokens)
+    messages: list[BaseMessage] = []
+    if system:
+        messages.append(SystemMessage(content=system))
+    messages.append(HumanMessage(content=prompt))
+    response = await llm.ainvoke(messages)
+    return _completion_response_text(response.content)
 
 
 async def answer_question(

@@ -23,6 +23,58 @@ class SandboxResult {
 typedef ArtifactStorageHandler = Future<Map<String, dynamic>> Function(
     dynamic raw);
 
+/// Handles one raw `veraxi_complete` bridge message from an artifact
+/// view and returns the reply map to send back into the view.
+typedef ArtifactAiHandler = Future<Map<String, dynamic>> Function(dynamic raw);
+
+/// Builds the reply for one raw `veraxi_complete` channel message:
+/// the wired handler's reply, or the standard "not available" error
+/// when no handler is wired (mirrors the storage bridge behavior).
+Future<Map<String, dynamic>> aiBridgeReply(
+  ArtifactAiHandler? handler,
+  String rawMessage,
+) async {
+  dynamic parsed;
+  try {
+    parsed = jsonDecode(rawMessage);
+  } catch (_) {
+    return {
+      'type': 'veraxi_complete_reply',
+      'requestId': '',
+      'ok': false,
+      'text': null,
+      'error': 'invalid AI request',
+    };
+  }
+  if (parsed is! Map || parsed['type'] != 'veraxi_complete') {
+    return {
+      'type': 'veraxi_complete_reply',
+      'requestId': '',
+      'ok': false,
+      'text': null,
+      'error': 'invalid AI request',
+    };
+  }
+  if (handler == null) {
+    return {
+      'type': 'veraxi_complete_reply',
+      'requestId': parsed['requestId']?.toString() ?? '',
+      'ok': false,
+      'text': null,
+      'error': 'AI is not available in this preview',
+    };
+  }
+  return handler(parsed);
+}
+
+/// JavaScript that delivers an AI bridge [reply] into a WebView
+/// frame through the shim's reply entry point.
+String aiReplyScript(Map<String, dynamic> reply) {
+  final encoded = jsonEncode(jsonEncode(reply));
+  return 'window.__veraxiCompleteReply && '
+      'window.__veraxiCompleteReply(JSON.parse($encoded));';
+}
+
 int _nativeRunCounter = 0;
 
 /// Executes code entirely on the user's device: the shared runner
@@ -131,6 +183,7 @@ class SandboxedArtifactView extends StatefulWidget {
   final String code;
   final Map<String, String> siblingFiles;
   final ArtifactStorageHandler? storageHandler;
+  final ArtifactAiHandler? aiHandler;
 
   const SandboxedArtifactView({
     super.key,
@@ -138,6 +191,7 @@ class SandboxedArtifactView extends StatefulWidget {
     required this.code,
     this.siblingFiles = const {},
     this.storageHandler,
+    this.aiHandler,
   });
 
   @override
@@ -187,6 +241,13 @@ class _SandboxedArtifactViewState extends State<SandboxedArtifactView> {
             'window.__veraxiStorageReply && '
             'window.__veraxiStorageReply(JSON.parse($encoded));',
           );
+        },
+      )
+      ..addJavaScriptChannel(
+        'VeraxiAi',
+        onMessageReceived: (message) async {
+          final reply = await aiBridgeReply(widget.aiHandler, message.message);
+          await _controller.runJavaScript(aiReplyScript(reply));
         },
       )
       ..setNavigationDelegate(
@@ -335,12 +396,14 @@ Widget buildSandboxedArtifactPreview({
   required String code,
   Map<String, String> siblingFiles = const {},
   ArtifactStorageHandler? storageHandler,
+  ArtifactAiHandler? aiHandler,
 }) {
   return SandboxedArtifactView(
     kind: kind,
     code: code,
     siblingFiles: siblingFiles,
     storageHandler: storageHandler,
+    aiHandler: aiHandler,
   );
 }
 
@@ -351,6 +414,7 @@ class ArtifactPreviewContent extends StatefulWidget {
   final String code;
   final Map<String, String> siblingFiles;
   final ArtifactStorageHandler? storageHandler;
+  final ArtifactAiHandler? aiHandler;
 
   const ArtifactPreviewContent({
     super.key,
@@ -358,6 +422,7 @@ class ArtifactPreviewContent extends StatefulWidget {
     required this.code,
     this.siblingFiles = const {},
     this.storageHandler,
+    this.aiHandler,
   });
 
   @override
@@ -403,6 +468,13 @@ class _ArtifactPreviewContentState extends State<ArtifactPreviewContent> {
         );
       },
     );
+    _controller.addJavaScriptChannel(
+      'VeraxiAi',
+      onMessageReceived: (message) async {
+        final reply = await aiBridgeReply(widget.aiHandler, message.message);
+        await _controller.runJavaScript(aiReplyScript(reply));
+      },
+    );
     _controller.loadHtmlString(
       buildArtifactDocument(
         widget.kind,
@@ -423,11 +495,13 @@ Widget buildArtifactPreviewContent({
   required String code,
   Map<String, String> siblingFiles = const {},
   ArtifactStorageHandler? storageHandler,
+  ArtifactAiHandler? aiHandler,
 }) {
   return ArtifactPreviewContent(
     kind: kind,
     code: code,
     siblingFiles: siblingFiles,
     storageHandler: storageHandler,
+    aiHandler: aiHandler,
   );
 }

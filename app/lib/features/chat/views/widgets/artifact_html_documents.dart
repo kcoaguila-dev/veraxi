@@ -122,6 +122,91 @@ String injectVeraxiStorageShim(String document) {
   return '$document\n$veraxiStorageShimScript';
 }
 
+/// JS shim injected into HTML and React artifact documents:
+/// `window.veraxi.complete(prompt, opts?)` (aliased as
+/// `window.claude.complete` for artifacts written against Claude's
+/// API) proxied over the same bridge transports as the storage
+/// shim, because the sandboxed frame must never hold an API key —
+/// the host app makes the authenticated call and posts the text
+/// back. The host validates every request and replies with
+/// `{type: 'veraxi_complete_reply', requestId, ok, text, error}`.
+/// On native, replies arrive via `window.__veraxiCompleteReply(...)`
+/// called by the WebView host; requests go out over the `VeraxiAi`
+/// JavaScript channel when present, else the `VeraxiRunner`
+/// channel, else `window.parent.postMessage`. The timeout is 60s:
+/// a completion is an LLM call, not a storage read.
+const String veraxiAiShimScript = '''
+<script>
+(function () {
+  var pending = {};
+  var counter = 0;
+  function settle(reply) {
+    if (!reply || reply.type !== 'veraxi_complete_reply') return;
+    var entry = pending[reply.requestId];
+    if (!entry) return;
+    delete pending[reply.requestId];
+    if (reply.ok) entry.resolve(reply.text);
+    else entry.reject(new Error(reply.error || 'AI completion failed'));
+  }
+  window.__veraxiCompleteReply = settle;
+  window.addEventListener('message', function (event) {
+    var data = event.data;
+    if (typeof data === 'string') {
+      try { data = JSON.parse(data); } catch (e) { return; }
+    }
+    settle(data);
+  });
+  function complete(prompt, opts) {
+    return new Promise(function (resolve, reject) {
+      var requestId = 'va_' + (++counter) + '_' + Date.now();
+      pending[requestId] = { resolve: resolve, reject: reject };
+      opts = opts || {};
+      var msg = { type: 'veraxi_complete', requestId: requestId,
+                  prompt: prompt,
+                  system: opts.system || null,
+                  model: opts.model || null,
+                  maxTokens: opts.maxTokens || null };
+      var raw = JSON.stringify(msg);
+      setTimeout(function () {
+        if (pending[requestId]) {
+          delete pending[requestId];
+          reject(new Error('veraxi.complete: host did not reply'));
+        }
+      }, 60000);
+      if (typeof VeraxiAi !== 'undefined' && VeraxiAi.postMessage) {
+        VeraxiAi.postMessage(raw);
+      } else if (typeof VeraxiRunner !== 'undefined' && VeraxiRunner.postMessage) {
+        VeraxiRunner.postMessage(raw);
+      } else {
+        window.parent.postMessage(raw, '*');
+      }
+    });
+  }
+  var veraxi = window.veraxi || {};
+  veraxi.complete = complete;
+  window.veraxi = veraxi;
+  var claude = window.claude || {};
+  claude.complete = complete;
+  window.claude = claude;
+})();
+</script>
+''';
+
+/// Inserts the AI shim into a full HTML document the author wrote,
+/// just before `</head>` (or `</body>` when there is no head).
+String injectVeraxiAiShim(String document) {
+  if (document.contains('veraxi_complete')) return document;
+  final headEnd = document.toLowerCase().indexOf('</head>');
+  if (headEnd >= 0) {
+    return document.replaceRange(headEnd, headEnd, veraxiAiShimScript);
+  }
+  final bodyEnd = document.toLowerCase().indexOf('</body>');
+  if (bodyEnd >= 0) {
+    return document.replaceRange(bodyEnd, bodyEnd, veraxiAiShimScript);
+  }
+  return '$document\n$veraxiAiShimScript';
+}
+
 const String _baseStyles = '''
     body {
       margin: 0;
@@ -135,9 +220,10 @@ const String _baseStyles = '''
 String buildHtmlArtifactDocument(String code) {
   // A full document (the assistant wrote <!DOCTYPE html> / <html>) is
   // already self-contained; wrapping it would nest documents. The
-  // storage shim is still injected so window.veraxiStorage works.
+  // storage and AI shims are still injected so window.veraxiStorage
+  // and window.veraxi.complete work.
   if (code.toLowerCase().contains('<html')) {
-    return injectVeraxiStorageShim(code);
+    return injectVeraxiAiShim(injectVeraxiStorageShim(code));
   }
   return '''
 <!DOCTYPE html>
@@ -146,7 +232,7 @@ String buildHtmlArtifactDocument(String code) {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script src="https://cdn.tailwindcss.com"></script>
-$veraxiStorageShimScript  <style>
+$veraxiStorageShimScript$veraxiAiShimScript  <style>
 $_baseStyles  </style>
 </head>
 <body>
@@ -648,7 +734,7 @@ String buildReactArtifactDocument(
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-$veraxiStorageShimScript  <script type="importmap">
+$veraxiStorageShimScript$veraxiAiShimScript  <script type="importmap">
 $_reactImportMap  </script>
   <style>
     body {

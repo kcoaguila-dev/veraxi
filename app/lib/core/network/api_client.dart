@@ -135,7 +135,9 @@ class ApiClient {
   }
 
   Future<dynamic> post(String path,
-      {Map<String, dynamic>? body, Map<String, String>? headers}) async {
+      {Map<String, dynamic>? body,
+      Map<String, String>? headers,
+      Duration timeout = const Duration(seconds: 30)}) async {
     try {
       final requestHeaders = await getDefaultHeaders()
         ..['Content-Type'] = 'application/json';
@@ -147,7 +149,7 @@ class ApiClient {
             headers: requestHeaders,
             body: body != null ? jsonEncode(body) : null,
           )
-          .timeout(const Duration(seconds: 30));
+          .timeout(timeout);
 
       if (response.statusCode == 200) {
         return jsonDecode(response.body);

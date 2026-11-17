@@ -12,6 +12,7 @@ import 'package:veraxi_app/features/chat/view_models/code_artifact_provider.dart
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:veraxi_app/features/chat/view_models/artifact_incoming_provider.dart';
+import 'package:veraxi_app/features/chat/view_models/artifact_ai_bridge_provider.dart';
 import 'package:veraxi_app/features/chat/view_models/artifact_runtime_storage_provider.dart';
 import 'package:veraxi_app/features/chat/view_models/artifact_export_provider.dart';
 import 'package:veraxi_app/features/chat/view_models/artifact_publish_provider.dart';
@@ -977,6 +978,11 @@ class _CodeArtifactPanelState extends ConsumerState<CodeArtifactPanel> {
     final storageBridge = storageScope == null
         ? null
         : ref.watch(artifactStorageBridgeProvider(storageScope));
+    // The AI bridge is app-shared (its in-flight/per-minute guard
+    // spans previews), so window.veraxi.complete works in the panel
+    // preview; inline message previews stay unwired and answer
+    // "AI is not available in this preview", like storage.
+    final aiBridge = ref.watch(artifactAiBridgeProvider);
     return Container(
       color: const Color(0xFF141416),
       child: buildArtifactPreviewContent(
@@ -984,6 +990,7 @@ class _CodeArtifactPanelState extends ConsumerState<CodeArtifactPanel> {
         code: artifact.code,
         siblingFiles: siblingFiles,
         storageHandler: storageBridge?.handle,
+        aiHandler: aiBridge.handle,
       ),
     );
   }

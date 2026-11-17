@@ -25,6 +25,10 @@ class SandboxResult {
 typedef ArtifactStorageHandler = Future<Map<String, dynamic>> Function(
     dynamic raw);
 
+/// Handles one raw `veraxi_complete` bridge message from an artifact
+/// frame and returns the reply map to post back into the frame.
+typedef ArtifactAiHandler = Future<Map<String, dynamic>> Function(dynamic raw);
+
 int _sandboxRunCounter = 0;
 
 /// Runs a runner document inside a hidden sandboxed iframe and waits
@@ -143,6 +147,7 @@ class SandboxedArtifactViewWeb extends StatefulWidget {
   final String code;
   final Map<String, String> siblingFiles;
   final ArtifactStorageHandler? storageHandler;
+  final ArtifactAiHandler? aiHandler;
 
   const SandboxedArtifactViewWeb({
     super.key,
@@ -150,6 +155,7 @@ class SandboxedArtifactViewWeb extends StatefulWidget {
     required this.code,
     this.siblingFiles = const {},
     this.storageHandler,
+    this.aiHandler,
   });
 
   @override
@@ -162,6 +168,7 @@ class _SandboxedArtifactViewWebState extends State<SandboxedArtifactViewWeb> {
   html.IFrameElement? _iframe;
   bool _showCode = false;
   StreamSubscription<html.MessageEvent>? _storageSub;
+  StreamSubscription<html.MessageEvent>? _aiSub;
 
   @override
   void initState() {
@@ -169,11 +176,13 @@ class _SandboxedArtifactViewWebState extends State<SandboxedArtifactViewWeb> {
     _viewType = 'veraxi-artifact-${_webArtifactCounter++}';
     _registerIframe();
     _storageSub = html.window.onMessage.listen(_onStorageMessage);
+    _aiSub = html.window.onMessage.listen(_onAiMessage);
   }
 
   @override
   void dispose() {
     _storageSub?.cancel();
+    _aiSub?.cancel();
     super.dispose();
   }
 
@@ -196,6 +205,32 @@ class _SandboxedArtifactViewWebState extends State<SandboxedArtifactViewWeb> {
         'ok': false,
         'data': null,
         'error': 'storage is not available in this preview',
+      };
+    } else {
+      reply = await handler(parsed);
+    }
+    _iframe?.contentWindow?.postMessage(jsonEncode(reply), '*');
+  }
+
+  Future<void> _onAiMessage(html.MessageEvent event) async {
+    final data = event.data;
+    if (data is! String) return;
+    dynamic parsed;
+    try {
+      parsed = jsonDecode(data);
+    } catch (_) {
+      return;
+    }
+    if (parsed is! Map || parsed['type'] != 'veraxi_complete') return;
+    final handler = widget.aiHandler;
+    final Map<String, dynamic> reply;
+    if (handler == null) {
+      reply = {
+        'type': 'veraxi_complete_reply',
+        'requestId': parsed['requestId']?.toString() ?? '',
+        'ok': false,
+        'text': null,
+        'error': 'AI is not available in this preview',
       };
     } else {
       reply = await handler(parsed);
@@ -327,12 +362,14 @@ Widget buildSandboxedArtifactPreview({
   required String code,
   Map<String, String> siblingFiles = const {},
   ArtifactStorageHandler? storageHandler,
+  ArtifactAiHandler? aiHandler,
 }) {
   return SandboxedArtifactViewWeb(
     kind: kind,
     code: code,
     siblingFiles: siblingFiles,
     storageHandler: storageHandler,
+    aiHandler: aiHandler,
   );
 }
 
@@ -346,6 +383,7 @@ class ArtifactPreviewContentWeb extends StatefulWidget {
   final String code;
   final Map<String, String> siblingFiles;
   final ArtifactStorageHandler? storageHandler;
+  final ArtifactAiHandler? aiHandler;
 
   const ArtifactPreviewContentWeb({
     super.key,
@@ -353,6 +391,7 @@ class ArtifactPreviewContentWeb extends StatefulWidget {
     required this.code,
     this.siblingFiles = const {},
     this.storageHandler,
+    this.aiHandler,
   });
 
   @override
@@ -364,6 +403,7 @@ class _ArtifactPreviewContentWebState extends State<ArtifactPreviewContentWeb> {
   late final String _viewType;
   html.IFrameElement? _iframe;
   StreamSubscription<html.MessageEvent>? _storageSub;
+  StreamSubscription<html.MessageEvent>? _aiSub;
 
   @override
   void initState() {
@@ -384,11 +424,13 @@ class _ArtifactPreviewContentWebState extends State<ArtifactPreviewContentWeb> {
       (int viewId) => _iframe!,
     );
     _storageSub = html.window.onMessage.listen(_onStorageMessage);
+    _aiSub = html.window.onMessage.listen(_onAiMessage);
   }
 
   @override
   void dispose() {
     _storageSub?.cancel();
+    _aiSub?.cancel();
     super.dispose();
   }
 
@@ -418,6 +460,32 @@ class _ArtifactPreviewContentWebState extends State<ArtifactPreviewContentWeb> {
     _iframe?.contentWindow?.postMessage(jsonEncode(reply), '*');
   }
 
+  Future<void> _onAiMessage(html.MessageEvent event) async {
+    final data = event.data;
+    if (data is! String) return;
+    dynamic parsed;
+    try {
+      parsed = jsonDecode(data);
+    } catch (_) {
+      return;
+    }
+    if (parsed is! Map || parsed['type'] != 'veraxi_complete') return;
+    final handler = widget.aiHandler;
+    final Map<String, dynamic> reply;
+    if (handler == null) {
+      reply = {
+        'type': 'veraxi_complete_reply',
+        'requestId': parsed['requestId']?.toString() ?? '',
+        'ok': false,
+        'text': null,
+        'error': 'AI is not available in this preview',
+      };
+    } else {
+      reply = await handler(parsed);
+    }
+    _iframe?.contentWindow?.postMessage(jsonEncode(reply), '*');
+  }
+
   @override
   Widget build(BuildContext context) {
     return HtmlElementView(viewType: _viewType);
@@ -429,11 +497,13 @@ Widget buildArtifactPreviewContent({
   required String code,
   Map<String, String> siblingFiles = const {},
   ArtifactStorageHandler? storageHandler,
+  ArtifactAiHandler? aiHandler,
 }) {
   return ArtifactPreviewContentWeb(
     kind: kind,
     code: code,
     siblingFiles: siblingFiles,
     storageHandler: storageHandler,
+    aiHandler: aiHandler,
   );
 }

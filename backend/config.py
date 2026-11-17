@@ -99,6 +99,7 @@ class Config:
     internal_api_url: str
     admin_tenant_ids: list[str]
     internal_service_key: str = ""
+    rate_limit_artifact_complete: str = "20/minute"
     vision_enabled: bool = False
     vision_base_url: str = ""
     vision_api_key: str = ""
@@ -237,6 +238,9 @@ class Config:
             rate_limit_chat=os.environ.get("RATE_LIMIT_CHAT", "100/day"),
             rate_limit_ingest=os.environ.get("RATE_LIMIT_INGEST", "50/day"),
             rate_limit_sse=os.environ.get("RATE_LIMIT_SSE", "10/minute"),
+            rate_limit_artifact_complete=os.environ.get(
+                "RATE_LIMIT_ARTIFACT_COMPLETE", "20/minute"
+            ),
             default_search_limit=int(os.environ.get("DEFAULT_SEARCH_LIMIT", "10")),
             default_max_hops=int(os.environ.get("DEFAULT_MAX_HOPS", "2")),
             searxng_url=os.environ.get("SEARXNG_BASE_URL", "http://searxng:8080/"),
