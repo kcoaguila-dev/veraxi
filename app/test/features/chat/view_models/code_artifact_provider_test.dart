@@ -412,8 +412,8 @@ export default function Counter() {
       expect(artifact.downloadFileName, 'hello_world.py');
     });
 
-  group('collectSiblingArtifacts', () {
-    const multiFile = '''
+    group('collectSiblingArtifacts', () {
+      const multiFile = '''
 Here is `App.tsx`:
 
 ```tsx
@@ -439,54 +439,54 @@ print("no file name")
 ```
 ''';
 
-    ChatState state() => ChatState(
+      ChatState state() => ChatState(
+            threadId: 't1',
+            messages: [ChatMessage(role: 'assistant', content: multiFile)],
+          );
+
+      test('returns every named artifact from the same message', () {
+        const open = OpenCodeArtifact(
+          artifact: CodeArtifact(
+            title: 'App',
+            fileName: 'App.tsx',
+            language: 'tsx',
+            code: '',
+          ),
           threadId: 't1',
-          messages: [ChatMessage(role: 'assistant', content: multiFile)],
+          messageIndex: 0,
+          artifactIndex: 0,
         );
+        final siblings = collectSiblingArtifacts(state(), open);
+        expect(
+          siblings.map((a) => a.fileName),
+          ['App.tsx', 'Helper.tsx', 'styles.css'],
+        );
+      });
 
-    test('returns every named artifact from the same message', () {
-      const open = OpenCodeArtifact(
-        artifact: CodeArtifact(
-          title: 'App',
-          fileName: 'App.tsx',
-          language: 'tsx',
-          code: '',
-        ),
-        threadId: 't1',
-        messageIndex: 0,
-        artifactIndex: 0,
-      );
-      final siblings = collectSiblingArtifacts(state(), open);
-      expect(
-        siblings.map((a) => a.fileName),
-        ['App.tsx', 'Helper.tsx', 'styles.css'],
-      );
+      test('empty for other threads, missing index, or out of range', () {
+        const open = OpenCodeArtifact(
+          artifact: CodeArtifact(
+            title: 'App',
+            fileName: 'App.tsx',
+            language: 'tsx',
+            code: '',
+          ),
+          threadId: 'other',
+          messageIndex: 0,
+        );
+        expect(collectSiblingArtifacts(state(), open), isEmpty);
+        const noIndex = OpenCodeArtifact(
+          artifact: CodeArtifact(
+            title: 'App',
+            fileName: 'App.tsx',
+            language: 'tsx',
+            code: '',
+          ),
+          threadId: 't1',
+        );
+        expect(collectSiblingArtifacts(state(), noIndex), isEmpty);
+      });
     });
-
-    test('empty for other threads, missing index, or out of range', () {
-      const open = OpenCodeArtifact(
-        artifact: CodeArtifact(
-          title: 'App',
-          fileName: 'App.tsx',
-          language: 'tsx',
-          code: '',
-        ),
-        threadId: 'other',
-        messageIndex: 0,
-      );
-      expect(collectSiblingArtifacts(state(), open), isEmpty);
-      const noIndex = OpenCodeArtifact(
-        artifact: CodeArtifact(
-          title: 'App',
-          fileName: 'App.tsx',
-          language: 'tsx',
-          code: '',
-        ),
-        threadId: 't1',
-      );
-      expect(collectSiblingArtifacts(state(), noIndex), isEmpty);
-    });
-  });
 
     test('derives artifact.<ext> from the language otherwise', () {
       CodeArtifact anon(String language) => CodeArtifact(

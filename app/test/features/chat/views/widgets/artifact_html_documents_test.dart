@@ -28,8 +28,8 @@ void main() {
     test('every document kind carries the storage shim', () {
       expect(buildHtmlArtifactDocument('<p>x</p>'),
           contains('window.veraxiStorage'));
-      expect(buildSvgArtifactDocument('<svg/>'),
-          contains('window.veraxiStorage'));
+      expect(
+          buildSvgArtifactDocument('<svg/>'), contains('window.veraxiStorage'));
       expect(buildMermaidArtifactDocument('graph TD; A-->B'),
           contains('window.veraxiStorage'));
       expect(
@@ -261,8 +261,10 @@ import A from './A';
 export default function App() { return <A/>; }
 ''';
       final prepared = prepareReactArtifact(circularEntry, siblingFiles: {
-        'A.tsx': "import B from './B'; export default function A() { return <B/>; }",
-        'B.tsx': "import A from './A'; export default function B() { return <A/>; }",
+        'A.tsx':
+            "import B from './B'; export default function A() { return <B/>; }",
+        'B.tsx':
+            "import A from './A'; export default function B() { return <A/>; }",
       });
       // A imports ./B and B imports ./A: resolution is transitive,
       // so both modules ship and the cycle is reported as an error.
