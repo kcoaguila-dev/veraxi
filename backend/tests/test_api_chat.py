@@ -319,13 +319,17 @@ async def test_chat_endpoint_tool_events(override_redis):
 
 
 # ============================================================================
-# Error Handling Tests - Verify specific error messages are returned
+# Error Handling Tests - Verify generic, non-leaking error messages
 # ============================================================================
 
 
 @pytest.mark.asyncio
 async def test_error_handling_non_stream(override_redis):
-    """Test that non-streaming errors return specific error details."""
+    """Test that non-streaming errors return a generic error detail.
+
+    Raw exception class names and messages must never reach the client
+    (CWE-209); details are captured server-side via Sentry/logging.
+    """
     with (
         patch(
             "backend.routes.chat.answer_question",
@@ -346,20 +350,21 @@ async def test_error_handling_non_stream(override_redis):
 
         assert response.status_code == 500
         data = response.json()
-        # Error detail should contain the exception type and message
-        assert "Internal server error" in data["detail"]
+        # Error detail is the generic static message, with no raw exception
+        # class name or message leaked to the client
+        assert data["detail"] == "Internal server error. Please try again later."
         mock_sentry.assert_called_once()
         mock_logger.assert_called_once()
-        assert "ValueError" in data["detail"]
-        assert "Test error message" in data["detail"]
+        assert "ValueError" not in data["detail"]
+        assert "Test error message" not in data["detail"]
 
 
 # Note: Streaming error test is complex to mock properly because stream_answer_question
 # is an async generator. The non-streaming tests above verify the error handling logic works.
-# In production, streaming errors will also show specific details.
+# In production, streaming errors show the same generic details via SSE.
 # @pytest.mark.asyncio
 # async def test_error_handling_stream(override_redis):
-#     """Test that streaming errors return specific error details in SSE."""
+#     """Test that streaming errors return generic error details in SSE."""
 #     pass
 
 
@@ -384,7 +389,9 @@ async def test_error_handling_timeout(override_redis):
         assert response.status_code == 504
         data = response.json()
         assert "timeout" in data["detail"].lower()
-        assert "Request timed out" in data["detail"]
+        # Static timeout message; the raw exception message is not leaked
+        assert data["detail"] == "Request timeout. Please try again later."
+        assert "Request timed out" not in data["detail"]
 
 
 @pytest.mark.asyncio

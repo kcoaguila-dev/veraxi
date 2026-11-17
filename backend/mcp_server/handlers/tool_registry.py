@@ -36,32 +36,152 @@ __all__ = ["REGISTERED_TOOLS", "TOOL_HANDLERS"]
 logger = logging.getLogger(__name__)
 
 
-def _resolve_pdf_path(source: str) -> str | None:
-    """Resolve a document source identifier to an on-disk PDF path if available."""
-    if not source:
-        return None
-    if os.path.isfile(source):
-        if not source.lower().endswith(".pdf") and os.path.isfile(source + ".pdf"):
-            return os.path.abspath(source + ".pdf")
-        return os.path.abspath(source)
-
-    search_dirs = [
+def _document_search_dirs() -> list[str]:
+    """Returns the server-controlled directories documents may be resolved from."""
+    candidates = [
         os.environ.get("DOCUMENTS_DIR"),
         os.path.expanduser("~/Documents/book"),
         "/home/ubuntu/Documents/book",
         "/app/data",
+        os.path.join(os.getcwd(), "uploads"),
         os.path.join(os.getcwd(), "seed"),
         os.getcwd(),
     ]
+    return [d for d in candidates if d]
+
+
+def _canonical_base_dirs(base_dirs) -> list[str]:
+    """Canonicalizes base directories, keeping only existing directories."""
+    canonical: list[str] = []
+    for d in base_dirs:
+        if not d:
+            continue
+        real = os.path.realpath(d)
+        if os.path.isdir(real) and real not in canonical:
+            canonical.append(real)
+    return canonical
+
+
+def _candidate_segments(raw_path: str, base_dir: str) -> list[str] | None:
+    """Derives relative path segments for raw_path inside base_dir.
+
+    Returns None when raw_path cannot be expressed as clean relative
+    segments inside base_dir (traversal, drive, or empty segments).
+    """
+    if os.path.isabs(raw_path):
+        try:
+            if os.path.commonpath([base_dir, os.path.realpath(raw_path)]) != base_dir:
+                return None
+            rel = os.path.relpath(os.path.realpath(raw_path), base_dir)
+        except ValueError:
+            return None
+        if rel == ".":
+            return None
+        parts = rel.split(os.sep)
+    else:
+        if re.match(r"^[a-zA-Z]:", raw_path):
+            return None
+        parts = raw_path.replace("\\", "/").split("/")
+    if any(part in ("", ".", "..") for part in parts):
+        return None
+    return parts
+
+
+def _walk_segments(base_dir: str, parts: list[str]) -> str | None:
+    """Walks path segments from base_dir using os.scandir exact-name matching.
+
+    Every step is verified to stay inside base_dir after symlink resolution,
+    and the final entry is returned only when it is a regular file. The
+    returned path is built exclusively from scandir entries under the
+    server-controlled base_dir, never from the raw user-supplied string.
+    """
+    current = base_dir
+    for index, part in enumerate(parts):
+        found = None
+        try:
+            with os.scandir(current) as entries:
+                for entry in entries:
+                    if entry.name == part:
+                        found = entry
+                        break
+        except OSError:
+            return None
+        if found is None:
+            return None
+        try:
+            if os.path.commonpath([base_dir, os.path.realpath(found.path)]) != base_dir:
+                return None
+            if index == len(parts) - 1:
+                return found.path if found.is_file() else None
+            if not found.is_dir():
+                return None
+        except (OSError, ValueError):
+            return None
+        current = found.path
+    return None
+
+
+def _resolve_inside_allowed_dirs(
+    raw_path: str, base_dirs=None
+) -> str | None:
+    """Resolves raw_path to a file strictly inside an approved base directory.
+
+    Uses os.scandir-based resolution so no user-tainted path string ever
+    reaches a filesystem sink (isfile/open/FileResponse). Returns None for
+    empty, null-byte, directory, traversal, or outside-directory targets.
+    """
+    if not raw_path or "\x00" in raw_path or raw_path in (".", ".."):
+        return None
+    dirs = _canonical_base_dirs(
+        base_dirs if base_dirs is not None else _document_search_dirs()
+    )
+    for base_dir in dirs:
+        parts = _candidate_segments(raw_path, base_dir)
+        if parts is None:
+            continue
+        resolved = _walk_segments(base_dir, parts)
+        if resolved is not None:
+            return resolved
+    return None
+
+
+def _resolve_pdf_path(source: str) -> str | None:
+    """Resolve a document source identifier to an on-disk PDF path if available."""
+    if not source or "\x00" in source:
+        return None
+
+    search_dirs = _document_search_dirs()
+
+    # Exact match first, strictly inside the approved search directories.
+    # A sibling "<source>.pdf" is preferred over an extensionless source,
+    # mirroring the previous behavior.
+    exact_candidates = (
+        (source,) if source.lower().endswith(".pdf") else (source + ".pdf", source)
+    )
+    for candidate in exact_candidates:
+        resolved = _resolve_inside_allowed_dirs(candidate, search_dirs)
+        if resolved is not None:
+            return os.path.abspath(resolved)
+
     norm_source = re.sub(r"[^a-zA-Z0-9]", "", source.lower())
+    if not norm_source:
+        return None
     for d in search_dirs:
         if not d or not os.path.isdir(d):
             continue
+        real_dir = os.path.realpath(d)
         cands = sorted(
             glob.glob(os.path.join(d, "*")),
             key=lambda c: (0 if c.lower().endswith(".pdf") else 1),
         )
         for cand in cands:
+            try:
+                if os.path.commonpath([real_dir, os.path.realpath(cand)]) != real_dir:
+                    continue
+            except ValueError:
+                continue
+            if not os.path.isfile(cand):
+                continue
             base = os.path.basename(cand)
             norm_cand = re.sub(r"[^a-zA-Z0-9]", "", base.lower())
             if norm_source[:25] in norm_cand or norm_cand[:25] in norm_source:

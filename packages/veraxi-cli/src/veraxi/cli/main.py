@@ -1,4 +1,5 @@
 import argparse
+import os
 import sys
 from veraxi.cli.auth import resolve_credentials, run_login, run_logout, run_whoami
 from veraxi.cli.chat import run_interactive_chat
@@ -6,7 +7,7 @@ from veraxi.cli.check import run_check
 from veraxi.cli.client_configs import CLIENT_PATH_RESOLVERS, update_mcp_config
 from veraxi.cli.cluster import run_cluster
 from veraxi.cli.completion import run_completion
-from veraxi.cli.config import run_config
+from veraxi.cli.config import load_cli_config, run_config
 from veraxi.cli.context import run_context
 from veraxi.cli.doctor import check_endpoint, run_doctor
 from veraxi.cli.hook import run_hook
@@ -35,25 +36,28 @@ from veraxi.cli.trace import run_trace
 from veraxi.cli.web import run_web
 
 
-def _resolve_tenant_id(tenant_arg: str | None, key_arg: str | None) -> str:
+def _resolve_tenant_id(tenant_arg: str | None) -> str:
+    """Resolves the tenant ID from non-secret sources only.
+
+    Priority: explicit --tenant argument, VERAXI_TENANT_ID environment
+    variable, "tenant_id" in ~/.veraxi/config.json, the configured admin
+    tenant, then "default". The tenant ID is deliberately decoupled from
+    API keys and the Supabase service key so no secret-derived value can
+    flow into it (or into anything that prints it).
+    """
     if tenant_arg:
         return tenant_arg
 
-    key, _ = resolve_credentials(key_arg)
-    if key and key.startswith("vx-"):
-        try:
-            from backend.config import get_config
-            from supabase import create_client
-            from backend.security.api_keys import resolve_api_key
+    env_tenant = os.environ.get("VERAXI_TENANT_ID")
+    if env_tenant:
+        return env_tenant
 
-            cfg = get_config()
-            if cfg.supabase_url and cfg.supabase_service_key:
-                sb = create_client(cfg.supabase_url, cfg.supabase_service_key)
-                resolved = resolve_api_key(key, sb)
-                if resolved:
-                    return resolved
-        except Exception:
-            pass
+    try:
+        file_tenant = load_cli_config().get("tenant_id")
+        if file_tenant:
+            return str(file_tenant)
+    except Exception:
+        pass
 
     try:
         from backend.config import get_config
@@ -750,7 +754,7 @@ def main():
     if not args.subcommand:
         # Default to interactive chat if run directly in an interactive shell
         if sys.stdin.isatty():
-            tenant_id = _resolve_tenant_id(None, None)
+            tenant_id = _resolve_tenant_id(None)
             key, endpoint = resolve_credentials()
             run_interactive_chat(
                 tenant_id=tenant_id,
@@ -773,7 +777,7 @@ def main():
 
     elif args.subcommand == "stats":
         key, endpoint = resolve_credentials(args.key, args.endpoint)
-        tenant_id = _resolve_tenant_id(args.tenant, key)
+        tenant_id = _resolve_tenant_id(args.tenant)
         run_stats(tenant_id=tenant_id, endpoint=endpoint, key=key, as_json=args.json)
 
     elif args.subcommand == "completion":
@@ -784,7 +788,7 @@ def main():
 
     elif args.subcommand == "learn":
         key, endpoint = resolve_credentials(args.key, args.endpoint)
-        tenant_id = _resolve_tenant_id(args.tenant, key)
+        tenant_id = _resolve_tenant_id(args.tenant)
         run_learn(
             commit=args.commit,
             auto=args.auto,
@@ -801,7 +805,7 @@ def main():
 
     elif args.subcommand == "trace":
         key, endpoint = resolve_credentials(args.key, args.endpoint)
-        tenant_id = _resolve_tenant_id(args.tenant, key)
+        tenant_id = _resolve_tenant_id(args.tenant)
         run_trace(
             entity=args.entity,
             hops=args.hops,
@@ -813,7 +817,7 @@ def main():
 
     elif args.subcommand == "check":
         key, endpoint = resolve_credentials(args.key, args.endpoint)
-        tenant_id = _resolve_tenant_id(args.tenant, key)
+        tenant_id = _resolve_tenant_id(args.tenant)
         run_check(
             text=args.text,
             context=args.context,
@@ -828,7 +832,7 @@ def main():
 
     elif args.subcommand == "context":
         key, endpoint = resolve_credentials(args.key, args.endpoint)
-        tenant_id = _resolve_tenant_id(args.tenant, key)
+        tenant_id = _resolve_tenant_id(args.tenant)
         run_context(
             task=args.task,
             project=args.project,
@@ -841,7 +845,7 @@ def main():
 
     elif args.subcommand == "remember":
         key, endpoint = resolve_credentials(args.key, args.endpoint)
-        tenant_id = _resolve_tenant_id(args.tenant, key)
+        tenant_id = _resolve_tenant_id(args.tenant)
         mem_type = "invariant" if getattr(args, "is_invariant", False) else args.type
         run_remember(
             insight=args.insight,
@@ -858,7 +862,7 @@ def main():
 
     elif args.subcommand == "resolve":
         key, endpoint = resolve_credentials(args.key, args.endpoint)
-        tenant_id = _resolve_tenant_id(args.tenant, key)
+        tenant_id = _resolve_tenant_id(args.tenant)
         run_resolve(
             target=args.target,
             ref=args.ref,
@@ -871,7 +875,7 @@ def main():
 
     elif args.subcommand == "reopen":
         key, endpoint = resolve_credentials(args.key, args.endpoint)
-        tenant_id = _resolve_tenant_id(args.tenant, key)
+        tenant_id = _resolve_tenant_id(args.tenant)
         run_reopen(
             target=args.target,
             note=args.note,
@@ -883,7 +887,7 @@ def main():
 
     elif args.subcommand == "memory":
         key, endpoint = resolve_credentials(args.key, args.endpoint)
-        tenant_id = _resolve_tenant_id(args.tenant, key)
+        tenant_id = _resolve_tenant_id(args.tenant)
         action = getattr(args, "action", "list") or "list"
         if action == "export":
             run_memory_export(
@@ -950,7 +954,7 @@ def main():
 
     elif args.subcommand in ("rules", "sync"):
         key, endpoint = resolve_credentials(args.key, args.endpoint)
-        tenant_id = _resolve_tenant_id(args.tenant, key)
+        tenant_id = _resolve_tenant_id(args.tenant)
         action = getattr(args, "action", "sync")
         if action in ("lint", "check"):
             run_rules_lint(
@@ -971,7 +975,7 @@ def main():
 
     elif args.subcommand in ("cluster", "repo"):
         key, endpoint = resolve_credentials(args.key, args.endpoint)
-        tenant_id = _resolve_tenant_id(args.tenant, key)
+        tenant_id = _resolve_tenant_id(args.tenant)
         run_cluster(
             action=args.action,
             name=args.name,
@@ -984,7 +988,7 @@ def main():
 
     elif args.subcommand == "impact":
         key, endpoint = resolve_credentials(args.key, args.endpoint)
-        tenant_id = _resolve_tenant_id(args.tenant, key)
+        tenant_id = _resolve_tenant_id(args.tenant)
         run_impact(
             target=args.target,
             hops=args.hops,
@@ -997,7 +1001,7 @@ def main():
 
     elif args.subcommand == "prune":
         key, endpoint = resolve_credentials(args.key, args.endpoint)
-        tenant_id = _resolve_tenant_id(args.tenant, key)
+        tenant_id = _resolve_tenant_id(args.tenant)
         run_memory_prune(
             older_than=getattr(args, "older_than", "90d"),
             dry_run=getattr(args, "dry_run", False),
@@ -1013,7 +1017,7 @@ def main():
 
     elif args.subcommand == "chat":
         key, endpoint = resolve_credentials(args.key, args.endpoint)
-        tenant_id = _resolve_tenant_id(args.tenant, key)
+        tenant_id = _resolve_tenant_id(args.tenant)
         run_interactive_chat(
             tenant_id=tenant_id,
             limit=args.limit,
@@ -1042,7 +1046,7 @@ def main():
                 sys.exit(1)
 
         key, endpoint = resolve_credentials(args.key, args.endpoint)
-        tenant_id = _resolve_tenant_id(args.tenant, key)
+        tenant_id = _resolve_tenant_id(args.tenant)
         run_query(
             topic,
             as_json=args.json,
@@ -1054,7 +1058,7 @@ def main():
 
     elif args.subcommand == "review":
         key, endpoint = resolve_credentials(args.key, getattr(args, "endpoint", None))
-        tenant_id = _resolve_tenant_id(None, key)
+        tenant_id = _resolve_tenant_id(None)
         run_review(
             staged=args.staged,
             commit_hash=args.commit,
@@ -1143,7 +1147,7 @@ def main():
                     sys.exit(1)
 
             key, endpoint = resolve_credentials(args.key, args.endpoint)
-            tenant_id = _resolve_tenant_id(args.tenant, key)
+            tenant_id = _resolve_tenant_id(args.tenant)
             run_query(
                 query_text,
                 as_json=args.json,
