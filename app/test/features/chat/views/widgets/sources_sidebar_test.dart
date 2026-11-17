@@ -64,6 +64,109 @@ void main() {
         reason: 'Proxy favicon for anotherexample.com must be rendered');
   });
 
+  testWidgets(
+      'SourcesSidebar renders provenance badges, fused score, and indented graph path',
+      (WidgetTester tester) async {
+    final List<Map<String, dynamic>> testSources = [
+      {
+        'url': '',
+        'title': 'Acme Corp — Beta LLC acquisition filing',
+        'provenance': {
+          'legs': ['vector', 'graph'],
+          'fused_score': 0.032,
+          'graph_path': [
+            {'node': 'Acme Corp', 'relation': 'ACQUIRED'},
+            {'node': 'Beta LLC', 'relation': 'SUPPLIES'},
+            {'node': 'Gamma Inc', 'relation': null},
+          ],
+        },
+      },
+    ];
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.lightTheme,
+        home: Scaffold(
+          body: SourcesSidebar(sources: testSources),
+        ),
+      ),
+    );
+
+    expect(find.byKey(ValueKey('provenance-section')), findsOneWidget);
+    // Badges only for legs actually present.
+    expect(find.text('Vector'), findsOneWidget);
+    expect(find.text('Graph'), findsOneWidget);
+    expect(find.text('Sparse'), findsNothing);
+    // Fused score display.
+    expect(find.text('Fused score'), findsOneWidget);
+    expect(find.text('0.032'), findsOneWidget);
+    // Graph path steps in order, with relation arrows.
+    expect(find.text('Acme Corp'), findsOneWidget);
+    expect(find.text('— ACQUIRED →'), findsOneWidget);
+    expect(find.text('Beta LLC'), findsOneWidget);
+    expect(find.text('— SUPPLIES →'), findsOneWidget);
+    expect(find.text('Gamma Inc'), findsOneWidget);
+    // Later steps are indented further than earlier ones.
+    final firstNodeTop = tester.getTopLeft(find.text('Acme Corp'));
+    final lastNodeTop = tester.getTopLeft(find.text('Gamma Inc'));
+    expect(lastNodeTop.dx, greaterThan(firstNodeTop.dx));
+  });
+
+  testWidgets(
+      'SourcesSidebar renders vector-only provenance without a graph path',
+      (WidgetTester tester) async {
+    final List<Map<String, dynamic>> testSources = [
+      {
+        'url': '',
+        'title': 'Vector only chunk',
+        'provenance': {
+          'legs': ['vector'],
+          'fused_score': 0.016,
+          'graph_path': null,
+        },
+      },
+    ];
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.lightTheme,
+        home: Scaffold(
+          body: SourcesSidebar(sources: testSources),
+        ),
+      ),
+    );
+
+    expect(find.text('Vector'), findsOneWidget);
+    expect(find.text('Graph'), findsNothing);
+    expect(find.text('0.016'), findsOneWidget);
+    expect(find.textContaining('→'), findsNothing);
+  });
+
+  testWidgets(
+      'SourcesSidebar without provenance renders the legacy card unchanged',
+      (WidgetTester tester) async {
+    final List<Map<String, dynamic>> testSources = [
+      {
+        'url': 'https://example.com/legacy',
+        'title': 'Legacy Source',
+      },
+    ];
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.lightTheme,
+        home: Scaffold(
+          body: SourcesSidebar(sources: testSources),
+        ),
+      ),
+    );
+
+    expect(find.text('Legacy Source'), findsOneWidget);
+    expect(find.byKey(ValueKey('provenance-section')), findsNothing);
+    expect(find.text('PROVENANCE'), findsNothing);
+    expect(find.text('Fused score'), findsNothing);
+  });
+
   testWidgets('SourcesSidebar handles invalid or empty URLs gracefully',
       (WidgetTester tester) async {
     final List<Map<String, dynamic>> testSources = [

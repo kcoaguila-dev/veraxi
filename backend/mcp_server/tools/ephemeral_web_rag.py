@@ -14,6 +14,7 @@ from backend.mcp_server.tools.scrapers.robots_gate import RobotsGate
 from backend.mcp_server.tools.search_providers import get_search_provider
 from backend.mcp_server.tools.search_vectors import search_vectors
 from backend.retrieval.merge_rank import merge_rank
+from backend.retrieval.provenance import build_provenance
 from backend.storage.neo4j_client import Neo4jStorageClient
 from backend.storage.qdrant_client import QdrantStorageClient
 
@@ -227,6 +228,8 @@ def mcp_ephemeral_web_rag(
         results = merge_rank(v_hits, g_hits, limit=config.default_search_limit)
 
         dict_results = [dataclasses.asdict(r) for r in results]
+        for dict_result in dict_results:
+            dict_result["provenance"] = build_provenance(dict_result)
 
         return {
             "query": query,

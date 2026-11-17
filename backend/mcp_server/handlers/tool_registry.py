@@ -281,12 +281,18 @@ def _format_mcp_proof_card(query: str, hits: list) -> str:
 
 def _serialize_hits_for_mcp(hits: list) -> list[dict]:
     """Serialize hits for MCP output while stripping large internal ID arrays to prevent context blowup."""
+    from backend.retrieval.provenance import build_provenance
+
     clean_hits = []
     for h in hits:
         d = dataclasses.asdict(h)
         if isinstance(d.get("payload"), dict):
             d["payload"].pop("neo4j_node_ids", None)
             d["payload"].pop("qdrant_point_ids", None)
+        # Provenance ("show me the path"): legs / fused score / graph
+        # path, shaped from data the hit already carries — None for
+        # hits with no recognizable retrieval leg.
+        d["provenance"] = build_provenance(d)
         clean_hits.append(d)
     return clean_hits
 

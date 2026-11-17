@@ -31,6 +31,7 @@ from backend.mcp_server.formatter import (
     _prepend_system_messages,
 )
 from backend.mcp_server.tool_dispatch import get_tools
+from backend.retrieval.provenance import build_provenance
 
 logger = logging.getLogger(__name__)
 
@@ -783,6 +784,11 @@ async def execute_tools(state: AgentState):
                         "id": getattr(h, "id", ""),
                         "payload": getattr(h, "payload", {}),
                         "sources": getattr(h, "sources", []),
+                        "fused_score": getattr(h, "fused_score", None),
+                        # Provenance ("show me the path"): legs, fused
+                        # score, and graph path when a graph traversal
+                        # actually contributed one — None otherwise.
+                        "provenance": build_provenance(h),
                     }
                     for h in merged
                 ],

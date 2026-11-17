@@ -185,11 +185,62 @@ class SourcesButton extends StatelessWidget {
 
     if (title.isEmpty && url.isEmpty) return null;
 
+    final provenance = _extractProvenance(item);
+
     return {
       'title': title,
       'url': url,
       'snippet': rawMatchText,
+      if (provenance != null) 'provenance': provenance,
       '_rawMatch': ('$rawMatchText $title $url').toLowerCase(),
+    };
+  }
+
+  /// Parse the backend `provenance` object ({legs, fused_score,
+  /// graph_path}) attached to merged retrieval results and dossier
+  /// chunks. Returns null when no provenance was sent, so legacy
+  /// sources render exactly as before. Only legs the backend actually
+  /// recorded are kept, in canonical Vector/Sparse/Graph order; a
+  /// graph path is kept only when it has at least two valid node steps.
+  static Map<String, dynamic>? _extractProvenance(Map item) {
+    final raw = item['provenance'];
+    if (raw is! Map) return null;
+
+    const knownLegs = ['vector', 'sparse', 'graph'];
+    final rawLegs = raw['legs'];
+    final legs = <String>[
+      if (rawLegs is List)
+        for (final leg in knownLegs)
+          if (rawLegs.contains(leg)) leg,
+    ];
+
+    final rawScore = raw['fused_score'];
+    final fusedScore = rawScore is num ? rawScore.toDouble() : null;
+
+    List<Map<String, dynamic>>? graphPath;
+    final rawPath = raw['graph_path'];
+    if (rawPath is List) {
+      final steps = <Map<String, dynamic>>[];
+      var valid = true;
+      for (final step in rawPath) {
+        if (step is! Map || step['node'] is! String) {
+          valid = false;
+          break;
+        }
+        steps.add({
+          'node': step['node'] as String,
+          'relation': step['relation']?.toString(),
+        });
+      }
+      if (valid && steps.length >= 2) graphPath = steps;
+    }
+
+    if (legs.isEmpty && fusedScore == null && graphPath == null) return null;
+
+    return {
+      'legs': legs,
+      'fused_score': fusedScore,
+      'graph_path': graphPath,
     };
   }
 
