@@ -178,6 +178,17 @@ def mcp_code_overview(path_prefix: str = "") -> str:
 
 
 @mcp_server.tool(
+    name="mcp_vuln_report",
+    description="Vulnerability report: which dependencies have known CVEs (NVD/CISA KEV), from an explicit dependency list or a repo path whose manifests are parsed.",
+)
+def mcp_vuln_report(dependencies: list | None = None, repo_path: str = "") -> str:
+    return _dispatch(
+        "mcp_vuln_report",
+        {"dependencies": dependencies, "repo_path": repo_path or None},
+    )
+
+
+@mcp_server.tool(
     name="mcp_run_community_detection",
     description="Runs a Graph Data Science community detection algorithm to find clusters of connected entities.",
 )
