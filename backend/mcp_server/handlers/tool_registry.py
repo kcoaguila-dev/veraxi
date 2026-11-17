@@ -164,6 +164,8 @@ def _resolve_pdf_path(source: str) -> str | None:
             return os.path.abspath(resolved)
 
     norm_source = re.sub(r"[^a-zA-Z0-9]", "", source.lower())
+    if not norm_source:
+        return None
     for d in search_dirs:
         if not d or not os.path.isdir(d):
             continue

@@ -428,7 +428,10 @@ def fetch_web_page(url: str, max_chars: int = 5000) -> str:
         return f"Error fetching {clean_url}: {e}"
 
     # Extract visible text, skipping script and style content
-    text = _extract_visible_text(html)
+    try:
+        text = _extract_visible_text(html)
+    except AssertionError as e:
+        return f"Error parsing {clean_url}: {e}"
 
     if len(text) > max_chars:
         return text[:max_chars] + "\n\n... [truncated]"

@@ -92,7 +92,7 @@ def register_file_routes(
             )
 
             resolved_path = _resolve_inside_allowed_dirs(path, allowed_candidates)
-            if resolved_path is None:
+            if resolved_path is None and not _is_traversal_attempt(path):
                 cand = _resolve_pdf_path(path)
                 if cand:
                     resolved_path = _resolve_inside_allowed_dirs(

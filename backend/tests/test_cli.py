@@ -1340,3 +1340,64 @@ def test_fetch_web_page_strips_script_and_style(monkeypatch):
     assert "Real content here" in result
     assert "evil" not in result
     assert "color:red" not in result
+
+
+# 44. test_cli_config_redacts_url_credentials: embedded URL passwords redact
+def test_cli_config_redacts_url_credentials(tmp_path, monkeypatch, capsys):
+    from veraxi.cli.config import run_config
+
+    fake_cfg_path = tmp_path / "config.json"
+    monkeypatch.setattr("veraxi.cli.config.get_cli_config_path", lambda: fake_cfg_path)
+    monkeypatch.setattr("veraxi.cli.config.load_credentials", dict)
+    monkeypatch.setenv("REDIS_URL", "redis://:redis-secret-pw@localhost:6379/0")
+    monkeypatch.setenv("NEO4J_URI", "neo4j://neo4j:graph-secret-pw@db.internal:7687")
+    monkeypatch.setenv("QDRANT_URL", "http://localhost:6333")
+
+    run_config(action="set", key="redis_url", value="redis://:set-pw@localhost:6379/1")
+    captured = capsys.readouterr()
+    assert "set-pw" not in captured.out
+    assert "[REDACTED]@localhost:6379" in captured.out
+
+    run_config(action="get", key="redis_url")
+    captured = capsys.readouterr()
+    assert "set-pw" not in captured.out
+    assert "[REDACTED]@localhost:6379" in captured.out
+
+    run_config(action="list", as_json=True)
+    captured = capsys.readouterr()
+    assert "redis-secret-pw" not in captured.out
+    assert "graph-secret-pw" not in captured.out
+    assert "set-pw" not in captured.out
+    data = json.loads(captured.out)
+    assert data["neo4j_uri"] == "neo4j://[REDACTED]@db.internal:7687"
+    assert data["qdrant_url"] == "http://localhost:6333"
+
+    run_config(action="list")
+    captured = capsys.readouterr()
+    assert "graph-secret-pw" not in captured.out
+    assert "set-pw" not in captured.out
+
+
+# 45. test_fetch_web_page_handles_malformed_html_assertion_error
+def test_fetch_web_page_handles_malformed_html_assertion_error(monkeypatch):
+    from veraxi.cli.web import fetch_web_page
+
+    mock_resp = MagicMock()
+    mock_resp.read.return_value = b"<html><![bogus]></html>"
+    mock_ctx = MagicMock()
+    mock_ctx.__enter__.return_value = mock_resp
+    calls = {"n": 0}
+
+    def fake_urlopen(req, timeout=None):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise OSError("jina unavailable")
+        return mock_ctx
+
+    def raise_assertion(_html):
+        raise AssertionError("unexpected end of declaration")
+
+    monkeypatch.setattr("veraxi.cli.web.urllib.request.urlopen", fake_urlopen)
+    monkeypatch.setattr("veraxi.cli.web._extract_visible_text", raise_assertion)
+    result = fetch_web_page("https://example.com/malformed")
+    assert result.startswith("Error parsing https://example.com/malformed:")

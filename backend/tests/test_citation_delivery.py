@@ -155,3 +155,19 @@ def test_document_raw_endpoint_serves_extensionless_pdf(client, tmp_path, monkey
     assert response.status_code == 200
     assert response.headers.get("content-type") == "application/pdf"
     assert len(response.content) > 0
+
+
+def test_document_raw_endpoint_rejects_dot_and_traversal_fuzzy_fallback(
+    client, sample_pdf
+):
+    """path='.' and traversal paths like '../sample_test_book.pdf' must not fuzzy-match."""
+    assert _resolve_pdf_path(".") is None
+    assert _resolve_pdf_path("...") is None
+
+    dot_response = client.get("/api/documents/raw", params={"path": "."})
+    assert dot_response.status_code in (403, 404)
+
+    traversal_response = client.get(
+        "/api/documents/raw", params={"path": "../sample_test_book.pdf"}
+    )
+    assert traversal_response.status_code == 403
