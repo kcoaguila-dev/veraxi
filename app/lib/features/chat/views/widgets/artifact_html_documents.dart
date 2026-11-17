@@ -393,10 +393,9 @@ ReactArtifactPreparation prepareReactArtifact(
   final inlinedCss = <String>[];
   final siblingErrors = <String>[];
 
-  String? resolveSibling(String specifier) =>
-      siblingFiles.isEmpty
-          ? null
-          : resolveSiblingFileName(specifier, siblingFiles);
+  String? resolveSibling(String specifier) => siblingFiles.isEmpty
+      ? null
+      : resolveSiblingFileName(specifier, siblingFiles);
 
   final collectedSiblings = <String>{};
 
@@ -413,8 +412,7 @@ ReactArtifactPreparation prepareReactArtifact(
       final spec = m.group(2)!;
       if (spec.endsWith('.css')) {
         final cssFile = resolveSibling(spec);
-        if (cssFile != null &&
-            !inlinedCss.contains(siblingFiles[cssFile])) {
+        if (cssFile != null && !inlinedCss.contains(siblingFiles[cssFile])) {
           inlinedCss.add(siblingFiles[cssFile]!);
         }
         continue;
@@ -638,10 +636,10 @@ String buildReactArtifactDocument(
           '${entry.value.replaceAll(RegExp(r"""import\s+(?:[\s\S]*?\s+from\s+)?['"][^'"]*\.css['"];?"""), '').replaceAll('</script', r'<\/script')}\n  </script>')
       .join('\n');
   final siblingErrorsJson = jsonEncode(prepared.siblingErrors);
-  final bootstrap = prepared.siblingModules.isEmpty &&
-          prepared.siblingErrors.isEmpty
-      ? _reactBootstrapScript
-      : _siblingBootstrapScript(siblingErrorsJson);
+  final bootstrap =
+      prepared.siblingModules.isEmpty && prepared.siblingErrors.isEmpty
+          ? _reactBootstrapScript
+          : _siblingBootstrapScript(siblingErrorsJson);
   return '''
 <!DOCTYPE html>
 <html>

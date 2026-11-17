@@ -67,8 +67,8 @@ void main() {
         };
 
     test('handles a full get/set/list/delete conversation', () async {
-      var reply = await bridge
-          .handle(msg({'op': 'set', 'key': 'a', 'value': 'hello'}));
+      var reply =
+          await bridge.handle(msg({'op': 'set', 'key': 'a', 'value': 'hello'}));
       expect(reply['ok'], isTrue);
       expect(reply['type'], 'veraxi_storage_reply');
       expect(reply['requestId'], 'r1');
@@ -82,8 +82,7 @@ void main() {
       expect(reply['data'], isNull);
     });
 
-    test('accepts a JSON string message (the web postMessage shape)',
-        () async {
+    test('accepts a JSON string message (the web postMessage shape)', () async {
       final reply = await bridge.handle(
         '{"type":"veraxi_storage","requestId":"r9","op":"set",'
         '"key":"a","value":"b"}',

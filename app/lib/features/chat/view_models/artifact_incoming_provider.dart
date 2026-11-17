@@ -126,8 +126,7 @@ class QuickActionReplyResolution {
 
   const QuickActionReplyResolution({this.artifact, this.patchResult});
 
-  bool get isPatchFailure =>
-      patchResult != null && !patchResult!.isSuccess;
+  bool get isPatchFailure => patchResult != null && !patchResult!.isSuccess;
 }
 
 /// Resolves a raw quick-action [replyContent] against [base]'s

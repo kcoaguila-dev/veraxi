@@ -50,8 +50,7 @@ enum ArtifactQuickAction {
   /// blocks are cheaper and cannot drift unrelated lines the way a
   /// full-file regeneration can.
   String get _patchInstruction => switch (this) {
-        ArtifactQuickAction.fixBugs =>
-          'Fix the bugs in this code.',
+        ArtifactQuickAction.fixBugs => 'Fix the bugs in this code.',
         ArtifactQuickAction.addLogs =>
           'Add helpful logging statements to this code (key steps, '
               'inputs, and errors) without changing its behavior.',
@@ -93,8 +92,8 @@ enum ArtifactQuickAction {
     // Patch mode defaults on for larger files (~80+ lines), where a
     // full rewrite is slow, token-heavy, and risks unrelated drift.
     // Review never patches: it produces prose, not a rewrite.
-    final usePatch = producesRewrite &&
-        (preferPatch ?? currentCode.split('\n').length > 80);
+    final usePatch =
+        producesRewrite && (preferPatch ?? currentCode.split('\n').length > 80);
     final instruction = usePatch ? _patchSuffix() : _instruction;
     final name = artifact.fileName ?? artifact.title;
     final fence = '```${artifact.language}';

@@ -283,8 +283,7 @@ List<CodeArtifact> collectSiblingArtifacts(
 /// Sibling files for the open artifact, keyed by file name — the
 /// map the React document builder consumes. Excludes the open
 /// artifact itself.
-final openArtifactSiblingFilesProvider =
-    Provider<Map<String, String>>((ref) {
+final openArtifactSiblingFilesProvider = Provider<Map<String, String>>((ref) {
   final open = ref.watch(openCodeArtifactProvider);
   if (open == null) return const {};
   final state = ref.watch(chatViewModelProvider);

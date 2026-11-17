@@ -69,8 +69,7 @@ class DriftArtifactRuntimeLocalStore implements ArtifactRuntimeLocalStore {
 }
 
 /// In-memory local store for tests and ephemeral contexts.
-class InMemoryArtifactRuntimeLocalStore
-    implements ArtifactRuntimeLocalStore {
+class InMemoryArtifactRuntimeLocalStore implements ArtifactRuntimeLocalStore {
   final Map<String, Map<String, String>> scopes = {};
 
   @override
@@ -130,8 +129,7 @@ class ArtifactRuntimeStorageRepository {
     _validateKey(key);
     _validateValue(value);
     final entries = await _local.entriesForScope(scopeId);
-    if (!entries.containsKey(key) &&
-        entries.length >= maxStorageKeysPerScope) {
+    if (!entries.containsKey(key) && entries.length >= maxStorageKeysPerScope) {
       throw const ArtifactStorageLimitException(
         'too many keys for this artifact '
         '(max $maxStorageKeysPerScope)',

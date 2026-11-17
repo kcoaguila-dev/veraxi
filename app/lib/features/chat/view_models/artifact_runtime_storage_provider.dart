@@ -24,8 +24,7 @@ String? artifactStorageScopeId({
 }
 
 /// The storage scope id for a published artifact.
-String artifactPublishedStorageScopeId(String artifactId) =>
-    'pub:$artifactId';
+String artifactPublishedStorageScopeId(String artifactId) => 'pub:$artifactId';
 
 /// A validated storage bridge request from an artifact frame.
 class ArtifactStorageRequest {
@@ -62,8 +61,7 @@ ArtifactStorageRequest? parseArtifactStorageMessage(dynamic raw) {
   final requestId = decoded['requestId'];
   if (requestId is! String || requestId.isEmpty) return null;
   final op = decoded['op'];
-  if (op is! String ||
-      !const {'get', 'set', 'delete', 'list'}.contains(op)) {
+  if (op is! String || !const {'get', 'set', 'delete', 'list'}.contains(op)) {
     return null;
   }
   final key = decoded['key'];
