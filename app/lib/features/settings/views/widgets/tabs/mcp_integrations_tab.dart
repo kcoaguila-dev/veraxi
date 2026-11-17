@@ -2,14 +2,13 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
 import 'package:veraxi_app/features/settings/view_models/integrations_view_model.dart';
+import 'package:veraxi_app/features/settings/views/widgets/tabs/integration_card.dart';
 
-/// Integrations settings tab.
+/// MCP & Custom APIs settings tab.
 ///
-/// Backed entirely by the backend integrations API via
-/// [integrationsViewModelProvider] — no SharedPreferences persistence
-/// and no hardcoded server names (the pre-migration implementation
-/// stored MCP servers in `tool_settings` locally and labeled every
-/// added server "Custom Server").
+/// Manages developer-configured Model Context Protocol servers and
+/// OpenAPI specs via [integrationsViewModelProvider]. OAuth app
+/// connections live in [ConnectedAppsTab].
 class McpIntegrationsTab extends ConsumerWidget {
   const McpIntegrationsTab({super.key});
 
@@ -21,33 +20,19 @@ class McpIntegrationsTab extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Integrations',
+        Text('MCP Integrations',
             style: Theme.of(context)
                 .textTheme
                 .headlineMedium
                 ?.copyWith(color: Colors.white, fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
         Text(
-            'Connect external tools and services. Secrets are encrypted server-side and never shown here.',
+            'Connect custom Model Context Protocol servers or import OpenAPI specs. Secrets are encrypted server-side and never shown here.',
             style: Theme.of(context)
                 .textTheme
                 .bodyLarge
                 ?.copyWith(color: ext.textTertiary)),
         const SizedBox(height: 32),
-        Text('Connected Apps',
-            style: Theme.of(context)
-                .textTheme
-                .titleMedium
-                ?.copyWith(color: Colors.white, fontWeight: FontWeight.w600)),
-        const SizedBox(height: 16),
-        _buildCatalog(context, ref, state),
-        const SizedBox(height: 32),
-        Text('Custom Integrations',
-            style: Theme.of(context)
-                .textTheme
-                .titleMedium
-                ?.copyWith(color: Colors.white, fontWeight: FontWeight.w600)),
-        const SizedBox(height: 16),
         Row(
           children: [
             ElevatedButton.icon(
@@ -82,343 +67,35 @@ class McpIntegrationsTab extends ConsumerWidget {
           ],
         ),
         const SizedBox(height: 32),
-        Text('Active Integrations',
+        Text('Configured Servers & APIs',
             style: Theme.of(context)
                 .textTheme
                 .titleMedium
                 ?.copyWith(color: Colors.white, fontWeight: FontWeight.w600)),
         const SizedBox(height: 16),
-        _buildActiveList(context, ref, state),
+        _buildCustomList(context, state),
       ],
     );
   }
 
-  Widget _buildCatalog(
-      BuildContext context, WidgetRef ref, IntegrationsState state) {
-    final connectedProviders = <String>{};
-    state.integrations.whenData((list) {
-      for (final integration in list) {
-        connectedProviders.add(integration.provider);
-      }
-    });
-    return state.providers.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Text('Failed to load providers: $e',
-          style: const TextStyle(color: Colors.redAccent)),
-      data: (providers) => Wrap(
-        spacing: 24,
-        runSpacing: 24,
-        children: providers.map((provider) {
-          final connected = connectedProviders.contains(provider.provider);
-          return SizedBox(
-            width: 300,
-            child: _catalogCard(context, ref, provider, connected),
-          );
-        }).toList(),
-      ),
-    );
-  }
-
-  Widget _catalogCard(BuildContext context, WidgetRef ref,
-      OAuthProviderModel provider, bool connected) {
-    final ext = Theme.of(context).extension<AppThemeExtension>()!;
-    final canConnect = provider.enabled && !connected;
-    return Container(
-      decoration: BoxDecoration(
-        color: ext.sidebarBackground,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: ext.borderColorStrong),
-      ),
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(_providerIcon(provider.provider),
-                    color: Colors.white, size: 22),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(provider.displayName,
-                    style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600)),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Text(
-            connected
-                ? 'Connected'
-                : provider.enabled
-                    ? 'Not connected'
-                    : provider.configured
-                        ? 'Coming soon'
-                        : 'Not configured on the server',
-            style: TextStyle(color: ext.textTertiary, fontSize: 13),
-          ),
-          const SizedBox(height: 16),
-          ElevatedButton(
-            onPressed: canConnect
-                ? () async {
-                    try {
-                      final connectedNow = await ref
-                          .read(integrationsViewModelProvider.notifier)
-                          .connectOAuth(provider.provider);
-                      if (connectedNow && context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('${provider.displayName} connected'),
-                          ),
-                        );
-                      }
-                    } catch (_) {
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                              content: Text('Could not start the OAuth flow')),
-                        );
-                      }
-                    }
-                  }
-                : null,
-            child: Text(connected ? 'Connected' : 'Connect'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  IconData _providerIcon(String provider) {
-    switch (provider) {
-      case 'github':
-        return Icons.code;
-      case 'google_drive':
-        return Icons.folder_open;
-      case 'notion':
-        return Icons.note_alt_outlined;
-      case 'linear':
-        return Icons.timeline;
-      case 'slack':
-        return Icons.chat_bubble_outline;
-      default:
-        return Icons.extension;
-    }
-  }
-
-  Widget _buildActiveList(
-      BuildContext context, WidgetRef ref, IntegrationsState state) {
+  Widget _buildCustomList(BuildContext context, IntegrationsState state) {
     final ext = Theme.of(context).extension<AppThemeExtension>()!;
     return state.integrations.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Text('Failed to load integrations: $e',
+      error: (e, _) => Text('Failed to load MCP integrations: $e',
           style: const TextStyle(color: Colors.redAccent)),
       data: (integrations) {
-        if (integrations.isEmpty) {
+        final customIntegrations =
+            integrations.where((i) => i.kind != 'oauth').toList();
+        if (customIntegrations.isEmpty) {
           return Padding(
             padding: const EdgeInsets.symmetric(vertical: 24),
-            child: Text('No integrations configured yet.',
+            child: Text('No custom MCP servers or OpenAPI specs configured yet.',
                 style: TextStyle(color: ext.textTertiary, fontSize: 14)),
           );
         }
-        return LayoutBuilder(
-          builder: (context, constraints) {
-            final isWide = constraints.maxWidth > 800;
-            return GridView.count(
-              crossAxisCount: isWide ? 2 : 1,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              crossAxisSpacing: 24,
-              mainAxisSpacing: 24,
-              childAspectRatio: isWide ? 2.4 : 1.9,
-              children: integrations
-                  .map((integration) =>
-                      _integrationCard(context, ref, state, integration))
-                  .toList(),
-            );
-          },
-        );
+        return IntegrationCardsGrid(integrations: customIntegrations);
       },
-    );
-  }
-
-  Widget _integrationCard(BuildContext context, WidgetRef ref,
-      IntegrationsState state, IntegrationModel integration) {
-    final ext = Theme.of(context).extension<AppThemeExtension>()!;
-    final statusColor = switch (integration.status) {
-      'connected' => const Color(0xFF10B981),
-      'expired' => const Color(0xFFF59E0B),
-      _ => Colors.redAccent,
-    };
-    final statusLabel = integration.isEnabled
-        ? '${integration.status[0].toUpperCase()}${integration.status.substring(1)} · ${integration.toolCount} tools'
-        : 'Disabled';
-    final testResult = state.testResults[integration.id];
-    final syncResult = state.syncResults[integration.id];
-    return Container(
-      decoration: BoxDecoration(
-        color: ext.sidebarBackground,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: ext.borderColorStrong),
-      ),
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(
-                  integration.kind == 'openapi'
-                      ? Icons.api
-                      : _providerIcon(integration.provider),
-                  color: Colors.white,
-                  size: 22,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(integration.displayName,
-                        style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600)),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        Container(
-                          width: 8,
-                          height: 8,
-                          decoration: BoxDecoration(
-                              color: integration.isEnabled
-                                  ? statusColor
-                                  : ext.textTertiary,
-                              shape: BoxShape.circle),
-                        ),
-                        const SizedBox(width: 6),
-                        Text(statusLabel,
-                            style: TextStyle(
-                                color: ext.textTertiary, fontSize: 12)),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              Switch(
-                value: integration.isEnabled,
-                onChanged: (value) => ref
-                    .read(integrationsViewModelProvider.notifier)
-                    .toggleIntegration(integration, value),
-                activeThumbColor: Theme.of(context).colorScheme.primary,
-              ),
-            ],
-          ),
-          const Spacer(),
-          Text(
-            integration.url ?? integration.provider,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(color: ext.textTertiary, fontSize: 12),
-          ),
-          if (testResult != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 4),
-              child: Text(testResult,
-                  style: TextStyle(color: ext.textTertiary, fontSize: 12)),
-            ),
-          if (syncResult != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 4),
-              child: Text(syncResult,
-                  style: TextStyle(color: ext.textTertiary, fontSize: 12)),
-            ),
-          const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              if (integration.kind == 'mcp')
-                TextButton(
-                  onPressed: () => ref
-                      .read(integrationsViewModelProvider.notifier)
-                      .testIntegration(integration),
-                  child: const Text('Test Connection'),
-                ),
-              if (integration.provider == 'github')
-                TextButton(
-                  onPressed: () => _showSyncDialog(context, ref, integration),
-                  child: const Text('Sync Repos'),
-                ),
-              TextButton.icon(
-                onPressed: () => ref
-                    .read(integrationsViewModelProvider.notifier)
-                    .removeIntegration(integration),
-                icon: const Icon(Icons.delete_outline,
-                    size: 16, color: Colors.redAccent),
-                label: const Text('Remove',
-                    style: TextStyle(color: Colors.redAccent)),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showSyncDialog(
-      BuildContext context, WidgetRef ref, IntegrationModel integration) {
-    final controller = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Sync GitHub Repos'),
-        content: TextField(
-          controller: controller,
-          maxLines: 3,
-          decoration: const InputDecoration(
-            labelText: 'Repositories (one owner/repo per line)',
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              final repos = controller.text
-                  .split(RegExp(r'[\n,]'))
-                  .map((r) => r.trim())
-                  .where((r) => r.isNotEmpty)
-                  .toList();
-              Navigator.pop(dialogContext);
-              if (repos.isNotEmpty) {
-                ref
-                    .read(integrationsViewModelProvider.notifier)
-                    .syncRepos(integration, repos: repos);
-              }
-            },
-            child: const Text('Sync'),
-          ),
-        ],
-      ),
     );
   }
 

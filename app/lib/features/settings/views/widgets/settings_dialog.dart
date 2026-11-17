@@ -8,6 +8,7 @@ import 'tabs/speech_settings_tab.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
 
+import 'tabs/connected_apps_tab.dart';
 import 'tabs/mcp_integrations_tab.dart';
 import 'tabs/billing_tab.dart';
 import 'tabs/infrastructure_tab.dart';
@@ -33,6 +34,7 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
     'Data & Privacy',
     'Account',
     'API Keys',
+    'Connected Apps',
     'MCP Integrations',
     'Agent Skills',
     'Sync',
@@ -49,6 +51,7 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
     'Data & Privacy': Icons.dataset_outlined,
     'Account': Icons.person_outline,
     'API Keys': Icons.key_outlined,
+    'Connected Apps': Icons.extension_outlined,
     'MCP Integrations': Icons.hub_outlined,
     'Agent Skills': Icons.psychology_outlined,
     'Sync': Icons.sync_outlined,
@@ -323,6 +326,8 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
         return _buildAccountTab();
       case 'API Keys':
         return [const ApiKeysTab()];
+      case 'Connected Apps':
+        return [const ConnectedAppsTab()];
       case 'MCP Integrations':
         return [const McpIntegrationsTab()];
       case 'Agent Skills':
