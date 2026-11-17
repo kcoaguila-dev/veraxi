@@ -2388,9 +2388,11 @@ See the License for the specific language governing permissions and
 limitations under the License.
 --------------------------------------------------------------------------------
 cross_file
+cupertino_ui
 go_router
 google_fonts
 listen
+material_ui
 path_provider
 path_provider_android
 path_provider_foundation
