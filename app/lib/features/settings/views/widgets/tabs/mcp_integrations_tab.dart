@@ -22,8 +22,10 @@ class McpIntegrationsTab extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text('Integrations',
-            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                color: Colors.white, fontWeight: FontWeight.bold)),
+            style: Theme.of(context)
+                .textTheme
+                .headlineMedium
+                ?.copyWith(color: Colors.white, fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
         Text(
             'Connect external tools and services. Secrets are encrypted server-side and never shown here.',
@@ -33,14 +35,18 @@ class McpIntegrationsTab extends ConsumerWidget {
                 ?.copyWith(color: ext.textTertiary)),
         const SizedBox(height: 32),
         Text('Connected Apps',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: Colors.white, fontWeight: FontWeight.w600)),
+            style: Theme.of(context)
+                .textTheme
+                .titleMedium
+                ?.copyWith(color: Colors.white, fontWeight: FontWeight.w600)),
         const SizedBox(height: 16),
         _buildCatalog(context, ref, state),
         const SizedBox(height: 32),
         Text('Custom Integrations',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: Colors.white, fontWeight: FontWeight.w600)),
+            style: Theme.of(context)
+                .textTheme
+                .titleMedium
+                ?.copyWith(color: Colors.white, fontWeight: FontWeight.w600)),
         const SizedBox(height: 16),
         Row(
           children: [
@@ -77,8 +83,10 @@ class McpIntegrationsTab extends ConsumerWidget {
         ),
         const SizedBox(height: 32),
         Text('Active Integrations',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: Colors.white, fontWeight: FontWeight.w600)),
+            style: Theme.of(context)
+                .textTheme
+                .titleMedium
+                ?.copyWith(color: Colors.white, fontWeight: FontWeight.w600)),
         const SizedBox(height: 16),
         _buildActiveList(context, ref, state),
       ],
@@ -367,8 +375,8 @@ class McpIntegrationsTab extends ConsumerWidget {
     );
   }
 
-  void _showSyncDialog(BuildContext context, WidgetRef ref,
-      IntegrationModel integration) {
+  void _showSyncDialog(
+      BuildContext context, WidgetRef ref, IntegrationModel integration) {
     final controller = TextEditingController();
     showDialog(
       context: context,

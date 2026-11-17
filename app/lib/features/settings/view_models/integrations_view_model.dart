@@ -95,7 +95,8 @@ class IntegrationsViewModel extends StateNotifier<IntegrationsState> {
     }
   }
 
-  Future<void> toggleIntegration(IntegrationModel integration, bool enabled) async {
+  Future<void> toggleIntegration(
+      IntegrationModel integration, bool enabled) async {
     try {
       await _repository.patchIntegration(integration.id, isEnabled: enabled);
       await load();

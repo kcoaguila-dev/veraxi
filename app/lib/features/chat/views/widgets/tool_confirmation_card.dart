@@ -31,7 +31,8 @@ class _ToolConfirmationCardState extends ConsumerState<ToolConfirmationCard> {
           .decide(widget.request, approve: approve);
       setState(() {
         _busy = false;
-        _outcome = result['status'] as String? ?? (approve ? 'executed' : 'rejected');
+        _outcome =
+            result['status'] as String? ?? (approve ? 'executed' : 'rejected');
       });
     } catch (_) {
       setState(() {

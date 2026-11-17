@@ -109,7 +109,8 @@ Map<String, dynamic>? _tryParseObject(String text) {
 }
 
 /// Sends the user's decision for a gated tool call to the backend.
-final toolConfirmationServiceProvider = Provider<ToolConfirmationService>((ref) {
+final toolConfirmationServiceProvider =
+    Provider<ToolConfirmationService>((ref) {
   final repository = ref.watch(chatRepositoryProvider);
   return ToolConfirmationService(repository);
 });

@@ -108,8 +108,7 @@ void main() {
       expect(created.slug, 'docs');
     });
 
-    test('patchIntegration uses PATCH with only the changed fields',
-        () async {
+    test('patchIntegration uses PATCH with only the changed fields', () async {
       late http.Request captured;
       final client = MockClient((request) async {
         captured = request;

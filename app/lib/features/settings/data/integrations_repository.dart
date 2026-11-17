@@ -74,7 +74,8 @@ class OAuthProviderModel {
   factory OAuthProviderModel.fromJson(Map<String, dynamic> json) {
     return OAuthProviderModel(
       provider: json['provider'] as String,
-      displayName: json['display_name'] as String? ?? json['provider'] as String,
+      displayName:
+          json['display_name'] as String? ?? json['provider'] as String,
       enabled: json['enabled'] as bool? ?? false,
       configured: json['configured'] as bool? ?? false,
     );

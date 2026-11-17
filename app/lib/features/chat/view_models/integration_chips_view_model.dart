@@ -108,8 +108,8 @@ class IntegrationChipsViewModel extends StateNotifier<IntegrationChipsState> {
   }
 
   Future<void> toggle(IntegrationChipItem item) async {
-    final current = state.selectedIds ??
-        state.integrations.map((i) => i.id).toSet();
+    final current =
+        state.selectedIds ?? state.integrations.map((i) => i.id).toSet();
     final next = Set<String>.from(current);
     if (next.contains(item.id)) {
       next.remove(item.id);
