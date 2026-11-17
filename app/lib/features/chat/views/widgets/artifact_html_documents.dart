@@ -135,7 +135,9 @@ String injectVeraxiStorageShim(String document) {
 /// JavaScript channel when present, else the `VeraxiRunner`
 /// channel, else `window.parent.postMessage`. The timeout is 60s:
 /// a completion is an LLM call, not a storage read.
-const String veraxiAiShimScript = '''
+const String _veraxiAiShimMarker = '<!-- veraxi-ai-shim -->';
+
+const String veraxiAiShimScript = '''$_veraxiAiShimMarker
 <script>
 (function () {
   var pending = {};
@@ -193,9 +195,17 @@ const String veraxiAiShimScript = '''
 ''';
 
 /// Inserts the AI shim into a full HTML document the author wrote,
-/// just before `</head>` (or `</body>` when there is no head).
+/// right after `<head>` (so synchronous head scripts see
+/// `window.veraxi.complete`), or before `</head>` / `</body>` when
+/// there is no explicit `<head>` tag.
 String injectVeraxiAiShim(String document) {
-  if (document.contains('veraxi_complete')) return document;
+  if (document.contains(_veraxiAiShimMarker)) return document;
+  final headOpen =
+      RegExp(r'<head\b[^>]*>', caseSensitive: false).firstMatch(document);
+  if (headOpen != null) {
+    return document.replaceRange(
+        headOpen.end, headOpen.end, '\n$veraxiAiShimScript');
+  }
   final headEnd = document.toLowerCase().indexOf('</head>');
   if (headEnd >= 0) {
     return document.replaceRange(headEnd, headEnd, veraxiAiShimScript);
@@ -204,7 +214,7 @@ String injectVeraxiAiShim(String document) {
   if (bodyEnd >= 0) {
     return document.replaceRange(bodyEnd, bodyEnd, veraxiAiShimScript);
   }
-  return '$document\n$veraxiAiShimScript';
+  return '$veraxiAiShimScript\n$document';
 }
 
 const String _baseStyles = '''

@@ -127,10 +127,13 @@ def test_complete_passes_explicit_fields_through(client):
 def test_complete_local_url_header_supplies_base_url_and_dummy_key(client):
     # Mirrors routes/chat.py: a local model gets its endpoint from
     # the x-byod-local-url header and a dummy key when none is sent.
-    with patch(
-        "backend.routes.artifacts.run_single_completion",
-        new_callable=AsyncMock,
-    ) as mock_run:
+    with (
+        patch("backend.routes.admin._models_cache", {"Local": ["local-model"]}),
+        patch(
+            "backend.routes.artifacts.run_single_completion",
+            new_callable=AsyncMock,
+        ) as mock_run,
+    ):
         mock_run.return_value = "ok"
         headers = _headers()
         headers["x-byod-local-url"] = "http://127.0.0.1:8080/v1"
@@ -315,3 +318,74 @@ async def test_helper_defaults_to_configured_model_without_system():
     assert captured["model"] == get_config().llm_model_name
     assert [type(m).__name__ for m in fake.messages] == ["HumanMessage"]
     assert fake.bound == {}
+
+
+@pytest.mark.asyncio
+async def test_helper_rejects_base_url_without_api_key():
+    with pytest.raises(ValueError, match="api_key_override is required"):
+        await run_single_completion(
+            "Question?",
+            base_url_override="http://attacker.example/v1",
+        )
+
+
+def test_guest_without_api_key_is_rejected_401(client):
+    _current_tenant["tenant_id"] = "local_guest"
+    with patch(
+        "backend.routes.artifacts.run_single_completion",
+        new_callable=AsyncMock,
+    ) as mock_run:
+        res = client.post(
+            "/api/artifacts/complete",
+            json={"prompt": "Hi"},
+            headers={"Authorization": f"Bearer t-{uuid.uuid4().hex}"},
+        )
+    assert res.status_code == 401
+    mock_run.assert_not_called()
+
+
+def test_base_url_without_api_key_is_rejected_400(client):
+    with patch(
+        "backend.routes.artifacts.run_single_completion",
+        new_callable=AsyncMock,
+    ) as mock_run:
+        res = client.post(
+            "/api/artifacts/complete",
+            json={"prompt": "Hi", "base_url": "http://attacker.example/v1"},
+            headers={"Authorization": f"Bearer t-{uuid.uuid4().hex}"},
+        )
+    assert res.status_code == 400
+    mock_run.assert_not_called()
+
+
+def test_cloud_model_ignores_local_url_header(client):
+    with (
+        patch(
+            "backend.routes.admin._models_cache",
+            {"Local": ["llama3.2"]},
+        ),
+        patch(
+            "backend.routes.artifacts.run_single_completion",
+            new_callable=AsyncMock,
+            return_value="ok",
+        ) as mock_run,
+    ):
+        res = client.post(
+            "/api/artifacts/complete",
+            json={"prompt": "Hi", "model": "gpt-4o", "api_key": "sk-cloud"},
+            headers={
+                "Authorization": f"Bearer t-{uuid.uuid4().hex}",
+                "x-byod-local-url": "http://127.0.0.1:11434/v1",
+            },
+        )
+    assert res.status_code == 200
+    assert mock_run.await_args.kwargs["base_url_override"] is None
+    assert mock_run.await_args.kwargs["api_key_override"] == "sk-cloud"
+
+
+def test_public_shim_injects_ai_stub_even_when_storage_already_present():
+    doc = _build_artifact_document(
+        "html",
+        "<html><head><script>window.veraxiStorage = {};</script></head><body></body></html>",
+    )
+    assert "AI calls are disabled on public artifacts" in doc

@@ -95,6 +95,8 @@ async def run_single_completion(
     token budget instead of the title prompt. Raises whatever the
     provider raises — callers translate failures for their surface.
     """
+    if base_url_override and not api_key_override:
+        raise ValueError("api_key_override is required when base_url_override is set")
     config = get_config()
     effective_model = model_override or config.llm_model_name
     effective_api_key = api_key_override or config.llm_api_key

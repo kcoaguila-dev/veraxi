@@ -187,6 +187,7 @@ class _SandboxedArtifactViewWebState extends State<SandboxedArtifactViewWeb> {
   }
 
   Future<void> _onStorageMessage(html.MessageEvent event) async {
+    if (event.source != _iframe?.contentWindow) return;
     final data = event.data;
     if (data is! String) return;
     dynamic parsed;
@@ -213,6 +214,7 @@ class _SandboxedArtifactViewWebState extends State<SandboxedArtifactViewWeb> {
   }
 
   Future<void> _onAiMessage(html.MessageEvent event) async {
+    if (event.source != _iframe?.contentWindow) return;
     final data = event.data;
     if (data is! String) return;
     dynamic parsed;
@@ -435,6 +437,7 @@ class _ArtifactPreviewContentWebState extends State<ArtifactPreviewContentWeb> {
   }
 
   Future<void> _onStorageMessage(html.MessageEvent event) async {
+    if (event.source != _iframe?.contentWindow) return;
     final data = event.data;
     if (data is! String) return;
     dynamic parsed;
@@ -461,6 +464,7 @@ class _ArtifactPreviewContentWebState extends State<ArtifactPreviewContentWeb> {
   }
 
   Future<void> _onAiMessage(html.MessageEvent event) async {
+    if (event.source != _iframe?.contentWindow) return;
     final data = event.data;
     if (data is! String) return;
     dynamic parsed;

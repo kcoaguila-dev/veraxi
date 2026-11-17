@@ -428,5 +428,26 @@ export default function App() { return <A/>; }
       expect('</script>'.allMatches(doc), hasLength(1));
       expect(doc, isNot(contains('alert(1)</scr')));
     });
+
+    test(
+        'full html mentioning veraxi_complete in authored text still gets AI shim',
+        () {
+      final doc = buildHtmlArtifactDocument(
+        '<html><head></head><body><!-- veraxi_complete --></body></html>',
+      );
+      expect(doc, contains('window.veraxi = veraxi'));
+      expect(doc, contains('window.claude = claude'));
+    });
+
+    test('full html with script in head receives AI shim before that script',
+        () {
+      final doc = buildHtmlArtifactDocument(
+        '<html><head><script>window.veraxi.complete("hi");</script></head><body></body></html>',
+      );
+      expect(
+        doc.indexOf('window.veraxi = veraxi'),
+        lessThan(doc.indexOf('window.veraxi.complete("hi")')),
+      );
+    });
   });
 }

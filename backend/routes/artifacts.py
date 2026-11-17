@@ -149,10 +149,15 @@ PUBLIC_AI_STUB_SCRIPT = """<script>
 
 
 def _inject_public_shim(document: str) -> str:
-    """Insert the public (in-memory) storage shim before </head>."""
-    if "window.veraxiStorage" in document:
+    """Insert missing public shims (storage + disabled-AI stub) before </head>."""
+    parts: list[str] = []
+    if "window.veraxiStorage" not in document:
+        parts.append(PUBLIC_STORAGE_SHIM_SCRIPT)
+    if "AI calls are disabled on public artifacts" not in document:
+        parts.append(PUBLIC_AI_STUB_SCRIPT)
+    if not parts:
         return document
-    scripts = PUBLIC_STORAGE_SHIM_SCRIPT + PUBLIC_AI_STUB_SCRIPT
+    scripts = "".join(parts)
     idx = document.lower().find("</head>")
     if idx >= 0:
         return document[:idx] + scripts + document[idx:]
@@ -1222,6 +1227,11 @@ def _parse_complete_payload(body) -> dict:
     base_url = body.get("base_url")
     if base_url is not None and not isinstance(base_url, str):
         raise HTTPException(status_code=400, detail="base_url must be a string")
+    if base_url and not api_key:
+        raise HTTPException(
+            status_code=400,
+            detail="api_key is required when base_url is provided",
+        )
     return {
         "prompt": prompt,
         "system": system,
@@ -1232,23 +1242,36 @@ def _parse_complete_payload(body) -> dict:
     }
 
 
-async def _run_artifact_completion(request: Request, fields: dict) -> str:
+async def _run_artifact_completion(
+    request: Request,
+    fields: dict,
+    *,
+    tenant_id: str,
+) -> str:
     """Resolve BYOK overrides the way routes/chat.py does and run
     the single completion: the caller's own key/base_url from the
     body (sent by the host app from its secure key storage — never
     by the artifact frame), with the x-byod-local-url header giving
     local models their endpoint and a dummy key, as in chat."""
+    from backend.routes.admin import _models_cache
+
     api_key = fields["api_key"]
     base_url = fields["base_url"]
     local_url = request.headers.get("x-byod-local-url")
-    if local_url and base_url is None:
+    model = fields["model"]
+    if local_url and base_url is None and model in _models_cache.get("Local", []):
         base_url = local_url
         if api_key is None:
             api_key = "dummy"
+    if tenant_id == GUEST_TENANT_ID and not api_key:
+        raise HTTPException(
+            status_code=401,
+            detail="Guest mode requires an API key",
+        )
     return await run_single_completion(
         fields["prompt"],
         system=fields["system"],
-        model_override=fields["model"],
+        model_override=model,
         api_key_override=api_key,
         base_url_override=base_url,
         max_tokens=fields["max_tokens"],
@@ -1399,7 +1422,9 @@ def register_artifact_routes(
             )
         fields = _parse_complete_payload(body)
         try:
-            text = await _run_artifact_completion(request, fields)
+            text = await _run_artifact_completion(
+                request, fields, tenant_id=tenant_id
+            )
         except HTTPException:
             raise
         except Exception as e:
