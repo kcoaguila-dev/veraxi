@@ -17,8 +17,7 @@ Future<OAuthPopupResult?> launchOAuthPopup(
   const height = 720;
   final left = web.window.screenX + ((web.window.outerWidth - width) ~/ 2);
   final top = web.window.screenY + ((web.window.outerHeight - height) ~/ 2);
-  final features =
-      'popup=yes,width=$width,height=$height,left=$left,top=$top';
+  final features = 'popup=yes,width=$width,height=$height,left=$left,top=$top';
 
   final popup = web.window.open(url, 'veraxi_oauth', features);
   if (popup == null) {
