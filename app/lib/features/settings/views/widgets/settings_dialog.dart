@@ -15,6 +15,7 @@ import 'tabs/infrastructure_tab.dart';
 import 'tabs/security_logs_tab.dart';
 import 'tabs/agent_skills_tab.dart';
 import 'tabs/code_sandboxes_tab.dart';
+import 'tabs/memory_tab.dart';
 import 'tabs/sync_tab.dart';
 
 class SettingsDialog extends ConsumerStatefulWidget {
@@ -39,6 +40,7 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
     'MCP Integrations',
     'Agent Skills',
     'Code Sandboxes',
+    'Memory',
     'Sync',
     'Infrastructure',
     'Security & Logs',
@@ -57,6 +59,7 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
     'MCP Integrations': Icons.hub_outlined,
     'Agent Skills': Icons.psychology_outlined,
     'Code Sandboxes': Icons.terminal,
+    'Memory': Icons.psychology_alt_outlined,
     'Sync': Icons.sync_outlined,
     'Infrastructure': Icons.dns_outlined,
     'Security & Logs': Icons.security_outlined,
@@ -337,6 +340,8 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
         return [const AgentSkillsTab()];
       case 'Code Sandboxes':
         return [const CodeSandboxesTab()];
+      case 'Memory':
+        return [const MemoryTab()];
       case 'Sync':
         return [const SyncTab()];
       case 'Infrastructure':

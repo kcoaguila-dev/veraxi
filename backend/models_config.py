@@ -1,3 +1,19 @@
+# Per-model pricing, in USD per 1M tokens, used ONLY to display an
+# estimated cost alongside real token usage (see
+# backend/mcp_server/formatter.py: shape_usage). This table is
+# intentionally EMPTY by default: Veraxi is BYOK and ships no price
+# list, so no cost is shown until an operator fills this in with the
+# prices their provider actually charges them. Never invent prices
+# here — a missing entry means "cost unknown" (null), not zero.
+#
+# Format:
+#   MODEL_PRICING_USD_PER_1M_TOKENS = {
+#       "gpt-4o": {"prompt": 2.50, "completion": 10.00},
+#   }
+# Keys are matched against the model name exactly, then against the
+# name with any LiteLLM provider prefix ("openai/gpt-4o") stripped.
+MODEL_PRICING_USD_PER_1M_TOKENS: dict[str, dict[str, float]] = {}
+
 DEFAULT_PROVIDER_MODELS = {
     "OpenAI": [
         "gpt-5.5",

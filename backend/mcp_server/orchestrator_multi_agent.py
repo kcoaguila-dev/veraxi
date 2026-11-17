@@ -10,6 +10,12 @@ from backend.mcp_server.tools.web_search import mcp_web_search
 
 logger = logging.getLogger(__name__)
 
+# Debate workflow limits — the single source the Deep-mode pre-flight
+# estimate (formatter.estimate_deep_usage) derives its call counts from.
+DEBATE_MAX_ITERATIONS = 3  # writer/skeptic rounds before debate_router ends
+DEBATE_SPECIALIST_COUNT = 3  # vector + graph + web specialists (retrieval only, no LLM calls)
+DEBATE_LLM_CALLS_PER_ROUND = 2  # writer + skeptic
+
 
 class DebateState(TypedDict, total=False):
     query: str
@@ -305,7 +311,7 @@ Writer's Draft:
 
 def debate_router(state: DebateState) -> str:
     """Routes based on Skeptic approval or iteration limit."""
-    if state.get("is_approved", False) or state.get("iterations", 0) >= 3:
+    if state.get("is_approved", False) or state.get("iterations", 0) >= DEBATE_MAX_ITERATIONS:
         return END
     return "writer"
 
