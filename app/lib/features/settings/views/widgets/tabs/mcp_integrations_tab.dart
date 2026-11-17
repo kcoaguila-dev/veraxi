@@ -90,7 +90,8 @@ class McpIntegrationsTab extends ConsumerWidget {
         if (customIntegrations.isEmpty) {
           return Padding(
             padding: const EdgeInsets.symmetric(vertical: 24),
-            child: Text('No custom MCP servers or OpenAPI specs configured yet.',
+            child: Text(
+                'No custom MCP servers or OpenAPI specs configured yet.',
                 style: TextStyle(color: ext.textTertiary, fontSize: 14)),
           );
         }

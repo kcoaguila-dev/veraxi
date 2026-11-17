@@ -107,7 +107,8 @@ void main() {
     expect(find.text('Import OpenAPI Spec'), findsOneWidget);
   });
 
-  testWidgets('ConnectedAppsTab renders connected OAuth apps and available catalog',
+  testWidgets(
+      'ConnectedAppsTab renders connected OAuth apps and available catalog',
       (WidgetTester tester) async {
     tester.view.physicalSize = const Size(1600, 1200);
     tester.view.devicePixelRatio = 1.0;

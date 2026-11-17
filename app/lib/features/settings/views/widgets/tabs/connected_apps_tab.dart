@@ -58,8 +58,7 @@ class ConnectedAppsTab extends ConsumerWidget {
       error: (e, _) => Text('Failed to load connected apps: $e',
           style: const TextStyle(color: Colors.redAccent)),
       data: (integrations) {
-        final oauthApps =
-            integrations.where((i) => i.kind == 'oauth').toList();
+        final oauthApps = integrations.where((i) => i.kind == 'oauth').toList();
         if (oauthApps.isEmpty) {
           return Padding(
             padding: const EdgeInsets.symmetric(vertical: 16),
