@@ -453,8 +453,7 @@ CodeArtifact _artifactFromMatch(
   final rawLanguage = match.group(1) ?? '';
   final code = (match.group(2) ?? '').trimRight();
   final prose = markdown.substring(proseStart, match.start);
-  final fileName =
-      _lastFileNameIn(prose) ?? _fileNameInFirstLineComment(code);
+  final fileName = _lastFileNameIn(prose) ?? _fileNameInFirstLineComment(code);
   return CodeArtifact.fromCode(
     language: rawLanguage,
     code: code,
