@@ -42,6 +42,43 @@ void main() {
     });
   });
 
+  group('AI bridge shim (window.veraxi.complete)', () {
+    test('html and react documents carry the shim and the claude alias', () {
+      final html = buildHtmlArtifactDocument('<p>x</p>');
+      expect(html, contains('veraxi_complete'));
+      expect(html, contains('window.veraxi'));
+      expect(html, contains('veraxi.complete = complete'));
+      // Claude-compat alias for artifacts written against
+      // window.claude.complete.
+      expect(html, contains('window.claude'));
+      expect(html, contains('claude.complete = complete'));
+      expect(html, contains('__veraxiCompleteReply'));
+
+      final react = buildReactArtifactDocument(
+          'export default function App() { return <div/>; }');
+      expect(react, contains('veraxi_complete'));
+      expect(react, contains('window.claude'));
+    });
+
+    test('a full authored document gets the shim before </head>', () {
+      const full = '<!DOCTYPE html>\n<html><head><title>T</title></head>'
+          '<body>Full</body></html>';
+      final doc = buildHtmlArtifactDocument(full);
+      expect(doc, contains('veraxi_complete'));
+      expect(doc.indexOf('veraxi_complete'), lessThan(doc.indexOf('</head>')));
+    });
+
+    test('the shim carries no credential material', () {
+      // The frame must never receive a key, token, or auth header:
+      // the shim transports only the prompt the artifact wrote.
+      final html = buildHtmlArtifactDocument('<p>x</p>');
+      expect(html, isNot(contains('Authorization')));
+      expect(html, isNot(contains('X-BYOD')));
+      expect(html, isNot(contains('api_key')));
+      expect(html, isNot(contains('Bearer')));
+    });
+  });
+
   group('buildSvgArtifactDocument', () {
     test('embeds the raw svg markup', () {
       final doc = buildSvgArtifactDocument('<svg><circle r="4"/></svg>');

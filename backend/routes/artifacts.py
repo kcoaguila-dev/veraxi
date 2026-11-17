@@ -26,6 +26,7 @@ from fastapi import Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, Response
 from pydantic import BaseModel
 
+from backend.mcp_server.llm_loop import run_single_completion
 from backend.services.office_export import (
     export_docx,
     export_pdf,
@@ -62,6 +63,15 @@ MAX_STORAGE_VALUE_CHARS = 100_000
 MAX_STORAGE_SCOPE_CHARS = 2_000_000
 MAX_STORAGE_KEY_CHARS = 500
 MAX_STORAGE_SCOPE_ID_CHARS = 300
+
+# In-artifact AI bridge limits (window.veraxi.complete): a single
+# non-streaming completion with a bounded prompt, an equally bounded
+# optional system prompt, and a capped token budget. Oversize text
+# is a 413 (like oversize code); a bad token budget is a 400.
+MAX_COMPLETE_PROMPT_CHARS = 16_000
+MAX_COMPLETE_SYSTEM_CHARS = 16_000
+MAX_COMPLETE_TOKENS = 2048
+DEFAULT_COMPLETE_TOKENS = 1024
 
 # Content-Security-Policy for the public artifact page. A srcdoc
 # iframe's document has no URL of its own and *inherits the embedding
@@ -117,14 +127,36 @@ PUBLIC_STORAGE_SHIM_SCRIPT = """<script>
 """
 
 
+PUBLIC_AI_STUB_SCRIPT = """<script>
+(function () {
+  // AI calls are disabled on public artifact pages: an anonymous
+  // viewer must never be able to spend the author's API quota.
+  // The stub still defines the API so artifacts written against
+  // window.veraxi.complete / window.claude.complete fail with a
+  // clear, catchable error instead of a TypeError.
+  var disabled = function () {
+    return Promise.reject(new Error('AI calls are disabled on public artifacts'));
+  };
+  var veraxi = window.veraxi || {};
+  veraxi.complete = disabled;
+  window.veraxi = veraxi;
+  var claude = window.claude || {};
+  claude.complete = disabled;
+  window.claude = claude;
+})();
+</script>
+"""
+
+
 def _inject_public_shim(document: str) -> str:
     """Insert the public (in-memory) storage shim before </head>."""
     if "window.veraxiStorage" in document:
         return document
+    scripts = PUBLIC_STORAGE_SHIM_SCRIPT + PUBLIC_AI_STUB_SCRIPT
     idx = document.lower().find("</head>")
     if idx >= 0:
-        return document[:idx] + PUBLIC_STORAGE_SHIM_SCRIPT + document[idx:]
-    return document + PUBLIC_STORAGE_SHIM_SCRIPT
+        return document[:idx] + scripts + document[idx:]
+    return document + scripts
 
 
 EXPORT_FORMATS = {
@@ -794,6 +826,7 @@ def _build_html_document(code: str) -> str:
         '  <meta name="viewport" content="width=device-width, initial-scale=1.0">\n'
         '  <script src="https://cdn.tailwindcss.com"></script>\n'
         + PUBLIC_STORAGE_SHIM_SCRIPT
+        + PUBLIC_AI_STUB_SCRIPT
         + "\n  <style>\n"
         + _BASE_STYLES
         + "  </style>\n"
@@ -993,6 +1026,7 @@ def _build_react_document(source: str, sibling_files: dict | None = None) -> str
         '  <script src="https://cdn.tailwindcss.com"></script>\n'
         '  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>\n'
         + PUBLIC_STORAGE_SHIM_SCRIPT
+        + PUBLIC_AI_STUB_SCRIPT
         + '\n  <script type="importmap">\n'
         + _REACT_IMPORT_MAP
         + "  </script>\n"
@@ -1143,6 +1177,84 @@ def _render_public_page(artifact: dict) -> str:
 # ---------------------------------------------------------------------------
 
 
+def _parse_complete_payload(body) -> dict:
+    """Validate a POST /api/artifacts/complete body (field whitelist).
+
+    Only the fields below are read — anything else in the body is
+    ignored, so an artifact cannot smuggle extra parameters into
+    the LLM call. Bad shapes are 400; oversize text is 413.
+    """
+    if not isinstance(body, dict):
+        raise HTTPException(status_code=400, detail="request body must be an object")
+    prompt = body.get("prompt")
+    if not isinstance(prompt, str) or not prompt.strip():
+        raise HTTPException(status_code=400, detail="prompt is required")
+    if len(prompt) > MAX_COMPLETE_PROMPT_CHARS:
+        raise HTTPException(
+            status_code=413,
+            detail=f"prompt too large (max {MAX_COMPLETE_PROMPT_CHARS} characters)",
+        )
+    system = body.get("system")
+    if system is not None:
+        if not isinstance(system, str):
+            raise HTTPException(status_code=400, detail="system must be a string")
+        if len(system) > MAX_COMPLETE_SYSTEM_CHARS:
+            raise HTTPException(
+                status_code=413,
+                detail=(
+                    f"system too large (max {MAX_COMPLETE_SYSTEM_CHARS} characters)"
+                ),
+            )
+    model = body.get("model")
+    if model is not None and not isinstance(model, str):
+        raise HTTPException(status_code=400, detail="model must be a string")
+    max_tokens = body.get("max_tokens", DEFAULT_COMPLETE_TOKENS)
+    if isinstance(max_tokens, bool) or not isinstance(max_tokens, int):
+        raise HTTPException(status_code=400, detail="max_tokens must be an integer")
+    if max_tokens < 1 or max_tokens > MAX_COMPLETE_TOKENS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"max_tokens must be between 1 and {MAX_COMPLETE_TOKENS}",
+        )
+    api_key = body.get("api_key")
+    if api_key is not None and not isinstance(api_key, str):
+        raise HTTPException(status_code=400, detail="api_key must be a string")
+    base_url = body.get("base_url")
+    if base_url is not None and not isinstance(base_url, str):
+        raise HTTPException(status_code=400, detail="base_url must be a string")
+    return {
+        "prompt": prompt,
+        "system": system,
+        "model": model,
+        "max_tokens": max_tokens,
+        "api_key": api_key,
+        "base_url": base_url,
+    }
+
+
+async def _run_artifact_completion(request: Request, fields: dict) -> str:
+    """Resolve BYOK overrides the way routes/chat.py does and run
+    the single completion: the caller's own key/base_url from the
+    body (sent by the host app from its secure key storage — never
+    by the artifact frame), with the x-byod-local-url header giving
+    local models their endpoint and a dummy key, as in chat."""
+    api_key = fields["api_key"]
+    base_url = fields["base_url"]
+    local_url = request.headers.get("x-byod-local-url")
+    if local_url and base_url is None:
+        base_url = local_url
+        if api_key is None:
+            api_key = "dummy"
+    return await run_single_completion(
+        fields["prompt"],
+        system=fields["system"],
+        model_override=fields["model"],
+        api_key_override=api_key,
+        base_url_override=base_url,
+        max_tokens=fields["max_tokens"],
+    )
+
+
 def register_artifact_routes(
     app_router, get_tenant_id, verify_infrastructure_access, limiter, config
 ):
@@ -1265,6 +1377,38 @@ def register_artifact_routes(
             media_type=media_type,
             headers={"Content-Disposition": f'attachment; filename="{filename}"'},
         )
+
+    @app_router.post("/api/artifacts/complete")
+    @limiter.limit(config.rate_limit_artifact_complete)
+    async def complete_artifact(
+        request: Request,
+        tenant_id: str = Depends(get_tenant_id),
+    ):
+        # The in-artifact AI bridge (window.veraxi.complete): the
+        # sandboxed preview frame never holds any credential — it
+        # posts the prompt to the host app, which calls this endpoint
+        # with the tenant's own session/BYOK key, so the completion
+        # spends the caller's quota exactly like a chat message.
+        # Guests are allowed for the same reason as work/storage:
+        # the tenant identity is what gets billed/rate-limited.
+        try:
+            body = await request.json()
+        except Exception:
+            raise HTTPException(
+                status_code=400, detail="request body must be valid JSON"
+            )
+        fields = _parse_complete_payload(body)
+        try:
+            text = await _run_artifact_completion(request, fields)
+        except HTTPException:
+            raise
+        except Exception as e:
+            sentry_sdk.capture_exception(e)
+            logger.error(f"Error completing artifact prompt: {e}")
+            raise HTTPException(
+                status_code=502, detail="AI completion failed"
+            ) from e
+        return {"text": text}
 
     @app_router.delete("/api/artifacts/{artifact_id}")
     async def delete_artifact(
