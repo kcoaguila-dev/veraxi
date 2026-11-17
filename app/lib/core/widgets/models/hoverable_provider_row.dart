@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'model_provider_styles.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
 

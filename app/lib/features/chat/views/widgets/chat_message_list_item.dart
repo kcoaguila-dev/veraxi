@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:veraxi_app/features/chat/view_models/audio_player_service.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
@@ -44,6 +44,62 @@ class ChatMessageListItem extends ConsumerWidget {
         showTelemetry: showTelemetry, context: context, ref: ref);
   }
 
+  Widget _buildUserMessage(
+      ChatMessage msg, ThemeData theme, AppThemeExtension ext) {
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 800),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          child: Align(
+            alignment: Alignment.centerRight,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 560),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: ext.surfaceHighlight,
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(color: ext.borderColor),
+                    ),
+                    child: Text(
+                      msg.content,
+                      style: theme.textTheme.bodyLarge?.copyWith(height: 1.5),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8, right: 4),
+                    child: Tooltip(
+                      message: 'Copy message',
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(6),
+                        onTap: () =>
+                            Clipboard.setData(ClipboardData(text: msg.content)),
+                        child: Padding(
+                          padding: const EdgeInsets.all(4),
+                          child: Icon(
+                            Icons.copy_outlined,
+                            size: 16,
+                            color: theme.colorScheme.onSurface
+                                .withValues(alpha: 0.5),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   // We change the signature to pass context since it was previously available in the State.
   Widget _buildChatMessageActual(
       ChatMessage msg, ThemeData theme, AppThemeExtension ext,
@@ -51,37 +107,28 @@ class ChatMessageListItem extends ConsumerWidget {
       required BuildContext context,
       required WidgetRef ref}) {
     final isUser = msg.role == 'user';
+    if (isUser) {
+      return _buildUserMessage(msg, theme, ext);
+    }
+
     final responseAt = _responseAt(msg);
-    final name = isUser
-        ? 'User'
-        : (msg.modelName != null && msg.modelName!.isNotEmpty
-            ? msg.modelName!
-            : 'AI Assistant');
-    final avatar = isUser
-        ? Container(
-            width: 28,
-            height: 28,
-            decoration: BoxDecoration(
-                color: theme.colorScheme.primary.withValues(alpha: 0.8),
-                borderRadius: BorderRadius.circular(6)),
-            child: Icon(Icons.person, color: Colors.white, size: 18),
-          )
-        : Container(
-            width: 28,
-            height: 28,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(color: Colors.transparent),
-            child: msg.modelName != null && msg.modelName!.isNotEmpty
-                ? _providerDotFor(msg.modelName!, size: 16)
-                : Icon(Icons.auto_awesome,
-                    color: ext.primaryGradientStart, size: 20),
-          );
+    final name = (msg.modelName != null && msg.modelName!.isNotEmpty)
+        ? msg.modelName!
+        : 'AI Assistant';
+    final avatar = Container(
+      width: 28,
+      height: 28,
+      alignment: Alignment.center,
+      decoration: const BoxDecoration(color: Colors.transparent),
+      child: msg.modelName != null && msg.modelName!.isNotEmpty
+          ? _providerDotFor(msg.modelName!, size: 16)
+          : Icon(Icons.auto_awesome, color: ext.primaryGradientStart, size: 20),
+    );
 
     // Claude-style artifact cards: fenced code blocks are pulled out of
     // the prose and their cards are collected at the end of the message,
     // instead of interrupting the text where the block was written.
-    final artifacts =
-        isUser ? const <CodeArtifact>[] : extractCodeArtifacts(msg.content);
+    final artifacts = extractCodeArtifacts(msg.content);
     final openArtifact = ref.watch(openCodeArtifactProvider);
 
     return Center(
@@ -103,37 +150,7 @@ class ChatMessageListItem extends ConsumerWidget {
                                 fontWeight: FontWeight.w600,
                                 color: Colors.white)),
                         SizedBox(height: 8),
-                        if (isUser)
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                msg.content,
-                                style: theme.textTheme.bodyLarge
-                                    ?.copyWith(height: 1.5),
-                              ),
-                              Padding(
-                                padding: EdgeInsets.only(top: 12),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Tooltip(
-                                      message: 'Copy message',
-                                      child: InkWell(
-                                        onTap: () => Clipboard.setData(
-                                            ClipboardData(text: msg.content)),
-                                        child: Icon(Icons.copy_outlined,
-                                            size: 16,
-                                            color: theme.colorScheme.onSurface
-                                                .withValues(alpha: 0.5)),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          )
-                        else if (msg.isError)
+                        if (msg.isError)
                           Container(
                             margin: EdgeInsets.only(top: 8),
                             padding: EdgeInsets.all(12),
@@ -476,8 +493,7 @@ class ChatMessageListItem extends ConsumerWidget {
                                 GlobalAudioPlayer(
                                     messageId:
                                         msg.id ?? msg.hashCode.toString()),
-                              if (!isUser &&
-                                  showTelemetry &&
+                              if (showTelemetry &&
                                   msg.metrics != null &&
                                   msg.metrics!.isNotEmpty)
                                 ChatMessageMetrics(metrics: msg.metrics!),

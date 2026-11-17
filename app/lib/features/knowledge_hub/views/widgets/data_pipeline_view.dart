@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:veraxi_app/features/knowledge_hub/views/widgets/schema_card.dart';
 import 'package:veraxi_app/features/knowledge_hub/views/widgets/ingestion_card.dart';
 import 'package:veraxi_app/features/knowledge_hub/views/widgets/database_monitor_card.dart';

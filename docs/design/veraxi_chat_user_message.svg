@@ -1,0 +1,23 @@
+<svg width="840" height="320" viewBox="0 0 840 320" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="840" height="320" fill="#212121" />
+
+  <!-- User Message: Right-aligned bubble, no avatar, no "User" label -->
+  <g transform="translate(20, 24)">
+    <!-- Max-width ~70% of 800px column, right-aligned -->
+    <rect x="520" y="0" width="280" height="48" rx="18" fill="#2F2F2F" stroke="#3E3E42" stroke-width="1" />
+    <text x="538" y="30" fill="#F4F4F5" font-size="15" font-family="Inter, sans-serif">give me hello world webpage</text>
+
+    <!-- Copy action right-aligned under bubble -->
+    <g transform="translate(782, 58)" stroke="#878787" stroke-width="1.5" fill="none">
+      <rect x="2" y="2" width="10" height="10" rx="2" />
+      <path d="M 6 14 h 6 a 2 2 0 0 0 2 -2 v -6" />
+    </g>
+  </g>
+
+  <!-- Assistant Message: Left-aligned with model icon & name -->
+  <g transform="translate(20, 124)">
+    <circle cx="14" cy="14" r="8" stroke="#EF4444" stroke-width="2" fill="none" />
+    <text x="44" y="18" fill="#FFFFFF" font-size="14" font-weight="600" font-family="Inter, sans-serif">openai/gpt-oss-20b</text>
+    <text x="44" y="48" fill="#E4E4E7" font-size="15" font-family="Inter, sans-serif">Here is a minimal "Hello World" webpage...</text>
+  </g>
+</svg>

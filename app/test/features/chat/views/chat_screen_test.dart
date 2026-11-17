@@ -3,7 +3,7 @@ import 'package:veraxi_app/features/chat/data/chat_repository.dart';
 import 'package:veraxi_app/core/repositories/memory_repository.dart';
 import 'package:veraxi_app/features/project/data/project_repository.dart';
 import 'package:mocktail/mocktail.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:veraxi_app/core/theme.dart';

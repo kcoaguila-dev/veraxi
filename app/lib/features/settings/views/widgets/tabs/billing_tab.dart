@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:veraxi_app/features/settings/views/widgets/billing_view.dart';
 
 class BillingTab extends StatelessWidget {

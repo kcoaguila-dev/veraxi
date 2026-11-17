@@ -1,6 +1,6 @@
 import 'dart:convert';
-// ignore: avoid_web_libraries_in_flutter
-import 'dart:html' as html;
+import 'dart:js_interop';
+import 'package:web/web.dart' as web;
 
 /// Downloads [content] as [fileName] through the browser: a Blob URL
 /// behind a temporary anchor with a `download` attribute — the file
@@ -13,17 +13,21 @@ Future<String?> downloadArtifactFile({
   required String content,
 }) async {
   final bytes = utf8.encode(content);
-  final blob = html.Blob([bytes], 'text/plain;charset=utf-8');
-  final url = html.Url.createObjectUrlFromBlob(blob);
+  final blob = web.Blob(
+    [bytes.toJS].toJS,
+    web.BlobPropertyBag(type: 'text/plain;charset=utf-8'),
+  );
+  final url = web.URL.createObjectURL(blob);
   try {
-    final anchor = html.AnchorElement(href: url)
+    final anchor = web.document.createElement('a') as web.HTMLAnchorElement
+      ..href = url
       ..download = fileName
       ..style.display = 'none';
-    html.document.body?.append(anchor);
+    web.document.body?.append(anchor);
     anchor.click();
     anchor.remove();
   } finally {
-    html.Url.revokeObjectUrl(url);
+    web.URL.revokeObjectURL(url);
   }
   return null;
 }

@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:veraxi_app/features/knowledge_hub/view_models/knowledge_hub_view_model.dart';
 import 'package:veraxi_app/features/knowledge_hub/views/widgets/schema_visual_builder.dart';

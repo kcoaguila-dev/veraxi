@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'pricing_tiers_dialog.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
 

@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:path_provider_platform_interface/path_provider_platform_interface.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -8,14 +8,12 @@ import 'package:mocktail/mocktail.dart';
 import 'package:re_editor/re_editor.dart';
 import 'package:drift/native.dart';
 import 'package:veraxi_app/features/chat/data/artifact_publish_repository.dart';
-import 'package:veraxi_app/features/chat/data/artifact_work_store.dart';
 import 'package:veraxi_app/features/chat/data/local_chat_database.dart';
 import 'package:veraxi_app/core/theme.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
 import 'package:veraxi_app/features/chat/view_models/artifact_incoming_provider.dart';
 import 'package:veraxi_app/features/chat/view_models/artifact_work_provider.dart';
 import 'package:veraxi_app/features/chat/view_models/artifact_quick_actions.dart';
-import 'package:veraxi_app/features/chat/view_models/chat_state.dart';
 import 'package:veraxi_app/features/chat/view_models/chat_view_model.dart';
 import 'package:veraxi_app/features/chat/view_models/code_artifact_provider.dart';
 import 'package:veraxi_app/features/chat/views/widgets/chat_message_list_item.dart';

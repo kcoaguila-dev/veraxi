@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:veraxi_app/features/landing/views/widgets/code_snippet_visualization.dart';
 import 'package:veraxi_app/features/landing/views/widgets/development_banner.dart';
 import 'package:veraxi_app/features/landing/views/widgets/hero_section.dart';
