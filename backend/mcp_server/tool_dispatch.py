@@ -185,6 +185,76 @@ async def get_tools(tool_settings: dict | None = None) -> list:
             }
         )
 
+    # create_office_artifact is always available, unlike run_python_code:
+    # it executes nothing, makes no external calls, and costs nothing —
+    # it only validates a document spec against the deterministic
+    # exporters in backend/services/office_export.py and hands back a
+    # JSON block. Gating it behind a settings toggle would just make
+    # "make me a deck / spreadsheet" fail unpredictably.
+    all_tools.append(
+        {
+            "type": "function",
+            "function": {
+                "name": "create_office_artifact",
+                "description": (
+                    "Create a downloadable Office/PDF document (report, "
+                    "spreadsheet, or slide deck) from a structured spec or "
+                    "Markdown/CSV content. The document is validated "
+                    "server-side; the tool returns a fenced ```json block "
+                    "that you must include verbatim in your reply — it "
+                    "becomes the downloadable file card. Use this whenever "
+                    "the user asks for a document, spreadsheet, budget, "
+                    "slide deck, or PDF file. For spreadsheets, cell strings "
+                    "starting with '=' are stored as live Excel formulas "
+                    "(e.g. '=SUM(B2:B5)'). Provide spec OR content, not both."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "format": {
+                            "type": "string",
+                            "enum": ["pdf", "docx", "xlsx", "pptx"],
+                            "description": "The file format to produce.",
+                        },
+                        "title": {
+                            "type": "string",
+                            "description": "The document title.",
+                        },
+                        "spec": {
+                            "type": "object",
+                            "description": (
+                                "Structured spec. pptx: {\"slides\": [{\"title\": str, "
+                                "\"subtitle\": str (optional), \"bullets\": [str], "
+                                "\"table\": {\"headers\": [str], \"rows\": [[...]]} "
+                                "(optional), \"notes\": str (optional)}]}. "
+                                "xlsx: {\"sheets\": [{\"name\": str, \"headers\": [str], "
+                                "\"rows\": [[...]]}]}. docx: {\"sections\": [{\"heading\": str, "
+                                "\"level\": 1-3, \"paragraphs\": [str], \"bullets\": [str], "
+                                "\"table\": {\"headers\": [...], \"rows\": [[...]]}}]}. "
+                                "pdf accepts any of these shapes."
+                            ),
+                        },
+                        "content": {
+                            "type": "string",
+                            "description": (
+                                "Document body instead of a spec: Markdown "
+                                "(headings, lists, tables; for pptx, separate "
+                                "slides with '---' lines) or CSV when "
+                                "content_type is 'csv'. Best for prose documents."
+                            ),
+                        },
+                        "content_type": {
+                            "type": "string",
+                            "enum": ["markdown", "csv"],
+                            "description": "How to parse content (default markdown).",
+                        },
+                    },
+                    "required": ["format", "title"],
+                },
+            },
+        }
+    )
+
     if run_code_enabled:
         all_tools.append(
             {
@@ -244,6 +314,130 @@ async def get_tools(tool_settings: dict | None = None) -> list:
                 logger.error(f"Failed to fetch tools from MCP server {url}: {e}")
 
     return all_tools
+
+
+_OFFICE_ARTIFACT_FORMATS = ("pdf", "docx", "xlsx", "pptx")
+_OFFICE_ARTIFACT_CONTENT_TYPES = ("markdown", "csv")
+
+
+def _build_office_artifact(tool_input: dict) -> dict:
+    """Validate a ``create_office_artifact`` call and build its block.
+
+    Validation *is* building: the supplied spec/content is run through
+    the pure deterministic builders in
+    :mod:`backend.services.office_export` (nothing is executed — the
+    builders only parse and render). On success returns a dict with
+    the canonical ``block`` — a fenced ```json envelope in the exact
+    shape ``POST /api/artifacts/export`` accepts with
+    ``content_type="json"`` and the Flutter artifact panel exports —
+    plus the produced file's ``size_bytes``. On any problem returns
+    ``{"error": ...}`` with a message the LLM can act on and retry;
+    this function never raises, so a bad document request can never
+    kill the chat loop.
+    """
+    import json
+
+    from backend.routes.artifacts import MAX_CODE_CHARS, MAX_TITLE_CHARS
+
+    fmt = tool_input.get("format")
+    if fmt not in _OFFICE_ARTIFACT_FORMATS:
+        return {
+            "error": (
+                "format must be one of "
+                f"{', '.join(_OFFICE_ARTIFACT_FORMATS)}; got {fmt!r}."
+            )
+        }
+
+    title = tool_input.get("title")
+    if not isinstance(title, str) or not title.strip():
+        return {"error": "title is required and must be a non-empty string."}
+    title = title.strip()
+    if len(title) > MAX_TITLE_CHARS:
+        return {
+            "error": f"title is too long (max {MAX_TITLE_CHARS} characters)."
+        }
+
+    spec = tool_input.get("spec")
+    content = tool_input.get("content")
+    content_type = tool_input.get("content_type") or "markdown"
+
+    if spec is not None and not isinstance(spec, dict):
+        return {"error": "spec must be a JSON object (slides / sheets / sections)."}
+    if spec is None and not (isinstance(content, str) and content.strip()):
+        return {
+            "error": (
+                "Provide either a structured spec or Markdown/CSV content "
+                "for the document."
+            )
+        }
+    if content_type not in _OFFICE_ARTIFACT_CONTENT_TYPES:
+        return {
+            "error": (
+                "content_type must be one of "
+                f"{', '.join(_OFFICE_ARTIFACT_CONTENT_TYPES)}; got {content_type!r}."
+            )
+        }
+    if spec is not None and len(json.dumps(spec)) > MAX_CODE_CHARS:
+        return {
+            "error": f"spec is too large (max {MAX_CODE_CHARS} characters)."
+        }
+    if isinstance(content, str) and len(content) > MAX_CODE_CHARS:
+        return {
+            "error": f"content is too large (max {MAX_CODE_CHARS} characters)."
+        }
+
+    from backend.services.office_export import (
+        export_docx,
+        export_pdf,
+        export_pptx,
+        export_xlsx,
+        spec_to_markdown,
+    )
+
+    try:
+        if spec is not None:
+            if fmt == "pdf":
+                # The PDF builder consumes content, not specs: render
+                # the spec to Markdown first, like the export route.
+                data = export_pdf(title, spec_to_markdown(spec), "markdown")
+            elif fmt == "docx":
+                data = export_docx(title, "", spec)
+            elif fmt == "xlsx":
+                data = export_xlsx(title, "", spec)
+            else:
+                data = export_pptx(title, "", spec)
+            envelope: dict[str, Any] = {**spec, "format": fmt, "title": title}
+        else:
+            if fmt == "pdf":
+                data = export_pdf(title, content, content_type)
+            elif fmt == "docx":
+                data = export_docx(title, content)
+            elif fmt == "xlsx":
+                data = export_xlsx(title, content)
+            else:
+                data = export_pptx(title, content)
+            envelope = {
+                "format": fmt,
+                "title": title,
+                "content_type": content_type,
+                "content": content,
+            }
+    except ValueError as e:
+        return {"error": f"Invalid document spec: {e}"}
+    except Exception as e:
+        import sentry_sdk
+
+        sentry_sdk.capture_exception(e)
+        logger.error(f"create_office_artifact failed to build {fmt}: {e}")
+        return {"error": f"Could not build the document: {e}"}
+
+    block = "```json\n" + json.dumps(envelope, indent=2, ensure_ascii=False) + "\n```"
+    return {
+        "format": fmt,
+        "title": title,
+        "size_bytes": len(data),
+        "block": block,
+    }
 
 
 def _execute_single_tool(
@@ -482,6 +676,42 @@ def _execute_single_tool(
                 self.sources = [src]
 
         return [CodeHit(data, source_label)], []
+
+    elif tool_name == "create_office_artifact":
+        result = _build_office_artifact(tool_input)
+
+        if "error" in result:
+
+            class OfficeErrorHit:
+                def __init__(self, msg: str) -> None:
+                    self.id = "office_err"
+                    self.payload = {"error": msg}
+                    self.sources = ["Office Artifact Error"]
+
+            return [OfficeErrorHit(result["error"])], []
+
+        block = result["block"]
+
+        class OfficeHit:
+            def __init__(self, res: dict[str, Any]) -> None:
+                self.id = "office_artifact"
+                self.payload = {
+                    "kind": "office_artifact",
+                    "format": res["format"],
+                    "title": res["title"],
+                    "artifact_block": block,
+                    "text": (
+                        f"Created and validated a {res['format']} document "
+                        f"titled '{res['title']}' ({res['size_bytes']} bytes "
+                        "when exported). Include the following block in your "
+                        "reply EXACTLY as-is — do not edit, reformat, or add "
+                        "anything inside it — with only a brief sentence "
+                        f"around it:\n\n{block}"
+                    ),
+                }
+                self.sources = ["Office Artifact"]
+
+        return [OfficeHit(result)], []
 
     elif tool_name == "get_current_time":
         import datetime

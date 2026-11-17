@@ -165,6 +165,117 @@ void main() {
       expect(captured, ['```python\nprint("hi")\n```', 'markdown']);
     });
 
+    test('office spec envelope exports via its spec and title', () async {
+      stubExport();
+      // The block the create_office_artifact tool returns, as it
+      // arrives in a chat message.
+      const message = 'Here is your pitch deck:\n\n'
+          '```json\n'
+          '{\n'
+          '  "slides": [{"title": "Vision", "bullets": ["Problem"]}],\n'
+          '  "format": "pptx",\n'
+          '  "title": "Pitch Deck"\n'
+          '}\n'
+          '```';
+      final artifacts = extractCodeArtifacts(message);
+      expect(artifacts, hasLength(1));
+      final artifact = artifacts.single;
+      expect(artifact.language, 'json');
+
+      final envelope = parseOfficeArtifactEnvelope(artifact);
+      expect(envelope, isNotNull);
+      expect(envelope!.format, 'pptx');
+      expect(envelope.title, 'Pitch Deck');
+      expect(envelope.spec, {
+        'slides': [
+          {
+            'title': 'Vision',
+            'bullets': ['Problem'],
+          }
+        ],
+      });
+      expect(envelope.content, isNull);
+
+      final exported = await controller.exportArtifact(
+        artifact,
+        ArtifactExportFormat.pptx,
+      );
+
+      expect(exported, isNotNull);
+      expect(exported!.fileName, 'Pitch_Deck.pptx');
+      final captured = verify(() => repository.exportArtifact(
+            format: captureAny(named: 'format'),
+            title: captureAny(named: 'title'),
+            content: captureAny(named: 'content'),
+            contentType: captureAny(named: 'contentType'),
+            spec: captureAny(named: 'spec'),
+          )).captured;
+      expect(captured, [
+        'pptx',
+        'Pitch Deck',
+        '',
+        'json',
+        {
+          'slides': [
+            {
+              'title': 'Vision',
+              'bullets': ['Problem'],
+            }
+          ],
+        },
+      ]);
+    });
+
+    test('office content envelope exports its wrapped body', () async {
+      stubExport();
+      const artifact = CodeArtifact(
+        title: 'Json code',
+        fileName: null,
+        language: 'json',
+        code: '{"format": "pdf", "title": "Status Report", '
+            '"content_type": "markdown", "content": "# Status\\n\\nGreen."}',
+      );
+
+      final envelope = parseOfficeArtifactEnvelope(artifact);
+      expect(envelope, isNotNull);
+      expect(envelope!.spec, isNull);
+      expect(envelope.content, '# Status\n\nGreen.');
+      expect(envelope.contentType, 'markdown');
+
+      final exported = await controller.exportArtifact(
+        artifact,
+        ArtifactExportFormat.pdf,
+      );
+
+      expect(exported!.fileName, 'Status_Report.pdf');
+      final captured = verify(() => repository.exportArtifact(
+            format: any(named: 'format'),
+            title: captureAny(named: 'title'),
+            content: captureAny(named: 'content'),
+            contentType: captureAny(named: 'contentType'),
+            spec: any(named: 'spec'),
+          )).captured;
+      expect(captured, ['Status Report', '# Status\n\nGreen.', 'markdown']);
+    });
+
+    test('plain json artifacts are not office envelopes', () {
+      const artifact = CodeArtifact(
+        title: 'Config',
+        fileName: 'config.json',
+        language: 'json',
+        code: '{"theme": "dark", "fontSize": 14}',
+      );
+      expect(parseOfficeArtifactEnvelope(artifact), isNull);
+
+      const broken = CodeArtifact(
+        title: 'Json code',
+        fileName: null,
+        language: 'json',
+        code: '{"slides": [',
+      );
+      expect(parseOfficeArtifactEnvelope(broken), isNull);
+    });
+
     test('failure records a friendly error and returns null', () async {
       stubExport(error: Exception('Server error: 413'));
       const artifact = CodeArtifact(
