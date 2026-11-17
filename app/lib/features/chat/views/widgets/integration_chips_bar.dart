@@ -3,25 +3,21 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
 import 'package:veraxi_app/features/chat/view_models/integration_chips_view_model.dart';
 
-/// Toggle chips above the chat input, one per enabled integration.
+/// Connected integration toggles rendered inside the Tools (`Icons.tune`) menu.
 ///
-/// Selecting chips attaches only those integrations to the current
+/// Selecting items attaches only those integrations to the current
 /// thread (persisted as `tool_settings['enabled_integration_ids']`);
 /// when the user has never toggled, every integration is attached.
-/// Renders nothing when the tenant has no integrations.
-///
-/// This is a plain StatefulWidget (not a ConsumerWidget) because
-/// ChatInput is also pumped without a ProviderScope in some contexts
-/// (widget tests, embeds): without a scope the bar simply stays empty
-/// instead of throwing.
-class IntegrationChipsBar extends StatefulWidget {
-  const IntegrationChipsBar({super.key});
+/// Renders nothing when the tenant has no integrations or no [ProviderScope]
+/// is present (e.g., isolated widget tests).
+class ToolsMenuIntegrations extends StatefulWidget {
+  const ToolsMenuIntegrations({super.key});
 
   @override
-  State<IntegrationChipsBar> createState() => _IntegrationChipsBarState();
+  State<ToolsMenuIntegrations> createState() => _ToolsMenuIntegrationsState();
 }
 
-class _IntegrationChipsBarState extends State<IntegrationChipsBar> {
+class _ToolsMenuIntegrationsState extends State<ToolsMenuIntegrations> {
   ProviderContainer? _container;
   ProviderSubscription<IntegrationChipsState>? _subscription;
 
@@ -58,37 +54,49 @@ class _IntegrationChipsBarState extends State<IntegrationChipsBar> {
       return const SizedBox.shrink();
     }
     final ext = Theme.of(context).extension<AppThemeExtension>()!;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8, left: 4, right: 4),
-      child: Wrap(
-        spacing: 8,
-        runSpacing: 4,
-        children: state.integrations.map((item) {
-          final selected = state.isSelected(item);
-          return FilterChip(
-            label: Text(
-              item.displayName,
-              style: TextStyle(
-                color: selected ? Colors.black : Colors.white,
-                fontSize: 12,
-              ),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Divider(height: 8, color: ext.borderColor),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          child: Text(
+            'Connected Apps',
+            style: TextStyle(
+              color: ext.textTertiary,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
             ),
-            selected: selected,
-            onSelected: (_) => container
+          ),
+        ),
+        ...state.integrations.map((item) {
+          final selected = state.isSelected(item);
+          return MenuItemButton(
+            closeOnActivate: false,
+            onPressed: () => container
                 .read(integrationChipsViewModelProvider.notifier)
                 .toggle(item),
-            backgroundColor: ext.borderColorStrong,
-            selectedColor: Colors.white,
-            checkmarkColor: Colors.black,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-              side: BorderSide.none,
+            leadingIcon: Icon(
+              Icons.extension_outlined,
+              size: 16,
+              color: selected ? Colors.white : ext.textTertiary,
             ),
-            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            padding: EdgeInsets.zero,
+            trailingIcon: Icon(
+              selected ? Icons.check_box : Icons.check_box_outline_blank,
+              size: 16,
+              color: selected ? Colors.white : ext.textTertiary,
+            ),
+            child: Text(
+              item.displayName,
+              style: TextStyle(
+                color: selected ? Colors.white : ext.textTertiary,
+                fontSize: 13,
+              ),
+            ),
           );
-        }).toList(),
-      ),
+        }),
+      ],
     );
   }
 }

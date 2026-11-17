@@ -318,7 +318,6 @@ class _ChatInputState extends State<ChatInput> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const IntegrationChipsBar(),
         if (widget.errorText != null)
           Container(
             margin: EdgeInsets.only(bottom: 8.0, left: 16.0, right: 16.0),
@@ -574,6 +573,7 @@ class _ChatInputState extends State<ChatInput> {
                           'artifacts', 'Artifacts >', Icons.auto_awesome,
                           isActive: _artifactsActive,
                           isPinned: _artifactsPinned),
+                      const ToolsMenuIntegrations(),
                     ],
                   ),
                   SizedBox(width: 8),
