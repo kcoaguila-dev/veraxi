@@ -48,7 +48,26 @@ class ArtifactWorkEntries extends Table {
   Set<Column> get primaryKey => {workKey};
 }
 
-@DriftDatabase(tables: [LocalThreads, LocalMessages, ArtifactWorkEntries])
+/// One key-value entry of an artifact's scoped runtime storage
+/// (`window.veraxiStorage`), keyed by (scope, key). The local half
+/// of the runtime storage repository; the synced copy lives
+/// server-side under the same scope (see routes/artifacts.py).
+class ArtifactRuntimeStorageEntries extends Table {
+  TextColumn get scopeId => text()();
+  TextColumn get entryKey => text()();
+  TextColumn get entryValue => text()();
+  IntColumn get updatedAtMs => integer().withDefault(const Constant(0))();
+
+  @override
+  Set<Column> get primaryKey => {scopeId, entryKey};
+}
+
+@DriftDatabase(tables: [
+  LocalThreads,
+  LocalMessages,
+  ArtifactWorkEntries,
+  ArtifactRuntimeStorageEntries,
+])
 class LocalChatDatabase extends _$LocalChatDatabase {
   LocalChatDatabase() : super(openConnection());
 
@@ -57,7 +76,7 @@ class LocalChatDatabase extends _$LocalChatDatabase {
   LocalChatDatabase.withExecutor(super.executor);
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -73,6 +92,9 @@ class LocalChatDatabase extends _$LocalChatDatabase {
           }
           if (from < 4) {
             await m.createTable(artifactWorkEntries);
+          }
+          if (from < 5) {
+            await m.createTable(artifactRuntimeStorageEntries);
           }
         },
       );

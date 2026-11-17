@@ -46,6 +46,15 @@ VALID_ARTIFACT_KINDS = {"html", "svg", "mermaid", "react", "markdown", "code"}
 MAX_WORK_VERSIONS = 200
 MAX_WORK_STATE_CHARS = 1_000_000
 
+# Artifact runtime storage limits (window.veraxiStorage scopes):
+# at most this many keys per scope, each value at most this long,
+# and the whole scope at most this many characters in total.
+MAX_STORAGE_KEYS = 100
+MAX_STORAGE_VALUE_CHARS = 100_000
+MAX_STORAGE_SCOPE_CHARS = 2_000_000
+MAX_STORAGE_KEY_CHARS = 500
+MAX_STORAGE_SCOPE_ID_CHARS = 300
+
 # Content-Security-Policy for the public artifact page. A srcdoc
 # iframe's document has no URL of its own and *inherits the embedding
 # page's CSP*, so this single policy governs both documents:
@@ -63,7 +72,7 @@ MAX_WORK_STATE_CHARS = 1_000_000
 #   'none'.
 PUBLIC_PAGE_CSP = (
     "default-src 'none'; "
-    "script-src 'unsafe-inline' https://unpkg.com https://cdn.jsdelivr.net "
+    "script-src 'unsafe-inline' blob: https://unpkg.com https://cdn.jsdelivr.net "
     "https://esm.sh https://cdn.tailwindcss.com; "
     "connect-src https://esm.sh; "
     "img-src data: https:; "
@@ -73,6 +82,41 @@ PUBLIC_PAGE_CSP = (
     "base-uri 'none'; "
     "form-action 'none'"
 )
+
+
+PUBLIC_STORAGE_SHIM_SCRIPT = """<script>
+(function () {
+  var store = {};
+  var api = {
+    get: function (key) {
+      return Promise.resolve(
+        Object.prototype.hasOwnProperty.call(store, key) ? store[key] : null);
+    },
+    set: function (key, value) { store[key] = String(value); return Promise.resolve(); },
+    delete: function (key) { delete store[key]; return Promise.resolve(); },
+    list: function (prefix) {
+      prefix = prefix || '';
+      return Promise.resolve(Object.keys(store).filter(function (k) {
+        return k.indexOf(prefix) === 0;
+      }).sort());
+    }
+  };
+  window.veraxiStorage = api;
+  window.storage = api;
+  window.__veraxiStorageReply = function () {};
+})();
+</script>
+"""
+
+
+def _inject_public_shim(document: str) -> str:
+    """Insert the public (in-memory) storage shim before </head>."""
+    if "window.veraxiStorage" in document:
+        return document
+    idx = document.lower().find("</head>")
+    if idx >= 0:
+        return document[:idx] + PUBLIC_STORAGE_SHIM_SCRIPT + document[idx:]
+    return document + PUBLIC_STORAGE_SHIM_SCRIPT
 
 
 class PublishArtifactRequest(BaseModel):
@@ -119,6 +163,26 @@ def _work_key(tenant_id: str, thread_id: str) -> str:
     uses ``tenant:{tenant_id}:thread_titles`` and friends). Fields
     are ``"{message_index}:{artifact_index}"``."""
     return f"tenant:{tenant_id}:artifact_work:{thread_id}"
+
+
+def _storage_key(tenant_id: str, scope_id: str) -> str:
+    """Redis hash holding one artifact scope's runtime storage for
+    a tenant. Fields are the storage keys; values are the raw
+    strings. Draft scopes look like
+    ``{thread_id}:{message_index}:{artifact_index}`` and published
+    scopes like ``pub:{artifact_id}`` — deliberately separate from
+    the published-artifact record itself, so unpublishing a public
+    page never deletes the author's draft storage."""
+    return f"tenant:{tenant_id}:artifact_storage:{scope_id}"
+
+
+def _validate_scope_id(scope_id: str) -> None:
+    if (
+        not scope_id
+        or len(scope_id) > MAX_STORAGE_SCOPE_ID_CHARS
+        or "/" in scope_id
+    ):
+        raise HTTPException(status_code=400, detail="invalid scope_id")
 
 
 def _decode(raw) -> str | None:
@@ -274,7 +338,119 @@ def _named_bindings(clause: str | None) -> set[str]:
     return bindings
 
 
-def prepare_react_artifact(source: str) -> str:
+_SIBLING_EXTENSIONS = (".tsx", ".ts", ".jsx", ".js", ".css")
+
+
+def _resolve_sibling(specifier: str, sibling_files: dict) -> str | None:
+    """Resolve a relative specifier against sibling file names,
+    trying the bare name plus known module extensions and index
+    files — the Python mirror of resolveSiblingFileName in Dart."""
+    base = specifier.removeprefix("./")
+    candidates = [base]
+    candidates += [base + ext for ext in _SIBLING_EXTENSIONS]
+    candidates += [
+        base + "/index" + ext for ext in _SIBLING_EXTENSIONS if ext != ".css"
+    ]
+    for candidate in candidates:
+        if candidate in sibling_files:
+            return candidate
+    if specifier in sibling_files:
+        return specifier
+    return None
+
+
+def _react_sibling_bundle(source: str, sibling_files: dict):
+    """Compute (inlined_css, sibling_blocks_html, errors) for a
+    React document with siblings — mirror of the Dart builder:
+    imported sibling .css is inlined, resolved sibling modules ship
+    as inert text blocks for the Blob bootstrap, and missing or
+    circular imports become Preview errors."""
+    inlined_css: list[str] = []
+    modules: dict[str, str] = {}
+    file_names: dict[str, str] = {}
+    errors: list[str] = []
+
+    def collect_css(text: str) -> None:
+        for m in _IMPORT_STATEMENT_PATTERN.finditer(text):
+            spec = m.group(2)
+            if spec.endswith(".css"):
+                resolved = _resolve_sibling(spec, sibling_files)
+                if resolved and sibling_files[resolved] not in inlined_css:
+                    inlined_css.append(sibling_files[resolved])
+
+    collect_css(source)
+    worklist = [source]
+    seen_texts: set[int] = set()
+    while worklist:
+        text = worklist.pop()
+        if id(text) in seen_texts:
+            continue
+        seen_texts.add(id(text))
+        for m in _IMPORT_STATEMENT_PATTERN.finditer(text):
+            spec = m.group(2)
+            if not spec.startswith(".") or spec.endswith(".css"):
+                continue
+            resolved = _resolve_sibling(spec, sibling_files)
+            if resolved is None:
+                msg = f"Missing sibling module: {spec}"
+                if msg not in errors:
+                    errors.append(msg)
+                continue
+            if spec not in modules:
+                modules[spec] = sibling_files[resolved]
+                file_names[spec] = resolved
+                collect_css(sibling_files[resolved])
+                worklist.append(sibling_files[resolved])
+
+    # Circular detection over the resolved graph.
+    graph = {
+        spec: [
+            m.group(2)
+            for m in _IMPORT_STATEMENT_PATTERN.finditer(src)
+            if m.group(2).startswith(".") and not m.group(2).endswith(".css")
+        ]
+        for spec, src in modules.items()
+    }
+    visiting: set[str] = set()
+    visited: set[str] = set()
+
+    def dfs(node: str) -> None:
+        if node in visited:
+            return
+        if node in visiting:
+            errors.append(f"Circular sibling import involving {node}")
+            return
+        visiting.add(node)
+        for dep in graph.get(node, []):
+            if dep in graph:
+                dfs(dep)
+        visiting.discard(node)
+        visited.add(node)
+
+    for node in graph:
+        dfs(node)
+
+    css_html = "\n".join(
+        '  <style data-veraxi-sibling-css>\n'
+        + css.replace("</style", "<\\/style")
+        + "\n  </style>"
+        for css in inlined_css
+    )
+    blocks_html = "\n".join(
+        '  <script type="text/plain" class="veraxi-sibling-source" '
+        f'data-spec="{spec}" data-name="{file_names[spec]}">\n'
+        + re.sub(
+            r"""import\s+(?:[\s\S]*?\s+from\s+)?['"][^'"]*\.css['"];?""",
+            "",
+            src,
+        ).replace("</script", "<\\/script")
+        + "\n  </script>"
+        for spec, src in modules.items()
+    )
+    return css_html, blocks_html, errors, bool(modules or errors)
+
+
+def prepare_react_artifact(source: str, sibling_files: dict | None = None) -> str:
     """Prepare React/JSX source to run as an ES module in the harness
     document, the way modern in-browser runners (import maps + esm.sh)
     do it:
@@ -307,6 +483,13 @@ def prepare_react_artifact(source: str) -> str:
         if specifier.endswith(".css"):
             return ""
         if specifier.startswith((".", "/")):
+            # With sibling files, a resolvable relative import stays:
+            # the document builder ships the sibling as a Blob module
+            # and the bootstrap rewrites the specifier to its URL.
+            if sibling_files and _resolve_sibling(specifier, sibling_files):
+                return match.group(0)
+            if sibling_files:
+                return match.group(0)
             return ""
         if specifier == "react":
             imported_from_react.update(_named_bindings(clause))
@@ -441,9 +624,10 @@ _BASE_STYLES = """    body {
 
 def _build_html_document(code: str) -> str:
     # A full document (the author wrote <!DOCTYPE html> / <html>) is
-    # already self-contained; wrapping it would nest documents.
+    # already self-contained; wrapping it would nest documents. The
+    # public storage shim is still injected.
     if "<html" in code.lower():
-        return code
+        return _inject_public_shim(code)
     return (
         "<!DOCTYPE html>\n"
         "<html>\n"
@@ -451,7 +635,8 @@ def _build_html_document(code: str) -> str:
         '  <meta charset="utf-8">\n'
         '  <meta name="viewport" content="width=device-width, initial-scale=1.0">\n'
         '  <script src="https://cdn.tailwindcss.com"></script>\n'
-        "  <style>\n"
+        + PUBLIC_STORAGE_SHIM_SCRIPT
+        + "\n  <style>\n"
         + _BASE_STYLES
         + "  </style>\n"
         "</head>\n"
@@ -567,8 +752,80 @@ _REACT_BOOTSTRAP = """  <script>
 """
 
 
-def _build_react_document(source: str) -> str:
-    prepared = prepare_react_artifact(source)
+def _sibling_bootstrap_script(errors: list) -> str:
+    import json as _json
+
+    errors_json = _json.dumps(errors)
+    return (
+        "  <script>\n"
+        "    (function () {\n"
+        f"      var siblingErrors = {errors_json};\n"
+        "      function showError(err) {\n"
+        "        document.getElementById('root').innerHTML =\n"
+        "          '<pre style=\"color:#FCA5A5;white-space:pre-wrap\"></pre>';\n"
+        "        document.querySelector('#root pre').textContent =\n"
+        "          'Preview error: ' + (err && err.message ? err.message : err);\n"
+        "      }\n"
+        "      function transpile(src) {\n"
+        "        return Babel.transform(src, {\n"
+        "          sourceType: 'module',\n"
+        "          presets: ['react', ['typescript', { isTSX: true, allExtensions: true }]]\n"
+        "        }).code;\n"
+        "      }\n"
+        "      function rewriteSpecs(code, blobUrls) {\n"
+        "        Object.keys(blobUrls).forEach(function (spec) {\n"
+        "          code = code.split(\"'\" + spec + \"'\").join(\"'\" + blobUrls[spec] + \"'\");\n"
+        "          code = code.split('\"\"\" + spec + \"\"\"').join('\"\"\" + blobUrls[spec] + \"\"\"');\n"
+        "        });\n"
+        "        return code;\n"
+        "      }\n"
+        "      function specsIn(code) {\n"
+        "        var specs = []; var re = /(?:from\\s+|import\\s+)['\"](\\.[^'\"]+)['\"]/g; var m;\n"
+        "        while ((m = re.exec(code)) !== null) specs.push(m[1]);\n"
+        "        return specs;\n"
+        "      }\n"
+        "      try {\n"
+        "        if (siblingErrors.length) { showError(siblingErrors.join('; ')); return; }\n"
+        "        var blocks = document.querySelectorAll('.veraxi-sibling-source');\n"
+        "        var pending = {};\n"
+        "        blocks.forEach(function (b) { pending[b.getAttribute('data-spec')] = b.textContent; });\n"
+        "        var blobUrls = {}; var progress = true;\n"
+        "        while (progress && Object.keys(pending).length) {\n"
+        "          progress = false;\n"
+        "          Object.keys(pending).forEach(function (spec) {\n"
+        "            var deps = specsIn(pending[spec]);\n"
+        "            var ready = deps.every(function (d) { return blobUrls[d] || !pending[d]; });\n"
+        "            if (!ready) return;\n"
+        "            var out = rewriteSpecs(transpile(pending[spec]), blobUrls);\n"
+        "            var blob = new Blob([out], { type: 'text/javascript' });\n"
+        "            blobUrls[spec] = URL.createObjectURL(blob);\n"
+        "            delete pending[spec]; progress = true;\n"
+        "          });\n"
+        "        }\n"
+        "        if (Object.keys(pending).length) {\n"
+        "          showError('Circular or missing sibling imports: ' + Object.keys(pending).join(', ')); return;\n"
+        "        }\n"
+        "        var src = document.getElementById('veraxi-react-source').textContent;\n"
+        "        var out = rewriteSpecs(transpile(src), blobUrls);\n"
+        "        var script = document.createElement('script');\n"
+        "        script.type = 'module'; script.textContent = out;\n"
+        "        document.body.appendChild(script);\n"
+        "      } catch (err) { showError(err); }\n"
+        "    })();\n"
+        "  </script>\n"
+    )
+
+
+def _build_react_document(source: str, sibling_files: dict | None = None) -> str:
+    prepared = prepare_react_artifact(source, sibling_files=sibling_files)
+    css_html, sibling_blocks, sibling_errors, has_siblings = (
+        _react_sibling_bundle(source, sibling_files)
+        if sibling_files
+        else ("", "", [], False)
+    )
+    bootstrap = (
+        _sibling_bootstrap_script(sibling_errors) if has_siblings else _REACT_BOOTSTRAP
+    )
     return (
         "<!DOCTYPE html>\n"
         "<html>\n"
@@ -577,7 +834,8 @@ def _build_react_document(source: str) -> str:
         '  <meta name="viewport" content="width=device-width, initial-scale=1.0">\n'
         '  <script src="https://cdn.tailwindcss.com"></script>\n'
         '  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>\n'
-        '  <script type="importmap">\n'
+        + PUBLIC_STORAGE_SHIM_SCRIPT
+        + '\n  <script type="importmap">\n'
         + _REACT_IMPORT_MAP
         + "  </script>\n"
         "  <style>\n"
@@ -589,13 +847,15 @@ def _build_react_document(source: str) -> str:
         '      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;\n'
         "    }\n"
         "  </style>\n"
-        "</head>\n"
+        + (css_html + "\n" if css_html else "")
+        + "</head>\n"
         "<body>\n"
         '  <div id="root"></div>\n'
         '  <script type="text/plain" id="veraxi-react-source">\n'
         + prepared
         + "\n  </script>\n"
-        + _REACT_BOOTSTRAP
+        + (sibling_blocks + "\n" if sibling_blocks else "")
+        + bootstrap
         + "</body>\n"
         "</html>\n"
     )
@@ -651,19 +911,21 @@ def _build_code_document(code: str) -> str:
     )
 
 
-def _build_artifact_document(kind: str, code: str) -> str:
+def _build_artifact_document(
+    kind: str, code: str, sibling_files: dict | None = None
+) -> str:
     """Build the standalone inner document for a published artifact.
     Unknown kinds fall back to the HTML wrapper, like the Dart side."""
     if kind == "svg":
-        return _build_svg_document(code)
+        return _inject_public_shim(_build_svg_document(code))
     if kind == "mermaid":
-        return _build_mermaid_document(code)
+        return _inject_public_shim(_build_mermaid_document(code))
     if kind == "react":
-        return _build_react_document(code)
+        return _build_react_document(code, sibling_files=sibling_files)
     if kind == "markdown":
-        return _build_markdown_document(code)
+        return _inject_public_shim(_build_markdown_document(code))
     if kind == "code":
-        return _build_code_document(code)
+        return _inject_public_shim(_build_code_document(code))
     return _build_html_document(code)
 
 
@@ -873,6 +1135,112 @@ def register_artifact_routes(
                     "Corrupt artifact work entry %s in thread %s", field, thread_id
                 )
         return {"entries": entries}
+
+    @app_router.get("/api/artifacts/storage/{scope_id}")
+    async def get_artifact_storage(
+        scope_id: str,
+        request: Request,
+        tenant_id: str = Depends(get_tenant_id),
+    ):
+        # Like work sync, runtime storage is private per-tenant
+        # data, so guests may use their own scopes too.
+        _validate_scope_id(scope_id)
+        try:
+            store = _get_store(request)
+            raw_entries = await store.hgetall(_storage_key(tenant_id, scope_id))
+        except HTTPException:
+            raise
+        except Exception as e:
+            sentry_sdk.capture_exception(e)
+            logger.error(f"Error loading artifact storage: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+        entries = {}
+        for raw_field, raw_value in (raw_entries or {}).items():
+            field = _decode(raw_field)
+            value = _decode(raw_value)
+            if field is not None and value is not None:
+                entries[field] = value
+        return {"entries": entries}
+
+    @app_router.put("/api/artifacts/storage/{scope_id}")
+    @limiter.limit(config.rate_limit_ingest)
+    async def put_artifact_storage(
+        scope_id: str,
+        request: Request,
+        tenant_id: str = Depends(get_tenant_id),
+    ):
+        _validate_scope_id(scope_id)
+        try:
+            body = await request.json()
+        except Exception:
+            raise HTTPException(
+                status_code=400, detail="request body must be valid JSON"
+            )
+        if not isinstance(body, dict):
+            raise HTTPException(status_code=400, detail="request body must be an object")
+        key = body.get("key")
+        value = body.get("value")
+        if not isinstance(key, str) or not key or len(key) > MAX_STORAGE_KEY_CHARS:
+            raise HTTPException(
+                status_code=400,
+                detail=f"key must be a string of 1..{MAX_STORAGE_KEY_CHARS} characters",
+            )
+        if not isinstance(value, str):
+            raise HTTPException(status_code=400, detail="value must be a string")
+        if len(value) > MAX_STORAGE_VALUE_CHARS:
+            raise HTTPException(
+                status_code=413,
+                detail=f"value too large (max {MAX_STORAGE_VALUE_CHARS} characters)",
+            )
+        try:
+            store = _get_store(request)
+            storage_key = _storage_key(tenant_id, scope_id)
+            existing = await store.hgetall(storage_key) or {}
+            decoded = {
+                _decode(f): _decode(v) for f, v in existing.items()
+            }
+            if key not in decoded and len(decoded) >= MAX_STORAGE_KEYS:
+                raise HTTPException(
+                    status_code=413,
+                    detail=f"too many keys for this artifact (max {MAX_STORAGE_KEYS})",
+                )
+            total = (
+                sum(len(v or "") for k, v in decoded.items() if k != key)
+                + len(value)
+            )
+            if total > MAX_STORAGE_SCOPE_CHARS:
+                raise HTTPException(
+                    status_code=413,
+                    detail=(
+                        f"storage scope too large "
+                        f"(max {MAX_STORAGE_SCOPE_CHARS} characters)"
+                    ),
+                )
+            await store.hset(storage_key, key, value)
+        except HTTPException:
+            raise
+        except Exception as e:
+            sentry_sdk.capture_exception(e)
+            logger.error(f"Error saving artifact storage: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+        return {"saved": True}
+
+    @app_router.delete("/api/artifacts/storage/{scope_id}/{key}")
+    async def delete_artifact_storage(
+        scope_id: str,
+        key: str,
+        request: Request,
+        tenant_id: str = Depends(get_tenant_id),
+    ):
+        _validate_scope_id(scope_id)
+        try:
+            store = _get_store(request)
+            await store.hdel(_storage_key(tenant_id, scope_id), key)
+        except Exception as e:
+            sentry_sdk.capture_exception(e)
+            logger.error(f"Error deleting artifact storage: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+        return {"deleted": True}
 
     @app_router.get("/a/{artifact_id}")
     async def get_public_artifact(artifact_id: str, request: Request):

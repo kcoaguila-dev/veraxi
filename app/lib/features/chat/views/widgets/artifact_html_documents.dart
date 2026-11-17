@@ -29,13 +29,97 @@ import 'dart:convert';
 /// Dispatches to the document builder for [kind]
 /// (`html`, `svg`, `mermaid`, `react`). Unknown kinds fall back to the
 /// HTML wrapper.
-String buildArtifactDocument(String kind, String code) {
+String buildArtifactDocument(
+  String kind,
+  String code, {
+  Map<String, String> siblingFiles = const {},
+}) {
   return switch (kind) {
     'svg' => buildSvgArtifactDocument(code),
     'mermaid' => buildMermaidArtifactDocument(code),
-    'react' => buildReactArtifactDocument(code),
+    'react' => buildReactArtifactDocument(code, siblingFiles: siblingFiles),
     _ => buildHtmlArtifactDocument(code),
   };
+}
+
+/// JS shim injected into every artifact document: a promise-based
+/// `window.veraxiStorage` (aliased as `window.storage`) key-value
+/// API proxied over postMessage to the host app, because the
+/// sandboxed iframe's opaque origin has no usable localStorage.
+/// The host validates every request and replies with
+/// `{type: 'veraxi_storage_reply', requestId, ok, data, error}`.
+/// On native, replies arrive via `window.__veraxiStorageReply(...)`
+/// called by the WebView host; requests go out over the
+/// `VeraxiStorage` JavaScript channel when present, else the
+/// `VeraxiRunner` channel, else `window.parent.postMessage`.
+const String veraxiStorageShimScript = '''
+<script>
+(function () {
+  var pending = {};
+  var counter = 0;
+  function settle(reply) {
+    if (!reply || reply.type !== 'veraxi_storage_reply') return;
+    var entry = pending[reply.requestId];
+    if (!entry) return;
+    delete pending[reply.requestId];
+    if (reply.ok) entry.resolve(reply.data);
+    else entry.reject(new Error(reply.error || 'storage error'));
+  }
+  window.__veraxiStorageReply = settle;
+  window.addEventListener('message', function (event) {
+    var data = event.data;
+    if (typeof data === 'string') {
+      try { data = JSON.parse(data); } catch (e) { return; }
+    }
+    settle(data);
+  });
+  function send(op, key, value) {
+    return new Promise(function (resolve, reject) {
+      var requestId = 'vs_' + (++counter) + '_' + Date.now();
+      pending[requestId] = { resolve: resolve, reject: reject };
+      var msg = { type: 'veraxi_storage', requestId: requestId, op: op,
+                  key: key || null, value: value === undefined ? null : value };
+      var raw = JSON.stringify(msg);
+      setTimeout(function () {
+        if (pending[requestId]) {
+          delete pending[requestId];
+          reject(new Error('veraxiStorage: host did not reply'));
+        }
+      }, 10000);
+      if (typeof VeraxiStorage !== 'undefined' && VeraxiStorage.postMessage) {
+        VeraxiStorage.postMessage(raw);
+      } else if (typeof VeraxiRunner !== 'undefined' && VeraxiRunner.postMessage) {
+        VeraxiRunner.postMessage(raw);
+      } else {
+        window.parent.postMessage(raw, '*');
+      }
+    });
+  }
+  var api = {
+    get: function (key) { return send('get', key); },
+    set: function (key, value) { return send('set', key, String(value)); },
+    delete: function (key) { return send('delete', key); },
+    list: function (prefix) { return send('list', prefix || ''); }
+  };
+  window.veraxiStorage = api;
+  window.storage = api;
+})();
+</script>
+''';
+
+/// Inserts the storage shim into a full HTML document the author
+/// wrote, just before `</head>` (or `</body>` when there is no head).
+String injectVeraxiStorageShim(String document) {
+  if (document.contains('window.veraxiStorage')) return document;
+  final headEnd = document.toLowerCase().indexOf('</head>');
+  if (headEnd >= 0) {
+    return document.replaceRange(headEnd, headEnd, veraxiStorageShimScript);
+  }
+  final bodyEnd = document.toLowerCase().indexOf('</body>');
+  if (bodyEnd >= 0) {
+    return document.replaceRange(bodyEnd, bodyEnd, veraxiStorageShimScript);
+  }
+  return '$document\n$veraxiStorageShimScript';
 }
 
 const String _baseStyles = '''
@@ -50,8 +134,11 @@ const String _baseStyles = '''
 
 String buildHtmlArtifactDocument(String code) {
   // A full document (the assistant wrote <!DOCTYPE html> / <html>) is
-  // already self-contained; wrapping it would nest documents.
-  if (code.toLowerCase().contains('<html')) return code;
+  // already self-contained; wrapping it would nest documents. The
+  // storage shim is still injected so window.veraxiStorage works.
+  if (code.toLowerCase().contains('<html')) {
+    return injectVeraxiStorageShim(code);
+  }
   return '''
 <!DOCTYPE html>
 <html>
@@ -59,7 +146,7 @@ String buildHtmlArtifactDocument(String code) {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script src="https://cdn.tailwindcss.com"></script>
-  <style>
+$veraxiStorageShimScript  <style>
 $_baseStyles  </style>
 </head>
 <body>
@@ -76,7 +163,7 @@ String buildSvgArtifactDocument(String code) {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <style>
+$veraxiStorageShimScript  <style>
     body {
       margin: 0;
       padding: 24px;
@@ -109,7 +196,7 @@ String buildMermaidArtifactDocument(String code) {
 <head>
   <meta charset="utf-8">
   <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
-  <style>
+$veraxiStorageShimScript  <style>
     body {
       margin: 0;
       padding: 24px;
@@ -159,11 +246,66 @@ class ReactArtifactPreparation {
   /// `ReactDOM.render`), so the harness must not mount it again.
   final bool shouldAutoMount;
 
+  /// Sibling modules resolved from relative imports, keyed by the
+  /// specifier as written (`./Helper`). Empty in single-file mode.
+  final Map<String, String> siblingModules;
+
+  /// File names of the resolved siblings, keyed like [siblingModules].
+  final Map<String, String> siblingFileNames;
+
+  /// Contents of sibling `.css` files imported by the entry (or by a
+  /// sibling), to be inlined as `<style>` by the document builder.
+  final List<String> inlinedCss;
+
+  /// Relative imports that could not be resolved to a sibling, and
+  /// circular-dependency diagnostics. Non-empty means the bootstrap
+  /// surfaces a Preview error instead of running a broken bundle.
+  final List<String> siblingErrors;
+
   const ReactArtifactPreparation({
     required this.code,
     required this.componentName,
     required this.shouldAutoMount,
+    this.siblingModules = const {},
+    this.siblingFileNames = const {},
+    this.inlinedCss = const [],
+    this.siblingErrors = const [],
   });
+}
+
+/// Resolves a relative specifier (`./Helper`, `./foo.css`) against
+/// the sibling file map, trying the bare name plus known module
+/// extensions and `index` files. Returns the sibling's file name.
+String? resolveSiblingFileName(
+  String specifier,
+  Map<String, String> siblingFiles,
+) {
+  final normalized = <String, String>{
+    for (final entry in siblingFiles.entries)
+      entry.key.replaceFirst(RegExp(r'^\./'), ''): entry.key,
+  };
+  String lookup(String candidate) =>
+      normalized[candidate.replaceFirst(RegExp(r'^\./'), '')] ?? '';
+  final base = specifier.replaceFirst(RegExp(r'^\./'), '');
+  final candidates = <String>[
+    base,
+    '$base.tsx',
+    '$base.ts',
+    '$base.jsx',
+    '$base.js',
+    '$base.css',
+    '$base/index.tsx',
+    '$base/index.ts',
+    '$base/index.jsx',
+    '$base/index.js',
+  ];
+  for (final candidate in candidates) {
+    final found = lookup(candidate);
+    if (found.isNotEmpty) return found;
+  }
+  // Also match by exact key as written.
+  if (siblingFiles.containsKey(specifier)) return specifier;
+  return null;
 }
 
 /// Import statements, capturing the clause (`React, { useState }`,
@@ -241,13 +383,77 @@ Set<String> _namedBindings(String? clause) {
 /// - Unless the source mounts itself, a snippet is appended that
 ///   mounts the default export — or a component named App / Component
 ///   / Demo / Main — into `#root` with React 18's `createRoot`.
-ReactArtifactPreparation prepareReactArtifact(String source) {
+ReactArtifactPreparation prepareReactArtifact(
+  String source, {
+  Map<String, String> siblingFiles = const {},
+}) {
   final importedFromReact = <String>{};
+  final siblingModules = <String, String>{};
+  final siblingFileNames = <String, String>{};
+  final inlinedCss = <String>[];
+  final siblingErrors = <String>[];
+
+  String? resolveSibling(String specifier) => siblingFiles.isEmpty
+      ? null
+      : resolveSiblingFileName(specifier, siblingFiles);
+
+  final collectedSiblings = <String>{};
+
+  void collectFromSibling(String fileName) {
+    // A sibling's own imports resolve the same way (all siblings
+    // live flat in one message): .css imports are inlined, and
+    // relative JS imports are registered transitively so the Blob
+    // bootstrap can resolve the whole graph — and so circular
+    // detection below sees every edge.
+    if (!collectedSiblings.add(fileName)) return;
+    final siblingSource = siblingFiles[fileName];
+    if (siblingSource == null) return;
+    for (final m in _importStatementPattern.allMatches(siblingSource)) {
+      final spec = m.group(2)!;
+      if (spec.endsWith('.css')) {
+        final cssFile = resolveSibling(spec);
+        if (cssFile != null && !inlinedCss.contains(siblingFiles[cssFile])) {
+          inlinedCss.add(siblingFiles[cssFile]!);
+        }
+        continue;
+      }
+      if (!spec.startsWith('.')) continue;
+      final resolved = resolveSibling(spec);
+      if (resolved == null) {
+        if (!siblingErrors.any((e) => e.contains(spec))) {
+          siblingErrors.add('Missing sibling module: $spec');
+        }
+        continue;
+      }
+      siblingModules.putIfAbsent(spec, () => siblingFiles[resolved]!);
+      siblingFileNames.putIfAbsent(spec, () => resolved);
+      collectFromSibling(resolved);
+    }
+  }
+
   var code = source.replaceAllMapped(_importStatementPattern, (match) {
     final clause = match.group(1);
     final specifier = match.group(2)!;
-    if (specifier.endsWith('.css')) return '';
-    if (specifier.startsWith('.') || specifier.startsWith('/')) return '';
+    if (specifier.endsWith('.css')) {
+      final cssFile = resolveSibling(specifier);
+      if (cssFile != null) {
+        final css = siblingFiles[cssFile]!;
+        if (!inlinedCss.contains(css)) inlinedCss.add(css);
+      }
+      return '';
+    }
+    if (specifier.startsWith('.') || specifier.startsWith('/')) {
+      if (siblingFiles.isEmpty) return '';
+      final resolved = resolveSibling(specifier);
+      if (resolved == null) {
+        siblingErrors.add('Missing sibling module: $specifier');
+        return match.group(0)!;
+      }
+      siblingModules[specifier] = siblingFiles[resolved]!;
+      siblingFileNames[specifier] = resolved;
+      collectFromSibling(resolved);
+      return match.group(0)!;
+    }
     if (specifier == 'react') {
       importedFromReact.addAll(_namedBindings(clause));
       return match.group(0)!;
@@ -256,6 +462,38 @@ ReactArtifactPreparation prepareReactArtifact(String source) {
     final url = _esmUrlFor(specifier);
     return clause == null ? "import '$url';" : "import $clause from '$url';";
   });
+
+  // Circular-import detection over the resolved sibling graph.
+  if (siblingModules.isNotEmpty) {
+    final graph = <String, List<String>>{};
+    siblingModules.forEach((spec, src) {
+      graph[spec] = [
+        for (final m in _importStatementPattern.allMatches(src))
+          if ((m.group(2) ?? '').startsWith('.') &&
+              !(m.group(2) ?? '').endsWith('.css'))
+            m.group(2)!,
+      ];
+    });
+    final visiting = <String>{};
+    final visited = <String>{};
+    void dfs(String node) {
+      if (visited.contains(node)) return;
+      if (visiting.contains(node)) {
+        siblingErrors.add('Circular sibling import involving $node');
+        return;
+      }
+      visiting.add(node);
+      for (final dep in graph[node] ?? const <String>[]) {
+        if (graph.containsKey(dep)) dfs(dep);
+      }
+      visiting.remove(node);
+      visited.add(node);
+    }
+
+    for (final node in graph.keys) {
+      dfs(node);
+    }
+  }
 
   String? componentName;
 
@@ -349,6 +587,10 @@ $code
     code: code,
     componentName: componentName,
     shouldAutoMount: shouldAutoMount,
+    siblingModules: siblingModules,
+    siblingFileNames: siblingFileNames,
+    inlinedCss: inlinedCss,
+    siblingErrors: siblingErrors,
   );
 }
 
@@ -377,8 +619,27 @@ const String _reactImportMap = '''
 /// (JSX + TypeScript) and injects the result as an ES module.
 /// Transform and module-load errors are shown in place of the
 /// preview.
-String buildReactArtifactDocument(String source) {
-  final prepared = prepareReactArtifact(source);
+String buildReactArtifactDocument(
+  String source, {
+  Map<String, String> siblingFiles = const {},
+}) {
+  final prepared = prepareReactArtifact(source, siblingFiles: siblingFiles);
+  final cssBlocks = prepared.inlinedCss
+      .map((css) =>
+          '  <style data-veraxi-sibling-css>\n${css.replaceAll('</style', r'<\/style')}\n  </style>')
+      .join('\n');
+  final siblingBlocks = prepared.siblingModules.entries
+      .map((entry) =>
+          '  <script type="text/plain" class="veraxi-sibling-source" '
+          'data-spec="${entry.key}" '
+          'data-name="${prepared.siblingFileNames[entry.key] ?? entry.key}">\n'
+          '${entry.value.replaceAll(RegExp(r"""import\s+(?:[\s\S]*?\s+from\s+)?['"][^'"]*\.css['"];?"""), '').replaceAll('</script', r'<\/script')}\n  </script>')
+      .join('\n');
+  final siblingErrorsJson = jsonEncode(prepared.siblingErrors);
+  final bootstrap =
+      prepared.siblingModules.isEmpty && prepared.siblingErrors.isEmpty
+          ? _reactBootstrapScript
+          : _siblingBootstrapScript(siblingErrorsJson);
   return '''
 <!DOCTYPE html>
 <html>
@@ -387,7 +648,7 @@ String buildReactArtifactDocument(String source) {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-  <script type="importmap">
+$veraxiStorageShimScript  <script type="importmap">
 $_reactImportMap  </script>
   <style>
     body {
@@ -398,12 +659,23 @@ $_reactImportMap  </script>
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     }
   </style>
+$cssBlocks
 </head>
 <body>
   <div id="root"></div>
   <script type="text/plain" id="veraxi-react-source">
 ${prepared.code}
   </script>
+$siblingBlocks
+$bootstrap
+</body>
+</html>
+''';
+}
+
+/// The single-file React bootstrap: transpile the entry source with
+/// Babel and inject it as an ES module.
+const String _reactBootstrapScript = '''
   <script>
     (function () {
       function showError(err) {
@@ -434,8 +706,100 @@ ${prepared.code}
       }
     })();
   </script>
-</body>
-</html>
+''';
+
+/// The multi-file React bootstrap: transpile each sibling source,
+/// publish it as a Blob module URL (`URL.createObjectURL`), rewrite
+/// relative specifiers in transpiled code to those Blob URLs, then
+/// inject the entry the same way. Sibling sources whose relative
+/// dependencies are not ready yet are deferred until they are; a
+/// set that never resolves (missing/circular, also pre-reported in
+/// [errorsJson]) surfaces a clear Preview error. Blob module loads
+/// require `blob:` in script-src — see PUBLIC_PAGE_CSP on the
+/// backend for published pages.
+String _siblingBootstrapScript(String errorsJson) {
+  return '''
+  <script>
+    (function () {
+      var siblingErrors = $errorsJson;
+      function showError(err) {
+        document.getElementById('root').innerHTML =
+          '<pre style="color:#FCA5A5;white-space:pre-wrap"></pre>';
+        document.querySelector('#root pre').textContent =
+          'Preview error: ' + (err && err.message ? err.message : err);
+      }
+      function transpile(src) {
+        return Babel.transform(src, {
+          sourceType: 'module',
+          presets: [
+            'react',
+            ['typescript', { isTSX: true, allExtensions: true }]
+          ]
+        }).code;
+      }
+      function rewriteSpecs(code, blobUrls) {
+        Object.keys(blobUrls).forEach(function (spec) {
+          code = code.split("'" + spec + "'").join("'" + blobUrls[spec] + "'");
+          code = code.split('"' + spec + '"').join('"' + blobUrls[spec] + '"');
+        });
+        return code;
+      }
+      function specsIn(code) {
+        var specs = [];
+        var re = /(?:from\\s+|import\\s+)['"](\\.[^'"]+)['"]/g;
+        var m;
+        while ((m = re.exec(code)) !== null) specs.push(m[1]);
+        return specs;
+      }
+      try {
+        if (siblingErrors.length) {
+          showError(siblingErrors.join('; '));
+          return;
+        }
+        var blocks = document.querySelectorAll('.veraxi-sibling-source');
+        var pending = {};
+        blocks.forEach(function (b) {
+          pending[b.getAttribute('data-spec')] = b.textContent;
+        });
+        var blobUrls = {};
+        var progress = true;
+        while (progress && Object.keys(pending).length) {
+          progress = false;
+          Object.keys(pending).forEach(function (spec) {
+            var deps = specsIn(pending[spec]).filter(function (d) {
+              return d.indexOf('.css') !== d.length - 4;
+            });
+            var ready = deps.every(function (d) {
+              return blobUrls[d] || !pending[d];
+            });
+            if (!ready) return;
+            var out = rewriteSpecs(transpile(pending[spec]), blobUrls);
+            var blob = new Blob([out], { type: 'text/javascript' });
+            blobUrls[spec] = URL.createObjectURL(blob);
+            delete pending[spec];
+            progress = true;
+          });
+        }
+        if (Object.keys(pending).length) {
+          showError('Circular or missing sibling imports: ' +
+            Object.keys(pending).join(', '));
+          return;
+        }
+        var src = document.getElementById('veraxi-react-source').textContent;
+        var out = rewriteSpecs(transpile(src), blobUrls);
+        var script = document.createElement('script');
+        script.type = 'module';
+        script.textContent = out;
+        script.onerror = function () {
+          showError('Failed to load a module — an import could not be ' +
+            'resolved (unknown package or no network).');
+        };
+        document.body.appendChild(script);
+      } catch (err) {
+        showError(err);
+      }
+    })();
+  </script>
 ''';
 }
 

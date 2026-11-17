@@ -261,6 +261,40 @@ final openCodeArtifactLiveProvider = Provider<CodeArtifact?>((ref) {
   return resolveOpenCodeArtifact(open, state);
 });
 
+/// All artifacts from the same message as [open] that carry a file
+/// name — the sibling files a multi-file React artifact can import
+/// (`App.tsx` importing `./Chart` and `./styles.css` from sibling
+/// fenced blocks in the same assistant message).
+List<CodeArtifact> collectSiblingArtifacts(
+  ChatState state,
+  OpenCodeArtifact open,
+) {
+  final messageIndex = open.messageIndex;
+  if (messageIndex == null) return const [];
+  if (open.threadId != state.threadId) return const [];
+  if (messageIndex < 0 || messageIndex >= state.messages.length) {
+    return const [];
+  }
+  return extractCodeArtifacts(state.messages[messageIndex].content)
+      .where((a) => a.fileName != null && a.fileName!.isNotEmpty)
+      .toList();
+}
+
+/// Sibling files for the open artifact, keyed by file name — the
+/// map the React document builder consumes. Excludes the open
+/// artifact itself.
+final openArtifactSiblingFilesProvider = Provider<Map<String, String>>((ref) {
+  final open = ref.watch(openCodeArtifactProvider);
+  if (open == null) return const {};
+  final state = ref.watch(chatViewModelProvider);
+  final siblings = collectSiblingArtifacts(state, open);
+  return {
+    for (final sibling in siblings)
+      if (sibling.fileName != open.artifact.fileName)
+        sibling.fileName!: sibling.code,
+  };
+});
+
 /// Languages the client sandbox can actually execute on the user's
 /// device (Python via Pyodide, JavaScript in the sandbox frame). Run
 /// controls are only shown for these — a Run button for any other

@@ -45,6 +45,35 @@ enum ArtifactQuickAction {
               'complete updated file in a single fenced code block.',
       };
 
+  /// Patch-mode instruction used instead of [_instruction] for
+  /// rewrite actions on larger files: targeted SEARCH/REPLACE
+  /// blocks are cheaper and cannot drift unrelated lines the way a
+  /// full-file regeneration can.
+  String get _patchInstruction => switch (this) {
+        ArtifactQuickAction.fixBugs => 'Fix the bugs in this code.',
+        ArtifactQuickAction.addLogs =>
+          'Add helpful logging statements to this code (key steps, '
+              'inputs, and errors) without changing its behavior.',
+        ArtifactQuickAction.review => _instruction,
+        ArtifactQuickAction.addComments =>
+          'Add clear explanatory comments and docstrings to this '
+              'code without changing its behavior.',
+      };
+
+  String _patchSuffix() {
+    return '$_patchInstruction '
+        'Return ONLY SEARCH/REPLACE blocks for the changed sections, '
+        'in this exact format:\n'
+        '<<<<<<< SEARCH\n'
+        '<exact existing text>\n'
+        '=======\n'
+        '<replacement text>\n'
+        '>>>>>>> REPLACE\n'
+        'Each SEARCH text must match the file exactly once. '
+        'If more than 60% of the file changes, return the complete '
+        'updated file in a single fenced block instead.';
+  }
+
   /// Builds the chat prompt for this action on [artifact], whose
   /// current code is [currentCode] (the panel's current version,
   /// which may include the user's edits).
@@ -58,7 +87,14 @@ enum ArtifactQuickAction {
     String? selectedText,
     int? selectionStartLine,
     int? selectionEndLine,
+    bool? preferPatch,
   }) {
+    // Patch mode defaults on for larger files (~80+ lines), where a
+    // full rewrite is slow, token-heavy, and risks unrelated drift.
+    // Review never patches: it produces prose, not a rewrite.
+    final usePatch =
+        producesRewrite && (preferPatch ?? currentCode.split('\n').length > 80);
+    final instruction = usePatch ? _patchSuffix() : _instruction;
     final name = artifact.fileName ?? artifact.title;
     final fence = '```${artifact.language}';
     final buffer = StringBuffer();
@@ -79,7 +115,7 @@ enum ArtifactQuickAction {
         ..writeln(currentCode)
         ..writeln('```')
         ..writeln()
-        ..write(_instruction);
+        ..write(instruction);
     } else {
       buffer
         ..writeln('`$name`:')
@@ -88,7 +124,7 @@ enum ArtifactQuickAction {
         ..writeln(currentCode)
         ..writeln('```')
         ..writeln()
-        ..write(_instruction);
+        ..write(instruction);
     }
     return buffer.toString();
   }

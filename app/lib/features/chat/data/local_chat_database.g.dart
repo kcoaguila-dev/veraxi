@@ -1209,6 +1209,292 @@ class ArtifactWorkEntriesCompanion extends UpdateCompanion<ArtifactWorkEntry> {
   }
 }
 
+class $ArtifactRuntimeStorageEntriesTable extends ArtifactRuntimeStorageEntries
+    with
+        TableInfo<$ArtifactRuntimeStorageEntriesTable,
+            ArtifactRuntimeStorageEntry> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $ArtifactRuntimeStorageEntriesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _scopeIdMeta =
+      const VerificationMeta('scopeId');
+  @override
+  late final GeneratedColumn<String> scopeId = GeneratedColumn<String>(
+      'scope_id', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _entryKeyMeta =
+      const VerificationMeta('entryKey');
+  @override
+  late final GeneratedColumn<String> entryKey = GeneratedColumn<String>(
+      'entry_key', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _entryValueMeta =
+      const VerificationMeta('entryValue');
+  @override
+  late final GeneratedColumn<String> entryValue = GeneratedColumn<String>(
+      'entry_value', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _updatedAtMsMeta =
+      const VerificationMeta('updatedAtMs');
+  @override
+  late final GeneratedColumn<int> updatedAtMs = GeneratedColumn<int>(
+      'updated_at_ms', aliasedName, false,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(0));
+  @override
+  List<GeneratedColumn> get $columns =>
+      [scopeId, entryKey, entryValue, updatedAtMs];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'artifact_runtime_storage_entries';
+  @override
+  VerificationContext validateIntegrity(
+      Insertable<ArtifactRuntimeStorageEntry> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('scope_id')) {
+      context.handle(_scopeIdMeta,
+          scopeId.isAcceptableOrUnknown(data['scope_id']!, _scopeIdMeta));
+    } else if (isInserting) {
+      context.missing(_scopeIdMeta);
+    }
+    if (data.containsKey('entry_key')) {
+      context.handle(_entryKeyMeta,
+          entryKey.isAcceptableOrUnknown(data['entry_key']!, _entryKeyMeta));
+    } else if (isInserting) {
+      context.missing(_entryKeyMeta);
+    }
+    if (data.containsKey('entry_value')) {
+      context.handle(
+          _entryValueMeta,
+          entryValue.isAcceptableOrUnknown(
+              data['entry_value']!, _entryValueMeta));
+    } else if (isInserting) {
+      context.missing(_entryValueMeta);
+    }
+    if (data.containsKey('updated_at_ms')) {
+      context.handle(
+          _updatedAtMsMeta,
+          updatedAtMs.isAcceptableOrUnknown(
+              data['updated_at_ms']!, _updatedAtMsMeta));
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {scopeId, entryKey};
+  @override
+  ArtifactRuntimeStorageEntry map(Map<String, dynamic> data,
+      {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return ArtifactRuntimeStorageEntry(
+      scopeId: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}scope_id'])!,
+      entryKey: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}entry_key'])!,
+      entryValue: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}entry_value'])!,
+      updatedAtMs: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}updated_at_ms'])!,
+    );
+  }
+
+  @override
+  $ArtifactRuntimeStorageEntriesTable createAlias(String alias) {
+    return $ArtifactRuntimeStorageEntriesTable(attachedDatabase, alias);
+  }
+}
+
+class ArtifactRuntimeStorageEntry extends DataClass
+    implements Insertable<ArtifactRuntimeStorageEntry> {
+  final String scopeId;
+  final String entryKey;
+  final String entryValue;
+  final int updatedAtMs;
+  const ArtifactRuntimeStorageEntry(
+      {required this.scopeId,
+      required this.entryKey,
+      required this.entryValue,
+      required this.updatedAtMs});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['scope_id'] = Variable<String>(scopeId);
+    map['entry_key'] = Variable<String>(entryKey);
+    map['entry_value'] = Variable<String>(entryValue);
+    map['updated_at_ms'] = Variable<int>(updatedAtMs);
+    return map;
+  }
+
+  ArtifactRuntimeStorageEntriesCompanion toCompanion(bool nullToAbsent) {
+    return ArtifactRuntimeStorageEntriesCompanion(
+      scopeId: Value(scopeId),
+      entryKey: Value(entryKey),
+      entryValue: Value(entryValue),
+      updatedAtMs: Value(updatedAtMs),
+    );
+  }
+
+  factory ArtifactRuntimeStorageEntry.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return ArtifactRuntimeStorageEntry(
+      scopeId: serializer.fromJson<String>(json['scopeId']),
+      entryKey: serializer.fromJson<String>(json['entryKey']),
+      entryValue: serializer.fromJson<String>(json['entryValue']),
+      updatedAtMs: serializer.fromJson<int>(json['updatedAtMs']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'scopeId': serializer.toJson<String>(scopeId),
+      'entryKey': serializer.toJson<String>(entryKey),
+      'entryValue': serializer.toJson<String>(entryValue),
+      'updatedAtMs': serializer.toJson<int>(updatedAtMs),
+    };
+  }
+
+  ArtifactRuntimeStorageEntry copyWith(
+          {String? scopeId,
+          String? entryKey,
+          String? entryValue,
+          int? updatedAtMs}) =>
+      ArtifactRuntimeStorageEntry(
+        scopeId: scopeId ?? this.scopeId,
+        entryKey: entryKey ?? this.entryKey,
+        entryValue: entryValue ?? this.entryValue,
+        updatedAtMs: updatedAtMs ?? this.updatedAtMs,
+      );
+  ArtifactRuntimeStorageEntry copyWithCompanion(
+      ArtifactRuntimeStorageEntriesCompanion data) {
+    return ArtifactRuntimeStorageEntry(
+      scopeId: data.scopeId.present ? data.scopeId.value : this.scopeId,
+      entryKey: data.entryKey.present ? data.entryKey.value : this.entryKey,
+      entryValue:
+          data.entryValue.present ? data.entryValue.value : this.entryValue,
+      updatedAtMs:
+          data.updatedAtMs.present ? data.updatedAtMs.value : this.updatedAtMs,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ArtifactRuntimeStorageEntry(')
+          ..write('scopeId: $scopeId, ')
+          ..write('entryKey: $entryKey, ')
+          ..write('entryValue: $entryValue, ')
+          ..write('updatedAtMs: $updatedAtMs')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(scopeId, entryKey, entryValue, updatedAtMs);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is ArtifactRuntimeStorageEntry &&
+          other.scopeId == this.scopeId &&
+          other.entryKey == this.entryKey &&
+          other.entryValue == this.entryValue &&
+          other.updatedAtMs == this.updatedAtMs);
+}
+
+class ArtifactRuntimeStorageEntriesCompanion
+    extends UpdateCompanion<ArtifactRuntimeStorageEntry> {
+  final Value<String> scopeId;
+  final Value<String> entryKey;
+  final Value<String> entryValue;
+  final Value<int> updatedAtMs;
+  final Value<int> rowid;
+  const ArtifactRuntimeStorageEntriesCompanion({
+    this.scopeId = const Value.absent(),
+    this.entryKey = const Value.absent(),
+    this.entryValue = const Value.absent(),
+    this.updatedAtMs = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  ArtifactRuntimeStorageEntriesCompanion.insert({
+    required String scopeId,
+    required String entryKey,
+    required String entryValue,
+    this.updatedAtMs = const Value.absent(),
+    this.rowid = const Value.absent(),
+  })  : scopeId = Value(scopeId),
+        entryKey = Value(entryKey),
+        entryValue = Value(entryValue);
+  static Insertable<ArtifactRuntimeStorageEntry> custom({
+    Expression<String>? scopeId,
+    Expression<String>? entryKey,
+    Expression<String>? entryValue,
+    Expression<int>? updatedAtMs,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (scopeId != null) 'scope_id': scopeId,
+      if (entryKey != null) 'entry_key': entryKey,
+      if (entryValue != null) 'entry_value': entryValue,
+      if (updatedAtMs != null) 'updated_at_ms': updatedAtMs,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  ArtifactRuntimeStorageEntriesCompanion copyWith(
+      {Value<String>? scopeId,
+      Value<String>? entryKey,
+      Value<String>? entryValue,
+      Value<int>? updatedAtMs,
+      Value<int>? rowid}) {
+    return ArtifactRuntimeStorageEntriesCompanion(
+      scopeId: scopeId ?? this.scopeId,
+      entryKey: entryKey ?? this.entryKey,
+      entryValue: entryValue ?? this.entryValue,
+      updatedAtMs: updatedAtMs ?? this.updatedAtMs,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (scopeId.present) {
+      map['scope_id'] = Variable<String>(scopeId.value);
+    }
+    if (entryKey.present) {
+      map['entry_key'] = Variable<String>(entryKey.value);
+    }
+    if (entryValue.present) {
+      map['entry_value'] = Variable<String>(entryValue.value);
+    }
+    if (updatedAtMs.present) {
+      map['updated_at_ms'] = Variable<int>(updatedAtMs.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ArtifactRuntimeStorageEntriesCompanion(')
+          ..write('scopeId: $scopeId, ')
+          ..write('entryKey: $entryKey, ')
+          ..write('entryValue: $entryValue, ')
+          ..write('updatedAtMs: $updatedAtMs, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$LocalChatDatabase extends GeneratedDatabase {
   _$LocalChatDatabase(QueryExecutor e) : super(e);
   $LocalChatDatabaseManager get managers => $LocalChatDatabaseManager(this);
@@ -1216,12 +1502,18 @@ abstract class _$LocalChatDatabase extends GeneratedDatabase {
   late final $LocalMessagesTable localMessages = $LocalMessagesTable(this);
   late final $ArtifactWorkEntriesTable artifactWorkEntries =
       $ArtifactWorkEntriesTable(this);
+  late final $ArtifactRuntimeStorageEntriesTable artifactRuntimeStorageEntries =
+      $ArtifactRuntimeStorageEntriesTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
   @override
-  List<DatabaseSchemaEntity> get allSchemaEntities =>
-      [localThreads, localMessages, artifactWorkEntries];
+  List<DatabaseSchemaEntity> get allSchemaEntities => [
+        localThreads,
+        localMessages,
+        artifactWorkEntries,
+        artifactRuntimeStorageEntries
+      ];
 }
 
 typedef $$LocalThreadsTableCreateCompanionBuilder = LocalThreadsCompanion
@@ -1842,6 +2134,171 @@ typedef $$ArtifactWorkEntriesTableProcessedTableManager = ProcessedTableManager<
     ),
     ArtifactWorkEntry,
     PrefetchHooks Function()>;
+typedef $$ArtifactRuntimeStorageEntriesTableCreateCompanionBuilder
+    = ArtifactRuntimeStorageEntriesCompanion Function({
+  required String scopeId,
+  required String entryKey,
+  required String entryValue,
+  Value<int> updatedAtMs,
+  Value<int> rowid,
+});
+typedef $$ArtifactRuntimeStorageEntriesTableUpdateCompanionBuilder
+    = ArtifactRuntimeStorageEntriesCompanion Function({
+  Value<String> scopeId,
+  Value<String> entryKey,
+  Value<String> entryValue,
+  Value<int> updatedAtMs,
+  Value<int> rowid,
+});
+
+class $$ArtifactRuntimeStorageEntriesTableFilterComposer
+    extends Composer<_$LocalChatDatabase, $ArtifactRuntimeStorageEntriesTable> {
+  $$ArtifactRuntimeStorageEntriesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get scopeId => $composableBuilder(
+      column: $table.scopeId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get entryKey => $composableBuilder(
+      column: $table.entryKey, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get entryValue => $composableBuilder(
+      column: $table.entryValue, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get updatedAtMs => $composableBuilder(
+      column: $table.updatedAtMs, builder: (column) => ColumnFilters(column));
+}
+
+class $$ArtifactRuntimeStorageEntriesTableOrderingComposer
+    extends Composer<_$LocalChatDatabase, $ArtifactRuntimeStorageEntriesTable> {
+  $$ArtifactRuntimeStorageEntriesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get scopeId => $composableBuilder(
+      column: $table.scopeId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get entryKey => $composableBuilder(
+      column: $table.entryKey, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get entryValue => $composableBuilder(
+      column: $table.entryValue, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get updatedAtMs => $composableBuilder(
+      column: $table.updatedAtMs, builder: (column) => ColumnOrderings(column));
+}
+
+class $$ArtifactRuntimeStorageEntriesTableAnnotationComposer
+    extends Composer<_$LocalChatDatabase, $ArtifactRuntimeStorageEntriesTable> {
+  $$ArtifactRuntimeStorageEntriesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get scopeId =>
+      $composableBuilder(column: $table.scopeId, builder: (column) => column);
+
+  GeneratedColumn<String> get entryKey =>
+      $composableBuilder(column: $table.entryKey, builder: (column) => column);
+
+  GeneratedColumn<String> get entryValue => $composableBuilder(
+      column: $table.entryValue, builder: (column) => column);
+
+  GeneratedColumn<int> get updatedAtMs => $composableBuilder(
+      column: $table.updatedAtMs, builder: (column) => column);
+}
+
+class $$ArtifactRuntimeStorageEntriesTableTableManager extends RootTableManager<
+    _$LocalChatDatabase,
+    $ArtifactRuntimeStorageEntriesTable,
+    ArtifactRuntimeStorageEntry,
+    $$ArtifactRuntimeStorageEntriesTableFilterComposer,
+    $$ArtifactRuntimeStorageEntriesTableOrderingComposer,
+    $$ArtifactRuntimeStorageEntriesTableAnnotationComposer,
+    $$ArtifactRuntimeStorageEntriesTableCreateCompanionBuilder,
+    $$ArtifactRuntimeStorageEntriesTableUpdateCompanionBuilder,
+    (
+      ArtifactRuntimeStorageEntry,
+      BaseReferences<_$LocalChatDatabase, $ArtifactRuntimeStorageEntriesTable,
+          ArtifactRuntimeStorageEntry>
+    ),
+    ArtifactRuntimeStorageEntry,
+    PrefetchHooks Function()> {
+  $$ArtifactRuntimeStorageEntriesTableTableManager(
+      _$LocalChatDatabase db, $ArtifactRuntimeStorageEntriesTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$ArtifactRuntimeStorageEntriesTableFilterComposer(
+                  $db: db, $table: table),
+          createOrderingComposer: () =>
+              $$ArtifactRuntimeStorageEntriesTableOrderingComposer(
+                  $db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$ArtifactRuntimeStorageEntriesTableAnnotationComposer(
+                  $db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<String> scopeId = const Value.absent(),
+            Value<String> entryKey = const Value.absent(),
+            Value<String> entryValue = const Value.absent(),
+            Value<int> updatedAtMs = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              ArtifactRuntimeStorageEntriesCompanion(
+            scopeId: scopeId,
+            entryKey: entryKey,
+            entryValue: entryValue,
+            updatedAtMs: updatedAtMs,
+            rowid: rowid,
+          ),
+          createCompanionCallback: ({
+            required String scopeId,
+            required String entryKey,
+            required String entryValue,
+            Value<int> updatedAtMs = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              ArtifactRuntimeStorageEntriesCompanion.insert(
+            scopeId: scopeId,
+            entryKey: entryKey,
+            entryValue: entryValue,
+            updatedAtMs: updatedAtMs,
+            rowid: rowid,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ));
+}
+
+typedef $$ArtifactRuntimeStorageEntriesTableProcessedTableManager
+    = ProcessedTableManager<
+        _$LocalChatDatabase,
+        $ArtifactRuntimeStorageEntriesTable,
+        ArtifactRuntimeStorageEntry,
+        $$ArtifactRuntimeStorageEntriesTableFilterComposer,
+        $$ArtifactRuntimeStorageEntriesTableOrderingComposer,
+        $$ArtifactRuntimeStorageEntriesTableAnnotationComposer,
+        $$ArtifactRuntimeStorageEntriesTableCreateCompanionBuilder,
+        $$ArtifactRuntimeStorageEntriesTableUpdateCompanionBuilder,
+        (
+          ArtifactRuntimeStorageEntry,
+          BaseReferences<_$LocalChatDatabase,
+              $ArtifactRuntimeStorageEntriesTable, ArtifactRuntimeStorageEntry>
+        ),
+        ArtifactRuntimeStorageEntry,
+        PrefetchHooks Function()>;
 
 class $LocalChatDatabaseManager {
   final _$LocalChatDatabase _db;
@@ -1852,4 +2309,8 @@ class $LocalChatDatabaseManager {
       $$LocalMessagesTableTableManager(_db, _db.localMessages);
   $$ArtifactWorkEntriesTableTableManager get artifactWorkEntries =>
       $$ArtifactWorkEntriesTableTableManager(_db, _db.artifactWorkEntries);
+  $$ArtifactRuntimeStorageEntriesTableTableManager
+      get artifactRuntimeStorageEntries =>
+          $$ArtifactRuntimeStorageEntriesTableTableManager(
+              _db, _db.artifactRuntimeStorageEntries);
 }

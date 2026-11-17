@@ -20,6 +20,11 @@ class SandboxResult {
   });
 }
 
+/// Handles one raw `veraxi_storage` bridge message from an artifact
+/// frame and returns the reply map to post back into the frame.
+typedef ArtifactStorageHandler = Future<Map<String, dynamic>> Function(
+    dynamic raw);
+
 int _sandboxRunCounter = 0;
 
 /// Runs a runner document inside a hidden sandboxed iframe and waits
@@ -136,11 +141,15 @@ int _webArtifactCounter = 0;
 class SandboxedArtifactViewWeb extends StatefulWidget {
   final String kind;
   final String code;
+  final Map<String, String> siblingFiles;
+  final ArtifactStorageHandler? storageHandler;
 
   const SandboxedArtifactViewWeb({
     super.key,
     required this.kind,
     required this.code,
+    this.siblingFiles = const {},
+    this.storageHandler,
   });
 
   @override
@@ -152,12 +161,46 @@ class _SandboxedArtifactViewWebState extends State<SandboxedArtifactViewWeb> {
   late final String _viewType;
   html.IFrameElement? _iframe;
   bool _showCode = false;
+  StreamSubscription<html.MessageEvent>? _storageSub;
 
   @override
   void initState() {
     super.initState();
     _viewType = 'veraxi-artifact-${_webArtifactCounter++}';
     _registerIframe();
+    _storageSub = html.window.onMessage.listen(_onStorageMessage);
+  }
+
+  @override
+  void dispose() {
+    _storageSub?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _onStorageMessage(html.MessageEvent event) async {
+    final data = event.data;
+    if (data is! String) return;
+    dynamic parsed;
+    try {
+      parsed = jsonDecode(data);
+    } catch (_) {
+      return;
+    }
+    if (parsed is! Map || parsed['type'] != 'veraxi_storage') return;
+    final handler = widget.storageHandler;
+    final Map<String, dynamic> reply;
+    if (handler == null) {
+      reply = {
+        'type': 'veraxi_storage_reply',
+        'requestId': parsed['requestId']?.toString() ?? '',
+        'ok': false,
+        'data': null,
+        'error': 'storage is not available in this preview',
+      };
+    } else {
+      reply = await handler(parsed);
+    }
+    _iframe?.contentWindow?.postMessage(jsonEncode(reply), '*');
   }
 
   void _registerIframe() {
@@ -175,7 +218,11 @@ class _SandboxedArtifactViewWebState extends State<SandboxedArtifactViewWeb> {
   }
 
   String _generateHtmlDoc() {
-    return buildArtifactDocument(widget.kind, widget.code);
+    return buildArtifactDocument(
+      widget.kind,
+      widget.code,
+      siblingFiles: widget.siblingFiles,
+    );
   }
 
   @override
@@ -278,8 +325,15 @@ class _SandboxedArtifactViewWebState extends State<SandboxedArtifactViewWeb> {
 Widget buildSandboxedArtifactPreview({
   required String kind,
   required String code,
+  Map<String, String> siblingFiles = const {},
+  ArtifactStorageHandler? storageHandler,
 }) {
-  return SandboxedArtifactViewWeb(kind: kind, code: code);
+  return SandboxedArtifactViewWeb(
+    kind: kind,
+    code: code,
+    siblingFiles: siblingFiles,
+    storageHandler: storageHandler,
+  );
 }
 
 /// Chrome-free preview content for the artifact panel: just the
@@ -290,11 +344,15 @@ Widget buildSandboxedArtifactPreview({
 class ArtifactPreviewContentWeb extends StatefulWidget {
   final String kind;
   final String code;
+  final Map<String, String> siblingFiles;
+  final ArtifactStorageHandler? storageHandler;
 
   const ArtifactPreviewContentWeb({
     super.key,
     required this.kind,
     required this.code,
+    this.siblingFiles = const {},
+    this.storageHandler,
   });
 
   @override
@@ -305,6 +363,7 @@ class ArtifactPreviewContentWeb extends StatefulWidget {
 class _ArtifactPreviewContentWebState extends State<ArtifactPreviewContentWeb> {
   late final String _viewType;
   html.IFrameElement? _iframe;
+  StreamSubscription<html.MessageEvent>? _storageSub;
 
   @override
   void initState() {
@@ -315,11 +374,48 @@ class _ArtifactPreviewContentWebState extends State<ArtifactPreviewContentWeb> {
       ..style.width = '100%'
       ..style.height = '100%'
       ..setAttribute('sandbox', 'allow-scripts')
-      ..srcdoc = buildArtifactDocument(widget.kind, widget.code);
+      ..srcdoc = buildArtifactDocument(
+        widget.kind,
+        widget.code,
+        siblingFiles: widget.siblingFiles,
+      );
     ui_web.platformViewRegistry.registerViewFactory(
       _viewType,
       (int viewId) => _iframe!,
     );
+    _storageSub = html.window.onMessage.listen(_onStorageMessage);
+  }
+
+  @override
+  void dispose() {
+    _storageSub?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _onStorageMessage(html.MessageEvent event) async {
+    final data = event.data;
+    if (data is! String) return;
+    dynamic parsed;
+    try {
+      parsed = jsonDecode(data);
+    } catch (_) {
+      return;
+    }
+    if (parsed is! Map || parsed['type'] != 'veraxi_storage') return;
+    final handler = widget.storageHandler;
+    final Map<String, dynamic> reply;
+    if (handler == null) {
+      reply = {
+        'type': 'veraxi_storage_reply',
+        'requestId': parsed['requestId']?.toString() ?? '',
+        'ok': false,
+        'data': null,
+        'error': 'storage is not available in this preview',
+      };
+    } else {
+      reply = await handler(parsed);
+    }
+    _iframe?.contentWindow?.postMessage(jsonEncode(reply), '*');
   }
 
   @override
@@ -331,6 +427,13 @@ class _ArtifactPreviewContentWebState extends State<ArtifactPreviewContentWeb> {
 Widget buildArtifactPreviewContent({
   required String kind,
   required String code,
+  Map<String, String> siblingFiles = const {},
+  ArtifactStorageHandler? storageHandler,
 }) {
-  return ArtifactPreviewContentWeb(kind: kind, code: code);
+  return ArtifactPreviewContentWeb(
+    kind: kind,
+    code: code,
+    siblingFiles: siblingFiles,
+    storageHandler: storageHandler,
+  );
 }

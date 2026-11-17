@@ -18,6 +18,11 @@ class SandboxResult {
   });
 }
 
+/// Handles one raw `veraxi_storage` bridge message from an artifact
+/// view and returns the reply map to send back into the view.
+typedef ArtifactStorageHandler = Future<Map<String, dynamic>> Function(
+    dynamic raw);
+
 int _nativeRunCounter = 0;
 
 /// Executes code entirely on the user's device: the shared runner
@@ -124,11 +129,15 @@ Future<SandboxResult> _runInDeviceWebView({
 class SandboxedArtifactView extends StatefulWidget {
   final String kind; // 'html' or 'mermaid'
   final String code;
+  final Map<String, String> siblingFiles;
+  final ArtifactStorageHandler? storageHandler;
 
   const SandboxedArtifactView({
     super.key,
     required this.kind,
     required this.code,
+    this.siblingFiles = const {},
+    this.storageHandler,
   });
 
   @override
@@ -147,6 +156,39 @@ class _SandboxedArtifactViewState extends State<SandboxedArtifactView> {
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setBackgroundColor(const Color(0xFF141416))
+      ..addJavaScriptChannel(
+        'VeraxiStorage',
+        onMessageReceived: (message) async {
+          // Delegated through the shared helper's logic inline:
+          // the controller is not yet assigned here, so replies go
+          // through the late-bound _controller field.
+          dynamic parsed;
+          try {
+            parsed = jsonDecode(message.message);
+          } catch (_) {
+            return;
+          }
+          if (parsed is! Map || parsed['type'] != 'veraxi_storage') return;
+          final handler = widget.storageHandler;
+          final Map<String, dynamic> reply;
+          if (handler == null) {
+            reply = {
+              'type': 'veraxi_storage_reply',
+              'requestId': parsed['requestId']?.toString() ?? '',
+              'ok': false,
+              'data': null,
+              'error': 'storage is not available in this preview',
+            };
+          } else {
+            reply = await handler(parsed);
+          }
+          final encoded = jsonEncode(jsonEncode(reply));
+          await _controller.runJavaScript(
+            'window.__veraxiStorageReply && '
+            'window.__veraxiStorageReply(JSON.parse($encoded));',
+          );
+        },
+      )
       ..setNavigationDelegate(
         NavigationDelegate(
           onPageFinished: (_) {
@@ -167,7 +209,11 @@ class _SandboxedArtifactViewState extends State<SandboxedArtifactView> {
 
   void _loadContent() {
     _controller.loadHtmlString(
-      buildArtifactDocument(widget.kind, widget.code),
+      buildArtifactDocument(
+        widget.kind,
+        widget.code,
+        siblingFiles: widget.siblingFiles,
+      ),
     );
   }
 
@@ -287,8 +333,15 @@ class _SandboxedArtifactViewState extends State<SandboxedArtifactView> {
 Widget buildSandboxedArtifactPreview({
   required String kind,
   required String code,
+  Map<String, String> siblingFiles = const {},
+  ArtifactStorageHandler? storageHandler,
 }) {
-  return SandboxedArtifactView(kind: kind, code: code);
+  return SandboxedArtifactView(
+    kind: kind,
+    code: code,
+    siblingFiles: siblingFiles,
+    storageHandler: storageHandler,
+  );
 }
 
 /// Chrome-free preview content for the artifact panel: just the WebView,
@@ -296,11 +349,15 @@ Widget buildSandboxedArtifactPreview({
 class ArtifactPreviewContent extends StatefulWidget {
   final String kind;
   final String code;
+  final Map<String, String> siblingFiles;
+  final ArtifactStorageHandler? storageHandler;
 
   const ArtifactPreviewContent({
     super.key,
     required this.kind,
     required this.code,
+    this.siblingFiles = const {},
+    this.storageHandler,
   });
 
   @override
@@ -315,8 +372,44 @@ class _ArtifactPreviewContentState extends State<ArtifactPreviewContent> {
     super.initState();
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setBackgroundColor(const Color(0xFF141416))
-      ..loadHtmlString(buildArtifactDocument(widget.kind, widget.code));
+      ..setBackgroundColor(const Color(0xFF141416));
+    _controller.addJavaScriptChannel(
+      'VeraxiStorage',
+      onMessageReceived: (message) async {
+        dynamic parsed;
+        try {
+          parsed = jsonDecode(message.message);
+        } catch (_) {
+          return;
+        }
+        if (parsed is! Map || parsed['type'] != 'veraxi_storage') return;
+        final handler = widget.storageHandler;
+        final Map<String, dynamic> reply;
+        if (handler == null) {
+          reply = {
+            'type': 'veraxi_storage_reply',
+            'requestId': parsed['requestId']?.toString() ?? '',
+            'ok': false,
+            'data': null,
+            'error': 'storage is not available in this preview',
+          };
+        } else {
+          reply = await handler(parsed);
+        }
+        final encoded = jsonEncode(jsonEncode(reply));
+        await _controller.runJavaScript(
+          'window.__veraxiStorageReply && '
+          'window.__veraxiStorageReply(JSON.parse($encoded));',
+        );
+      },
+    );
+    _controller.loadHtmlString(
+      buildArtifactDocument(
+        widget.kind,
+        widget.code,
+        siblingFiles: widget.siblingFiles,
+      ),
+    );
   }
 
   @override
@@ -328,6 +421,13 @@ class _ArtifactPreviewContentState extends State<ArtifactPreviewContent> {
 Widget buildArtifactPreviewContent({
   required String kind,
   required String code,
+  Map<String, String> siblingFiles = const {},
+  ArtifactStorageHandler? storageHandler,
 }) {
-  return ArtifactPreviewContent(kind: kind, code: code);
+  return ArtifactPreviewContent(
+    kind: kind,
+    code: code,
+    siblingFiles: siblingFiles,
+    storageHandler: storageHandler,
+  );
 }
