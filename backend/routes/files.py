@@ -24,27 +24,6 @@ from backend.ingestion.document_parser import (
 )
 
 
-def _is_safe_document_path(target_path: str) -> bool:
-    """Verifies that the target path is resolved and strictly inside approved document directories."""
-    resolved_path = os.path.realpath(target_path)
-    allowed_candidates = [
-        os.path.join(os.getcwd(), "uploads"),
-        os.path.join(os.getcwd(), "seed"),
-        "/app/data",
-        os.path.expanduser("~/Documents/book"),
-        "/home/ubuntu/Documents/book",
-    ]
-    custom_dir = os.environ.get("DOCUMENTS_DIR")
-    if custom_dir:
-        allowed_candidates.append(custom_dir)
-
-    allowed_dirs = {os.path.realpath(d) for d in allowed_candidates if os.path.exists(d)}
-    return any(
-        resolved_path.startswith(d + os.sep) or resolved_path == d
-        for d in allowed_dirs
-    )
-
-
 def _is_traversal_attempt(raw_path: str) -> bool:
     """Detects traversal intent in an unresolved document path.
 

@@ -38,7 +38,7 @@ logger = logging.getLogger(__name__)
 
 def _document_search_dirs() -> list[str]:
     """Returns the server-controlled directories documents may be resolved from."""
-    return [
+    candidates = [
         os.environ.get("DOCUMENTS_DIR"),
         os.path.expanduser("~/Documents/book"),
         "/home/ubuntu/Documents/book",
@@ -47,6 +47,7 @@ def _document_search_dirs() -> list[str]:
         os.path.join(os.getcwd(), "seed"),
         os.getcwd(),
     ]
+    return [d for d in candidates if d]
 
 
 def _canonical_base_dirs(base_dirs) -> list[str]:
