@@ -1,7 +1,9 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:veraxi_app/features/settings/data/integrations_repository.dart';
+import 'package:veraxi_app/features/settings/view_models/oauth_popup.dart';
 
 // Re-export the models so views can import them from the ViewModel layer
 // without violating the views → view_models → data dependency contract.
@@ -135,14 +137,37 @@ class IntegrationsViewModel extends StateNotifier<IntegrationsState> {
     }
   }
 
-  /// Launch the provider OAuth flow in the browser.
-  Future<void> connectOAuth(String provider) async {
+  /// Launch the provider OAuth flow in a popup (web) or external browser.
+  ///
+  /// Returns `true` when the popup completed and the connection succeeded.
+  Future<bool> connectOAuth(String provider) async {
     try {
       final url = await _repository.startOAuth(provider);
+      if (kIsWeb) {
+        final popupResult = await launchOAuthPopup(url, provider);
+        if (popupResult != null) {
+          if (popupResult.error != null) {
+            throw Exception(popupResult.error);
+          }
+          if (popupResult.completed) {
+            await load();
+            return true;
+          }
+          return false;
+        }
+      }
       final uri = Uri.parse(url);
-      if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+      final launched = await launchUrl(
+        uri,
+        mode: kIsWeb
+            ? LaunchMode.platformDefault
+            : LaunchMode.externalApplication,
+        webOnlyWindowName: kIsWeb ? '_self' : null,
+      );
+      if (!launched) {
         throw Exception('Could not launch OAuth URL');
       }
+      return false;
     } catch (e, st) {
       await Sentry.captureException(e, stackTrace: st);
       rethrow;

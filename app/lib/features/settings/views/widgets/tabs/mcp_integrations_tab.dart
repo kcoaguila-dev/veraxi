@@ -171,9 +171,16 @@ class McpIntegrationsTab extends ConsumerWidget {
             onPressed: canConnect
                 ? () async {
                     try {
-                      await ref
+                      final connectedNow = await ref
                           .read(integrationsViewModelProvider.notifier)
                           .connectOAuth(provider.provider);
+                      if (connectedNow && context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('${provider.displayName} connected'),
+                          ),
+                        );
+                      }
                     } catch (_) {
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(

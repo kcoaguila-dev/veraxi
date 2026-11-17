@@ -231,3 +231,48 @@ class TestNoSupabase:
         tc = TestClient(app, raise_server_exceptions=False)
         resp = tc.get("/api/integrations")
         assert resp.status_code == 501
+
+
+class TestOAuthCallbackHtml:
+    def test_callback_returns_self_closing_html_without_query_redirect(self, monkeypatch):
+        from types import SimpleNamespace
+        from backend.routes import integrations_oauth
+        from backend.services import oauth_service
+
+        app = FastAPI()
+        app.state.redis = object()
+        cfg = SimpleNamespace(public_app_url="https://veraxi.me")
+
+        async def fake_handle_callback(*args, **kwargs):
+            return {"id": "int-1", "provider": "github"}
+
+        monkeypatch.setattr(oauth_service, "handle_callback", fake_handle_callback)
+        integrations_oauth.register_oauth_routes(
+            app, lambda: "tenant-1", lambda: FakeSupabase(), config=cfg
+        )
+        tc = TestClient(app, follow_redirects=False)
+
+        resp = tc.get("/api/integrations/oauth/github/callback?code=abc&state=xyz")
+        assert resp.status_code == 200
+        assert "text/html" in resp.headers["content-type"]
+        assert "veraxi_oauth_callback" in resp.text
+        assert "window.close()" in resp.text
+        assert "?connected=" not in resp.text
+        assert "https://veraxi.me/#/chat" in resp.text
+
+    def test_callback_error_returns_html_without_oauth_error_query(self):
+        from types import SimpleNamespace
+        from backend.routes import integrations_oauth
+
+        app = FastAPI()
+        app.state.redis = object()
+        cfg = SimpleNamespace(public_app_url="https://veraxi.me")
+        integrations_oauth.register_oauth_routes(
+            app, lambda: "tenant-1", lambda: FakeSupabase(), config=cfg
+        )
+        tc = TestClient(app, follow_redirects=False)
+
+        resp = tc.get("/api/integrations/oauth/github/callback?error=access_denied")
+        assert resp.status_code == 200
+        assert "veraxi_oauth_callback" in resp.text
+        assert "?oauth_error=" not in resp.text

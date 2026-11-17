@@ -37,6 +37,7 @@ class TestConfirmationMarkers:
 
     def test_read_tools_not_gated(self):
         for name in (
+            "github_list_repos",
             "github_search_code",
             "github_get_file",
             "github_list_issues_or_prs",
@@ -51,6 +52,19 @@ class TestConfirmationMarkers:
 
 @pytest.mark.asyncio
 class TestReadTools:
+    async def test_list_repos(self, monkeypatch, _token):
+        async def fake_request(token, method, path, **kwargs):
+            assert method == "GET"
+            assert path == "/user/repos"
+            return _FakeResponse(
+                [{"full_name": "kcoaguila-dev/veraxi", "private": True, "default_branch": "main"}]
+            )
+
+        monkeypatch.setattr(github_tools, "_github_request", fake_request)
+        out = await github_tools.execute_github_tool("github_list_repos", {}, "t1")
+        assert "kcoaguila-dev/veraxi" in out
+        assert "private" in out
+
     async def test_search_code(self, monkeypatch, _token):
         async def fake_request(token, method, path, **kwargs):
             assert path == "/search/code"

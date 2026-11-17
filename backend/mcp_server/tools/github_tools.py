@@ -29,6 +29,26 @@ GATED_TOOLS = {"github_create_issue", "github_comment_pr"}
 
 TOOL_DEFS: list[dict] = [
     {
+        "name": "github_list_repos",
+        "description": (
+            "List GitHub repositories accessible to the connected user account."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "per_page": {
+                    "type": "integer",
+                    "description": "Max repositories to return (1-100, default 30).",
+                },
+                "sort": {
+                    "type": "string",
+                    "enum": ["updated", "pushed", "full_name"],
+                    "description": "Sort order (default updated).",
+                },
+            },
+        },
+    },
+    {
         "name": "github_search_code",
         "description": "Search code in GitHub repositories the user has connected.",
         "parameters": {
@@ -222,6 +242,21 @@ async def execute_github_tool(
 
 
 async def _execute_with_token(tool_name: str, args: dict, token: str) -> str:
+    if tool_name == "github_list_repos":
+        per_page = min(max(int(args.get("per_page", 30)), 1), 100)
+        sort = args.get("sort", "updated")
+        resp = await _github_request(
+            token,
+            "GET",
+            "/user/repos",
+            params={"per_page": per_page, "sort": sort},
+        )
+        repos = resp.json()
+        lines = [
+            f"- {r.get('full_name')} ({'private' if r.get('private') else 'public'}, default: {r.get('default_branch', 'main')})"
+            for r in repos
+        ]
+        return _truncate("Accessible GitHub repositories:\n" + "\n".join(lines)) if lines else "No repositories found."
     if tool_name == "github_search_code":
         query = args["query"]
         if args.get("repo"):

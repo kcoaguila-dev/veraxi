@@ -7,12 +7,14 @@ record created by the authenticated ``start`` endpoint.
 """
 
 import asyncio
+import html
 import json
 import logging
+from urllib.parse import urlparse
 
 import sentry_sdk
 from fastapi import Depends, HTTPException, Request
-from fastapi.responses import RedirectResponse
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
 from backend.services import integration_store as store
@@ -34,6 +36,82 @@ def _require_supabase(_get_supabase):
             detail="Integrations are not supported in stateless local mode",
         )
     return sb
+
+
+def _app_origin(app_base: str) -> str:
+    parsed = urlparse(app_base)
+    if parsed.scheme and parsed.netloc:
+        return f"{parsed.scheme}://{parsed.netloc}"
+    return "*"
+
+
+def _oauth_callback_html(
+    app_base: str,
+    provider: str,
+    status: str,
+    error: str = "",
+) -> HTMLResponse:
+    """Return a self-closing popup page that notifies the opener via postMessage.
+
+    Falls back to redirecting to the clean ``/#/chat`` route when opened
+    without ``window.opener`` (e.g. popup-blocked or mobile browser).
+    """
+    clean_app_url = f"{app_base.rstrip('/')}/#/chat"
+    target_origin = _app_origin(app_base)
+    payload_json = json.dumps({
+        "type": "veraxi_oauth_callback",
+        "provider": provider,
+        "status": status,
+        "error": error,
+    })
+    origin_json = json.dumps(target_origin)
+    fallback_json = json.dumps(clean_app_url)
+    heading = (
+        "Connection complete" if status == "connected" else "Authorization failed"
+    )
+    detail = (
+        f"{html.escape(provider)} is now connected. You can close this window."
+        if status == "connected"
+        else f"Could not connect {html.escape(provider)}. You can close this window."
+    )
+    body = f"""<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Veraxi — {heading}</title>
+  <style>
+    body {{ font-family: system-ui, -apple-system, sans-serif; background: #121212;
+           color: #e5e7eb; display: flex; align-items: center; justify-content: center;
+           height: 100vh; margin: 0; text-align: center; }}
+    .card {{ padding: 24px 32px; border-radius: 12px; background: #1e1e1e;
+             border: 1px solid #2e2e2e; max-width: 360px; }}
+    h1 {{ font-size: 18px; margin: 0 0 8px; }}
+    p {{ font-size: 14px; color: #9ca3af; margin: 0; }}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>{heading}</h1>
+    <p>{detail}</p>
+  </div>
+  <script>
+    (function () {{
+      var payload = {payload_json};
+      var origin = {origin_json};
+      var fallback = {fallback_json};
+      if (window.opener && !window.opener.closed) {{
+        try {{
+          window.opener.postMessage(payload, origin);
+        }} catch (_) {{}}
+        window.close();
+        return;
+      }}
+      window.location.replace(fallback);
+    }})();
+  </script>
+</body>
+</html>"""
+    return HTMLResponse(content=body, status_code=200)
 
 
 def _redis(request: Request):
@@ -87,13 +165,13 @@ def register_oauth_routes(app_router, get_tenant_id, _get_supabase, config=None)
         cfg = config or get_config()
         app_base = cfg.public_app_url.rstrip("/")
         if error or not code or not state:
-            return RedirectResponse(
-                f"{app_base}/#/chat?oauth_error={error or 'oauth_failed'}"
+            return _oauth_callback_html(
+                app_base, provider, "error", error or "oauth_failed"
             )
         sb = _get_supabase()
         if not sb:
-            return RedirectResponse(
-                f"{app_base}/#/chat?oauth_error=storage_unavailable"
+            return _oauth_callback_html(
+                app_base, provider, "error", "storage_unavailable"
             )
         try:
             await oauth_service.handle_callback(
@@ -101,17 +179,15 @@ def register_oauth_routes(app_router, get_tenant_id, _get_supabase, config=None)
             )
         except ValueError as e:
             logger.warning("OAuth callback rejected for %s: %s", provider, e)
-            return RedirectResponse(
-                f"{app_base}/#/chat?oauth_error=oauth_failed"
+            return _oauth_callback_html(
+                app_base, provider, "error", "oauth_failed"
             )
         except Exception as e:
             sentry_sdk.capture_exception(e)
-            return RedirectResponse(
-                f"{app_base}/#/chat?oauth_error=oauth_failed"
+            return _oauth_callback_html(
+                app_base, provider, "error", "oauth_failed"
             )
-        return RedirectResponse(
-            f"{app_base}/#/chat?connected={provider}"
-        )
+        return _oauth_callback_html(app_base, provider, "connected")
 
     @app_router.post("/api/integrations/{integration_id}/sync")
     async def sync_integration(

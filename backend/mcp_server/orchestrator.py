@@ -246,6 +246,43 @@ def _get_workflow():
     return workflow
 
 
+_CORE_BUILTIN_TOOLS = frozenset({
+    "web_browser",
+    "search_vectors",
+    "query_graph",
+    "create_office_artifact",
+    "run_python_code",
+})
+
+
+def _integration_capability_note(tools_list: list) -> str | None:
+    """Return a generic runtime note for any non-core integration tools."""
+    names = [
+        fn["name"]
+        for t in tools_list
+        if isinstance(t, dict)
+        and isinstance(fn := t.get("function"), dict)
+        and isinstance(fn.get("name"), str)
+        and fn["name"] not in _CORE_BUILTIN_TOOLS
+    ]
+    if not names:
+        return None
+    joined = ", ".join(names)
+    return (
+        f"Connected external integration tools active in this chat: {joined}. "
+        "When the user asks whether you have access to a connected service or "
+        "requests data from it, call the relevant tool directly rather than "
+        "claiming you lack access."
+    )
+
+
+def _append_system_note(messages: list, note: str) -> list:
+    if messages and isinstance(messages[0], SystemMessage):
+        updated = SystemMessage(content=f"{messages[0].content}\n\n{note}")
+        return [updated, *messages[1:]]
+    return [SystemMessage(content=note), *messages]
+
+
 async def call_model(state: AgentState):
     """The AI Agent node that decides what to do."""
     messages = state["messages"]
@@ -326,6 +363,9 @@ async def call_model(state: AgentState):
     else:
         tools_list = await get_tools(tool_settings, tenant_id=state.get("tenant_id"))
         if tools_list:
+            note = _integration_capability_note(tools_list)
+            if note:
+                modified_messages = _append_system_note(modified_messages, note)
             llm_with_tools = llm.bind_tools(tools_list, parallel_tool_calls=True)
         else:
             llm_with_tools = llm
