@@ -15,7 +15,12 @@ from datetime import UTC, datetime, timedelta
 
 import sentry_sdk
 
-from backend.sandbox.base import SandboxError, SandboxSessionInfo, normalize_settings
+from backend.sandbox.base import (
+    SandboxError,
+    SandboxProvider,
+    SandboxSessionInfo,
+    normalize_settings,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -28,8 +33,8 @@ class SandboxManager:
         self._provider_factory = provider_factory  # seam for tests
         self._config = config
         self._registry = registry
-        self._providers: dict[str, object] = {}
-        self._sessions: dict[str, tuple[object, SandboxSessionInfo]] = {}
+        self._providers: dict[str, SandboxProvider] = {}
+        self._sessions: dict[str, tuple[SandboxProvider, SandboxSessionInfo]] = {}
         self._chat_sessions: dict[tuple[str, str], str] = {}
         self._memory_configs: dict[str, dict] = {}
         self._approvals: dict[str, list[dict]] = {}
@@ -61,7 +66,7 @@ class SandboxManager:
                 return normalize_settings(row, self._config), store.decrypt_row_secrets(row), row
         return normalize_settings(None, self._config), {}, None
 
-    def create_provider(self, settings: dict, secrets: dict):
+    def create_provider(self, settings: dict, secrets: dict) -> SandboxProvider:
         """Instantiate the provider named by ``settings['provider']``."""
         if self._provider_factory is not None:
             return self._provider_factory(settings, secrets)
@@ -180,10 +185,10 @@ class SandboxManager:
             tenant_id, chat_id=chat_id, project_id=project_id, repo_url=repo_url
         )
 
-    def get_session(self, session_id: str) -> tuple[object, SandboxSessionInfo] | None:
+    def get_session(self, session_id: str) -> tuple[SandboxProvider, SandboxSessionInfo] | None:
         return self._sessions.get(session_id)
 
-    def provider_for(self, session_id: str):
+    def provider_for(self, session_id: str) -> SandboxProvider | None:
         entry = self._sessions.get(session_id)
         return entry[0] if entry else None
 
