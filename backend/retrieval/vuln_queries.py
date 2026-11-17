@@ -111,6 +111,43 @@ def _entry_match_status(version: str | None, entry: dict[str, Any]) -> str:
     return "matched" if all(checks) else "not_matched"
 
 
+def _match_single_dependency(
+    dependency: dict[str, Any],
+    affected_index: dict[str, list[dict[str, Any]]],
+) -> list[dict[str, Any]]:
+    """Match one dependency record against ``affected_index``."""
+    normalized = _normalize_package_name(dependency.get("name", ""))
+    entries = affected_index.get(normalized) or []
+    version = dependency.get("version")
+    by_cve: dict[str, dict[str, Any]] = {}
+    for entry in entries:
+        cve_id = entry.get("cve_id")
+        if not cve_id:
+            continue
+        status = _entry_match_status(version, entry)
+        if status == "not_matched":
+            continue
+        # One finding per CVE per dependency: a confident match
+        # wins over an unknown from another range of the same CVE.
+        existing = by_cve.get(cve_id)
+        if existing is not None:
+            if status == "matched":
+                existing["match_status"] = "matched"
+            continue
+        by_cve[cve_id] = {
+            "package": dependency.get("name"),
+            "ecosystem": dependency.get("ecosystem"),
+            "source_file": dependency.get("source_file"),
+            "version": version,
+            "cve_id": cve_id,
+            "severity": entry.get("severity"),
+            "cwe_ids": list(entry.get("cwe_ids") or []),
+            "match_status": status,
+            "kev": bool(entry.get("kev", False)),
+        }
+    return list(by_cve.values())
+
+
 def match_dependencies(
     dependencies: list[dict[str, Any]],
     affected_index: dict[str, list[dict[str, Any]]],
@@ -125,42 +162,7 @@ def match_dependencies(
     """
     findings: list[dict[str, Any]] = []
     for dependency in dependencies:
-        normalized = _normalize_package_name(dependency.get("name", ""))
-        entries = affected_index.get(normalized) or []
-        version = dependency.get("version")
-        seen_cves: set[str] = set()
-        for entry in entries:
-            cve_id = entry.get("cve_id")
-            if not cve_id:
-                continue
-            status = _entry_match_status(version, entry)
-            if status == "not_matched":
-                continue
-            # One finding per CVE per dependency: a confident match
-            # wins over an unknown from another range of the same CVE.
-            if cve_id in seen_cves:
-                if status == "matched":
-                    for finding in findings:
-                        if (
-                            finding["package"] == dependency.get("name")
-                            and finding["cve_id"] == cve_id
-                        ):
-                            finding["match_status"] = "matched"
-                continue
-            seen_cves.add(cve_id)
-            findings.append(
-                {
-                    "package": dependency.get("name"),
-                    "ecosystem": dependency.get("ecosystem"),
-                    "source_file": dependency.get("source_file"),
-                    "version": version,
-                    "cve_id": cve_id,
-                    "severity": entry.get("severity"),
-                    "cwe_ids": list(entry.get("cwe_ids") or []),
-                    "match_status": status,
-                    "kev": bool(entry.get("kev", False)),
-                }
-            )
+        findings.extend(_match_single_dependency(dependency, affected_index))
     findings.sort(
         key=lambda f: (f["match_status"] != "matched", f["package"] or "", f["cve_id"])
     )

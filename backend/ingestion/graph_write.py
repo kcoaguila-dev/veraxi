@@ -193,3 +193,61 @@ def write_to_graph(
             )
 
     return entity_name_to_node_id, qdrant_id_to_neo4j_ids, qdrant_id_to_entity_names
+
+
+_STRUCTURAL_KEY_FIELDS = frozenset({"code_key", "dbt_key"})
+
+
+def structural_key(tenant_id: str, label: str, identifier: str) -> str:
+    """Build a tenant-scoped composite key for a structural graph node."""
+    return f"{tenant_id}::{label}::{identifier}"
+
+
+def upsert_structural_node(
+    client: Any,
+    *,
+    label: str,
+    allowed_labels: tuple[str, ...],
+    key_field: str,
+    key_value: str,
+    properties: dict[str, Any],
+) -> None:
+    """MERGE a structural (non-chunk) node into Neo4j with whitelisted label."""
+    if label not in allowed_labels:
+        raise ValueError(f"Unsupported structural node label: {label}")
+    if key_field not in _STRUCTURAL_KEY_FIELDS:
+        raise ValueError(f"Unsupported structural key field: {key_field}")
+    query = f"""
+    MERGE (n:{label} {{{key_field}: ${key_field}}})
+    SET n += $properties
+    """
+    props = dict(properties)
+    props[key_field] = key_value
+    client.execute_write(query, {key_field: key_value, "properties": props})
+
+
+def upsert_structural_edge(
+    client: Any,
+    *,
+    edge_type: str,
+    allowed_edge_types: tuple[str, ...],
+    key_field: str,
+    from_key: str,
+    to_key: str,
+    tenant_id: str,
+) -> None:
+    """MERGE a directed relationship between two structural Neo4j nodes."""
+    if edge_type not in allowed_edge_types:
+        raise ValueError(f"Unsupported structural edge type: {edge_type}")
+    if key_field not in _STRUCTURAL_KEY_FIELDS:
+        raise ValueError(f"Unsupported structural key field: {key_field}")
+    query = f"""
+    MATCH (a {{{key_field}: $from_key}})
+    MATCH (b {{{key_field}: $to_key}})
+    MERGE (a)-[r:{edge_type}]->(b)
+    SET r.tenant_id = $tenant_id
+    """
+    client.execute_write(
+        query,
+        {"from_key": from_key, "to_key": to_key, "tenant_id": tenant_id},
+    )

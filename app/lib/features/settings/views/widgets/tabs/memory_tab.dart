@@ -139,18 +139,15 @@ class _MemoryTabState extends ConsumerState<MemoryTab> {
         ),
         const SizedBox(height: 32),
         _sectionTitle(context, 'Your Memories'),
-        if (state.loading && state.memories.isEmpty)
-          const Center(child: CircularProgressIndicator())
-        else if (state.memories.isEmpty)
-          Text(
-            'No memories yet. Add one above, or let chat save them as you talk.',
-            style: TextStyle(color: ext.textTertiary, fontSize: 13),
-          )
-        else
-          for (final memory in state.memories) ...[
-            _memoryCard(context, memory),
-            const SizedBox(height: 12),
-          ],
+        AnimatedSize(
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOutCubic,
+          alignment: Alignment.topCenter,
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 200),
+            child: _memoriesBody(context, state, ext),
+          ),
+        ),
         if (state.error != null) ...[
           const SizedBox(height: 8),
           Text(state.error!,
@@ -160,82 +157,116 @@ class _MemoryTabState extends ConsumerState<MemoryTab> {
     );
   }
 
+  Widget _memoriesBody(
+    BuildContext context,
+    MemoryState state,
+    AppThemeExtension ext,
+  ) {
+    if (state.loading && state.memories.isEmpty) {
+      return const Center(
+        key: ValueKey('memories-loading'),
+        child: CircularProgressIndicator(),
+      );
+    }
+    if (state.memories.isEmpty) {
+      return Text(
+        'No memories yet. Add one above, or let chat save them as you talk.',
+        key: const ValueKey('memories-empty'),
+        style: TextStyle(color: ext.textTertiary, fontSize: 13),
+      );
+    }
+    return Column(
+      key: const ValueKey('memories-list'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (final memory in state.memories) ...[
+          _memoryCard(context, memory),
+          const SizedBox(height: 12),
+        ],
+      ],
+    );
+  }
+
   Widget _memoryCard(BuildContext context, UserMemory memory) {
     final vm = ref.read(memoryViewModelProvider.notifier);
     final ext = Theme.of(context).extension<AppThemeExtension>()!;
-    return _card(
-      context,
-      Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 8,
-            height: 8,
-            margin: const EdgeInsets.only(top: 5),
-            decoration: BoxDecoration(
-              color:
-                  memory.isValid ? const Color(0xFF10B981) : ext.textTertiary,
-              shape: BoxShape.circle,
+    return AnimatedOpacity(
+      duration: const Duration(milliseconds: 200),
+      opacity: memory.isValid ? 1.0 : 0.72,
+      child: _card(
+        context,
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 8,
+              height: 8,
+              margin: const EdgeInsets.only(top: 5),
+              decoration: BoxDecoration(
+                color:
+                    memory.isValid ? const Color(0xFF10B981) : ext.textTertiary,
+                shape: BoxShape.circle,
+              ),
             ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  memory.content,
-                  style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600),
-                ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 10,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    Chip(
-                      label: Text(memory.source,
-                          style: const TextStyle(
-                              color: Colors.white, fontSize: 11)),
-                      backgroundColor: ext.borderColor,
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16)),
-                    ),
-                    Text(
-                      memory.isValid
-                          ? 'Valid'
-                          : 'Expired ${_shortDate(memory.validTo)}',
-                      style: TextStyle(
-                        color: memory.isValid
-                            ? const Color(0xFF10B981)
-                            : ext.textTertiary,
-                        fontSize: 12,
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    memory.content,
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 10,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      Chip(
+                        label: Text(memory.source,
+                            style: const TextStyle(
+                                color: Colors.white, fontSize: 11)),
+                        backgroundColor: ext.borderColor,
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16)),
                       ),
-                    ),
-                  ],
-                ),
-              ],
+                      Text(
+                        memory.isValid
+                            ? 'Valid'
+                            : 'Expired ${_shortDate(memory.validTo)}',
+                        style: TextStyle(
+                          color: memory.isValid
+                              ? const Color(0xFF10B981)
+                              : ext.textTertiary,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
-          ),
-          TextButton(
-            onPressed: () => _showEditDialog(memory),
-            child: const Text('Edit'),
-          ),
-          if (memory.isValid)
             TextButton(
-              onPressed: () => vm.expireMemory(memory.id),
-              style: TextButton.styleFrom(
-                  foregroundColor: const Color(0xFFF59E0B)),
-              child: const Text('Expire'),
+              onPressed: () => _showEditDialog(memory),
+              child: const Text('Edit'),
             ),
-          TextButton(
-            onPressed: () => vm.deleteMemory(memory.id),
-            style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
-            child: const Text('Delete'),
-          ),
-        ],
+            if (memory.isValid)
+              TextButton(
+                onPressed: () => vm.expireMemory(memory.id),
+                style: TextButton.styleFrom(
+                    foregroundColor: const Color(0xFFF59E0B)),
+                child: const Text('Expire'),
+              ),
+            TextButton(
+              onPressed: () => vm.deleteMemory(memory.id),
+              style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
+              child: const Text('Delete'),
+            ),
+          ],
+        ),
       ),
     );
   }

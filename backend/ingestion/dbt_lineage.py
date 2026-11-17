@@ -237,40 +237,30 @@ def parse_dbt_manifest(payload: dict) -> DbtGraph:
 # ---------------------------------------------------------------------------
 
 
-def _dbt_key(tenant_id: str, label: str, unique_id: str) -> str:
-    return f"{tenant_id}::{label}::{unique_id}"
-
-
 def _write_node(client: Any, node: LineageNode, tenant_id: str) -> None:
-    if node.label not in NODE_LABELS:
-        raise ValueError(f"Unsupported dbt node label: {node.label}")
-    query = f"""
-    MERGE (n:{node.label} {{dbt_key: $dbt_key}})
-    SET n += $properties
-    """
-    properties = node.properties(tenant_id)
-    properties["dbt_key"] = _dbt_key(tenant_id, node.label, node.unique_id)
-    client.execute_write(
-        query, {"dbt_key": properties["dbt_key"], "properties": properties}
+    from backend.ingestion.graph_write import structural_key, upsert_structural_node
+
+    upsert_structural_node(
+        client,
+        label=node.label,
+        allowed_labels=NODE_LABELS,
+        key_field="dbt_key",
+        key_value=structural_key(tenant_id, node.label, node.unique_id),
+        properties=node.properties(tenant_id),
     )
 
 
 def _write_edge(client: Any, edge: LineageEdge, tenant_id: str) -> None:
-    if edge.type not in EDGE_TYPES:
-        raise ValueError(f"Unsupported dbt edge type: {edge.type}")
-    query = f"""
-    MATCH (a {{dbt_key: $from_key}})
-    MATCH (b {{dbt_key: $to_key}})
-    MERGE (a)-[r:{edge.type}]->(b)
-    SET r.tenant_id = $tenant_id
-    """
-    client.execute_write(
-        query,
-        {
-            "from_key": _dbt_key(tenant_id, edge.source_label, edge.source_unique_id),
-            "to_key": _dbt_key(tenant_id, edge.target_label, edge.target_unique_id),
-            "tenant_id": tenant_id,
-        },
+    from backend.ingestion.graph_write import structural_key, upsert_structural_edge
+
+    upsert_structural_edge(
+        client,
+        edge_type=edge.type,
+        allowed_edge_types=EDGE_TYPES,
+        key_field="dbt_key",
+        from_key=structural_key(tenant_id, edge.source_label, edge.source_unique_id),
+        to_key=structural_key(tenant_id, edge.target_label, edge.target_unique_id),
+        tenant_id=tenant_id,
     )
 
 

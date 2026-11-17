@@ -149,34 +149,57 @@ def _parse_pep508(entry: str, source_file: str) -> dict[str, Any] | None:
     return _record(name, spec if spec else "", "pypi", source_file)
 
 
+def _unknown_record(
+    name: str, ecosystem: str, source_file: str, version_spec: str = ""
+) -> dict[str, Any]:
+    return {
+        "name": name,
+        "version": None,
+        "version_spec": version_spec,
+        "spec_kind": "unknown",
+        "ecosystem": ecosystem,
+        "source_file": source_file,
+    }
+
+
+def _parse_poetry_value(
+    name: str, value: Any, source_file: str
+) -> list[dict[str, Any]]:
+    if isinstance(value, str):
+        return [_record(name, value, "pypi", source_file)]
+    if isinstance(value, dict):
+        version = value.get("version")
+        if isinstance(version, str):
+            return [_record(name, version, "pypi", source_file)]
+        return [_unknown_record(name, "pypi", source_file)]
+    if isinstance(value, list):
+        return [
+            _record(name, item["version"], "pypi", source_file)
+            for item in value
+            if isinstance(item, dict) and isinstance(item.get("version"), str)
+        ]
+    return []
+
+
 def _poetry_entries(table: Any, source_file: str) -> list[dict[str, Any]]:
-    records: list[dict[str, Any]] = []
     if not isinstance(table, dict):
-        return records
+        return []
+    records: list[dict[str, Any]] = []
     for name, value in table.items():
         if name == "python":
             continue
-        if isinstance(value, str):
-            records.append(_record(name, value, "pypi", source_file))
-        elif isinstance(value, dict):
-            version = value.get("version")
-            if isinstance(version, str):
-                records.append(_record(name, version, "pypi", source_file))
-            else:
-                records.append(
-                    {
-                        "name": name,
-                        "version": None,
-                        "version_spec": "",
-                        "spec_kind": "unknown",
-                        "ecosystem": "pypi",
-                        "source_file": source_file,
-                    }
-                )
-        elif isinstance(value, list):
-            for item in value:
-                if isinstance(item, dict) and isinstance(item.get("version"), str):
-                    records.append(_record(name, item["version"], "pypi", source_file))
+        records.extend(_parse_poetry_value(name, value, source_file))
+    return records
+
+
+def _parse_pep508_list(entries: Any, source_file: str) -> list[dict[str, Any]]:
+    records: list[dict[str, Any]] = []
+    for entry in entries or []:
+        if not isinstance(entry, str):
+            continue
+        record = _parse_pep508(entry, source_file)
+        if record is not None:
+            records.append(record)
     return records
 
 
@@ -187,20 +210,11 @@ def parse_pyproject_text(text: str, source_file: str = "pyproject.toml") -> list
     except tomllib.TOMLDecodeError as exc:
         logger.warning("Unparseable pyproject %s: %s", source_file, exc)
         return []
-    records: list[dict[str, Any]] = []
     project = data.get("project") or {}
-    for entry in project.get("dependencies") or []:
-        if isinstance(entry, str):
-            record = _parse_pep508(entry, source_file)
-            if record is not None:
-                records.append(record)
+    records = _parse_pep508_list(project.get("dependencies"), source_file)
     for group in (project.get("optional-dependencies") or {}).values():
-        for entry in group or []:
-            if isinstance(entry, str):
-                record = _parse_pep508(entry, source_file)
-                if record is not None:
-                    records.append(record)
-    poetry = ((data.get("tool") or {}).get("poetry") or {})
+        records.extend(_parse_pep508_list(group, source_file))
+    poetry = (data.get("tool") or {}).get("poetry") or {}
     records.extend(_poetry_entries(poetry.get("dependencies"), source_file))
     for group in (poetry.get("group") or {}).values():
         if isinstance(group, dict):
@@ -236,6 +250,20 @@ def parse_package_json_text(text: str, source_file: str = "package.json") -> lis
 # ---------------------------------------------------------------------------
 
 
+def _parse_pubspec_entry(
+    name: str, value: Any, source_file: str
+) -> dict[str, Any] | None:
+    if isinstance(value, str):
+        return _record(name, value, "pub", source_file)
+    if isinstance(value, dict):
+        version = value.get("version")
+        if isinstance(version, str):
+            return _record(name, version, "pub", source_file)
+        # sdk:/git:/path: hosted-less entries — no version.
+        return _unknown_record(name, "pub", source_file)
+    return None
+
+
 def parse_pubspec_text(text: str, source_file: str = "pubspec.yaml") -> list[dict[str, Any]]:
     """Parse dependency records out of ``pubspec.yaml`` text."""
     import yaml
@@ -251,24 +279,9 @@ def parse_pubspec_text(text: str, source_file: str = "pubspec.yaml") -> list[dic
         if not isinstance(table, dict):
             continue
         for name, value in table.items():
-            if isinstance(value, str):
-                records.append(_record(name, value, "pub", source_file))
-            elif isinstance(value, dict):
-                version = value.get("version")
-                if isinstance(version, str):
-                    records.append(_record(name, version, "pub", source_file))
-                else:
-                    # sdk:/git:/path: hosted-less entries — no version.
-                    records.append(
-                        {
-                            "name": name,
-                            "version": None,
-                            "version_spec": "",
-                            "spec_kind": "unknown",
-                            "ecosystem": "pub",
-                            "source_file": source_file,
-                        }
-                    )
+            record = _parse_pubspec_entry(name, value, source_file)
+            if record is not None:
+                records.append(record)
     return records
 
 

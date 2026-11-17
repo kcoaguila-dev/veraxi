@@ -682,21 +682,16 @@ def parse_repo(root: str | Path) -> CodeGraph:
 # ---------------------------------------------------------------------------
 
 
-def _code_key(tenant_id: str, label: str, qualified_name: str) -> str:
-    return f"{tenant_id}::{label}::{qualified_name}"
-
-
 def _write_node(client: Any, node: CodeNode, tenant_id: str) -> None:
-    if node.label not in NODE_LABELS:
-        raise ValueError(f"Unsupported code node label: {node.label}")
-    query = f"""
-    MERGE (n:{node.label} {{code_key: $code_key}})
-    SET n += $properties
-    """
-    properties = node.properties(tenant_id)
-    properties["code_key"] = _code_key(tenant_id, node.label, node.qualified_name)
-    client.execute_write(
-        query, {"code_key": properties["code_key"], "properties": properties}
+    from backend.ingestion.graph_write import structural_key, upsert_structural_node
+
+    upsert_structural_node(
+        client,
+        label=node.label,
+        allowed_labels=NODE_LABELS,
+        key_field="code_key",
+        key_value=structural_key(tenant_id, node.label, node.qualified_name),
+        properties=node.properties(tenant_id),
     )
 
 
@@ -721,21 +716,16 @@ def _write_placeholder_node(
 
 
 def _write_edge(client: Any, edge: CodeEdge, tenant_id: str) -> None:
-    if edge.type not in EDGE_TYPES:
-        raise ValueError(f"Unsupported code edge type: {edge.type}")
-    query = f"""
-    MATCH (a {{code_key: $from_key}})
-    MATCH (b {{code_key: $to_key}})
-    MERGE (a)-[r:{edge.type}]->(b)
-    SET r.tenant_id = $tenant_id
-    """
-    client.execute_write(
-        query,
-        {
-            "from_key": _code_key(tenant_id, edge.source_label, edge.source_qn),
-            "to_key": _code_key(tenant_id, edge.target_label, edge.target_qn),
-            "tenant_id": tenant_id,
-        },
+    from backend.ingestion.graph_write import structural_key, upsert_structural_edge
+
+    upsert_structural_edge(
+        client,
+        edge_type=edge.type,
+        allowed_edge_types=EDGE_TYPES,
+        key_field="code_key",
+        from_key=structural_key(tenant_id, edge.source_label, edge.source_qn),
+        to_key=structural_key(tenant_id, edge.target_label, edge.target_qn),
+        tenant_id=tenant_id,
     )
 
 
