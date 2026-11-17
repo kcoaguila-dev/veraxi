@@ -603,3 +603,30 @@ def test_pptx_slide_theme_and_accent_color_round_trip(client):
     assert "World" in "\n".join(
         shape.text for shape in prs.slides[1].shapes if shape.has_text_frame
     )
+
+
+@pytest.mark.asyncio
+async def test_call_model_does_not_leak_prior_turn_artifact_blocks(
+    mock_orchestrator_config,
+):
+    block = _office_block()
+    prior_tool_msg = ToolMessage(
+        content=block,
+        tool_call_id="call_old",
+        artifact=[
+            {"type": "artifact_block", "payload": {"artifact_block": block}}
+        ],
+    )
+    history = [
+        HumanMessage(content="create a slide deck"),
+        AIMessage(content="creating"),
+        prior_tool_msg,
+        AIMessage(content=f"Done.\n\n{block}"),
+        HumanMessage(content="Thanks! What is 2 + 2?"),
+    ]
+    message, _ = await _run_call_model(
+        AIMessage(content="2 + 2 is 4."),
+        history,
+    )
+    assert message.content == "2 + 2 is 4."
+    assert "```json" not in message.content

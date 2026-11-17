@@ -791,7 +791,15 @@ class ChatViewModel extends StateNotifier<ChatState> {
               return step;
             }).toList()
           : const <ActivityStep>[];
+      final finalContent = _extractFinalAssistantContent(event);
+      final reconciledContent = (finalContent != null &&
+              state.messages.isNotEmpty &&
+              state.messages.last.role == 'assistant' &&
+              finalContent != state.messages.last.content)
+          ? finalContent
+          : null;
       _updateLastMessage(
+        content: reconciledContent,
         isStreaming: false,
         activeTool: null,
         metrics: updatedMetrics,
@@ -803,6 +811,25 @@ class ChatViewModel extends StateNotifier<ChatState> {
       // If this was a new chat, we need to extract the thread ID from somewhere, or reload threads
       loadThreads();
     }
+  }
+
+  /// Extracts the authoritative final assistant message content from a
+  /// LangGraph `on_chain_end` event so post-stream backend mutations
+  /// (e.g. deterministic artifact block attachment) appear immediately.
+  String? _extractFinalAssistantContent(Map<String, dynamic> event) {
+    final output = event['data']?['output'];
+    if (output is! Map) return null;
+    final messages = output['messages'];
+    if (messages is! List || messages.isEmpty) return null;
+    for (var i = messages.length - 1; i >= 0; i--) {
+      final msg = messages[i];
+      if (msg is! Map) continue;
+      final type = msg['type'] ?? msg['role'];
+      if (type != 'ai' && type != 'assistant') continue;
+      final content = msg['content'];
+      if (content is String && content.isNotEmpty) return content;
+    }
+    return null;
   }
 
   void _updateLastMessage(

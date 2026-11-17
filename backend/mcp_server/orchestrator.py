@@ -301,14 +301,27 @@ _SLIDE_DIRECTIVE = (
 )
 
 
+def _is_human_message(message: BaseMessage) -> bool:
+    return getattr(message, "type", "") in ("human", "user") or (
+        message.__class__.__name__ == "HumanMessage"
+    )
+
+
 def _latest_human_text(messages: Sequence[BaseMessage]) -> str:
     for message in reversed(messages):
-        is_human = getattr(message, "type", "") in ("human", "user") or (
-            message.__class__.__name__ == "HumanMessage"
-        )
-        if is_human and isinstance(message.content, str):
+        if _is_human_message(message) and isinstance(message.content, str):
             return message.content
     return ""
+
+
+def _current_turn_messages(
+    messages: Sequence[BaseMessage],
+) -> Sequence[BaseMessage]:
+    """Return only messages from the latest human turn onward."""
+    for idx in range(len(messages) - 1, -1, -1):
+        if _is_human_message(messages[idx]):
+            return messages[idx + 1 :]
+    return messages
 
 
 def _detect_office_artifact_intent(messages: Sequence[BaseMessage]) -> str | None:
@@ -399,7 +412,7 @@ def _extract_office_artifact_blocks(messages: Sequence[BaseMessage]) -> list[str
     transports that flatten the payload into text.
     """
     blocks: list[str] = []
-    for message in messages:
+    for message in _current_turn_messages(messages):
         candidates = _blocks_from_artifact_payload(
             getattr(message, "artifact", None)
         ) + _blocks_from_content(getattr(message, "content", None))
