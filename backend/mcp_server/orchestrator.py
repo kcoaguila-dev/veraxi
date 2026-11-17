@@ -29,6 +29,8 @@ from backend.config import get_config
 from backend.mcp_server.formatter import (
     _finalize_metrics,
     _prepend_system_messages,
+    extract_usage_from_response,
+    shape_usage,
 )
 from backend.mcp_server.tool_dispatch import get_tools
 from backend.retrieval.provenance import build_provenance
@@ -704,6 +706,12 @@ async def call_model(state: AgentState):
     response.additional_kwargs["model_name"] = effective_model
 
     metrics: dict[str, Any] = {
+        # Token usage exactly as the provider reported it on this
+        # response (None when the provider reported none — never
+        # estimated). _finalize_metrics flattens it into the metrics.
+        "usage": shape_usage(
+            extract_usage_from_response(response), model_name=effective_model
+        ),
         "generation_seconds": round(time.perf_counter() - started_at, 3),
         # Pass embeddings into metrics so _finalize_metrics can compute cosine retrieval_relevance.
         # These are popped inside _finalize_metrics and never sent to the frontend.

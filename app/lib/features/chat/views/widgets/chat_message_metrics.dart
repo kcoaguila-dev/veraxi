@@ -28,6 +28,19 @@ class _ChatMessageMetricsState extends State<ChatMessageMetrics> {
     final confidence = _toDouble(widget.metrics['confidence']);
     final generationSeconds = _toDouble(widget.metrics['generation_seconds']);
 
+    // Token usage / cost: flattened keys from the backend metrics, with
+    // a nested `usage` map accepted for older payloads. Absent usage
+    // (provider reported none) shows no tile — never an estimate.
+    final usage = widget.metrics['usage'];
+    final usageMap =
+        usage is Map ? Map<String, dynamic>.from(usage) : widget.metrics;
+    final promptTokens = _toInt(usageMap['prompt_tokens']);
+    final completionTokens = _toInt(usageMap['completion_tokens']);
+    final totalTokens = _toInt(usageMap['total_tokens']);
+    final estimatedCostUsd = _toDouble(usageMap['estimated_cost_usd']);
+    final hasUsage =
+        promptTokens != null || completionTokens != null || totalTokens != null;
+
     return AnimatedSize(
       duration: const Duration(milliseconds: 260),
       curve: Curves.easeInOut,
@@ -81,6 +94,15 @@ class _ChatMessageMetricsState extends State<ChatMessageMetrics> {
                 ),
               ],
             ),
+            if (hasUsage) ...[
+              SizedBox(height: 12),
+              _UsageTile(
+                promptTokens: promptTokens,
+                completionTokens: completionTokens,
+                totalTokens: totalTokens,
+                estimatedCostUsd: estimatedCostUsd,
+              ),
+            ],
             if ((contextAdherence ?? 1.0) == 0.0 || (confidence ?? 1.0) == 0.0)
               Padding(
                 padding: EdgeInsets.only(top: 12.0),
@@ -117,6 +139,81 @@ class _ChatMessageMetricsState extends State<ChatMessageMetrics> {
       return value.toDouble();
     }
     return null;
+  }
+
+  int? _toInt(dynamic value) {
+    if (value is num) {
+      return value.toInt();
+    }
+    return null;
+  }
+}
+
+/// Token usage for one completion, plus its estimated cost when the
+/// backend could price the model (null cost = pricing unknown, shown
+/// as no cost line rather than a fabricated number).
+class _UsageTile extends StatelessWidget {
+  final int? promptTokens;
+  final int? completionTokens;
+  final int? totalTokens;
+  final double? estimatedCostUsd;
+
+  const _UsageTile({
+    required this.promptTokens,
+    required this.completionTokens,
+    required this.totalTokens,
+    required this.estimatedCostUsd,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1B1B1B),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+            color:
+                Theme.of(context).extension<AppThemeExtension>()!.borderColor),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            'TOKEN USAGE',
+            style: TextStyle(
+              color: Color(0xFF8A8A8A),
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.6,
+            ),
+          ),
+          SizedBox(height: 8),
+          Text(
+            '${totalTokens ?? '--'} tokens',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          SizedBox(height: 4),
+          Text(
+            'Prompt ${promptTokens ?? '--'} · Completion ${completionTokens ?? '--'}',
+            style: TextStyle(color: Color(0xFF8A8A8A), fontSize: 11),
+          ),
+          if (estimatedCostUsd != null) ...[
+            SizedBox(height: 4),
+            Text(
+              'Est. cost \$${estimatedCostUsd!.toStringAsFixed(4)}',
+              style: TextStyle(color: Color(0xFF8A8A8A), fontSize: 11),
+            ),
+          ],
+        ],
+      ),
+    );
   }
 }
 

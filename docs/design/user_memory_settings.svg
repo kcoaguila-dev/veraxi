@@ -1,0 +1,66 @@
+<svg width="1440" height="900" viewBox="0 0 1440 900" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!--
+    Veraxi — User Memory Settings (Evidence-First Phase 5)
+    Visual contract for feat/memory-cost.
+
+    Palette matches the existing dark settings UI (#212121 app,
+    #2F2F2F card, #3F3F3F border, #10B981 live green, #F59E0B amber).
+
+    The tab is registered in the Settings sidebar as "Memory",
+    directly after "Code Sandboxes". Data comes from
+    GET /api/v1/memories and is managed with POST /api/v1/memories,
+    PUT /api/v1/memories/{id}, POST /api/v1/memories/{id}/expire and
+    DELETE /api/v1/memories/{id} (backend/services/memory_store.py,
+    migration 007_user_memories.sql).
+
+    Sections, top to bottom:
+    1. Header — "Memory" title + explanation that memories are
+       user-visible and user-controlled, with validity shown per row.
+    2. Add a memory — one text field + "Add Memory" button; new
+       memories are created with source "manual".
+    3. Your memories — one card per memory: content text, source chip
+       (chat | manual | import), validity label ("Valid" green while
+       valid_to is null, "Expired <date>" tertiary otherwise), and
+       Edit / Expire / Delete actions. Edit opens a dialog with the
+       current content; Expire soft-expires (row kept, valid_to set);
+       Delete removes the row. An empty state line is shown when the
+       user has no memories.
+  -->
+  <rect width="1440" height="900" fill="#212121"/>
+
+  <!-- Header -->
+  <text x="48" y="72" font-family="Inter, sans-serif" font-size="28" font-weight="700" fill="#FFFFFF">Memory</text>
+  <text x="48" y="102" font-family="Inter, sans-serif" font-size="14" fill="#9E9E9E">Facts Veraxi remembers about you. You can add, edit, expire or delete them at any time — nothing is hidden.</text>
+
+  <!-- Section 1: Add -->
+  <text x="48" y="152" font-family="Inter, sans-serif" font-size="17" font-weight="600" fill="#FFFFFF">Add a Memory</text>
+  <rect x="48" y="172" width="1320" height="110" rx="12" fill="#2F2F2F" stroke="#3F3F3F"/>
+  <rect x="72" y="196" width="1020" height="44" rx="8" fill="#212121" stroke="#3F3F3F"/>
+  <text x="88" y="224" font-family="Inter, sans-serif" font-size="13" fill="#9E9E9E">e.g. Prefers concise answers with citations</text>
+  <rect x="1112" y="196" width="150" height="44" rx="8" fill="#FFFFFF"/>
+  <text x="1187" y="224" font-family="Inter, sans-serif" font-size="13" font-weight="600" fill="#171717" text-anchor="middle">Add Memory</text>
+  <text x="72" y="264" font-family="Inter, sans-serif" font-size="12" fill="#9E9E9E">New memories are saved with source “manual” and are valid immediately.</text>
+
+  <!-- Section 2: List -->
+  <text x="48" y="332" font-family="Inter, sans-serif" font-size="17" font-weight="600" fill="#FFFFFF">Your Memories</text>
+  <rect x="48" y="352" width="1320" height="118" rx="12" fill="#2F2F2F" stroke="#3F3F3F"/>
+  <circle cx="84" cy="392" r="5" fill="#10B981"/>
+  <text x="102" y="397" font-family="Inter, sans-serif" font-size="14" font-weight="600" fill="#FFFFFF">Prefers concise answers with citations</text>
+  <rect x="102" y="412" width="70" height="22" rx="11" fill="#212121" stroke="#3F3F3F"/>
+  <text x="137" y="427" font-family="Inter, sans-serif" font-size="11" fill="#ECECEC" text-anchor="middle">manual</text>
+  <text x="188" y="427" font-family="Inter, sans-serif" font-size="12" fill="#10B981">Valid</text>
+  <text x="1090" y="397" font-family="Inter, sans-serif" font-size="12" fill="#ECECEC">Edit</text>
+  <text x="1140" y="397" font-family="Inter, sans-serif" font-size="12" fill="#F59E0B">Expire</text>
+  <text x="1210" y="397" font-family="Inter, sans-serif" font-size="12" fill="#FF8A80">Delete</text>
+
+  <rect x="48" y="486" width="1320" height="118" rx="12" fill="#2F2F2F" stroke="#3F3F3F"/>
+  <circle cx="84" cy="526" r="5" fill="#9E9E9E"/>
+  <text x="102" y="531" font-family="Inter, sans-serif" font-size="14" font-weight="600" fill="#FFFFFF">Works on the Veraxi backend in Python</text>
+  <rect x="102" y="546" width="58" height="22" rx="11" fill="#212121" stroke="#3F3F3F"/>
+  <text x="131" y="561" font-family="Inter, sans-serif" font-size="11" fill="#ECECEC" text-anchor="middle">chat</text>
+  <text x="176" y="561" font-family="Inter, sans-serif" font-size="12" fill="#9E9E9E">Expired 2026-11-01</text>
+  <text x="1090" y="531" font-family="Inter, sans-serif" font-size="12" fill="#ECECEC">Edit</text>
+  <text x="1210" y="531" font-family="Inter, sans-serif" font-size="12" fill="#FF8A80">Delete</text>
+
+  <text x="48" y="650" font-family="Inter, sans-serif" font-size="13" fill="#9E9E9E">Empty state: “No memories yet. Add one above, or let chat save them as you talk.”</text>
+</svg>
