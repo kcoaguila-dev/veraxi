@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="900" viewBox="0 0 1440 900">
+  <!-- Visual contract: Claude-style slides split pane (Pic 2 reference).
+       Left chat column ~42% / right artifact canvas ~58%, resizable and
+       expandable to fullscreen. Implemented by chat_screen.dart
+       (responsive split width + expand toggle), code_artifact_panel.dart
+       (header Export / Fullscreen), and slide_deck_preview.dart
+       (thumbnail rail, 16:9 stage, zoom, Ask Veraxi bar). -->
+  <rect width="1440" height="900" fill="#0E0E10"/>
+
+  <!-- Left chat column (~42%) -->
+  <rect x="0" y="0" width="600" height="900" fill="#171719"/>
+  <text x="32" y="52" font-family="Inter, sans-serif" font-size="15" fill="#ECECEC" font-weight="600">Two-slide Hello World deck</text>
+  <rect x="120" y="120" width="420" height="64" rx="12" fill="#26262A"/>
+  <text x="140" y="148" font-family="Inter, sans-serif" font-size="13" fill="#D4D4D8">give me a simple slide that says on the first page hello</text>
+  <text x="140" y="168" font-family="Inter, sans-serif" font-size="13" fill="#D4D4D8">and the second slide world</text>
+  <text x="32" y="232" font-family="Inter, sans-serif" font-size="12" fill="#878787">Created a file, used a tool ›</text>
+  <!-- Artifact card: Title · SLIDES · 2 slides -->
+  <rect x="32" y="256" width="500" height="64" rx="10" fill="#2A2018" stroke="#3F3226"/>
+  <rect x="48" y="276" width="24" height="24" rx="4" fill="none" stroke="#D98A2B" stroke-width="2"/>
+  <text x="88" y="284" font-family="Inter, sans-serif" font-size="14" fill="#ECECEC" font-weight="600">Hello World</text>
+  <text x="88" y="304" font-family="Inter, sans-serif" font-size="11" fill="#A1A1AA" letter-spacing="1">SLIDES · 2 slides</text>
+  <text x="32" y="368" font-family="Inter, sans-serif" font-size="13" fill="#D4D4D8">Your two-slide deck is ready: slide 1 says “Hello” on a dark navy</text>
+  <text x="32" y="390" font-family="Inter, sans-serif" font-size="13" fill="#D4D4D8">background, and slide 2 says “World” on a light background, each</text>
+  <text x="32" y="412" font-family="Inter, sans-serif" font-size="13" fill="#D4D4D8">with a small amber accent bar.</text>
+  <rect x="32" y="812" width="536" height="52" rx="26" fill="#1F1F23" stroke="#2E2E34"/>
+  <text x="56" y="844" font-family="Inter, sans-serif" font-size="13" fill="#71717A">Reply</text>
+
+  <!-- Right split-pane canvas (~58%) -->
+  <rect x="600" y="0" width="840" height="900" fill="#131315"/>
+  <rect x="600" y="0" width="840" height="56" fill="#1B1B1E"/>
+  <!-- Top bar: Title, Export, Fullscreen, Close -->
+  <text x="624" y="35" font-family="Inter, sans-serif" font-size="14" fill="#ECECEC" font-weight="600">Hello World</text>
+  <text x="716" y="35" font-family="Inter, sans-serif" font-size="11" fill="#878787" letter-spacing="1">SLIDES · 2 slides</text>
+  <rect x="1212" y="14" width="104" height="30" rx="8" fill="#ECECEC"/>
+  <text x="1232" y="34" font-family="Inter, sans-serif" font-size="13" fill="#171719" font-weight="600">↓ Export</text>
+  <text x="1336" y="35" font-family="Inter, sans-serif" font-size="15" fill="#B4B4B4">⤢</text>
+  <text x="1384" y="35" font-family="Inter, sans-serif" font-size="15" fill="#B4B4B4">✕</text>
+
+  <!-- Secondary toolbar: + Add slide, View, Download, Present, Zoom -->
+  <text x="624" y="88" font-family="Inter, sans-serif" font-size="13" fill="#ECECEC">+ Add slide</text>
+  <text x="716" y="88" font-family="Inter, sans-serif" font-size="13" fill="#ECECEC">View ⌄</text>
+  <text x="1220" y="88" font-family="Inter, sans-serif" font-size="13" fill="#B4B4B4">↓</text>
+  <text x="1256" y="88" font-family="Inter, sans-serif" font-size="13" fill="#B4B4B4">▶</text>
+  <text x="1296" y="88" font-family="Inter, sans-serif" font-size="13" fill="#B4B4B4">⤢</text>
+  <text x="1336" y="88" font-family="Inter, sans-serif" font-size="13" fill="#ECECEC">100% ⌄</text>
+
+  <!-- Left 16:9 thumbnail rail with slide numbers -->
+  <rect x="600" y="104" width="180" height="796" fill="#111113"/>
+  <text x="620" y="148" font-family="Inter, sans-serif" font-size="11" fill="#71717A">1</text>
+  <rect x="644" y="120" width="112" height="63" rx="6" fill="#0F1D3A" stroke="#4F8EF7" stroke-width="2"/>
+  <text x="656" y="158" font-family="Inter, sans-serif" font-size="12" fill="#F5F7FA" font-weight="700">Hello</text>
+  <text x="620" y="228" font-family="Inter, sans-serif" font-size="11" fill="#71717A">2</text>
+  <rect x="644" y="200" width="112" height="63" rx="6" fill="#F5F5F0" stroke="#2E2E34"/>
+  <text x="656" y="238" font-family="Inter, sans-serif" font-size="12" fill="#0F1D3A" font-weight="700">World</text>
+
+  <!-- Centered 16:9 slide stage: dark navy #0F1D3A, amber accent bar -->
+  <rect x="816" y="220" width="576" height="324" rx="8" fill="#0F1D3A"/>
+  <text x="876" y="400" font-family="Inter, sans-serif" font-size="72" fill="#F5F7FA" font-weight="700">Hello</text>
+  <rect x="876" y="424" width="56" height="5" rx="2" fill="#D98A2B"/>
+
+  <!-- Bottom floating quick-action bar: Ask Veraxi -->
+  <rect x="1056" y="812" width="220" height="40" rx="20" fill="#1E1E22" stroke="#323238"/>
+  <text x="1080" y="838" font-family="Inter, sans-serif" font-size="13" fill="#ECECEC">✦ Ask Veraxi</text>
+</svg>

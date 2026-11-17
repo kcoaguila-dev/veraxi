@@ -283,6 +283,274 @@ def _append_system_note(messages: list, note: str) -> list:
     return [SystemMessage(content=note), *messages]
 
 
+_OFFICE_ARTIFACT_FORMATS = ("pdf", "docx", "xlsx", "pptx")
+
+_SLIDE_INTENT_EXPLICIT_RE = re.compile(r"\b(slide deck|pptx|powerpoint)\b")
+_SLIDE_INTENT_CREATE_RE = re.compile(
+    r"\b(create|make|build|generate|prepare|draft|design|give me|show me)\b"
+    r"[^.?!]{0,80}\b(slides?|presentation)\b"
+)
+
+_SLIDE_DIRECTIVE = (
+    "HIGH PRIORITY: The user is asking for a slide deck / presentation. "
+    "You MUST call the create_office_artifact tool with format=\"pptx\" "
+    "and a structured slides spec (one entry per slide, each with a "
+    "title, optional subtitle/bullets, a theme of \"dark\" or \"light\", "
+    "and an accent_color). Do not write the slides as prose, Markdown "
+    "headings, HTML, or Reveal.js instead."
+)
+
+
+def _is_human_message(message: BaseMessage) -> bool:
+    return getattr(message, "type", "") in ("human", "user") or (
+        message.__class__.__name__ == "HumanMessage"
+    )
+
+
+def _latest_human_text(messages: Sequence[BaseMessage]) -> str:
+    for message in reversed(messages):
+        if _is_human_message(message) and isinstance(message.content, str):
+            return message.content
+    return ""
+
+
+def _current_turn_messages(
+    messages: Sequence[BaseMessage],
+) -> Sequence[BaseMessage]:
+    """Return only messages from the latest human turn onward."""
+    for idx in range(len(messages) - 1, -1, -1):
+        if _is_human_message(messages[idx]):
+            return messages[idx + 1 :]
+    return messages
+
+
+def _detect_office_artifact_intent(messages: Sequence[BaseMessage]) -> str | None:
+    """Return ``"pptx"`` when the latest user message asks for slides.
+
+    Intent is deliberately narrow: an explicit deck format/name
+    (``slide deck``, ``pptx``, ``PowerPoint``) or a creation verb near
+    ``slide``/``presentation``. Questions *about* slides do not match,
+    so ordinary chat never gets a forced tool directive.
+    """
+    text = _latest_human_text(messages).lower()
+    if not text:
+        return None
+    if _SLIDE_INTENT_CREATE_RE.search(text):
+        return "pptx"
+    question_like = "?" in text or text.startswith(
+        ("what", "how", "why", "when", "explain", "tell me about")
+    )
+    if not question_like and _SLIDE_INTENT_EXPLICIT_RE.search(text):
+        return "pptx"
+    return None
+
+
+def _tool_names(tools_list: list) -> set[str]:
+    names: set[str] = set()
+    for tool in tools_list:
+        if not isinstance(tool, dict):
+            continue
+        fn = tool.get("function")
+        if isinstance(fn, dict) and isinstance(fn.get("name"), str):
+            names.add(fn["name"])
+    return names
+
+
+_FENCED_JSON_RE = re.compile(r"```json\s*\n(.*?)\n```", re.DOTALL)
+
+
+def _is_office_envelope(obj: Any) -> bool:
+    if not isinstance(obj, dict):
+        return False
+    if obj.get("format") not in _OFFICE_ARTIFACT_FORMATS:
+        return False
+    return any(key in obj for key in ("slides", "sheets", "sections", "content"))
+
+
+def _office_envelope_from_block(block: str) -> dict | None:
+    match = _FENCED_JSON_RE.fullmatch(block.strip())
+    if not match:
+        return None
+    try:
+        obj = json.loads(match.group(1))
+    except (ValueError, TypeError):
+        return None
+    return obj if _is_office_envelope(obj) else None
+
+
+def _blocks_from_artifact_payload(artifact: Any) -> list[str]:
+    blocks: list[str] = []
+    if not isinstance(artifact, (list, tuple)):
+        return blocks
+    for entry in artifact:
+        if not isinstance(entry, dict):
+            continue
+        payload = entry.get("payload")
+        if isinstance(payload, dict):
+            block = payload.get("artifact_block")
+            if isinstance(block, str) and _office_envelope_from_block(block):
+                blocks.append(block)
+    return blocks
+
+
+def _blocks_from_content(content: Any) -> list[str]:
+    if not isinstance(content, str):
+        return []
+    blocks: list[str] = []
+    for match in _FENCED_JSON_RE.finditer(content):
+        block = match.group(0)
+        if _office_envelope_from_block(block):
+            blocks.append(block)
+    return blocks
+
+
+def _extract_office_artifact_blocks(messages: Sequence[BaseMessage]) -> list[str]:
+    """Exact ```json blocks produced by create_office_artifact this turn.
+
+    The canonical source is the ToolMessage artifact payload, which
+    carries the block verbatim; message content is a fallback for
+    transports that flatten the payload into text.
+    """
+    blocks: list[str] = []
+    for message in _current_turn_messages(messages):
+        candidates = _blocks_from_artifact_payload(
+            getattr(message, "artifact", None)
+        ) + _blocks_from_content(getattr(message, "content", None))
+        for block in candidates:
+            if block not in blocks:
+                blocks.append(block)
+    return blocks
+
+
+def _strip_office_envelope_blocks(content: str, keep: str) -> str:
+    def _replace(match: re.Match) -> str:
+        block = match.group(0)
+        if block == keep or not _office_envelope_from_block(block):
+            return block
+        return ""
+
+    return _FENCED_JSON_RE.sub(_replace, content).strip()
+
+
+def _envelope_slide_titles(block: str) -> list[str]:
+    envelope = _office_envelope_from_block(block)
+    if not envelope:
+        return []
+    slides = envelope.get("slides")
+    if not isinstance(slides, list):
+        return []
+    return [
+        str(slide["title"])
+        for slide in slides
+        if isinstance(slide, dict) and slide.get("title")
+    ]
+
+
+def _deck_ready_summary(titles: list[str]) -> str:
+    listed = ", ".join(
+        f"slide {i} says '{title}'" for i, title in enumerate(titles, 1)
+    )
+    return f"Your {len(titles)}-slide deck is ready: {listed}."
+
+
+def _ensure_office_artifact_blocks(content: str, blocks: list[str]) -> str:
+    """Deterministically attach tool-produced blocks to the final reply.
+
+    The LLM only has to write the summary: a block it omitted is
+    appended verbatim, a block it altered (a different office envelope)
+    is replaced by the exact tool output, and a prose slide outline is
+    collapsed to a concise deck-ready summary so the chat does not
+    show the deck twice (once as prose, once as the artifact card).
+    """
+    result = content
+    for block in blocks:
+        if block in result:
+            continue
+        result = _strip_office_envelope_blocks(result, keep=block)
+        titles = _envelope_slide_titles(block)
+        if titles and _parse_markdown_slides(result):
+            result = _deck_ready_summary(titles)
+        result = f"{result.rstrip()}\n\n{block}" if result.strip() else block
+    return result
+
+
+_SLIDE_HEADING_RE = re.compile(
+    r"^\s{0,3}(?:#{1,6}\s*)?(?:\*\*)?slide\s+(\d+)\s*(?:\*\*)?"
+    r"\s*(?:[:.\-–—]\s*)?(.*)$",
+    re.IGNORECASE,
+)
+_BULLET_RE = re.compile(r"^\s*(?:[-*•]|\d+[.)])\s+(.*)$")
+
+
+def _parse_markdown_slides(content: str) -> list[dict] | None:
+    """Parse ``Slide 1: …`` style prose into a slides spec, or None.
+
+    Requires at least two slide headings — a single heading is an
+    ordinary document outline, not a deck the model forgot to build.
+    """
+    segments: list[tuple[str, list[str]]] = []
+    current: tuple[str, list[str]] | None = None
+    for line in content.splitlines():
+        heading = _SLIDE_HEADING_RE.match(line)
+        if heading:
+            current = (heading.group(2).strip(), [])
+            segments.append(current)
+            continue
+        if current is None:
+            continue
+        text = line.strip().strip("*").strip()
+        if not text:
+            continue
+        bullet = _BULLET_RE.match(line)
+        current[1].append(bullet.group(1).strip() if bullet else text)
+    if len(segments) < 2:
+        return None
+    slides: list[dict] = []
+    for title, lines in segments:
+        if not title and lines:
+            title, lines = lines[0], lines[1:]
+        if not title:
+            return None
+        slide: dict[str, Any] = {"title": title}
+        if lines:
+            slide["bullets"] = lines
+        slides.append(slide)
+    return slides
+
+
+def _build_markdown_slide_block(content: str) -> str | None:
+    """Safety net: build the pptx block for prose slides, or None."""
+    slides = _parse_markdown_slides(content)
+    if not slides:
+        return None
+    from backend.mcp_server.tool_dispatch import _build_office_artifact
+
+    result = _build_office_artifact(
+        {"format": "pptx", "title": "Presentation", "spec": {"slides": slides}}
+    )
+    block = result.get("block")
+    return block if isinstance(block, str) else None
+
+
+def _apply_deterministic_artifact_delivery(
+    response: AIMessage, messages: Sequence[BaseMessage]
+) -> None:
+    """Guarantee the final AIMessage carries a valid artifact block."""
+    if not isinstance(response.content, str):
+        return
+    if getattr(response, "tool_calls", None):
+        return
+    blocks = _extract_office_artifact_blocks(messages)
+    if blocks:
+        response.content = _ensure_office_artifact_blocks(response.content, blocks)
+        return
+    fallback_block = _build_markdown_slide_block(response.content)
+    if fallback_block:
+        titles = _envelope_slide_titles(fallback_block)
+        summary = _deck_ready_summary(titles) if titles else "Your deck is ready."
+        response.content = f"{summary}\n\n{fallback_block}"
+
+
 async def call_model(state: AgentState):
     """The AI Agent node that decides what to do."""
     messages = state["messages"]
@@ -310,8 +578,12 @@ async def call_model(state: AgentState):
         extra_system_messages.append(
             SystemMessage(
                 content=(
-                    "Artifacts are enabled. You can generate UI components, code snippets, or diagrams for the user to view. "
-                    "To generate an artifact, output a markdown block with the language set to the artifact type, e.g. "
+                    "Artifacts are enabled. For documents, slide decks / "
+                    "presentations, spreadsheets, and PDFs you MUST call "
+                    "the create_office_artifact tool (format=\"pptx\" with "
+                    "a slides spec for decks) — never emit those as raw "
+                    "fenced blocks or prose outlines. Reserve raw fenced "
+                    "blocks for UI, code, and diagrams only, e.g. "
                     "```html\n<h1>Hello</h1>\n``` or ```mermaid\ngraph TD; A-->B;\n```. "
                     "Make sure your artifacts are entirely self-contained."
                 )
@@ -366,6 +638,14 @@ async def call_model(state: AgentState):
             note = _integration_capability_note(tools_list)
             if note:
                 modified_messages = _append_system_note(modified_messages, note)
+            # Smaller models reliably miss create_office_artifact for
+            # slide requests without a direct, high-priority nudge.
+            if _detect_office_artifact_intent(messages) and (
+                "create_office_artifact" in _tool_names(tools_list)
+            ):
+                modified_messages = _append_system_note(
+                    modified_messages, _SLIDE_DIRECTIVE
+                )
             llm_with_tools = llm.bind_tools(tools_list, parallel_tool_calls=True)
         else:
             llm_with_tools = llm
@@ -413,6 +693,11 @@ async def call_model(state: AgentState):
     # Persist any inline <think> reasoning on the message itself so it
     # survives history reads / web reloads, not just live streaming.
     _extract_think_block(response)
+
+    # Artifact delivery must not depend on the LLM copy-pasting the
+    # create_office_artifact block back verbatim: re-attach the exact
+    # tool block (or build one from prose slides) deterministically.
+    _apply_deterministic_artifact_delivery(response, messages)
 
     # Inject the model name into the response so it gets saved to history and sent to frontend
     response.additional_kwargs["model_name"] = effective_model

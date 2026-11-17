@@ -40,6 +40,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   final Set<String> _pinnedModels = {};
   bool _isScrolledUp = false;
 
+  /// Artifacts the panel has already auto-opened (or the user manually
+  /// closed): auto-open fires at most once per artifact occurrence.
+  final Set<String> _autoOpenSuppressedKeys = {};
+
   void _onScroll() {
     if (_scrollController.hasClients) {
       final isUp = _scrollController.position.pixels <
@@ -83,6 +87,17 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     super.dispose();
   }
 
+  /// Closes the artifact panel, remembering the artifact so auto-open
+  /// does not immediately reopen what the user just closed.
+  void _closeArtifactPanel() {
+    final open = ref.read(openCodeArtifactProvider);
+    if (open != null) {
+      _autoOpenSuppressedKeys.add(autoOpenArtifactKey(open));
+    }
+    ref.read(openCodeArtifactProvider.notifier).state = null;
+    ref.read(artifactPanelExpandedProvider.notifier).state = false;
+  }
+
   void _scrollToBottom({bool animate = true}) {
     if (!_scrollController.hasClients) return;
     final target = _scrollController.position.maxScrollExtent;
@@ -101,6 +116,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final state = ref.watch(chatViewModelProvider);
     final isSidebarOpen = ref.watch(sidebarStateProvider);
     final openArtifact = ref.watch(openCodeArtifactProvider);
+    final panelExpanded = ref.watch(artifactPanelExpandedProvider);
     final viewModel = ref.read(chatViewModelProvider.notifier);
     final theme = Theme.of(context);
     final ext = theme.extension<AppThemeExtension>()!;
@@ -127,6 +143,26 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               ref.read(openCodeArtifactProvider.notifier).state = null;
             }
           });
+        }
+        // Claude-style: a newly generated previewable artifact (slides,
+        // HTML, SVG, Mermaid, …) opens the panel on its own, once per
+        // artifact — a manual close is recorded in the suppressed set
+        // by _closeArtifactPanel and never overridden.
+        if (previous != null && ref.read(openCodeArtifactProvider) == null) {
+          final candidate = findNewPreviewableArtifact(
+            previous: previous,
+            next: next,
+            threadId: ref.read(chatViewModelProvider).threadId,
+            suppressedKeys: _autoOpenSuppressedKeys,
+          );
+          if (candidate != null) {
+            _autoOpenSuppressedKeys.add(autoOpenArtifactKey(candidate));
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted && ref.read(openCodeArtifactProvider) == null) {
+                ref.read(openCodeArtifactProvider.notifier).state = candidate;
+              }
+            });
+          }
         }
         if (!_isScrolledUp && next.isNotEmpty) {
           final isStreaming = next.last.isStreaming;
@@ -524,9 +560,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                           child: CodeArtifactPanel(
                             key: ValueKey(openArtifact),
                             open: openArtifact,
-                            onClose: () => ref
-                                .read(openCodeArtifactProvider.notifier)
-                                .state = null,
+                            onClose: _closeArtifactPanel,
                             onQuickAction: (prompt) => viewModel.sendMessage(
                               prompt,
                               model: _selectedModel,
@@ -538,16 +572,19 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 ),
               ),
               // Desktop / web: code panel splits in on the right side,
-              // Claude-style, narrowing the chat column.
+              // Claude-style, narrowing the chat column. The split is
+              // responsive — ~55% of the window, clamped so the slide
+              // viewer's thumbnail rail and 16:9 stage breathe — and
+              // the panel's expand toggle widens it further.
               if (!isMobile && openArtifact != null)
                 SizedBox(
-                  width: 520,
+                  width: panelExpanded
+                      ? (constraints.maxWidth * 0.85).clamp(520.0, 1400.0)
+                      : (constraints.maxWidth * 0.55).clamp(520.0, 900.0),
                   child: CodeArtifactPanel(
                     key: ValueKey(openArtifact),
                     open: openArtifact,
-                    onClose: () => ref
-                        .read(openCodeArtifactProvider.notifier)
-                        .state = null,
+                    onClose: _closeArtifactPanel,
                     onQuickAction: (prompt) => viewModel.sendMessage(
                       prompt,
                       model: _selectedModel,

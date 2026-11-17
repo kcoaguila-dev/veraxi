@@ -287,6 +287,36 @@ class ChatMessageListItem extends ConsumerWidget {
                                   styleSheet: MarkdownStyleSheet(
                                     p: theme.textTheme.bodyLarge
                                         ?.copyWith(height: 1.5),
+                                    // Headings must carry an explicit
+                                    // light foreground: the theme's
+                                    // title styles resolve dark on this
+                                    // dark surface (dark-on-dark bug),
+                                    // matching code_artifact_panel.dart.
+                                    h1: theme.textTheme.headlineSmall?.copyWith(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                    h2: theme.textTheme.titleLarge?.copyWith(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                    h3: theme.textTheme.titleMedium?.copyWith(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                    h4: theme.textTheme.titleSmall?.copyWith(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                    horizontalRuleDecoration:
+                                        const BoxDecoration(
+                                      border: Border(
+                                        top: BorderSide(
+                                          color: Color(0xFF3F3F3F),
+                                          width: 1,
+                                        ),
+                                      ),
+                                    ),
                                     code: GoogleFonts.firaCode(
                                         backgroundColor: Colors.transparent,
                                         color: ext.primaryGradientStart),

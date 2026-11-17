@@ -497,14 +497,17 @@ class _CodeArtifactPanelState extends ConsumerState<CodeArtifactPanel> {
     }
   }
 
-  /// The Export menu: an icon-only chip in the header's
-  /// _HeaderAction style (the header is width-constrained) that
-  /// opens a menu of the four document formats. While an export is
-  /// in flight the chip shows a spinner and the menu is disabled.
+  /// The Export menu: a chip in the header's _HeaderAction style
+  /// that opens a menu of the document formats. Slide decks get the
+  /// prominent labeled Export button from Claude's slides UI (Pic 2);
+  /// other artifacts keep the compact icon-only chip (the header is
+  /// width-constrained). While an export is in flight the chip shows
+  /// a spinner and the menu is disabled.
   Widget _buildExportMenu() {
     final exportState = ref.watch(artifactExportProvider);
     final isExporting = exportState.isExporting;
     final formats = availableExportFormats(_currentArtifact);
+    final showLabel = _currentArtifact.previewKind == CodePreviewKind.slides;
     return PopupMenuButton<ArtifactExportFormat>(
       tooltip: 'Export',
       enabled: !isExporting,
@@ -534,10 +537,26 @@ class _CodeArtifactPanelState extends ConsumerState<CodeArtifactPanel> {
                     color: Color(0xFFECECEC),
                   ),
                 )
-              : const Icon(
-                  Icons.file_upload_outlined,
-                  size: 14,
-                  color: Color(0xFFECECEC),
+              : Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.file_upload_outlined,
+                      size: 14,
+                      color: Color(0xFFECECEC),
+                    ),
+                    if (showLabel) ...[
+                      const SizedBox(width: 6),
+                      const Text(
+                        'Export',
+                        style: TextStyle(
+                          color: Color(0xFFECECEC),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
         ),
       ),
@@ -722,94 +741,131 @@ class _CodeArtifactPanelState extends ConsumerState<CodeArtifactPanel> {
     required bool isPublishing,
   }) {
     final artifact = _currentArtifact;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      decoration: BoxDecoration(
-        border: Border(bottom: BorderSide(color: borderColor)),
-      ),
-      child: Row(
-        children: [
-          // Claude puts the Preview/Code switch at the far left of the
-          // header; plain code keeps the code icon there instead.
-          if (artifact.isPreviewable) ...[
-            _PreviewToggle(
-              showPreview: _showPreview,
-              onChanged: (preview) => setState(() => _showPreview = preview),
+    return LayoutBuilder(builder: (context, constraints) {
+      // The Expand toggle only appears when the header is wide enough
+      // to carry another action without overflowing the row.
+      final showExpand = constraints.maxWidth >= 560;
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        decoration: BoxDecoration(
+          border: Border(bottom: BorderSide(color: borderColor)),
+        ),
+        child: Row(
+          children: [
+            // Claude puts the Preview/Code switch at the far left of the
+            // header; plain code keeps the code icon there instead.
+            if (artifact.isPreviewable) ...[
+              _PreviewToggle(
+                showPreview: _showPreview,
+                onChanged: (preview) => setState(() => _showPreview = preview),
+              ),
+              const SizedBox(width: 12),
+            ] else ...[
+              const Icon(Icons.code, size: 18, color: Color(0xFFECECEC)),
+              const SizedBox(width: 10),
+            ],
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    artifact.fileName ?? artifact.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Color(0xFFECECEC),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  Text(
+                    _subtitleFor(artifact),
+                    style: TextStyle(
+                      color: ext?.textTertiary ?? const Color(0xFF878787),
+                      fontSize: 11,
+                      letterSpacing: 0.6,
+                    ),
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(width: 12),
-          ] else ...[
-            const Icon(Icons.code, size: 18, color: Color(0xFFECECEC)),
-            const SizedBox(width: 10),
-          ],
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  artifact.fileName ?? artifact.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Color(0xFFECECEC),
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
+                if (_canRun)
+                  _HeaderAction(
+                    icon: _isRunning ? null : Icons.play_arrow_outlined,
+                    label: _isRunning ? 'Running…' : 'Run',
+                    onTap: _runCode,
                   ),
+                const SizedBox(width: 8),
+                _HeaderAction(
+                  icon: _copied ? Icons.check : Icons.copy_outlined,
+                  label: _copied ? 'Copied' : 'Copy',
+                  onTap: _copyCode,
                 ),
-                Text(
-                  _subtitleFor(artifact),
-                  style: TextStyle(
-                    color: ext?.textTertiary ?? const Color(0xFF878787),
-                    fontSize: 11,
-                    letterSpacing: 0.6,
+                const SizedBox(width: 6),
+                // Icon-only: the header is width-constrained (Preview toggle
+                // + Copy + Close already compete for the row, and on mobile
+                // the panel is a ~360px overlay). The tooltip names it.
+                _HeaderAction(
+                  icon: Icons.download_outlined,
+                  label: 'Download',
+                  onTap: _download,
+                  iconOnly: true,
+                ),
+                if (artifactCanExport(artifact)) ...[
+                  const SizedBox(width: 6),
+                  _buildExportMenu(),
+                ],
+                const SizedBox(width: 6),
+                _HeaderAction(
+                  icon: isPublishing ? null : Icons.share_outlined,
+                  label: 'Share',
+                  onTap: _share,
+                  iconOnly: true,
+                ),
+                // Expand / restore the split pane (hidden on narrow
+                // panels — on mobile the panel already covers the
+                // chat full-screen).
+                if (showExpand) ...[
+                  const SizedBox(width: 4),
+                  Consumer(
+                    builder: (context, ref, _) {
+                      final expanded = ref.watch(artifactPanelExpandedProvider);
+                      return IconButton(
+                        icon: Icon(
+                          expanded
+                              ? Icons.close_fullscreen
+                              : Icons.open_in_full,
+                          size: 16,
+                          color: const Color(0xFFB4B4B4),
+                        ),
+                        tooltip:
+                            expanded ? 'Restore panel size' : 'Expand panel',
+                        visualDensity: VisualDensity.compact,
+                        onPressed: () => ref
+                            .read(artifactPanelExpandedProvider.notifier)
+                            .state = !expanded,
+                      );
+                    },
                   ),
+                ],
+                const SizedBox(width: 4),
+                IconButton(
+                  icon: const Icon(Icons.close,
+                      size: 18, color: Color(0xFFB4B4B4)),
+                  tooltip: 'Close',
+                  visualDensity: VisualDensity.compact,
+                  onPressed: widget.onClose,
                 ),
               ],
             ),
-          ),
-          if (_canRun)
-            _HeaderAction(
-              icon: _isRunning ? null : Icons.play_arrow_outlined,
-              label: _isRunning ? 'Running…' : 'Run',
-              onTap: _runCode,
-            ),
-          const SizedBox(width: 8),
-          _HeaderAction(
-            icon: _copied ? Icons.check : Icons.copy_outlined,
-            label: _copied ? 'Copied' : 'Copy',
-            onTap: _copyCode,
-          ),
-          const SizedBox(width: 6),
-          // Icon-only: the header is width-constrained (Preview toggle
-          // + Copy + Close already compete for the row, and on mobile
-          // the panel is a ~360px overlay). The tooltip names it.
-          _HeaderAction(
-            icon: Icons.download_outlined,
-            label: 'Download',
-            onTap: _download,
-            iconOnly: true,
-          ),
-          if (artifactCanExport(artifact)) ...[
-            const SizedBox(width: 6),
-            _buildExportMenu(),
           ],
-          const SizedBox(width: 6),
-          _HeaderAction(
-            icon: isPublishing ? null : Icons.share_outlined,
-            label: 'Share',
-            onTap: _share,
-            iconOnly: true,
-          ),
-          const SizedBox(width: 4),
-          IconButton(
-            icon: const Icon(Icons.close, size: 18, color: Color(0xFFB4B4B4)),
-            tooltip: 'Close',
-            visualDensity: VisualDensity.compact,
-            onPressed: widget.onClose,
-          ),
-        ],
-      ),
-    );
+        ),
+      );
+    });
   }
 
   /// Workbench toolbar: Edit toggle, version navigation, Diff toggle,
@@ -943,6 +999,14 @@ class _CodeArtifactPanelState extends ConsumerState<CodeArtifactPanel> {
             final updated = appendSlideToDeckJson(artifact.code);
             if (updated != null) _appendVersion(updated);
           },
+          onAskVeraxi: widget.onQuickAction == null
+              ? null
+              : (request) => widget.onQuickAction!(
+                    'Edit this slide deck ("${deck.title}"): $request\n\n'
+                    'Current deck JSON:\n```json\n${artifact.code}\n```\n'
+                    'Reply by calling create_office_artifact with '
+                    'format="pptx" and the full updated slides spec.',
+                  ),
         );
       }
     }
