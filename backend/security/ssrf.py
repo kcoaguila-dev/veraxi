@@ -46,8 +46,10 @@ def _resolve(hostname: str) -> list[str]:
     addresses: list[str] = []
     for info in infos:
         sockaddr = info[4]
-        if sockaddr and sockaddr[0] not in addresses:
-            addresses.append(sockaddr[0])
+        if sockaddr:
+            addr = str(sockaddr[0])
+            if addr not in addresses:
+                addresses.append(addr)
     return addresses
 
 
