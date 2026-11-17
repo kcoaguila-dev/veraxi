@@ -51,6 +51,12 @@ abstract class IChatRepository {
       Map<String, dynamic>? toolSettings});
   Future<String> uploadAttachment(List<int> fileBytes, String fileName);
   Future<void> submitFeedback(String messageId, int value);
+  Future<Map<String, dynamic>> confirmToolCall({
+    required String toolName,
+    required Map<String, dynamic> args,
+    required bool approve,
+  });
+  Future<List<Map<String, dynamic>>> getIntegrations();
   Future<void> editMessage(String messageId, String content, String threadId);
   Future<void> regenerateResponse(String threadId);
   Future<void> renameThread(String threadId, String newTitle);
@@ -200,6 +206,27 @@ class CloudChatRepository implements IChatRepository {
   Future<void> submitFeedback(String messageId, int value) async {
     await apiClient
         .post('/chat/messages/$messageId/feedback', body: {'value': value});
+  }
+
+  @override
+  Future<Map<String, dynamic>> confirmToolCall({
+    required String toolName,
+    required Map<String, dynamic> args,
+    required bool approve,
+  }) async {
+    final data = await apiClient.post('/chat/confirm-tool', body: {
+      'tool_name': toolName,
+      'args': args,
+      'approve': approve,
+    });
+    return Map<String, dynamic>.from(data as Map);
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> getIntegrations() async {
+    final data = await apiClient.get('/integrations');
+    final list = data['integrations'] as List<dynamic>? ?? [];
+    return list.cast<Map<String, dynamic>>();
   }
 
   @override

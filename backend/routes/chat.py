@@ -88,6 +88,12 @@ class ImportThreadsRequest(BaseModel):
     threads: list[ImportedThread]
 
 
+class ConfirmToolRequest(BaseModel):
+    tool_name: str
+    args: dict = {}
+    approve: bool = False
+
+
 def _friendly_provider_error(error: Exception) -> str:
     """Return actionable provider errors without exposing raw SDK payloads."""
     message = str(error).lower()
@@ -554,6 +560,55 @@ def register_chat_routes(
     app_router, get_tenant_id, verify_infrastructure_access, limiter, config
 ):
     """Register all chat routes with injected auth dependencies."""
+
+    @app_router.post("/api/chat/confirm-tool")
+    async def confirm_tool(
+        payload: ConfirmToolRequest,
+        request: Request,
+        tenant_id: str = Depends(get_tenant_id),
+    ):
+        """Approve or reject a gated external tool call.
+
+        The chat dispatch gate (tool_dispatch) refuses mutating
+        external tools (GitHub writes, non-GET OpenAPI operations) and
+        surfaces a ``tool_confirmation_required`` payload instead. This
+        endpoint is the human decision point: on approve it re-executes
+        exactly that one tool call once, with the confirmation flag
+        set; on reject it executes nothing. The result is returned to
+        the caller directly — it is not re-injected into the finished
+        LangGraph turn (documented limitation).
+        """
+        from backend.mcp_server.tool_dispatch import (
+            _tool_requires_confirmation,
+            execute_tools_internal,
+        )
+
+        if not payload.approve:
+            return {"status": "rejected", "tool_name": payload.tool_name}
+        gated = _tool_requires_confirmation(payload.tool_name)
+        if not gated and payload.tool_name.startswith("api__"):
+            from backend.services.openapi_importer import (
+                openapi_requires_confirmation,
+            )
+
+            gated = await openapi_requires_confirmation(
+                tenant_id, payload.tool_name
+            )
+        if not gated:
+            raise HTTPException(
+                status_code=400,
+                detail="Tool does not require confirmation or is unknown",
+            )
+        context_str, _merged = await execute_tools_internal(
+            [{"name": payload.tool_name, "args": payload.args, "confirmed": True}],
+            tenant_id,
+            {"confirmed_tool_names": [payload.tool_name]},
+        )
+        return {
+            "status": "executed",
+            "tool_name": payload.tool_name,
+            "result": context_str,
+        }
 
     @app_router.get("/api/chat/sync")
     async def chat_sync_stream(

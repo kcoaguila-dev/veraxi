@@ -14,6 +14,8 @@ import 'package:veraxi_app/features/chat/views/widgets/chat_activity_disclosure.
 import 'package:veraxi_app/features/chat/views/widgets/markdown_citation_builder.dart';
 import 'package:veraxi_app/features/chat/views/widgets/markdown_code_builder.dart';
 import 'package:veraxi_app/features/chat/views/widgets/code_artifact_card.dart';
+import 'package:veraxi_app/features/chat/view_models/tool_confirmation_view_model.dart';
+import 'package:veraxi_app/features/chat/views/widgets/tool_confirmation_card.dart';
 import 'package:veraxi_app/features/chat/view_models/code_artifact_provider.dart';
 import 'package:veraxi_app/core/providers/active_sources_provider.dart';
 
@@ -292,6 +294,18 @@ class ChatMessageListItem extends ConsumerWidget {
                                     codeblockDecoration:
                                         BoxDecoration(), // Handled by builder
                                   ),
+                                ),
+                              // Write-action confirmation card: when
+                              // the backend gate refused a mutating
+                              // external tool call, its
+                              // tool_confirmation_required payload in
+                              // this message renders an Approve/Reject
+                              // card (POST /api/chat/confirm-tool).
+                              if (!msg.isStreaming &&
+                                  extractToolConfirmation(msg.content) != null)
+                                ToolConfirmationCard(
+                                  request:
+                                      extractToolConfirmation(msg.content)!,
                                 ),
                               // Artifact cards, collected at the end of
                               // the message like Claude's created-file

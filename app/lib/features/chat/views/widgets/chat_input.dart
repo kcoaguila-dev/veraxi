@@ -8,6 +8,7 @@ import 'package:speech_to_text/speech_to_text.dart';
 import 'web_search_dialog.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
+import 'package:veraxi_app/features/chat/views/widgets/integration_chips_bar.dart';
 
 class ChatInput extends StatefulWidget {
   final bool isLoading;
@@ -317,6 +318,7 @@ class _ChatInputState extends State<ChatInput> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        const IntegrationChipsBar(),
         if (widget.errorText != null)
           Container(
             margin: EdgeInsets.only(bottom: 8.0, left: 16.0, right: 16.0),

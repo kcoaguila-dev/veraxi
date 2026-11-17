@@ -1,0 +1,152 @@
+<svg width="1440" height="1180" viewBox="0 0 1440 1180" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!--
+    Veraxi — Integrations Settings (External Integrations & Connectors, Phase 5)
+    Visual contract for feat/integrations-ui.
+
+    Palette matches the existing dark settings UI (#212121 app,
+    #171717 sidebar, #2F2F2F card, #3F3F3F border, #10B981 live green).
+
+    Sections, top to bottom:
+    1. Connected Apps Catalog — 1-click cards: GitHub (LIVE: "Connect"
+       button launches OAuth via url_launcher), Google Drive / Notion /
+       Linear (labeled "Coming soon", disabled until their OAuth apps
+       are configured server-side).
+    2. Custom Integrations — two actions:
+       - "+ Add MCP Server": dialog with Name, URL, Transport
+         (Auto / Streamable HTTP / SSE segmented control), optional
+         Auth Header name+value.
+       - "+ Import OpenAPI Spec": wizard dialog — paste spec or URL,
+         Preview lists operations with checkboxes (max 10), auth
+         (Bearer / API key header / API key query) + value, Import.
+    3. Active Integration Cards — one card per stored integration:
+       provider icon tile, display name, live status dot + label
+       (Connected / Error / Expired), discovered tool count, buttons
+       Test Connection, Sync Repos (GitHub only), enable toggle,
+       Remove. Cards come from GET /api/integrations (no more
+       SharedPreferences / hardcoded "Custom Server").
+    4. Chat Input Attachment Picker (bottom strip mock) — a row of
+       toggle chips above the chat input, one per enabled integration;
+       selected chips are written to tool_settings
+       ["enabled_integration_ids"] for the current thread. Default
+       (never touched) = all integrations attached.
+    5. Tool Write-Action Confirmation Card (bottom-right mock) — in
+       chat, when the backend returns tool_confirmation_required for a
+       mutating action (github_create_issue, github_comment_pr,
+       non-GET OpenAPI), a card shows the tool name + args summary
+       with Approve / Reject buttons calling
+       POST /api/chat/confirm-tool. After a decision the card collapses
+       to a status line (Executed ✓ / Rejected).
+  -->
+  <rect width="1440" height="1180" fill="#212121"/>
+
+  <!-- Header -->
+  <text x="48" y="72" font-family="Inter, sans-serif" font-size="28" font-weight="700" fill="#FFFFFF">Integrations</text>
+  <text x="48" y="102" font-family="Inter, sans-serif" font-size="14" fill="#9E9E9E">Connect external tools and services. Secrets are encrypted server-side and never shown here.</text>
+
+  <!-- Section 1: Catalog -->
+  <text x="48" y="152" font-family="Inter, sans-serif" font-size="17" font-weight="600" fill="#FFFFFF">Connected Apps</text>
+
+  <!-- GitHub card (live) -->
+  <g>
+    <rect x="48" y="172" width="312" height="150" rx="12" fill="#2F2F2F" stroke="#3F3F3F"/>
+    <rect x="72" y="196" width="48" height="48" rx="8" fill="#FFFFFF" fill-opacity="0.08"/>
+    <text x="96" y="228" font-family="Inter, sans-serif" font-size="22" fill="#FFFFFF" text-anchor="middle">GH</text>
+    <text x="136" y="214" font-family="Inter, sans-serif" font-size="16" font-weight="600" fill="#FFFFFF">GitHub</text>
+    <text x="136" y="236" font-family="Inter, sans-serif" font-size="12" fill="#9E9E9E">Code search, issues, PRs, repo sync</text>
+    <rect x="72" y="264" width="120" height="36" rx="8" fill="#FFFFFF"/>
+    <text x="132" y="287" font-family="Inter, sans-serif" font-size="13" font-weight="600" fill="#171717" text-anchor="middle">Connect</text>
+  </g>
+
+  <!-- Drive / Notion / Linear cards (coming soon) -->
+  <g opacity="0.55">
+    <rect x="384" y="172" width="312" height="150" rx="12" fill="#2F2F2F" stroke="#3F3F3F"/>
+    <rect x="408" y="196" width="48" height="48" rx="8" fill="#FFFFFF" fill-opacity="0.08"/>
+    <text x="432" y="228" font-family="Inter, sans-serif" font-size="22" fill="#FFFFFF" text-anchor="middle">GD</text>
+    <text x="472" y="214" font-family="Inter, sans-serif" font-size="16" font-weight="600" fill="#FFFFFF">Google Drive</text>
+    <text x="472" y="236" font-family="Inter, sans-serif" font-size="12" fill="#9E9E9E">Coming soon</text>
+    <rect x="408" y="264" width="120" height="36" rx="8" fill="none" stroke="#3F3F3F"/>
+    <text x="468" y="287" font-family="Inter, sans-serif" font-size="13" fill="#9E9E9E" text-anchor="middle">Connect</text>
+  </g>
+  <g opacity="0.55">
+    <rect x="720" y="172" width="312" height="150" rx="12" fill="#2F2F2F" stroke="#3F3F3F"/>
+    <rect x="744" y="196" width="48" height="48" rx="8" fill="#FFFFFF" fill-opacity="0.08"/>
+    <text x="768" y="228" font-family="Inter, sans-serif" font-size="22" fill="#FFFFFF" text-anchor="middle">N</text>
+    <text x="808" y="214" font-family="Inter, sans-serif" font-size="16" font-weight="600" fill="#FFFFFF">Notion</text>
+    <text x="808" y="236" font-family="Inter, sans-serif" font-size="12" fill="#9E9E9E">Coming soon</text>
+    <rect x="744" y="264" width="120" height="36" rx="8" fill="none" stroke="#3F3F3F"/>
+    <text x="804" y="287" font-family="Inter, sans-serif" font-size="13" fill="#9E9E9E" text-anchor="middle">Connect</text>
+  </g>
+  <g opacity="0.55">
+    <rect x="1056" y="172" width="312" height="150" rx="12" fill="#2F2F2F" stroke="#3F3F3F"/>
+    <rect x="1080" y="196" width="48" height="48" rx="8" fill="#FFFFFF" fill-opacity="0.08"/>
+    <text x="1104" y="228" font-family="Inter, sans-serif" font-size="22" fill="#FFFFFF" text-anchor="middle">L</text>
+    <text x="1144" y="214" font-family="Inter, sans-serif" font-size="16" font-weight="600" fill="#FFFFFF">Linear</text>
+    <text x="1144" y="236" font-family="Inter, sans-serif" font-size="12" fill="#9E9E9E">Coming soon</text>
+    <rect x="1080" y="264" width="120" height="36" rx="8" fill="none" stroke="#3F3F3F"/>
+    <text x="1140" y="287" font-family="Inter, sans-serif" font-size="13" fill="#9E9E9E" text-anchor="middle">Connect</text>
+  </g>
+
+  <!-- Section 2: Custom integrations actions -->
+  <text x="48" y="382" font-family="Inter, sans-serif" font-size="17" font-weight="600" fill="#FFFFFF">Custom Integrations</text>
+  <rect x="48" y="402" width="220" height="44" rx="8" fill="#FFFFFF"/>
+  <text x="158" y="430" font-family="Inter, sans-serif" font-size="13" font-weight="600" fill="#171717" text-anchor="middle">+ Add MCP Server</text>
+  <rect x="284" y="402" width="240" height="44" rx="8" fill="none" stroke="#3F3F3F"/>
+  <text x="404" y="430" font-family="Inter, sans-serif" font-size="13" font-weight="600" fill="#FFFFFF" text-anchor="middle">+ Import OpenAPI Spec</text>
+  <text x="540" y="430" font-family="Inter, sans-serif" font-size="12" fill="#9E9E9E">MCP dialog: Name · URL · Transport [Auto|Streamable HTTP|SSE] · Auth header (optional). OpenAPI wizard: spec → operation checkboxes (max 10) → auth → Import.</text>
+
+  <!-- Section 3: Active integration cards -->
+  <text x="48" y="506" font-family="Inter, sans-serif" font-size="17" font-weight="600" fill="#FFFFFF">Active Integrations</text>
+
+  <g>
+    <rect x="48" y="526" width="648" height="168" rx="12" fill="#2F2F2F" stroke="#3F3F3F"/>
+    <rect x="72" y="550" width="48" height="48" rx="8" fill="#FFFFFF" fill-opacity="0.08"/>
+    <text x="96" y="582" font-family="Inter, sans-serif" font-size="20" fill="#FFFFFF" text-anchor="middle">GH</text>
+    <text x="136" y="568" font-family="Inter, sans-serif" font-size="16" font-weight="600" fill="#FFFFFF">GitHub</text>
+    <circle cx="142" cy="590" r="4" fill="#10B981"/>
+    <text x="154" y="595" font-family="Inter, sans-serif" font-size="12" fill="#10B981">Connected · 6 tools</text>
+    <rect x="600" y="556" width="52" height="28" rx="14" fill="#10B981"/>
+    <circle cx="638" cy="570" r="10" fill="#FFFFFF"/>
+    <text x="72" y="636" font-family="Inter, sans-serif" font-size="12" fill="#9E9E9E">Repos sync into your knowledge graph (Neo4j + Qdrant).</text>
+    <text x="72" y="672" font-family="Inter, sans-serif" font-size="13" font-weight="600" fill="#FFFFFF">Test Connection</text>
+    <text x="196" y="672" font-family="Inter, sans-serif" font-size="13" font-weight="600" fill="#FFFFFF">Sync Repos</text>
+    <text x="320" y="672" font-family="Inter, sans-serif" font-size="13" font-weight="600" fill="#F87171">Remove</text>
+  </g>
+
+  <g>
+    <rect x="720" y="526" width="648" height="168" rx="12" fill="#2F2F2F" stroke="#3F3F3F"/>
+    <rect x="744" y="550" width="48" height="48" rx="8" fill="#FFFFFF" fill-opacity="0.08"/>
+    <text x="768" y="582" font-family="Inter, sans-serif" font-size="20" fill="#FFFFFF" text-anchor="middle">M</text>
+    <text x="808" y="568" font-family="Inter, sans-serif" font-size="16" font-weight="600" fill="#FFFFFF">Docs MCP</text>
+    <circle cx="814" cy="590" r="4" fill="#10B981"/>
+    <text x="826" y="595" font-family="Inter, sans-serif" font-size="12" fill="#10B981">Connected · 4 tools</text>
+    <rect x="1272" y="556" width="52" height="28" rx="14" fill="#10B981"/>
+    <circle cx="1310" cy="570" r="10" fill="#FFFFFF"/>
+    <text x="744" y="636" font-family="Inter, sans-serif" font-size="12" fill="#9E9E9E">https://mcp.example.com/mcp · Transport: Auto</text>
+    <text x="744" y="672" font-family="Inter, sans-serif" font-size="13" font-weight="600" fill="#FFFFFF">Test Connection</text>
+    <text x="876" y="672" font-family="Inter, sans-serif" font-size="13" font-weight="600" fill="#F87171">Remove</text>
+  </g>
+
+  <!-- Section 4: Chat input chips -->
+  <text x="48" y="754" font-family="Inter, sans-serif" font-size="17" font-weight="600" fill="#FFFFFF">Chat Input — Integration Chips</text>
+  <rect x="48" y="774" width="1320" height="96" rx="12" fill="#171717" stroke="#3F3F3F"/>
+  <rect x="72" y="798" width="150" height="34" rx="17" fill="#FFFFFF"/>
+  <text x="147" y="820" font-family="Inter, sans-serif" font-size="12" font-weight="600" fill="#171717" text-anchor="middle">✓ GitHub</text>
+  <rect x="234" y="798" width="150" height="34" rx="17" fill="none" stroke="#3F3F3F"/>
+  <text x="309" y="820" font-family="Inter, sans-serif" font-size="12" fill="#9E9E9E" text-anchor="middle">Docs MCP</text>
+  <text x="404" y="820" font-family="Inter, sans-serif" font-size="12" fill="#9E9E9E">Selected chips → tool_settings["enabled_integration_ids"] for this thread. None selected yet = all attached.</text>
+  <text x="72" y="856" font-family="Inter, sans-serif" font-size="12" fill="#9E9E9E">Message Veraxi…</text>
+
+  <!-- Section 5: Confirmation card -->
+  <text x="48" y="930" font-family="Inter, sans-serif" font-size="17" font-weight="600" fill="#FFFFFF">Chat — Tool Write-Action Confirmation Card</text>
+  <g>
+    <rect x="48" y="950" width="648" height="180" rx="12" fill="#2F2F2F" stroke="#F59E0B"/>
+    <text x="72" y="986" font-family="Inter, sans-serif" font-size="14" font-weight="600" fill="#F59E0B">⚠ Approval needed</text>
+    <text x="72" y="1014" font-family="Inter, sans-serif" font-size="13" fill="#FFFFFF">github_create_issue</text>
+    <text x="72" y="1038" font-family="Inter, sans-serif" font-size="12" fill="#9E9E9E">repo: owner/repo · title: "Crash on export" — this changes external state.</text>
+    <rect x="72" y="1062" width="110" height="38" rx="8" fill="#10B981"/>
+    <text x="127" y="1086" font-family="Inter, sans-serif" font-size="13" font-weight="600" fill="#FFFFFF" text-anchor="middle">Approve</text>
+    <rect x="196" y="1062" width="110" height="38" rx="8" fill="none" stroke="#3F3F3F"/>
+    <text x="251" y="1086" font-family="Inter, sans-serif" font-size="13" font-weight="600" fill="#F87171" text-anchor="middle">Reject</text>
+    <text x="330" y="1086" font-family="Inter, sans-serif" font-size="12" fill="#9E9E9E">→ POST /api/chat/confirm-tool · after decision: "Executed ✓" / "Rejected"</text>
+  </g>
+</svg>

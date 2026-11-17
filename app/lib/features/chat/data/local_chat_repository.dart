@@ -249,6 +249,29 @@ class LocalChatRepository implements IChatRepository {
   }
 
   @override
+  Future<Map<String, dynamic>> confirmToolCall({
+    required String toolName,
+    required Map<String, dynamic> args,
+    required bool approve,
+  }) async {
+    // Local/guest mode still reaches the same backend endpoint: the
+    // gated tool executes server-side with the tenant's stored tokens.
+    final data = await apiClient.post('/chat/confirm-tool', body: {
+      'tool_name': toolName,
+      'args': args,
+      'approve': approve,
+    });
+    return Map<String, dynamic>.from(data as Map);
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> getIntegrations() async {
+    final data = await apiClient.get('/integrations');
+    final list = data['integrations'] as List<dynamic>? ?? [];
+    return list.cast<Map<String, dynamic>>();
+  }
+
+  @override
   Future<void> editMessage(
       String messageId, String content, String threadId) async {
     await (db.update(db.localMessages)..where((m) => m.id.equals(messageId)))
