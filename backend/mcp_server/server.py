@@ -152,6 +152,32 @@ def mcp_get_database_stats() -> str:
 
 
 @mcp_server.tool(
+    name="mcp_code_symbol",
+    description="Look up a code symbol (class, function, module or file) in the Repo X-Ray code graph by exact qualified name, falling back to exact simple name.",
+)
+def mcp_code_symbol(name: str) -> str:
+    return _dispatch("mcp_code_symbol", {"name": name})
+
+
+@mcp_server.tool(
+    name="mcp_code_impact",
+    description="Impact analysis: find everything that CALLS or IMPORTS a code symbol, transitively, in the Repo X-Ray code graph.",
+)
+def mcp_code_impact(symbol: str, max_depth: int = 3) -> str:
+    return _dispatch("mcp_code_impact", {"symbol": symbol, "max_depth": max_depth})
+
+
+@mcp_server.tool(
+    name="mcp_code_overview",
+    description="Repo X-Ray overview: code node/edge counts and the most connected symbols for the tenant, optionally under a path prefix.",
+)
+def mcp_code_overview(path_prefix: str = "") -> str:
+    return _dispatch(
+        "mcp_code_overview", {"path_prefix": path_prefix or None}
+    )
+
+
+@mcp_server.tool(
     name="mcp_run_community_detection",
     description="Runs a Graph Data Science community detection algorithm to find clusters of connected entities.",
 )

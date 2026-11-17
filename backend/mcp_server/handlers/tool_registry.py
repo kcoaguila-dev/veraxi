@@ -427,6 +427,29 @@ def _handle_get_database_stats(args: dict, tenant_id: str) -> list[TextContent]:
     return [TextContent(type="text", text=json.dumps(results))]
 
 
+def _handle_code_symbol(args: dict, tenant_id: str) -> list[TextContent]:
+    from backend.mcp_server.tools.code_tools import code_symbol
+
+    results = code_symbol(args["name"], tenant_id=tenant_id)
+    return [TextContent(type="text", text=json.dumps(results))]
+
+
+def _handle_code_impact(args: dict, tenant_id: str) -> list[TextContent]:
+    from backend.mcp_server.tools.code_tools import code_impact
+
+    results = code_impact(
+        args["symbol"], tenant_id=tenant_id, max_depth=args.get("max_depth", 3)
+    )
+    return [TextContent(type="text", text=json.dumps(results))]
+
+
+def _handle_code_overview(args: dict, tenant_id: str) -> list[TextContent]:
+    from backend.mcp_server.tools.code_tools import code_overview
+
+    results = code_overview(tenant_id=tenant_id, path_prefix=args.get("path_prefix"))
+    return [TextContent(type="text", text=json.dumps(results))]
+
+
 def _handle_run_community_detection(args: dict, tenant_id: str) -> list[TextContent]:
     results = run_community_detection(args.get("min_size", 2), tenant_id=tenant_id)
     return [TextContent(type="text", text=json.dumps(results))]
@@ -669,6 +692,9 @@ TOOL_HANDLERS = {
     "mcp_delete_document": _handle_delete_document,
     "mcp_update_entity": _handle_update_entity,
     "mcp_get_database_stats": _handle_get_database_stats,
+    "mcp_code_symbol": _handle_code_symbol,
+    "mcp_code_impact": _handle_code_impact,
+    "mcp_code_overview": _handle_code_overview,
     "mcp_run_community_detection": _handle_run_community_detection,
     "mcp_delete_relationship": _handle_delete_relationship,
     "mcp_update_document_metadata": _handle_update_document_metadata,

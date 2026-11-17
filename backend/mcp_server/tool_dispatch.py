@@ -120,6 +120,13 @@ async def get_tools(tool_settings: dict | None = None, tenant_id: str | None = N
                 },
             ]
         )
+        # Repo X-Ray code-graph tools read the same tenant graph as
+        # query_graph, so they share its file_search gate.
+        from backend.mcp_server.tools.code_tools import (
+            tool_schemas as _code_tool_schemas,
+        )
+
+        all_tools.extend(_code_tool_schemas())
 
     if web_search_enabled:
         all_tools.append(
@@ -475,6 +482,37 @@ def _execute_single_tool(
         return [], query_graph(
             tool_input["entity_name"], max_hops=max_hops, tenant_id=tenant_id
         )
+
+    elif tool_name in ("code_symbol", "code_impact", "code_overview"):
+        if not settings.get("file_search_enabled", False):
+            return [], []
+
+        class CodeHit:
+            def __init__(self, res: dict) -> None:
+                self.id = "code_graph"
+                self.payload = res
+                self.sources = ["Repo X-Ray"]
+
+        from backend.mcp_server.tools.code_tools import (
+            code_impact,
+            code_overview,
+            code_symbol,
+        )
+
+        if tool_name == "code_symbol":
+            result = code_symbol(tool_input["name"], tenant_id=tenant_id)
+        elif tool_name == "code_impact":
+            result = code_impact(
+                tool_input["symbol"],
+                tenant_id=tenant_id,
+                max_depth=int(tool_input.get("max_depth", 3)),
+            )
+        else:
+            result = code_overview(
+                tenant_id=tenant_id,
+                path_prefix=tool_input.get("path_prefix"),
+            )
+        return [CodeHit(result)], []
 
     elif tool_name == "web_search":
         web_search = settings.get("web_search", {})

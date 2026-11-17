@@ -150,6 +150,35 @@ REGISTERED_TOOLS = [
         },
     ),
     Tool(
+        name="mcp_code_symbol",
+        description="Look up a code symbol (class, function, module or file) in the Repo X-Ray code graph by exact qualified name, falling back to exact simple name.",
+        input_schema={
+            "type": "object",
+            "properties": {"name": {"type": "string"}},
+            "required": ["name"],
+        },
+    ),
+    Tool(
+        name="mcp_code_impact",
+        description="Impact analysis: find everything that CALLS or IMPORTS a code symbol, transitively, in the Repo X-Ray code graph.",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "symbol": {"type": "string"},
+                "max_depth": {"type": "integer", "default": 3},
+            },
+            "required": ["symbol"],
+        },
+    ),
+    Tool(
+        name="mcp_code_overview",
+        description="Repo X-Ray overview: code node/edge counts and the most connected symbols for the tenant, optionally under a path prefix.",
+        input_schema={
+            "type": "object",
+            "properties": {"path_prefix": {"type": "string"}},
+        },
+    ),
+    Tool(
         name="mcp_run_community_detection",
         description="Runs a Graph Data Science community detection algorithm to find clusters of connected entities.",
         input_schema={
