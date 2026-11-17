@@ -88,12 +88,12 @@ def register_oauth_routes(app_router, get_tenant_id, _get_supabase, config=None)
         app_base = cfg.public_app_url.rstrip("/")
         if error or not code or not state:
             return RedirectResponse(
-                f"{app_base}/#/settings/integrations?error={error or 'oauth_failed'}"
+                f"{app_base}/#/chat?oauth_error={error or 'oauth_failed'}"
             )
         sb = _get_supabase()
         if not sb:
             return RedirectResponse(
-                f"{app_base}/#/settings/integrations?error=storage_unavailable"
+                f"{app_base}/#/chat?oauth_error=storage_unavailable"
             )
         try:
             await oauth_service.handle_callback(
@@ -102,15 +102,15 @@ def register_oauth_routes(app_router, get_tenant_id, _get_supabase, config=None)
         except ValueError as e:
             logger.warning("OAuth callback rejected for %s: %s", provider, e)
             return RedirectResponse(
-                f"{app_base}/#/settings/integrations?error=oauth_failed"
+                f"{app_base}/#/chat?oauth_error=oauth_failed"
             )
         except Exception as e:
             sentry_sdk.capture_exception(e)
             return RedirectResponse(
-                f"{app_base}/#/settings/integrations?error=oauth_failed"
+                f"{app_base}/#/chat?oauth_error=oauth_failed"
             )
         return RedirectResponse(
-            f"{app_base}/#/settings/integrations?connected={provider}"
+            f"{app_base}/#/chat?connected={provider}"
         )
 
     @app_router.post("/api/integrations/{integration_id}/sync")
