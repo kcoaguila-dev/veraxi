@@ -147,6 +147,75 @@ second line
       expect(artifacts.single.title, 'Plain text code');
       expect(artifacts.single.extensionLabel, 'TXT');
     });
+
+    test('keeps shell commands and 1-line plain output inline', () {
+      const markdown = '''
+Here's a simple "Hello World" program in Python:
+
+```python
+# hello_world.py
+print("Hello World")
+```
+
+Save it as `hello_world.py` and run it with:
+
+```bash
+python hello_world.py
+```
+
+It will output:
+
+```
+Hello World
+```
+''';
+
+      final artifacts = extractCodeArtifacts(markdown);
+
+      expect(artifacts, hasLength(1));
+      expect(artifacts.single.fileName, 'hello_world.py');
+      expect(artifacts.single.language, 'python');
+
+      final stripped = stripCodeArtifacts(markdown);
+      expect(stripped, contains('python hello_world.py'));
+      expect(stripped, contains('Hello World'));
+      expect(stripped, isNot(contains('print("Hello World")')));
+    });
+
+    test('keeps mistagged 1-line python shell invocations inline', () {
+      const markdown = '''
+```python
+# hello_world.py
+print("Hello World")
+```
+
+Save it as `hello_world.py` and run it with:
+
+```python
+python hello_world.py
+```
+''';
+
+      final artifacts = extractCodeArtifacts(markdown);
+      expect(artifacts, hasLength(1));
+      expect(artifacts.single.fileName, 'hello_world.py');
+    });
+
+    test('promotes bash blocks when paired with a shell script file name', () {
+      const markdown = '''
+Create `deploy.sh`:
+
+```bash
+#!/usr/bin/env bash
+echo "deploying"
+```
+''';
+
+      final artifacts = extractCodeArtifacts(markdown);
+      expect(artifacts, hasLength(1));
+      expect(artifacts.single.fileName, 'deploy.sh');
+      expect(artifacts.single.language, 'bash');
+    });
   });
 
   group('previewKind', () {

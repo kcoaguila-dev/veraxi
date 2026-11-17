@@ -543,6 +543,39 @@ String buildPythonRunnerDocument(
 <html>
 <head>
   <meta charset="utf-8">
+  <script>
+  (function() {
+    // Pyodide reads window.sessionStorage during top-level init, which
+    // throws SecurityError in an opaque-origin sandbox="allow-scripts"
+    // srcdoc iframe. Provide an ephemeral in-memory Storage shim so
+    // Pyodide loads without weakening the sandbox with allow-same-origin.
+    function makeMemoryStorage() {
+      var store = Object.create(null);
+      return {
+        get length() { return Object.keys(store).length; },
+        key: function(i) { return Object.keys(store)[i] || null; },
+        getItem: function(k) {
+          return Object.prototype.hasOwnProperty.call(store, k) ? store[k] : null;
+        },
+        setItem: function(k, v) { store[String(k)] = String(v); },
+        removeItem: function(k) { delete store[String(k)]; },
+        clear: function() { store = Object.create(null); }
+      };
+    }
+    ["sessionStorage", "localStorage"].forEach(function(name) {
+      try {
+        var _ = window[name];
+      } catch (e) {
+        try {
+          Object.defineProperty(window, name, {
+            value: makeMemoryStorage(),
+            configurable: true
+          });
+        } catch (_) {}
+      }
+    });
+  })();
+  </script>
   <script src="https://cdn.jsdelivr.net/pyodide/v0.26.2/full/pyodide.js"></script>
 </head>
 <body>

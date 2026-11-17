@@ -416,8 +416,54 @@ final RegExp _fencedBlockPattern = RegExp(
   r'```([A-Za-z0-9#+._-]*)\s*\n([\s\S]*?)(?:\n```|```)',
 );
 
-/// Extracts every fenced code block in [markdown], in document order,
-/// pairing each with the file name the assistant mentioned for it.
+final RegExp _shellCommandPattern = RegExp(
+  r'^(?:\$\s*)?(?:python3?|pip3?)\s+\S+',
+);
+
+bool _hasShellExtension(String? fileName) {
+  if (fileName == null) return false;
+  final dot = fileName.lastIndexOf('.');
+  if (dot < 0 || dot == fileName.length - 1) return false;
+  final ext = fileName.substring(dot + 1).toLowerCase();
+  return ext == 'sh' || ext == 'bash' || ext == 'zsh';
+}
+
+bool _shouldPromoteToArtifact(CodeArtifact artifact) {
+  if (artifact.language == 'bash' && !_hasShellExtension(artifact.fileName)) {
+    return false;
+  }
+  if (artifact.language == 'plaintext' &&
+      artifact.fileName == null &&
+      artifact.lineCount <= 1) {
+    return false;
+  }
+  if (artifact.language == 'python' &&
+      artifact.lineCount <= 1 &&
+      _shellCommandPattern.hasMatch(artifact.code.trim())) {
+    return false;
+  }
+  return true;
+}
+
+CodeArtifact _artifactFromMatch(
+  String markdown,
+  Match match,
+  int proseStart,
+) {
+  final rawLanguage = match.group(1) ?? '';
+  final code = (match.group(2) ?? '').trimRight();
+  final prose = markdown.substring(proseStart, match.start);
+  final fileName =
+      _lastFileNameIn(prose) ?? _fileNameInFirstLineComment(code);
+  return CodeArtifact.fromCode(
+    language: rawLanguage,
+    code: code,
+    fileName: fileName,
+  );
+}
+
+/// Extracts promotable fenced code blocks in [markdown], in document
+/// order, pairing each with the file name the assistant mentioned for it.
 ///
 /// The file name is resolved, in order, from:
 /// 1. the last known-extension file name in the prose since the previous
@@ -425,34 +471,40 @@ final RegExp _fencedBlockPattern = RegExp(
 /// 2. a file name in a comment on the code's first line,
 /// 3. no name — the card falls back to `<Language> code`.
 ///
-/// Unclosed fences (a block still streaming in) are ignored here; they
-/// stay in the rendered prose as a plain inline block until the fence
-/// closes and the block becomes a card.
+/// Shell command blocks, single-line plain-text output blocks, and
+/// unclosed fences (a block still streaming in) are left in the rendered
+/// prose as inline blocks rather than becoming artifact cards.
 List<CodeArtifact> extractCodeArtifacts(String markdown) {
   final artifacts = <CodeArtifact>[];
   var proseStart = 0;
   for (final match in _fencedBlockPattern.allMatches(markdown)) {
-    final rawLanguage = match.group(1) ?? '';
-    final code = (match.group(2) ?? '').trimRight();
-    final prose = markdown.substring(proseStart, match.start);
-    final fileName =
-        _lastFileNameIn(prose) ?? _fileNameInFirstLineComment(code);
-    artifacts.add(CodeArtifact.fromCode(
-      language: rawLanguage,
-      code: code,
-      fileName: fileName,
-    ));
+    final artifact = _artifactFromMatch(markdown, match, proseStart);
+    if (_shouldPromoteToArtifact(artifact)) {
+      artifacts.add(artifact);
+    }
     proseStart = match.end;
   }
   return artifacts;
 }
 
-/// Returns [markdown] with every fenced code block removed, so the prose
-/// renders on its own and the blocks can be presented as artifact cards
-/// collected at the end of the message, the way Claude shows created
-/// files. Uses the same fence pattern as [extractCodeArtifacts], so the
-/// removed blocks and the extracted artifacts always agree. Unclosed
-/// fences are left in place (see [extractCodeArtifacts]).
+/// Returns [markdown] with every promoted fenced code block removed, so
+/// the prose renders on its own and the blocks can be presented as
+/// artifact cards collected at the end of the message, the way Claude
+/// shows created files. Uses the same promotion rules as
+/// [extractCodeArtifacts], so the removed blocks and the extracted
+/// artifacts always agree. Non-promoted blocks and unclosed fences are
+/// left in place (see [extractCodeArtifacts]).
 String stripCodeArtifacts(String markdown) {
-  return markdown.replaceAll(_fencedBlockPattern, '').trim();
+  final buffer = StringBuffer();
+  var cursor = 0;
+  for (final match in _fencedBlockPattern.allMatches(markdown)) {
+    buffer.write(markdown.substring(cursor, match.start));
+    final artifact = _artifactFromMatch(markdown, match, cursor);
+    if (!_shouldPromoteToArtifact(artifact)) {
+      buffer.write(match.group(0));
+    }
+    cursor = match.end;
+  }
+  buffer.write(markdown.substring(cursor));
+  return buffer.toString().trim();
 }

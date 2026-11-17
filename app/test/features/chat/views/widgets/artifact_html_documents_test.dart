@@ -251,6 +251,20 @@ export default function App() {
       expect(doc, isNot(contains('print("hello")')));
     });
 
+    test('python runner shims sessionStorage before loading Pyodide', () {
+      final doc = buildPythonRunnerDocument(
+        'print("hello")',
+        runId: 'run-shim',
+        postResultBody: postResultToParentWindow,
+      );
+      expect(doc, contains('sessionStorage'));
+      expect(doc, contains('Object.defineProperty(window'));
+      expect(
+        doc.indexOf('sessionStorage'),
+        lessThan(doc.indexOf('pyodide.js')),
+      );
+    });
+
     test('python runner auto-loads imported packages (numpy/pandas)', () {
       final doc = buildPythonRunnerDocument(
         'import pandas',
