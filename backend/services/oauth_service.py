@@ -247,12 +247,10 @@ async def handle_callback(config, redis_client, sb, provider: str, code: str, st
     )
     if not token_payload.get("access_token"):
         err_code = token_payload.get("error") or "unknown_error"
-        err_desc = token_payload.get("error_description") or ""
         logger.warning(
-            "OAuth token exchange for %s failed: error=%s description=%s",
+            "OAuth exchange for %s failed: error=%s",
             provider,
             err_code,
-            err_desc,
         )
         raise ValueError(f"Provider did not return an access token ({err_code})")
     return _store_tokens(sb, config, provider, state_data["tenant_id"], token_payload)

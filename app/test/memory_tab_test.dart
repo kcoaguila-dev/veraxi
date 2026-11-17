@@ -136,16 +136,14 @@ void main() {
       await tester.pumpWidget(wrapTab(repository));
       await tester.pumpAndSettle();
 
-      await tester.enterText(
-          find.byType(TextField).first, 'Lives in Tokyo');
+      await tester.enterText(find.byType(TextField).first, 'Lives in Tokyo');
       await tester.tap(find.text('Add Memory'));
       await tester.pumpAndSettle();
 
       expect(find.text('Lives in Tokyo'), findsOneWidget);
     });
 
-    testWidgets('delete removes the memory via the repository',
-        (tester) async {
+    testWidgets('delete removes the memory via the repository', (tester) async {
       tester.view.physicalSize = const Size(1600, 2400);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.reset);

@@ -32,8 +32,7 @@ class _MemoryTabState extends ConsumerState<MemoryTab> {
         backgroundColor: Theme.of(dialogContext)
             .extension<AppThemeExtension>()!
             .cardBackground,
-        title: const Text('Edit memory',
-            style: TextStyle(color: Colors.white)),
+        title: const Text('Edit memory', style: TextStyle(color: Colors.white)),
         content: TextField(
           controller: controller,
           autofocus: true,
@@ -47,8 +46,7 @@ class _MemoryTabState extends ConsumerState<MemoryTab> {
             child: const Text('Cancel', style: TextStyle(color: Colors.white)),
           ),
           ElevatedButton(
-            onPressed: () =>
-                Navigator.of(dialogContext).pop(controller.text),
+            onPressed: () => Navigator.of(dialogContext).pop(controller.text),
             child: const Text('Save'),
           ),
         ],
@@ -175,9 +173,8 @@ class _MemoryTabState extends ConsumerState<MemoryTab> {
             height: 8,
             margin: const EdgeInsets.only(top: 5),
             decoration: BoxDecoration(
-              color: memory.isValid
-                  ? const Color(0xFF10B981)
-                  : ext.textTertiary,
+              color:
+                  memory.isValid ? const Color(0xFF10B981) : ext.textTertiary,
               shape: BoxShape.circle,
             ),
           ),
