@@ -47,6 +47,38 @@ void main() {
       expect('print("hi")'.allMatches(prompt).length, 2);
     });
 
+    test('large files default to patch mode', () {
+      final big = List.generate(100, (i) => 'line $i').join('\n');
+      final prompt = ArtifactQuickAction.fixBugs.buildPrompt(
+        artifact: artifact,
+        currentCode: big,
+      );
+      expect(prompt, contains('SEARCH/REPLACE'));
+      expect(prompt, contains('<<<<<<< SEARCH'));
+      expect(prompt, contains('more than 60%'));
+    });
+
+    test('preferPatch false forces a full rewrite even for large files', () {
+      final big = List.generate(100, (i) => 'line $i').join('\n');
+      final prompt = ArtifactQuickAction.fixBugs.buildPrompt(
+        artifact: artifact,
+        currentCode: big,
+        preferPatch: false,
+      );
+      expect(prompt, contains('complete updated file'));
+      expect(prompt, isNot(contains('SEARCH/REPLACE')));
+    });
+
+    test('review never uses patch mode', () {
+      final big = List.generate(100, (i) => 'line $i').join('\n');
+      final prompt = ArtifactQuickAction.review.buildPrompt(
+        artifact: artifact,
+        currentCode: big,
+        preferPatch: true,
+      );
+      expect(prompt, contains('structured review'));
+    });
+
     test('whitespace-only selection falls back to the whole file', () {
       final prompt = ArtifactQuickAction.addComments.buildPrompt(
         artifact: artifact,

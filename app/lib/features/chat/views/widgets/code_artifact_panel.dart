@@ -1,4 +1,4 @@
-import 'package:material_ui/material_ui.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
@@ -12,6 +12,7 @@ import 'package:veraxi_app/features/chat/view_models/code_artifact_provider.dart
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:veraxi_app/features/chat/view_models/artifact_incoming_provider.dart';
+import 'package:veraxi_app/features/chat/view_models/artifact_runtime_storage_provider.dart';
 import 'package:veraxi_app/features/chat/view_models/artifact_publish_provider.dart';
 import 'package:veraxi_app/features/chat/view_models/artifact_work_provider.dart';
 import 'package:veraxi_app/features/chat/views/widgets/artifact_download.dart';
@@ -97,6 +98,12 @@ class _CodeArtifactPanelState extends ConsumerState<CodeArtifactPanel> {
   CodeArtifact? _incomingArtifact;
   String? _incomingActionLabel;
   bool _showIncomingDiff = false;
+
+  /// Diagnostics from a quick-action patch reply that did not apply
+  /// cleanly, plus the action that produced it (for a full-rewrite
+  /// retry). Null when there is no failed patch to report.
+  String? _patchFailureNotice;
+  ArtifactQuickAction? _failedPatchAction;
 
   /// Whether the persisted-work restore has finished. Saves are
   /// held until then, so a fresh panel can never overwrite stored
@@ -245,7 +252,7 @@ class _CodeArtifactPanelState extends ConsumerState<CodeArtifactPanel> {
   /// editor selection, when there is one) and hands it to the chat.
   /// Rewrite actions also register as pending, so their reply can
   /// be offered back here as an incoming version.
-  void _runQuickAction(ArtifactQuickAction action) {
+  void _runQuickAction(ArtifactQuickAction action, {bool? preferPatch}) {
     final handler = widget.onQuickAction;
     if (handler == null) return;
     final selected = _editorController.selectedText;
@@ -260,7 +267,19 @@ class _CodeArtifactPanelState extends ConsumerState<CodeArtifactPanel> {
       selectedText: hasSelection ? selected : null,
       selectionStartLine: hasSelection ? _selectionStartLine : null,
       selectionEndLine: hasSelection ? _selectionEndLine : null,
+      preferPatch: preferPatch,
     ));
+  }
+
+  /// Retries the failed patch's quick action as a full rewrite.
+  void _retryPatchAsFullRewrite() {
+    final action = _failedPatchAction;
+    if (action == null) return;
+    setState(() {
+      _patchFailureNotice = null;
+      _failedPatchAction = null;
+    });
+    _runQuickAction(action, preferPatch: false);
   }
 
   /// The code every action acts on: the editor's live text while
@@ -520,20 +539,36 @@ class _CodeArtifactPanelState extends ConsumerState<CodeArtifactPanel> {
     // later messages in the thread from ever being mistaken for it.
     // (A watch + post-frame, not a listen, so a reply that is
     // already complete when the panel first builds is offered too.)
-    final replyArtifacts = ref.watch(quickActionReplyProvider);
-    if (replyArtifacts != null) {
+    final replyContent = ref.watch(quickActionReplyContentProvider);
+    if (replyContent != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         final pending = ref.read(pendingQuickActionProvider);
         if (pending == null) return; // already consumed
         ref.read(pendingQuickActionProvider.notifier).state = null;
-        if (replyArtifacts.isEmpty) return;
-        final candidate = replyArtifacts.first;
+        final resolution = resolveQuickActionReply(
+          replyContent,
+          base: _currentArtifact,
+          currentCode: _currentCode,
+        );
+        if (resolution.isPatchFailure) {
+          setState(() {
+            _patchFailureNotice = resolution.patchResult!.failedBlocks
+                .map((f) => f.toString())
+                .join('; ');
+            _failedPatchAction = pending.action;
+          });
+          return;
+        }
+        final candidate = resolution.artifact;
+        if (candidate == null) return;
         if (candidate.code == _currentCode) return;
         setState(() {
           _incomingArtifact = candidate;
           _incomingActionLabel = pending.action.label;
           _showIncomingDiff = false;
+          _patchFailureNotice = null;
+          _failedPatchAction = null;
         });
       });
     }
@@ -565,6 +600,7 @@ class _CodeArtifactPanelState extends ConsumerState<CodeArtifactPanel> {
           _buildHeader(ext, borderColor, isPublishing: isPublishing),
           if (!_showPreview) _buildToolbar(borderColor),
           if (_incomingArtifact != null) _buildIncomingBar(borderColor),
+          if (_patchFailureNotice != null) _buildPatchFailureBar(borderColor),
           Expanded(
             child: _showPreview && artifact.isPreviewable
                 ? _buildPreviewBody(artifact)
@@ -825,11 +861,27 @@ class _CodeArtifactPanelState extends ConsumerState<CodeArtifactPanel> {
       );
     }
     // HTML / SVG / Mermaid / React run in the sandboxed frame.
+    // React previews get their sibling files for virtual bundling;
+    // every preview gets a storage bridge scoped to this artifact,
+    // so window.veraxiStorage works in draft mode.
+    final siblingFiles = artifact.previewKind == CodePreviewKind.react
+        ? ref.watch(openArtifactSiblingFilesProvider)
+        : const <String, String>{};
+    final storageScope = artifactStorageScopeId(
+      threadId: widget.open.threadId,
+      messageIndex: widget.open.messageIndex,
+      artifactIndex: widget.open.artifactIndex,
+    );
+    final storageBridge = storageScope == null
+        ? null
+        : ref.watch(artifactStorageBridgeProvider(storageScope));
     return Container(
       color: const Color(0xFF141416),
       child: buildArtifactPreviewContent(
         kind: artifact.previewKind.name,
         code: artifact.code,
+        siblingFiles: siblingFiles,
+        storageHandler: storageBridge?.handle,
       ),
     );
   }
@@ -881,6 +933,50 @@ class _CodeArtifactPanelState extends ConsumerState<CodeArtifactPanel> {
             onPressed: _acceptIncoming,
             child: const Text(
               'Accept',
+              style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Inline notice for a patch reply that did not apply cleanly,
+  /// with a one-click retry as a full rewrite.
+  Widget _buildPatchFailureBar(Color borderColor) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      decoration: BoxDecoration(
+        color: const Color(0xFF7F1D1D).withValues(alpha: 0.25),
+        border: Border(bottom: BorderSide(color: borderColor)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.error_outline, size: 16, color: Color(0xFFFCA5A5)),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'Patch did not apply: $_patchFailureNotice',
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Color(0xFFECECEC),
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () => setState(() {
+              _patchFailureNotice = null;
+              _failedPatchAction = null;
+            }),
+            child: const Text('Dismiss', style: TextStyle(fontSize: 12.5)),
+          ),
+          TextButton(
+            onPressed: _retryPatchAsFullRewrite,
+            child: const Text(
+              'Retry as full rewrite',
               style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700),
             ),
           ),

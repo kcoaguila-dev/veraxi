@@ -12,10 +12,33 @@ void main() {
       expect(doc, contains('cdn.tailwindcss.com'));
     });
 
-    test('passes a full document through untouched', () {
+    test('passes a full document through with only the shim added', () {
       const full = '<!DOCTYPE html>\n<html><head><title>T</title></head>'
           '<body>Full</body></html>';
-      expect(buildHtmlArtifactDocument(full), full);
+      final doc = buildHtmlArtifactDocument(full);
+      // No nesting/wrapping: the authored document survives verbatim
+      // apart from the injected veraxiStorage shim before </head>.
+      expect(doc, contains('<title>T</title>'));
+      expect(doc, contains('<body>Full</body>'));
+      expect(doc, contains('window.veraxiStorage'));
+      expect(doc.indexOf('window.veraxiStorage'),
+          lessThan(doc.indexOf('</head>')));
+    });
+
+    test('every document kind carries the storage shim', () {
+      expect(buildHtmlArtifactDocument('<p>x</p>'),
+          contains('window.veraxiStorage'));
+      expect(buildSvgArtifactDocument('<svg/>'),
+          contains('window.veraxiStorage'));
+      expect(buildMermaidArtifactDocument('graph TD; A-->B'),
+          contains('window.veraxiStorage'));
+      expect(
+          buildReactArtifactDocument(
+              'export default function App() { return <div/>; }'),
+          contains('window.veraxiStorage'));
+      // The Claude-compat alias ships too.
+      expect(buildHtmlArtifactDocument('<p>x</p>'),
+          contains('window.storage = api'));
     });
   });
 
@@ -173,6 +196,81 @@ export default function App() {
       // No safety-net hook import: useState is already bound by hand.
       expect(prepared.code, isNot(contains('import { useState')));
       expect(prepared.code, isNot(contains('useReducer')));
+    });
+  });
+
+  group('prepareReactArtifact with sibling files', () {
+    const entry = '''
+import Helper from './Helper';
+import './styles.css';
+export default function App() { return <Helper/>; }
+''';
+    const siblings = {
+      'Helper.tsx': 'export default function Helper() { return <div/>; }',
+      'styles.css': '.x { color: red; }',
+    };
+
+    test('inlines an imported sibling stylesheet', () {
+      final prepared = prepareReactArtifact(entry, siblingFiles: siblings);
+      expect(prepared.inlinedCss, ['.x { color: red; }']);
+      final doc = buildReactArtifactDocument(entry, siblingFiles: siblings);
+      expect(doc, contains('data-veraxi-sibling-css'));
+      expect(doc, contains('.x { color: red; }'));
+    });
+
+    test('resolves a relative sibling module for the Blob bootstrap', () {
+      final prepared = prepareReactArtifact(entry, siblingFiles: siblings);
+      expect(prepared.siblingModules.keys, ['./Helper']);
+      expect(prepared.siblingFileNames['./Helper'], 'Helper.tsx');
+      expect(prepared.siblingErrors, isEmpty);
+      // The entry import stays; the bootstrap rewrites it to a Blob URL.
+      expect(prepared.code, contains("from './Helper'"));
+      final doc = buildReactArtifactDocument(entry, siblingFiles: siblings);
+      expect(doc, contains('class="veraxi-sibling-source"'));
+      expect(doc, contains('data-spec="./Helper"'));
+      expect(doc, contains('URL.createObjectURL'));
+      expect(doc, contains('new Blob'));
+    });
+
+    test('single-file mode still drops relative imports', () {
+      final prepared = prepareReactArtifact(entry);
+      expect(prepared.siblingModules, isEmpty);
+      expect(prepared.code, isNot(contains('./Helper')));
+      final doc = buildReactArtifactDocument(entry);
+      expect(doc, isNot(contains('veraxi-sibling-source')));
+    });
+
+    test('missing sibling import is a clear Preview error', () {
+      final prepared = prepareReactArtifact(entry, siblingFiles: const {
+        'Other.tsx': 'export default function Other() { return <div/>; }',
+      });
+      expect(
+        prepared.siblingErrors.single,
+        contains('Missing sibling module: ./Helper'),
+      );
+      final doc = buildReactArtifactDocument(entry, siblingFiles: const {
+        'Other.tsx': 'export default function Other() { return <div/>; }',
+      });
+      expect(doc, contains('Missing sibling module: ./Helper'));
+      expect(doc, contains('Preview error'));
+    });
+
+    test('circular sibling imports are reported', () {
+      const circularEntry = '''
+import A from './A';
+export default function App() { return <A/>; }
+''';
+      final prepared = prepareReactArtifact(circularEntry, siblingFiles: {
+        'A.tsx': "import B from './B'; export default function A() { return <B/>; }",
+        'B.tsx': "import A from './A'; export default function B() { return <A/>; }",
+      });
+      // A imports ./B and B imports ./A: resolution is transitive,
+      // so both modules ship and the cycle is reported as an error.
+      expect(prepared.siblingModules.keys, containsAll(['./A', './B']));
+      expect(
+        prepared.siblingErrors.any((e) => e.contains('Circular')),
+        isTrue,
+      );
     });
   });
 
