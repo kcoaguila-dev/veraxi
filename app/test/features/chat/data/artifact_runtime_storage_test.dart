@@ -166,7 +166,7 @@ void main() {
         INSERT INTO artifact_work_entries VALUES ('t:0:0', '{}', 1);
         PRAGMA user_version = 4;
       ''');
-      raw.dispose();
+      raw.close();
 
       final db = LocalChatDatabase.withExecutor(NativeDatabase(file));
       addTearDown(db.close);
