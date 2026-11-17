@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 _MCP_TOOL_CACHE: dict[str, Any] = {}  # Cache tool schemas to avoid frequent handshakes
 
 
-async def get_tools(tool_settings: dict | None = None) -> list:
+async def get_tools(tool_settings: dict | None = None, tenant_id: str | None = None) -> list:
     """Return a list of tool definitions to bind to the LLM."""
     config = get_config()
 
@@ -30,8 +30,6 @@ async def get_tools(tool_settings: dict | None = None) -> list:
     file_search_enabled = False
     web_search_enabled = False
     run_code_enabled = False
-    skills_enabled = False
-    mcp_servers = []
 
     if tool_settings:
         file_search_enabled = tool_settings.get("file_search_enabled", False)
@@ -39,9 +37,6 @@ async def get_tools(tool_settings: dict | None = None) -> list:
             web_search_enabled = tool_settings["web_search"]["enabled"]
 
         run_code_enabled = tool_settings.get("run_code_enabled", False)
-        skills_enabled = tool_settings.get("skills_enabled", False)
-        if skills_enabled:
-            mcp_servers = tool_settings.get("mcp_servers", [])
 
     all_tools = []
 
@@ -277,42 +272,16 @@ async def get_tools(tool_settings: dict | None = None) -> list:
             }
         )
 
-    if skills_enabled and mcp_servers:
-        for server in mcp_servers:
-            server_name = server.get("name", "unknown")
-            url = server.get("url", "")
-            is_enabled = server.get("enabled", True)
+    # External MCP tools come from the hardened client manager: stored
+    # tenant integrations first (no skills_enabled gate), legacy
+    # tool_settings servers as fallback (legacy gate preserved inside
+    # the manager). Schemas are tenant-cached and capped.
+    try:
+        from backend.services.mcp_client_manager import get_external_tools
 
-            if not url or not is_enabled:
-                continue
-
-            if url in _MCP_TOOL_CACHE:
-                all_tools.extend(_MCP_TOOL_CACHE[url])
-                continue
-
-            try:
-                async with sse_client(url) as (read, write):  # noqa: SIM117
-                    async with ClientSession(read, write) as session:
-                        await session.initialize()
-                        tools_res = await session.list_tools()
-                        mapped_tools = []
-                        for t in tools_res.tools:
-                            mapped_tools.append(
-                                {
-                                    "type": "function",
-                                    "function": {
-                                        "name": f"mcp__{server_name}__{t.name}",
-                                        "description": t.description
-                                        or "MCP Dynamic Tool",
-                                        "parameters": t.input_schema
-                                        or {"type": "object", "properties": {}},
-                                    },
-                                }
-                            )
-                        _MCP_TOOL_CACHE[url] = mapped_tools
-                        all_tools.extend(mapped_tools)
-            except Exception as e:
-                logger.error(f"Failed to fetch tools from MCP server {url}: {e}")
+        all_tools.extend(await get_external_tools(tenant_id, tool_settings))
+    except Exception as e:
+        logger.error(f"Failed to fetch external MCP tools: {e}")
 
     return all_tools
 
@@ -797,7 +766,10 @@ class McpHit:
 
 
 async def _execute_mcp_tool(
-    tool_name: str, tool_input: dict, tool_settings: dict
+    tool_name: str,
+    tool_input: dict,
+    tool_settings: dict,
+    tenant_id: str | None = None,
 ) -> tuple[list[Any], list[Any]]:
     """Execute a tool backed by an external MCP server."""
     parts = tool_name.split("__", 2)
@@ -805,6 +777,28 @@ async def _execute_mcp_tool(
         return [], []
     server_name = parts[1]
     actual_tool_name = parts[2]
+
+    # Stored integrations (and legacy servers without the worktree
+    # contract) execute through the hardened client manager: SSRF
+    # re-validation, transport fallback, timeouts, tenant cache.
+    legacy_servers = tool_settings.get("mcp_servers", []) or []
+    legacy_cfg = next(
+        (s for s in legacy_servers if s.get("name") == server_name), None
+    )
+    if not (legacy_cfg and legacy_cfg.get("supports_worktree")):
+        try:
+            from backend.services import mcp_client_manager as mcp_manager
+
+            specs = mcp_manager.load_server_specs(tenant_id, tool_settings)
+            spec = mcp_manager.find_spec(specs, server_name)
+            if spec is not None:
+                result = await mcp_manager.call_tool(
+                    spec, tenant_id or "", tool_name, tool_input
+                )
+                return [McpHit(result, "", server_name)], []
+        except Exception as e:
+            logger.error(f"Failed to execute MCP tool {tool_name}: {e}")
+            return [McpErrorHit(e, server_name)], []
 
     mcp_servers = tool_settings.get("mcp_servers", [])
     server_config = next((s for s in mcp_servers if s.get("name") == server_name), None)
@@ -1033,7 +1027,9 @@ async def execute_tools_internal(
         logger.info(f"LangGraph Agent called tool: {t_name} with args: {t_input}")
 
         if t_name.startswith("mcp__"):
-            m_hits, _ = await _execute_mcp_tool(t_name, t_input, tool_settings)
+            m_hits, _ = await _execute_mcp_tool(
+                t_name, t_input, tool_settings, tenant_id
+            )
             return [], [], m_hits
         else:
             loop = asyncio.get_running_loop()

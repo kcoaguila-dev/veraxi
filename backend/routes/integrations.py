@@ -55,6 +55,16 @@ def _invalidate_mcp_cache(row: dict | None) -> None:
     """Drop cached MCP tool schemas for an integration's server URL."""
     if not row:
         return
+    try:
+        from backend.services.mcp_client_manager import invalidate_cache
+
+        invalidate_cache(
+            integration_id=str(row.get("id") or "") or None,
+            tenant_id=str(row.get("tenant_id") or "") or None,
+        )
+    except Exception as e:  # Cache invalidation must never fail a request.
+        sentry_sdk.capture_exception(e)
+        logger.warning("Failed to invalidate MCP manager cache: %s", e)
     url = (row.get("config") or {}).get("url")
     if not url:
         return
