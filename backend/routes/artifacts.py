@@ -23,8 +23,16 @@ from datetime import UTC, datetime
 
 import sentry_sdk
 from fastapi import Depends, HTTPException, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, Response
 from pydantic import BaseModel
+
+from backend.services.office_export import (
+    export_docx,
+    export_pdf,
+    export_pptx,
+    export_xlsx,
+    spec_to_markdown,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -117,6 +125,89 @@ def _inject_public_shim(document: str) -> str:
     if idx >= 0:
         return document[:idx] + PUBLIC_STORAGE_SHIM_SCRIPT + document[idx:]
     return document + PUBLIC_STORAGE_SHIM_SCRIPT
+
+
+EXPORT_FORMATS = {
+    "pdf": (
+        "application/pdf",
+        "pdf",
+    ),
+    "docx": (
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "docx",
+    ),
+    "xlsx": (
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "xlsx",
+    ),
+    "pptx": (
+        "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        "pptx",
+    ),
+}
+EXPORT_CONTENT_TYPES = {"markdown", "html", "csv", "json"}
+
+
+class ExportArtifactRequest(BaseModel):
+    """Body of POST /api/artifacts/export.
+
+    ``format`` picks the Office/PDF exporter; ``content`` is the
+    artifact text (Markdown/HTML/CSV per ``content_type``) and
+    ``spec`` an optional structured JSON spec (sections / sheets /
+    slides) the DOCX/XLSX/PPTX builders render directly. With
+    ``content_type="json"`` and no explicit ``spec``, the content
+    itself is parsed as the spec.
+    """
+
+    format: str
+    title: str = ""
+    content: str = ""
+    content_type: str = "markdown"
+    spec: dict | None = None
+
+
+def _safe_export_filename(title: str, extension: str) -> str:
+    """Build an attachment filename from an artifact title, stripped
+    of path separators, quotes, and anything else that could break
+    out of the Content-Disposition header or a filesystem path."""
+    base = re.sub(r"[^A-Za-z0-9._-]+", "_", title or "").strip("._")
+    base = base[:80].strip("._") or "artifact"
+    return f"{base}.{extension}"
+
+
+def _resolve_export_spec(payload: ExportArtifactRequest) -> dict | None:
+    """The explicit spec wins; with ``content_type="json"`` the
+    content itself is the spec when it parses to a JSON object."""
+    if payload.spec is not None:
+        return payload.spec
+    if payload.content_type != "json" or not payload.content.strip():
+        return None
+    try:
+        parsed = json.loads(payload.content)
+    except ValueError:
+        raise HTTPException(
+            status_code=400, detail="content is not valid JSON"
+        ) from None
+    if not isinstance(parsed, dict):
+        raise HTTPException(status_code=400, detail="JSON spec must be an object")
+    return parsed
+
+
+def _build_export(payload: ExportArtifactRequest, spec: dict | None) -> bytes:
+    """Dispatch to the deterministic exporter for ``payload.format``.
+    Builders raise ValueError on a malformed spec, which the route
+    maps to 400. Nothing here executes artifact content."""
+    if payload.format == "pdf":
+        # The PDF builder consumes content, not specs: render a spec
+        # to Markdown first (an explicit spec wins over content).
+        if spec is not None:
+            return export_pdf(payload.title, spec_to_markdown(spec), "markdown")
+        return export_pdf(payload.title, payload.content, payload.content_type)
+    if payload.format == "docx":
+        return export_docx(payload.title, payload.content, spec)
+    if payload.format == "xlsx":
+        return export_xlsx(payload.title, payload.content, spec)
+    return export_pptx(payload.title, payload.content, spec)
 
 
 class PublishArtifactRequest(BaseModel):
@@ -1050,6 +1141,62 @@ def register_artifact_routes(
         # host and the returned URL is directly shareable.
         url = f"{request.base_url}a/{artifact_id}"
         return {"id": artifact_id, "url": url}
+
+    @app_router.post("/api/artifacts/export")
+    @limiter.limit(config.rate_limit_ingest)
+    async def export_artifact(
+        request: Request,
+        payload: ExportArtifactRequest,
+        tenant_id: str = Depends(get_tenant_id),
+    ):
+        # Like work sync, export is a pure function of the caller's
+        # own content — no shared state — so guests may use it too.
+        if payload.format not in EXPORT_FORMATS:
+            raise HTTPException(
+                status_code=400,
+                detail=f"format must be one of {sorted(EXPORT_FORMATS)}",
+            )
+        if payload.content_type not in EXPORT_CONTENT_TYPES:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"content_type must be one of {sorted(EXPORT_CONTENT_TYPES)}"
+                ),
+            )
+        if len(payload.title) > MAX_TITLE_CHARS:
+            raise HTTPException(
+                status_code=400,
+                detail=f"title too long (max {MAX_TITLE_CHARS} characters)",
+            )
+        if len(payload.content) > MAX_CODE_CHARS:
+            raise HTTPException(
+                status_code=413,
+                detail=f"content too large (max {MAX_CODE_CHARS} characters)",
+            )
+        if (
+            payload.spec is not None
+            and len(json.dumps(payload.spec)) > MAX_CODE_CHARS
+        ):
+            raise HTTPException(
+                status_code=413,
+                detail=f"spec too large (max {MAX_CODE_CHARS} characters)",
+            )
+        spec = _resolve_export_spec(payload)
+        try:
+            data = _build_export(payload, spec)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e)) from e
+        except Exception as e:
+            sentry_sdk.capture_exception(e)
+            logger.error(f"Error exporting artifact: {e}")
+            raise HTTPException(status_code=500, detail=str(e)) from e
+        media_type, extension = EXPORT_FORMATS[payload.format]
+        filename = _safe_export_filename(payload.title, extension)
+        return Response(
+            content=data,
+            media_type=media_type,
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
 
     @app_router.delete("/api/artifacts/{artifact_id}")
     async def delete_artifact(

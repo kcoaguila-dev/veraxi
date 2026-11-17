@@ -13,6 +13,7 @@ import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:veraxi_app/features/chat/view_models/artifact_incoming_provider.dart';
 import 'package:veraxi_app/features/chat/view_models/artifact_runtime_storage_provider.dart';
+import 'package:veraxi_app/features/chat/view_models/artifact_export_provider.dart';
 import 'package:veraxi_app/features/chat/view_models/artifact_publish_provider.dart';
 import 'package:veraxi_app/features/chat/view_models/artifact_work_provider.dart';
 import 'package:veraxi_app/features/chat/views/widgets/artifact_download.dart';
@@ -31,8 +32,9 @@ import 'package:veraxi_app/features/chat/views/widgets/artifact_sandbox.dart';
 /// plain code opens on the highlighted listing. The header also carries
 /// a Copy action, a Run action for the languages the existing client
 /// sandbox actually executes (Python / JavaScript, code view only), a
-/// Download action, a Share action (publishes a public link through
-/// the backend), and a close button.
+/// Download action, an Export menu (PDF / Word / Excel / PowerPoint,
+/// rendered deterministically by the backend), a Share action
+/// (publishes a public link through the backend), and a close button.
 ///
 /// The code view is a workbench, not just a viewer (the Open Canvas
 /// model): the code sits in a real editor (re_editor) whose text can be
@@ -443,6 +445,101 @@ class _CodeArtifactPanelState extends ConsumerState<CodeArtifactPanel> {
     }
   }
 
+  /// Exports the current version in [format] through the backend
+  /// and downloads the resulting document (browser download on web,
+  /// a saved file on native). Failures surface as a SnackBar, the
+  /// same way a failed download does.
+  Future<void> _export(ArtifactExportFormat format) async {
+    final exported = await ref
+        .read(artifactExportProvider.notifier)
+        .exportArtifact(_currentArtifact, format);
+    if (!mounted) return;
+    if (exported == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            ref.read(artifactExportProvider).error ?? 'Export failed',
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+    try {
+      final savedPath = await downloadArtifactBytes(
+        fileName: exported.fileName,
+        bytes: exported.bytes,
+        mimeType: exported.mimeType,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            savedPath != null
+                ? 'Saved to $savedPath'
+                : 'Downloading ${exported.fileName}',
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } catch (e) {
+      await Sentry.captureException(e);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Export failed'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
+  /// The Export menu: an icon-only chip in the header's
+  /// _HeaderAction style (the header is width-constrained) that
+  /// opens a menu of the four document formats. While an export is
+  /// in flight the chip shows a spinner and the menu is disabled.
+  Widget _buildExportMenu() {
+    final exportState = ref.watch(artifactExportProvider);
+    final isExporting = exportState.isExporting;
+    return PopupMenuButton<ArtifactExportFormat>(
+      tooltip: 'Export',
+      enabled: !isExporting,
+      onSelected: _export,
+      itemBuilder: (context) => [
+        for (final format in ArtifactExportFormat.values)
+          PopupMenuItem<ArtifactExportFormat>(
+            value: format,
+            child: Text('${format.label} (.${format.fileExtension})'),
+          ),
+      ],
+      child: Material(
+        color: const Color(0xFF2F2F2F),
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: const Color(0xFF3F3F3F)),
+          ),
+          child: isExporting
+              ? const SizedBox(
+                  width: 14,
+                  height: 14,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Color(0xFFECECEC),
+                  ),
+                )
+              : const Icon(
+                  Icons.file_upload_outlined,
+                  size: 14,
+                  color: Color(0xFFECECEC),
+                ),
+        ),
+      ),
+    );
+  }
+
   Future<void> _runCode() async {
     if (_isRunning) return;
     setState(() => _isRunning = true);
@@ -688,6 +785,10 @@ class _CodeArtifactPanelState extends ConsumerState<CodeArtifactPanel> {
             onTap: _download,
             iconOnly: true,
           ),
+          if (artifactCanExport(artifact)) ...[
+            const SizedBox(width: 6),
+            _buildExportMenu(),
+          ],
           const SizedBox(width: 6),
           _HeaderAction(
             icon: isPublishing ? null : Icons.share_outlined,

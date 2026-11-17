@@ -9,13 +9,16 @@ COPY . /app/backend/
 # Set Python path so `backend` module can be imported
 ENV PYTHONPATH=/app
 
-# Install system dependencies (OpenCV/Docling only when requested via INSTALL_EXTRAS)
+# Install system dependencies (OpenCV/Docling only when requested via INSTALL_EXTRAS).
+# libpango/libcairo/libgdk-pixbuf are WeasyPrint's runtime libraries: the
+# artifact Office/PDF export (backend/services/office_export.py) needs them
+# in every image, not just the extras builds.
 ARG INSTALL_EXTRAS=""
 RUN apt-get update && \
     if echo "$INSTALL_EXTRAS" | grep -Eq "ocr|full"; then \
-        apt-get install -y --no-install-recommends libgl1 libglib2.0-0 libmagic1; \
+        apt-get install -y --no-install-recommends libgl1 libglib2.0-0 libmagic1 libpango-1.0-0 libpangoft2-1.0-0 libcairo2 libgdk-pixbuf-2.0-0 libffi8 shared-mime-info; \
     else \
-        apt-get install -y --no-install-recommends libmagic1; \
+        apt-get install -y --no-install-recommends libmagic1 libpango-1.0-0 libpangoft2-1.0-0 libcairo2 libgdk-pixbuf-2.0-0 libffi8 shared-mime-info; \
     fi && \
     rm -rf /var/lib/apt/lists/*
 

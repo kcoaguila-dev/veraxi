@@ -162,6 +162,38 @@ class ApiClient {
     }
   }
 
+  /// POSTs a JSON body and returns the raw response bytes, for the
+  /// endpoints whose payload is a binary file rather than JSON
+  /// (artifact Office/PDF export). The timeout is longer than the
+  /// JSON calls': the backend renders documents server-side.
+  Future<Uint8List> postBytes(String path,
+      {Map<String, dynamic>? body, Map<String, String>? headers}) async {
+    try {
+      final requestHeaders = await getDefaultHeaders()
+        ..['Content-Type'] = 'application/json';
+      if (headers != null) requestHeaders.addAll(headers);
+
+      final response = await client
+          .post(
+            Uri.parse('$baseUrl$path'),
+            headers: requestHeaders,
+            body: body != null ? jsonEncode(body) : null,
+          )
+          .timeout(const Duration(seconds: 60));
+
+      if (response.statusCode == 200) {
+        return response.bodyBytes;
+      }
+      if (response.statusCode == 402) {
+        throw PaymentRequiredException();
+      }
+      throw Exception('Server error: ${response.statusCode}');
+    } catch (e, stackTrace) {
+      Sentry.captureException(e, stackTrace: stackTrace);
+      rethrow;
+    }
+  }
+
   Future<dynamic> put(String path,
       {Map<String, dynamic>? body, Map<String, String>? headers}) async {
     try {
