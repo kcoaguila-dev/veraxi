@@ -125,12 +125,20 @@ async def get_tools(tool_settings: dict | None = None, tenant_id: str | None = N
         from backend.mcp_server.tools.code_tools import (
             tool_schemas as _code_tool_schemas,
         )
+        from backend.mcp_server.tools.corpus_tools import (
+            tool_schemas as _corpus_tool_schemas,
+        )
+        from backend.mcp_server.tools.dbt_tools import (
+            tool_schemas as _dbt_tool_schemas,
+        )
         from backend.mcp_server.tools.vuln_tools import (
             tool_schemas as _vuln_tool_schemas,
         )
 
         all_tools.extend(_code_tool_schemas())
         all_tools.extend(_vuln_tool_schemas())
+        all_tools.extend(_corpus_tool_schemas())
+        all_tools.extend(_dbt_tool_schemas())
 
     if web_search_enabled:
         all_tools.append(
@@ -538,6 +546,45 @@ def _execute_single_tool(
             repo_path=tool_input.get("repo_path"),
         )
         return [VulnHit(result)], []
+
+    elif tool_name == "corpus_briefing":
+        if not settings.get("file_search_enabled", False):
+            return [], []
+
+        class CorpusHit:
+            def __init__(self, res: dict) -> None:
+                self.id = "corpus_briefing"
+                self.payload = res
+                self.sources = ["Corpus Briefing"]
+
+        from backend.mcp_server.tools.corpus_tools import (
+            corpus_briefing as _corpus_briefing,
+        )
+
+        result = _corpus_briefing(
+            tenant_id=tenant_id,
+            include_markdown=bool(tool_input.get("include_markdown", False)),
+        )
+        return [CorpusHit(result)], []
+
+    elif tool_name == "dataset_discovery":
+        if not settings.get("file_search_enabled", False):
+            return [], []
+
+        class DbtHit:
+            def __init__(self, res: dict) -> None:
+                self.id = "dataset_discovery"
+                self.payload = res
+                self.sources = ["Data Lineage"]
+
+        from backend.mcp_server.tools.dbt_tools import (
+            dataset_discovery as _dataset_discovery,
+        )
+
+        result = _dataset_discovery(
+            tool_input["query"], tenant_id=tenant_id
+        )
+        return [DbtHit(result)], []
 
     elif tool_name == "web_search":
         web_search = settings.get("web_search", {})

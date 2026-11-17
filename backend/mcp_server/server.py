@@ -189,6 +189,24 @@ def mcp_vuln_report(dependencies: list | None = None, repo_path: str = "") -> st
 
 
 @mcp_server.tool(
+    name="mcp_corpus_briefing",
+    description="Deterministic corpus briefing: corpus counts, top communities with top entities, newest entities, and heuristic contradiction flags. No LLM is used.",
+)
+def mcp_corpus_briefing(include_markdown: bool = False) -> str:
+    return _dispatch(
+        "mcp_corpus_briefing", {"include_markdown": include_markdown}
+    )
+
+
+@mcp_server.tool(
+    name="mcp_dataset_discovery",
+    description="Discover dbt datasets/models by dataset-name fragment or exact column name, with one-hop upstream/downstream lineage.",
+)
+def mcp_dataset_discovery(query: str) -> str:
+    return _dispatch("mcp_dataset_discovery", {"query": query})
+
+
+@mcp_server.tool(
     name="mcp_run_community_detection",
     description="Runs a Graph Data Science community detection algorithm to find clusters of connected entities.",
 )
