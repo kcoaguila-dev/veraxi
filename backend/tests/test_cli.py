@@ -964,7 +964,9 @@ def test_cli_config_lifecycle(tmp_path, monkeypatch, capsys):
     captured = capsys.readouterr()
     data = json.loads(captured.out)
     assert data["default_model"] == "gpt-4o"
-    assert data["api_key"] == "vx-test-secret-key"
+    # Secret values are redacted in config output (approved security fix:
+    # this previously asserted the plaintext API key was printed).
+    assert data["api_key"] == "[REDACTED]"
 
     # 4. Unset key
     run_config(action="unset", key="default_model")
@@ -1212,3 +1214,129 @@ def test_cli_chat_run_agent_stream_deep_mode(monkeypatch, capsys):
     assert "Skeptic Verifier" in captured.out
     assert "Verified Deep Research Report:" in captured.out
     assert "Final multi-agent draft" in captured.out
+
+
+# 40. test_cli_config_secret_redaction: get/set/list must never print secret values
+def test_cli_config_secret_redaction(tmp_path, monkeypatch, capsys):
+    from veraxi.cli.config import run_config
+
+    fake_cfg_path = tmp_path / "config.json"
+    monkeypatch.setattr("veraxi.cli.config.get_cli_config_path", lambda: fake_cfg_path)
+    monkeypatch.setattr(
+        "veraxi.cli.config.load_credentials",
+        lambda: {"api_key": "vx-test-secret-key"},
+    )
+
+    # Set on a secret key must not echo the value back
+    run_config(action="set", key="openai_api_key", value="sk-super-secret-value")
+    captured = capsys.readouterr()
+    assert "sk-super-secret-value" not in captured.out
+    assert "[REDACTED]" in captured.out
+
+    # Get on a secret key redacts, in plain and JSON output
+    run_config(action="get", key="openai_api_key")
+    captured = capsys.readouterr()
+    assert captured.out.strip() == "[REDACTED]"
+
+    run_config(action="get", key="api_key", as_json=True)
+    captured = capsys.readouterr()
+    assert json.loads(captured.out)["api_key"] == "[REDACTED]"
+
+    # Get on a non-secret key still returns the value
+    run_config(action="set", key="default_model", value="gpt-4o")
+    capsys.readouterr()
+    run_config(action="get", key="default_model")
+    captured = capsys.readouterr()
+    assert captured.out.strip() == "gpt-4o"
+
+
+# 41. test_cli_config_list_redacts_env_secrets: env API keys redact in list --json
+def test_cli_config_list_redacts_env_secrets(tmp_path, monkeypatch, capsys):
+    from veraxi.cli.config import run_config
+
+    fake_cfg_path = tmp_path / "config.json"
+    monkeypatch.setattr("veraxi.cli.config.get_cli_config_path", lambda: fake_cfg_path)
+    monkeypatch.setattr("veraxi.cli.config.load_credentials", dict)
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-env-secret-value")
+
+    run_config(action="list", as_json=True)
+    captured = capsys.readouterr()
+    assert "sk-env-secret-value" not in captured.out
+    data = json.loads(captured.out)
+    assert data["openai_api_key"] == "[REDACTED]"
+
+    # Table output redacts as well
+    run_config(action="list")
+    captured = capsys.readouterr()
+    assert "sk-env-secret-value" not in captured.out
+    assert "[REDACTED]" in captured.out
+
+
+# 42. test_resolve_tenant_id_priority: tenant resolution is decoupled from secrets
+def test_resolve_tenant_id_priority(tmp_path, monkeypatch):
+    from veraxi.cli.main import _resolve_tenant_id
+
+    monkeypatch.delenv("VERAXI_TENANT_ID", raising=False)
+    monkeypatch.setattr(
+        "veraxi.cli.main.load_cli_config", lambda: {"tenant_id": "cfg-tenant"}
+    )
+
+    # Explicit argument wins over everything
+    monkeypatch.setenv("VERAXI_TENANT_ID", "env-tenant")
+    assert _resolve_tenant_id("arg-tenant") == "arg-tenant"
+    # Environment wins over config file
+    assert _resolve_tenant_id(None) == "env-tenant"
+    # Config file wins over the admin/default fallbacks
+    monkeypatch.delenv("VERAXI_TENANT_ID")
+    assert _resolve_tenant_id(None) == "cfg-tenant"
+    # Admin tenant from backend config wins over the final fallback
+    monkeypatch.setattr("veraxi.cli.main.load_cli_config", dict)
+    fake_cfg = MagicMock()
+    fake_cfg.admin_tenant_ids = ["admin-tenant"]
+    monkeypatch.setattr("backend.config.get_config", lambda: fake_cfg)
+    assert _resolve_tenant_id(None) == "admin-tenant"
+    # No tenant anywhere falls back to "default"
+    fake_cfg.admin_tenant_ids = []
+    assert _resolve_tenant_id(None) == "default"
+
+
+# 43. test_fetch_web_page_strips_script_and_style: parser-based HTML filtering
+def test_fetch_web_page_strips_script_and_style(monkeypatch):
+    from veraxi.cli.web import _extract_visible_text, fetch_web_page
+
+    # Closing tags with whitespace/newlines must still end script/style
+    assert "evil" not in _extract_visible_text(
+        "<p>hello</p><script>evil()</script ><p>world</p>"
+    )
+    assert "evil" not in _extract_visible_text(
+        "<p>hello</p><SCRIPT>evil()</script\n><p>world</p>"
+    )
+    assert ".a{}" not in _extract_visible_text(
+        "<style>.a{}</style ><p>visible text</p>"
+    )
+    # Normal text extraction is preserved
+    text = _extract_visible_text("<h1>Title</h1><p>First para.</p><p>Second para.</p>")
+    assert text == "Title First para. Second para."
+
+    # Through fetch_web_page: Jina attempt fails, direct fetch returns HTML
+    html = (
+        b"<html><head><style>.x{color:red}</style ></head>"
+        b"<body><p>Real content here</p><script>evil()</script ></body></html>"
+    )
+    mock_resp = MagicMock()
+    mock_resp.read.return_value = html
+    mock_ctx = MagicMock()
+    mock_ctx.__enter__.return_value = mock_resp
+    calls = {"n": 0}
+
+    def fake_urlopen(req, timeout=None):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise OSError("jina unavailable")
+        return mock_ctx
+
+    monkeypatch.setattr("veraxi.cli.web.urllib.request.urlopen", fake_urlopen)
+    result = fetch_web_page("https://example.com/page")
+    assert "Real content here" in result
+    assert "evil" not in result
+    assert "color:red" not in result

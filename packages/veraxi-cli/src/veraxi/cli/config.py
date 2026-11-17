@@ -96,6 +96,14 @@ def unset_config_value(key: str) -> bool:
     return False
 
 
+def _is_secret_key(k: str) -> bool:
+    """Returns True when a config key names a secret value."""
+    return any(
+        term in k.lower()
+        for term in ("key", "secret", "password", "token", "credential")
+    )
+
+
 def mask_secret(val: Any) -> str:
     """Masks API keys and secrets for safe console display."""
     s = str(val)
@@ -119,7 +127,10 @@ def run_config(
             sys.exit(1)
         ok = set_config_value(key, value)
         if ok:
-            print(f"✓ Config updated: {key} = {value}")
+            if _is_secret_key(key):
+                print(f"✓ Config updated: {key} = [REDACTED]")
+            else:
+                print(f"✓ Config updated: {key} = {value}")
         else:
             sys.exit(1)
         return
@@ -142,10 +153,14 @@ def run_config(
         cfg = load_cli_config()
         val = cfg.get(key)
         if as_json:
-            print(json.dumps({key: val}))
+            print(
+                json.dumps(
+                    {key: "[REDACTED]" if val is not None and _is_secret_key(key) else val}
+                )
+            )
         else:
             if val is not None:
-                print(val)
+                print("[REDACTED]" if _is_secret_key(key) else val)
             else:
                 print("(not set)")
                 sys.exit(1)
@@ -167,9 +182,14 @@ def run_config(
 
     combined = {**env_detected, **cfg}
 
+    # Build a sanitized copy so secret values never reach any output,
+    # including machine-consumed JSON.
+    sanitized = {
+        k: "[REDACTED]" if _is_secret_key(k) else v for k, v in combined.items()
+    }
+
     if as_json:
-        # Output unmasked for machine consumption
-        print(json.dumps(combined, indent=2))
+        print(json.dumps(sanitized, indent=2))
         return
 
     cyan = "\033[36m"
@@ -190,9 +210,8 @@ def run_config(
     print(f"  {'SETTING':<26} | {'VALUE':<30} | {'SOURCE'}")
     print("  " + "─" * 68)
 
-    for k, v in sorted(combined.items()):
-        is_secret = any(term in k.lower() for term in ("key", "secret", "password", "token"))
-        display_val = mask_secret(v) if is_secret else str(v)
+    for k, v in sorted(sanitized.items()):
+        display_val = "[REDACTED]" if _is_secret_key(k) else str(v)
         source = "environment" if k in env_detected and k not in cfg else "config"
         print(f"  {k:<26} | {display_val:<30} | {dim}{source}{reset}")
 

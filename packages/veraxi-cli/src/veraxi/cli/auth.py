@@ -107,13 +107,13 @@ def run_whoami(key: str | None = None, endpoint: str = "https://api.veraxi.me/ss
         print("Not logged in. Run 'veraxi login' or set VERAXI_API_KEY.")
         sys.exit(0)
 
-    # Mask key for safety
-    masked_key = resolved_key[:7] + "..." + resolved_key[-4:] if len(resolved_key) > 12 else "****"
+    # Never print any part of the key — only whether one is configured.
+    key_status = "Configured (****)" if resolved_key else "Not set"
 
     print("\nVeraxi Identity")
     print("===============")
     print(f"Endpoint    : {resolved_endpoint}")
-    print(f"API Key     : {masked_key}")
+    print(f"API Key     : {key_status}")
     print(f"Credentials : {get_credentials_path()}")
 
     # Ping endpoint to check status

@@ -12,6 +12,7 @@ import os
 import re
 import sys
 import urllib.error
+from html.parser import HTMLParser
 import urllib.parse
 import urllib.request
 from veraxi.cli.config import load_cli_config, set_config_value
@@ -336,6 +337,57 @@ def web_search(
         return _search_duckduckgo(query, limit)
 
 
+class _VisibleTextHTMLParser(HTMLParser):
+    """Extracts visible text from HTML, skipping script/style content.
+
+    Uses the stdlib HTML parser instead of regex tag filtering: the parser
+    tokenizes tags properly, so closing tags with whitespace or attributes
+    (e.g. ``</script >`` or ``</script\\n>``) still end the skipped region.
+    """
+
+    _SKIP_TAGS = frozenset({"script", "style"})
+    _BLOCK_TAGS = frozenset({
+        "address", "article", "aside", "blockquote", "br", "dd", "div",
+        "dl", "dt", "fieldset", "figcaption", "figure", "footer", "form",
+        "h1", "h2", "h3", "h4", "h5", "h6", "header", "hr", "li", "main",
+        "nav", "ol", "p", "pre", "section", "table", "td", "th", "tr", "ul",
+    })
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self._skip_depth = 0
+        self._chunks: list[str] = []
+
+    def handle_starttag(self, tag, attrs):
+        if tag in self._SKIP_TAGS:
+            self._skip_depth += 1
+        elif self._skip_depth == 0 and tag in self._BLOCK_TAGS:
+            self._chunks.append(" ")
+
+    def handle_endtag(self, tag):
+        if tag in self._SKIP_TAGS:
+            if self._skip_depth > 0:
+                self._skip_depth -= 1
+        elif self._skip_depth == 0 and tag in self._BLOCK_TAGS:
+            self._chunks.append(" ")
+
+    def handle_data(self, data):
+        if self._skip_depth == 0:
+            self._chunks.append(data)
+
+    def get_text(self) -> str:
+        """Returns the collected visible text with normalized whitespace."""
+        return re.sub(r"\s+", " ", "".join(self._chunks)).strip()
+
+
+def _extract_visible_text(html: str) -> str:
+    """Returns the visible text of an HTML document (no script/style)."""
+    parser = _VisibleTextHTMLParser()
+    parser.feed(html)
+    parser.close()
+    return parser.get_text()
+
+
 def fetch_web_page(url: str, max_chars: int = 5000) -> str:
     """Fetches a webpage and extracts clean LLM-ready markdown or text."""
     if not url or not url.strip():
@@ -375,15 +427,8 @@ def fetch_web_page(url: str, max_chars: int = 5000) -> str:
     except Exception as e:
         return f"Error fetching {clean_url}: {e}"
 
-    # Strip script and style
-    text = re.sub(
-        r"<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>", "", html, flags=re.I
-    )
-    text = re.sub(
-        r"<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>", "", text, flags=re.I
-    )
-    text = re.sub(r"<[^>]*>", " ", text)
-    text = re.sub(r"\s+", " ", text).strip()
+    # Extract visible text, skipping script and style content
+    text = _extract_visible_text(html)
 
     if len(text) > max_chars:
         return text[:max_chars] + "\n\n... [truncated]"

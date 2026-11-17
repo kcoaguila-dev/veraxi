@@ -98,7 +98,21 @@ def _friendly_provider_error(error: Exception) -> str:
             "This provider has reached its quota or rate limit. "
             "Please switch models or try again later."
         )
-    return f"Internal server error: {type(error).__name__}: {error!s}"
+    if (
+        "authentication" in message
+        or "401" in message
+        or "invalid_api_key" in message
+        or "invalid api key" in message
+    ):
+        return (
+            "Authentication failed for the selected provider. "
+            "Please check your API key or choose another model."
+        )
+    if "timeout" in message or "timed out" in message:
+        return "The provider took too long to respond. Please try again later."
+    # Raw exception details are captured server-side via Sentry/logging;
+    # clients only ever receive this generic message.
+    return "Internal server error. Please try again later."
 
 
 async def _generate_and_save_title(
@@ -773,7 +787,7 @@ def register_chat_routes(
         except TimeoutError as e:
             sentry_sdk.capture_exception(e)
             logger.exception("Timeout error processing question")
-            raise HTTPException(status_code=504, detail=f"Request timeout: {e!s}")
+            raise HTTPException(status_code=504, detail="Request timeout. Please try again later.")
         except Exception as e:
             sentry_sdk.capture_exception(e)
             logger.exception("Error processing question")
@@ -817,7 +831,7 @@ def register_chat_routes(
             logger.exception("Error listing threads")
             raise HTTPException(
                 status_code=500,
-                detail=f"Internal server error: {type(e).__name__}: {e!s}",
+                detail="Internal server error. Please try again later.",
             )
 
     @app_router.get("/api/chat/threads/{thread_id}")
@@ -933,7 +947,7 @@ def register_chat_routes(
             logger.exception(f"Error fetching thread {thread_id}")
             raise HTTPException(
                 status_code=500,
-                detail=f"Internal server error: {type(e).__name__}: {e!s}",
+                detail="Internal server error. Please try again later.",
             )
 
     @app_router.post("/api/chat/threads/{thread_id}/share")
@@ -988,7 +1002,7 @@ def register_chat_routes(
             logger.exception("Error sharing thread")
             raise HTTPException(
                 status_code=500,
-                detail=f"Internal server error: {type(e).__name__}: {e!s}",
+                detail="Internal server error. Please try again later.",
             )
 
     @app_router.get("/share/{share_id}")
@@ -1027,7 +1041,7 @@ def register_chat_routes(
             logger.exception("Error")
             raise HTTPException(
                 status_code=500,
-                detail=f"Internal server error: {type(e).__name__}: {e!s}",
+                detail="Internal server error. Please try again later.",
             )
 
     @app_router.post("/api/chat/messages/{message_id}/feedback")
@@ -1052,7 +1066,7 @@ def register_chat_routes(
             logger.exception("Error")
             raise HTTPException(
                 status_code=500,
-                detail=f"Internal server error: {type(e).__name__}: {e!s}",
+                detail="Internal server error. Please try again later.",
             )
 
     @app_router.put("/api/chat/messages/{message_id}")
@@ -1125,7 +1139,7 @@ def register_chat_routes(
             logger.exception("Error")
             raise HTTPException(
                 status_code=500,
-                detail=f"Internal server error: {type(e).__name__}: {e!s}",
+                detail="Internal server error. Please try again later.",
             )
 
     @app_router.post("/api/chat/threads/{thread_id}/regenerate")

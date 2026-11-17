@@ -1,8 +1,9 @@
 """End-to-end tests for error handling in chat endpoints.
 
 These tests verify that errors in multi-turn conversations and other
-scenarios return specific, actionable error messages instead of generic
-"An internal error occurred" messages.
+scenarios return generic, non-leaking error messages: raw exception class
+names and messages are captured server-side via Sentry/logging and never
+reach the client (CWE-209).
 """
 
 from unittest.mock import AsyncMock, patch
@@ -72,7 +73,7 @@ class TestMultiTurnConversationErrors:
     def test_multiturn_error_non_streaming(
         self, mock_sentry, mock_answer, override_redis
     ):
-        """Test that errors in second turn of conversation return specific details."""
+        """Test that errors in second turn of conversation return a generic detail."""
         # First message succeeds
         mock_answer.return_value = ("First response", "context", {})
         response1 = client.post(
@@ -102,19 +103,19 @@ class TestMultiTurnConversationErrors:
 
         assert response2.status_code == 500
         data = response2.json()
-        assert "Internal server error" in data["detail"]
+        assert data["detail"] == "Internal server error. Please try again later."
         mock_sentry.assert_called_once()
-        assert "ValueError" in data["detail"]
-        assert "Database connection failed" in data["detail"]
+        assert "ValueError" not in data["detail"]
+        assert "Database connection failed" not in data["detail"]
 
 
 class TestErrorMessageSpecificity:
-    """Test that different error types return appropriate messages."""
+    """Test that different error types all return the generic message."""
 
     @patch("backend.routes.chat.answer_question")
     @patch("backend.routes.chat.sentry_sdk.capture_exception")
-    def test_key_error_returns_details(self, mock_sentry, mock_answer, override_redis):
-        """Test that KeyError returns the missing key in error message."""
+    def test_key_error_returns_generic_error(self, mock_sentry, mock_answer, override_redis):
+        """Test that KeyError returns a generic error, not the missing key."""
         mock_answer.side_effect = KeyError("messages")
         response = client.post(
             "/api/chat",
@@ -128,13 +129,15 @@ class TestErrorMessageSpecificity:
 
         assert response.status_code == 500
         data = response.json()
-        assert "KeyError" in data["detail"]
-        assert "messages" in data["detail"]
+        assert data["detail"] == "Internal server error. Please try again later."
+        mock_sentry.assert_called_once()
+        assert "KeyError" not in data["detail"]
+        assert "messages" not in data["detail"]
 
     @patch("backend.routes.chat.answer_question")
     @patch("backend.routes.chat.sentry_sdk.capture_exception")
-    def test_type_error_returns_details(self, mock_sentry, mock_answer, override_redis):
-        """Test that TypeError returns the type mismatch in error message."""
+    def test_type_error_returns_generic_error(self, mock_sentry, mock_answer, override_redis):
+        """Test that TypeError returns a generic error, not the type mismatch."""
         mock_answer.side_effect = TypeError("Expected str, got NoneType")
         response = client.post(
             "/api/chat",
@@ -148,15 +151,17 @@ class TestErrorMessageSpecificity:
 
         assert response.status_code == 500
         data = response.json()
-        assert "TypeError" in data["detail"]
-        assert "Expected str, got NoneType" in data["detail"]
+        assert data["detail"] == "Internal server error. Please try again later."
+        mock_sentry.assert_called_once()
+        assert "TypeError" not in data["detail"]
+        assert "Expected str, got NoneType" not in data["detail"]
 
     @patch("backend.routes.chat.answer_question")
     @patch("backend.routes.chat.sentry_sdk.capture_exception")
-    def test_attribute_error_returns_details(
+    def test_attribute_error_returns_generic_error(
         self, mock_sentry, mock_answer, override_redis
     ):
-        """Test that AttributeError returns the missing attribute in error message."""
+        """Test that AttributeError returns a generic error, not the attribute."""
         mock_answer.side_effect = AttributeError(
             "'NoneType' object has no attribute 'content'"
         )
@@ -172,8 +177,10 @@ class TestErrorMessageSpecificity:
 
         assert response.status_code == 500
         data = response.json()
-        assert "AttributeError" in data["detail"]
-        assert "'NoneType' object has no attribute 'content'" in data["detail"]
+        assert data["detail"] == "Internal server error. Please try again later."
+        mock_sentry.assert_called_once()
+        assert "AttributeError" not in data["detail"]
+        assert "'NoneType' object has no attribute 'content'" not in data["detail"]
 
 
 class TestThreadOperationsErrorHandling:
@@ -181,7 +188,7 @@ class TestThreadOperationsErrorHandling:
 
     @patch("backend.routes.chat.sentry_sdk.capture_exception")
     def test_list_threads_error(self, mock_sentry, override_redis):
-        """Test that list threads endpoint returns specific errors."""
+        """Test that list threads endpoint returns a generic error."""
         # Get the mock Redis instance from app.state
         mock_redis = app.state.redis
         mock_redis.smembers = AsyncMock(
@@ -192,13 +199,14 @@ class TestThreadOperationsErrorHandling:
 
         assert response.status_code == 500
         data = response.json()
-        assert "Internal server error" in data["detail"]
+        assert data["detail"] == "Internal server error. Please try again later."
         mock_sentry.assert_called_once()
-        assert "ConnectionError" in data["detail"]
+        assert "ConnectionError" not in data["detail"]
+        assert "Redis connection failed" not in data["detail"]
 
     @patch("backend.routes.chat.sentry_sdk.capture_exception")
     def test_get_thread_history_error(self, mock_sentry, override_redis):
-        """Test that get thread history endpoint returns specific errors."""
+        """Test that get thread history endpoint returns a generic error."""
         # Get the mock Redis instance from app.state
         mock_redis = app.state.redis
         mock_redis.sismember = AsyncMock(
@@ -209,6 +217,7 @@ class TestThreadOperationsErrorHandling:
 
         assert response.status_code == 500
         data = response.json()
-        assert "Internal server error" in data["detail"]
+        assert data["detail"] == "Internal server error. Please try again later."
         mock_sentry.assert_called_once()
-        assert "ValueError" in data["detail"]
+        assert "ValueError" not in data["detail"]
+        assert "Invalid thread ID format" not in data["detail"]

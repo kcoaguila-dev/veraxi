@@ -45,6 +45,23 @@ def _is_safe_document_path(target_path: str) -> bool:
     )
 
 
+def _is_traversal_attempt(raw_path: str) -> bool:
+    """Detects traversal intent in an unresolved document path.
+
+    Used only to choose 403 (forbidden) over 404 for paths that try to
+    escape the approved directories: ".." segments, encoded separators,
+    null bytes, or any absolute path (an absolute path that resolved
+    inside an approved directory would already have been served).
+    """
+    if "\x00" in raw_path or os.path.isabs(raw_path):
+        return True
+    lowered = raw_path.lower()
+    if "%2f" in lowered or "%5c" in lowered:
+        return True
+    parts = raw_path.replace("\\", "/").split("/")
+    return ".." in parts
+
+
 def _detect_pdf_content(file_path: str) -> bool:
     """Checks if a file is a PDF via extension or magic bytes."""
     if file_path.lower().endswith(".pdf"):
@@ -72,28 +89,52 @@ def register_file_routes(
         if not path:
             raise HTTPException(status_code=400, detail="Document path required")
 
-        resolved_path = os.path.realpath(path)
-        if not os.path.isfile(resolved_path):
-            try:
-                from backend.mcp_server.handlers.tool_registry import _resolve_pdf_path
+        # Resolve strictly inside the approved document directories via
+        # scandir-based resolution: the path that reaches FileResponse is
+        # built from directory entries under a server-controlled base dir,
+        # never from the raw request string, and outside files are never
+        # probed (no file-existence oracle).
+        allowed_candidates = [
+            os.path.join(os.getcwd(), "uploads"),
+            os.path.join(os.getcwd(), "seed"),
+            "/app/data",
+            os.path.expanduser("~/Documents/book"),
+            "/home/ubuntu/Documents/book",
+        ]
+        custom_dir = os.environ.get("DOCUMENTS_DIR")
+        if custom_dir:
+            allowed_candidates.append(custom_dir)
 
-                cand = _resolve_pdf_path(path)
-                if cand and os.path.isfile(cand):
-                    resolved_path = os.path.realpath(cand)
-            except Exception as e:
-                logger.debug(f"Fuzzy resolution failed for {path}: {e}")
-
-        if not _is_safe_document_path(resolved_path):
-            raise HTTPException(
-                status_code=403, detail="Access to specified path is forbidden"
+        resolved_path = None
+        try:
+            from backend.mcp_server.handlers.tool_registry import (
+                _resolve_inside_allowed_dirs,
+                _resolve_pdf_path,
             )
 
-        if not os.path.isfile(resolved_path):
+            resolved_path = _resolve_inside_allowed_dirs(path, allowed_candidates)
+            if resolved_path is None:
+                cand = _resolve_pdf_path(path)
+                if cand:
+                    resolved_path = _resolve_inside_allowed_dirs(
+                        cand, allowed_candidates
+                    )
+        except Exception as e:
+            logger.debug(f"Document resolution failed for {path}: {e}")
+
+        if resolved_path is None:
+            if _is_traversal_attempt(path):
+                raise HTTPException(
+                    status_code=403, detail="Access to specified path is forbidden"
+                )
             raise HTTPException(status_code=404, detail="Document not found")
 
         is_pdf = _detect_pdf_content(resolved_path)
         media_type = "application/pdf" if is_pdf else "application/octet-stream"
         filename = os.path.basename(resolved_path)
+        # Strip characters that could break out of the quoted
+        # Content-Disposition filename or inject extra headers.
+        filename = filename.translate(str.maketrans("", "", '"\r\n;'))
         if is_pdf and not filename.lower().endswith(".pdf"):
             filename = f"{filename}.pdf"
 
