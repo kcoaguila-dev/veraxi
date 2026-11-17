@@ -103,6 +103,18 @@ class Config:
     # External integrations (MCP / OAuth / OpenAPI connectors)
     integration_encryption_key: str = ""
     allow_private_mcp_urls: bool = False
+    # Hybrid agentic coding sandboxes (Modal / E2B / remote MCP / runner)
+    sandbox_enabled: bool = True
+    sandbox_default_provider: str = "disabled"
+    sandbox_idle_timeout_sec: int = 900
+    sandbox_max_session_sec: int = 3600
+    sandbox_default_cpu_cores: int = 2
+    sandbox_default_memory_mb: int = 4096
+    sandbox_default_disk_gb: int = 10
+    sandbox_default_base_image: str = "polyglot"
+    sandbox_default_autonomy_mode: str = "auto_read_test"
+    sandbox_default_egress_mode: str = "allowlist"
+    sandbox_exec_timeout_sec: int = 120
     github_client_id: str = ""
     github_client_secret: str = ""
     oauth_redirect_base_url: str = ""
@@ -254,6 +266,38 @@ class Config:
                 "ALLOW_PRIVATE_MCP_URLS", "false"
             ).lower()
             == "true",
+            sandbox_enabled=os.environ.get("SANDBOX_ENABLED", "true").lower()
+            == "true",
+            sandbox_default_provider=os.environ.get(
+                "SANDBOX_DEFAULT_PROVIDER", "disabled"
+            ),
+            sandbox_idle_timeout_sec=int(
+                os.environ.get("SANDBOX_IDLE_TIMEOUT_SEC", "900")
+            ),
+            sandbox_max_session_sec=int(
+                os.environ.get("SANDBOX_MAX_SESSION_SEC", "3600")
+            ),
+            sandbox_default_cpu_cores=int(
+                os.environ.get("SANDBOX_DEFAULT_CPU_CORES", "2")
+            ),
+            sandbox_default_memory_mb=int(
+                os.environ.get("SANDBOX_DEFAULT_MEMORY_MB", "4096")
+            ),
+            sandbox_default_disk_gb=int(
+                os.environ.get("SANDBOX_DEFAULT_DISK_GB", "10")
+            ),
+            sandbox_default_base_image=os.environ.get(
+                "SANDBOX_DEFAULT_BASE_IMAGE", "polyglot"
+            ),
+            sandbox_default_autonomy_mode=os.environ.get(
+                "SANDBOX_DEFAULT_AUTONOMY_MODE", "auto_read_test"
+            ),
+            sandbox_default_egress_mode=os.environ.get(
+                "SANDBOX_DEFAULT_EGRESS_MODE", "allowlist"
+            ),
+            sandbox_exec_timeout_sec=int(
+                os.environ.get("SANDBOX_EXEC_TIMEOUT_SEC", "120")
+            ),
             github_client_id=os.environ.get("GITHUB_CLIENT_ID", ""),
             github_client_secret=os.environ.get("GITHUB_CLIENT_SECRET", ""),
             oauth_redirect_base_url=os.environ.get(

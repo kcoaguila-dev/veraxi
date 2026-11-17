@@ -9,6 +9,7 @@ import 'web_search_dialog.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
 import 'package:veraxi_app/features/chat/views/widgets/integration_chips_bar.dart';
+import 'package:veraxi_app/features/chat/views/widgets/sandbox_toggle.dart';
 
 class ChatInput extends StatefulWidget {
   final bool isLoading;
@@ -573,6 +574,7 @@ class _ChatInputState extends State<ChatInput> {
                           'artifacts', 'Artifacts >', Icons.auto_awesome,
                           isActive: _artifactsActive,
                           isPinned: _artifactsPinned),
+                      const ToolsMenuSandbox(),
                       const ToolsMenuIntegrations(),
                     ],
                   ),
@@ -603,6 +605,7 @@ class _ChatInputState extends State<ChatInput> {
                                 'Artifacts',
                                 Icons.auto_awesome,
                                 () => _toggleActive('artifacts', true)),
+                          const SandboxActiveChip(),
                         ],
                       ),
                     ),
