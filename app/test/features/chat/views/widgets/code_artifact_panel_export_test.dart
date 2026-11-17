@@ -137,6 +137,28 @@ void main() {
     expect(find.text('Export failed. Please try again.'), findsOneWidget);
   });
 
+  testWidgets('office envelope export menu shows only the matching format',
+      (WidgetTester tester) async {
+    final repository = _FakeExportRepository();
+    const deckArtifact = CodeArtifact(
+      title: 'Pitch Deck',
+      fileName: 'pitch_deck.json',
+      language: 'json',
+      code: '{"format": "pptx", "title": "Pitch Deck", "slides": []}',
+    );
+
+    await tester.pumpWidget(_hostPanel(deckArtifact, repository));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Export'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('PowerPoint (.pptx)'), findsOneWidget);
+    expect(find.text('Word (.docx)'), findsNothing);
+    expect(find.text('Excel (.xlsx)'), findsNothing);
+    expect(find.text('PDF (.pdf)'), findsNothing);
+  });
+
   // No "menu hidden" widget test for mermaid/svg artifacts: their
   // panels open on a WebView preview, which has no platform
   // implementation in widget tests. The gating itself is covered by

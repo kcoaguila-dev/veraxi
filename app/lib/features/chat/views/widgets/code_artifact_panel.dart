@@ -501,12 +501,13 @@ class _CodeArtifactPanelState extends ConsumerState<CodeArtifactPanel> {
   Widget _buildExportMenu() {
     final exportState = ref.watch(artifactExportProvider);
     final isExporting = exportState.isExporting;
+    final formats = availableExportFormats(_currentArtifact);
     return PopupMenuButton<ArtifactExportFormat>(
       tooltip: 'Export',
       enabled: !isExporting,
       onSelected: _export,
       itemBuilder: (context) => [
-        for (final format in ArtifactExportFormat.values)
+        for (final format in formats)
           PopupMenuItem<ArtifactExportFormat>(
             value: format,
             child: Text('${format.label} (.${format.fileExtension})'),

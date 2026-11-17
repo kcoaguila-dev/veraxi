@@ -292,5 +292,35 @@ void main() {
       expect(controller.state.isExporting, isFalse);
       expect(controller.state.error, 'This artifact is too large to export.');
     });
+
+    test('availableExportFormats restricts office envelopes to matching format',
+        () {
+      const deck = CodeArtifact(
+        title: 'Deck',
+        fileName: 'deck.json',
+        language: 'json',
+        code: '{"format": "pptx", "title": "Deck", "slides": []}',
+      );
+      expect(availableExportFormats(deck), [ArtifactExportFormat.pptx]);
+
+      const sheetWithoutFormat = CodeArtifact(
+        title: 'Sheet',
+        fileName: 'sheet.json',
+        language: 'json',
+        code: '{"sheets": [{"name": "S1", "headers": ["A"], "rows": []}]}',
+      );
+      expect(
+        availableExportFormats(sheetWithoutFormat),
+        [ArtifactExportFormat.xlsx],
+      );
+
+      const plainJson = CodeArtifact(
+        title: 'Config',
+        fileName: 'config.json',
+        language: 'json',
+        code: '{"theme": "dark"}',
+      );
+      expect(availableExportFormats(plainJson), ArtifactExportFormat.values);
+    });
   });
 }

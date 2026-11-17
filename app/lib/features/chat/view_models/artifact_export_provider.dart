@@ -190,6 +190,31 @@ OfficeArtifactEnvelope? parseOfficeArtifactEnvelope(CodeArtifact artifact) {
   );
 }
 
+/// The export formats valid for [artifact].
+///
+/// When [artifact] is a `create_office_artifact` envelope with a known
+/// declared `format` (or a spec payload tied to a specific format),
+/// only the matching format is returned so the Export menu never offers
+/// an incompatible format that would fail with HTTP 400. All other
+/// exportable artifacts offer every [ArtifactExportFormat].
+List<ArtifactExportFormat> availableExportFormats(CodeArtifact artifact) {
+  final envelope = parseOfficeArtifactEnvelope(artifact);
+  if (envelope == null) return ArtifactExportFormat.values;
+  final declared = envelope.format?.toLowerCase();
+  if (declared != null) {
+    for (final fmt in ArtifactExportFormat.values) {
+      if (fmt.fileExtension == declared) return [fmt];
+    }
+  }
+  final spec = envelope.spec;
+  if (spec != null) {
+    if (spec.containsKey('slides')) return const [ArtifactExportFormat.pptx];
+    if (spec.containsKey('sheets')) return const [ArtifactExportFormat.xlsx];
+    if (spec.containsKey('sections')) return const [ArtifactExportFormat.docx];
+  }
+  return ArtifactExportFormat.values;
+}
+
 /// Export state for the artifact panel's Export menu. Scoped to the
 /// panel session (autoDispose), like the publish state.
 class ArtifactExportState {
