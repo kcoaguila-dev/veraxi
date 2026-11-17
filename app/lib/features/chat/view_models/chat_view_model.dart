@@ -60,6 +60,17 @@ class ChatViewModel extends StateNotifier<ChatState> {
     }
   }
 
+  static const _lastThreadIdKey = 'last_active_thread_id';
+
+  Future<void> _persistActiveThreadId(String? threadId) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (threadId != null && threadId.isNotEmpty && !state.isTemporary) {
+      await prefs.setString(_lastThreadIdKey, threadId);
+    } else {
+      await prefs.remove(_lastThreadIdKey);
+    }
+  }
+
   Future<void> _init() async {
     final prefs = await SharedPreferences.getInstance();
     final savedTelemetry = prefs.getBool('show_telemetry') ?? false;
@@ -71,6 +82,21 @@ class ChatViewModel extends StateNotifier<ChatState> {
     state = state.copyWith(showTelemetry: savedTelemetry);
     await _migrateLocalChats();
     await loadThreads();
+
+    final savedThreadId = prefs.getString(_lastThreadIdKey);
+    if (savedThreadId != null &&
+        savedThreadId.isNotEmpty &&
+        state.threadId == null &&
+        !state.isTemporary) {
+      final exists = state.pastThreads.any(
+        (t) => t['thread_id'] == savedThreadId || t['id'] == savedThreadId,
+      );
+      if (exists) {
+        await selectThread(savedThreadId);
+      } else if (state.pastThreads.isNotEmpty) {
+        await prefs.remove(_lastThreadIdKey);
+      }
+    }
 
     _syncSubscription?.cancel();
     _syncSubscription = _repository.streamSyncEvents().listen((event) {
@@ -202,6 +228,7 @@ class ChatViewModel extends StateNotifier<ChatState> {
   }
 
   Future<void> selectThread(String threadId) async {
+    _persistActiveThreadId(threadId);
     state = state.copyWith(
         isLoadingHistory: true,
         threadId: threadId,
@@ -219,6 +246,7 @@ class ChatViewModel extends StateNotifier<ChatState> {
   }
 
   void startNewChat() {
+    _persistActiveThreadId(null);
     state = state.copyWith(
       clearThreadId: true,
       messages: [],
@@ -229,6 +257,7 @@ class ChatViewModel extends StateNotifier<ChatState> {
   }
 
   void selectProject(String id, String name) {
+    _persistActiveThreadId(null);
     state = state.copyWith(
       activeProjectId: id,
       activeProjectName: name,
@@ -240,6 +269,7 @@ class ChatViewModel extends StateNotifier<ChatState> {
   }
 
   void startNewChatInProject([String? projectId]) {
+    _persistActiveThreadId(null);
     state = state.copyWith(
       activeProjectId: projectId ?? state.activeProjectId,
       showProjectDashboard: false,
@@ -250,6 +280,7 @@ class ChatViewModel extends StateNotifier<ChatState> {
   }
 
   void openAllProjectsDashboard() {
+    _persistActiveThreadId(null);
     state = state.copyWith(
       showAllProjectsDashboard: true,
       showProjectDashboard: false,
@@ -260,6 +291,7 @@ class ChatViewModel extends StateNotifier<ChatState> {
   }
 
   void exitProject() {
+    _persistActiveThreadId(null);
     state = state.copyWith(
       clearActiveProject: true,
       showProjectDashboard: false,
@@ -272,6 +304,7 @@ class ChatViewModel extends StateNotifier<ChatState> {
   void toggleTemporaryChat() {
     final newIsTemporary = !state.isTemporary;
     if (newIsTemporary) {
+      _persistActiveThreadId(null);
       // If toggling ON, clear the current context
       state = state
           .copyWith(isTemporary: newIsTemporary, threadId: null, messages: []);
@@ -546,6 +579,7 @@ class ChatViewModel extends StateNotifier<ChatState> {
           final isNewThread = state.threadId == null;
           final newThreadId = data['thread_id'] as String;
           state = state.copyWith(threadId: newThreadId);
+          _persistActiveThreadId(newThreadId);
           if (isNewThread && state.activeProjectId != null) {
             try {
               _repository

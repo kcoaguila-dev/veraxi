@@ -310,4 +310,53 @@ void main() {
     expect(container.read(chatViewModelProvider).showTelemetry, isFalse);
     expect(prefs.getBool('show_telemetry'), isFalse);
   });
+
+  test('selectThread persists last_active_thread_id and startNewChat clears it',
+      () async {
+    await pumpEventQueue();
+    when(() => mockRepository.getThreadHistory('t-123')).thenAnswer(
+      (_) async => [
+        {'role': 'user', 'content': 'Hi'},
+      ],
+    );
+
+    await viewModel.selectThread('t-123');
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getString('last_active_thread_id'), 't-123');
+
+    viewModel.startNewChat();
+    await pumpEventQueue();
+    expect(prefs.getString('last_active_thread_id'), isNull);
+  });
+
+  test('restores last_active_thread_id on startup when thread still exists',
+      () async {
+    SharedPreferences.setMockInitialValues({
+      'last_active_thread_id': 't-restored',
+    });
+    final repo = MockChatRepository();
+    when(() => repo.getThreads()).thenAnswer(
+      (_) async => [
+        {'thread_id': 't-restored', 'title': 'Restored chat'},
+      ],
+    );
+    when(() => repo.getThreadHistory('t-restored')).thenAnswer(
+      (_) async => [
+        {'role': 'user', 'content': 'Saved message'},
+      ],
+    );
+
+    final restoredContainer = ProviderContainer(
+      overrides: [chatRepositoryProvider.overrideWithValue(repo)],
+    );
+    addTearDown(restoredContainer.dispose);
+    restoredContainer.read(chatViewModelProvider.notifier);
+    await pumpEventQueue();
+    await pumpEventQueue();
+
+    final restoredState = restoredContainer.read(chatViewModelProvider);
+    expect(restoredState.threadId, 't-restored');
+    expect(restoredState.messages, hasLength(1));
+    expect(restoredState.messages.first.content, 'Saved message');
+  });
 }
