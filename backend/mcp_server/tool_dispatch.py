@@ -224,9 +224,10 @@ async def get_tools(tool_settings: dict | None = None) -> list:
                             "type": "object",
                             "description": (
                                 "Structured spec. pptx: {\"slides\": [{\"title\": str, "
-                                "\"subtitle\": str (optional), \"bullets\": [str], "
-                                "\"table\": {\"headers\": [str], \"rows\": [[...]]} "
-                                "(optional), \"notes\": str (optional)}]}. "
+                                "\"subtitle\": str (optional), \"bullets\": [str] (optional), "
+                                "\"table\": {\"headers\": [str], \"rows\": [[...]]} (optional), "
+                                "\"notes\": str (optional), \"theme\": \"dark\"|\"light\" (optional), "
+                                "\"accent_color\": \"#RRGGBB\" (optional)}]}. "
                                 "xlsx: {\"sheets\": [{\"name\": str, \"headers\": [str], "
                                 "\"rows\": [[...]]}]}. docx: {\"sections\": [{\"heading\": str, "
                                 "\"level\": 1-3, \"paragraphs\": [str], \"bullets\": [str], "

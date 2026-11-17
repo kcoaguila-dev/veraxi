@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
 import 'package:veraxi_app/features/chat/view_models/code_artifact_provider.dart';
+import 'package:veraxi_app/features/chat/view_models/slide_deck_provider.dart';
 
 /// The compact, clickable rectangle shown in the chat flow in place of a
 /// full inline code block — the Veraxi equivalent of Claude's file card.
@@ -79,8 +80,7 @@ class CodeArtifactCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        '${artifact.extensionLabel} · ${artifact.lineCount} '
-                        '${artifact.lineCount == 1 ? 'line' : 'lines'}',
+                        _subtitleFor(artifact),
                         style: TextStyle(
                           color: ext?.textTertiary ?? const Color(0xFF878787),
                           fontSize: 11,
@@ -108,14 +108,25 @@ class CodeArtifactCard extends StatelessWidget {
     );
   }
 
+  String _subtitleFor(CodeArtifact artifact) {
+    if (artifact.previewKind == CodePreviewKind.slides) {
+      final count = parseSlideDeckFromJson(artifact.code)?.slides.length ?? 0;
+      return 'SLIDES · $count ${count == 1 ? 'slide' : 'slides'}';
+    }
+    return '${artifact.extensionLabel} · ${artifact.lineCount} '
+        '${artifact.lineCount == 1 ? 'line' : 'lines'}';
+  }
+
   /// Leading tile icon per artifact kind, mirroring Claude's cards
-  /// (globe for a web page, image for SVG, doc for Markdown).
+  /// (globe for a web page, image for SVG, doc for Markdown, slideshow
+  /// for slide decks).
   IconData _iconFor(CodeArtifact artifact) {
     return switch (artifact.previewKind) {
       CodePreviewKind.html => Icons.language,
       CodePreviewKind.svg => Icons.image_outlined,
       CodePreviewKind.mermaid => Icons.account_tree_outlined,
       CodePreviewKind.markdown => Icons.description_outlined,
+      CodePreviewKind.slides => Icons.slideshow_outlined,
       CodePreviewKind.react || CodePreviewKind.none => Icons.code,
     };
   }

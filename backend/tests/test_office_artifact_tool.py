@@ -345,3 +345,29 @@ def test_title_too_long_fails_closed():
     _assert_structured_error(
         _call_tool(format="pdf", title="t" * 301, content="# Hi")
     )
+
+
+def test_pptx_slide_theme_and_accent_color_round_trip(client):
+    themed_spec = {
+        "slides": [
+            {"title": "Hello", "theme": "dark", "accent_color": "#D98A2B"},
+            {"title": "World", "theme": "light", "accent_color": "#D98A2B"},
+        ]
+    }
+    payload = _call_tool(format="pptx", title="Hello World", spec=themed_spec)
+    envelope = _envelope_from_payload(payload)
+    assert envelope["slides"][0]["theme"] == "dark"
+    assert envelope["slides"][1]["theme"] == "light"
+
+    resp = _export_block(client, envelope, "pptx")
+    assert resp.status_code == 200
+    prs = Presentation(io.BytesIO(resp.content))
+    assert len(prs.slides) == 2
+    assert prs.slides[0].background.fill.fore_color.rgb is not None
+    assert prs.slides[1].background.fill.fore_color.rgb is not None
+    assert "Hello" in "\n".join(
+        shape.text for shape in prs.slides[0].shapes if shape.has_text_frame
+    )
+    assert "World" in "\n".join(
+        shape.text for shape in prs.slides[1].shapes if shape.has_text_frame
+    )

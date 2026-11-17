@@ -90,6 +90,7 @@ String artifactExportContent(CodeArtifact artifact) {
 bool artifactCanExport(CodeArtifact artifact) {
   return artifact.previewKind == CodePreviewKind.markdown ||
       artifact.previewKind == CodePreviewKind.html ||
+      artifact.previewKind == CodePreviewKind.slides ||
       artifact.previewKind == CodePreviewKind.none;
 }
 

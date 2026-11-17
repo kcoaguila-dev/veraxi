@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:veraxi_app/features/chat/view_models/chat_view_model.dart';
+import 'package:veraxi_app/features/chat/view_models/slide_deck_provider.dart';
 
 /// A single fenced code block from an assistant message, presented the way
 /// Claude presents a created file: a compact card in the chat flow that
@@ -36,10 +37,15 @@ class CodeArtifact {
     String? fileName,
   }) {
     final normalized = normalizeCodeLanguage(language);
+    final deck = (normalized == 'json' ||
+            (fileName != null && fileName.toLowerCase().endsWith('.json')))
+        ? parseSlideDeckFromJson(code)
+        : null;
     return CodeArtifact(
-      title: fileName != null
-          ? humanizeFileName(fileName)
-          : '${codeLanguageDisplayName(normalized)} code',
+      title: deck?.title ??
+          (fileName != null
+              ? humanizeFileName(fileName)
+              : '${codeLanguageDisplayName(normalized)} code'),
       fileName: fileName,
       language: normalized,
       code: code,
@@ -132,6 +138,10 @@ class CodeArtifact {
         _looksLikeReactComponent(code)) {
       return CodePreviewKind.react;
     }
+    if ((language == 'json' || ext == 'json') &&
+        parseSlideDeckFromJson(code) != null) {
+      return CodePreviewKind.slides;
+    }
     return CodePreviewKind.none;
   }
 
@@ -158,7 +168,8 @@ enum CodePreviewKind {
   svg,
   mermaid,
   react,
-  markdown;
+  markdown,
+  slides;
 
   /// Label for the preview toggle / panel subtitle, e.g. `HTML`.
   String get label => switch (this) {
@@ -168,6 +179,7 @@ enum CodePreviewKind {
         CodePreviewKind.mermaid => 'Mermaid',
         CodePreviewKind.react => 'React',
         CodePreviewKind.markdown => 'Markdown',
+        CodePreviewKind.slides => 'Slides',
       };
 }
 

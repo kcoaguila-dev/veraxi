@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 640" width="960" height="640">
+  <defs>
+    <linearGradient id="darkSlideGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#13223D"/>
+      <stop offset="100%" stop-color="#0E1A30"/>
+    </linearGradient>
+    <linearGradient id="lightSlideGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#F7F5F0"/>
+      <stop offset="100%" stop-color="#ECE9E2"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Panel shell -->
+  <rect width="960" height="640" rx="12" fill="#171717" stroke="#2B2B2B" stroke-width="1"/>
+
+  <!-- Top Artifact Header -->
+  <rect x="0" y="0" width="960" height="52" rx="12" fill="#1E1E1E"/>
+  <rect x="0" y="40" width="960" height="12" fill="#1E1E1E"/>
+  <line x1="0" y1="52" x2="960" y2="52" stroke="#2D2D2D" stroke-width="1"/>
+
+  <!-- Preview / Code Segmented Control -->
+  <rect x="16" y="11" width="144" height="30" rx="8" fill="#121212" stroke="#2E2E2E"/>
+  <rect x="19" y="14" width="72" height="24" rx="6" fill="#2A2A2A"/>
+  <text x="55" y="30" fill="#ECECEC" font-family="Inter, sans-serif" font-size="12" font-weight="600" text-anchor="middle">Preview</text>
+  <text x="124" y="30" fill="#8E8E8E" font-family="Inter, sans-serif" font-size="12" font-weight="500" text-anchor="middle">Code</text>
+
+  <!-- Title + Subtitle -->
+  <text x="176" y="25" fill="#ECECEC" font-family="Inter, sans-serif" font-size="13" font-weight="600">Hello World</text>
+  <text x="176" y="40" fill="#8E8E8E" font-family="Inter, sans-serif" font-size="11">Slides · 2 slides</text>
+
+  <!-- Right Toolbar Actions: Present, Export, Close -->
+  <rect x="748" y="12" width="78" height="28" rx="6" fill="#252525" stroke="#363636"/>
+  <text x="787" y="30" fill="#ECECEC" font-family="Inter, sans-serif" font-size="12" font-weight="500" text-anchor="middle">Present</text>
+  <rect x="834" y="12" width="78" height="28" rx="6" fill="#ECECEC"/>
+  <text x="873" y="30" fill="#141414" font-family="Inter, sans-serif" font-size="12" font-weight="600" text-anchor="middle">Export</text>
+  <circle cx="932" cy="26" r="13" fill="#252525"/>
+  <text x="932" y="30" fill="#A0A0A0" font-family="Inter, sans-serif" font-size="13" text-anchor="middle">✕</text>
+
+  <!-- Left Thumbnail Rail -->
+  <rect x="0" y="52" width="184" height="588" fill="#141414"/>
+  <line x1="184" y1="52" x2="184" y2="640" stroke="#282828" stroke-width="1"/>
+
+  <!-- + Add slide button -->
+  <rect x="14" y="66" width="156" height="32" rx="8" fill="#1F1F1F" stroke="#333333"/>
+  <text x="92" y="86" fill="#D4D4D4" font-family="Inter, sans-serif" font-size="12" font-weight="500" text-anchor="middle">+ Add slide</text>
+
+  <!-- Thumbnail 1 (Active) -->
+  <text x="14" y="124" fill="#A0A0A0" font-family="Inter, sans-serif" font-size="11" font-weight="600">1</text>
+  <rect x="28" y="112" width="140" height="79" rx="6" fill="url(#darkSlideGrad)" stroke="#4F8EF7" stroke-width="2"/>
+  <text x="42" y="148" fill="#F3F4F6" font-family="Inter, sans-serif" font-size="13" font-weight="700">Hello</text>
+  <rect x="42" y="156" width="24" height="3" rx="1.5" fill="#D98A2B"/>
+
+  <!-- Thumbnail 2 -->
+  <text x="14" y="220" fill="#737373" font-family="Inter, sans-serif" font-size="11" font-weight="500">2</text>
+  <rect x="28" y="208" width="140" height="79" rx="6" fill="url(#lightSlideGrad)" stroke="#333333" stroke-width="1"/>
+  <text x="42" y="244" fill="#13223D" font-family="Inter, sans-serif" font-size="13" font-weight="700">World</text>
+  <rect x="42" y="252" width="24" height="3" rx="1.5" fill="#D98A2B"/>
+
+  <!-- Main Stage Area -->
+  <rect x="184" y="52" width="776" height="588" fill="#181818"/>
+
+  <!-- Stage Top Mini Bar (Slide counter + Prev/Next) -->
+  <text x="572" y="82" fill="#8E8E8E" font-family="Inter, sans-serif" font-size="12" text-anchor="middle">Slide 1 of 2</text>
+
+  <!-- 16:9 Slide Canvas -->
+  <rect x="232" y="116" width="680" height="382" rx="10" fill="url(#darkSlideGrad)" stroke="#263859" stroke-width="1"/>
+  <text x="292" y="295" fill="#F5F7FA" font-family="Inter, sans-serif" font-size="56" font-weight="700">Hello</text>
+  <rect x="292" y="324" width="72" height="6" rx="3" fill="#D98A2B"/>
+
+  <!-- Bottom Floating Navigation Pill -->
+  <rect x="462" y="544" width="220" height="40" rx="20" fill="#222222" stroke="#343434"/>
+  <text x="494" y="569" fill="#D4D4D4" font-family="Inter, sans-serif" font-size="14" text-anchor="middle">←</text>
+  <text x="572" y="568" fill="#ECECEC" font-family="Inter, sans-serif" font-size="12" font-weight="600" text-anchor="middle">1 / 2</text>
+  <text x="650" y="569" fill="#D4D4D4" font-family="Inter, sans-serif" font-size="14" text-anchor="middle">→</text>
+</svg>

@@ -29,6 +29,8 @@ from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill
 from openpyxl.utils import get_column_letter
 from pptx import Presentation
+from pptx.dml.color import RGBColor
+from pptx.enum.shapes import MSO_SHAPE
 from pptx.util import Inches, Pt as PptxPt
 
 # ---------------------------------------------------------------------------
@@ -557,27 +559,99 @@ def _pptx_add_table(slide, table: dict) -> None:
             grid.cell(row_index + offset, col).text = str(value)
 
 
-def _pptx_add_slide(prs, title_text: str, subtitle, bullets: list, table, notes) -> None:
+_DARK_BG = RGBColor(0x13, 0x22, 0x3D)
+_DARK_FG = RGBColor(0xF5, 0xF7, 0xFA)
+_DARK_SUB = RGBColor(0xCB, 0xD5, 0xE1)
+_LIGHT_BG = RGBColor(0xF7, 0xF5, 0xF0)
+_LIGHT_FG = RGBColor(0x13, 0x22, 0x3D)
+_LIGHT_SUB = RGBColor(0x47, 0x55, 0x69)
+_DEFAULT_ACCENT = RGBColor(0xD9, 0x8A, 0x2B)
+
+
+def _parse_hex_rgb(value: str | None) -> RGBColor | None:
+    if not isinstance(value, str):
+        return None
+    cleaned = value.strip().lstrip("#")
+    if len(cleaned) != 6:
+        return None
+    try:
+        return RGBColor.from_string(cleaned.upper())
+    except ValueError:
+        return None
+
+
+def _apply_slide_theme(slide, theme: str | None, accent_color: str | None) -> RGBColor | None:
+    """Apply optional dark/light background and accent bar, returning the
+    foreground text color when a theme was requested."""
+    normalized = theme.strip().lower() if isinstance(theme, str) else None
+    accent_rgb = _parse_hex_rgb(accent_color)
+    if normalized not in ("dark", "light") and accent_rgb is None:
+        return None
+
+    is_dark = normalized == "dark"
+    if normalized in ("dark", "light"):
+        fill = slide.background.fill
+        fill.solid()
+        fill.fore_color.rgb = _DARK_BG if is_dark else _LIGHT_BG
+
+    bar_color = accent_rgb or _DEFAULT_ACCENT
+    bar = slide.shapes.add_shape(
+        MSO_SHAPE.RECTANGLE, Inches(0.6), Inches(1.22), Inches(0.85), Inches(0.06)
+    )
+    bar.fill.solid()
+    bar.fill.fore_color.rgb = bar_color
+    bar.line.fill.background()
+
+    if normalized in ("dark", "light"):
+        return _DARK_FG if is_dark else _LIGHT_FG
+    return None
+
+
+def _pptx_add_slide(
+    prs,
+    title_text: str,
+    subtitle,
+    bullets: list,
+    table,
+    notes,
+    theme: str | None = None,
+    accent_color: str | None = None,
+) -> None:
     slide = prs.slides.add_slide(prs.slide_layouts[6])  # blank
+    fg_color = _apply_slide_theme(slide, theme, accent_color)
+    sub_color = (
+        (_DARK_SUB if theme and theme.strip().lower() == "dark" else _LIGHT_SUB)
+        if fg_color is not None
+        else None
+    )
+
     title_frame = _pptx_add_textbox(
-        slide, Inches(0.6), Inches(0.3), Inches(12.1), Inches(1.0)
+        slide, Inches(0.6), Inches(0.3), Inches(12.1), Inches(0.9)
     )
     title_frame.paragraphs[0].text = title_text
     title_frame.paragraphs[0].font.size = PptxPt(32)
     title_frame.paragraphs[0].font.bold = True
-    top = 1.4
+    if fg_color is not None:
+        title_frame.paragraphs[0].font.color.rgb = fg_color
+
+    top = 1.45
     if subtitle:
         subtitle_frame = _pptx_add_textbox(
             slide, Inches(0.6), Inches(top), Inches(12.1), Inches(0.6)
         )
         subtitle_frame.paragraphs[0].text = str(subtitle)
         subtitle_frame.paragraphs[0].font.size = PptxPt(20)
-        top = 2.1
+        if sub_color is not None:
+            subtitle_frame.paragraphs[0].font.color.rgb = sub_color
+        top = 2.15
     if bullets:
         body = _pptx_add_textbox(
             slide, Inches(0.6), Inches(top), Inches(12.1), Inches(4.8)
         )
         _pptx_fill_bullets(body, bullets)
+        if fg_color is not None:
+            for paragraph in body.paragraphs:
+                paragraph.font.color.rgb = fg_color
     if table:
         _pptx_add_table(slide, table)
     if notes:
@@ -630,6 +704,8 @@ def export_pptx(title: str, content: str, spec: dict | None = None) -> bytes:
                 slide.get("bullets") or [],
                 slide.get("table"),
                 slide.get("notes"),
+                slide.get("theme"),
+                slide.get("accent_color"),
             )
             for slide in slides
         ]
@@ -641,13 +717,17 @@ def export_pptx(title: str, content: str, spec: dict | None = None) -> bytes:
                 slide["bullets"],
                 slide["table"],
                 None,
+                None,
+                None,
             )
             for slide in _pptx_slides_from_markdown(content)
         ]
         if not slide_defs:
-            slide_defs = [(title, None, [], None, None)]
-    for slide_title, subtitle, bullets, table, notes in slide_defs:
-        _pptx_add_slide(prs, slide_title, subtitle, bullets, table, notes)
+            slide_defs = [(title, None, [], None, None, None, None)]
+    for slide_title, subtitle, bullets, table, notes, theme, accent in slide_defs:
+        _pptx_add_slide(
+            prs, slide_title, subtitle, bullets, table, notes, theme, accent
+        )
     prs.core_properties.title = title
     buffer = io.BytesIO()
     prs.save(buffer)

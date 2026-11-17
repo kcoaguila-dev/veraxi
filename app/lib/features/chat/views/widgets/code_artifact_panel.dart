@@ -17,9 +17,11 @@ import 'package:veraxi_app/features/chat/view_models/artifact_runtime_storage_pr
 import 'package:veraxi_app/features/chat/view_models/artifact_export_provider.dart';
 import 'package:veraxi_app/features/chat/view_models/artifact_publish_provider.dart';
 import 'package:veraxi_app/features/chat/view_models/artifact_work_provider.dart';
+import 'package:veraxi_app/features/chat/view_models/slide_deck_provider.dart';
 import 'package:veraxi_app/features/chat/views/widgets/artifact_download.dart';
 import 'package:veraxi_app/features/chat/views/widgets/artifact_editor_theme.dart';
 import 'package:veraxi_app/features/chat/views/widgets/artifact_sandbox.dart';
+import 'package:veraxi_app/features/chat/views/widgets/slide_deck_preview.dart';
 
 /// Right-side panel that shows a [CodeArtifact] when its card is tapped
 /// in the chat — the split view in Claude's UI.
@@ -918,6 +920,10 @@ class _CodeArtifactPanelState extends ConsumerState<CodeArtifactPanel> {
   /// so the subtitle never reads `HTML · HTML`.
   String _subtitleFor(CodeArtifact artifact) {
     final displayName = codeLanguageDisplayName(artifact.language);
+    if (artifact.previewKind == CodePreviewKind.slides) {
+      final count = parseSlideDeckFromJson(artifact.code)?.slides.length ?? 0;
+      return 'Slides · $count ${count == 1 ? 'slide' : 'slides'}';
+    }
     if (artifact.isPreviewable) {
       return '${artifact.previewKind.label} preview';
     }
@@ -928,6 +934,18 @@ class _CodeArtifactPanelState extends ConsumerState<CodeArtifactPanel> {
   }
 
   Widget _buildPreviewBody(CodeArtifact artifact) {
+    if (artifact.previewKind == CodePreviewKind.slides) {
+      final deck = parseSlideDeckFromJson(artifact.code);
+      if (deck != null) {
+        return SlideDeckPreview(
+          deck: deck,
+          onAddSlide: () {
+            final updated = appendSlideToDeckJson(artifact.code);
+            if (updated != null) _appendVersion(updated);
+          },
+        );
+      }
+    }
     if (artifact.previewKind == CodePreviewKind.markdown) {
       // Markdown previews natively — no frame needed.
       final theme = Theme.of(context);
