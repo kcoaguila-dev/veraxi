@@ -450,6 +450,17 @@ def _handle_code_overview(args: dict, tenant_id: str) -> list[TextContent]:
     return [TextContent(type="text", text=json.dumps(results))]
 
 
+def _handle_vuln_report(args: dict, tenant_id: str) -> list[TextContent]:
+    from backend.mcp_server.tools.vuln_tools import vuln_report
+
+    results = vuln_report(
+        tenant_id=tenant_id,
+        dependencies=args.get("dependencies"),
+        repo_path=args.get("repo_path"),
+    )
+    return [TextContent(type="text", text=json.dumps(results))]
+
+
 def _handle_run_community_detection(args: dict, tenant_id: str) -> list[TextContent]:
     results = run_community_detection(args.get("min_size", 2), tenant_id=tenant_id)
     return [TextContent(type="text", text=json.dumps(results))]
@@ -695,6 +706,7 @@ TOOL_HANDLERS = {
     "mcp_code_symbol": _handle_code_symbol,
     "mcp_code_impact": _handle_code_impact,
     "mcp_code_overview": _handle_code_overview,
+    "mcp_vuln_report": _handle_vuln_report,
     "mcp_run_community_detection": _handle_run_community_detection,
     "mcp_delete_relationship": _handle_delete_relationship,
     "mcp_update_document_metadata": _handle_update_document_metadata,

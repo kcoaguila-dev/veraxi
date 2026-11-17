@@ -179,6 +179,17 @@ REGISTERED_TOOLS = [
         },
     ),
     Tool(
+        name="mcp_vuln_report",
+        description="Vulnerability report: which dependencies have known CVEs (NVD/CISA KEV), from an explicit dependency list or a repo path whose manifests are parsed.",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "dependencies": {"type": "array", "items": {"type": "object"}},
+                "repo_path": {"type": "string"},
+            },
+        },
+    ),
+    Tool(
         name="mcp_run_community_detection",
         description="Runs a Graph Data Science community detection algorithm to find clusters of connected entities.",
         input_schema={

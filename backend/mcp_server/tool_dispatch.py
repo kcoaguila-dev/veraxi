@@ -125,8 +125,12 @@ async def get_tools(tool_settings: dict | None = None, tenant_id: str | None = N
         from backend.mcp_server.tools.code_tools import (
             tool_schemas as _code_tool_schemas,
         )
+        from backend.mcp_server.tools.vuln_tools import (
+            tool_schemas as _vuln_tool_schemas,
+        )
 
         all_tools.extend(_code_tool_schemas())
+        all_tools.extend(_vuln_tool_schemas())
 
     if web_search_enabled:
         all_tools.append(
@@ -513,6 +517,27 @@ def _execute_single_tool(
                 path_prefix=tool_input.get("path_prefix"),
             )
         return [CodeHit(result)], []
+
+    elif tool_name == "vuln_report":
+        if not settings.get("file_search_enabled", False):
+            return [], []
+
+        class VulnHit:
+            def __init__(self, res: dict) -> None:
+                self.id = "vuln_intel"
+                self.payload = res
+                self.sources = ["Vuln Intel"]
+
+        from backend.mcp_server.tools.vuln_tools import (
+            vuln_report as _vuln_report,
+        )
+
+        result = _vuln_report(
+            tenant_id=tenant_id,
+            dependencies=tool_input.get("dependencies"),
+            repo_path=tool_input.get("repo_path"),
+        )
+        return [VulnHit(result)], []
 
     elif tool_name == "web_search":
         web_search = settings.get("web_search", {})
