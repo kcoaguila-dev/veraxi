@@ -324,7 +324,7 @@ async def call_model(state: AgentState):
     if is_fallback or is_after_tool:
         llm_with_tools = llm
     else:
-        tools_list = await get_tools(tool_settings)
+        tools_list = await get_tools(tool_settings, tenant_id=state.get("tenant_id"))
         if tools_list:
             llm_with_tools = llm.bind_tools(tools_list, parallel_tool_calls=True)
         else:
