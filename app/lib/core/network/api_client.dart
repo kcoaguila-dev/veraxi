@@ -151,7 +151,9 @@ class ApiClient {
           )
           .timeout(timeout);
 
-      if (response.statusCode == 200) {
+      // 201: several create endpoints (API keys, integrations) return
+      // 201 Created with the created resource as JSON.
+      if (response.statusCode == 200 || response.statusCode == 201) {
         return jsonDecode(response.body);
       }
       if (response.statusCode == 402) {
@@ -205,6 +207,34 @@ class ApiClient {
 
       final response = await client
           .put(
+            Uri.parse('$baseUrl$path'),
+            headers: requestHeaders,
+            body: body != null ? jsonEncode(body) : null,
+          )
+          .timeout(const Duration(seconds: 30));
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      }
+      if (response.statusCode == 402) {
+        throw PaymentRequiredException();
+      }
+      throw Exception('Server error: ${response.statusCode}');
+    } catch (e, stackTrace) {
+      Sentry.captureException(e, stackTrace: stackTrace);
+      rethrow;
+    }
+  }
+
+  Future<dynamic> patch(String path,
+      {Map<String, dynamic>? body, Map<String, String>? headers}) async {
+    try {
+      final requestHeaders = await getDefaultHeaders()
+        ..['Content-Type'] = 'application/json';
+      if (headers != null) requestHeaders.addAll(headers);
+
+      final response = await client
+          .patch(
             Uri.parse('$baseUrl$path'),
             headers: requestHeaders,
             body: body != null ? jsonEncode(body) : null,
