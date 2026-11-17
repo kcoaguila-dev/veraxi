@@ -292,6 +292,15 @@ async def get_tools(tool_settings: dict | None = None, tenant_id: str | None = N
     except Exception as e:
         logger.error(f"Failed to fetch GitHub connector tools: {e}")
 
+    # Imported OpenAPI actions (only when the tenant has enabled
+    # OpenAPI integrations; the registrar no-ops otherwise).
+    try:
+        from backend.services.openapi_importer import get_openapi_tools
+
+        all_tools.extend(await get_openapi_tools(tenant_id, tool_settings))
+    except Exception as e:
+        logger.error(f"Failed to fetch OpenAPI action tools: {e}")
+
     return all_tools
 
 
@@ -1095,6 +1104,18 @@ async def execute_tools_internal(
 
             result_text = await execute_github_tool(t_name, t_input, tenant_id)
             return [], [], [McpHit(result_text, "", "GitHub")]
+        if t_name.startswith("api__"):
+            from backend.services.openapi_importer import (
+                execute_openapi_tool,
+                openapi_requires_confirmation,
+            )
+
+            if await openapi_requires_confirmation(
+                tenant_id, t_name
+            ) and not _tool_call_confirmed(tc, tool_settings):
+                return [], [], [ToolConfirmationHit(t_name, t_input)]
+            result_text = await execute_openapi_tool(t_name, t_input, tenant_id)
+            return [], [], [McpHit(result_text, "", "OpenAPI")]
         else:
             loop = asyncio.get_running_loop()
             v, g = await loop.run_in_executor(
