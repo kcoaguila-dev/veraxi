@@ -87,5 +87,20 @@ ablations and named judges.
 
 ## Status log
 
-- Phase 1: in progress
-- Phases 2–6: pending
+- Phase 1 (feat/evidence-evals): pushed as PR #146.
+- Phase 2 (feat/evidence-provenance): pushed as PR #147.
+- Phase 3 (feat/repo-xray): implemented + verified locally; push pending approval.
+- Phase 4 (feat/vuln-intel): implemented + verified locally; push pending approval.
+- Phase 5 (feat/memory-cost): implemented + verified locally; push pending approval.
+- Phase 6 (feat/corpus-briefing): implemented + verified locally; push
+  pending approval. Corpus Briefing lives in `retrieval/corpus_briefing.py`
+  (read/query layer, reusing `graph_analytics` community detection;
+  deterministic, no LLM; contradiction flags use a documented
+  functional-relation heuristic, and newest entities use relationship
+  `first_seen_at` as a proxy because graph nodes carry no creation
+  timestamp). Data pack: `ingestion/dbt_lineage.py` (manifest parser +
+  writer; sources and table/incremental-materialized models are
+  `Dataset` nodes, other models/seeds/snapshots are `Model` nodes,
+  tests are skipped) + `retrieval/dbt_queries.py` dataset discovery.
+  MCP tools `corpus_briefing` and `dataset_discovery` registered in
+  tool_dispatch, tool_schemas, tool_registry and server.

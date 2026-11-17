@@ -190,6 +190,25 @@ REGISTERED_TOOLS = [
         },
     ),
     Tool(
+        name="mcp_corpus_briefing",
+        description="Deterministic corpus briefing: corpus counts, top communities with top entities, newest entities, and heuristic contradiction flags. No LLM is used.",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "include_markdown": {"type": "boolean", "default": False}
+            },
+        },
+    ),
+    Tool(
+        name="mcp_dataset_discovery",
+        description="Discover dbt datasets/models by dataset-name fragment or exact column name, with one-hop upstream/downstream lineage.",
+        input_schema={
+            "type": "object",
+            "properties": {"query": {"type": "string"}},
+            "required": ["query"],
+        },
+    ),
+    Tool(
         name="mcp_run_community_detection",
         description="Runs a Graph Data Science community detection algorithm to find clusters of connected entities.",
         input_schema={
