@@ -106,15 +106,13 @@ SlideItem _parseSlideItem(Map<String, dynamic> map) {
 
   return SlideItem(
     title: rawTitle is String ? rawTitle : '',
-    subtitle: rawSubtitle is String && rawSubtitle.isNotEmpty
-        ? rawSubtitle
-        : null,
+    subtitle:
+        rawSubtitle is String && rawSubtitle.isNotEmpty ? rawSubtitle : null,
     bullets: bullets,
     table: table,
     notes: rawNotes is String && rawNotes.isNotEmpty ? rawNotes : null,
     theme: rawTheme is String && rawTheme.isNotEmpty ? rawTheme : null,
-    accentColor:
-        rawAccent is String && rawAccent.isNotEmpty ? rawAccent : null,
+    accentColor: rawAccent is String && rawAccent.isNotEmpty ? rawAccent : null,
   );
 }
 

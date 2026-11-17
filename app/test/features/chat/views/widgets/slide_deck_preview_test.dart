@@ -55,7 +55,8 @@ void main() {
       expect(artifact.isPreviewable, isFalse);
     });
 
-    test('appendSlideToDeckJson adds a slide and preserves envelope fields', () {
+    test('appendSlideToDeckJson adds a slide and preserves envelope fields',
+        () {
       final updated = appendSlideToDeckJson(_sampleDeckJson);
       expect(updated, isNotNull);
       final decoded = jsonDecode(updated!) as Map<String, dynamic>;
@@ -68,7 +69,8 @@ void main() {
   });
 
   group('CodeArtifactCard for slides', () {
-    testWidgets('shows slideshow icon and slide count subtitle', (tester) async {
+    testWidgets('shows slideshow icon and slide count subtitle',
+        (tester) async {
       final artifact = CodeArtifact.fromCode(
         language: 'json',
         code: _sampleDeckJson,
