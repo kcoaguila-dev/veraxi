@@ -128,5 +128,77 @@ void main() {
       await tester.pump();
       expect(addCalled, isTrue);
     });
+
+    testWidgets('shows zoom indicator, zooms, and resets on fit tap',
+        (tester) async {
+      final deck = parseSlideDeckFromJson(_sampleDeckJson)!;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: 900,
+              height: 600,
+              child: SlideDeckPreview(deck: deck),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('100%'), findsOneWidget);
+
+      await tester.tap(find.byTooltip('Zoom in'));
+      await tester.pump();
+      expect(find.text('110%'), findsOneWidget);
+
+      // Tapping the percentage is the fit-to-stage control.
+      await tester.tap(find.text('110%'));
+      await tester.pump();
+      expect(find.text('100%'), findsOneWidget);
+    });
+
+    testWidgets('Ask Veraxi bar submits the typed request', (tester) async {
+      final deck = parseSlideDeckFromJson(_sampleDeckJson)!;
+      String? asked;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: 900,
+              height: 600,
+              child: SlideDeckPreview(
+                deck: deck,
+                onAskVeraxi: (text) => asked = text,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Ask Veraxi to edit this deck…'), findsOneWidget);
+
+      await tester.enterText(find.byType(TextField), 'Make slide 2 punchier');
+      await tester.tap(find.byTooltip('Ask Veraxi'));
+      await tester.pump();
+      expect(asked, 'Make slide 2 punchier');
+    });
+
+    testWidgets('thumbnail rail numbers each slide', (tester) async {
+      final deck = parseSlideDeckFromJson(_sampleDeckJson)!;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: 900,
+              height: 600,
+              child: SlideDeckPreview(deck: deck),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      // Rail numbers sit beside the 16:9 thumbnails.
+      expect(find.text('1'), findsOneWidget);
+      expect(find.text('2'), findsOneWidget);
+    });
   });
 }

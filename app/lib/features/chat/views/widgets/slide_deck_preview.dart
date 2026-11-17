@@ -14,10 +14,16 @@ class SlideDeckPreview extends StatefulWidget {
   /// hidden so read-only previews never show dead controls.
   final VoidCallback? onAddSlide;
 
+  /// Invoked with the user's free-text request from the floating
+  /// `Ask Veraxi` bar (Claude's bottom quick-action bar). When null,
+  /// the bar is hidden so read-only previews never show dead controls.
+  final ValueChanged<String>? onAskVeraxi;
+
   const SlideDeckPreview({
     super.key,
     required this.deck,
     this.onAddSlide,
+    this.onAskVeraxi,
   });
 
   @override
@@ -27,7 +33,23 @@ class SlideDeckPreview extends StatefulWidget {
 class _SlideDeckPreviewState extends State<SlideDeckPreview> {
   int _selectedIndex = 0;
   bool _showNotes = false;
+
+  /// Stage zoom: 1.0 is fit-to-stage; the indicator in the control
+  /// pill shows the percentage, like Claude's `46%` zoom readout.
+  double _zoom = 1.0;
   final FocusNode _focusNode = FocusNode();
+  final TextEditingController _askController = TextEditingController();
+
+  void _stepZoom(double delta) {
+    setState(() => _zoom = (_zoom + delta).clamp(0.5, 2.0));
+  }
+
+  void _submitAsk() {
+    final text = _askController.text.trim();
+    if (text.isEmpty || widget.onAskVeraxi == null) return;
+    widget.onAskVeraxi!(text);
+    _askController.clear();
+  }
 
   @override
   void didUpdateWidget(covariant SlideDeckPreview oldWidget) {
@@ -44,6 +66,7 @@ class _SlideDeckPreviewState extends State<SlideDeckPreview> {
   @override
   void dispose() {
     _focusNode.dispose();
+    _askController.dispose();
     super.dispose();
   }
 
@@ -89,39 +112,57 @@ class _SlideDeckPreviewState extends State<SlideDeckPreview> {
           behavior: HitTestBehavior.translucent,
           child: Container(
             color: const Color(0xFF141416),
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final showRail = constraints.maxWidth >= 500;
-                return Row(
-                  children: [
-                    if (showRail)
-                      _ThumbnailRail(
-                        slides: slides,
-                        selectedIndex: _selectedIndex,
-                        onSelect: (i) => setState(() => _selectedIndex = i),
-                        onAddSlide: widget.onAddSlide,
-                      ),
-                    Expanded(
-                      child: _SlideStage(
-                        slide: activeSlide,
-                        slideIndex: _selectedIndex,
-                        totalSlides: slides.length,
-                        showNotes: _showNotes,
-                        onToggleNotes: activeSlide.notes != null
-                            ? () => setState(() => _showNotes = !_showNotes)
-                            : null,
-                        onPrev:
-                            _selectedIndex > 0 ? () => _stepSlide(-1) : null,
-                        onNext: _selectedIndex < slides.length - 1
-                            ? () => _stepSlide(1)
-                            : null,
-                        onPresent: _openPresentation,
-                        onAddSlide: showRail ? null : widget.onAddSlide,
-                      ),
-                    ),
-                  ],
-                );
-              },
+            child: Column(
+              children: [
+                Expanded(
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final showRail = constraints.maxWidth >= 500;
+                      return Row(
+                        children: [
+                          if (showRail)
+                            _ThumbnailRail(
+                              slides: slides,
+                              selectedIndex: _selectedIndex,
+                              onSelect: (i) =>
+                                  setState(() => _selectedIndex = i),
+                              onAddSlide: widget.onAddSlide,
+                            ),
+                          Expanded(
+                            child: _SlideStage(
+                              slide: activeSlide,
+                              slideIndex: _selectedIndex,
+                              totalSlides: slides.length,
+                              showNotes: _showNotes,
+                              zoom: _zoom,
+                              onZoomIn: () => _stepZoom(0.1),
+                              onZoomOut: () => _stepZoom(-0.1),
+                              onZoomFit: () => setState(() => _zoom = 1.0),
+                              onToggleNotes: activeSlide.notes != null
+                                  ? () =>
+                                      setState(() => _showNotes = !_showNotes)
+                                  : null,
+                              onPrev: _selectedIndex > 0
+                                  ? () => _stepSlide(-1)
+                                  : null,
+                              onNext: _selectedIndex < slides.length - 1
+                                  ? () => _stepSlide(1)
+                                  : null,
+                              onPresent: _openPresentation,
+                              onAddSlide: showRail ? null : widget.onAddSlide,
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                ),
+                if (widget.onAskVeraxi != null)
+                  _AskVeraxiBar(
+                    controller: _askController,
+                    onSubmit: _submitAsk,
+                  ),
+              ],
             ),
           ),
         ),
@@ -295,6 +336,10 @@ class _SlideStage extends StatelessWidget {
   final int slideIndex;
   final int totalSlides;
   final bool showNotes;
+  final double zoom;
+  final VoidCallback onZoomIn;
+  final VoidCallback onZoomOut;
+  final VoidCallback onZoomFit;
   final VoidCallback? onToggleNotes;
   final VoidCallback? onPrev;
   final VoidCallback? onNext;
@@ -306,6 +351,10 @@ class _SlideStage extends StatelessWidget {
     required this.slideIndex,
     required this.totalSlides,
     required this.showNotes,
+    required this.zoom,
+    required this.onZoomIn,
+    required this.onZoomOut,
+    required this.onZoomFit,
     required this.onToggleNotes,
     required this.onPrev,
     required this.onNext,
@@ -323,14 +372,17 @@ class _SlideStage extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
               child: AspectRatio(
                 aspectRatio: 16 / 9,
-                child: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 220),
-                  switchInCurve: Curves.easeOutCubic,
-                  switchOutCurve: Curves.easeInCubic,
-                  child: _SlideCanvas(
-                    key: ValueKey('slide-$slideIndex-${slide.title}'),
-                    slide: slide,
-                    slideIndex: slideIndex,
+                child: Transform.scale(
+                  scale: zoom,
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 220),
+                    switchInCurve: Curves.easeOutCubic,
+                    switchOutCurve: Curves.easeInCubic,
+                    child: _SlideCanvas(
+                      key: ValueKey('slide-$slideIndex-${slide.title}'),
+                      slide: slide,
+                      slideIndex: slideIndex,
+                    ),
                   ),
                 ),
               ),
@@ -367,6 +419,10 @@ class _SlideStage extends StatelessWidget {
             onToggleNotes: onToggleNotes,
             showNotes: showNotes,
             onAddSlide: onAddSlide,
+            zoom: zoom,
+            onZoomIn: onZoomIn,
+            onZoomOut: onZoomOut,
+            onZoomFit: onZoomFit,
           ),
         ),
       ],
@@ -607,6 +663,10 @@ class _DeckControlPill extends StatelessWidget {
   final VoidCallback? onToggleNotes;
   final bool showNotes;
   final VoidCallback? onAddSlide;
+  final double zoom;
+  final VoidCallback onZoomIn;
+  final VoidCallback onZoomOut;
+  final VoidCallback onZoomFit;
 
   const _DeckControlPill({
     required this.slideIndex,
@@ -616,6 +676,10 @@ class _DeckControlPill extends StatelessWidget {
     required this.onPresent,
     required this.onToggleNotes,
     required this.showNotes,
+    required this.zoom,
+    required this.onZoomIn,
+    required this.onZoomOut,
+    required this.onZoomFit,
     this.onAddSlide,
   });
 
@@ -689,7 +753,91 @@ class _DeckControlPill extends StatelessWidget {
             visualDensity: VisualDensity.compact,
             color: const Color(0xFFE2E8F0),
           ),
+          const SizedBox(width: 4),
+          Container(width: 1, height: 16, color: const Color(0xFF323238)),
+          const SizedBox(width: 4),
+          IconButton(
+            tooltip: 'Zoom out',
+            onPressed: onZoomOut,
+            icon: const Icon(Icons.remove, size: 16),
+            visualDensity: VisualDensity.compact,
+            color: const Color(0xFFE2E8F0),
+          ),
+          InkWell(
+            onTap: onZoomFit,
+            borderRadius: BorderRadius.circular(6),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+              child: Text(
+                '${(zoom * 100).round()}%',
+                style: const TextStyle(
+                  color: Color(0xFFE2E8F0),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ),
+          IconButton(
+            tooltip: 'Zoom in',
+            onPressed: onZoomIn,
+            icon: const Icon(Icons.add, size: 16),
+            visualDensity: VisualDensity.compact,
+            color: const Color(0xFFE2E8F0),
+          ),
         ],
+      ),
+    );
+  }
+}
+
+/// Bottom floating quick-action bar: a compact prompt field that
+/// sends a free-text edit request for the deck to the chat
+/// (Claude's `Ask Claude` bar, here `Ask Veraxi`).
+class _AskVeraxiBar extends StatelessWidget {
+  final TextEditingController controller;
+  final VoidCallback onSubmit;
+
+  const _AskVeraxiBar({required this.controller, required this.onSubmit});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        decoration: BoxDecoration(
+          color: const Color(0xFF1E1E22),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: const Color(0xFF323238)),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.auto_awesome_outlined,
+                size: 16, color: Color(0xFFD98A2B)),
+            const SizedBox(width: 8),
+            Expanded(
+              child: TextField(
+                controller: controller,
+                onSubmitted: (_) => onSubmit(),
+                style: const TextStyle(color: Color(0xFFE2E8F0), fontSize: 13),
+                decoration: const InputDecoration(
+                  hintText: 'Ask Veraxi to edit this deck…',
+                  hintStyle: TextStyle(color: Color(0xFF71717A), fontSize: 13),
+                  border: InputBorder.none,
+                  isDense: true,
+                ),
+              ),
+            ),
+            IconButton(
+              tooltip: 'Ask Veraxi',
+              onPressed: onSubmit,
+              icon: const Icon(Icons.arrow_upward, size: 16),
+              visualDensity: VisualDensity.compact,
+              color: const Color(0xFFE2E8F0),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -834,7 +982,7 @@ class _SlidePalette {
 
     if (isDark) {
       return _SlidePalette(
-        background: const Color(0xFF13223D),
+        background: const Color(0xFF0F1D3A),
         foreground: const Color(0xFFF5F7FA),
         muted: const Color(0xFFCBD5E1),
         accent: accent,
@@ -842,8 +990,8 @@ class _SlidePalette {
       );
     }
     return _SlidePalette(
-      background: const Color(0xFFF7F5F0),
-      foreground: const Color(0xFF13223D),
+      background: const Color(0xFFF5F5F0),
+      foreground: const Color(0xFF0F1D3A),
       muted: const Color(0xFF475569),
       accent: accent,
       border: const Color(0xFFD6D3CD),

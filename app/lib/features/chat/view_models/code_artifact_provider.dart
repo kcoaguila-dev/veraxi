@@ -244,6 +244,64 @@ class OpenCodeArtifact {
 final openCodeArtifactProvider =
     StateProvider<OpenCodeArtifact?>((ref) => null);
 
+/// Whether the desktop split pane is expanded (fullscreen-ish) rather
+/// than at its responsive width. Toggled from the panel header; the
+/// chat screen watches it to size the split.
+final artifactPanelExpandedProvider = StateProvider<bool>((ref) => false);
+
+/// Stable identity for auto-open bookkeeping: one key per artifact
+/// occurrence in a thread, so an artifact auto-opens at most once and
+/// a manual close of it is never overridden.
+String autoOpenArtifactKey(OpenCodeArtifact open) =>
+    '${open.threadId}:${open.messageIndex}:${open.artifactIndex}:'
+    '${open.artifact.hashCode}';
+
+/// Finds the first previewable artifact that *newly appeared* in the
+/// latest assistant message between [previous] and [next] — the
+/// transition the chat screen auto-opens the panel for, Claude-style.
+///
+/// Returns null when the latest assistant message has no previewable
+/// artifact, when that artifact already existed in [previous] (history
+/// loads and unrelated updates never pop the panel), or when its key
+/// is in [suppressedKeys] (already auto-opened once, or manually
+/// closed by the user).
+OpenCodeArtifact? findNewPreviewableArtifact({
+  required List<ChatMessage> previous,
+  required List<ChatMessage> next,
+  required String? threadId,
+  required Set<String> suppressedKeys,
+}) {
+  if (next.isEmpty || previous.isEmpty) return null;
+  var messageIndex = -1;
+  for (var i = next.length - 1; i >= 0; i--) {
+    if (next[i].role == 'assistant') {
+      messageIndex = i;
+      break;
+    }
+  }
+  if (messageIndex < 0) return null;
+  final artifacts = extractCodeArtifacts(next[messageIndex].content);
+  for (var j = 0; j < artifacts.length; j++) {
+    if (!artifacts[j].isPreviewable) continue;
+    final candidate = OpenCodeArtifact(
+      artifact: artifacts[j],
+      threadId: threadId,
+      messageIndex: messageIndex,
+      artifactIndex: j,
+    );
+    if (suppressedKeys.contains(autoOpenArtifactKey(candidate))) {
+      return null;
+    }
+    if (messageIndex < previous.length &&
+        extractCodeArtifacts(previous[messageIndex].content)
+            .contains(artifacts[j])) {
+      return null;
+    }
+    return candidate;
+  }
+  return null;
+}
+
 /// Resolves the live version of an open artifact from chat state:
 /// re-extracts the artifacts of its source message and returns the
 /// one at the recorded position, so a panel opened mid-stream follows

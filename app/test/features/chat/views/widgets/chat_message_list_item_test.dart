@@ -75,6 +75,56 @@ void main() {
     expect(nameBox.left, lessThan(450));
   });
 
+  testWidgets('assistant markdown headings render in light foreground',
+      (tester) async {
+    final theme = AppTheme.darkTheme;
+    final ext = theme.extension<AppThemeExtension>()!;
+    final msg = ChatMessage(
+      role: 'assistant',
+      content: '# Big Title\n\n## Section\n\n### Subsection\n\nBody text.',
+    );
+
+    await tester.pumpWidget(
+      wrap(
+        ChatMessageListItem(
+          msg: msg,
+          theme: theme,
+          ext: ext,
+          showTelemetry: false,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    TextStyle? styleFor(String text) {
+      TextStyle? search(InlineSpan span, TextStyle? inherited) {
+        if (span is! TextSpan) return null;
+        final effective =
+            inherited == null ? span.style : inherited.merge(span.style);
+        if (span.text == text) return effective;
+        for (final child in span.children ?? const <InlineSpan>[]) {
+          final found = search(child, effective);
+          if (found != null) return found;
+        }
+        return null;
+      }
+
+      for (final rich in tester.widgetList<RichText>(find.byType(RichText))) {
+        final found = search(rich.text, null);
+        if (found != null) return found;
+      }
+      return null;
+    }
+
+    for (final heading in ['Big Title', 'Section', 'Subsection']) {
+      final style = styleFor(heading);
+      expect(style, isNotNull, reason: '$heading not rendered');
+      expect(style!.color, Colors.white,
+          reason: '$heading must not be dark-on-dark');
+      expect(style.fontWeight, isIn([FontWeight.w600, FontWeight.w700]));
+    }
+  });
+
   group('formatRelativeTimestamp', () {
     final now = DateTime(2026, 11, 17, 12, 0, 0);
 

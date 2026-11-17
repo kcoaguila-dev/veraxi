@@ -347,6 +347,238 @@ def test_title_too_long_fails_closed():
     )
 
 
+# ---------------------------------------------------------------------------
+# Deterministic delivery in call_model (Phase 1 guarantee)
+#
+# The LLM only has to call the tool / write a summary — the exact block
+# must reach the final AIMessage even when the model omits, alters, or
+# never calls the tool at all (prose slides).
+# ---------------------------------------------------------------------------
+
+from unittest.mock import MagicMock
+
+from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
+
+from backend.mcp_server.orchestrator import (
+    _detect_office_artifact_intent,
+    _ensure_office_artifact_blocks,
+    _parse_markdown_slides,
+    call_model,
+)
+
+
+@pytest.fixture
+def mock_orchestrator_config():
+    with patch("backend.mcp_server.orchestrator.get_config") as mock_get_config:
+        mock_conf = MagicMock()
+        mock_conf.llm_api_key = "test_key"
+        mock_conf.llm_model_name = "test_model"
+        mock_conf.llm_base_url = "http://test"
+        mock_get_config.return_value = mock_conf
+        yield mock_conf
+
+
+def _office_block():
+    payload = _call_tool(format="pptx", title="Hello World", spec=PITCH_DECK_SPEC)
+    return payload["artifact_block"]
+
+
+def test_slide_intent_detection_matches_creation_requests_only():
+    assert (
+        _detect_office_artifact_intent(
+            [HumanMessage(content="create a slide deck about Q3 results")]
+        )
+        == "pptx"
+    )
+    assert (
+        _detect_office_artifact_intent(
+            [HumanMessage(content="make a presentation for the board")]
+        )
+        == "pptx"
+    )
+    assert (
+        _detect_office_artifact_intent(
+            [HumanMessage(content="give me a simple slide that says hello")]
+        )
+        == "pptx"
+    )
+    assert (
+        _detect_office_artifact_intent(
+            [HumanMessage(content="export this as pptx please")]
+        )
+        == "pptx"
+    )
+    # Questions about slides are not creation intent.
+    assert (
+        _detect_office_artifact_intent(
+            [HumanMessage(content="what is a slide deck?")]
+        )
+        is None
+    )
+    assert (
+        _detect_office_artifact_intent(
+            [HumanMessage(content="explain recursion with an example")]
+        )
+        is None
+    )
+
+
+def test_ensure_blocks_appends_exact_block_when_llm_omits_it():
+    block = _office_block()
+    result = _ensure_office_artifact_blocks("Your deck is ready.", [block])
+    assert result == f"Your deck is ready.\n\n{block}"
+
+
+def test_ensure_blocks_replaces_altered_envelope_with_exact_block():
+    block = _office_block()
+    altered = block.replace("Vision", "Hallucinated")
+    assert altered != block
+    result = _ensure_office_artifact_blocks(f"Done.\n\n{altered}", [block])
+    assert "Hallucinated" not in result
+    assert result.count("```json") == 1
+    assert block in result
+
+
+def test_ensure_blocks_keeps_verbatim_block_unchanged():
+    block = _office_block()
+    content = f"Your deck is ready.\n\n{block}"
+    assert _ensure_office_artifact_blocks(content, [block]) == content
+
+
+def test_parse_markdown_slides_requires_two_slides():
+    assert _parse_markdown_slides("Slide 1: Only\n\nHello") is None
+    slides = _parse_markdown_slides(
+        "## Slide 1: Hello\n\n- Welcome\n\n## Slide 2 — World\n\n- Bye\n- Later"
+    )
+    assert slides == [
+        {"title": "Hello", "bullets": ["Welcome"]},
+        {"title": "World", "bullets": ["Bye", "Later"]},
+    ]
+
+
+async def _run_call_model(response, messages, tools=None):
+    plain_llm = AsyncMock()
+    plain_llm.ainvoke.return_value = response
+    plain_llm.bind_tools = MagicMock(return_value=plain_llm)
+    with (
+        patch(
+            "backend.mcp_server.orchestrator._create_chat_llm",
+            return_value=plain_llm,
+        ),
+        patch(
+            "backend.mcp_server.orchestrator.get_tools",
+            new=AsyncMock(return_value=tools or []),
+        ),
+    ):
+        state = {"messages": messages, "calculate_grounding": False}
+        result = await call_model(state)
+    return result["messages"][0], plain_llm
+
+
+@pytest.mark.asyncio
+async def test_call_model_reattaches_tool_block_omitted_by_llm(
+    mock_orchestrator_config,
+):
+    block = _office_block()
+    tool_message = ToolMessage(
+        content="Here is the context retrieved from the database:\n",
+        tool_call_id="call-1",
+        artifact=[
+            {
+                "id": "office_artifact",
+                "payload": {"artifact_block": block},
+                "sources": ["Office Artifact"],
+            }
+        ],
+    )
+    message, _ = await _run_call_model(
+        AIMessage(content="Your deck is ready — enjoy!"),
+        [HumanMessage(content="make a presentation"), tool_message],
+    )
+    assert block in message.content
+    assert message.content.startswith("Your deck is ready")
+
+
+@pytest.mark.asyncio
+async def test_call_model_converts_prose_slides_to_artifact_block(
+    mock_orchestrator_config,
+):
+    prose = (
+        "Slide 1: Hello\n\nWelcome to the talk.\n\n"
+        "Slide 2: World\n\n- Point A\n- Point B"
+    )
+    message, _ = await _run_call_model(
+        AIMessage(content=prose),
+        [HumanMessage(content="create a slide deck")],
+    )
+    assert "```json" in message.content
+    envelope = json.loads(
+        message.content.split("```json\n", 1)[1].split("\n```", 1)[0]
+    )
+    assert envelope["format"] == "pptx"
+    assert [s["title"] for s in envelope["slides"]] == ["Hello", "World"]
+    assert envelope["slides"][1]["bullets"] == ["Point A", "Point B"]
+    # The prose outline is collapsed to the concise summary; its lines
+    # survive only as slide bullets inside the JSON spec.
+    assert "Your 2-slide deck is ready" in message.content
+    assert envelope["slides"][0]["bullets"] == ["Welcome to the talk."]
+    assert message.content.index("Welcome to the talk.") > message.content.index(
+        "```json"
+    )
+
+
+@pytest.mark.asyncio
+async def test_call_model_injects_slide_directive_when_intent_detected(
+    mock_orchestrator_config,
+):
+    tools = [
+        {
+            "type": "function",
+            "function": {
+                "name": "create_office_artifact",
+                "description": "build a document",
+                "parameters": {"type": "object", "properties": {}},
+            },
+        }
+    ]
+    _, plain_llm = await _run_call_model(
+        AIMessage(content="ok"),
+        [HumanMessage(content="create a slide deck about sales")],
+        tools=tools,
+    )
+    sent = plain_llm.ainvoke.call_args.args[0]
+    system_text = "\n".join(
+        str(m.content) for m in sent if m.__class__.__name__ == "SystemMessage"
+    )
+    assert "create_office_artifact" in system_text
+    assert "MUST call" in system_text
+    # The artifacts_enabled note no longer conflicts: it reserves raw
+    # fenced blocks for UI/code/diagrams and routes documents to the tool.
+    state = {
+        "messages": [HumanMessage(content="hi")],
+        "calculate_grounding": False,
+        "tool_settings": {"artifacts_enabled": True},
+    }
+    plain_llm2 = AsyncMock()
+    plain_llm2.ainvoke.return_value = AIMessage(content="ok")
+    plain_llm2.bind_tools = MagicMock(return_value=plain_llm2)
+    with (
+        patch(
+            "backend.mcp_server.orchestrator._create_chat_llm",
+            return_value=plain_llm2,
+        ),
+        patch(
+            "backend.mcp_server.orchestrator.get_tools",
+            new=AsyncMock(return_value=[]),
+        ),
+    ):
+        await call_model(state)
+    sent2 = plain_llm2.ainvoke.call_args.args[0]
+    note_text = "\n".join(str(m.content) for m in sent2)
+    assert "create_office_artifact" in note_text
+    assert "Reserve raw fenced" in note_text
+
+
 def test_pptx_slide_theme_and_accent_color_round_trip(client):
     themed_spec = {
         "slides": [

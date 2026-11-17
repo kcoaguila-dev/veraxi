@@ -3,6 +3,85 @@ import 'package:veraxi_app/features/chat/view_models/chat_state.dart';
 import 'package:veraxi_app/features/chat/view_models/code_artifact_provider.dart';
 
 void main() {
+  group('findNewPreviewableArtifact (auto-open)', () {
+    const userMsg = 'make a presentation';
+    const deckBlock = '''
+```json
+{"format": "pptx", "title": "Hello World", "slides": [{"title": "Hello"}, {"title": "World"}]}
+```
+''';
+    List<ChatMessage> convo(String assistantContent) => [
+          ChatMessage(role: 'user', content: userMsg),
+          ChatMessage(role: 'assistant', content: assistantContent),
+        ];
+
+    test('returns the artifact when it newly appears', () {
+      final found = findNewPreviewableArtifact(
+        previous: convo('Working on it…'),
+        next: convo('Your deck is ready.\n\n$deckBlock'),
+        threadId: 't1',
+        suppressedKeys: {},
+      );
+      expect(found, isNotNull);
+      expect(found!.artifact.previewKind, CodePreviewKind.slides);
+      expect(found.messageIndex, 1);
+      expect(found.artifactIndex, 0);
+    });
+
+    test('returns null when the artifact already existed (history load)', () {
+      final content = 'Your deck is ready.\n\n$deckBlock';
+      expect(
+        findNewPreviewableArtifact(
+          previous: convo(content),
+          next: convo(content),
+          threadId: 't1',
+          suppressedKeys: {},
+        ),
+        isNull,
+      );
+    });
+
+    test('returns null when the key is suppressed (manual close)', () {
+      final next = convo('Your deck is ready.\n\n$deckBlock');
+      final candidate = findNewPreviewableArtifact(
+        previous: convo('Working…'),
+        next: next,
+        threadId: 't1',
+        suppressedKeys: {},
+      )!;
+      expect(
+        findNewPreviewableArtifact(
+          previous: convo('Working…'),
+          next: next,
+          threadId: 't1',
+          suppressedKeys: {autoOpenArtifactKey(candidate)},
+        ),
+        isNull,
+      );
+    });
+
+    test('ignores non-previewable artifacts and empty previous', () {
+      expect(
+        findNewPreviewableArtifact(
+          previous: convo('Working…'),
+          next: convo('```python\nprint(1)\nprint(2)\n```'),
+          threadId: 't1',
+          suppressedKeys: {},
+        ),
+        isNull,
+      );
+      expect(
+        findNewPreviewableArtifact(
+          previous: const [],
+          next: convo(deckBlock),
+          threadId: 't1',
+          suppressedKeys: {},
+        ),
+        isNull,
+      );
+    });
+  });
+
   group('extractCodeArtifacts', () {
     test('pairs a Claude-style file mention with its code block', () {
       const markdown = '''
