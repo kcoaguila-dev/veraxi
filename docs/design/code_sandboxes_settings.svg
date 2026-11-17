@@ -1,0 +1,143 @@
+<svg width="1440" height="1420" viewBox="0 0 1440 1420" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!--
+    Veraxi — Code Sandboxes Settings (Hybrid Agentic Coding Sandbox, Phase 6)
+    Visual contract for feat/hybrid-sandbox.
+
+    Palette matches the existing dark settings UI (#212121 app,
+    #171717 sidebar, #2F2F2F card, #3F3F3F border, #10B981 live green,
+    #F59E0B approval amber).
+
+    The tab is registered in the Settings sidebar as "Code Sandboxes",
+    directly after "Agent Skills". Data comes from
+    GET /api/v1/sandboxes/config and is saved with
+    PUT /api/v1/sandboxes/config. Secrets are write-only: the API
+    returns only has_secrets, never the stored values.
+
+    Sections, top to bottom:
+    1. Execution Backend — radio choice Disabled | Modal (Cloud) |
+       E2B (Cloud) | Remote MCP URL | Local Runner (veraxi-runner).
+       Provider-specific fields appear under the selected option:
+       Modal → Token ID + Token Secret, E2B → API Key,
+       Remote MCP → endpoint URL + Bearer token,
+       Local Runner → runner token + `veraxi-runner connect` hint.
+       "Test Sandbox" boots a sandbox, runs `uname -a && git --version`
+       (POST /api/v1/sandboxes/test) and shows a latency/status badge.
+       "Save Configuration" persists everything (secrets encrypted
+       server-side with Fernet).
+    2. Runtime & Compute — base image preset (polyglot / python /
+       node / flutter), vCPU slider, RAM slider, disk, Idle Auto-Pause
+       (idle timeout) slider.
+    3. Autonomy & Git Safety — approval mode selector
+       (Ask All / Auto Read & Test / Autonomous) and the
+       "Isolate in Git branch" toggle.
+    4. Network & Secrets — egress mode (Offline / Allowlist /
+       Unrestricted) and editable allowed-domain chips (add/remove),
+       used when egress is Allowlist.
+    5. Active Sandboxes — live list from
+       GET /api/v1/sandboxes/sessions with status dot, provider,
+       git branch, last-active time and Pause / Destroy buttons.
+  -->
+  <rect width="1440" height="1420" fill="#212121"/>
+
+  <!-- Header -->
+  <text x="48" y="72" font-family="Inter, sans-serif" font-size="28" font-weight="700" fill="#FFFFFF">Code Sandboxes</text>
+  <text x="48" y="102" font-family="Inter, sans-serif" font-size="14" fill="#9E9E9E">Run agent coding sessions in an isolated cloud or self-hosted sandbox. Secrets are encrypted server-side and never shown here.</text>
+
+  <!-- Section 1: Execution Backend -->
+  <text x="48" y="152" font-family="Inter, sans-serif" font-size="17" font-weight="600" fill="#FFFFFF">Execution Backend</text>
+  <rect x="48" y="172" width="1320" height="330" rx="12" fill="#2F2F2F" stroke="#3F3F3F"/>
+  <circle cx="84" cy="206" r="9" fill="none" stroke="#9E9E9E" stroke-width="2"/>
+  <text x="108" y="211" font-family="Inter, sans-serif" font-size="14" fill="#FFFFFF">Disabled</text>
+  <circle cx="84" cy="246" r="9" fill="#10B981"/>
+  <circle cx="84" cy="246" r="4" fill="#FFFFFF"/>
+  <text x="108" y="251" font-family="Inter, sans-serif" font-size="14" font-weight="600" fill="#FFFFFF">Modal (Cloud)</text>
+  <text x="320" y="251" font-family="Inter, sans-serif" font-size="12" fill="#9E9E9E">gVisor serverless sandbox · bring your own Modal token</text>
+  <rect x="108" y="266" width="560" height="38" rx="8" fill="#212121" stroke="#3F3F3F"/>
+  <text x="124" y="290" font-family="Inter, sans-serif" font-size="12" fill="#9E9E9E">Modal Token ID •••••••• (stored)</text>
+  <rect x="684" y="266" width="560" height="38" rx="8" fill="#212121" stroke="#3F3F3F"/>
+  <text x="700" y="290" font-family="Inter, sans-serif" font-size="12" fill="#9E9E9E">Modal Token Secret ••••••••</text>
+  <circle cx="84" cy="330" r="9" fill="none" stroke="#9E9E9E" stroke-width="2"/>
+  <text x="108" y="335" font-family="Inter, sans-serif" font-size="14" fill="#FFFFFF">E2B (Cloud)</text>
+  <text x="320" y="335" font-family="Inter, sans-serif" font-size="12" fill="#9E9E9E">Firecracker microVM · API key field when selected</text>
+  <circle cx="84" cy="370" r="9" fill="none" stroke="#9E9E9E" stroke-width="2"/>
+  <text x="108" y="375" font-family="Inter, sans-serif" font-size="14" fill="#FFFFFF">Remote MCP URL</text>
+  <text x="320" y="375" font-family="Inter, sans-serif" font-size="12" fill="#9E9E9E">Self-hosted MCP endpoint (Tailscale / Cloudflare Tunnel) · URL + Bearer token when selected</text>
+  <circle cx="84" cy="410" r="9" fill="none" stroke="#9E9E9E" stroke-width="2"/>
+  <text x="108" y="415" font-family="Inter, sans-serif" font-size="14" fill="#FFFFFF">Local Runner (veraxi-runner)</text>
+  <text x="420" y="415" font-family="Inter, sans-serif" font-size="12" fill="#9E9E9E">Your own machine via outbound WebSocket · runner token when selected</text>
+  <rect x="72" y="440" width="170" height="40" rx="8" fill="#FFFFFF"/>
+  <text x="157" y="465" font-family="Inter, sans-serif" font-size="13" font-weight="600" fill="#171717" text-anchor="middle">Test Sandbox</text>
+  <rect x="258" y="440" width="190" height="40" rx="8" fill="none" stroke="#3F3F3F"/>
+  <text x="353" y="465" font-family="Inter, sans-serif" font-size="13" font-weight="600" fill="#FFFFFF" text-anchor="middle">Save Configuration</text>
+  <circle cx="478" cy="460" r="5" fill="#10B981"/>
+  <text x="492" y="465" font-family="Inter, sans-serif" font-size="12" fill="#10B981">Sandbox ready · 842 ms</text>
+
+  <!-- Section 2: Runtime & Compute -->
+  <text x="48" y="552" font-family="Inter, sans-serif" font-size="17" font-weight="600" fill="#FFFFFF">Runtime &amp; Compute</text>
+  <rect x="48" y="572" width="1320" height="190" rx="12" fill="#2F2F2F" stroke="#3F3F3F"/>
+  <text x="72" y="606" font-family="Inter, sans-serif" font-size="13" fill="#ECECEC">Base image</text>
+  <rect x="1120" y="582" width="200" height="34" rx="6" fill="#212121" stroke="#3F3F3F"/>
+  <text x="1136" y="604" font-family="Inter, sans-serif" font-size="13" fill="#FFFFFF">polyglot</text>
+  <text x="72" y="650" font-family="Inter, sans-serif" font-size="13" fill="#ECECEC">vCPU cores</text>
+  <rect x="300" y="642" width="700" height="6" rx="3" fill="#3F3F3F"/>
+  <rect x="300" y="642" width="175" height="6" rx="3" fill="#10B981"/>
+  <circle cx="475" cy="645" r="10" fill="#FFFFFF"/>
+  <text x="1120" y="650" font-family="Inter, sans-serif" font-size="13" fill="#FFFFFF">2 cores</text>
+  <text x="72" y="694" font-family="Inter, sans-serif" font-size="13" fill="#ECECEC">Memory</text>
+  <rect x="300" y="686" width="700" height="6" rx="3" fill="#3F3F3F"/>
+  <rect x="300" y="686" width="175" height="6" rx="3" fill="#10B981"/>
+  <circle cx="475" cy="689" r="10" fill="#FFFFFF"/>
+  <text x="1120" y="694" font-family="Inter, sans-serif" font-size="13" fill="#FFFFFF">4096 MB</text>
+  <text x="72" y="738" font-family="Inter, sans-serif" font-size="13" fill="#ECECEC">Idle auto-pause</text>
+  <text x="1120" y="738" font-family="Inter, sans-serif" font-size="13" fill="#FFFFFF">900 s</text>
+
+  <!-- Section 3: Autonomy & Git Safety -->
+  <text x="48" y="812" font-family="Inter, sans-serif" font-size="17" font-weight="600" fill="#FFFFFF">Autonomy &amp; Git Safety</text>
+  <rect x="48" y="832" width="1320" height="130" rx="12" fill="#2F2F2F" stroke="#3F3F3F"/>
+  <rect x="72" y="856" width="150" height="36" rx="8" fill="none" stroke="#3F3F3F"/>
+  <text x="147" y="879" font-family="Inter, sans-serif" font-size="12" fill="#9E9E9E" text-anchor="middle">Ask All</text>
+  <rect x="234" y="856" width="190" height="36" rx="8" fill="#10B981"/>
+  <text x="329" y="879" font-family="Inter, sans-serif" font-size="12" font-weight="600" fill="#FFFFFF" text-anchor="middle">Auto Read &amp; Test</text>
+  <rect x="436" y="856" width="150" height="36" rx="8" fill="none" stroke="#3F3F3F"/>
+  <text x="511" y="879" font-family="Inter, sans-serif" font-size="12" fill="#9E9E9E" text-anchor="middle">Autonomous</text>
+  <text x="610" y="879" font-family="Inter, sans-serif" font-size="12" fill="#9E9E9E">Read-only + test commands run automatically; writes, installs and pushes ask first. git push always asks.</text>
+  <text x="72" y="934" font-family="Inter, sans-serif" font-size="13" fill="#ECECEC">Isolate in Git branch</text>
+  <rect x="1268" y="916" width="52" height="28" rx="14" fill="#10B981"/>
+  <circle cx="1306" cy="930" r="10" fill="#FFFFFF"/>
+
+  <!-- Section 4: Network & Secrets -->
+  <text x="48" y="1012" font-family="Inter, sans-serif" font-size="17" font-weight="600" fill="#FFFFFF">Network &amp; Secrets</text>
+  <rect x="48" y="1032" width="1320" height="150" rx="12" fill="#2F2F2F" stroke="#3F3F3F"/>
+  <rect x="72" y="1056" width="120" height="36" rx="8" fill="none" stroke="#3F3F3F"/>
+  <text x="132" y="1079" font-family="Inter, sans-serif" font-size="12" fill="#9E9E9E" text-anchor="middle">Offline</text>
+  <rect x="204" y="1056" width="120" height="36" rx="8" fill="#10B981"/>
+  <text x="264" y="1079" font-family="Inter, sans-serif" font-size="12" font-weight="600" fill="#FFFFFF" text-anchor="middle">Allowlist</text>
+  <rect x="336" y="1056" width="140" height="36" rx="8" fill="none" stroke="#3F3F3F"/>
+  <text x="406" y="1079" font-family="Inter, sans-serif" font-size="12" fill="#9E9E9E" text-anchor="middle">Unrestricted</text>
+  <rect x="72" y="1108" width="150" height="32" rx="16" fill="#212121" stroke="#3F3F3F"/>
+  <text x="92" y="1129" font-family="Inter, sans-serif" font-size="12" fill="#FFFFFF">pypi.org  ×</text>
+  <rect x="234" y="1108" width="230" height="32" rx="16" fill="#212121" stroke="#3F3F3F"/>
+  <text x="254" y="1129" font-family="Inter, sans-serif" font-size="12" fill="#FFFFFF">files.pythonhosted.org  ×</text>
+  <rect x="476" y="1108" width="210" height="32" rx="16" fill="#212121" stroke="#3F3F3F"/>
+  <text x="496" y="1129" font-family="Inter, sans-serif" font-size="12" fill="#FFFFFF">registry.npmjs.org  ×</text>
+  <rect x="698" y="1108" width="110" height="32" rx="16" fill="#212121" stroke="#3F3F3F"/>
+  <text x="718" y="1129" font-family="Inter, sans-serif" font-size="12" fill="#FFFFFF">pub.dev  ×</text>
+  <rect x="820" y="1108" width="130" height="32" rx="16" fill="#212121" stroke="#3F3F3F"/>
+  <text x="840" y="1129" font-family="Inter, sans-serif" font-size="12" fill="#FFFFFF">github.com  ×</text>
+  <rect x="962" y="1108" width="260" height="32" rx="8" fill="#212121" stroke="#3F3F3F"/>
+  <text x="978" y="1129" font-family="Inter, sans-serif" font-size="12" fill="#9E9E9E">Add domain…</text>
+  <rect x="1234" y="1108" width="80" height="32" rx="8" fill="#FFFFFF"/>
+  <text x="1274" y="1129" font-family="Inter, sans-serif" font-size="12" font-weight="600" fill="#171717" text-anchor="middle">Add</text>
+
+  <!-- Section 5: Active Sandboxes -->
+  <text x="48" y="1232" font-family="Inter, sans-serif" font-size="17" font-weight="600" fill="#FFFFFF">Active Sandboxes</text>
+  <rect x="48" y="1252" width="1320" height="118" rx="12" fill="#2F2F2F" stroke="#3F3F3F"/>
+  <circle cx="84" cy="1290" r="5" fill="#10B981"/>
+  <text x="100" y="1295" font-family="Inter, sans-serif" font-size="13" font-weight="600" fill="#FFFFFF">modal · running</text>
+  <text x="260" y="1295" font-family="Inter, sans-serif" font-size="12" fill="#9E9E9E">branch: sandbox/session-1 · last active 2026-11-18T00:00:00Z</text>
+  <rect x="1050" y="1270" width="90" height="36" rx="8" fill="none" stroke="#3F3F3F"/>
+  <text x="1095" y="1293" font-family="Inter, sans-serif" font-size="12" font-weight="600" fill="#FFFFFF" text-anchor="middle">Pause</text>
+  <rect x="1154" y="1270" width="100" height="36" rx="8" fill="none" stroke="#F87171"/>
+  <text x="1204" y="1293" font-family="Inter, sans-serif" font-size="12" font-weight="600" fill="#F87171" text-anchor="middle">Destroy</text>
+  <text x="72" y="1346" font-family="Inter, sans-serif" font-size="12" fill="#9E9E9E">Sessions come from GET /api/v1/sandboxes/sessions. Pause → POST …/sessions/{id}/pause · Destroy → DELETE …/sessions/{id}.</text>
+</svg>

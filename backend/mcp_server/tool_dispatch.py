@@ -272,6 +272,9 @@ async def get_tools(tool_settings: dict | None = None, tenant_id: str | None = N
             }
         )
 
+    if tool_settings and tool_settings.get("sandbox_enabled"):
+        all_tools.extend(_sandbox_tool_definitions())
+
     # External MCP tools come from the hardened client manager: stored
     # tenant integrations first (no skills_enabled gate), legacy
     # tool_settings servers as fallback (legacy gate preserved inside
@@ -769,6 +772,199 @@ def _execute_single_tool(
     return [], []
 
 
+SANDBOX_TOOL_NAMES = {
+    "sandbox_exec", "sandbox_read_file", "sandbox_write_file", "sandbox_diff",
+}
+
+_sandbox_manager_override = None
+
+
+def set_sandbox_manager(manager) -> None:
+    """Inject the SandboxManager used by sandbox tools (test seam)."""
+    global _sandbox_manager_override
+    _sandbox_manager_override = manager
+
+
+def _sandbox_tool_definitions() -> list:
+    """The exactly-four minimal sandbox tools (no MCP context bloat)."""
+    return [
+        {
+            "type": "function",
+            "function": {
+                "name": "sandbox_exec",
+                "description": "Run a shell command inside the tenant's isolated coding sandbox (git, pytest, flutter test, rg, ...). Output streams back live.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "command": {"type": "string", "description": "The shell command to run."},
+                        "cwd": {"type": "string", "description": "Optional working directory inside the sandbox."},
+                    },
+                    "required": ["command"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "sandbox_read_file",
+                "description": "Read a file inside the coding sandbox.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {"path": {"type": "string"}},
+                    "required": ["path"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "sandbox_write_file",
+                "description": "Write a file inside the coding sandbox.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "path": {"type": "string"},
+                        "content": {"type": "string"},
+                    },
+                    "required": ["path", "content"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "sandbox_diff",
+                "description": "Return the current git diff inside the coding sandbox for review.",
+                "parameters": {"type": "object", "properties": {}},
+            },
+        },
+    ]
+
+
+class SandboxHit:
+    """Result of an executed sandbox tool call.
+
+    The payload carries the collected ``sandbox_events`` (stdout /
+    stderr chunks plus the final exit event) so the existing SSE chat
+    stream can render them live, alongside a plain ``content`` string.
+    """
+
+    def __init__(self, payload: dict):
+        self.id = "sandbox_tool"
+        self.payload = payload
+        self.sources = ["Sandbox"]
+
+
+class SandboxApprovalHit:
+    """Sandbox tool call paused for user approval.
+
+    Carries both the existing ``tool_confirmation_required`` payload
+    (the confirm-tool mechanism) and an ``approval_required`` payload
+    naming the tool, per the sandbox autonomy policy.
+    """
+
+    def __init__(self, tool_name: str, tool_input: dict, autonomy_mode: str):
+        self.id = "tool_confirmation"
+        approval = {
+            "tool_name": tool_name,
+            "args": tool_input,
+            "autonomy_mode": autonomy_mode,
+            "message": (
+                f"{tool_name} needs the user's approval before it runs "
+                f"(autonomy mode: {autonomy_mode})."
+            ),
+        }
+        self.payload = {
+            "tool_confirmation_required": dict(approval),
+            "approval_required": dict(approval),
+        }
+        self.sources = ["Tool Confirmation"]
+
+
+def _resolve_sandbox_manager(tool_settings: dict):
+    manager = (tool_settings or {}).get("sandbox_manager") or _sandbox_manager_override
+    if manager is not None:
+        return manager
+    from backend.sandbox.manager import get_default_manager
+
+    return get_default_manager()
+
+
+async def _execute_sandbox_tool(tc: dict, tenant_id: str, tool_settings: dict) -> list:
+    """Execute one sandbox_* tool call through the SandboxManager."""
+    from backend.sandbox.policy import classify_command, requires_approval
+
+    t_name = tc.get("name", "")
+    t_input = tc.get("args", {}) or {}
+    manager = _resolve_sandbox_manager(tool_settings)
+    try:
+        settings, _secrets, _row = manager.load_tenant_config(tenant_id)
+        autonomy_mode = str(settings.get("autonomy_mode") or "auto_read_test")
+    except Exception as e:
+        logger.error(f"Failed to load sandbox config for {tenant_id}: {e}")
+        autonomy_mode = str((tool_settings or {}).get("sandbox_autonomy_mode") or "auto_read_test")
+
+    is_write = t_name == "sandbox_write_file"
+    command = None
+    if t_name == "sandbox_exec":
+        command = str(t_input.get("command") or "")
+        is_write = classify_command(command) == "mutating"
+
+    if requires_approval(autonomy_mode, command, is_write=is_write) and not _tool_call_confirmed(tc, tool_settings):
+        try:
+            manager.record_approval_request("", {"tool_name": t_name, "args": t_input})
+        except Exception as e:
+            logger.debug(f"Failed to record sandbox approval request: {e}")
+        return [SandboxApprovalHit(t_name, t_input, autonomy_mode)]
+
+    chat_id = (tool_settings or {}).get("chat_id") or (tool_settings or {}).get("thread_id")
+    try:
+        info = await manager.get_or_create_session(tenant_id, chat_id=chat_id)
+        provider = manager.provider_for(info.session_id)
+        events: list[dict] = []
+        exit_code = None
+        if t_name == "sandbox_exec":
+            stdout_parts, stderr_parts = [], []
+            async for event in provider.exec_command(
+                info.session_id, command or "", cwd=t_input.get("cwd"),
+                timeout_sec=int(t_input.get("timeout_sec") or 120),
+            ):
+                events.append(event.to_dict())
+                if event.kind == "stdout":
+                    stdout_parts.append(event.data)
+                elif event.kind == "stderr":
+                    stderr_parts.append(event.data)
+                elif event.kind == "exit":
+                    exit_code = event.exit_code
+            content = "".join(stdout_parts)
+            if stderr_parts:
+                content += "\n[stderr]:\n" + "".join(stderr_parts)
+            content += f"\n[exit_code]: {exit_code}"
+        elif t_name == "sandbox_read_file":
+            content = await provider.read_file(info.session_id, str(t_input.get("path") or ""))
+        elif t_name == "sandbox_write_file":
+            await provider.write_file(
+                info.session_id, str(t_input.get("path") or ""), str(t_input.get("content") or "")
+            )
+            content = f"Wrote {t_input.get('path')}"
+        elif t_name == "sandbox_diff":
+            content = await provider.get_diff(info.session_id)
+        else:  # pragma: no cover - guarded by SANDBOX_TOOL_NAMES
+            content = ""
+        return [SandboxHit({
+            "content": content,
+            "sandbox_events": events,
+            "sandbox_stdout": [e["data"] for e in events if e.get("type") == "stdout"],
+            "sandbox_stderr": [e["data"] for e in events if e.get("type") == "stderr"],
+            "exit_code": exit_code,
+            "session_id": info.session_id,
+            "tool": t_name,
+        })]
+    except Exception as e:
+        logger.error(f"Sandbox tool {t_name} failed: {e}")
+        return [SandboxHit({"content": f"Sandbox error: {e}", "error": str(e), "tool": t_name, "sandbox_events": []})]
+
+
 class ToolConfirmationHit:
     """Result for a mutating external tool call awaiting user approval.
 
@@ -1094,6 +1290,9 @@ async def execute_tools_internal(
             tc, tool_settings
         ):
             return [], [], [ToolConfirmationHit(t_name, t_input)]
+        if t_name in SANDBOX_TOOL_NAMES:
+            s_hits = await _execute_sandbox_tool(tc, tenant_id, tool_settings)
+            return [], [], s_hits
         if t_name.startswith("mcp__"):
             m_hits, _ = await _execute_mcp_tool(
                 t_name, t_input, tool_settings, tenant_id

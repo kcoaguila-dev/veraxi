@@ -59,6 +59,8 @@ dependencies = [
     "mcp-types>=2.3.0",
     "python-dotenv>=1.2.3",
     "duckduckgo_search>=7.0.0",
+    "modal",
+    "e2b",
 ]
 
 [project.optional-dependencies]

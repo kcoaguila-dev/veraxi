@@ -20,6 +20,9 @@ import 'package:veraxi_app/features/chat/views/widgets/sources_sidebar.dart';
 import 'package:veraxi_app/core/widgets/profile_menu_button.dart';
 import 'package:veraxi_app/features/chat/view_models/code_artifact_provider.dart';
 import 'package:veraxi_app/features/chat/views/widgets/code_artifact_panel.dart';
+import 'package:veraxi_app/features/chat/view_models/sandbox_drawer_view_model.dart';
+import 'package:veraxi_app/features/chat/view_models/sandbox_toggle_view_model.dart';
+import 'package:veraxi_app/features/chat/views/widgets/sandbox_drawer.dart';
 
 final activeSourcesProvider =
     StateProvider<List<Map<String, dynamic>>>((ref) => []);
@@ -116,6 +119,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final state = ref.watch(chatViewModelProvider);
     final isSidebarOpen = ref.watch(sidebarStateProvider);
     final openArtifact = ref.watch(openCodeArtifactProvider);
+    final sandboxEnabled = ref.watch(sandboxToggleViewModelProvider).enabled;
     final panelExpanded = ref.watch(artifactPanelExpandedProvider);
     final viewModel = ref.read(chatViewModelProvider.notifier);
     final theme = Theme.of(context);
@@ -135,6 +139,17 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     ref.listen<List<ChatMessage>>(
       chatViewModelProvider.select((s) => s.messages),
       (previous, next) {
+        // Feed sandbox tool events into the Terminal & Diff drawer.
+        // ChatViewModel's SSE handler is private and message-bound, so
+        // the drawer is fed from chat state here (its view model
+        // de-duplicates by tool-event id); raw sandbox_stdout /
+        // sandbox_stderr / approval_required SSE events can later be
+        // bridged through SandboxDrawerViewModel.handleSandboxEvent.
+        if (next.isNotEmpty) {
+          ref
+              .read(sandboxDrawerViewModelProvider.notifier)
+              .ingestToolEvents(next.last.toolEvents);
+        }
         // An open code panel belongs to the previous conversation; close
         // it when the chat is emptied (new chat / thread switch to empty).
         if (next.isEmpty && ref.read(openCodeArtifactProvider) != null) {
@@ -246,7 +261,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                           )
                                         : state.messages.isEmpty
                                             ? _buildEmptyState(
-                                                theme, ext, state, viewModel)
+                                                theme, ext, state, viewModel,
+                                                sandboxEnabled: sandboxEnabled)
                                             : ListView.builder(
                                                 controller: _scrollController,
                                                 padding: const EdgeInsets.only(
@@ -519,18 +535,30 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                               child: Padding(
                                 padding:
                                     const EdgeInsets.symmetric(horizontal: 16),
-                                child: ChatInput(
-                                  projectName: state.activeProjectName,
-                                  isLoading: state.isLoading,
-                                  onSend: (text, {attachments}) =>
-                                      viewModel.sendMessage(text,
-                                          model:
-                                              _selectedModel == 'Select a model'
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
+                                  children: [
+                                    if (sandboxEnabled) ...[
+                                      const SandboxDrawer(),
+                                      const SizedBox(height: 8),
+                                    ],
+                                    ChatInput(
+                                      projectName: state.activeProjectName,
+                                      isLoading: state.isLoading,
+                                      onSend: (text, {attachments}) =>
+                                          viewModel.sendMessage(text,
+                                              model: _selectedModel ==
+                                                      'Select a model'
                                                   ? null
                                                   : _selectedModel,
-                                          attachments: attachments),
-                                  errorText: state.error,
-                                  onDismissError: () => viewModel.clearError(),
+                                              attachments: attachments),
+                                      errorText: state.error,
+                                      onDismissError: () =>
+                                          viewModel.clearError(),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ),
@@ -599,7 +627,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   }
 
   Widget _buildEmptyState(ThemeData theme, AppThemeExtension ext,
-      ChatState state, ChatViewModel viewModel) {
+      ChatState state, ChatViewModel viewModel,
+      {bool sandboxEnabled = false}) {
     return Center(
       child: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -632,6 +661,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   .animate()
                   .fade(duration: 800.ms, delay: 100.ms)
                   .slideY(begin: 0.1, end: 0),
+              if (sandboxEnabled) ...[
+                const SizedBox(height: 16),
+                const SandboxDrawer(),
+              ],
             ],
           ),
         ),
