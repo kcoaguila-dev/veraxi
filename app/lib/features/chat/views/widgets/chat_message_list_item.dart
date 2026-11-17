@@ -18,6 +18,7 @@ import 'package:veraxi_app/features/chat/view_models/code_artifact_provider.dart
 import 'package:veraxi_app/core/providers/active_sources_provider.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import 'package:markdown/markdown.dart' as md;
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter/services.dart';
@@ -579,6 +580,36 @@ class _RelativeTimeLabel extends StatefulWidget {
   State<_RelativeTimeLabel> createState() => _RelativeTimeLabelState();
 }
 
+/// Formats [timestamp] as a low-noise relative label (`just now` for the first
+/// minute, then `Xm ago`, `Xh ago`, `Xd ago`) and switches to a short date
+/// once the message is at least 7 days old.
+String formatRelativeTimestamp(DateTime timestamp, {DateTime? now}) {
+  final current = now ?? DateTime.now();
+  final age = current.difference(timestamp);
+  if (age.isNegative || age.inMinutes < 1) return 'just now';
+  if (age.inHours < 1) return '${age.inMinutes}m ago';
+  if (age.inDays < 1) return '${age.inHours}h ago';
+  if (age.inDays < 7) return '${age.inDays}d ago';
+  final local = timestamp.toLocal();
+  final localNow = current.toLocal();
+  return local.year == localNow.year
+      ? DateFormat.MMMd().format(local)
+      : DateFormat.yMMMd().format(local);
+}
+
+/// Returns how long to wait before [formatRelativeTimestamp] will change, or
+/// `null` once the label has settled onto a static calendar date (`>= 7d`).
+Duration? nextRelativeTimestampDelay(DateTime timestamp, {DateTime? now}) {
+  final current = now ?? DateTime.now();
+  final age = current.difference(timestamp);
+  if (age.isNegative) return const Duration(minutes: 1);
+  if (age.inMinutes < 1) return Duration(seconds: 60 - age.inSeconds);
+  if (age.inHours < 1) return Duration(seconds: 60 - age.inSeconds % 60);
+  if (age.inDays < 1) return Duration(seconds: 3600 - age.inSeconds % 3600);
+  if (age.inDays < 7) return Duration(seconds: 86400 - age.inSeconds % 86400);
+  return null;
+}
+
 class _RelativeTimeLabelState extends State<_RelativeTimeLabel> {
   Timer? _timer;
 
@@ -602,14 +633,8 @@ class _RelativeTimeLabelState extends State<_RelativeTimeLabel> {
 
   void _scheduleNextUpdate() {
     _timer?.cancel();
-    final age = DateTime.now().difference(widget.timestamp);
-    final delay = age.inMinutes < 1
-        ? const Duration(seconds: 1)
-        : age.inHours < 1
-            ? Duration(seconds: 60 - age.inSeconds % 60)
-            : age.inDays < 1
-                ? Duration(seconds: 3600 - age.inSeconds % 3600)
-                : Duration(seconds: 86400 - age.inSeconds % 86400);
+    final delay = nextRelativeTimestampDelay(widget.timestamp);
+    if (delay == null) return;
     _timer = Timer(delay, () {
       if (!mounted) return;
       setState(() {});
@@ -619,20 +644,11 @@ class _RelativeTimeLabelState extends State<_RelativeTimeLabel> {
 
   @override
   Widget build(BuildContext context) {
-    final age = DateTime.now().difference(widget.timestamp);
-    final label = age.inSeconds < 10
-        ? 'just now'
-        : age.inMinutes < 1
-            ? '${age.inSeconds}s ago'
-            : age.inHours < 1
-                ? '${age.inMinutes}m ago'
-                : age.inDays < 1
-                    ? '${age.inHours}h ago'
-                    : age.inDays < 7
-                        ? '${age.inDays}d ago'
-                        : '${widget.timestamp.month}/${widget.timestamp.day}/${widget.timestamp.year}';
+    final label = formatRelativeTimestamp(widget.timestamp);
+    final exact =
+        DateFormat.yMMMd().add_jm().format(widget.timestamp.toLocal());
     return Tooltip(
-      message: widget.timestamp.toLocal().toString(),
+      message: exact,
       child: Text(
         label,
         style: TextStyle(fontSize: 11, color: widget.color),
