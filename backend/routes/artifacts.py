@@ -175,9 +175,19 @@ def _safe_export_filename(title: str, extension: str) -> str:
     return f"{base}.{extension}"
 
 
+# Envelope keys a ``create_office_artifact`` block carries alongside
+# its spec payload ({"format", "title", plus "slides" / "sheets" /
+# "sections"} or a "content" / "content_type" pair). They describe the
+# block, they are not part of the spec the builders consume.
+_OFFICE_ENVELOPE_KEYS = {"format", "title", "content", "content_type"}
+_SPEC_PAYLOAD_KEYS = ("sections", "sheets", "slides")
+
+
 def _resolve_export_spec(payload: ExportArtifactRequest) -> dict | None:
     """The explicit spec wins; with ``content_type="json"`` the
-    content itself is the spec when it parses to a JSON object."""
+    content itself is the spec when it parses to a JSON object.
+    Envelope keys from a ``create_office_artifact`` block are stripped
+    so the builders receive only the spec payload."""
     if payload.spec is not None:
         return payload.spec
     if payload.content_type != "json" or not payload.content.strip():
@@ -190,7 +200,64 @@ def _resolve_export_spec(payload: ExportArtifactRequest) -> dict | None:
         ) from None
     if not isinstance(parsed, dict):
         raise HTTPException(status_code=400, detail="JSON spec must be an object")
-    return parsed
+    return {k: v for k, v in parsed.items() if k not in _OFFICE_ENVELOPE_KEYS}
+
+
+def _unwrap_office_envelope(payload: ExportArtifactRequest) -> ExportArtifactRequest:
+    """Resolve a ``create_office_artifact`` envelope sent as JSON
+    content into a plain export request.
+
+    A spec envelope (``slides`` / ``sheets`` / ``sections`` payload)
+    only lends its ``title`` when the request itself has none — the
+    spec resolution above handles the payload. A content envelope
+    (``content`` + ``content_type``, no spec payload) is rewritten to
+    a content export of the wrapped body. Anything else — including
+    unparseable JSON, which the spec resolution rejects with 400 —
+    passes through unchanged.
+    """
+    if payload.spec is not None or payload.content_type != "json":
+        return payload
+    try:
+        parsed = json.loads(payload.content)
+    except ValueError:
+        return payload
+    if not isinstance(parsed, dict):
+        return payload
+    title = payload.title
+    if not title and isinstance(parsed.get("title"), str):
+        title = parsed["title"]
+    if len(title) > MAX_TITLE_CHARS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"title too long (max {MAX_TITLE_CHARS} characters)",
+        )
+    content = parsed.get("content")
+    if any(key in parsed for key in _SPEC_PAYLOAD_KEYS) or not isinstance(
+        content, str
+    ):
+        if title == payload.title:
+            return payload
+        return ExportArtifactRequest(
+            format=payload.format,
+            title=title,
+            content=payload.content,
+            content_type=payload.content_type,
+        )
+    content_type = parsed.get("content_type") or "markdown"
+    if content_type not in EXPORT_CONTENT_TYPES or content_type == "json":
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "envelope content_type must be one of "
+                f"{sorted(EXPORT_CONTENT_TYPES - {'json'})}"
+            ),
+        )
+    return ExportArtifactRequest(
+        format=payload.format,
+        title=title,
+        content=content,
+        content_type=content_type,
+    )
 
 
 def _build_export(payload: ExportArtifactRequest, spec: dict | None) -> bytes:
@@ -1181,6 +1248,7 @@ def register_artifact_routes(
                 status_code=413,
                 detail=f"spec too large (max {MAX_CODE_CHARS} characters)",
             )
+        payload = _unwrap_office_envelope(payload)
         spec = _resolve_export_spec(payload)
         try:
             data = _build_export(payload, spec)

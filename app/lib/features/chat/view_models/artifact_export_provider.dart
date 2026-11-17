@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -104,6 +105,91 @@ String artifactExportFileName(
   return '$stem.${format.fileExtension}';
 }
 
+/// The download file name for an export titled [title] rather than
+/// named by a file: the title sanitized the way the backend sanitizes
+/// attachment names (`_safe_export_filename`), plus the format's
+/// extension.
+String titledExportFileName(String title, ArtifactExportFormat format) {
+  var stem = title.replaceAll(RegExp(r'[^A-Za-z0-9._-]+'), '_');
+  stem = stem.replaceAll(RegExp(r'^[._]+|[._]+$'), '');
+  if (stem.length > 80) stem = stem.substring(0, 80);
+  stem = stem.replaceAll(RegExp(r'[._]+$'), '');
+  return '${stem.isEmpty ? 'artifact' : stem}.${format.fileExtension}';
+}
+
+/// A `create_office_artifact` envelope: the fenced ```json block the
+/// chat tool returns for a generated document. Alongside the spec
+/// payload (`slides` / `sheets` / `sections`) — or a `content` /
+/// `content_type` pair for prose documents — it carries the intended
+/// `format` and `title`, which a plain JSON artifact cannot otherwise
+/// express. The export endpoint accepts the same envelope server-side
+/// (see `_unwrap_office_envelope` in the backend's artifacts route).
+class OfficeArtifactEnvelope {
+  /// The format the tool produced the document for, when declared.
+  final String? format;
+
+  /// The document title declared by the tool, when present.
+  final String? title;
+
+  /// The spec payload with the envelope keys removed, or null for a
+  /// content-driven envelope.
+  final Map<String, dynamic>? spec;
+
+  /// The wrapped document body for a content-driven envelope.
+  final String? content;
+
+  /// How to parse [content] (`markdown` / `csv` / `html`).
+  final String? contentType;
+
+  const OfficeArtifactEnvelope({
+    this.format,
+    this.title,
+    this.spec,
+    this.content,
+    this.contentType,
+  });
+}
+
+/// Parses [artifact] as a [OfficeArtifactEnvelope], or returns null
+/// when it is not one: non-JSON artifacts, invalid JSON, and JSON
+/// objects with neither a spec payload nor a content body are all
+/// plain JSON artifacts and export as before.
+OfficeArtifactEnvelope? parseOfficeArtifactEnvelope(CodeArtifact artifact) {
+  if (artifact.language != 'json' && artifact.fileExtension != 'json') {
+    return null;
+  }
+  final Object? decoded;
+  try {
+    decoded = jsonDecode(artifact.code);
+  } on FormatException {
+    return null;
+  }
+  if (decoded is! Map<String, dynamic>) return null;
+  final spec = <String, dynamic>{
+    for (final entry in decoded.entries)
+      if (entry.key != 'format' &&
+          entry.key != 'title' &&
+          entry.key != 'content' &&
+          entry.key != 'content_type')
+        entry.key: entry.value,
+  };
+  final hasSpecPayload = spec.containsKey('slides') ||
+      spec.containsKey('sheets') ||
+      spec.containsKey('sections');
+  final content = decoded['content'];
+  if (!hasSpecPayload && content is! String) return null;
+  final format = decoded['format'];
+  final title = decoded['title'];
+  final contentType = decoded['content_type'];
+  return OfficeArtifactEnvelope(
+    format: format is String ? format : null,
+    title: title is String && title.isNotEmpty ? title : null,
+    spec: hasSpecPayload ? spec : null,
+    content: content is String ? content : null,
+    contentType: contentType is String ? contentType : null,
+  );
+}
+
 /// Export state for the artifact panel's Export menu. Scoped to the
 /// panel session (autoDispose), like the publish state.
 class ArtifactExportState {
@@ -133,18 +219,43 @@ class ArtifactExportController extends StateNotifier<ArtifactExportState> {
   ) async {
     state = ArtifactExportState(isExporting: true, activeFormat: format);
     try {
-      // Plain code travels as Markdown (its content is already the
-      // fenced-block rendering from artifactExportContent).
-      final rawType = artifactExportContentType(artifact);
-      final bytes = await _repository.exportArtifact(
-        format: format.name,
-        title: artifact.title,
-        content: artifactExportContent(artifact),
-        contentType: rawType == 'code' ? 'markdown' : rawType,
-      );
+      // A create_office_artifact envelope carries its own title and
+      // either a spec payload or a wrapped content body; export that
+      // directly instead of treating the JSON as opaque content.
+      final envelope = parseOfficeArtifactEnvelope(artifact);
+      final title = envelope?.title ?? artifact.title;
+      final Uint8List bytes;
+      if (envelope?.spec != null) {
+        bytes = await _repository.exportArtifact(
+          format: format.name,
+          title: title,
+          content: '',
+          contentType: 'json',
+          spec: envelope!.spec,
+        );
+      } else if (envelope?.content != null) {
+        bytes = await _repository.exportArtifact(
+          format: format.name,
+          title: title,
+          content: envelope!.content!,
+          contentType: envelope.contentType ?? 'markdown',
+        );
+      } else {
+        // Plain code travels as Markdown (its content is already the
+        // fenced-block rendering from artifactExportContent).
+        final rawType = artifactExportContentType(artifact);
+        bytes = await _repository.exportArtifact(
+          format: format.name,
+          title: title,
+          content: artifactExportContent(artifact),
+          contentType: rawType == 'code' ? 'markdown' : rawType,
+        );
+      }
       state = const ArtifactExportState();
       return ExportedArtifact(
-        fileName: artifactExportFileName(artifact, format),
+        fileName: envelope?.title != null
+            ? titledExportFileName(title, format)
+            : artifactExportFileName(artifact, format),
         bytes: bytes,
         mimeType: format.mimeType,
       );
