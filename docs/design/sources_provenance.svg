@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="900" viewBox="0 0 1440 900">
+  <!-- Visual contract: "Show me the path" provenance in the chat Sources
+       drawer. Implemented by sources_sidebar.dart (provenance section per
+       source card) fed by SourcesButton.extractSources in
+       sources_button.dart, which parses the backend `provenance` object
+       ({legs, fused_score, graph_path}) attached to merged retrieval
+       results. Rules: leg badges render ONLY for legs actually present
+       (Vector / Sparse / Graph); fused score shows the RRF/rerank score;
+       graph path renders only when a graph traversal contributed a
+       captured path, as indented node —relation→ node steps. Sources
+       without provenance render exactly as before (no empty section). -->
+  <rect width="1440" height="900" fill="#0E0E10"/>
+
+  <!-- Left chat column -->
+  <rect x="0" y="0" width="1090" height="900" fill="#171719"/>
+  <text x="48" y="64" font-family="Inter, sans-serif" font-size="15" fill="#ECECEC" font-weight="600">How is Acme connected to Gamma?</text>
+  <rect x="240" y="110" width="420" height="52" rx="12" fill="#26262A"/>
+  <text x="260" y="142" font-family="Inter, sans-serif" font-size="13" fill="#D4D4D8">How is Acme connected to Gamma?</text>
+  <text x="48" y="216" font-family="Inter, sans-serif" font-size="13" fill="#D4D4D8">Acme Corp acquired Beta LLC in 2023 [Acme Corp], and Beta</text>
+  <text x="48" y="238" font-family="Inter, sans-serif" font-size="13" fill="#D4D4D8">supplies Gamma Inc [Beta LLC]…</text>
+  <!-- Sources button pill -->
+  <rect x="48" y="268" width="118" height="28" rx="14" fill="#1F1F23" stroke="#2E2E34"/>
+  <text x="66" y="286" font-family="Inter, sans-serif" font-size="12" fill="#E0E0E0">2 sources</text>
+  <rect x="48" y="812" width="994" height="52" rx="26" fill="#1F1F23" stroke="#2E2E34"/>
+  <text x="72" y="844" font-family="Inter, sans-serif" font-size="13" fill="#71717A">Reply</text>
+
+  <!-- Right Sources drawer (350px, matches SourcesSidebar width) -->
+  <rect x="1090" y="0" width="350" height="900" fill="#1B1B1E"/>
+  <text x="1110" y="44" font-family="Inter, sans-serif" font-size="18" fill="#FFFFFF" font-weight="600">▤ Sources</text>
+  <text x="1408" y="44" font-family="Inter, sans-serif" font-size="15" fill="#B4B4B4">✕</text>
+  <rect x="1090" y="64" width="350" height="1" fill="#2E2E34"/>
+
+  <!-- Source card 1: graph + vector, with graph path -->
+  <rect x="1110" y="84" width="310" height="342" rx="12" fill="#222226" stroke="#2E2E34"/>
+  <rect x="1126" y="100" width="24" height="24" rx="6" fill="#2E2E34"/>
+  <text x="1134" y="117" font-family="Inter, sans-serif" font-size="12" fill="#D4D4D8" font-weight="700">1</text>
+  <text x="1158" y="117" font-family="Inter, sans-serif" font-size="13" fill="#A1A1AA">Internal Database</text>
+  <text x="1126" y="152" font-family="Inter, sans-serif" font-size="14" fill="#FFFFFF" font-weight="500">Acme Corp — Beta LLC acquisition filing</text>
+  <text x="1126" y="176" font-family="Inter, sans-serif" font-size="13" fill="#A1A1AA">…Acme Corp completed the acquisition of Beta LLC…</text>
+
+  <!-- Provenance section: divider, badges, fused score, graph path -->
+  <rect x="1126" y="196" width="278" height="1" fill="#2E2E34"/>
+  <text x="1126" y="218" font-family="Inter, sans-serif" font-size="11" fill="#878787" letter-spacing="1">PROVENANCE</text>
+  <rect x="1126" y="230" width="62" height="22" rx="11" fill="#233148" stroke="#4F8EF7"/>
+  <text x="1140" y="245" font-family="Inter, sans-serif" font-size="11" fill="#BFD7FB">Vector</text>
+  <rect x="1196" y="230" width="58" height="22" rx="11" fill="#2E2417" stroke="#D98A2B"/>
+  <text x="1210" y="245" font-family="Inter, sans-serif" font-size="11" fill="#F3D3A7">Graph</text>
+  <text x="1126" y="276" font-family="Inter, sans-serif" font-size="12" fill="#A1A1AA">Fused score</text>
+  <text x="1210" y="276" font-family="Inter, sans-serif" font-size="12" fill="#ECECEC" font-weight="600">0.032</text>
+  <!-- Graph path: indented steps, node —relation→ node -->
+  <text x="1126" y="304" font-family="Inter, sans-serif" font-size="12" fill="#ECECEC">Acme Corp</text>
+  <text x="1142" y="326" font-family="Inter, sans-serif" font-size="12" fill="#878787">— ACQUIRED →</text>
+  <text x="1142" y="348" font-family="Inter, sans-serif" font-size="12" fill="#ECECEC">Beta LLC</text>
+  <text x="1158" y="370" font-family="Inter, sans-serif" font-size="12" fill="#878787">— SUPPLIES →</text>
+  <text x="1158" y="392" font-family="Inter, sans-serif" font-size="12" fill="#ECECEC">Gamma Inc</text>
+
+  <!-- Source card 2: vector only, no graph path row -->
+  <rect x="1110" y="446" width="310" height="196" rx="12" fill="#222226" stroke="#2E2E34"/>
+  <rect x="1126" y="462" width="24" height="24" rx="6" fill="#2E2E34"/>
+  <text x="1134" y="479" font-family="Inter, sans-serif" font-size="12" fill="#D4D4D8" font-weight="700">2</text>
+  <text x="1158" y="479" font-family="Inter, sans-serif" font-size="13" fill="#A1A1AA">Internal Database</text>
+  <text x="1126" y="514" font-family="Inter, sans-serif" font-size="14" fill="#FFFFFF" font-weight="500">Gamma Inc annual report excerpt</text>
+  <rect x="1126" y="534" width="278" height="1" fill="#2E2E34"/>
+  <text x="1126" y="556" font-family="Inter, sans-serif" font-size="11" fill="#878787" letter-spacing="1">PROVENANCE</text>
+  <rect x="1126" y="568" width="62" height="22" rx="11" fill="#233148" stroke="#4F8EF7"/>
+  <text x="1140" y="583" font-family="Inter, sans-serif" font-size="11" fill="#BFD7FB">Vector</text>
+  <text x="1126" y="614" font-family="Inter, sans-serif" font-size="12" fill="#A1A1AA">Fused score</text>
+  <text x="1210" y="614" font-family="Inter, sans-serif" font-size="12" fill="#ECECEC" font-weight="600">0.016</text>
+
+  <!-- Source card 3: legacy source without provenance — unchanged UI -->
+  <rect x="1110" y="662" width="310" height="120" rx="12" fill="#222226" stroke="#2E2E34"/>
+  <rect x="1126" y="678" width="24" height="24" rx="6" fill="#2E2E34"/>
+  <text x="1134" y="695" font-family="Inter, sans-serif" font-size="12" fill="#D4D4D8" font-weight="700">3</text>
+  <text x="1158" y="695" font-family="Inter, sans-serif" font-size="13" fill="#A1A1AA">example.com</text>
+  <text x="1126" y="730" font-family="Inter, sans-serif" font-size="14" fill="#FFFFFF" font-weight="500">Web result (no provenance — card unchanged)</text>
+</svg>

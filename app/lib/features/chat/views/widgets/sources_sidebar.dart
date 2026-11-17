@@ -175,6 +175,14 @@ class SourcesSidebar extends StatelessWidget {
                               ),
                             ),
                           ],
+                          if (source['provenance'] is Map &&
+                              (source['provenance'] as Map).isNotEmpty) ...[
+                            SizedBox(height: 12),
+                            _ProvenanceSection(
+                              provenance: Map<String, dynamic>.from(
+                                  source['provenance'] as Map),
+                            ),
+                          ],
                         ],
                       ),
                     ),
@@ -185,6 +193,137 @@ class SourcesSidebar extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Provenance ("show me the path") section for one source card.
+///
+/// Rendering only: [provenance] is the parsed map produced by
+/// SourcesButton.extractSources — {legs, fused_score, graph_path}.
+/// Badges render only for legs actually present; the graph path
+/// renders only when a captured traversal path was sent.
+class _ProvenanceSection extends StatelessWidget {
+  final Map<String, dynamic> provenance;
+
+  const _ProvenanceSection({required this.provenance});
+
+  static const _legLabels = {
+    'vector': 'Vector',
+    'sparse': 'Sparse',
+    'graph': 'Graph',
+  };
+
+  static const _legColors = {
+    'vector': Color(0xFF4F8EF7),
+    'sparse': Color(0xFF3FB68B),
+    'graph': Color(0xFFD98A2B),
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context).extension<AppThemeExtension>()!;
+    final legs = (provenance['legs'] as List?)?.cast<String>() ?? const [];
+    final fusedScore = (provenance['fused_score'] as num?)?.toDouble();
+    final rawPath = provenance['graph_path'];
+    final graphPath = rawPath is List
+        ? rawPath
+            .whereType<Map>()
+            .map((s) => Map<String, dynamic>.from(s))
+            .toList()
+        : const <Map<String, dynamic>>[];
+
+    return Column(
+      key: ValueKey('provenance-section'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Divider(color: theme.borderColor, height: 1),
+        SizedBox(height: 10),
+        Text(
+          'PROVENANCE',
+          style: TextStyle(
+            color: theme.textTertiary,
+            fontSize: 11,
+            letterSpacing: 1,
+          ),
+        ),
+        if (legs.isNotEmpty) ...[
+          SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 6,
+            children: [
+              for (final leg in legs)
+                Container(
+                  padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: (_legColors[leg] ?? theme.borderColor)
+                        .withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(11),
+                    border:
+                        Border.all(color: _legColors[leg] ?? theme.borderColor),
+                  ),
+                  child: Text(
+                    _legLabels[leg] ?? leg,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ],
+        if (fusedScore != null) ...[
+          SizedBox(height: 8),
+          Row(
+            children: [
+              Text(
+                'Fused score',
+                style: TextStyle(color: theme.textTertiary, fontSize: 12),
+              ),
+              SizedBox(width: 8),
+              Text(
+                fusedScore.toStringAsFixed(3),
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ],
+        if (graphPath.length >= 2) ...[
+          SizedBox(height: 10),
+          for (var i = 0; i < graphPath.length; i++) ...[
+            Padding(
+              padding: EdgeInsets.only(left: i * 16.0),
+              child: Text(
+                graphPath[i]['node']?.toString() ?? '',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  height: 1.4,
+                ),
+              ),
+            ),
+            if (graphPath[i]['relation'] != null)
+              Padding(
+                padding: EdgeInsets.only(left: (i + 1) * 16.0),
+                child: Text(
+                  '— ${graphPath[i]['relation']} →',
+                  style: TextStyle(
+                    color: theme.textTertiary,
+                    fontSize: 12,
+                    height: 1.4,
+                  ),
+                ),
+              ),
+          ],
+        ],
+      ],
     );
   }
 }

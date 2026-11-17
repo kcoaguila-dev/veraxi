@@ -343,6 +343,140 @@ void main() {
     });
   });
 
+  group('SourcesButton.extractSources — provenance parsing', () {
+    test('merged artifact provenance is parsed and attached to the source', () {
+      final toolEvent = ToolEvent(
+        id: 'tool-prov-1',
+        name: 'merge_rank',
+        isComplete: true,
+        result: [
+          {
+            'id': 'merged-1',
+            'payload': {'text': 'Acme acquired Beta.', 'title': 'Filing'},
+            'sources': ['graph', 'vector'],
+            'fused_score': 0.032,
+            'provenance': {
+              'legs': ['vector', 'graph'],
+              'fused_score': 0.032,
+              'graph_path': [
+                {'node': 'Acme Corp', 'relation': 'ACQUIRED'},
+                {'node': 'Beta LLC', 'relation': null},
+              ],
+            },
+          },
+        ],
+      );
+
+      final message = ChatMessage(
+        role: 'assistant',
+        content: 'Content.',
+        toolEvents: [toolEvent],
+      );
+
+      final sources = SourcesButton.extractSources(message);
+      expect(sources.length, 1);
+      final provenance = sources[0]['provenance'] as Map<String, dynamic>;
+      expect(provenance['legs'], ['vector', 'graph']);
+      expect(provenance['fused_score'], 0.032);
+      final path = provenance['graph_path'] as List;
+      expect(path.length, 2);
+      expect(path[0]['node'], 'Acme Corp');
+      expect(path[0]['relation'], 'ACQUIRED');
+      expect(path[1]['node'], 'Beta LLC');
+    });
+
+    test('artifact without provenance yields a source with no provenance key',
+        () {
+      final toolEvent = ToolEvent(
+        id: 'tool-prov-2',
+        name: 'search_vectors',
+        isComplete: true,
+        result: [
+          _qdrantHitArtifact(text: 'Plain chunk.', title: 'Plain'),
+        ],
+      );
+
+      final message = ChatMessage(
+        role: 'assistant',
+        content: 'Content.',
+        toolEvents: [toolEvent],
+      );
+
+      final sources = SourcesButton.extractSources(message);
+      expect(sources.length, 1);
+      expect(sources[0].containsKey('provenance'), isFalse);
+    });
+
+    test('single-node graph path is dropped, legs and score are kept', () {
+      final toolEvent = ToolEvent(
+        id: 'tool-prov-3',
+        name: 'merge_rank',
+        isComplete: true,
+        result: [
+          {
+            'id': 'merged-2',
+            'payload': {'text': 'Text.', 'title': 'T'},
+            'sources': ['graph'],
+            'provenance': {
+              'legs': ['graph'],
+              'fused_score': 0.01,
+              'graph_path': [
+                {'node': 'Only Node', 'relation': null},
+              ],
+            },
+          },
+        ],
+      );
+
+      final message = ChatMessage(
+        role: 'assistant',
+        content: 'Content.',
+        toolEvents: [toolEvent],
+      );
+
+      final sources = SourcesButton.extractSources(message);
+      final provenance = sources[0]['provenance'] as Map<String, dynamic>;
+      expect(provenance['legs'], ['graph']);
+      expect(provenance['graph_path'], isNull);
+    });
+
+    test('dossier chunk provenance (vector leg, hybrid score) is parsed', () {
+      final toolEvent = ToolEvent(
+        id: 'tool-prov-4',
+        name: 'build_lazy_dossier',
+        isComplete: true,
+        result: {
+          'chunks': [
+            {
+              'point_id': 'chunk-1',
+              'score': 0.87,
+              'text': 'Dossier evidence text.',
+              'title': 'Dossier Doc',
+              'provenance': {
+                'legs': ['vector'],
+                'fused_score': 0.87,
+                'graph_path': null,
+              },
+            },
+          ],
+        },
+      );
+
+      final message = ChatMessage(
+        role: 'assistant',
+        content: 'Content.',
+        toolEvents: [toolEvent],
+      );
+
+      final sources = SourcesButton.extractSources(message);
+      expect(sources.length, 1);
+      final provenance = sources[0]['provenance'] as Map<String, dynamic>;
+      expect(provenance['legs'], ['vector']);
+      expect(provenance['fused_score'], 0.87);
+      expect(provenance['graph_path'], isNull);
+    });
+  });
+
   group('SourcesButton widget rendering', () {
     testWidgets('renders correct source count for web search results',
         (WidgetTester tester) async {

@@ -4,6 +4,7 @@ import sentry_sdk
 
 from backend.config import get_config
 from backend.retrieval.merge_rank import GraphHit
+from backend.retrieval.provenance import build_graph_path
 from backend.storage.neo4j_client import Neo4jStorageClient
 
 logger = logging.getLogger(__name__)
@@ -108,12 +109,15 @@ def query_graph(
          END AS match_tier
     ORDER BY match_tier ASC, size(start.name) DESC
     LIMIT 5
-    MATCH (start)-[rels*1..{max_hops}]-(end)
+    MATCH path = (start)-[rels*1..{max_hops}]-(end)
     WHERE end.tenant_id = $tenant_id
     WITH start, end, last(rels) AS last_rel, size(rels) AS hop_distance,
-         size([r IN rels WHERE type(r) IN ['MENTIONED_WITH', 'ASSOCIATED_WITH', 'RELATED_TO']]) AS noisy_hops
+         size([r IN rels WHERE type(r) IN ['MENTIONED_WITH', 'ASSOCIATED_WITH', 'RELATED_TO']]) AS noisy_hops,
+         [n IN nodes(path) | n.name] AS path_node_names,
+         [r IN relationships(path) | type(r)] AS path_rel_types
     ORDER BY hop_distance ASC, noisy_hops ASC
-    WITH DISTINCT start, end, head(collect(last_rel)) AS last_rel, min(hop_distance) AS min_hops, min(noisy_hops) AS min_noisy_hops
+    WITH DISTINCT start, end, head(collect(last_rel)) AS last_rel, min(hop_distance) AS min_hops, min(noisy_hops) AS min_noisy_hops,
+         head(collect(path_node_names)) AS path_node_names, head(collect(path_rel_types)) AS path_rel_types
     ORDER BY min_hops ASC, min_noisy_hops ASC
     LIMIT 50
     UNWIND (CASE WHEN size(coalesce(end.qdrant_point_ids, [])) > 0 THEN end.qdrant_point_ids ELSE ['neo4j:' + toString(end.id)] END) AS qid
@@ -125,6 +129,8 @@ def query_graph(
            type(last_rel) AS relation_type,
            last_rel.last_confirmed_at AS last_confirmed_at,
            last_rel.source AS relation_source,
+           path_node_names,
+           path_rel_types,
            min_hops
     ORDER BY min_hops ASC
     LIMIT 100
@@ -165,6 +171,14 @@ def query_graph(
                 payload["last_confirmed_at"] = row.get("last_confirmed_at")
             if row.get("relation_source"):
                 payload["relation_source"] = row.get("relation_source")
+            # Provenance: store the captured traversal path only when the
+            # Cypher capture is complete; never reconstruct a partial one.
+            graph_path = build_graph_path(
+                row.get("path_node_names") or [],
+                row.get("path_rel_types") or [],
+            )
+            if graph_path is not None:
+                payload["graph_path"] = graph_path
             hits.append(GraphHit(id=q_id, payload=payload))
 
     # Hydrate GraphHits with document chunk text, page_number, and source from Qdrant

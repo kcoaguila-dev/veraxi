@@ -16,6 +16,7 @@ from typing import Any
 
 from backend.config import get_config
 from backend.ingestion.chunk_embed import embed_text, embed_text_sparse
+from backend.retrieval.provenance import build_provenance
 from backend.storage.graph_operations import (
     insert_graph_nodes,
     purge_cooccurrence_relationships,
@@ -100,6 +101,10 @@ def build_lazy_graph_dossier(
     # 4. Attach entity anchors to chunks
     for ch in chunks:
         ch["linked_entities"] = entities_by_chunk.get(ch["point_id"], [])
+        # Provenance: hybrid-search leg + hybrid score only. The linked
+        # entities above are anchors, not a traversal, so no graph leg
+        # or graph path is claimed for dossier chunks.
+        ch["provenance"] = build_provenance(ch)
 
     # 5. Format prompt template for Host AI (Subscription agent)
     host_ai_prompt = (
