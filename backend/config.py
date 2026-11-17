@@ -100,6 +100,12 @@ class Config:
     admin_tenant_ids: list[str]
     internal_service_key: str = ""
     rate_limit_artifact_complete: str = "20/minute"
+    # External integrations (MCP / OAuth / OpenAPI connectors)
+    integration_encryption_key: str = ""
+    allow_private_mcp_urls: bool = False
+    github_client_id: str = ""
+    github_client_secret: str = ""
+    oauth_redirect_base_url: str = ""
     vision_enabled: bool = False
     vision_base_url: str = ""
     vision_api_key: str = ""
@@ -241,6 +247,18 @@ class Config:
             rate_limit_artifact_complete=os.environ.get(
                 "RATE_LIMIT_ARTIFACT_COMPLETE", "20/minute"
             ),
+            integration_encryption_key=os.environ.get(
+                "INTEGRATION_ENCRYPTION_KEY", ""
+            ),
+            allow_private_mcp_urls=os.environ.get(
+                "ALLOW_PRIVATE_MCP_URLS", "false"
+            ).lower()
+            == "true",
+            github_client_id=os.environ.get("GITHUB_CLIENT_ID", ""),
+            github_client_secret=os.environ.get("GITHUB_CLIENT_SECRET", ""),
+            oauth_redirect_base_url=os.environ.get(
+                "OAUTH_REDIRECT_BASE_URL", ""
+            ).rstrip("/"),
             default_search_limit=int(os.environ.get("DEFAULT_SEARCH_LIMIT", "10")),
             default_max_hops=int(os.environ.get("DEFAULT_MAX_HOPS", "2")),
             searxng_url=os.environ.get("SEARXNG_BASE_URL", "http://searxng:8080/"),
