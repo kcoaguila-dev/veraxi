@@ -57,7 +57,7 @@ dependencies = [
     "langgraph-checkpoint-postgres",
     "psycopg[binary]",
     "mcp-types>=2.3.0",
-    "python-dotenv>=1.2.3",
+    "python-dotenv>=1.2.4",
     "duckduckgo_search>=7.0.0",
     "modal",
     "e2b",
@@ -102,7 +102,7 @@ dev = [
     "import-linter>=2.15",
     "pytest>=9.1.1",
     "pytest-asyncio>=1.4.0",
-    "python-dotenv>=1.2.3",
+    "python-dotenv>=1.2.4",
     "testcontainers>=4.15.0",
     "veraxi",
 ]
