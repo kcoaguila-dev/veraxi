@@ -8,6 +8,7 @@ import 'package:speech_to_text/speech_to_text.dart';
 import 'web_search_dialog.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
+import 'package:veraxi_app/features/chat/views/widgets/deep_cost_preflight.dart';
 import 'package:veraxi_app/features/chat/views/widgets/integration_chips_bar.dart';
 import 'package:veraxi_app/features/chat/views/widgets/sandbox_toggle.dart';
 
@@ -18,6 +19,10 @@ class ChatInput extends StatefulWidget {
   final String? errorText;
   final VoidCallback? onDismissError;
 
+  /// Currently selected chat model, used only for the Deep-mode
+  /// pre-flight cost estimate shown while High-Accuracy is on.
+  final String? model;
+
   const ChatInput({
     super.key,
     required this.isLoading,
@@ -25,6 +30,7 @@ class ChatInput extends StatefulWidget {
     required this.onSend,
     this.errorText,
     this.onDismissError,
+    this.model,
   });
 
   @override
@@ -319,6 +325,10 @@ class _ChatInputState extends State<ChatInput> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        // Deep (High-Accuracy / agentic debate) pre-flight estimate:
+        // renders only while High-Accuracy is on and an estimate has
+        // loaded; see docs/design/deep_cost_preflight.svg.
+        if (_highAccuracyEnabled) DeepCostPreflight(model: widget.model),
         if (widget.errorText != null)
           Container(
             margin: EdgeInsets.only(bottom: 8.0, left: 16.0, right: 16.0),

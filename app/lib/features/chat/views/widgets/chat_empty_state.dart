@@ -38,6 +38,7 @@ class ChatEmptyState extends StatelessWidget {
           ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 800),
             child: ChatInput(
+              model: selectedModel,
               projectName: activeProjectName,
               isLoading: state.isLoading,
               onSend: (text, {attachments}) => viewModel.sendMessage(text,

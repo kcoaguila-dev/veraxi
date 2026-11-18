@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="900" viewBox="0 0 1440 900">
+  <!-- Visual contract: Deep-Mode Pre-Flight Cost Estimate in the chat composer.
+       Implemented by deep_cost_preflight.dart (DeepCostPreflightChip) rendered
+       inside chat_input.dart directly above the composer container, ONLY when
+       the High-Accuracy / Deep (agentic debate) toggle is on.
+       Data: POST /api/chat/estimate-deep {model} — the estimate is derived
+       from debate constants on the backend, NEVER from the query text.
+       Rules:
+       - Token range ALWAYS renders (prompt+completion total min–max).
+       - USD range renders ONLY when estimated_cost_usd is non-null;
+         unknown pricing shows NO dollar figure (never $0.00).
+       - Chip appears/disappears with AnimatedSize + AnimatedSwitcher
+         (260ms easeInOut, matching chat_message_metrics.dart).
+       - On fetch failure / offline the chip renders nothing (null state).
+       Colors: dark workbench — surface #1F1F23, border #2E2E34,
+       card #222226, accent gradient start #7C6CF0-style primary from
+       AppThemeExtension (primaryGradientStart), text #ECECEC / #A1A1AA. -->
+  <rect width="1440" height="900" fill="#0E0E10"/>
+
+  <!-- Chat column -->
+  <rect x="0" y="0" width="1440" height="900" fill="#171719"/>
+  <text x="48" y="64" font-family="Inter, sans-serif" font-size="15" fill="#ECECEC" font-weight="600">Deep research session</text>
+  <text x="48" y="120" font-family="Inter, sans-serif" font-size="13" fill="#A1A1AA">Earlier conversation renders here; the composer is pinned to the bottom.</text>
+
+  <!-- Pre-flight chip (priced model): pill above composer, left aligned -->
+  <rect x="48" y="742" width="468" height="34" rx="17" fill="#222226" stroke="#2E2E34"/>
+  <circle cx="68" cy="759" r="5" fill="#8B7CF6"/>
+  <text x="82" y="764" font-family="Inter, sans-serif" font-size="12" fill="#ECECEC" font-weight="600">Deep estimate</text>
+  <text x="176" y="764" font-family="Inter, sans-serif" font-size="12" fill="#A1A1AA">3–7 calls · 12,000–84,000 tokens · $0.12–$0.84</text>
+
+  <!-- Composer -->
+  <rect x="48" y="788" width="1344" height="64" rx="24" fill="#1F1F23" stroke="#2E2E34"/>
+  <text x="72" y="826" font-family="Inter, sans-serif" font-size="13" fill="#71717A">Message Veraxi...</text>
+  <rect x="1210" y="806" width="150" height="28" rx="14" fill="#2E2E34"/>
+  <text x="1226" y="824" font-family="Inter, sans-serif" font-size="12" fill="#ECECEC">High-Accuracy ✓</text>
+
+  <!-- Variant B: unpriced model — no USD segment at all -->
+  <text x="48" y="620" font-family="Inter, sans-serif" font-size="12" fill="#71717A">Variant — pricing unknown (estimated_cost_usd = null):</text>
+  <rect x="48" y="636" width="330" height="34" rx="17" fill="#222226" stroke="#2E2E34"/>
+  <circle cx="68" cy="653" r="5" fill="#8B7CF6"/>
+  <text x="82" y="658" font-family="Inter, sans-serif" font-size="12" fill="#ECECEC" font-weight="600">Deep estimate</text>
+  <text x="176" y="658" font-family="Inter, sans-serif" font-size="12" fill="#A1A1AA">3–7 calls · 12,000–84,000 tokens</text>
+
+  <!-- Variant C: Deep off / loading / failed — chip absent, layout collapses via AnimatedSize -->
+  <text x="48" y="560" font-family="Inter, sans-serif" font-size="12" fill="#71717A">Variant — Deep off, loading, or estimate failed: no chip, no placeholder, no $0.00.</text>
+</svg>
