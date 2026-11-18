@@ -33,7 +33,7 @@ dependencies:
   file_picker: ^13.1.0
   android_intent_plus: ^5.1.0
   shared_preferences: ^2.5.6
-  flutter_svg: ^2.3.2
+  flutter_svg: ^2.4.0
   lucide_icons_flutter: ^4.0.3
   drift: ^2.22.1
   sqlite3_flutter_libs: ^0.5.25
