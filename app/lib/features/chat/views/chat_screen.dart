@@ -545,6 +545,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                       const SizedBox(height: 8),
                                     ],
                                     ChatInput(
+                                      model: _selectedModel == 'Select a model'
+                                          ? null
+                                          : _selectedModel,
                                       projectName: state.activeProjectName,
                                       isLoading: state.isLoading,
                                       onSend: (text, {attachments}) =>
@@ -648,6 +651,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               ).animate().fade(duration: 800.ms).slideY(begin: 0.1, end: 0),
               const SizedBox(height: 32),
               ChatInput(
+                model:
+                    _selectedModel == 'Select a model' ? null : _selectedModel,
                 projectName: state.activeProjectName,
                 isLoading: state.isLoading,
                 onSend: (text, {attachments}) => viewModel.sendMessage(text,
