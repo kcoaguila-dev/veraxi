@@ -39,6 +39,10 @@ def run_memories_list(endpoint=None, key=None, tenant=None, as_json=False, inclu
     if as_json:
         print(json.dumps({"memories": rows}, indent=2))
         sys.exit(0)
+    if not rows:
+        print("No memories found.")
+        print("Use 'veraxi memories add \"<content>\"' to record one.")
+        sys.exit(0)
     for row in rows:
         _render_memory(row)
     sys.exit(0)

@@ -59,7 +59,7 @@ def run_query(
 
     if as_json:
         print(json.dumps(result, indent=2))
-        return
+        return result
 
     print(f"Results for query: '{query}'")
     print("=" * 60)
@@ -87,3 +87,4 @@ def run_query(
         print(f"Status: {result.get('status')}")
         print(f"Endpoint: {result.get('remote_endpoint')}")
         print(f"Note: {result.get('note')}")
+    return result

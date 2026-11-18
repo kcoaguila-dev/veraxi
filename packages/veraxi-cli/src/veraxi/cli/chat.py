@@ -706,7 +706,7 @@ def run_interactive_chat(
             # Fallback to direct dossier retrieval if streaming agent loop is not active
             if not success:
                 print()
-                run_query(
+                fallback_result = run_query(
                     query_text,
                     as_json=False,
                     tenant_id=tenant_id,
@@ -714,6 +714,21 @@ def run_interactive_chat(
                     endpoint=endpoint,
                     key=key,
                 )
+                chunks = (fallback_result or {}).get("chunks") or []
+                if chunks:
+                    sources = [
+                        {
+                            "title": c.get("title", "Unknown"),
+                            "fused_score": c.get("score"),
+                            "legs": c.get("legs") or [],
+                            "graph_path": c.get("graph_path"),
+                        }
+                        for c in chunks
+                    ]
+                    _LAST_SOURCES.clear()
+                    _LAST_SOURCES.extend(sources)
+                    if show_sources:
+                        print_provenance(sources, as_json=as_json)
                 print()
 
         except (KeyboardInterrupt, EOFError):

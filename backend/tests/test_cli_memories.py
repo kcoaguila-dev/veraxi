@@ -80,3 +80,12 @@ def test_list_json(capsys):
         run_memories_list(as_json=True, include_all=True)
     data = json.loads(capsys.readouterr().out)
     assert len(data["memories"]) == 2
+
+
+def test_list_empty_prints_helpful_message(capsys):
+    with patch(PATCH_TARGET, return_value={"memories": []}), pytest.raises(SystemExit) as exc:
+        run_memories_list()
+    assert exc.value.code == 0
+    out = capsys.readouterr().out
+    assert "No memories found." in out
+    assert "veraxi memories add" in out
