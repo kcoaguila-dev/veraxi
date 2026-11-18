@@ -111,6 +111,23 @@ def test_parse_python_nodes(graph):
     assert node.language == "python"
 
 
+def test_parse_skips_symlinked_file_escaping_root(tmp_path: Path):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "evil.py").write_text(
+        "def leaked():\n    return 42\n", encoding="utf-8"
+    )
+    (repo / "evil_link.py").symlink_to(outside / "evil.py")
+    (repo / "real.py").write_text("def ok():\n    return 1\n", encoding="utf-8")
+
+    parsed = parse_repo(repo)
+    paths = {node.path for node in parsed.nodes}
+    assert paths == {"real.py"}
+    assert parsed.node("Function", "evil_link.leaked") is None
+
+
 def test_parse_skips_filtered_files(graph):
     paths = {node.path for node in graph.nodes}
     assert "node_modules/evil/index.py" not in paths

@@ -276,3 +276,25 @@ class TestOAuthCallbackHtml:
         assert resp.status_code == 200
         assert "veraxi_oauth_callback" in resp.text
         assert "?oauth_error=" not in resp.text
+
+    def test_callback_xss_payload_in_error_and_provider_is_neutralized(self):
+        from types import SimpleNamespace
+        from backend.routes import integrations_oauth
+
+        app = FastAPI()
+        app.state.redis = object()
+        cfg = SimpleNamespace(public_app_url="https://veraxi.me")
+        integrations_oauth.register_oauth_routes(
+            app, lambda: "tenant-1", lambda: FakeSupabase(), config=cfg
+        )
+        tc = TestClient(app, follow_redirects=False)
+
+        resp = tc.get(
+            "/api/integrations/oauth/evil<script>/callback"
+            "?error=</script><script>alert(1)</script>"
+        )
+        assert resp.status_code == 200
+        assert "<script>alert(1)</script>" not in resp.text
+        assert "</script><script>" not in resp.text
+        assert "evil<script>" not in resp.text
+        assert "oauth_failed" in resp.text

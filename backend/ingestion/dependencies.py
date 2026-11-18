@@ -36,6 +36,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import re
 import tomllib
 from pathlib import Path
@@ -310,20 +311,34 @@ def extract_dependencies_from_file(path: str | Path) -> list[dict[str, Any]]:
     return parser(text, source_file=file_path.name)
 
 
+def _is_allowed_manifest(path: Path, root_path: Path) -> bool:
+    if path.name not in _PARSERS or path.is_symlink() or not path.is_file():
+        return False
+    try:
+        if os.path.commonpath([str(root_path), os.path.realpath(path)]) != str(
+            root_path
+        ):
+            return False
+    except ValueError:
+        return False
+    relative = path.relative_to(root_path)
+    return not any(part in _SKIPPED_DIRS for part in relative.parts[:-1])
+
+
 def extract_dependencies_from_repo(root: str | Path) -> list[dict[str, Any]]:
     """Extract dependencies from every manifest under ``root``.
 
     Walks the tree skipping vendored/build directories; each record's
     ``source_file`` is the repo-relative manifest path.
     """
-    root_path = Path(root)
+    root_path = Path(os.path.realpath(root))
     records: list[dict[str, Any]] = []
+    if not root_path.is_dir():
+        return records
     for path in sorted(root_path.rglob("*")):
-        if not path.is_file() or path.name not in _PARSERS:
+        if not _is_allowed_manifest(path, root_path):
             continue
         relative = path.relative_to(root_path)
-        if any(part in _SKIPPED_DIRS for part in relative.parts[:-1]):
-            continue
         for record in extract_dependencies_from_file(path):
             record = dict(record)
             record["source_file"] = relative.as_posix()
