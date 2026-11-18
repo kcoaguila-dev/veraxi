@@ -29,9 +29,14 @@ from pydantic import BaseModel
 
 from backend.ingestion.code_graph import write_repo_code_graph
 from backend.ingestion.dependencies import extract_dependencies_from_repo
-from backend.ingestion.vuln_intel import fetch_and_write_vuln_intel
+from backend.ingestion.vuln_intel import (
+    apply_kev,
+    fetch_and_write_vuln_intel,
+    fetch_kev_records,
+    fetch_osv_for_packages,
+)
 from backend.retrieval.code_queries import impact_analysis, repo_overview, symbol_lookup
-from backend.retrieval.vuln_queries import vuln_report
+from backend.retrieval.vuln_queries import build_vuln_report, vuln_report
 
 logger = logging.getLogger(__name__)
 
@@ -153,6 +158,10 @@ class CodeIngestRequest(BaseModel):
 class VulnReportRequest(BaseModel):
     repo_path: str | None = None
     dependencies: list[dict] | None = None
+    # Opt-in live OSV.dev fallback: only consulted when the tenant
+    # graph yields no findings (e.g. no OSV packages synced yet).
+    # Off by default so a report never makes surprise network calls.
+    live_osv: bool = False
 
 
 def _default_neo4j_client():
@@ -165,6 +174,49 @@ def _default_neo4j_client():
     from backend.storage.neo4j_client import Neo4jStorageClient
 
     return Neo4jStorageClient.from_config(get_config())
+
+
+def _live_osv_report(dependencies: list[dict], tenant_id: str) -> dict:
+    """Build a report from a live OSV.dev batch lookup (no graph writes).
+
+    KEV enrichment is best-effort: if the KEV feed cannot be fetched,
+    the OSV findings are returned without KEV flags rather than
+    failing the report.
+    """
+    from backend.ingestion.dependencies import normalize_package_name
+
+    records = fetch_osv_for_packages(dependencies)
+    try:
+        apply_kev(records, fetch_kev_records())
+    except Exception as exc:  # KEV is enrichment only
+        logger.warning("KEV enrichment for live OSV report failed: %s", exc)
+    index: dict[str, list[dict]] = {}
+    for record in records:
+        for affected in record.affected:
+            ecosystem = (affected.ecosystem or "").lower()
+            entry = {
+                "cve_id": record.id,
+                "advisory_id": record.id,
+                "severity": record.severity,
+                "kev": bool(record.kev),
+                "cwe_ids": list(record.cwe_ids),
+                **affected.properties(),
+            }
+            name = normalize_package_name(affected.product)
+            index.setdefault(name, []).append(entry)
+            if ecosystem and ecosystem != "cpe":
+                index.setdefault(f"{ecosystem}:{name}", []).append(entry)
+            # Maven OSV names are "group:artifact" while dependency
+            # lists often carry just the artifact ("log4j-core").
+            if ":" in name:
+                artifact = normalize_package_name(name.rsplit(":", 1)[-1])
+                index.setdefault(artifact, []).append(entry)
+                if ecosystem and ecosystem != "cpe":
+                    index.setdefault(f"{ecosystem}:{artifact}", []).append(entry)
+    report = build_vuln_report(dependencies, index)
+    report["tenant_id"] = tenant_id
+    report["source"] = "osv_live"
+    return report
 
 
 def _sync_vuln_intel(tenant_id: str) -> dict:
@@ -275,7 +327,7 @@ def register_code_intel_routes(
                 detail="Provide either repo_path or dependencies",
             )
         try:
-            return await asyncio.to_thread(
+            report = await asyncio.to_thread(
                 vuln_report, dependencies, tenant_id=tenant_id
             )
         except Exception as e:
@@ -283,3 +335,14 @@ def register_code_intel_routes(
             raise HTTPException(
                 status_code=500, detail="Failed to build vulnerability report"
             ) from e
+        if payload.live_osv and not report.get("findings"):
+            try:
+                return await asyncio.to_thread(
+                    _live_osv_report, dependencies, tenant_id
+                )
+            except Exception as e:
+                # Live fallback is optional: a failed OSV lookup
+                # returns the (empty) graph report, not a 500.
+                logger.warning("Live OSV fallback failed: %s", e)
+                sentry_sdk.capture_exception(e)
+        return report

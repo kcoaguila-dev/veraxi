@@ -258,3 +258,89 @@ def test_neo4j_adapter_parameterized():
     assert "widgetlib" not in query
     assert params == {"tenant_id": "tenant-a", "package_names": ["widgetlib"]}
     assert client.affected_index("tenant-a", []) == {}
+
+
+# ---------------------------------------------------------------------------
+# OSV ecosystem-keyed matching (introduced/fixed bounds)
+# ---------------------------------------------------------------------------
+
+OSV_INDEX = {
+    "pypi:requests": [
+        {
+            "cve_id": "GHSA-j8r2-6x86-q33q",
+            "severity": "MODERATE",
+            "kev": True,
+            "cwe_ids": ["CWE-212"],
+            "criteria": "osv:PyPI:requests:0-2.31.2",
+            "criteria_version": "",
+            "vulnerable": True,
+            "ecosystem": "PyPI",
+            "introduced": "0",
+            "fixed": "2.31.2",
+            "version_start_including": None,
+            "version_start_excluding": None,
+            "version_end_including": None,
+            "version_end_excluding": None,
+        }
+    ],
+    "pypi:urllib3": [
+        {
+            "cve_id": "CVE-2021-33503",
+            "severity": "HIGH",
+            "kev": False,
+            "cwe_ids": ["CWE-1333"],
+            "criteria": "osv:PyPI:urllib3:0-1.26.5",
+            "criteria_version": "",
+            "vulnerable": True,
+            "ecosystem": "PyPI",
+            "introduced": "0",
+            "fixed": "1.26.5",
+            "version_start_including": None,
+            "version_start_excluding": None,
+            "version_end_including": None,
+            "version_end_excluding": None,
+        }
+    ],
+    "maven:log4j-core": [
+        {
+            "cve_id": "CVE-2021-44228",
+            "severity": "CRITICAL",
+            "kev": True,
+            "cwe_ids": ["CWE-917"],
+            "criteria": "osv:Maven:log4j-core:2.0.0-2.15.0",
+            "criteria_version": "",
+            "vulnerable": True,
+            "ecosystem": "Maven",
+            "introduced": "2.0.0",
+            "fixed": "2.15.0",
+            "version_start_including": None,
+            "version_start_excluding": None,
+            "version_end_including": None,
+            "version_end_excluding": None,
+        }
+    ],
+}
+
+
+def test_osv_index_matches_requests_urllib3_log4j():
+    deps = [
+        _dep("requests", "2.31.0"),
+        _dep("urllib3", "1.26.4"),
+        _dep("log4j-core", "2.14.1", ecosystem="maven"),
+    ]
+    report = build_vuln_report(deps, OSV_INDEX)
+    assert report["matched_count"] == 3
+    kev_ids = {f["cve_id"] for f in report["findings"] if f["kev"]}
+    assert kev_ids == {"GHSA-j8r2-6x86-q33q", "CVE-2021-44228"}
+
+
+def test_osv_ecosystem_mismatch_never_matches():
+    # Same package name, wrong ecosystem: the PyPI requests advisory
+    # must not fire for an npm dependency also named requests.
+    findings = match_dependencies(
+        [_dep("requests", "2.31.0", ecosystem="npm")], OSV_INDEX
+    )
+    assert findings == []
+    # Fixed versions do not match.
+    assert match_dependencies([_dep("requests", "2.32.0")], OSV_INDEX) == []
+    assert match_dependencies([_dep("log4j-core", "2.17.0", ecosystem="maven")], OSV_INDEX) == []

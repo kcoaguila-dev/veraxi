@@ -512,3 +512,147 @@ def test_fetch_nvd_records_includes_bounded_default_params(monkeypatch):
     assert seen["params"]["resultsPerPage"] == "100"
     assert "lastModStartDate" in seen["params"]
     assert "lastModEndDate" in seen["params"]
+
+
+# ---------------------------------------------------------------------------
+# OSV.dev batch lookup (mocked httpx transport, no network)
+# ---------------------------------------------------------------------------
+
+OSV_ADVISORIES = {
+    "GHSA-j8r2-6x86-q33q": {
+        "id": "GHSA-j8r2-6x86-q33q",
+        "aliases": ["CVE-2023-32681"],
+        "summary": "Requests redirects leak Proxy-Authorization headers.",
+        "database_specific": {"severity": "MODERATE", "cwe_ids": ["CWE-212"]},
+        "affected": [
+            {
+                "package": {"name": "requests", "ecosystem": "PyPI"},
+                "ranges": [
+                    {"type": "ECOSYSTEM", "events": [{"introduced": "0"}, {"fixed": "2.31.2"}]}
+                ],
+            }
+        ],
+    },
+    "CVE-2021-33503": {
+        "id": "CVE-2021-33503",
+        "aliases": ["GHSA-5r5r-9r8c-9r5r"],
+        "summary": "urllib3 catastrophic backtracking.",
+        "database_specific": {"severity": "HIGH", "cwe_ids": ["CWE-1333"]},
+        "affected": [
+            {
+                "package": {"name": "urllib3", "ecosystem": "PyPI"},
+                "ranges": [
+                    {"type": "ECOSYSTEM", "events": [{"introduced": "0"}, {"fixed": "1.26.5"}]}
+                ],
+            }
+        ],
+    },
+    "CVE-2021-44228": {
+        "id": "CVE-2021-44228",
+        "aliases": ["GHSA-jfh8-c2jp-5v3q"],
+        "summary": "Log4Shell RCE.",
+        "database_specific": {"severity": "CRITICAL", "cwe_ids": ["CWE-917"]},
+        "affected": [
+            {
+                "package": {
+                    "name": "org.apache.logging.log4j:log4j-core",
+                    "ecosystem": "Maven",
+                },
+                "ranges": [
+                    {
+                        "type": "SEMVER",
+                        "events": [{"introduced": "2.0.0"}, {"fixed": "2.15.0"}],
+                    }
+                ],
+            }
+        ],
+    },
+}
+
+OSV_BATCH_IDS = {
+    "requests": ["GHSA-j8r2-6x86-q33q"],
+    "urllib3": ["CVE-2021-33503"],
+    "org.apache.logging.log4j:log4j-core": ["CVE-2021-44228"],
+    "log4j-core": ["CVE-2021-44228"],
+}
+
+
+def _osv_handler(request: httpx.Request) -> httpx.Response:
+    if request.url.path.endswith("/querybatch"):
+        import json as _json
+
+        body = _json.loads(request.content)
+        results = []
+        for query in body["queries"]:
+            ids = OSV_BATCH_IDS.get(query["package"]["name"], [])
+            results.append({"vulns": [{"id": i} for i in ids]})
+        return httpx.Response(200, json={"results": results})
+    vuln_id = request.url.path.rsplit("/", 1)[-1]
+    return httpx.Response(200, json=OSV_ADVISORIES[vuln_id])
+
+
+def test_osv_ecosystem_mapping():
+    from backend.ingestion.vuln_intel import osv_ecosystem
+
+    assert osv_ecosystem("pypi") == "PyPI"
+    assert osv_ecosystem("npm") == "npm"
+    assert osv_ecosystem("maven") == "Maven"
+    assert osv_ecosystem("pub") == "Pub"
+    assert osv_ecosystem("go") == "Go"
+    assert osv_ecosystem("cargo") == "crates.io"
+    assert osv_ecosystem("PyPI") == "PyPI"
+    assert osv_ecosystem("bogus") is None
+    assert osv_ecosystem(None) is None
+
+
+def test_fetch_osv_for_packages_matches_known_vulnerable_versions():
+    from backend.ingestion.vuln_intel import fetch_osv_for_packages
+
+    packages = [
+        {"name": "requests", "version": "2.31.0", "ecosystem": "pypi"},
+        {"name": "urllib3", "version": "1.26.4", "ecosystem": "pypi"},
+        {"name": "log4j-core", "version": "2.14.1", "ecosystem": "maven"},
+    ]
+    records = fetch_osv_for_packages(packages, client=_mock_client(_osv_handler))
+    by_id = {r.id: r for r in records}
+    assert set(by_id) == {"GHSA-j8r2-6x86-q33q", "CVE-2021-33503", "CVE-2021-44228"}
+    ghsa = by_id["GHSA-j8r2-6x86-q33q"]
+    assert ghsa.aliases == ["CVE-2023-32681"]
+    assert ghsa.affected[0].ecosystem == "PyPI"
+    assert ghsa.affected[0].fixed == "2.31.2"
+    assert version_in_range("2.31.0", ghsa.affected[0]) == "matched"
+    assert version_in_range("1.26.4", by_id["CVE-2021-33503"].affected[0]) == "matched"
+    log4j = by_id["CVE-2021-44228"]
+    assert version_in_range("2.14.1", log4j.affected[0]) == "matched"
+    assert version_in_range("2.17.0", log4j.affected[0]) == "not_matched"
+
+
+def test_osv_kev_enrichment_matches_cve_alias_of_ghsa():
+    from backend.ingestion.vuln_intel import fetch_osv_for_packages
+
+    packages = [{"name": "requests", "version": "2.31.0", "ecosystem": "pypi"}]
+    records = fetch_osv_for_packages(packages, client=_mock_client(_osv_handler))
+    apply_kev(records, [{"cve_id": "CVE-2023-32681", "date_added": "2023-06-01"}])
+    assert records[0].kev is True
+    assert records[0].kev_date == "2023-06-01"
+
+
+def test_osv_writer_keys_packages_by_ecosystem_and_name():
+    from backend.ingestion.vuln_intel import fetch_osv_for_packages, write_vuln_records_batch
+
+    packages = [
+        {"name": "requests", "version": "2.31.0", "ecosystem": "pypi"},
+        {"name": "log4j-core", "version": "2.14.1", "ecosystem": "maven"},
+    ]
+    records = fetch_osv_for_packages(packages, client=_mock_client(_osv_handler))
+    client = RecordingWriteClient()
+    write_vuln_records_batch(client, records, tenant_id="tenant-a")
+    pkg_params = [p for q, p in client.calls if "MERGE (n:Package" in q]
+    assert pkg_params
+    keys = {row["vuln_key"] for row in pkg_params[0]["rows"]}
+    assert any("PyPI:requests" in k for k in keys)
+    assert any("Maven:" in k and "log4j-core" in k for k in keys)
+    affects = [p for q, p in client.calls if "AFFECTS" in q]
+    props = affects[0]["rows"][0]["properties"]
+    assert props["ecosystem"] in ("PyPI", "Maven")
+    assert "introduced" in props and "fixed" in props
