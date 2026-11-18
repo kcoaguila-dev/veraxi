@@ -33,6 +33,7 @@ from veraxi.cli.rules import run_rules_lint, run_rules_sync
 from veraxi.cli.schema import run_schema
 from veraxi.cli.stats import run_stats
 from veraxi.cli.trace import run_trace
+from veraxi.cli.evals import run_eval_ablation
 from veraxi.cli.web import run_web
 
 
@@ -749,6 +750,23 @@ def main():
         "--json", action="store_true", help="Output raw JSON for agent pipelines"
     )
 
+    # --- eval ---
+    eval_parser = subparsers.add_parser("eval", help="Evidence evals (ablation)")
+    eval_sub = eval_parser.add_subparsers(dest="eval_command")
+    abl_parser = eval_sub.add_parser("ablation", help="Run typed ablation (offline by default)")
+    abl_parser.add_argument("--dataset", required=True, help="Typed dataset JSON")
+    abl_parser.add_argument("--rankings", required=True, help="Recorded rankings JSON")
+    abl_parser.add_argument("--k", type=int, default=5)
+    abl_parser.add_argument("--json", action="store_true", help="Output raw JSON")
+    abl_parser.add_argument("--out-markdown", dest="out_markdown", help="Write markdown report")
+    abl_parser.add_argument("--remote", action="store_true", help="Post to /api/v1/evals/ablation instead of offline")
+    abl_parser.add_argument("--min-recall", type=float, dest="min_recall")
+    abl_parser.add_argument("--min-hit-rate", type=float, dest="min_hit_rate")
+    abl_parser.add_argument("--min-grounding", type=float, dest="min_grounding")
+    abl_parser.add_argument("--key", help="Veraxi API key (vx-...)")
+    abl_parser.add_argument("--tenant", help="Tenant ID")
+    abl_parser.add_argument("--endpoint", default="https://api.veraxi.me/sse", help="Veraxi API endpoint")
+
     args = parser.parse_args()
 
     if not args.subcommand:
@@ -1177,6 +1195,19 @@ def main():
     elif args.subcommand == "doctor":
         key, endpoint = resolve_credentials(args.key, args.endpoint)
         run_doctor(endpoint, key)
+
+    elif args.subcommand == "eval":
+        if getattr(args, "eval_command", None) != "ablation":
+            parser.parse_args(["eval", "--help"])
+            sys.exit(0)
+        key, endpoint = resolve_credentials(args.key, args.endpoint)
+        tenant_id = _resolve_tenant_id(args.tenant)
+        run_eval_ablation(
+            dataset=args.dataset, rankings=args.rankings, k=args.k, as_json=args.json,
+            out_markdown=args.out_markdown, remote=args.remote, endpoint=endpoint, key=key,
+            tenant=tenant_id, min_recall=args.min_recall, min_hit_rate=args.min_hit_rate,
+            min_grounding=args.min_grounding,
+        )
 
     elif args.subcommand == "web":
         run_web(
