@@ -23,7 +23,7 @@ dependencies = [
     "qdrant-client",
     "mcp>=2.3.0",
     "openai",
-    "fastapi>=0.162.0",
+    "fastapi>=0.163.1",
     "uvicorn>=0.54.0",
     "sentry-sdk[fastapi]",
     "emoji",
@@ -57,8 +57,8 @@ dependencies = [
     "langgraph-checkpoint-postgres",
     "psycopg[binary]",
     "mcp-types>=2.3.0",
-    "python-dotenv>=1.2.3",
-    "duckduckgo_search>=7.0.0",
+    "python-dotenv>=1.2.4",
+    "duckduckgo_search>=8.1.1",
     "modal",
     "e2b",
     "tree-sitter>=0.26.1",
@@ -70,12 +70,12 @@ ocr = [
     "docling",
 ]
 browser = [
-    "browser-use>=1.0.3",
+    "browser-use>=1.0.5",
     "playwright>=1.64.1",
 ]
 full = [
     "docling",
-    "browser-use>=1.0.3",
+    "browser-use>=1.0.5",
     "playwright>=1.64.1",
     "opentimelineio",
     "stripe",
@@ -100,11 +100,11 @@ eval = [
 [dependency-groups]
 dev = [
     "datasets>=5.0.1",
-    "deepeval>=4.2.6",
-    "import-linter>=2.15",
+    "deepeval>=4.3.4",
+    "import-linter>=2.16",
     "pytest>=9.1.1",
-    "pytest-asyncio>=1.4.0",
-    "python-dotenv>=1.2.3",
+    "pytest-asyncio>=1.5.0",
+    "python-dotenv>=1.2.4",
     "testcontainers>=4.15.0",
     "veraxi",
 ]
