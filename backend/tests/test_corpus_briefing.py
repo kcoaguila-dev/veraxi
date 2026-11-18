@@ -236,3 +236,23 @@ def test_neo4j_adapter_communities_reuse_graph_analytics(monkeypatch):
     rows = client.communities("tenant-a", min_community_size=2)
     assert rows[0]["community"] == "9"
     assert calls == {"tenant_id": "tenant-a", "min": 2}
+
+
+def test_top_communities_exclude_unlinked_chunks_and_degree_zero():
+    client = FakeBriefingClient(
+        communities=[
+            {"community": "1", "size": 3, "members": ["Alice", "UnlinkedChunk_ab12", "Ghost"]},
+            {"community": "2", "size": 1, "members": ["UnlinkedChunk_cd34"]},
+        ],
+        counts={"nodes_by_label": {"Person": 2, "Chunk": 2}, "relationships_by_type": {}},
+        degrees={
+            "Alice": {"name": "Alice", "type": "Person", "degree": 4},
+            "UnlinkedChunk_ab12": {"name": "UnlinkedChunk_ab12", "type": "Chunk", "degree": 0},
+            "Ghost": {"name": "Ghost", "type": "Person", "degree": 0},
+        },
+    )
+    briefing = build_briefing("t", client=client)
+    communities = briefing["top_communities"]
+    assert [c["id"] for c in communities] == ["1"]
+    top_names = [e["name"] for e in communities[0]["top_entities"]]
+    assert top_names == ["Alice"]

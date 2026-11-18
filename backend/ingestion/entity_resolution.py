@@ -41,6 +41,58 @@ _PARENTHETICAL_RE = re.compile(
 )
 
 
+# Generic time / discourse phrases an LLM extractor sometimes emits as
+# "entities". They are never organizations, people or concepts.
+_STOP_PHRASES = {
+    "the end of the day",
+    "at the end of the day",
+    "the end of the year",
+    "every night",
+    "every day",
+    "every morning",
+    "each day",
+    "each night",
+    "the other day",
+    "a few days",
+    "the following day",
+}
+
+_CURRENCY_START_RE = re.compile(r"^[$€£¥]\s?\d")
+_PERCENT_PHRASE_RE = re.compile(
+    r"\d\s*(?:%|percent\b|per cent\b)", re.IGNORECASE
+)
+_BARE_QUANTITY_RE = re.compile(
+    r"^(?:only\s+|about\s+|around\s+)?\d[\d.,]*\s*"
+    r"(?:%|percent|million|billion|thousand|dollars?|usd|euros?)?\.?$",
+    re.IGNORECASE,
+)
+
+
+def _is_noise_phrase(trimmed: str) -> bool:
+    """True for bare quantities, currency fragments and stop-phrases.
+
+    These are deterministic rejections: a string that *starts* with a
+    currency amount, is nothing but a number/percent/quantity, or is a
+    generic time phrase cannot be a named entity, however it was
+    extracted. Proper names containing digits (e.g. "Apollo 11") are
+    not matched by any of these patterns.
+    """
+    lowered = re.sub(r"\s+", " ", trimmed.lower()).strip(" .")
+    if lowered in _STOP_PHRASES:
+        return True
+    if _CURRENCY_START_RE.match(trimmed):
+        return True
+    if _BARE_QUANTITY_RE.match(trimmed):
+        return True
+    # A percent fragment with no capitalized (proper-noun) token after
+    # the first word, e.g. "only 4.3 percent" / "$145 million-2.8".
+    if _PERCENT_PHRASE_RE.search(trimmed):
+        words = trimmed.split()
+        if not any(w[:1].isupper() for w in words[1:]):
+            return True
+    return bool(re.search(r"\d", trimmed) and "$" in trimmed)
+
+
 _STRUCTURAL_PREFIX_RE = re.compile(
     r"^(?:chapter|part|section|table|figure|exhibit|page|see\s+chapter)\b",
     re.IGNORECASE,
@@ -72,8 +124,84 @@ def is_clean_entity_name(name: str) -> bool:
     non_spaces = [c for c in trimmed if not c.isspace()]
     if len(alphas) / max(1, len(non_spaces)) < 0.45:
         return False
+    # Reject bare quantities / currency fragments / stop-phrases
+    if _is_noise_phrase(trimmed):
+        return False
     # Reject pure punctuation / symbol noise
     return not bool(re.fullmatch(r"[\W\d_]+", trimmed))
+
+
+def is_extractable_entity(name: str) -> bool:
+    """Strict pre-write filter for extracted entities (WP3).
+
+    Everything :func:`is_clean_entity_name` requires, plus the
+    <3-character OCR-noise rule: a 1-2 character candidate is only
+    extractable when it is an all-uppercase acronym (e.g. "AI");
+    mixed- or lower-case 1-2 character fragments are OCR noise.
+    """
+    if not is_clean_entity_name(name):
+        return False
+    trimmed = name.strip()
+    return not (len(trimmed) < 3 and not (trimmed.isupper() and trimmed.isalpha()))
+
+
+def canonicalize_entities(
+    entities: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Merge surname-only variants into their full-name entity.
+
+    Deterministic containment merge (no embeddings): within one type
+    group, a single-token entity whose normalized token is the *last*
+    token of exactly one two-token entity of the same type is folded
+    into that entity — "Einhorn" into "David Einhorn" — with the short
+    form kept as an alias and ``source_point_ids`` unioned, so no
+    Qdrant provenance is lost. Ambiguous surnames (matching 2+ full
+    names) are left untouched.
+    """
+    by_type: dict[str, list[dict[str, Any]]] = {}
+    order: list[str] = []
+    for ent in entities:
+        key = ent.get("type", "Unknown")
+        if key not in by_type:
+            by_type[key] = []
+            order.append(key)
+        by_type[key].append(ent)
+
+    merged_all: list[dict[str, Any]] = []
+    for key in order:
+        group = by_type[key]
+        full_names: dict[str, list[dict[str, Any]]] = {}
+        for ent in group:
+            tokens = strip_generic_suffix(normalize_name(ent.get("name", ""))).split()
+            if len(tokens) == 2:
+                full_names.setdefault(tokens[-1], []).append(ent)
+        absorbed: set[int] = set()
+        for ent in group:
+            tokens = strip_generic_suffix(normalize_name(ent.get("name", ""))).split()
+            if len(tokens) != 1:
+                continue
+            candidates = full_names.get(tokens[0]) or []
+            if len(candidates) != 1:
+                continue
+            target = candidates[0]
+            if target is ent:
+                continue
+            aliases = list(target.get("aliases") or [])
+            if ent.get("name") and ent["name"] not in aliases:
+                aliases.append(ent["name"])
+            for alias in ent.get("aliases") or []:
+                if alias not in aliases:
+                    aliases.append(alias)
+            target["aliases"] = aliases
+            pids = list(target.get("source_point_ids") or [])
+            for pid in ent.get("source_point_ids") or []:
+                if pid not in pids:
+                    pids.append(pid)
+            if pids:
+                target["source_point_ids"] = pids
+            absorbed.add(id(ent))
+        merged_all.extend(ent for ent in group if id(ent) not in absorbed)
+    return merged_all
 
 
 def extract_in_text_aliases(text: str) -> dict[str, set[str]]:
