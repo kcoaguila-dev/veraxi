@@ -334,6 +334,7 @@ from backend.routes.admin import register_admin_routes
 from backend.routes.api_keys import register_api_key_routes
 from backend.routes.artifacts import register_artifact_routes
 from backend.routes.chat import register_chat_routes
+from backend.routes.corpus_insights import register_corpus_insights_routes
 from backend.routes.files import register_file_routes
 from backend.routes.gdpr import register_gdpr_routes
 from backend.routes.ingestion import register_ingestion_routes
@@ -368,6 +369,7 @@ register_integration_routes(app, get_tenant_id, _get_supabase, config)
 register_sandbox_routes(app, get_tenant_id, _get_supabase, config)
 register_memory_routes(app, get_tenant_id, _get_supabase, config)
 register_usage_routes(app, get_tenant_id, _get_supabase, config)
+register_corpus_insights_routes(app, get_tenant_id, _get_supabase, config)
 register_sync_routes(app, get_tenant_id, _get_supabase, config)
 register_gdpr_routes(app, get_tenant_id, verify_infrastructure_access, limiter, config)
 register_mcp_transport_routes(
