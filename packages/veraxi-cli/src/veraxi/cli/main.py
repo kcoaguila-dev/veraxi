@@ -778,6 +778,8 @@ def main():
         _sp = xray_sub.add_parser(_name, help=_help)
         _sp.add_argument("target", help="Repo path (index) or symbol name")
         _sp.add_argument("--max-depth", type=int, default=3, dest="max_depth")
+        _sp.add_argument("--local", action="store_true", help="Index: parse the repo locally and upload the graph")
+        _sp.add_argument("--resolved-only", action="store_true", dest="resolved_only", help="Symbol: hide external/unresolved placeholders")
         _sp.add_argument("--key", help="Veraxi API key (vx-...)")
         _sp.add_argument("--tenant", help="Tenant ID")
         _sp.add_argument("--endpoint", default="https://api.veraxi.me/sse", help="Veraxi API endpoint")
@@ -1304,9 +1306,9 @@ def main():
         key, endpoint = resolve_credentials(args.key, args.endpoint)
         tenant_id = _resolve_tenant_id(args.tenant)
         if args.xray_command == "index":
-            run_xray_index(args.target, endpoint=endpoint, key=key, tenant=tenant_id, as_json=args.json)
+            run_xray_index(args.target, endpoint=endpoint, key=key, tenant=tenant_id, as_json=args.json, local=getattr(args, "local", False))
         elif args.xray_command == "symbol":
-            run_xray_symbol(args.target, endpoint=endpoint, key=key, tenant=tenant_id, as_json=args.json)
+            run_xray_symbol(args.target, endpoint=endpoint, key=key, tenant=tenant_id, as_json=args.json, resolved_only=getattr(args, "resolved_only", False))
         else:
             run_xray_impact(args.target, endpoint=endpoint, key=key, tenant=tenant_id, as_json=args.json, max_depth=args.max_depth)
 

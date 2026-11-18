@@ -330,3 +330,40 @@ class TestVulnLiveOsvFallback:
         )
         assert resp.status_code == 200
         assert called == []
+
+
+class TestIngestGraphRoute:
+    def test_ingest_graph_ok(self, client, monkeypatch):
+        seen = {}
+
+        def fake_write(payload, tenant_id):
+            seen["repo"] = payload.repo_name
+            seen["tenant"] = tenant_id
+            seen["nodes"] = len(payload.nodes)
+            return {"nodes_written": len(payload.nodes), "edges_written": len(payload.edges)}
+
+        monkeypatch.setattr(routes, "_write_parsed_graph", fake_write)
+        resp = client.post(
+            "/api/v1/code/ingest-graph",
+            json={
+                "repo_name": "demo",
+                "nodes": [
+                    {"label": "Function", "name": "main",
+                     "qualified_name": "veraxi.cli.main.main",
+                     "path": "packages/veraxi-cli/src/veraxi/cli/main.py",
+                     "line": 10, "language": "python", "resolved": True}
+                ],
+                "edges": [],
+            },
+        )
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["nodes_written"] == 1
+        assert seen == {"repo": "demo", "tenant": "tenant-1", "nodes": 1}
+
+    def test_ingest_graph_oversized_rejected(self, client, monkeypatch):
+        monkeypatch.setattr(routes, "MAX_INGEST_NODES", 1)
+        resp = client.post(
+            "/api/v1/code/ingest-graph",
+            json={"repo_name": "demo", "nodes": [{"label": "Function"}, {"label": "Class"}], "edges": []},
+        )
+        assert resp.status_code == 413

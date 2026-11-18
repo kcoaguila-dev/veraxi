@@ -108,7 +108,8 @@ class Neo4jCodeGraphClient:
           AND {where}
         RETURN labels(n)[0] AS label, n.name AS name,
                n.qualified_name AS qualified_name, n.path AS path,
-               n.line AS line, n.language AS language
+               n.line AS line, n.language AS language,
+               coalesce(n.resolved, true) AS resolved
         ORDER BY qualified_name
         """
         return self._read(query, params)
