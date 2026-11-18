@@ -55,6 +55,16 @@ _STOP_PHRASES = {
     "the other day",
     "a few days",
     "the following day",
+    "the following quarter",
+    "the following month",
+    "the following year",
+    "the following year's",
+    "annually",
+    "quarterly",
+    "monthly",
+    "weekly",
+    "daily",
+    "second",
 }
 
 _CURRENCY_START_RE = re.compile(r"^[$€£¥]\s?\d")
@@ -64,6 +74,16 @@ _PERCENT_PHRASE_RE = re.compile(
 _BARE_QUANTITY_RE = re.compile(
     r"^(?:only\s+|about\s+|around\s+)?\d[\d.,]*\s*"
     r"(?:%|percent|million|billion|thousand|dollars?|usd|euros?)?\.?$",
+    re.IGNORECASE,
+)
+_TEMPORAL_PHRASE_RE = re.compile(
+    r"^(?:"
+    r"(?:the\s+)?(?:next|past|last|first|following|previous)\s+.+?\s+(?:days?|weeks?|months?|quarters?|years?)"
+    r"|the\s+years?\s+\d{4}(?:\s*,\s*\d{4})*"
+    r"|(?:january|february|march|april|may|june|july|august|september|october|november|december)\s+\d{1,2}(?:,\s*\d{4})?"
+    r"|(?:the\s+)?(?:january|february|march|april|may|june|july|august|september|october|november|december)\s+quarter"
+    r"|\d{1,2}\s+(?:january|february|march|april|may|june|july|august|september|october|november|december)(?:\s+\d{4})?"
+    r")\.?$",
     re.IGNORECASE,
 )
 
@@ -83,6 +103,8 @@ def _is_noise_phrase(trimmed: str) -> bool:
     if _CURRENCY_START_RE.match(trimmed):
         return True
     if _BARE_QUANTITY_RE.match(trimmed):
+        return True
+    if _TEMPORAL_PHRASE_RE.match(trimmed):
         return True
     # A percent fragment with no capitalized (proper-noun) token after
     # the first word, e.g. "only 4.3 percent" / "$145 million-2.8".

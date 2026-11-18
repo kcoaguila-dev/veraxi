@@ -208,6 +208,12 @@ def test_noisy_time_currency_percent_phrases_rejected():
         "every night",
         "4.3%",
         "$9.99",
+        "$45,937 billion",
+        "the next two to three years",
+        "the years 1983, 1982",
+        "annually",
+        "the following quarter",
+        "February 19, 2007",
         "x9",  # <3-char OCR fragment, not an acronym
     ):
         assert is_extractable_entity(noisy) is False, noisy
