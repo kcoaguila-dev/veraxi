@@ -58,7 +58,7 @@ dependencies = [
     "psycopg[binary]",
     "mcp-types>=2.3.0",
     "python-dotenv>=1.2.3",
-    "duckduckgo_search>=7.0.0",
+    "duckduckgo_search>=8.1.1",
     "modal",
     "e2b",
 ]
