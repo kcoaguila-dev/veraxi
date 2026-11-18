@@ -105,3 +105,32 @@ def run_memories_delete(memory_id, endpoint=None, key=None, tenant=None, as_json
     else:
         print(f"Deleted {data.get('id', memory_id)}")
     sys.exit(0)
+
+
+def run_memories_stats(endpoint=None, key=None, tenant=None, as_json=False):
+    from veraxi.cli.http_client import api_request
+
+    data = api_request("GET", "/api/v1/memories", endpoint=endpoint, key=key, tenant=tenant,
+                       params={"include_expired": "true"})
+    rows = data.get("memories") or []
+    active = sum(1 for r in rows if not r.get("valid_to"))
+    expired = len(rows) - active
+    by_source: dict[str, int] = {}
+    for r in rows:
+        src = r.get("source") or "manual"
+        by_source[src] = by_source.get(src, 0) + 1
+    summary = {
+        "storage": "user_memories",
+        "total": len(rows),
+        "active": active,
+        "expired": expired,
+        "by_source": by_source,
+    }
+    if as_json:
+        print(json.dumps(summary, indent=2))
+    else:
+        print(f"Memories (user_memories): total={len(rows)} active={active} expired={expired}")
+        if by_source:
+            sources_str = ", ".join(f"{k}={v}" for k, v in sorted(by_source.items()))
+            print(f"Sources: {sources_str}")
+    sys.exit(0)

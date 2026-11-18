@@ -9,6 +9,7 @@ from veraxi.cli.memories import (
     run_memories_edit,
     run_memories_expire,
     run_memories_list,
+    run_memories_stats,
 )
 
 PATCH_TARGET = "veraxi.cli.http_client.api_request"
@@ -89,3 +90,18 @@ def test_list_empty_prints_helpful_message(capsys):
     out = capsys.readouterr().out
     assert "No memories found." in out
     assert "veraxi memories add" in out
+
+
+def test_stats_counts_active_and_expired(capsys):
+    with patch(PATCH_TARGET, return_value={"memories": ROWS}) as mock, pytest.raises(SystemExit) as exc:
+        run_memories_stats(as_json=True)
+    assert exc.value.code == 0
+    assert mock.call_args.kwargs["params"] == {"include_expired": "true"}
+    data = json.loads(capsys.readouterr().out)
+    assert data == {
+        "storage": "user_memories",
+        "total": 2,
+        "active": 1,
+        "expired": 1,
+        "by_source": {"manual": 1, "chat": 1},
+    }

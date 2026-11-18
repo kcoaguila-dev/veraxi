@@ -15,7 +15,14 @@ from veraxi.cli.impact import run_impact
 from veraxi.cli.ingest import run_ingest
 from veraxi.cli.init_project import init_project
 from veraxi.cli.learn import run_learn
-from veraxi.cli.memories import run_memories_add, run_memories_delete, run_memories_edit, run_memories_expire, run_memories_list
+from veraxi.cli.memories import (
+    run_memories_add,
+    run_memories_delete,
+    run_memories_edit,
+    run_memories_expire,
+    run_memories_list,
+    run_memories_stats,
+)
 from veraxi.cli.models import run_models_list, run_models_set
 from veraxi.cli.memory import (
     run_memory_audit,
@@ -341,9 +348,7 @@ def main():
     context_parser.add_argument("--json", action="store_true", help="Output raw JSON")
 
     # --- remember ---
-    remember_parser = subparsers.add_parser(
-        "remember", help="[deprecated: use veraxi memories add] Save an architectural rule or constraint to memory"
-    )
+    remember_parser = subparsers.add_parser("remember")
     remember_parser.add_argument(
         "insight", help="The architectural rule, pattern, or constraint"
     )
@@ -382,9 +387,7 @@ def main():
     remember_parser.add_argument("--json", action="store_true", help="Output raw JSON")
 
     # --- resolve ---
-    resolve_parser = subparsers.add_parser(
-        "resolve", help="Mark an issue or caveat as resolved (prevents re-solving)"
-    )
+    resolve_parser = subparsers.add_parser("resolve")
     resolve_parser.add_argument("target", help="Memory ID or keyword to resolve")
     resolve_parser.add_argument("--ref", help="Commit hash, PR number, or ticket")
     resolve_parser.add_argument("--note", help="Explanation of resolution")
@@ -396,9 +399,7 @@ def main():
     resolve_parser.add_argument("--json", action="store_true", help="Output raw JSON")
 
     # --- reopen ---
-    reopen_parser = subparsers.add_parser(
-        "reopen", help="Human override: reopen a prematurely resolved memory"
-    )
+    reopen_parser = subparsers.add_parser("reopen")
     reopen_parser.add_argument("target", help="Memory ID or keyword to reopen")
     reopen_parser.add_argument(
         "--note", help="Reason for reopening (e.g. still failing)"
@@ -411,9 +412,7 @@ def main():
     reopen_parser.add_argument("--json", action="store_true", help="Output raw JSON")
 
     # --- memory ---
-    memory_parser = subparsers.add_parser(
-        "memory", help="[deprecated: use veraxi memories] Inspect, export, import, audit, prune, or check memory stats"
-    )
+    memory_parser = subparsers.add_parser("memory")
     memory_parser.add_argument(
         "action",
         choices=["list", "export", "import", "audit", "prune", "stats", "drift"],
@@ -474,9 +473,7 @@ def main():
     memory_parser.add_argument("--json", action="store_true", help="Output raw JSON")
 
     # --- prune (alias to memory prune) ---
-    prune_parser = subparsers.add_parser(
-        "prune", help="Safely archive stale resolved notes and superseded caveats"
-    )
+    prune_parser = subparsers.add_parser("prune")
     prune_parser.add_argument(
         "--older-than",
         default="90d",
@@ -847,7 +844,8 @@ def main():
     _mx.add_argument("memory_id", help="Memory ID")
     _md = memories_sub.add_parser("delete", help="Delete a memory (row removed)")
     _md.add_argument("memory_id", help="Memory ID")
-    for _sp in (_ml, _ma, _me, _mx, _md):
+    _ms = memories_sub.add_parser("stats", help="Show memory counts (active/expired) in user_memories")
+    for _sp in (_ml, _ma, _me, _mx, _md, _ms):
         _sp.add_argument("--key", help="Veraxi API key (vx-...)")
         _sp.add_argument("--tenant", help="Tenant ID")
         _sp.add_argument("--endpoint", default="https://api.veraxi.me/sse", help="Veraxi API endpoint")
@@ -1340,7 +1338,7 @@ def main():
             run_dbt_lineage(args.target, endpoint=endpoint, key=key, tenant=tenant_id, as_json=args.json)
 
     elif args.subcommand == "memories":
-        if getattr(args, "memories_command", None) not in ("list", "add", "edit", "expire", "delete"):
+        if getattr(args, "memories_command", None) not in ("list", "add", "edit", "expire", "delete", "stats"):
             parser.parse_args(["memories", "--help"])
             sys.exit(0)
         key, endpoint = resolve_credentials(args.key, args.endpoint)
@@ -1353,6 +1351,8 @@ def main():
             run_memories_edit(args.memory_id, content=args.content, source=args.source, endpoint=endpoint, key=key, tenant=tenant_id, as_json=args.json)
         elif args.memories_command == "expire":
             run_memories_expire(args.memory_id, endpoint=endpoint, key=key, tenant=tenant_id, as_json=args.json)
+        elif args.memories_command == "stats":
+            run_memories_stats(endpoint=endpoint, key=key, tenant=tenant_id, as_json=args.json)
         else:
             run_memories_delete(args.memory_id, endpoint=endpoint, key=key, tenant=tenant_id, as_json=args.json)
 
