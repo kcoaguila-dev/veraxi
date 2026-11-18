@@ -205,12 +205,10 @@ class _SecurityFeedPanelState extends ConsumerState<SecurityFeedPanel> {
           runSpacing: 8,
           children: [
             ElevatedButton.icon(
-              onPressed: state.attackBusy
-                  ? null
-                  : () => viewModel.syncAttackIntel(),
+              onPressed:
+                  state.attackBusy ? null : () => viewModel.syncAttackIntel(),
               icon: const Icon(Icons.sync, size: 16),
-              label: Text(
-                  state.attackBusy ? 'Syncing…' : 'Sync MITRE ATT&CK'),
+              label: Text(state.attackBusy ? 'Syncing…' : 'Sync MITRE ATT&CK'),
             ),
             ElevatedButton.icon(
               onPressed: state.attackBusy
@@ -247,8 +245,7 @@ class _SecurityFeedPanelState extends ConsumerState<SecurityFeedPanel> {
                   if (text != null) await viewModel.ingestAlertsText(text);
                 },
           icon: const Icon(Icons.notifications_active_outlined, size: 16),
-          label:
-              Text(state.alertsBusy ? 'Ingesting…' : 'Upload Alerts / IOCs'),
+          label: Text(state.alertsBusy ? 'Ingesting…' : 'Upload Alerts / IOCs'),
         ),
         _statusLines(state.alertsStatus, state.alertsError, ext),
       ],

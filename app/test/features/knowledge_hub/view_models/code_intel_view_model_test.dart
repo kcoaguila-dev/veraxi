@@ -202,8 +202,7 @@ void main() {
       expect(repo.lastRepoPath, '/repos/demo');
     });
 
-    test('invalid SBOM text sets an error and keeps the scan source',
-        () async {
+    test('invalid SBOM text sets an error and keeps the scan source', () async {
       final repo = RecordingCodeIntelRepository();
       final vm = CodeIntelViewModel(repo);
       vm.setSbomFromText('[1,2,3]', fileName: 'bad.json');

@@ -274,8 +274,7 @@ class AttackSyncResult {
     return AttackSyncResult(
       techniquesWritten: (json['techniques_written'] as num?)?.toInt() ?? 0,
       tacticsWritten: (json['tactics_written'] as num?)?.toInt() ?? 0,
-      mitigationsWritten:
-          (json['mitigations_written'] as num?)?.toInt() ?? 0,
+      mitigationsWritten: (json['mitigations_written'] as num?)?.toInt() ?? 0,
       mitigatesLinks: (json['mitigates_links'] as num?)?.toInt() ?? 0,
       vectorsWritten: (json['vectors_written'] as num?)?.toInt() ?? 0,
     );
