@@ -1,12 +1,33 @@
 import asyncio
 import logging
 
+import sentry_sdk
+from arq import cron
 from arq.connections import RedisSettings
 
 from backend.config import get_config
 from backend.ingestion.__main__ import run_ingestion
 
 logger = logging.getLogger(__name__)
+
+_PAID_PLANS = frozenset({"pro", "team", "enterprise"})
+_MAX_INACTIVE_DAYS = 14
+
+
+def should_run_scheduled_tenant_sync(
+    plan: str | None, days_since_active: int | None
+) -> bool:
+    """Gate scheduled tenant background jobs to active paid plans only.
+
+    Free-tier and dormant (>14d inactive) tenants must trigger scans on-demand
+    or via client-side ``vx --local`` so Veraxi never gives away idle compute.
+    """
+    normalized = (plan or "").strip().lower()
+    if normalized not in _PAID_PLANS:
+        return False
+    if days_since_active is None or days_since_active > _MAX_INACTIVE_DAYS:
+        return False
+    return True
 
 
 async def process_ingestion_task(
@@ -67,13 +88,25 @@ async def sync_github_repo_task(
     integration_id: str,
     repos: list,
     include_issues: bool = False,
+    scheduled: bool = False,
+    plan: str | None = None,
+    days_since_active: int | None = None,
 ):
     """Background worker task to sync GitHub repos into the knowledge graph.
 
     Mirrors process_ingestion_task: the tenant ontology is loaded from
     Redis, and ingestion itself goes through run_ingestion (via
     services/github_sync.py) so Neo4j ↔ Qdrant dual-write is preserved.
+    When ``scheduled=True``, enforces active paid-plan gating.
     """
+    if scheduled and not should_run_scheduled_tenant_sync(plan, days_since_active):
+        logger.info(
+            "Skipping scheduled GitHub sync for tenant %s (plan=%s, inactive=%s)",
+            tenant_id,
+            plan,
+            days_since_active,
+        )
+        return {"status": "skipped", "reason": "free_or_dormant_tenant"}
     import json
 
     from supabase import create_client
@@ -99,10 +132,97 @@ async def sync_github_repo_task(
     return result
 
 
+def _sync_public_vuln_intel() -> dict:
+    from backend.ingestion.vuln_intel import fetch_and_write_vuln_intel
+    from backend.storage.neo4j_client import Neo4jStorageClient
+    from backend.storage.qdrant_client import QdrantStorageClient
+
+    cfg = get_config()
+    neo4j = Neo4jStorageClient.from_config(cfg)
+    qdrant = None
+    try:
+        qdrant = QdrantStorageClient.from_config(cfg)
+    except Exception as exc:
+        logger.warning("Qdrant unavailable for public vuln sync: %s", exc)
+    try:
+        return fetch_and_write_vuln_intel(
+            neo4j, tenant_id="public", qdrant_client=qdrant
+        )
+    finally:
+        neo4j.close()
+
+
+async def sync_public_vuln_intel_task(ctx):
+    """Daily global NVD + KEV + EPSS sync into shared ``public`` graph (0 LLM cost)."""
+    try:
+        loop = asyncio.get_running_loop()
+        result = await loop.run_in_executor(None, _sync_public_vuln_intel)
+        logger.info("Public vuln intel sync completed: %s", result)
+        return {"status": "ok", **result}
+    except Exception as exc:
+        sentry_sdk.capture_exception(exc)
+        logger.error("Public vuln intel sync failed: %s", exc)
+        return {"status": "error", "message": str(exc)}
+
+
+def _sync_public_attack_intel() -> dict:
+    from backend.ingestion.attack_intel import (
+        fetch_attack_stix,
+        parse_attack_stix_payload,
+        write_attack_intel,
+    )
+    from backend.storage.neo4j_client import Neo4jStorageClient
+    from backend.storage.qdrant_client import QdrantStorageClient
+
+    cfg = get_config()
+    neo4j = Neo4jStorageClient.from_config(cfg)
+    qdrant = None
+    try:
+        qdrant = QdrantStorageClient.from_config(cfg)
+    except Exception as exc:
+        logger.warning("Qdrant unavailable for public ATT&CK sync: %s", exc)
+    try:
+        bundle = fetch_attack_stix()
+        parsed = parse_attack_stix_payload(bundle)
+        return write_attack_intel(
+            neo4j, parsed, tenant_id="public", qdrant_client=qdrant
+        )
+    finally:
+        neo4j.close()
+
+
+async def sync_public_attack_intel_task(ctx):
+    """Weekly global MITRE ATT&CK sync into shared ``public`` graph (0 LLM cost)."""
+    try:
+        loop = asyncio.get_running_loop()
+        result = await loop.run_in_executor(None, _sync_public_attack_intel)
+        logger.info("Public ATT&CK intel sync completed: %s", result)
+        return {"status": "ok", **result}
+    except Exception as exc:
+        sentry_sdk.capture_exception(exc)
+        logger.error("Public ATT&CK intel sync failed: %s", exc)
+        return {"status": "error", "message": str(exc)}
+
+
 class WorkerSettings:
     config = get_config()
     redis_settings = RedisSettings.from_dsn(config.redis_url)
-    functions = [process_ingestion_task, sync_github_repo_task]  # noqa: RUF012
+    functions = [  # noqa: RUF012
+        process_ingestion_task,
+        sync_github_repo_task,
+        sync_public_vuln_intel_task,
+        sync_public_attack_intel_task,
+    ]
+    cron_jobs = [  # noqa: RUF012
+        cron(sync_public_vuln_intel_task, hour=3, minute=0, run_at_startup=False),
+        cron(
+            sync_public_attack_intel_task,
+            weekday=0,
+            hour=4,
+            minute=0,
+            run_at_startup=False,
+        ),
+    ]
 
     # Optional: startup and shutdown logic
     async def on_startup(ctx):

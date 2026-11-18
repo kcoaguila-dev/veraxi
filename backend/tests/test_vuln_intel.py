@@ -1051,3 +1051,36 @@ def test_parse_and_write_soc_alerts_and_security_benchmark(monkeypatch):
     bench = run_security_benchmark()
     assert bench["passed"] == bench["total"] == 6
     assert bench["pass_rate"] == 1.0
+
+
+def test_worker_scheduled_sync_gating_and_public_cron(monkeypatch):
+    import asyncio
+    from backend import worker
+
+    assert worker.should_run_scheduled_tenant_sync("free", 0) is False
+    assert worker.should_run_scheduled_tenant_sync("pro", 20) is False
+    assert worker.should_run_scheduled_tenant_sync("pro", None) is False
+    assert worker.should_run_scheduled_tenant_sync("pro", 3) is True
+    assert worker.should_run_scheduled_tenant_sync("enterprise", 14) is True
+
+    skipped = asyncio.run(
+        worker.sync_github_repo_task(
+            {},
+            tenant_id="t1",
+            integration_id="i1",
+            repos=["org/repo"],
+            scheduled=True,
+            plan="free",
+            days_since_active=1,
+        )
+    )
+    assert skipped == {"status": "skipped", "reason": "free_or_dormant_tenant"}
+
+    monkeypatch.setattr(worker, "_sync_public_vuln_intel", lambda: {"cves_written": 5})
+    monkeypatch.setattr(worker, "_sync_public_attack_intel", lambda: {"techniques_written": 3})
+
+    vuln_res = asyncio.run(worker.sync_public_vuln_intel_task({}))
+    atk_res = asyncio.run(worker.sync_public_attack_intel_task({}))
+    assert vuln_res == {"status": "ok", "cves_written": 5}
+    assert atk_res == {"status": "ok", "techniques_written": 3}
+    assert len(worker.WorkerSettings.cron_jobs) == 2
