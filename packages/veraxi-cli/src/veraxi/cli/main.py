@@ -41,7 +41,7 @@ from veraxi.cli.rules import run_rules_lint, run_rules_sync
 from veraxi.cli.schema import run_schema
 from veraxi.cli.stats import run_stats
 from veraxi.cli.trace import run_trace
-from veraxi.cli.code_intel import run_vuln_attack_sync, run_vuln_recon, run_vuln_report, run_vuln_sarif, run_vuln_sync, run_xray_impact, run_xray_index, run_xray_symbol
+from veraxi.cli.code_intel import run_vuln_attack_sync, run_vuln_recon, run_vuln_report, run_vuln_sarif, run_vuln_sync, run_xray_impact, run_xray_index, run_xray_index_scip, run_xray_symbol
 from veraxi.cli.corpus import run_briefing, run_dbt_lineage, run_dbt_upload
 from veraxi.cli.evals import run_eval_ablation
 from veraxi.cli.web import run_web
@@ -776,9 +776,13 @@ def main():
     xray_sub = xray_parser.add_subparsers(dest="xray_command")
     for _name, _help in (("index", "Index a repo into the code graph"), ("symbol", "Look up a symbol"), ("impact", "Impact analysis for a symbol")):
         _sp = xray_sub.add_parser(_name, help=_help)
-        _sp.add_argument("target", help="Repo path (index) or symbol name")
+        if _name == "index":
+            _sp.add_argument("target", nargs="?", help="Repo path (index) or symbol name; optional with --scip")
+        else:
+            _sp.add_argument("target", help="Repo path (index) or symbol name")
         _sp.add_argument("--max-depth", type=int, default=3, dest="max_depth")
         _sp.add_argument("--local", action="store_true", help="Index: parse the repo locally and upload the graph")
+        _sp.add_argument("--scip", dest="scip", help="Index: upload a SCIP JSON index file (scip print --json output) instead of a repo path")
         _sp.add_argument("--resolved-only", action="store_true", dest="resolved_only", help="Symbol: hide external/unresolved placeholders")
         _sp.add_argument("--key", help="Veraxi API key (vx-...)")
         _sp.add_argument("--tenant", help="Tenant ID")
@@ -1328,7 +1332,13 @@ def main():
         key, endpoint = resolve_credentials(args.key, args.endpoint)
         tenant_id = _resolve_tenant_id(args.tenant)
         if args.xray_command == "index":
-            run_xray_index(args.target, endpoint=endpoint, key=key, tenant=tenant_id, as_json=args.json, local=getattr(args, "local", False))
+            if getattr(args, "scip", None):
+                run_xray_index_scip(args.scip, endpoint=endpoint, key=key, tenant=tenant_id, as_json=args.json)
+            elif not args.target:
+                parser.parse_args(["xray", "index", "--help"])
+                sys.exit(0)
+            else:
+                run_xray_index(args.target, endpoint=endpoint, key=key, tenant=tenant_id, as_json=args.json, local=getattr(args, "local", False))
         elif args.xray_command == "symbol":
             run_xray_symbol(args.target, endpoint=endpoint, key=key, tenant=tenant_id, as_json=args.json, resolved_only=getattr(args, "resolved_only", False))
         else:

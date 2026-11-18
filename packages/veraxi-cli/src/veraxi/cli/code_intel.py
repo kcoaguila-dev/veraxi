@@ -175,6 +175,26 @@ def run_xray_index(repo_path, endpoint=None, key=None, tenant=None, as_json=Fals
     sys.exit(0)
 
 
+def run_xray_index_scip(scip_path, endpoint=None, key=None, tenant=None, as_json=False):
+    """Upload a SCIP JSON index (``scip print --json`` output) to /api/v1/code/ingest-scip."""
+    from veraxi.cli.http_client import api_request
+
+    try:
+        payload = json.loads(Path(scip_path).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        print(f"Error: invalid SCIP JSON in {scip_path}: {exc}", file=sys.stderr)
+        sys.exit(1)
+    if not isinstance(payload, dict) or not isinstance(payload.get("documents"), list):
+        print(f"Error: SCIP JSON in {scip_path} must be an object with a documents list", file=sys.stderr)
+        sys.exit(1)
+    data = api_request("POST", "/api/v1/code/ingest-scip", body={"scip": payload},
+                       endpoint=endpoint, key=key, tenant=tenant, timeout=300)
+    _print_result(data, as_json, lambda d: print(
+        f"SCIP indexed {scip_path}: nodes={d.get('nodes_written', 0)} edges={d.get('edges_written', 0)}"
+    ))
+    sys.exit(0)
+
+
 def run_xray_symbol(name, endpoint=None, key=None, tenant=None, as_json=False, resolved_only=False):
     from veraxi.cli.http_client import api_request
 

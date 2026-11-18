@@ -127,7 +127,7 @@ _LANGUAGE_BY_EXTENSION = {
 }
 
 NODE_LABELS = ("CodeFile", "CodeModule", "Class", "Function")
-EDGE_TYPES = ("IMPORTS", "CALLS", "DEFINES", "INHERITS")
+EDGE_TYPES = ("IMPORTS", "CALLS", "DEFINES", "INHERITS", "REFERENCES")
 
 
 @dataclass

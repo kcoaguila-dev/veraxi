@@ -206,6 +206,35 @@ def test_vuln_sarif_and_sbom_cli(tmp_path):
     assert body["include_reachability"] is True
 
 
+def test_xray_index_scip_posts_payload(tmp_path, capsys):
+    from veraxi.cli.code_intel import run_xray_index_scip
+
+    scip_file = tmp_path / "index.scip.json"
+    payload = {"documents": [{"relative_path": "a.py", "symbols": [], "occurrences": []}]}
+    scip_file.write_text(json.dumps(payload), encoding="utf-8")
+    with patch(
+        PATCH_TARGET,
+        return_value={"status": "ok", "nodes_written": 3, "edges_written": 2},
+    ) as mock, pytest.raises(SystemExit) as exc:
+        run_xray_index_scip(str(scip_file), endpoint="https://api.veraxi.me/sse", key="vx-k", tenant="t1")
+    assert exc.value.code == 0
+    args, kwargs = mock.call_args
+    assert args[:2] == ("POST", "/api/v1/code/ingest-scip")
+    assert kwargs["body"] == {"scip": payload}
+    assert kwargs["timeout"] == 300
+    assert "nodes=3 edges=2" in capsys.readouterr().out
+
+
+def test_xray_index_scip_rejects_invalid_json(tmp_path):
+    from veraxi.cli.code_intel import run_xray_index_scip
+
+    bad = tmp_path / "bad.scip.json"
+    bad.write_text("{not json", encoding="utf-8")
+    with pytest.raises(SystemExit) as exc:
+        run_xray_index_scip(str(bad))
+    assert exc.value.code == 1
+
+
 def test_vuln_attack_sync_and_recon_cli(tmp_path):
     from veraxi.cli.code_intel import run_vuln_attack_sync, run_vuln_recon
 

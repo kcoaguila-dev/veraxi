@@ -193,6 +193,10 @@ class AlertIngestRequest(BaseModel):
     alerts: dict | list[dict]
 
 
+class ScipIngestRequest(BaseModel):
+    scip: dict
+
+
 def _default_neo4j_client():
     """Build the production Neo4j storage client from config.
 
@@ -280,6 +284,15 @@ def _write_parsed_graph(payload: CodeIngestGraphRequest, tenant_id: str) -> dict
     )
 
 
+def _write_scip(payload: ScipIngestRequest, tenant_id: str) -> dict:
+    """Parse a SCIP payload and write it through the ingestion writer."""
+    from backend.ingestion.scip_ingest import write_scip_graph
+
+    return write_scip_graph(
+        _default_neo4j_client(), payload.scip, tenant_id=tenant_id
+    )
+
+
 def _sync_vuln_intel(tenant_id: str) -> dict:
     """Fetch NVD + CISA KEV and write them for ``tenant_id``.
 
@@ -348,6 +361,45 @@ def register_code_intel_routes(
                 status_code=500, detail="Failed to ingest code graph"
             ) from e
         return {"status": "ok", "repo_name": payload.repo_name, **counts}
+
+    @app_router.post("/api/v1/code/ingest-scip")
+    async def ingest_scip_graph(
+        payload: ScipIngestRequest,
+        tenant_id: str = Depends(get_tenant_id),
+    ):
+        """Persist a SCIP index (``scip print --json`` output).
+
+        The payload is the parsed JSON document (``documents[]`` with
+        occurrences/symbols); parsing is stdlib-only in
+        ``backend.ingestion.scip_ingest`` and persistence reuses the
+        same tenant-scoped, whitelist-validated code-graph writer as
+        the other ingest paths. Graphs exceeding the ingest node/edge
+        bounds are rejected with 413.
+        """
+        documents = payload.scip.get("documents")
+        if not isinstance(documents, list):
+            raise HTTPException(
+                status_code=400, detail="SCIP payload must contain a documents list"
+            )
+        raw_items = sum(
+            len(doc.get("occurrences") or []) + len(doc.get("symbols") or [])
+            for doc in documents
+            if isinstance(doc, dict)
+        )
+        if raw_items > MAX_INGEST_NODES + MAX_INGEST_EDGES:
+            raise HTTPException(status_code=413, detail="SCIP payload too large")
+        try:
+            counts = await asyncio.to_thread(_write_scip, payload, tenant_id)
+        except ValueError as e:
+            raise HTTPException(
+                status_code=413, detail="SCIP payload too large"
+            ) from e
+        except Exception as e:
+            sentry_sdk.capture_exception(e)
+            raise HTTPException(
+                status_code=500, detail="Failed to ingest SCIP index"
+            ) from e
+        return {"status": "ok", **counts}
 
     @app_router.get("/api/v1/code/overview")
     async def get_code_overview(tenant_id: str = Depends(get_tenant_id)):
