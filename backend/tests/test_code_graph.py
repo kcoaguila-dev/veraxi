@@ -368,6 +368,186 @@ def test_treesitter_parses_go_and_js_calls(tmp_path: Path):
     assert ("app.run", "app.fetchUser") in calls
 
 
+# ---------------------------------------------------------------------------
+# SCIP ingestion (scip print --json, stdlib-only)
+# ---------------------------------------------------------------------------
+
+_SHOUT_SYMBOL = "scip-python python demo 1.0 `pkg/helpers.py`shout()."
+_GREETER_SYMBOL = "scip-python python demo 1.0 `pkg/core.py`Greeter#"
+_GREET_SYMBOL = "scip-python python demo 1.0 `pkg/core.py`Greeter#greet()."
+_PRINT_SYMBOL = "scip-python python stdlib 1.0 `builtins`print()."
+
+SCIP_FIXTURE = {
+    "metadata": {"version": "0.3.0", "tool_info": {"name": "scip-python"}},
+    "documents": [
+        {
+            "relative_path": "pkg/helpers.py",
+            "language": "python",
+            "symbols": [
+                {
+                    "symbol": _SHOUT_SYMBOL,
+                    "kind": "Function",
+                    "display_name": "shout",
+                    "signature_documentation": {"language": "python", "text": "def shout(text)"},
+                    "relationships": [],
+                }
+            ],
+            "occurrences": [
+                {
+                    "range": [0, 4, 9],
+                    "symbol": _SHOUT_SYMBOL,
+                    "symbol_roles": 1,
+                    "enclosing_range": [0, 0, 1, 20],
+                }
+            ],
+        },
+        {
+            "relative_path": "pkg/core.py",
+            "language": "python",
+            "symbols": [
+                {
+                    "symbol": _GREETER_SYMBOL,
+                    "kind": "Class",
+                    "display_name": "Greeter",
+                    "relationships": [],
+                },
+                {
+                    "symbol": _GREET_SYMBOL,
+                    "kind": "Method",
+                    "display_name": "greet",
+                    "relationships": [],
+                },
+            ],
+            "occurrences": [
+                {
+                    "range": [0, 6, 13],
+                    "symbol": _GREETER_SYMBOL,
+                    "symbol_roles": 1,
+                    "enclosing_range": [0, 0, 3, 20],
+                },
+                {
+                    "range": [1, 8, 13],
+                    "symbol": _GREET_SYMBOL,
+                    "symbol_roles": 1,
+                    "enclosing_range": [1, 4, 2, 30],
+                },
+                # Cross-file reference, enclosed by greet (via its own
+                # enclosing_range naming greet's definition span).
+                {
+                    "range": [2, 15, 20],
+                    "symbol": _SHOUT_SYMBOL,
+                    "symbol_roles": 8,
+                    "enclosing_range": [1, 4, 2, 30],
+                },
+                # Duplicate reference (range-only containment): deduped.
+                {
+                    "range": [2, 22, 27],
+                    "symbol": _SHOUT_SYMBOL,
+                    "symbol_roles": 8,
+                },
+                # Referenced but not defined in this index: no edge.
+                {
+                    "range": [2, 8, 13],
+                    "symbol": _PRINT_SYMBOL,
+                    "symbol_roles": 8,
+                },
+            ],
+        },
+    ],
+}
+
+
+@pytest.fixture()
+def scip_graph():
+    from backend.ingestion.scip_ingest import parse_scip_payload
+
+    return parse_scip_payload(SCIP_FIXTURE)
+
+
+def test_scip_documents_become_nodes(scip_graph):
+    shout_qn = "pkg/helpers.py::shout()."
+    assert scip_graph.node("CodeFile", "pkg/helpers.py") is not None
+    assert scip_graph.node("CodeFile", "pkg/core.py") is not None
+    shout = scip_graph.node("Function", shout_qn)
+    assert shout is not None
+    assert shout.name == "shout"
+    assert shout.path == "pkg/helpers.py"
+    assert shout.line == 1
+    assert shout.resolved is True
+    greeter = scip_graph.node("Class", "pkg/core.py::Greeter#")
+    assert greeter is not None and greeter.name == "Greeter"
+    greet = scip_graph.node("Function", "pkg/core.py::Greeter#greet().")
+    assert greet is not None and greet.name == "greet"
+    # No node is created for the undefined external symbol.
+    assert all("builtins" not in n.qualified_name for n in scip_graph.nodes)
+    assert len(scip_graph.nodes) == 5
+
+
+def test_scip_defines_edges(scip_graph):
+    defines = _edge_set(scip_graph, "DEFINES")
+    shout_qn = "pkg/helpers.py::shout()."
+    greeter_qn = "pkg/core.py::Greeter#"
+    greet_qn = "pkg/core.py::Greeter#greet()."
+    assert defines == {
+        ("pkg/helpers.py", shout_qn),
+        ("pkg/core.py", greeter_qn),
+        ("pkg/core.py", greet_qn),
+    }
+
+
+def test_scip_cross_file_references_edge_deduped(scip_graph):
+    references = _edge_set(scip_graph, "REFERENCES")
+    greet_qn = "pkg/core.py::Greeter#greet()."
+    shout_qn = "pkg/helpers.py::shout()."
+    assert references == {(greet_qn, shout_qn)}
+
+
+def test_scip_definition_occurrences_produce_no_self_reference(scip_graph):
+    for edge in scip_graph.edges_of("REFERENCES"):
+        assert edge.source_qn != edge.target_qn
+    # The definition occurrence of shout in helpers.py is not a reference.
+    assert all(
+        source != "pkg/helpers.py" or "shout" not in target
+        for source, target in _edge_set(scip_graph, "REFERENCES")
+    )
+
+
+def test_scip_write_reuses_code_graph_writer(scip_graph):
+    client = FakeNeo4jClient()
+    from backend.ingestion.scip_ingest import write_scip_graph
+
+    result = write_scip_graph(client, SCIP_FIXTURE, tenant_id="tenant-a")
+    assert result == {
+        "nodes_written": len(scip_graph.nodes),
+        "edges_written": len(scip_graph.edges),
+    }
+    edge_writes = [c for c in client.calls if "MERGE (a)-[r:" in c[0]]
+    assert any("MERGE (a)-[r:REFERENCES]" in q for q, _ in edge_writes)
+    # No placeholder node was written for the undefined print symbol.
+    node_writes = [params for q, params in client.calls if "MERGE (n:" in q]
+    assert all(
+        "builtins" not in str(params["properties"]["qualified_name"])
+        for params in node_writes
+    )
+
+
+def test_scip_oversize_raises(monkeypatch):
+    from backend.ingestion import scip_ingest
+
+    monkeypatch.setattr(scip_ingest, "MAX_INGEST_NODES", 2)
+    with pytest.raises(ValueError):
+        scip_ingest.parse_scip_payload(SCIP_FIXTURE)
+
+
+def test_scip_malformed_payload_raises():
+    from backend.ingestion.scip_ingest import parse_scip_payload
+
+    with pytest.raises(ValueError):
+        parse_scip_payload({"no_documents": []})
+    with pytest.raises(ValueError):
+        parse_scip_payload([])  # type: ignore[arg-type]
+
+
 def test_treesitter_parses_cpp_csharp_ruby_kotlin(tmp_path: Path):
     root = tmp_path / "more_langs"
     root.mkdir()

@@ -7,6 +7,7 @@ must fail closed.
 """
 
 import os
+from typing import ClassVar
 
 import pytest
 from fastapi import FastAPI
@@ -366,6 +367,95 @@ class TestIngestGraphRoute:
             "/api/v1/code/ingest-graph",
             json={"repo_name": "demo", "nodes": [{"label": "Function"}, {"label": "Class"}], "edges": []},
         )
+        assert resp.status_code == 413
+
+
+class TestScipIngestRoute:
+    _PAYLOAD: ClassVar[dict] = {
+        "documents": [
+            {
+                "relative_path": "pkg/helpers.py",
+                "language": "python",
+                "symbols": [
+                    {
+                        "symbol": "scip-python python demo 1.0 `pkg/helpers.py`shout().",
+                        "kind": "Function",
+                        "display_name": "shout",
+                    }
+                ],
+                "occurrences": [
+                    {
+                        "range": [0, 4, 9],
+                        "symbol": "scip-python python demo 1.0 `pkg/helpers.py`shout().",
+                        "symbol_roles": 1,
+                        "enclosing_range": [0, 0, 1, 20],
+                    }
+                ],
+            }
+        ]
+    }
+
+    def test_ingest_scip_ok(self, client, monkeypatch):
+        seen = {}
+
+        def fake_write(payload, tenant_id):
+            seen["tenant"] = tenant_id
+            seen["documents"] = len(payload.scip["documents"])
+            return {"nodes_written": 2, "edges_written": 1}
+
+        monkeypatch.setattr(routes, "_write_scip", fake_write)
+        resp = client.post("/api/v1/code/ingest-scip", json={"scip": self._PAYLOAD})
+        assert resp.status_code == 200, resp.text
+        assert resp.json() == {
+            "status": "ok",
+            "nodes_written": 2,
+            "edges_written": 1,
+        }
+        assert seen == {"tenant": "tenant-1", "documents": 1}
+
+    def test_ingest_scip_real_parse_counts(self, client, monkeypatch):
+        class FakeNeo4j:
+            def __init__(self):
+                self.calls = []
+
+            def execute_write(self, query, params=None):
+                self.calls.append((query, params or {}))
+                return []
+
+        fake_neo4j = FakeNeo4j()
+        monkeypatch.setattr(routes, "_default_neo4j_client", lambda: fake_neo4j)
+        resp = client.post("/api/v1/code/ingest-scip", json={"scip": self._PAYLOAD})
+        assert resp.status_code == 200, resp.text
+        body = resp.json()
+        assert body["nodes_written"] == 2
+        assert body["edges_written"] == 1
+        assert fake_neo4j.calls
+
+    def test_ingest_scip_missing_documents_is_400(self, client):
+        resp = client.post("/api/v1/code/ingest-scip", json={"scip": {}})
+        assert resp.status_code == 400
+
+    def test_ingest_scip_oversize_is_413(self, client, monkeypatch):
+        def fake_write(payload, tenant_id):
+            raise ValueError("SCIP graph too large")
+
+        monkeypatch.setattr(routes, "_write_scip", fake_write)
+        resp = client.post("/api/v1/code/ingest-scip", json={"scip": self._PAYLOAD})
+        assert resp.status_code == 413
+
+    def test_ingest_scip_absurd_payload_is_413(self, client, monkeypatch):
+        monkeypatch.setattr(routes, "MAX_INGEST_NODES", 1)
+        monkeypatch.setattr(routes, "MAX_INGEST_EDGES", 1)
+        big = {
+            "documents": [
+                {
+                    "relative_path": "a.py",
+                    "symbols": [{}, {}, {}],
+                    "occurrences": [],
+                }
+            ]
+        }
+        resp = client.post("/api/v1/code/ingest-scip", json={"scip": big})
         assert resp.status_code == 413
 
 
