@@ -27,7 +27,12 @@ import sentry_sdk
 from fastapi import Depends, HTTPException
 from pydantic import BaseModel
 
-from backend.ingestion.code_graph import write_repo_code_graph
+from backend.ingestion.code_graph import (
+    MAX_INGEST_EDGES,
+    MAX_INGEST_NODES,
+    write_parsed_code_graph,
+    write_repo_code_graph,
+)
 from backend.ingestion.dependencies import extract_dependencies_from_repo
 from backend.ingestion.vuln_intel import (
     apply_kev,
@@ -155,6 +160,12 @@ class CodeIngestRequest(BaseModel):
     repo_path: str
 
 
+class CodeIngestGraphRequest(BaseModel):
+    repo_name: str
+    nodes: list[dict] = []
+    edges: list[dict] = []
+
+
 class VulnReportRequest(BaseModel):
     repo_path: str | None = None
     dependencies: list[dict] | None = None
@@ -219,6 +230,16 @@ def _live_osv_report(dependencies: list[dict], tenant_id: str) -> dict:
     return report
 
 
+def _write_parsed_graph(payload: CodeIngestGraphRequest, tenant_id: str) -> dict:
+    """Write a pre-parsed graph payload through the ingestion writer."""
+    return write_parsed_code_graph(
+        _default_neo4j_client(),
+        payload.nodes,
+        payload.edges,
+        tenant_id=tenant_id,
+    )
+
+
 def _sync_vuln_intel(tenant_id: str) -> dict:
     """Fetch NVD + CISA KEV and write them for ``tenant_id``.
 
@@ -252,6 +273,33 @@ def register_code_intel_routes(
                 status_code=500, detail="Failed to index code graph"
             ) from e
         return {"status": "ok", "repo_path": resolved, **counts}
+
+    @app_router.post("/api/v1/code/ingest-graph")
+    async def ingest_parsed_code_graph(
+        payload: CodeIngestGraphRequest,
+        tenant_id: str = Depends(get_tenant_id),
+    ):
+        """Persist a client-parsed code graph (CLI ``xray index --local``).
+
+        The client parses a repo the server cannot read; node/edge
+        labels are whitelist-validated in ``code_graph`` and every
+        write is parameterized and tenant-scoped, exactly like the
+        server-side ingest path.
+        """
+        if len(payload.nodes) > MAX_INGEST_NODES or len(payload.edges) > MAX_INGEST_EDGES:
+            raise HTTPException(
+                status_code=413, detail="Code graph payload too large"
+            )
+        try:
+            counts = await asyncio.to_thread(
+                _write_parsed_graph, payload, tenant_id
+            )
+        except Exception as e:
+            sentry_sdk.capture_exception(e)
+            raise HTTPException(
+                status_code=500, detail="Failed to ingest code graph"
+            ) from e
+        return {"status": "ok", "repo_name": payload.repo_name, **counts}
 
     @app_router.get("/api/v1/code/overview")
     async def get_code_overview(tenant_id: str = Depends(get_tenant_id)):

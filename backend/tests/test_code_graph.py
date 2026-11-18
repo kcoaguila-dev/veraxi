@@ -246,3 +246,101 @@ def test_writer_is_parameterized_and_tenant_scoped(graph):
         assert params["tenant_id"] == "tenant-a"
         assert params["from_key"].startswith("tenant-a::")
         assert params["to_key"].startswith("tenant-a::")
+
+
+# ---------------------------------------------------------------------------
+# Src-layout resolution + resolved:false placeholders (WP2)
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture()
+def src_layout_repo(tmp_path: Path) -> Path:
+    root = tmp_path / "repo"
+    files = {
+        "packages/veraxi-cli/src/veraxi/cli/main.py": (
+            "from veraxi.cli.code_intel import run_xray_symbol\n"
+            "\n\n"
+            "def main():\n"
+            "    return run_xray_symbol('x')\n"
+        ),
+        "packages/veraxi-cli/src/veraxi/cli/code_intel.py": (
+            "def run_xray_symbol(name):\n"
+            "    return name\n"
+        ),
+        "packages/veraxi-cli/src/veraxi/cli/__init__.py": "",
+        "src/top.py": "def top():\n    return 1\n",
+    }
+    for relative, content in files.items():
+        target = root / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(content, encoding="utf-8")
+    return root
+
+
+def test_src_layout_module_resolution(src_layout_repo):
+    parsed = parse_repo(src_layout_repo)
+    module = parsed.node("CodeModule", "veraxi.cli.main")
+    assert module is not None
+    assert module.path == "packages/veraxi-cli/src/veraxi/cli/main.py"
+    assert parsed.node("Function", "veraxi.cli.main.main") is not None
+    # The cross-file import resolves to the real parsed node, so the
+    # CALLS edge targets the real function, not a path="" stub.
+    calls = _edge_set(parsed, "CALLS")
+    assert ("veraxi.cli.main.main", "veraxi.cli.code_intel.run_xray_symbol") in calls
+    assert parsed.node("CodeModule", "top") is not None
+
+
+def test_placeholder_nodes_are_resolved_false(src_layout_repo):
+    parsed = parse_repo(src_layout_repo)
+    client = FakeNeo4jClient()
+    write_code_graph(client, parsed, tenant_id="tenant-a")
+    node_writes = [params for q, params in client.calls if "MERGE (n:" in q]
+    by_qn = {
+        params["properties"]["qualified_name"]: params["properties"]
+        for params in node_writes
+    }
+    real = by_qn["veraxi.cli.main"]
+    assert real["resolved"] is True
+    assert real["path"] == "packages/veraxi-cli/src/veraxi/cli/main.py"
+
+
+def test_unresolved_import_placeholder_marked(tmp_path: Path):
+    root = tmp_path / "repo"
+    root.mkdir()
+    (root / "a.py").write_text(
+        "import totally_external_pkg\n\n\ndef f():\n    return 1\n", encoding="utf-8"
+    )
+    parsed = parse_repo(root)
+    client = FakeNeo4jClient()
+    write_code_graph(client, parsed, tenant_id="tenant-a")
+    node_writes = [params for q, params in client.calls if "MERGE (n:" in q]
+    placeholders = [
+        params["properties"]
+        for params in node_writes
+        if params["properties"]["qualified_name"] == "totally_external_pkg"
+    ]
+    assert placeholders and placeholders[0]["resolved"] is False
+    assert placeholders[0]["path"] == ""
+
+
+def test_graph_from_payload_whitelist_and_resolved():
+    from backend.ingestion.code_graph import graph_from_payload
+
+    graph = graph_from_payload(
+        nodes=[
+            {"label": "Function", "name": "f", "qualified_name": "m.f",
+             "path": "m.py", "line": 3, "language": "python"},
+            {"label": "Evil", "name": "x", "qualified_name": "m.x"},
+            {"label": "CodeModule", "name": "ext", "qualified_name": "ext",
+             "path": "", "line": 0, "language": "", "resolved": False},
+        ],
+        edges=[
+            {"type": "CALLS", "source_qn": "m.f", "source_label": "Function",
+             "target_qn": "ext", "target_label": "CodeModule"},
+            {"type": "DROP", "source_qn": "m.f", "source_label": "Function",
+             "target_qn": "ext", "target_label": "CodeModule"},
+        ],
+    )
+    assert [n.qualified_name for n in graph.nodes] == ["m.f", "ext"]
+    assert graph.nodes[1].resolved is False
+    assert [e.type for e in graph.edges] == ["CALLS"]

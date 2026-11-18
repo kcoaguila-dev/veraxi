@@ -107,6 +107,10 @@ class CodeNode:
     path: str
     line: int
     language: str
+    # False only for placeholder nodes standing in for a target that
+    # lives outside the parsed tree (external / unresolved). Parsed
+    # nodes are always resolved.
+    resolved: bool = True
 
     @property
     def key(self) -> tuple[str, str]:
@@ -120,6 +124,7 @@ class CodeNode:
             "line": self.line,
             "tenant_id": tenant_id,
             "language": self.language,
+            "resolved": self.resolved,
         }
 
 
@@ -231,11 +236,34 @@ def _is_parseable_file(path: Path, root: Path) -> bool:
         return False
 
 
+def _strip_src_layout(parts: list[str]) -> list[str]:
+    """Drop ``src``-layout prefixes so module names match import names.
+
+    ``packages/<pkg>/src/<pkg>/...`` (the setuptools src layout used by
+    ``packages/veraxi-cli``), a leading ``src/``, and ``<pkg>/src/``
+    all address the same importable package without the ``src``
+    segment: ``packages/veraxi-cli/src/veraxi/cli/main.py`` is imported
+    as ``veraxi.cli.main``, not ``packages.veraxi-cli.src.veraxi...``.
+    """
+    if len(parts) >= 4 and parts[0] == "packages" and parts[2] == "src":
+        return parts[3:]
+    if len(parts) >= 2 and parts[0] == "src":
+        return parts[1:]
+    if len(parts) >= 3 and parts[1] == "src":
+        return parts[2:]
+    return parts
+
+
 def _module_qualified_name(relative_path: str) -> str:
     """Dotted module name for a Python file, or path-based name otherwise."""
     suffix = Path(relative_path).suffix.lower()
     stem = relative_path[: -len(suffix)] if suffix else relative_path
     parts = [part for part in stem.replace("\\", "/").split("/") if part]
+    parts = _strip_src_layout(parts)
+    if suffix == ".py":
+        # Python identifiers cannot contain "-": a hyphenated directory
+        # on disk is imported with underscores, when it is importable.
+        parts = [part.replace("-", "_") for part in parts]
     if parts and parts[-1] == "__init__":
         parts = parts[:-1]
     return ".".join(parts)
@@ -721,6 +749,7 @@ def _write_placeholder_node(
         path="",
         line=0,
         language="",
+        resolved=False,
     )
     _write_node(client, placeholder, tenant_id)
 
@@ -760,6 +789,78 @@ def write_code_graph(
     return {"nodes_written": len(graph.nodes), "edges_written": len(graph.edges)}
 
 
+MAX_INGEST_NODES = 20000
+MAX_INGEST_EDGES = 50000
+
+
+def graph_from_payload(
+    nodes: list[dict[str, Any]], edges: list[dict[str, Any]]
+) -> CodeGraph:
+    """Build a :class:`CodeGraph` from a pre-parsed payload.
+
+    Used by ``POST /api/v1/code/ingest-graph``: a client (the CLI's
+    ``xray index --local``) parses a repo it can read and uploads the
+    graph, so the server needs no filesystem access to that repo.
+    Labels / edge types are validated against this module's whitelists;
+    anything else is dropped (fail closed). ``resolved`` defaults to
+    True and is only False for client-marked external placeholders.
+    """
+    parsed_nodes: list[CodeNode] = []
+    seen: set[tuple[str, str]] = set()
+    for raw in nodes or []:
+        label = raw.get("label")
+        qualified_name = raw.get("qualified_name")
+        if label not in NODE_LABELS or not qualified_name:
+            continue
+        key = (label, str(qualified_name))
+        if key in seen:
+            continue
+        seen.add(key)
+        parsed_nodes.append(
+            CodeNode(
+                label=label,
+                name=str(raw.get("name") or str(qualified_name).rsplit(".", 1)[-1]),
+                qualified_name=str(qualified_name),
+                path=str(raw.get("path") or ""),
+                line=int(raw.get("line") or 0),
+                language=str(raw.get("language") or ""),
+                resolved=bool(raw.get("resolved", True)),
+            )
+        )
+    parsed_edges: list[CodeEdge] = []
+    for raw in edges or []:
+        edge_type = raw.get("type")
+        if edge_type not in EDGE_TYPES:
+            continue
+        if not raw.get("source_qn") or not raw.get("target_qn"):
+            continue
+        if raw.get("source_label") not in NODE_LABELS:
+            continue
+        if raw.get("target_label") not in NODE_LABELS:
+            continue
+        parsed_edges.append(
+            CodeEdge(
+                type=edge_type,
+                source_qn=str(raw["source_qn"]),
+                source_label=str(raw["source_label"]),
+                target_qn=str(raw["target_qn"]),
+                target_label=str(raw["target_label"]),
+            )
+        )
+    return CodeGraph(nodes=parsed_nodes, edges=parsed_edges)
+
+
+def write_parsed_code_graph(
+    client: Any,
+    nodes: list[dict[str, Any]],
+    edges: list[dict[str, Any]],
+    tenant_id: str = "default",
+) -> dict[str, int]:
+    """Persist a pre-parsed graph payload (see :func:`graph_from_payload`)."""
+    graph = graph_from_payload(nodes, edges)
+    return write_code_graph(client, graph, tenant_id=tenant_id)
+
+
 def write_repo_code_graph(
     root: str | Path, tenant_id: str = "default", client: Any = None
 ) -> dict[str, int]:
@@ -785,7 +886,9 @@ __all__ = [
     "CodeEdge",
     "CodeGraph",
     "CodeNode",
+    "graph_from_payload",
     "parse_repo",
     "write_code_graph",
+    "write_parsed_code_graph",
     "write_repo_code_graph",
 ]
