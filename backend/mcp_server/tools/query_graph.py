@@ -86,7 +86,7 @@ def query_graph(
     MATCH (start)
     WHERE (
         (start:Entity AND start.tenant_id = $tenant_id)
-        OR ((start:CodeModule OR start:Class OR start:Function OR start:CodeFile OR start:SecurityFinding OR start:ReconFinding OR start:TargetHost) AND start.tenant_id = $tenant_id)
+        OR ((start:CodeModule OR start:Class OR start:Function OR start:CodeFile OR start:SecurityFinding OR start:ReconFinding OR start:TargetHost OR start:SecurityAlert OR start:IOC) AND start.tenant_id = $tenant_id)
         OR ((start:CVE OR start:CWE OR start:Package OR start:AttackTechnique OR start:AttackTactic OR start:AttackMitigation) AND start.tenant_id IN [$tenant_id, 'public'])
       )
       AND coalesce(start.name, start.id, start.qualified_name) IS NOT NULL

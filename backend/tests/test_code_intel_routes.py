@@ -521,3 +521,38 @@ class TestSarifAndSbomRoutes:
         assert body["status"] == "ok"
         assert body["findings_written"] == 1
         assert body["host_links"] == 1
+
+    def test_ingest_alerts_route(self, client, monkeypatch):
+        class FakeNeo4j:
+            def __init__(self):
+                self.calls = []
+
+            def execute_write(self, query, params=None):
+                self.calls.append((query, params or {}))
+                return []
+
+        fake_neo4j = FakeNeo4j()
+        monkeypatch.setattr(routes, "_default_neo4j_client", lambda: fake_neo4j)
+        monkeypatch.setattr(
+            "backend.storage.qdrant_client.QdrantStorageClient.from_config",
+            lambda cfg: (_ for _ in ()).throw(RuntimeError("no qdrant in unit test")),
+        )
+        resp = client.post(
+            "/api/v1/vuln/alerts",
+            json={
+                "alerts": [
+                    {
+                        "title": "Suspicious curl T1105",
+                        "severity": "high",
+                        "host": "api-01",
+                        "dest_ip": "203.0.113.10",
+                    }
+                ]
+            },
+        )
+        assert resp.status_code == 200, resp.text
+        body = resp.json()
+        assert body["status"] == "ok"
+        assert body["alerts_written"] == 1
+        assert body["ioc_links"] == 1
+        assert body["technique_links"] == 1

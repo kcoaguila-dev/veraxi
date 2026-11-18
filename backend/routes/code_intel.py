@@ -189,6 +189,10 @@ class ReconIngestRequest(BaseModel):
     nuclei: str | list[dict]
 
 
+class AlertIngestRequest(BaseModel):
+    alerts: dict | list[dict]
+
+
 def _default_neo4j_client():
     """Build the production Neo4j storage client from config.
 
@@ -488,6 +492,40 @@ def register_code_intel_routes(
             ) from e
         return {"status": "ok", "tenant_id": tenant_id, **counts}
 
+    @app_router.post("/api/v1/vuln/alerts")
+    async def ingest_alerts(
+        payload: AlertIngestRequest,
+        tenant_id: str = Depends(get_tenant_id),
+    ):
+        """Ingest SOC/SIEM security alerts & IOCs into Neo4j and Qdrant."""
+        from backend.ingestion.alerts import parse_alert_payload, write_security_alerts
+
+        def _ingest() -> dict:
+            alerts = parse_alert_payload(payload.alerts)
+            qdrant_client = None
+            try:
+                from backend.config import get_config
+                from backend.storage.qdrant_client import QdrantStorageClient
+
+                qdrant_client = QdrantStorageClient.from_config(get_config())
+            except Exception as exc:
+                logger.warning("Qdrant unavailable during alert ingest: %s", exc)
+            return write_security_alerts(
+                _default_neo4j_client(),
+                alerts,
+                tenant_id=tenant_id,
+                qdrant_client=qdrant_client,
+            )
+
+        try:
+            counts = await asyncio.to_thread(_ingest)
+        except Exception as e:
+            sentry_sdk.capture_exception(e)
+            raise HTTPException(
+                status_code=500, detail="Failed to ingest security alerts"
+            ) from e
+        return {"status": "ok", "tenant_id": tenant_id, **counts}
+
     @app_router.post("/api/v1/vuln/recon")
     async def ingest_recon(
         payload: ReconIngestRequest,
@@ -519,6 +557,40 @@ def register_code_intel_routes(
             sentry_sdk.capture_exception(e)
             raise HTTPException(
                 status_code=500, detail="Failed to ingest recon findings"
+            ) from e
+        return {"status": "ok", "tenant_id": tenant_id, **counts}
+
+    @app_router.post("/api/v1/vuln/alerts")
+    async def ingest_alerts(
+        payload: AlertIngestRequest,
+        tenant_id: str = Depends(get_tenant_id),
+    ):
+        """Ingest SOC/SIEM security alerts & IOCs into Neo4j and Qdrant."""
+        from backend.ingestion.alerts import parse_alert_payload, write_security_alerts
+
+        def _ingest() -> dict:
+            alerts = parse_alert_payload(payload.alerts)
+            qdrant_client = None
+            try:
+                from backend.config import get_config
+                from backend.storage.qdrant_client import QdrantStorageClient
+
+                qdrant_client = QdrantStorageClient.from_config(get_config())
+            except Exception as exc:
+                logger.warning("Qdrant unavailable during alert ingest: %s", exc)
+            return write_security_alerts(
+                _default_neo4j_client(),
+                alerts,
+                tenant_id=tenant_id,
+                qdrant_client=qdrant_client,
+            )
+
+        try:
+            counts = await asyncio.to_thread(_ingest)
+        except Exception as e:
+            sentry_sdk.capture_exception(e)
+            raise HTTPException(
+                status_code=500, detail="Failed to ingest security alerts"
             ) from e
         return {"status": "ok", "tenant_id": tenant_id, **counts}
 
@@ -565,6 +637,40 @@ def register_code_intel_routes(
             ) from e
         return {"status": "ok", "tenant_id": tenant_id, **counts}
 
+    @app_router.post("/api/v1/vuln/alerts")
+    async def ingest_alerts(
+        payload: AlertIngestRequest,
+        tenant_id: str = Depends(get_tenant_id),
+    ):
+        """Ingest SOC/SIEM security alerts & IOCs into Neo4j and Qdrant."""
+        from backend.ingestion.alerts import parse_alert_payload, write_security_alerts
+
+        def _ingest() -> dict:
+            alerts = parse_alert_payload(payload.alerts)
+            qdrant_client = None
+            try:
+                from backend.config import get_config
+                from backend.storage.qdrant_client import QdrantStorageClient
+
+                qdrant_client = QdrantStorageClient.from_config(get_config())
+            except Exception as exc:
+                logger.warning("Qdrant unavailable during alert ingest: %s", exc)
+            return write_security_alerts(
+                _default_neo4j_client(),
+                alerts,
+                tenant_id=tenant_id,
+                qdrant_client=qdrant_client,
+            )
+
+        try:
+            counts = await asyncio.to_thread(_ingest)
+        except Exception as e:
+            sentry_sdk.capture_exception(e)
+            raise HTTPException(
+                status_code=500, detail="Failed to ingest security alerts"
+            ) from e
+        return {"status": "ok", "tenant_id": tenant_id, **counts}
+
     @app_router.post("/api/v1/vuln/recon")
     async def ingest_recon(
         payload: ReconIngestRequest,
@@ -596,5 +702,39 @@ def register_code_intel_routes(
             sentry_sdk.capture_exception(e)
             raise HTTPException(
                 status_code=500, detail="Failed to ingest recon findings"
+            ) from e
+        return {"status": "ok", "tenant_id": tenant_id, **counts}
+
+    @app_router.post("/api/v1/vuln/alerts")
+    async def ingest_alerts(
+        payload: AlertIngestRequest,
+        tenant_id: str = Depends(get_tenant_id),
+    ):
+        """Ingest SOC/SIEM security alerts & IOCs into Neo4j and Qdrant."""
+        from backend.ingestion.alerts import parse_alert_payload, write_security_alerts
+
+        def _ingest() -> dict:
+            alerts = parse_alert_payload(payload.alerts)
+            qdrant_client = None
+            try:
+                from backend.config import get_config
+                from backend.storage.qdrant_client import QdrantStorageClient
+
+                qdrant_client = QdrantStorageClient.from_config(get_config())
+            except Exception as exc:
+                logger.warning("Qdrant unavailable during alert ingest: %s", exc)
+            return write_security_alerts(
+                _default_neo4j_client(),
+                alerts,
+                tenant_id=tenant_id,
+                qdrant_client=qdrant_client,
+            )
+
+        try:
+            counts = await asyncio.to_thread(_ingest)
+        except Exception as e:
+            sentry_sdk.capture_exception(e)
+            raise HTTPException(
+                status_code=500, detail="Failed to ingest security alerts"
             ) from e
         return {"status": "ok", "tenant_id": tenant_id, **counts}

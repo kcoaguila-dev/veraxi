@@ -1006,3 +1006,48 @@ def test_parse_and_write_nuclei_recon_findings(monkeypatch):
         "vectors_written": 1,
     }
     assert qdrant.points[0]["source_type"] == "dast_nuclei"
+
+
+def test_parse_and_write_soc_alerts_and_security_benchmark(monkeypatch):
+    from backend.evaluation.security_benchmark import run_security_benchmark
+    from backend.ingestion.alerts import parse_alert_payload, write_security_alerts
+
+    monkeypatch.setattr("backend.ingestion.chunk_embed.embed_text", lambda text: [0.1, 0.2])
+    monkeypatch.setattr(
+        "backend.ingestion.chunk_embed.embed_text_sparse",
+        lambda text: {"indices": [1], "values": [0.9]},
+    )
+
+    alerts = parse_alert_payload(
+        {
+            "title": "PowerShell Execution T1059.001",
+            "severity": "high",
+            "host": "web-01",
+            "source_ip": "198.51.100.42",
+            "cve_ids": ["CVE-2024-3094"],
+        }
+    )
+    neo4j = RecordingWriteClient()
+
+    class FakeQdrant:
+        def __init__(self):
+            self.points = []
+
+        def insert_points(self, col, vectors, sparse_vectors=None, payloads=None, tenant_id="default"):
+            self.points.extend(payloads or [])
+            return [p.get("point_id") for p in (payloads or [])]
+
+    qdrant = FakeQdrant()
+    counts = write_security_alerts(neo4j, alerts, tenant_id="t1", qdrant_client=qdrant)
+    assert counts == {
+        "alerts_written": 1,
+        "ioc_links": 1,
+        "technique_links": 1,
+        "cve_links": 1,
+        "vectors_written": 1,
+    }
+    assert qdrant.points[0]["source_type"] == "soc_alert"
+
+    bench = run_security_benchmark()
+    assert bench["passed"] == bench["total"] == 6
+    assert bench["pass_rate"] == 1.0
