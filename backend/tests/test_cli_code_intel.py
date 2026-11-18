@@ -114,5 +114,5 @@ def test_xray_index_local_parses_and_uploads(tmp_path):
     qns = {n["qualified_name"] for n in body["nodes"]}
     assert "veraxi.cli.main" in qns
     assert "veraxi.cli.main.main" in qns
-    main_node = [n for n in body["nodes"] if n["qualified_name"] == "veraxi.cli.main"][0]
+    main_node = next(n for n in body["nodes"] if n["qualified_name"] == "veraxi.cli.main")
     assert main_node["path"] == "packages/veraxi-cli/src/veraxi/cli/main.py"
