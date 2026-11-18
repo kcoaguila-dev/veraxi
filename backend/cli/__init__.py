@@ -23,6 +23,7 @@ _SUBMODULES = [
     "doctor",
     "evals",
     "hook",
+    "http_client",
     "impact",
     "ingest",
     "init_project",

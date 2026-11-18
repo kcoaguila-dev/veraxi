@@ -34,6 +34,199 @@ def _format_tool_input(args: dict) -> str:
     return ", ".join(parts)
 
 
+_LEG_BADGES = {"vector": "Vector", "sparse": "Sparse", "graph": "Graph"}
+
+_LAST_SOURCES: list = []
+
+
+def format_deep_estimate(estimate):
+    """Format a POST /api/chat/estimate-deep response as one line."""
+    if not isinstance(estimate, dict):
+        return None
+    total = estimate.get("total_tokens") or {}
+    low, high = total.get("min"), total.get("max")
+    if low is None or high is None:
+        return None
+    line = f"Deep mode est: {low}–{high} tokens"
+    cost = estimate.get("estimated_cost_usd")
+    if isinstance(cost, dict) and cost.get("min") is not None and cost.get("max") is not None:
+        line += f" (${cost['min']:.2f}–${cost['max']:.2f})"
+    return line
+
+
+def fetch_deep_estimate(endpoint, key=None, tenant=None, model=None):
+    """Fetch the Deep pre-flight estimate; None on any failure (never blocks chat)."""
+    try:
+        from veraxi.cli.http_client import api_request
+
+        body = {"model": model} if model else {}
+        return api_request(
+            "POST", "/api/chat/estimate-deep", body=body, endpoint=endpoint, key=key, tenant=tenant,
+            quiet=True,
+        )
+    except SystemExit:
+        return None
+    except Exception:
+        return None
+
+
+def print_deep_estimate(endpoint, key=None, tenant=None, model=None):
+    """Print the Deep estimate line if available; silent no-op on failure."""
+    line = format_deep_estimate(fetch_deep_estimate(endpoint, key, tenant, model))
+    if line:
+        print(line)
+    return line
+
+
+def _source_provenance(source):
+    if not isinstance(source, dict):
+        return None
+    prov = source.get("provenance")
+    if isinstance(prov, dict):
+        return prov
+    if any(k in source for k in ("legs", "fused_score", "graph_path")):
+        return {
+            "legs": source.get("legs") or [],
+            "fused_score": source.get("fused_score"),
+            "graph_path": source.get("graph_path"),
+        }
+    legs_src = source.get("sources")
+    if isinstance(legs_src, list):
+        legs = [leg for leg in ("vector", "sparse", "graph") if leg in legs_src]
+        if legs:
+            return {"legs": legs, "fused_score": source.get("fused_score"), "graph_path": None}
+    return None
+
+
+def format_provenance(sources):
+    """Render per-source provenance: badges, fused_score, indented graph_path."""
+    lines = []
+    if not sources:
+        return "No sources recorded for the last answer."
+    for idx, source in enumerate(sources, 1):
+        prov = _source_provenance(source)
+        label = ""
+        if isinstance(source, dict):
+            label = source.get("title") or source.get("name") or source.get("id") or ""
+        if prov is None:
+            lines.append(f"{idx}. {label} (no provenance)".strip())
+            continue
+        badges = " ".join(f"[{_LEG_BADGES.get(leg, leg)}]" for leg in (prov.get("legs") or []))
+        score = prov.get("fused_score")
+        score_str = f" fused_score={score:.3f}" if isinstance(score, (int, float)) else ""
+        lines.append(f"{idx}. {label} {badges}{score_str}".strip())
+        graph_path = prov.get("graph_path")
+        if isinstance(graph_path, list) and graph_path:
+            steps = []
+            for step in graph_path:
+                if isinstance(step, dict):
+                    node = step.get("node", "?")
+                    rel = step.get("relation")
+                    steps.append(f"{node} -[{rel}]->" if rel else str(node))
+            if steps:
+                lines.append(f"    graph_path: {' '.join(steps)}")
+    return "\n".join(lines)
+
+
+def print_provenance(sources, as_json=False):
+    if as_json:
+        raw = [_source_provenance(s) for s in (sources or [])]
+        print(json.dumps(raw, indent=2))
+        return
+    print(format_provenance(sources))
+
+
+def format_metrics_footer(metrics):
+    """One-line footer from shaped metrics (formatter._finalize_metrics shape)."""
+    if not isinstance(metrics, dict):
+        return None
+    gen_sec = metrics.get("generation_seconds") or metrics.get("total_seconds")
+    parts = [f"Worked for {gen_sec}s" if gen_sec else "done"]
+    prompt = metrics.get("prompt_tokens")
+    completion = metrics.get("completion_tokens")
+    total = metrics.get("total_tokens")
+    if total is not None or prompt is not None or completion is not None:
+        parts.append(f"tokens: prompt={prompt} completion={completion} total={total}")
+    cost = metrics.get("estimated_cost_usd")
+    if isinstance(cost, (int, float)):
+        parts.append(f"cost: ${cost:.4f}")
+    return " • ".join(parts)
+
+
+def _render_event(event, state):
+    """Render one stream event (single renderer for local and SSE paths)."""
+    bold = "\033[1m"
+    cyan = "\033[36m"
+    green = "\033[32m"
+    yellow = "\033[33m"
+    dim = "\033[2m"
+    italic = "\033[3m"
+    reset = "\033[0m"
+    evt_type = event.get("event")
+    data = event.get("data", {}) if isinstance(event.get("data"), dict) else {}
+
+    if evt_type == "on_step_start":
+        step = event.get("step", 1)
+        desc = event.get("description") or event.get("name", "Processing")
+        print(f"\n{bold}{cyan}● Step {step}: {desc}{reset}")
+    elif evt_type == "on_tool_start":
+        name = event.get("name", "tool")
+        label = event.get("label", name)
+        inp = _format_tool_input(data.get("input", {}))
+        print(f"  {yellow}⠋ Running tool: {bold}{label}{reset} {dim}({name}){reset}")
+        print(f"    {dim}Parameters: {inp}{reset}")
+    elif evt_type == "on_tool_end":
+        name = event.get("name", "tool")
+        label = event.get("label", name)
+        dur = event.get("duration_ms")
+        dur_str = f" • Worked for {dur}ms" if dur is not None else ""
+        summary = event.get("summary", "Executed")
+        status = event.get("status", "success")
+        status_color = green if status == "success" else yellow
+        print(f"  {status_color}✓ Completed: {bold}{label}{reset}{dim}{dur_str}{reset}")
+        print(f"    {dim}Output: {summary}{reset}")
+        artifact = data.get("artifact") or event.get("artifact")
+        if isinstance(artifact, list) and artifact:
+            state["sources"] = artifact
+            _LAST_SOURCES.clear()
+            _LAST_SOURCES.extend(artifact)
+    elif evt_type == "on_reasoning_stream":
+        text = data.get("text", "")
+        if text:
+            sys.stdout.write(f"{dim}{italic}{text}{reset}")
+            sys.stdout.flush()
+    elif evt_type == "on_reasoning_end":
+        sec = data.get("seconds", 0.0)
+        print(f"\n  {dim}{italic}Thought for {sec}s{reset}\n")
+    elif evt_type == "on_chat_model_stream":
+        chunk = data.get("chunk")
+        content = None
+        if isinstance(chunk, dict):
+            content = chunk.get("content")
+        elif chunk is not None and hasattr(chunk, "content"):
+            content = chunk.content
+        elif isinstance(data.get("content"), str):
+            content = data.get("content")
+        if content:
+            if not state.get("has_started_answer"):
+                print(f"\n{bold}{green}Answer:{reset}\n")
+                state["has_started_answer"] = True
+            sys.stdout.write(content)
+            sys.stdout.flush()
+    elif evt_type == "metadata":
+        sources = data.get("sources") or data.get("artifacts") or event.get("sources")
+        if isinstance(sources, list) and sources:
+            state["sources"] = sources
+            _LAST_SOURCES.clear()
+            _LAST_SOURCES.extend(sources)
+        metrics = data.get("metrics")
+        footer = format_metrics_footer(metrics) if isinstance(metrics, dict) else None
+        if footer:
+            print(f"\n\n{dim}─── {footer} ───{reset}")
+        if state.get("show_sources") and state.get("sources"):
+            print_provenance(state["sources"], as_json=state.get("as_json", False))
+
+
 def run_agent_stream(
     query: str,
     tenant_id: str = "default",
@@ -42,6 +235,9 @@ def run_agent_stream(
     model: str | None = None,
     tool_settings: dict | None = None,
     mode: str = "fast",
+    show_sources: bool = False,
+    as_json: bool = False,
+    dry_run: bool = False,
 ) -> bool:
     """
     Executes conversational query with real-time step and tool execution visibility.
@@ -59,8 +255,15 @@ def run_agent_stream(
     green = "\033[32m"
     yellow = "\033[33m"
     dim = "\033[2m"
-    italic = "\033[3m"
     reset = "\033[0m"
+
+    # Pre-flight Deep estimate (silent no-op on failure; never blocks chat).
+    if mode == "deep":
+        print_deep_estimate(endpoint, key, tenant_id, model)
+        if dry_run:
+            return True
+    elif dry_run:
+        return True
 
     # 1. Try local execution if running in Veraxi repo/host
     try:
@@ -150,7 +353,7 @@ def run_agent_stream(
         from backend.mcp_server.llm_loop import stream_answer_question
 
         async def _local_runner():
-            has_started_answer = False
+            state = {"has_started_answer": False, "sources": [], "show_sources": show_sources, "as_json": as_json}
             async for event in stream_answer_question(
                 query,
                 tenant_id=tenant_id,
@@ -160,65 +363,9 @@ def run_agent_stream(
                 model_override=model,
                 tool_settings=tool_settings,
             ):
-                evt_type = event.get("event")
+                _render_event(event, state)
 
-                if evt_type == "on_step_start":
-                    step = event.get("step", 1)
-                    desc = event.get("description") or event.get("name", "Processing")
-                    print(f"\n{bold}{cyan}● Step {step}: {desc}{reset}")
-
-                elif evt_type == "on_tool_start":
-                    name = event.get("name", "tool")
-                    label = event.get("label", name)
-                    inp = _format_tool_input(event.get("data", {}).get("input", {}))
-                    print(
-                        f"  {yellow}⠋ Running tool: {bold}{label}{reset} {dim}({name}){reset}"
-                    )
-                    print(f"    {dim}Parameters: {inp}{reset}")
-
-                elif evt_type == "on_tool_end":
-                    name = event.get("name", "tool")
-                    label = event.get("label", name)
-                    dur = event.get("duration_ms")
-                    dur_str = f" • Worked for {dur}ms" if dur is not None else ""
-                    summary = event.get("summary", "Executed")
-                    status = event.get("status", "success")
-                    status_color = green if status == "success" else yellow
-
-                    print(
-                        f"  {status_color}✓ Completed: {bold}{label}{reset}{dim}{dur_str}{reset}"
-                    )
-                    print(f"    {dim}Output: {summary}{reset}")
-
-                elif evt_type == "on_reasoning_stream":
-                    text = event.get("data", {}).get("text", "")
-                    if text:
-                        sys.stdout.write(f"{dim}{italic}{text}{reset}")
-                        sys.stdout.flush()
-
-                elif evt_type == "on_reasoning_end":
-                    sec = event.get("data", {}).get("seconds", 0.0)
-                    print(f"\n  {dim}{italic}Thought for {sec}s{reset}\n")
-
-                elif evt_type == "on_chat_model_stream":
-                    chunk = event.get("data", {}).get("chunk")
-                    if chunk and hasattr(chunk, "content") and chunk.content:
-                        if not has_started_answer:
-                            print(f"\n{bold}{green}Answer:{reset}\n")
-                            has_started_answer = True
-                        sys.stdout.write(chunk.content)
-                        sys.stdout.flush()
-
-                elif evt_type == "metadata":
-                    metrics = event.get("data", {}).get("metrics")
-                    if metrics and isinstance(metrics, dict):
-                        gen_sec = metrics.get("generation_seconds") or metrics.get(
-                            "total_seconds"
-                        )
-                        sec_str = f"Worked for {gen_sec}s" if gen_sec else "done"
-                        print(f"\n\n{dim}─── {sec_str} ───{reset}")
-
-            if has_started_answer:
+            if state.get("has_started_answer"):
                 print()
             return True
 
@@ -261,7 +408,7 @@ def run_agent_stream(
         if key:
             req.add_header("Authorization", f"Bearer {key}")
 
-        has_started_answer = False
+        state = {"has_started_answer": False, "sources": [], "show_sources": show_sources, "as_json": as_json}
         with urllib.request.urlopen(req, timeout=30) as resp:
             for raw_line in resp:
                 line = raw_line.decode("utf-8", errors="replace").strip()
@@ -274,70 +421,9 @@ def run_agent_stream(
                     event = json.loads(data_str)
                 except Exception:
                     continue
+                _render_event(event, state)
 
-                evt_type = event.get("event")
-                if evt_type == "on_step_start":
-                    step = event.get("step", 1)
-                    desc = event.get("description") or event.get("name", "Processing")
-                    print(f"\n{bold}{cyan}● Step {step}: {desc}{reset}")
-
-                elif evt_type == "on_tool_start":
-                    name = event.get("name", "tool")
-                    label = event.get("label", name)
-                    inp = _format_tool_input(event.get("data", {}).get("input", {}))
-                    print(
-                        f"  {yellow}⠋ Running tool: {bold}{label}{reset} {dim}({name}){reset}"
-                    )
-                    print(f"    {dim}Parameters: {inp}{reset}")
-
-                elif evt_type == "on_tool_end":
-                    name = event.get("name", "tool")
-                    label = event.get("label", name)
-                    dur = event.get("duration_ms")
-                    dur_str = f" • Worked for {dur}ms" if dur is not None else ""
-                    summary = event.get("summary", "Executed")
-                    status = event.get("status", "success")
-                    status_color = green if status == "success" else yellow
-
-                    print(
-                        f"  {status_color}✓ Completed: {bold}{label}{reset}{dim}{dur_str}{reset}"
-                    )
-                    print(f"    {dim}Output: {summary}{reset}")
-
-                elif evt_type == "on_reasoning_stream":
-                    text = event.get("data", {}).get("text", "")
-                    if text:
-                        sys.stdout.write(f"{dim}{italic}{text}{reset}")
-                        sys.stdout.flush()
-
-                elif evt_type == "on_reasoning_end":
-                    sec = event.get("data", {}).get("seconds", 0.0)
-                    print(f"\n  {dim}{italic}Thought for {sec}s{reset}\n")
-
-                elif evt_type == "on_chat_model_stream":
-                    chunk = event.get("data", {}).get("chunk", {})
-                    content = (
-                        chunk.get("content")
-                        if isinstance(chunk, dict)
-                        else getattr(chunk, "content", "")
-                    )
-                    if content:
-                        if not has_started_answer:
-                            print(f"\n{bold}{green}Answer:{reset}\n")
-                            has_started_answer = True
-                        sys.stdout.write(content)
-                        sys.stdout.flush()
-
-                elif evt_type == "metadata":
-                    metrics = event.get("data", {}).get("metrics")
-                    if metrics and isinstance(metrics, dict):
-                        gen_sec = metrics.get("generation_seconds") or metrics.get(
-                            "total_seconds"
-                        )
-                        sec_str = f"Worked for {gen_sec}s" if gen_sec else "done"
-                        print(f"\n\n{dim}─── {sec_str} ───{reset}")
-
-            if has_started_answer:
+            if state.get("has_started_answer"):
                 print()
             return True
 
@@ -352,6 +438,9 @@ def run_interactive_chat(
     key: str | None = None,
     model: str | None = None,
     mode: str = "fast",
+    show_sources: bool = False,
+    as_json: bool = False,
+    dry_run: bool = False,
 ):
     """
     Launches an interactive Terminal Knowledge Assistant REPL with full
@@ -389,6 +478,14 @@ def run_interactive_chat(
         "run_code_enabled": False,
         "skills_enabled": False,
     }
+
+    if dry_run:
+        if mode == "deep":
+            print_deep_estimate(endpoint, key, tenant_id, model)
+        return
+
+    if mode == "deep":
+        print_deep_estimate(endpoint, key, tenant_id, model)
 
     while True:
         try:
@@ -433,6 +530,7 @@ def run_interactive_chat(
                 print("  /web [on|off]       - Toggle live web search tool")
                 print("  /code [on|off]      - Toggle Python code interpreter")
                 print("  /web <query>        - Run direct standalone web search")
+                print("  /sources            - Show provenance for the last answer")
                 print("  /fetch <url>        - Read clean Markdown from a web page")
                 print(
                     "  /trace <entity>     - Trace multi-hop causal graph relationships"
@@ -477,6 +575,7 @@ def run_interactive_chat(
                 print(
                     f"{cyan}Switched to Deep Research Mode (5-Agent Debate Swarm).{reset}\n"
                 )
+                print_deep_estimate(endpoint, key, tenant_id, model)
                 continue
 
             if query_text.lower() in ("/tools", "tools"):
@@ -579,6 +678,10 @@ def run_interactive_chat(
                 )
                 continue
 
+            if query_text.lower() in ("/sources", "sources"):
+                print_provenance(list(_LAST_SOURCES), as_json=as_json)
+                continue
+
             if query_text.lower() in ("/stats", "stats"):
                 run_stats(tenant_id=tenant_id, endpoint=endpoint, key=key)
                 continue
@@ -596,6 +699,8 @@ def run_interactive_chat(
                 model=model,
                 tool_settings=tool_settings,
                 mode=mode,
+                show_sources=show_sources,
+                as_json=as_json,
             )
 
             # Fallback to direct dossier retrieval if streaming agent loop is not active
