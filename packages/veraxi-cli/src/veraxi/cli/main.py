@@ -100,6 +100,10 @@ def main():
         default="fast",
         help="Execution mode: 'fast' (sub-second Hybrid GraphRAG) or 'deep' (Multi-Agent Research Swarm)",
     )
+    chat_parser.add_argument("--model", help="Model name (used for Deep estimate pricing)")
+    chat_parser.add_argument("--show-sources", action="store_true", help="Print provenance for each answer")
+    chat_parser.add_argument("--json", action="store_true", help="Emit provenance as raw JSON with --show-sources / /sources")
+    chat_parser.add_argument("--dry-run", action="store_true", help="Print the Deep estimate and exit (with --mode deep)")
 
     # --- init ---
     init_parser = subparsers.add_parser(
@@ -1041,7 +1045,11 @@ def main():
             limit=args.limit,
             endpoint=endpoint,
             key=key,
+            model=getattr(args, "model", None),
             mode=getattr(args, "mode", "fast"),
+            show_sources=getattr(args, "show_sources", False),
+            as_json=getattr(args, "json", False),
+            dry_run=getattr(args, "dry_run", False),
         )
 
     elif args.subcommand == "init":

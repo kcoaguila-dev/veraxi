@@ -8,8 +8,6 @@ Exit codes: 0 ok, 1 error/bad JSON, 2 threshold gate failed.
 
 import json
 import sys
-import urllib.error
-import urllib.request
 from pathlib import Path
 
 
@@ -72,28 +70,10 @@ def _print_human(results_dict):
 
 
 def _remote_ablation(dataset_data, rankings, k, endpoint, key, tenant=None):
-    base = (endpoint or "https://api.veraxi.me/sse").rstrip("/").removesuffix("/sse")
+    from veraxi.cli.http_client import api_request
+
     body = {"dataset": dataset_data, "rankings": rankings, "k": k}
-    req = urllib.request.Request(
-        f"{base}/api/v1/evals/ablation",
-        data=json.dumps(body).encode("utf-8"),
-        headers={"Content-Type": "application/json"},
-        method="POST",
-    )
-    if key:
-        req.add_header("Authorization", f"Bearer {key}")
-    if tenant:
-        req.add_header("X-Tenant-Id", tenant)
-    try:
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            return json.loads(resp.read().decode("utf-8"))
-    except urllib.error.HTTPError as exc:
-        detail = exc.read().decode("utf-8", errors="replace") if exc.fp else ""
-        print(f"Error: API returned {exc.code}: {detail}", file=sys.stderr)
-        sys.exit(1)
-    except Exception as exc:
-        print(f"Error: remote ablation failed: {exc}", file=sys.stderr)
-        sys.exit(1)
+    return api_request("POST", "/api/v1/evals/ablation", body=body, endpoint=endpoint, key=key, tenant=tenant)
 
 
 def run_eval_ablation(
