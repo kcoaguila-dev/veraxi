@@ -52,6 +52,7 @@ import logging
 import os
 import re
 from dataclasses import dataclass, field
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import httpx
@@ -517,9 +518,117 @@ def write_vuln_records(
     }
 
 
+def write_vuln_records_batch(
+    client: Any,
+    records: list[CVERecord],
+    tenant_id: str = "default",
+    kev_records: list[dict[str, Any]] | None = None,
+) -> dict[str, int]:
+    """Batch-persist parsed CVE records to Neo4j via ``UNWIND`` queries.
+
+    Reduces N+1 round-trips in ``vuln sync`` to at most 5 parameterized
+    writes regardless of record count.
+    """
+    if kev_records:
+        apply_kev(records, kev_records)
+    if not records:
+        return {"cves_written": 0, "cwe_links_written": 0, "affects_links_written": 0}
+
+    from backend.ingestion.dependencies import normalize_package_name
+
+    cve_rows = []
+    cwe_nodes: dict[str, dict[str, Any]] = {}
+    cwe_edges = []
+    pkg_nodes: dict[str, dict[str, Any]] = {}
+    affects_edges = []
+
+    for record in records:
+        cve_key = _vuln_key(tenant_id, "CVE", record.id)
+        props = record.properties(tenant_id)
+        props["vuln_key"] = cve_key
+        cve_rows.append({"vuln_key": cve_key, "properties": props})
+
+        for cwe_id in record.cwe_ids:
+            cwe_key = _vuln_key(tenant_id, "CWE", cwe_id)
+            cwe_nodes.setdefault(
+                cwe_key,
+                {"vuln_key": cwe_key, "properties": {"id": cwe_id, "tenant_id": tenant_id, "vuln_key": cwe_key}},
+            )
+            cwe_edges.append({"from_key": cve_key, "to_key": cwe_key, "tenant_id": tenant_id})
+
+        for affected in record.affected:
+            pkg_name = normalize_package_name(affected.product)
+            pkg_key = _vuln_key(tenant_id, "Package", pkg_name)
+            pkg_nodes.setdefault(
+                pkg_key,
+                {
+                    "vuln_key": pkg_key,
+                    "properties": {
+                        "name": pkg_name,
+                        "vendor": affected.vendor,
+                        "ecosystem": "cpe",
+                        "tenant_id": tenant_id,
+                        "vuln_key": pkg_key,
+                    },
+                },
+            )
+            affects_edges.append(
+                {
+                    "from_key": cve_key,
+                    "to_key": pkg_key,
+                    "criteria": affected.criteria,
+                    "properties": affected.properties(),
+                    "tenant_id": tenant_id,
+                }
+            )
+
+    client.execute_write(
+        "UNWIND $rows AS row MERGE (n:CVE {vuln_key: row.vuln_key}) SET n += row.properties",
+        {"rows": cve_rows},
+    )
+    if cwe_nodes:
+        client.execute_write(
+            "UNWIND $rows AS row MERGE (n:CWE {vuln_key: row.vuln_key}) SET n += row.properties",
+            {"rows": list(cwe_nodes.values())},
+        )
+        client.execute_write(
+            "UNWIND $rows AS row MATCH (a {vuln_key: row.from_key}) MATCH (b {vuln_key: row.to_key}) "
+            "MERGE (a)-[r:HAS_WEAKNESS]->(b) SET r.tenant_id = row.tenant_id",
+            {"rows": cwe_edges},
+        )
+    if pkg_nodes:
+        client.execute_write(
+            "UNWIND $rows AS row MERGE (n:Package {vuln_key: row.vuln_key}) SET n += row.properties",
+            {"rows": list(pkg_nodes.values())},
+        )
+        client.execute_write(
+            "UNWIND $rows AS row MATCH (a {vuln_key: row.from_key}) MATCH (b {vuln_key: row.to_key}) "
+            "MERGE (a)-[r:AFFECTS {criteria: row.criteria}]->(b) SET r += row.properties, r.tenant_id = row.tenant_id",
+            {"rows": affects_edges},
+        )
+
+    return {
+        "cves_written": len(cve_rows),
+        "cwe_links_written": len(cwe_edges),
+        "affects_links_written": len(affects_edges),
+    }
+
+
 # ---------------------------------------------------------------------------
 # Fetch layer (thin httpx wrappers; tests inject a mock-transport client)
 # ---------------------------------------------------------------------------
+
+
+def _default_nvd_params(days: int = 30, results_per_page: int = 100) -> dict[str, Any]:
+    """Return bounded NVD query params for recent CVEs."""
+    end = datetime.now(timezone.utc)
+    start = end - timedelta(days=days)
+    fmt = "%Y-%m-%dT%H:%M:%S.000Z"
+    return {
+        "resultsPerPage": results_per_page,
+        "lastModStartDate": start.strftime(fmt),
+        "lastModEndDate": end.strftime(fmt),
+    }
 
 
 def fetch_nvd_records(
@@ -535,11 +644,12 @@ def fetch_nvd_records(
     """
     key = api_key if api_key is not None else os.environ.get("NVD_API_KEY")
     headers = {"apiKey": key} if key else {}
+    params = extra_params if extra_params is not None else _default_nvd_params()
     own_client = client is None
     http_client = client or httpx.Client(timeout=30.0)
     try:
         response = http_client.get(
-            NVD_API_URL, headers=headers, params=extra_params or {}
+            NVD_API_URL, headers=headers, params=params
         )
         response.raise_for_status()
         return parse_nvd_payload(response.json())
@@ -570,7 +680,7 @@ def fetch_and_write_vuln_intel(
     """Fetch NVD + KEV data and write it for ``tenant_id``."""
     records = fetch_nvd_records(client=http_client, api_key=api_key)
     kev_records = fetch_kev_records(client=http_client)
-    return write_vuln_records(
+    return write_vuln_records_batch(
         client, records, tenant_id=tenant_id, kev_records=kev_records
     )
 

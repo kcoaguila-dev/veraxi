@@ -477,3 +477,38 @@ def test_fetch_propagates_http_errors():
 
     with pytest.raises(httpx.HTTPStatusError):
         fetch_kev_records(client=_mock_client(handler))
+
+
+def test_writer_batch_reduces_round_trips_and_is_parameterized():
+    from backend.ingestion.vuln_intel import write_vuln_records_batch
+
+    records = parse_nvd_payload(NVD_PAYLOAD)
+    client = RecordingWriteClient()
+    result = write_vuln_records_batch(
+        client, records, tenant_id="tenant-b", kev_records=parse_kev_payload(KEV_PAYLOAD)
+    )
+    assert result == {
+        "cves_written": 3,
+        "cwe_links_written": 3,
+        "affects_links_written": 2,
+    }
+    assert len(client.calls) == 5
+    for query, params in client.calls:
+        assert "UNWIND $rows AS row" in query
+        assert "tenant-b" not in query
+        assert "CVE-2024-1111" not in query
+        assert "tenant-b" in str(params)
+
+
+def test_fetch_nvd_records_includes_bounded_default_params(monkeypatch):
+    monkeypatch.delenv("NVD_API_KEY", raising=False)
+    seen = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["params"] = dict(request.url.params)
+        return httpx.Response(200, json={"vulnerabilities": []})
+
+    assert fetch_nvd_records(client=_mock_client(handler)) == []
+    assert seen["params"]["resultsPerPage"] == "100"
+    assert "lastModStartDate" in seen["params"]
+    assert "lastModEndDate" in seen["params"]
