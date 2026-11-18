@@ -249,3 +249,84 @@ class TestVulnRoutes:
         )
         assert resp.status_code == 200
         assert seen["worker_thread"] != caller_thread
+
+
+class TestVulnLiveOsvFallback:
+    def test_live_osv_fallback_when_graph_empty(self, client, monkeypatch):
+        from backend.ingestion.vuln_intel import CVERecord, VersionRange
+
+        monkeypatch.setattr(
+            routes,
+            "vuln_report",
+            lambda deps, tenant_id: {
+                "dependencies_checked": len(deps),
+                "findings": [],
+                "matched_count": 0,
+                "unknown_count": 0,
+                "kev_count": 0,
+                "tenant_id": tenant_id,
+            },
+        )
+        record = CVERecord(
+            id="GHSA-j8r2-6x86-q33q",
+            aliases=["CVE-2023-32681"],
+            severity="MODERATE",
+            affected=[
+                VersionRange(
+                    criteria="osv:PyPI:requests:0-2.31.2",
+                    product="requests",
+                    ecosystem="PyPI",
+                    introduced="0",
+                    fixed="2.31.2",
+                    version_end_excluding="2.31.2",
+                )
+            ],
+        )
+        monkeypatch.setattr(
+            routes, "fetch_osv_for_packages", lambda deps: [record]
+        )
+        monkeypatch.setattr(
+            routes,
+            "fetch_kev_records",
+            lambda: [{"cve_id": "CVE-2023-32681", "date_added": "2023-06-01"}],
+        )
+        resp = client.post(
+            "/api/v1/vuln/report",
+            json={
+                "dependencies": [
+                    {"name": "requests", "version": "2.31.0", "ecosystem": "pypi"}
+                ],
+                "live_osv": True,
+            },
+        )
+        assert resp.status_code == 200, resp.text
+        body = resp.json()
+        assert body["matched_count"] == 1
+        assert body["kev_count"] == 1
+        assert body["source"] == "osv_live"
+
+    def test_no_live_osv_by_default(self, client, monkeypatch):
+        monkeypatch.setattr(
+            routes,
+            "vuln_report",
+            lambda deps, tenant_id: {
+                "dependencies_checked": len(deps),
+                "findings": [],
+                "matched_count": 0,
+                "unknown_count": 0,
+                "kev_count": 0,
+                "tenant_id": tenant_id,
+            },
+        )
+        called = []
+        monkeypatch.setattr(
+            routes,
+            "fetch_osv_for_packages",
+            lambda deps: called.append(deps) or [],
+        )
+        resp = client.post(
+            "/api/v1/vuln/report",
+            json={"dependencies": [{"name": "requests", "version": "2.31.0"}]},
+        )
+        assert resp.status_code == 200
+        assert called == []

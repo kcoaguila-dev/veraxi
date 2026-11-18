@@ -9,7 +9,12 @@ by :mod:`backend.ingestion.vuln_intel`::
     {"cve_id", "severity", "kev", "cwe_ids", "criteria",
      "criteria_version", "vulnerable", "version_start_including",
      "version_start_excluding", "version_end_including",
-     "version_end_excluding"}
+     "version_end_excluding", "ecosystem", "introduced", "fixed"}
+
+Affected entries may also be keyed by ``(ecosystem, name)``: an index
+key of ``"pypi:requests"`` (ecosystem lowercased) matches only
+dependencies of that ecosystem, while a bare ``"requests"`` key keeps
+the original ecosystem-agnostic behaviour.
 
 Match semantics (conservative, fail closed — see
 ``vuln_intel.version_in_range``):
@@ -80,11 +85,14 @@ def _entry_match_status(version: str | None, entry: dict[str, Any]) -> str:
         return "not_matched"
     if _parse_version(version) is None:
         return "unknown"
+    introduced = entry.get("introduced")
     bounds = {
-        "start_incl": entry.get("version_start_including"),
+        "start_incl": entry.get("version_start_including")
+        or (introduced if introduced and introduced != "0" else None),
         "start_excl": entry.get("version_start_excluding"),
-        "end_incl": entry.get("version_end_including"),
-        "end_excl": entry.get("version_end_excluding"),
+        "end_incl": entry.get("version_end_including")
+        or entry.get("last_affected"),
+        "end_excl": entry.get("version_end_excluding") or entry.get("fixed"),
     }
     if all(value is None for value in bounds.values()):
         criteria_version = entry.get("criteria_version") or ""
@@ -117,12 +125,30 @@ def _match_single_dependency(
 ) -> list[dict[str, Any]]:
     """Match one dependency record against ``affected_index``."""
     normalized = _normalize_package_name(dependency.get("name", ""))
-    entries = affected_index.get(normalized) or []
+    dep_ecosystem = str(dependency.get("ecosystem") or "").strip().lower()
+    entries = list(affected_index.get(normalized) or [])
+    if dep_ecosystem:
+        entries = list(affected_index.get(f"{dep_ecosystem}:{normalized}") or []) + entries
     version = dependency.get("version")
     by_cve: dict[str, dict[str, Any]] = {}
     for entry in entries:
         cve_id = entry.get("cve_id")
         if not cve_id:
+            continue
+        entry_ecosystem = str(entry.get("ecosystem") or "").strip().lower()
+        # An entry that declares a real ecosystem never matches a
+        # dependency from a different ecosystem (same name, other
+        # registry). Legacy CPE entries ("cpe" / unset) stay agnostic.
+        if (
+            entry_ecosystem
+            and entry_ecosystem != "cpe"
+            and dep_ecosystem
+            and dep_ecosystem != "cpe"
+            and entry_ecosystem != dep_ecosystem
+            # OSV spells PyPI with capitals; both sides are lowered, and
+            # the dependency extractor emits "pypi" for OSV "PyPI".
+            and not (entry_ecosystem == "pypi" and dep_ecosystem == "pypi")
+        ):
             continue
         status = _entry_match_status(version, entry)
         if status == "not_matched":
@@ -140,6 +166,7 @@ def _match_single_dependency(
             "source_file": dependency.get("source_file"),
             "version": version,
             "cve_id": cve_id,
+            "advisory_id": entry.get("advisory_id") or cve_id,
             "severity": entry.get("severity"),
             "cwe_ids": list(entry.get("cwe_ids") or []),
             "match_status": status,
@@ -230,12 +257,16 @@ class Neo4jVulnGraphClient:
           AND pkg.tenant_id = $tenant_id
           AND pkg.name IN $package_names
         OPTIONAL MATCH (cve)-[:HAS_WEAKNESS]->(cwe:CWE)
-        RETURN pkg.name AS package, cve.id AS cve_id,
+        RETURN pkg.name AS package, pkg.ecosystem AS package_ecosystem,
+               cve.id AS cve_id,
                cve.severity AS severity, cve.kev AS kev,
                collect(DISTINCT cwe.id) AS cwe_ids,
                r.criteria AS criteria,
                r.criteria_version AS criteria_version,
                r.vulnerable AS vulnerable,
+               r.ecosystem AS ecosystem,
+               r.introduced AS introduced,
+               r.fixed AS fixed,
                r.version_start_including AS version_start_including,
                r.version_start_excluding AS version_start_excluding,
                r.version_end_including AS version_end_including,
@@ -252,8 +283,16 @@ class Neo4jVulnGraphClient:
                 continue
             entry = dict(row)
             entry.pop("package", None)
+            package_ecosystem = entry.pop("package_ecosystem", None)
+            if not entry.get("ecosystem"):
+                entry["ecosystem"] = package_ecosystem
             entry["cwe_ids"] = [c for c in (entry.get("cwe_ids") or []) if c]
             index.setdefault(package, []).append(entry)
+            ecosystem_key = str(package_ecosystem or "").strip().lower()
+            if ecosystem_key and ecosystem_key != "cpe":
+                # Index keys use the lowercased ecosystem, which is the
+                # extractor spelling ("pypi" for OSV "PyPI").
+                index.setdefault(f"{ecosystem_key}:{package}", []).append(entry)
         return index
 
 

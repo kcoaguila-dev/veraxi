@@ -35,7 +35,10 @@ Graph model:
   ``published``, ``last_modified``, ``kev`` (bool), ``kev_date``.
 * ``CWE`` nodes: ``id`` (e.g. ``CWE-79``).
 * ``Package`` nodes: ``name`` (normalized), ``vendor``, ``ecosystem``
-  (``"cpe"`` for NVD-derived packages).
+  (``"cpe"`` for NVD-derived packages, the OSV ecosystem name such as
+  ``"PyPI"`` / ``"npm"`` / ``"Maven"`` for OSV-derived packages).
+  Package nodes are keyed by ``(ecosystem, normalized_name)`` so the
+  same name in different ecosystems never collides.
 * Edges: ``CVE -[:HAS_WEAKNESS]-> CWE`` and
   ``CVE -[:AFFECTS]-> Package`` with the CPE version-range properties
   (``criteria``, ``version_start_including``,
@@ -60,6 +63,24 @@ import httpx
 logger = logging.getLogger(__name__)
 
 NVD_API_URL = "https://services.nvd.nist.gov/rest/json/cves/2.0"
+OSV_API_URL = "https://api.osv.dev/v1"
+OSV_BATCH_URL = f"{OSV_API_URL}/querybatch"
+
+# Veraxi / dependency-extractor ecosystem names (lowercase, see
+# ``ingestion/dependencies.py``) -> OSV ecosystem names. Canonical OSV
+# names are also accepted unchanged (case-insensitive lookup).
+OSV_ECOSYSTEM_MAP = {
+    "pypi": "PyPI",
+    "pip": "PyPI",
+    "npm": "npm",
+    "maven": "Maven",
+    "pub": "Pub",
+    "go": "Go",
+    "cargo": "crates.io",
+    "crates.io": "crates.io",
+    "crates": "crates.io",
+    "cpe": "cpe",
+}
 KEV_JSON_URL = (
     "https://www.cisa.gov/sites/default/files/feeds/"
     "known_exploited_vulnerabilities.json"
@@ -121,6 +142,13 @@ class VersionRange:
     version_start_excluding: str | None = None
     version_end_including: str | None = None
     version_end_excluding: str | None = None
+    # OSV-derived ranges: the ecosystem of ``product`` and the raw
+    # OSV ``introduced`` / ``fixed`` range events (mirrored into the
+    # version_start_including / version_end_excluding fields above so
+    # the fail-closed comparator above applies unchanged).
+    ecosystem: str = ""
+    introduced: str | None = None
+    fixed: str | None = None
 
     def properties(self) -> dict[str, Any]:
         return {
@@ -131,6 +159,9 @@ class VersionRange:
             "version_start_excluding": self.version_start_excluding,
             "version_end_including": self.version_end_including,
             "version_end_excluding": self.version_end_excluding,
+            "ecosystem": self.ecosystem,
+            "introduced": self.introduced,
+            "fixed": self.fixed,
         }
 
 
@@ -207,6 +238,9 @@ class CVERecord:
     last_modified: str | None = None
     cwe_ids: list[str] = field(default_factory=list)
     affected: list[VersionRange] = field(default_factory=list)
+    # Advisory aliases (e.g. a GHSA-/PYSEC- record's CVE-* alias) so
+    # KEV enrichment can match OSV records whose primary id is not a CVE.
+    aliases: list[str] = field(default_factory=list)
     kev: bool = False
     kev_date: str | None = None
 
@@ -220,6 +254,7 @@ class CVERecord:
             "last_modified": self.last_modified,
             "kev": self.kev,
             "kev_date": self.kev_date,
+            "aliases": list(self.aliases),
             "tenant_id": tenant_id,
         }
 
@@ -387,10 +422,20 @@ def parse_kev_csv(text: str) -> list[dict[str, Any]]:
 
 
 def apply_kev(records: list[CVERecord], kev_records: list[dict[str, Any]]) -> list[CVERecord]:
-    """Mark CVE records that appear in the KEV catalogue (mutates + returns)."""
+    """Mark CVE records that appear in the KEV catalogue (mutates + returns).
+
+    A record matches when its own id *or any of its aliases* is a KEV
+    CVE id — OSV advisories are often keyed by GHSA-/PYSEC- ids whose
+    CVE id only appears in ``aliases``.
+    """
     kev_by_id = {entry["cve_id"]: entry for entry in kev_records}
     for record in records:
         kev_entry = kev_by_id.get(record.id)
+        if kev_entry is None:
+            for alias in record.aliases:
+                kev_entry = kev_by_id.get(alias)
+                if kev_entry is not None:
+                    break
         if kev_entry is not None:
             record.kev = True
             record.kev_date = kev_entry.get("date_added")
@@ -404,6 +449,18 @@ def apply_kev(records: list[CVERecord], kev_records: list[dict[str, Any]]) -> li
 
 def _vuln_key(tenant_id: str, label: str, identifier: str) -> str:
     return f"{tenant_id}::{label}::{identifier}"
+
+
+def _package_ecosystem(affected: VersionRange) -> str:
+    """Ecosystem for a package node: OSV ecosystem, or ``"cpe"`` for NVD."""
+    return affected.ecosystem or "cpe"
+
+
+def _package_key(tenant_id: str, affected: VersionRange, package_name: str) -> str:
+    """Package node key: ``(ecosystem, normalized_name)`` scoped to tenant."""
+    return _vuln_key(
+        tenant_id, "Package", f"{_package_ecosystem(affected)}:{package_name}"
+    )
 
 
 def _write_cve(client: Any, record: CVERecord, tenant_id: str) -> None:
@@ -457,10 +514,10 @@ def _write_affects_link(
     properties = {
         "name": package_name,
         "vendor": affected.vendor,
-        "ecosystem": "cpe",
+        "ecosystem": _package_ecosystem(affected),
         "tenant_id": tenant_id,
     }
-    properties["vuln_key"] = _vuln_key(tenant_id, "Package", package_name)
+    properties["vuln_key"] = _package_key(tenant_id, affected, package_name)
     client.execute_write(
         node_query, {"vuln_key": properties["vuln_key"], "properties": properties}
     )
@@ -475,7 +532,7 @@ def _write_affects_link(
         edge_query,
         {
             "from_key": _vuln_key(tenant_id, "CVE", record.id),
-            "to_key": _vuln_key(tenant_id, "Package", package_name),
+            "to_key": _package_key(tenant_id, affected, package_name),
             "criteria": affected.criteria,
             "properties": properties,
             "tenant_id": tenant_id,
@@ -558,7 +615,7 @@ def write_vuln_records_batch(
 
         for affected in record.affected:
             pkg_name = normalize_package_name(affected.product)
-            pkg_key = _vuln_key(tenant_id, "Package", pkg_name)
+            pkg_key = _package_key(tenant_id, affected, pkg_name)
             pkg_nodes.setdefault(
                 pkg_key,
                 {
@@ -566,7 +623,7 @@ def write_vuln_records_batch(
                     "properties": {
                         "name": pkg_name,
                         "vendor": affected.vendor,
-                        "ecosystem": "cpe",
+                        "ecosystem": _package_ecosystem(affected),
                         "tenant_id": tenant_id,
                         "vuln_key": pkg_key,
                     },
@@ -612,6 +669,160 @@ def write_vuln_records_batch(
         "cwe_links_written": len(cwe_edges),
         "affects_links_written": len(affects_edges),
     }
+
+
+
+# ---------------------------------------------------------------------------
+# OSV.dev parsing + fetch (pure parser; fetch via injected httpx client)
+# ---------------------------------------------------------------------------
+
+
+def osv_ecosystem(ecosystem: str | None) -> str | None:
+    """Map a Veraxi ecosystem name to its OSV ecosystem name, or None."""
+    if not ecosystem:
+        return None
+    return OSV_ECOSYSTEM_MAP.get(str(ecosystem).strip().lower())
+
+
+def _osv_ranges(affected_entry: dict[str, Any], package: dict[str, Any]) -> list[VersionRange]:
+    """Convert one OSV ``affected`` entry into VersionRange objects."""
+    name = package.get("name", "") or ""
+    ecosystem = package.get("ecosystem", "") or ""
+    ranges: list[VersionRange] = []
+    for rng in affected_entry.get("ranges") or []:
+        if rng.get("type") not in (None, "ECOSYSTEM", "SEMVER"):
+            continue
+        introduced: str | None = None
+        for event in rng.get("events") or []:
+            if "introduced" in event:
+                if introduced is not None:
+                    ranges.append(_osv_range(name, ecosystem, introduced, None, None))
+                introduced = event.get("introduced")
+            elif "fixed" in event:
+                ranges.append(_osv_range(name, ecosystem, introduced, event.get("fixed"), None))
+                introduced = None
+            elif "last_affected" in event:
+                ranges.append(_osv_range(name, ecosystem, introduced, None, event.get("last_affected")))
+                introduced = None
+        if introduced is not None:
+            ranges.append(_osv_range(name, ecosystem, introduced, None, None))
+    for version in affected_entry.get("versions") or []:
+        ranges.append(
+            VersionRange(
+                criteria=f"osv:{ecosystem}:{name}:{version}",
+                product=name,
+                criteria_version=str(version),
+                vulnerable=True,
+                ecosystem=ecosystem,
+            )
+        )
+    return ranges
+
+
+def _osv_range(
+    name: str,
+    ecosystem: str,
+    introduced: str | None,
+    fixed: str | None,
+    last_affected: str | None,
+) -> VersionRange:
+    start = introduced if introduced and introduced != "0" else None
+    return VersionRange(
+        criteria=f"osv:{ecosystem}:{name}:{introduced or ''}-{fixed or last_affected or ''}",
+        product=name,
+        vulnerable=True,
+        version_start_including=start,
+        version_end_excluding=fixed,
+        version_end_including=last_affected,
+        ecosystem=ecosystem,
+        introduced=introduced,
+        fixed=fixed,
+    )
+
+
+def parse_osv_payload(payload: dict[str, Any]) -> CVERecord | None:
+    """Parse one OSV advisory document (``GET /v1/vulns/{id}`` shape)."""
+    if not payload or not payload.get("id"):
+        return None
+    aliases = [a for a in (payload.get("aliases") or []) if a]
+    severity = None
+    db_specific = payload.get("database_specific") or {}
+    if isinstance(db_specific.get("severity"), str):
+        severity = db_specific["severity"].upper()
+    cwe_ids = [c for c in (db_specific.get("cwe_ids") or []) if str(c).startswith("CWE-")]
+    affected: list[VersionRange] = []
+    for entry in payload.get("affected") or []:
+        affected.extend(_osv_ranges(entry, entry.get("package") or {}))
+    return CVERecord(
+        id=payload["id"],
+        description=payload.get("summary") or payload.get("details") or "",
+        severity=severity,
+        published=payload.get("published"),
+        last_modified=payload.get("modified"),
+        cwe_ids=cwe_ids,
+        affected=affected,
+        aliases=aliases,
+    )
+
+
+def _osv_queries(packages: list[dict[str, Any]]) -> list[dict[str, Any] | None]:
+    """Build OSV querybatch queries; None marks an unmappable package."""
+    queries: list[dict[str, Any] | None] = []
+    for package in packages or []:
+        ecosystem = osv_ecosystem(package.get("ecosystem"))
+        name = (package.get("name") or "").strip()
+        version = package.get("version")
+        if not ecosystem or ecosystem == "cpe" or not name or not version:
+            queries.append(None)
+            continue
+        queries.append(
+            {"package": {"name": name, "ecosystem": ecosystem}, "version": str(version)}
+        )
+    return queries
+
+
+def fetch_osv_for_packages(
+    packages: list[dict[str, Any]],
+    client: httpx.Client | None = None,
+) -> list[CVERecord]:
+    """Batch-query OSV.dev for ``packages`` and hydrate full advisories.
+
+    ``packages`` are dependency records (``name`` / ``version`` /
+    ``ecosystem``). Queries are POSTed to ``/v1/querybatch`` in chunks
+    of at most 1000; each returned advisory id is then hydrated via
+    ``GET /v1/vulns/{id}`` and parsed with :func:`parse_osv_payload`.
+    Packages whose ecosystem has no OSV mapping, or that carry no
+    concrete version, are skipped (fail closed — no version, no query).
+    Tests inject a mock-transport ``httpx.Client``; no key is needed.
+    """
+    queries = _osv_queries(packages)
+    valid = [q for q in queries if q is not None]
+    if not valid:
+        return []
+    own_client = client is None
+    http_client = client or httpx.Client(timeout=30.0)
+    try:
+        vuln_ids: list[str] = []
+        for start in range(0, len(valid), 1000):
+            chunk = valid[start : start + 1000]
+            response = http_client.post(OSV_BATCH_URL, json={"queries": chunk})
+            response.raise_for_status()
+            for result in (response.json() or {}).get("results") or []:
+                for vuln in (result or {}).get("vulns") or []:
+                    vuln_id = vuln.get("id")
+                    if vuln_id and vuln_id not in vuln_ids:
+                        vuln_ids.append(vuln_id)
+        records: list[CVERecord] = []
+        for vuln_id in vuln_ids:
+            detail = http_client.get(f"{OSV_API_URL}/vulns/{vuln_id}")
+            detail.raise_for_status()
+            record = parse_osv_payload(detail.json() or {})
+            if record is not None:
+                records.append(record)
+        return records
+    finally:
+        if own_client:
+            http_client.close()
 
 
 # ---------------------------------------------------------------------------
@@ -690,6 +901,9 @@ __all__ = [
     "KEV_JSON_URL",
     "NODE_LABELS",
     "NVD_API_URL",
+    "OSV_API_URL",
+    "OSV_BATCH_URL",
+    "OSV_ECOSYSTEM_MAP",
     "CVERecord",
     "VersionRange",
     "apply_kev",
@@ -697,10 +911,14 @@ __all__ = [
     "fetch_and_write_vuln_intel",
     "fetch_kev_records",
     "fetch_nvd_records",
+    "fetch_osv_for_packages",
+    "osv_ecosystem",
     "parse_kev_csv",
     "parse_kev_payload",
     "parse_nvd_payload",
+    "parse_osv_payload",
     "parse_version",
     "version_in_range",
     "write_vuln_records",
+    "write_vuln_records_batch",
 ]
