@@ -38,6 +38,7 @@ jobs:
         run: |
           flutter clean
           flutter build web --release \
+            --pwa-strategy=none \
             --dart-define=API_URL=${{ secrets.API_URL }} \
             --dart-define=SUPABASE_URL=${{ secrets.SUPABASE_URL }} \
             --dart-define=SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }} \
