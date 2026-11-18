@@ -109,6 +109,21 @@ _LANGUAGE_BY_EXTENSION = {
     ".go": "go",
     ".rs": "rust",
     ".java": "java",
+    ".c": "c",
+    ".h": "c",
+    ".cpp": "cpp",
+    ".cc": "cpp",
+    ".cxx": "cpp",
+    ".hpp": "cpp",
+    ".cs": "csharp",
+    ".rb": "ruby",
+    ".php": "php",
+    ".kt": "kotlin",
+    ".kts": "kotlin",
+    ".swift": "swift",
+    ".scala": "scala",
+    ".sh": "bash",
+    ".bash": "bash",
 }
 
 NODE_LABELS = ("CodeFile", "CodeModule", "Class", "Function")
@@ -567,10 +582,14 @@ _NON_FUNCTION_NAMES = {
 _TS_CLASS_TYPES = {
     "class_declaration",
     "class_definition",
+    "class_specifier",
     "interface_declaration",
     "struct_item",
+    "struct_specifier",
     "enum_item",
     "trait_item",
+    "class",
+    "module",
 }
 _TS_FUNC_TYPES = {
     "function_declaration",
@@ -579,6 +598,7 @@ _TS_FUNC_TYPES = {
     "method_definition",
     "function_item",
     "function_signature",
+    "method",
 }
 _TS_IMPORT_TYPES = {
     "import_statement",
@@ -586,6 +606,9 @@ _TS_IMPORT_TYPES = {
     "import_spec",
     "import_or_export",
     "use_declaration",
+    "preproc_include",
+    "using_directive",
+    "import_header",
 }
 _TS_CALL_TYPES = {
     "call_expression",
@@ -608,7 +631,12 @@ def _ts_child_name(node: Any, source: bytes) -> str | None:
     if name_node is not None:
         return _ts_node_text(name_node, source).strip()
     for child in node.children:
-        if child.type in ("identifier", "type_identifier", "property_identifier"):
+        if child.type in (
+            "identifier",
+            "simple_identifier",
+            "type_identifier",
+            "property_identifier",
+        ):
             return _ts_node_text(child, source).strip()
     return None
 

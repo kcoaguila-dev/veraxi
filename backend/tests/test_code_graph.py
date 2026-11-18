@@ -366,3 +366,32 @@ def test_treesitter_parses_go_and_js_calls(tmp_path: Path):
     calls = _edge_set(parsed, "CALLS")
     assert ("server.handler", "server.helper") in calls
     assert ("app.run", "app.fetchUser") in calls
+
+
+def test_treesitter_parses_cpp_csharp_ruby_kotlin(tmp_path: Path):
+    root = tmp_path / "more_langs"
+    root.mkdir()
+    (root / "engine.cpp").write_text(
+        '#include "engine.hpp"\nclass Engine {};\nint run() { return 0; }\n',
+        encoding="utf-8",
+    )
+    (root / "Service.cs").write_text(
+        "using System;\nclass Service { void Handle() {} }\n",
+        encoding="utf-8",
+    )
+    (root / "app.rb").write_text(
+        "class Worker\n  def perform\n  end\nend\n",
+        encoding="utf-8",
+    )
+    (root / "Main.kt").write_text(
+        "import kotlin.io.println\nclass App { fun start() {} }\n",
+        encoding="utf-8",
+    )
+    parsed = parse_repo(root)
+    assert parsed.node("Class", "engine.Engine") is not None
+    assert parsed.node("Class", "Service.Service") is not None
+    assert parsed.node("Function", "Service.Service.Handle") is not None
+    assert parsed.node("Class", "app.Worker") is not None
+    assert parsed.node("Function", "app.Worker.perform") is not None
+    assert parsed.node("Class", "Main.App") is not None
+    assert parsed.node("Function", "Main.App.start") is not None
