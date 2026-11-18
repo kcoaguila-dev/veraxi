@@ -6,11 +6,16 @@ _veraxi_completions() {
     local cur prev words cword
     _init_completion -n : || return
 
-    local commands="chat init brief research review ingest login whoami logout stats hook schema trace check impact context remember resolve reopen memory cluster repo rules sync prune mcp completion config models doctor web"
+    local commands="chat init brief research review ingest login whoami logout stats hook schema trace check impact context remember resolve reopen memory memories cluster repo rules sync prune mcp completion config models doctor web eval xray vuln dbt briefing"
     local mcp_commands="install doctor query"
     local hook_commands="install uninstall"
     local cluster_commands="add list remove link"
     local memory_commands="list export import audit prune stats"
+    local eval_commands="ablation"
+    local memories_commands="list add edit expire delete"
+    local xray_commands="index symbol impact"
+    local vuln_commands="sync report"
+    local dbt_commands="upload lineage"
     local rules_commands="sync list"
     local config_commands="list get set unset"
     local models_commands="list set"
@@ -49,6 +54,26 @@ _veraxi_completions() {
             ;;
         memory)
             COMPREPLY=( $(compgen -W "${memory_commands}" -- ${cur}) )
+            return 0
+            ;;
+        eval)
+            COMPREPLY=( $(compgen -W "${eval_commands}" -- ${cur}) )
+            return 0
+            ;;
+        memories)
+            COMPREPLY=( $(compgen -W "${memories_commands}" -- ${cur}) )
+            return 0
+            ;;
+        xray)
+            COMPREPLY=( $(compgen -W "${xray_commands}" -- ${cur}) )
+            return 0
+            ;;
+        vuln)
+            COMPREPLY=( $(compgen -W "${vuln_commands}" -- ${cur}) )
+            return 0
+            ;;
+        dbt)
+            COMPREPLY=( $(compgen -W "${dbt_commands}" -- ${cur}) )
             return 0
             ;;
         rules)
@@ -111,6 +136,12 @@ _veraxi() {
         'models:Discover supported AI providers and select default models'
         'doctor:Run system and connectivity diagnostics'
         'web:Zero-dependency web search and clean page reader'
+        'eval:Evidence evals (ablation)'
+        'xray:Repo X-Ray code graph'
+        'vuln:Vulnerability intel'
+        'dbt:dbt manifest and lineage'
+        'briefing:Corpus briefing'
+        'memories:User memories (Supabase, distinct from memory)'
         'completion:Generate shell auto-completion script'
     )
 
