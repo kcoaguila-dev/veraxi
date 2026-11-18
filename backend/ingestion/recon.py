@@ -54,12 +54,10 @@ def parse_nuclei_output(raw: str | list[dict[str, Any]]) -> list[dict[str, Any]]
 
     findings: list[dict[str, Any]] = []
     for item in items:
-        info = item.get("info") if isinstance(item.get("info"), dict) else {}
-        classification = (
-            info.get("classification")
-            if isinstance(info.get("classification"), dict)
-            else {}
-        )
+        raw_info = item.get("info")
+        info: dict[str, Any] = raw_info if isinstance(raw_info, dict) else {}
+        raw_cls = info.get("classification")
+        classification: dict[str, Any] = raw_cls if isinstance(raw_cls, dict) else {}
         matched_at = str(item.get("matched-at") or item.get("host") or "").strip()
         parsed_url = urlparse(matched_at) if "://" in matched_at else None
         host = (
