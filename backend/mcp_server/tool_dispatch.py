@@ -766,7 +766,7 @@ def _execute_single_tool(
 
                 return [CodeErrorHit(e)], []
 
-        class CodeHit:
+        class CodeExecHit:
             def __init__(self, res: dict[str, Any], src: str) -> None:
                 self.id = "code_exec"
                 self.payload = {
@@ -776,7 +776,7 @@ def _execute_single_tool(
                 }
                 self.sources = [src]
 
-        return [CodeHit(data, source_label)], []
+        return [CodeExecHit(data, source_label)], []
 
     elif tool_name == "create_office_artifact":
         result = _build_office_artifact(tool_input)
