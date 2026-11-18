@@ -55,7 +55,7 @@ import logging
 import os
 import re
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import httpx
@@ -832,7 +832,7 @@ def fetch_osv_for_packages(
 
 def _default_nvd_params(days: int = 30, results_per_page: int = 100) -> dict[str, Any]:
     """Return bounded NVD query params for recent CVEs."""
-    end = datetime.now(timezone.utc)
+    end = datetime.now(UTC)
     start = end - timedelta(days=days)
     fmt = "%Y-%m-%dT%H:%M:%S.000Z"
     return {
