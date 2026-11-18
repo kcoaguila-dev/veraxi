@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="900" viewBox="0 0 1440 900">
+  <!-- Visual contract: Repo X-Ray panel in Knowledge Hub
+       (repo_xray_panel.dart, fed by code_intel_view_model.dart over
+       POST /api/v1/code/ingest, GET /api/v1/code/overview,
+       GET /api/v1/code/symbol, GET /api/v1/code/impact).
+       Rules: repo path is a text field + Index button; summary pills
+       show total nodes/edges from the overview; top-connected symbols
+       list name + degree; symbol search shows matches; the impact
+       result is an expandable list grouped by depth with CALLS /
+       IMPORTS badges. Errors from the backend render inline, never
+       as a crash. Colors: surface #1F1F23, border #2E2E34,
+       card #222226, text #ECECEC / #A1A1AA. -->
+  <rect width="1440" height="900" fill="#0E0E10"/>
+  <rect x="0" y="0" width="1440" height="900" fill="#171719"/>
+  <text x="48" y="64" font-family="Inter, sans-serif" font-size="20" fill="#FFFFFF" font-weight="700">Repo X-Ray</text>
+  <rect x="48" y="88" width="1344" height="420" rx="16" fill="#222226" stroke="#2E2E34"/>
+  <rect x="72" y="112" width="900" height="38" rx="8" fill="#1F1F23" stroke="#2E2E34"/>
+  <text x="88" y="136" font-family="Inter, sans-serif" font-size="12" fill="#71717A">/path/to/repo (must be inside an allowed root)</text>
+  <rect x="988" y="112" width="150" height="38" rx="8" fill="#2E2E34"/>
+  <text x="1010" y="136" font-family="Inter, sans-serif" font-size="12" fill="#ECECEC">Index Code Graph</text>
+  <rect x="72" y="170" width="150" height="30" rx="15" fill="#1F1F23" stroke="#2E2E34"/>
+  <text x="88" y="190" font-family="Inter, sans-serif" font-size="12" fill="#ECECEC">1,204 nodes</text>
+  <rect x="234" y="170" width="150" height="30" rx="15" fill="#1F1F23" stroke="#2E2E34"/>
+  <text x="250" y="190" font-family="Inter, sans-serif" font-size="12" fill="#ECECEC">2,860 edges</text>
+  <text x="72" y="232" font-family="Inter, sans-serif" font-size="13" fill="#ECECEC" font-weight="600">Top-connected symbols</text>
+  <text x="72" y="258" font-family="Inter, sans-serif" font-size="12" fill="#A1A1AA">app.main — degree 31 · Function · app.py</text>
+  <rect x="72" y="282" width="420" height="38" rx="8" fill="#1F1F23" stroke="#2E2E34"/>
+  <text x="88" y="306" font-family="Inter, sans-serif" font-size="12" fill="#71717A">Search a symbol…</text>
+  <text x="72" y="348" font-family="Inter, sans-serif" font-size="13" fill="#ECECEC" font-weight="600">Impact of main</text>
+  <text x="72" y="374" font-family="Inter, sans-serif" font-size="12" fill="#A1A1AA">depth 1 · cli.run  [CALLS]</text>
+  <text x="72" y="398" font-family="Inter, sans-serif" font-size="12" fill="#A1A1AA">depth 2 · worker.boot  [IMPORTS]</text>
+</svg>

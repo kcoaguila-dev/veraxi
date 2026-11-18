@@ -1,4 +1,5 @@
 import 'package:material_ui/material_ui.dart';
+import 'package:veraxi_app/features/knowledge_hub/views/widgets/code_intel_section.dart';
 import 'package:veraxi_app/features/knowledge_hub/views/widgets/corpus_briefing_panel.dart';
 import 'package:veraxi_app/features/knowledge_hub/views/widgets/schema_card.dart';
 import 'package:veraxi_app/features/knowledge_hub/views/widgets/ingestion_card.dart';
@@ -31,6 +32,8 @@ class DataPipelineView extends StatelessWidget {
         const IngestionCard(),
         SizedBox(height: 48),
         const CorpusBriefingPanel(),
+        SizedBox(height: 48),
+        const CodeIntelSection(),
         SizedBox(height: 48),
         Text('Database Monitors',
             style: theme.textTheme.headlineMedium?.copyWith(
