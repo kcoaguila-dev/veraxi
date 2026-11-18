@@ -18,7 +18,7 @@ def base_url(endpoint):
     return base.removesuffix("/sse")
 
 
-def api_request(method, path, body=None, endpoint=None, key=None, tenant=None, params=None, timeout=30):
+def api_request(method, path, body=None, endpoint=None, key=None, tenant=None, params=None, timeout=30, quiet=False):
     """Call the Veraxi HTTP API and return the parsed JSON dict.
 
     On HTTP or network error, prints a readable message to stderr and
@@ -56,8 +56,12 @@ def api_request(method, path, body=None, endpoint=None, key=None, tenant=None, p
             parsed = None
         if isinstance(parsed, dict) and parsed.get("detail"):
             message = str(parsed["detail"])
+        if quiet:
+            raise RuntimeError(f"API returned {exc.code}: {message}") from exc
         print(f"Error: API returned {exc.code}: {message}", file=sys.stderr)
         sys.exit(1)
     except Exception as exc:
+        if quiet:
+            raise
         print(f"Error: request to {path} failed: {exc}", file=sys.stderr)
         sys.exit(1)

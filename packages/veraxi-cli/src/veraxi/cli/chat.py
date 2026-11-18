@@ -61,7 +61,8 @@ def fetch_deep_estimate(endpoint, key=None, tenant=None, model=None):
 
         body = {"model": model} if model else {}
         return api_request(
-            "POST", "/api/chat/estimate-deep", body=body, endpoint=endpoint, key=key, tenant=tenant
+            "POST", "/api/chat/estimate-deep", body=body, endpoint=endpoint, key=key, tenant=tenant,
+            quiet=True,
         )
     except SystemExit:
         return None
