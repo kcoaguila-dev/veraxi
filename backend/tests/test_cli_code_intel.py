@@ -16,6 +16,7 @@ def test_xray_index_posts_repo_path():
     args, kwargs = mock.call_args
     assert args[0] == "POST" and args[1] == "/api/v1/code/ingest"
     assert kwargs["body"] == {"repo_path": "/app/repo"}
+    assert kwargs["timeout"] == 300
 
 
 def test_xray_symbol_query_param():
@@ -31,6 +32,7 @@ def test_vuln_sync_posts():
         run_vuln_sync()
     assert exc.value.code == 0
     assert mock.call_args.args[1] == "/api/v1/vuln/sync"
+    assert mock.call_args.kwargs["timeout"] == 120
 
 
 def _report(severity):

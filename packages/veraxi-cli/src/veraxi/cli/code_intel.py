@@ -31,7 +31,7 @@ def run_xray_index(repo_path, endpoint=None, key=None, tenant=None, as_json=Fals
     from veraxi.cli.http_client import api_request
 
     data = api_request("POST", "/api/v1/code/ingest", body={"repo_path": repo_path},
-                       endpoint=endpoint, key=key, tenant=tenant)
+                       endpoint=endpoint, key=key, tenant=tenant, timeout=300)
     _print_result(data, as_json, lambda d: print(
         f"Indexed {d.get('repo_path')}: {json.dumps({k: v for k, v in d.items() if k not in ('status', 'repo_path')})}"
     ))
@@ -72,7 +72,7 @@ def run_xray_impact(name, endpoint=None, key=None, tenant=None, as_json=False, m
 def run_vuln_sync(endpoint=None, key=None, tenant=None, as_json=False):
     from veraxi.cli.http_client import api_request
 
-    data = api_request("POST", "/api/v1/vuln/sync", body={}, endpoint=endpoint, key=key, tenant=tenant)
+    data = api_request("POST", "/api/v1/vuln/sync", body={}, endpoint=endpoint, key=key, tenant=tenant, timeout=120)
     _print_result(data, as_json, lambda d: print(f"Vuln sync: {json.dumps(d)}"))
     sys.exit(0)
 

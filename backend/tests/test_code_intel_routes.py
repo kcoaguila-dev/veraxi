@@ -232,3 +232,20 @@ class TestVulnRoutes:
             "/api/v1/vuln/report", json={"repo_path": "/tmp/../etc"}
         )
         assert resp.status_code in (400, 403)
+
+    def test_ingest_offloads_to_worker_thread(self, client, monkeypatch, repo):
+        import threading
+
+        seen = {}
+        caller_thread = threading.get_ident()
+
+        def fake_write(root, tenant_id="default", client=None):
+            seen["worker_thread"] = threading.get_ident()
+            return {"nodes_written": 1, "edges_written": 0}
+
+        monkeypatch.setattr(routes, "write_repo_code_graph", fake_write)
+        resp = client.post(
+            "/api/v1/code/ingest", json={"repo_path": str(repo)}
+        )
+        assert resp.status_code == 200
+        assert seen["worker_thread"] != caller_thread

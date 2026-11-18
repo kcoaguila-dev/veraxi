@@ -19,6 +19,7 @@ fail-closed semantics: null bytes, ``..`` segments and anything
 outside the allowed roots are rejected before any filesystem walk.
 """
 
+import asyncio
 import logging
 import os
 
@@ -190,7 +191,9 @@ def register_code_intel_routes(
         """Parse a repo into the code graph for this tenant."""
         resolved = _validate_repo_path(payload.repo_path)
         try:
-            counts = write_repo_code_graph(resolved, tenant_id=tenant_id)
+            counts = await asyncio.to_thread(
+                write_repo_code_graph, resolved, tenant_id=tenant_id
+            )
         except Exception as e:
             sentry_sdk.capture_exception(e)
             raise HTTPException(
@@ -202,7 +205,7 @@ def register_code_intel_routes(
     async def get_code_overview(tenant_id: str = Depends(get_tenant_id)):
         """Node/edge counts plus the most-connected symbols."""
         try:
-            return repo_overview(tenant_id=tenant_id)
+            return await asyncio.to_thread(repo_overview, tenant_id=tenant_id)
         except Exception as e:
             sentry_sdk.capture_exception(e)
             raise HTTPException(
@@ -215,7 +218,9 @@ def register_code_intel_routes(
     ):
         """Look up a code symbol by qualified or simple name."""
         try:
-            return symbol_lookup(name, tenant_id=tenant_id)
+            return await asyncio.to_thread(
+                symbol_lookup, name, tenant_id=tenant_id
+            )
         except Exception as e:
             sentry_sdk.capture_exception(e)
             raise HTTPException(
@@ -230,7 +235,9 @@ def register_code_intel_routes(
     ):
         """Reverse-dependency impact tree for a symbol."""
         try:
-            return impact_analysis(symbol, tenant_id=tenant_id, max_depth=max_depth)
+            return await asyncio.to_thread(
+                impact_analysis, symbol, tenant_id=tenant_id, max_depth=max_depth
+            )
         except Exception as e:
             sentry_sdk.capture_exception(e)
             raise HTTPException(
@@ -241,7 +248,7 @@ def register_code_intel_routes(
     async def sync_vuln(tenant_id: str = Depends(get_tenant_id)):
         """Fetch the latest NVD + CISA KEV data into the graph."""
         try:
-            counts = _sync_vuln_intel(tenant_id)
+            counts = await asyncio.to_thread(_sync_vuln_intel, tenant_id)
         except Exception as e:
             sentry_sdk.capture_exception(e)
             raise HTTPException(
@@ -259,14 +266,18 @@ def register_code_intel_routes(
             dependencies = payload.dependencies
         elif payload.repo_path:
             resolved = _validate_repo_path(payload.repo_path)
-            dependencies = extract_dependencies_from_repo(resolved)
+            dependencies = await asyncio.to_thread(
+                extract_dependencies_from_repo, resolved
+            )
         else:
             raise HTTPException(
                 status_code=400,
                 detail="Provide either repo_path or dependencies",
             )
         try:
-            return vuln_report(dependencies, tenant_id=tenant_id)
+            return await asyncio.to_thread(
+                vuln_report, dependencies, tenant_id=tenant_id
+            )
         except Exception as e:
             sentry_sdk.capture_exception(e)
             raise HTTPException(
