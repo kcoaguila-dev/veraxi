@@ -682,7 +682,6 @@ def test_parse_and_apply_epss_matches_alias():
 
 
 def test_fetch_epss_scores_mock_transport():
-    import json
     import httpx
     from backend.ingestion.vuln_intel import fetch_epss_scores
 

@@ -719,7 +719,6 @@ def _parse_treesitter_file(
         return False
 
     tree = parser.parse(source)
-    module_qn = module_node.qualified_name
     defined_funcs: dict[str, str] = {}
     imported_aliases: dict[str, str] = {}
     pending_calls: list[tuple[CodeNode, Any]] = []

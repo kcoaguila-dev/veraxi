@@ -470,7 +470,7 @@ def _handle_dataset_discovery(args: dict, tenant_id: str) -> list[TextContent]:
 def _handle_vuln_report(args: dict, tenant_id: str) -> list[TextContent]:
     from backend.mcp_server.tools.vuln_tools import vuln_report
 
-    kwargs: dict[str, Any] = {
+    kwargs: dict = {
         "tenant_id": tenant_id,
         "dependencies": args.get("dependencies"),
         "repo_path": args.get("repo_path"),

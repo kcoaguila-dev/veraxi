@@ -25,9 +25,7 @@ def should_run_scheduled_tenant_sync(
     normalized = (plan or "").strip().lower()
     if normalized not in _PAID_PLANS:
         return False
-    if days_since_active is None or days_since_active > _MAX_INACTIVE_DAYS:
-        return False
-    return True
+    return days_since_active is not None and days_since_active <= _MAX_INACTIVE_DAYS
 
 
 async def process_ingestion_task(
