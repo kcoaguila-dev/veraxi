@@ -233,15 +233,16 @@ def _top_communities(
             entry.get("name"): entry
             for entry in graph_client.entity_degrees(tenant_id, members)
         }
+        entities: list[dict[str, Any]] = [
+            {
+                "name": name,
+                "type": (degrees.get(name) or {}).get("type"),
+                "degree": int((degrees.get(name) or {}).get("degree") or 0),
+            }
+            for name in members
+        ]
         top_entities = sorted(
-            (
-                {
-                    "name": name,
-                    "type": (degrees.get(name) or {}).get("type"),
-                    "degree": int((degrees.get(name) or {}).get("degree") or 0),
-                }
-                for name in members
-            ),
+            entities,
             key=lambda item: (-item["degree"], item["name"]),
         )[:entities_per_community]
         communities.append(

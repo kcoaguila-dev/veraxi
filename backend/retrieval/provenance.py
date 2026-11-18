@@ -102,19 +102,18 @@ def build_provenance(result: Any) -> dict[str, Any] | None:
     """
     if isinstance(result, dict):
         sources = result.get("sources")
-        payload = result.get("payload") if isinstance(result.get("payload"), dict) else {}
+        raw_payload = result.get("payload")
         fused_score = result.get("fused_score", result.get("score"))
         chunk_path = result.get("graph_path")
     else:
         sources = getattr(result, "sources", None)
-        payload = getattr(result, "payload", None)
-        if not isinstance(payload, dict):
-            payload = {}
+        raw_payload = getattr(result, "payload", None)
         fused_score = getattr(result, "fused_score", None)
         if fused_score is None:
             fused_score = getattr(result, "score", None)
         chunk_path = None
 
+    payload: dict[str, Any] = raw_payload if isinstance(raw_payload, dict) else {}
     if not isinstance(sources, list):
         sources = []
     legs = [leg for leg in KNOWN_LEGS if leg in sources]
