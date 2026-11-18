@@ -34,6 +34,7 @@ from veraxi.cli.schema import run_schema
 from veraxi.cli.stats import run_stats
 from veraxi.cli.trace import run_trace
 from veraxi.cli.code_intel import run_vuln_report, run_vuln_sync, run_xray_impact, run_xray_index, run_xray_symbol
+from veraxi.cli.corpus import run_briefing, run_dbt_lineage, run_dbt_upload
 from veraxi.cli.evals import run_eval_ablation
 from veraxi.cli.web import run_web
 
@@ -801,6 +802,30 @@ def main():
     _rep.add_argument("--endpoint", default="https://api.veraxi.me/sse", help="Veraxi API endpoint")
     _rep.add_argument("--json", action="store_true", help="Output raw JSON")
 
+    # --- briefing ---
+    briefing_parser = subparsers.add_parser("briefing", help="Corpus briefing (Knowledge Hub)")
+    briefing_parser.add_argument("--out", help="Write markdown briefing to this file")
+    briefing_parser.add_argument("--key", help="Veraxi API key (vx-...)")
+    briefing_parser.add_argument("--tenant", help="Tenant ID")
+    briefing_parser.add_argument("--endpoint", default="https://api.veraxi.me/sse", help="Veraxi API endpoint")
+    briefing_parser.add_argument("--json", action="store_true", help="Output raw JSON")
+
+    # --- dbt ---
+    dbt_parser = subparsers.add_parser("dbt", help="dbt manifest ingest and lineage")
+    dbt_sub = dbt_parser.add_subparsers(dest="dbt_command")
+    _up = dbt_sub.add_parser("upload", help="Upload a dbt manifest.json")
+    _up.add_argument("manifest", help="Path to manifest.json")
+    _up.add_argument("--key", help="Veraxi API key (vx-...)")
+    _up.add_argument("--tenant", help="Tenant ID")
+    _up.add_argument("--endpoint", default="https://api.veraxi.me/sse", help="Veraxi API endpoint")
+    _up.add_argument("--json", action="store_true", help="Output raw JSON")
+    _lin = dbt_sub.add_parser("lineage", help="Dataset/column lineage search")
+    _lin.add_argument("target", help="Dataset name fragment or exact column name")
+    _lin.add_argument("--key", help="Veraxi API key (vx-...)")
+    _lin.add_argument("--tenant", help="Tenant ID")
+    _lin.add_argument("--endpoint", default="https://api.veraxi.me/sse", help="Veraxi API endpoint")
+    _lin.add_argument("--json", action="store_true", help="Output raw JSON")
+
     args = parser.parse_args()
 
     if not args.subcommand:
@@ -1270,6 +1295,22 @@ def main():
             run_vuln_sync(endpoint=endpoint, key=key, tenant=tenant_id, as_json=args.json)
         else:
             run_vuln_report(repo_path=args.repo_path, deps=args.deps, endpoint=endpoint, key=key, tenant=tenant_id, as_json=args.json, fail_on=args.fail_on)
+
+    elif args.subcommand == "briefing":
+        key, endpoint = resolve_credentials(args.key, args.endpoint)
+        tenant_id = _resolve_tenant_id(args.tenant)
+        run_briefing(endpoint=endpoint, key=key, tenant=tenant_id, as_json=args.json, out=args.out)
+
+    elif args.subcommand == "dbt":
+        if getattr(args, "dbt_command", None) not in ("upload", "lineage"):
+            parser.parse_args(["dbt", "--help"])
+            sys.exit(0)
+        key, endpoint = resolve_credentials(args.key, args.endpoint)
+        tenant_id = _resolve_tenant_id(args.tenant)
+        if args.dbt_command == "upload":
+            run_dbt_upload(args.manifest, endpoint=endpoint, key=key, tenant=tenant_id, as_json=args.json)
+        else:
+            run_dbt_lineage(args.target, endpoint=endpoint, key=key, tenant=tenant_id, as_json=args.json)
 
     elif args.subcommand == "web":
         run_web(

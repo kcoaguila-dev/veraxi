@@ -21,6 +21,7 @@ _SUBMODULES = [
     "completion",
     "config",
     "context",
+    "corpus",
     "doctor",
     "evals",
     "hook",
