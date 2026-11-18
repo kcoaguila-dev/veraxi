@@ -333,26 +333,29 @@ class VulnIntelPanel extends ConsumerWidget {
           ],
           if (finding.reachableInCode.isNotEmpty) ...[
             const SizedBox(height: 6),
-            ExpansionTile(
-              tilePadding: EdgeInsets.zero,
-              title: const Text('Reachable from',
-                  style: TextStyle(color: Colors.white, fontSize: 12)),
-              children: finding.reachableInCode
-                  .map((hit) => ListTile(
-                        dense: true,
-                        contentPadding: EdgeInsets.zero,
-                        title: Text(
-                          hit.path ?? hit.qualifiedName,
-                          style: const TextStyle(
-                              color: Colors.white, fontSize: 12),
-                        ),
-                        subtitle: Text(
-                          hit.qualifiedName,
-                          style: TextStyle(
-                              color: ext.textTertiary, fontSize: 11),
-                        ),
-                      ))
-                  .toList(),
+            Material(
+              type: MaterialType.transparency,
+              child: ExpansionTile(
+                tilePadding: EdgeInsets.zero,
+                title: const Text('Reachable from',
+                    style: TextStyle(color: Colors.white, fontSize: 12)),
+                children: finding.reachableInCode
+                    .map((hit) => ListTile(
+                          dense: true,
+                          contentPadding: EdgeInsets.zero,
+                          title: Text(
+                            hit.path ?? hit.qualifiedName,
+                            style: const TextStyle(
+                                color: Colors.white, fontSize: 12),
+                          ),
+                          subtitle: Text(
+                            hit.qualifiedName,
+                            style: TextStyle(
+                                color: ext.textTertiary, fontSize: 11),
+                          ),
+                        ))
+                    .toList(),
+              ),
             ),
           ],
         ],
