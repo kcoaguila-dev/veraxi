@@ -1,13 +1,15 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
 import 'package:veraxi_app/features/knowledge_hub/views/widgets/repo_xray_panel.dart';
+import 'package:veraxi_app/features/knowledge_hub/views/widgets/security_feed_panel.dart';
 import 'package:veraxi_app/features/knowledge_hub/views/widgets/vuln_intel_panel.dart';
 
 /// Code Intel workbench section (Knowledge Hub): Repo X-Ray and
 /// Vuln Intel panels sharing one repository-path field state.
 ///
-/// Design contracts: docs/design/repo_xray_panel.svg and
-/// docs/design/vuln_intel_panel.svg.
+/// Design contracts: docs/design/repo_xray_panel.svg,
+/// docs/design/vuln_intel_panel.svg and
+/// docs/design/security_feed_panel.svg.
 class CodeIntelSection extends StatefulWidget {
   const CodeIntelSection({super.key});
 
@@ -45,6 +47,8 @@ class _CodeIntelSectionState extends State<CodeIntelSection> {
         RepoXrayPanel(repoPathController: _repoPathController),
         const SizedBox(height: 24),
         VulnIntelPanel(repoPathController: _repoPathController),
+        const SizedBox(height: 24),
+        const SecurityFeedPanel(),
       ],
     );
   }

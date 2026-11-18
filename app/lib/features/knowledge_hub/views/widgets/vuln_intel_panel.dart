@@ -1,3 +1,6 @@
+import 'dart:convert';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
@@ -79,6 +82,50 @@ class VulnIntelPanel extends ConsumerWidget {
                     style: TextStyle(color: ext.iconColor, fontSize: 13)),
             ],
           ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 12,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              ElevatedButton.icon(
+                onPressed: state.scanningVuln
+                    ? null
+                    : () async {
+                        final picked = await FilePicker.pickFiles(
+                          type: FileType.custom,
+                          allowedExtensions: ['json'],
+                        );
+                        if (picked.isEmpty) return;
+                        final file = picked.first;
+                        final bytes = await file.readAsBytes();
+                        viewModel.setSbomFromText(
+                          utf8.decode(bytes, allowMalformed: true),
+                          fileName: file.name,
+                        );
+                      },
+                icon: const Icon(Icons.upload_file_outlined, size: 16),
+                label: const Text('Upload SBOM (CycloneDX/SPDX)'),
+              ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Switch(
+                    value: state.includeReachability,
+                    onChanged: viewModel.setIncludeReachability,
+                  ),
+                  const Text('Include reachability',
+                      style: TextStyle(color: Colors.white, fontSize: 13)),
+                ],
+              ),
+              if (state.sbomFileName != null)
+                Chip(
+                  label: Text('SBOM: ${state.sbomFileName}'),
+                  deleteIcon: const Icon(Icons.close, size: 14),
+                  onDeleted: viewModel.clearSbom,
+                ),
+            ],
+          ),
           if (state.vulnError != null) ...[
             const SizedBox(height: 8),
             Text(state.vulnError!,
@@ -100,6 +147,17 @@ class VulnIntelPanel extends ConsumerWidget {
               children: [
                 const Text('Filter:',
                     style: TextStyle(color: Colors.white, fontSize: 12)),
+                for (final quick in const [
+                  (VulnQuickFilter.all, 'All'),
+                  (VulnQuickFilter.kevOnly, 'KEV Only'),
+                  (VulnQuickFilter.highEpss, 'High EPSS ≥ 0.5'),
+                  (VulnQuickFilter.reachable, 'Reachable in Code'),
+                ])
+                  ChoiceChip(
+                    label: Text(quick.$2),
+                    selected: state.vulnQuickFilter == quick.$1,
+                    onSelected: (_) => viewModel.setVulnQuickFilter(quick.$1),
+                  ),
                 for (final severity in const [
                   'ALL',
                   'CRITICAL',
@@ -113,11 +171,6 @@ class VulnIntelPanel extends ConsumerWidget {
                     onSelected: (_) => viewModel.setSeverityFilter(severity),
                   ),
                 FilterChip(
-                  label: const Text('KEV only'),
-                  selected: state.kevOnly,
-                  onSelected: viewModel.setKevOnly,
-                ),
-                FilterChip(
                   label: const Text('Matched only'),
                   selected: state.matchedOnly,
                   onSelected: viewModel.setMatchedOnly,
@@ -129,7 +182,7 @@ class VulnIntelPanel extends ConsumerWidget {
               duration: const Duration(milliseconds: 260),
               child: Column(
                 key: ValueKey(
-                  '${state.severityFilter}-${state.kevOnly}-${state.matchedOnly}-${state.filteredFindings.length}',
+                  '${state.severityFilter}-${state.vulnQuickFilter}-${state.matchedOnly}-${state.filteredFindings.length}',
                 ),
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -201,6 +254,39 @@ class VulnIntelPanel extends ConsumerWidget {
                           fontSize: 11,
                           fontWeight: FontWeight.w700)),
                 ),
+              if (finding.epssScore != null)
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF6D28D9),
+                    borderRadius: BorderRadius.circular(11),
+                  ),
+                  child: Text(
+                    'EPSS ${(finding.epssScore! * 100).toStringAsFixed(1)}%',
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700),
+                  ),
+                ),
+              if (finding.isReachable)
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF164E63),
+                    borderRadius: BorderRadius.circular(11),
+                  ),
+                  child: Text(
+                    'Reachable in Code · ${finding.reachableFileCount} '
+                    '${finding.reachableFileCount == 1 ? 'file' : 'files'}',
+                    style: const TextStyle(
+                        color: Color(0xFFA5F3FC),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700),
+                  ),
+                ),
               Text(
                 '${finding.package}${finding.version != null ? ' ${finding.version}' : ''} — ${finding.cveId}',
                 style: const TextStyle(
@@ -244,6 +330,33 @@ class VulnIntelPanel extends ConsumerWidget {
             const SizedBox(height: 6),
             Text(finding.sourceFile!,
                 style: TextStyle(color: ext.textTertiary, fontSize: 11)),
+          ],
+          if (finding.reachableInCode.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Material(
+              type: MaterialType.transparency,
+              child: ExpansionTile(
+                tilePadding: EdgeInsets.zero,
+                title: const Text('Reachable from',
+                    style: TextStyle(color: Colors.white, fontSize: 12)),
+                children: finding.reachableInCode
+                    .map((hit) => ListTile(
+                          dense: true,
+                          contentPadding: EdgeInsets.zero,
+                          title: Text(
+                            hit.path ?? hit.qualifiedName,
+                            style: const TextStyle(
+                                color: Colors.white, fontSize: 12),
+                          ),
+                          subtitle: Text(
+                            hit.qualifiedName,
+                            style: TextStyle(
+                                color: ext.textTertiary, fontSize: 11),
+                          ),
+                        ))
+                    .toList(),
+              ),
+            ),
           ],
         ],
       ),

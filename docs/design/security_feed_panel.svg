@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="900" viewBox="0 0 1440 900">
+  <!-- Visual contract: Security Feed panel in Knowledge Hub
+       (security_feed_panel.dart, fed by code_intel_view_model.dart over
+       POST /api/v1/vuln/sarif, POST /api/v1/vuln/recon,
+       POST /api/v1/vuln/attack/sync and POST /api/v1/vuln/alerts).
+       One unified panel (rivals consolidate siloed queues into a
+       single pane: GitHub Code Security, Wiz) with four tabs:
+       SAST (SARIF 2.1.0 upload), Recon (Nuclei JSON/JSONL upload),
+       ATT&CK (MITRE ATT&CK STIX sync, optional uploaded bundle) and
+       SOC (alerts/IOC JSON upload). Each tab shows exactly one primary
+       action, a loading state, a one-line result summary of the real
+       counts the backend returns, and an honest error line on failure
+       (amber, never presented as success).
+       The SAST tab additionally renders taint breadcrumbs extracted
+       from the uploaded SARIF codeFlows as a source -> sink chip
+       chain (Wiz-style attack-path explanation: show WHY it matters).
+       Colors match vuln_intel_panel.svg: page #171719, panel #222226,
+       border #2E2E34, primary text #ECECEC, muted #A1A1AA, accent
+       violet #8B7CF6, reachability cyan #164E63/#A5F3FC.
+       Typography: Inter. Tab switches and result changes animate via
+       AnimatedSwitcher; upload buttons have hover states. -->
+  <rect width="1440" height="900" fill="#0E0E10"/>
+  <rect x="0" y="0" width="1440" height="900" fill="#171719"/>
+  <text x="48" y="64" font-family="Inter, sans-serif" font-size="20" fill="#FFFFFF" font-weight="700">Security Feed</text>
+  <rect x="48" y="88" width="1344" height="520" rx="16" fill="#222226" stroke="#2E2E34"/>
+  <rect x="72" y="112" width="90" height="34" rx="17" fill="#8B7CF6"/>
+  <text x="94" y="134" font-family="Inter, sans-serif" font-size="12" fill="#FFFFFF" font-weight="700">SAST</text>
+  <rect x="170" y="112" width="100" height="34" rx="17" fill="#2E2E34"/>
+  <text x="192" y="134" font-family="Inter, sans-serif" font-size="12" fill="#ECECEC">Recon</text>
+  <rect x="278" y="112" width="110" height="34" rx="17" fill="#2E2E34"/>
+  <text x="300" y="134" font-family="Inter, sans-serif" font-size="12" fill="#ECECEC">ATT&amp;CK</text>
+  <rect x="396" y="112" width="90" height="34" rx="17" fill="#2E2E34"/>
+  <text x="420" y="134" font-family="Inter, sans-serif" font-size="12" fill="#ECECEC">SOC</text>
+  <rect x="72" y="170" width="230" height="38" rx="8" fill="#2E2E34"/>
+  <text x="90" y="194" font-family="Inter, sans-serif" font-size="12" fill="#ECECEC">Upload SARIF 2.1.0 (.json)</text>
+  <text x="72" y="238" font-family="Inter, sans-serif" font-size="12" fill="#A1A1AA">Ingested 12 findings · 12 file links · 4 CWE links</text>
+  <text x="72" y="278" font-family="Inter, sans-serif" font-size="12" fill="#FFFFFF" font-weight="600">Taint paths (source → sink)</text>
+  <rect x="72" y="296" width="150" height="26" rx="13" fill="#164E63"/>
+  <text x="84" y="313" font-family="Inter, sans-serif" font-size="11" fill="#A5F3FC">app/views.py:14</text>
+  <text x="230" y="313" font-family="Inter, sans-serif" font-size="12" fill="#A1A1AA">→</text>
+  <rect x="252" y="296" width="170" height="26" rx="13" fill="#164E63"/>
+  <text x="264" y="313" font-family="Inter, sans-serif" font-size="11" fill="#A5F3FC">app/db.py:88</text>
+  <text x="440" y="313" font-family="Inter, sans-serif" font-size="11" fill="#A1A1AA">py/sql-injection</text>
+</svg>
