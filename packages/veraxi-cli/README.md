@@ -80,3 +80,12 @@ applicable. Exit codes: 0 ok, 1 error, 2 gate failed (eval thresholds,
 legacy Neo4j-backed `veraxi memory` / `veraxi remember` commands
 (project-scoped agent rules) are **deprecated**; there is no data to
 migrate, and there is no dual-write or bridge between the stores.
+
+> PR6 (memory unification): `veraxi remember` and `veraxi memory list`
+> now read/write `user_memories` via `/api/v1/memories`
+> (`source="manual"`). Unmapped fields (tag/type/project/supersedes)
+> are dropped with a stderr warning. The Neo4j write path and the
+> `.veraxi/rules.json` write-fallback are retired for `remember`;
+> rules.json remains the explicit export/import file format. Other
+> legacy subcommands (audit/prune/stats/resolve/reopen) remain
+> functional with a deprecation notice — follow-up.

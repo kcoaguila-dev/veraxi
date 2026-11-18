@@ -13,6 +13,26 @@ _resolve_project_scope = resolve_project_scope
 _render_bar = render_progress_bar
 
 
+_DEPRECATION = (
+    "Deprecation: Neo4j-backed memory commands are legacy; "
+    "user_memories (veraxi memories) is the single source of truth."
+)
+
+
+def _deprecation_notice(command):
+    print(f"{_DEPRECATION} '{command}' remains functional as a follow-up; prefer 'veraxi memories'.", file=sys.stderr)
+
+
+def _warn_dropped(fields):
+    dropped = [name for name, present in fields.items() if present]
+    if dropped:
+        print(
+            f"Warning: dropped unsupported field(s) for user_memories: {', '.join(dropped)} "
+            "(tag/type/project/supersedes do not map to user_memories).",
+            file=sys.stderr,
+        )
+
+
 def run_remember(
     insight: str,
     tag: str | None = None,
@@ -26,132 +46,39 @@ def run_remember(
     as_json: bool = False,
 ) -> None:
     """
-    Stores an architectural rule, decision, or known constraint into the knowledge graph.
-    Prevents cross-project memory contamination by scoping memories to the local project repository or global.
+    Stores a memory in Supabase user_memories (the SSOT going forward).
+
+    Repointed in PR6 (memory unification): the Neo4j :Memory write path
+    and its .veraxi/rules.json write-fallback dual-write are retired.
+    Fields that do not map to user_memories (tag/type/project/
+    supersedes) are dropped with a stderr deprecation warning.
+    rules.json remains only as the explicit export/import file format.
     """
     if not insight or not insight.strip():
         print("Error: insight text is required.", file=sys.stderr)
         sys.exit(1)
 
     insight = insight.strip()
-    tag = (tag or "general").strip().lower()
-    memory_type = (memory_type or "rule").strip().lower()
-    project_scope = "global" if is_global else _resolve_project_scope(project)
-    now_iso = _get_utc_now()
-    mem_id = str(uuid.uuid4())[:8]
+    _warn_dropped({
+        "tag": bool(tag),
+        "type": bool(memory_type and memory_type != "rule"),
+        "supersedes": bool(supersedes),
+        "project": bool(project or is_global),
+    })
 
-    superseded_nodes = []
-    persisted = False
-    storage = "none"
+    from veraxi.cli.http_client import api_request
 
-    try:
-        from backend.config import get_config
-        from backend.storage.neo4j_client import Neo4jStorageClient
-
-        config = get_config()
-        neo4j = Neo4jStorageClient.from_config(config)
-
-        # Handle superseding within project scope or global
-        if supersedes:
-            find_query = """
-            MATCH (old:Memory)
-            WHERE (old.tenant_id = $tenant_id OR old.tenant_id = 'default')
-              AND (old.project = $project OR old.project = 'global' OR old.project IS NULL)
-              AND old.status = 'active'
-              AND (toLower(old.name) CONTAINS toLower($supersedes) OR old.id STARTS WITH $supersedes)
-            SET old.status = 'superseded', old.superseded_by = $new_id, old.superseded_at = $now_iso
-            RETURN old.id as id, old.name as name
-            """
-            superseded_nodes = neo4j.execute_read(
-                find_query,
-                {"tenant_id": tenant_id, "project": project_scope, "supersedes": supersedes, "new_id": mem_id, "now_iso": now_iso},
-            )
-
-        create_query = """
-        CREATE (n:Memory {
-            id: $id,
-            name: $name,
-            details: $name,
-            tag: $tag,
-            type: $type,
-            status: 'active',
-            project: $project,
-            tenant_id: $tenant_id,
-            created_at: $created_at,
-            resolved_ref: '',
-            resolved_note: '',
-            superseded_by: ''
-        })
-        RETURN n.id as id
-        """
-        neo4j.execute_write(
-            create_query,
-            {
-                "id": mem_id,
-                "name": insight,
-                "tag": tag,
-                "type": memory_type,
-                "project": project_scope,
-                "tenant_id": tenant_id,
-                "created_at": now_iso,
-            },
-        )
-
-        for s in superseded_nodes:
-            link_query = """
-            MATCH (new:Memory {id: $new_id})
-            MATCH (old:Memory {id: $old_id})
-            CREATE (new)-[:SUPERSEDES]->(old)
-            """
-            neo4j.execute_write(link_query, {"new_id": mem_id, "old_id": s["id"]})
-
-        neo4j.close()
-        persisted = True
-        storage = "graph"
-    except Exception as e:
-        print(f"Warning: Local storage write failed ({e}). Attempting offline fallback.", file=sys.stderr)
-        try:
-            dest_dir = os.path.join(os.getcwd(), ".veraxi")
-            os.makedirs(dest_dir, exist_ok=True)
-            local_rules_path = os.path.join(dest_dir, "rules.json")
-            existing_data = {"version": "1.0", "project": project_scope, "exported_at": now_iso, "memories": []}
-            if os.path.isfile(local_rules_path):
-                with open(local_rules_path, "r", encoding="utf-8") as f:
-                    try:
-                        existing_data = json.load(f)
-                    except Exception:
-                        pass
-            memories_list = existing_data.setdefault("memories", [])
-            memories_list.append({
-                "id": mem_id,
-                "name": insight,
-                "details": insight,
-                "tag": tag,
-                "type": memory_type,
-                "status": "active",
-                "project": project_scope,
-                "tenant_id": tenant_id,
-                "created_at": now_iso,
-                "superseded": [s["id"] for s in superseded_nodes],
-            })
-            with open(local_rules_path, "w", encoding="utf-8") as f:
-                json.dump(existing_data, f, indent=2)
-            persisted = True
-            storage = "local_fallback"
-        except Exception as fb_err:
-            print(f"Error: Offline fallback persistence also failed: {fb_err}", file=sys.stderr)
-
+    data = api_request(
+        "POST", "/api/v1/memories", body={"content": insight, "source": "manual"},
+        endpoint=endpoint, key=key, tenant=tenant_id,
+    )
     result_data = {
-        "id": mem_id,
-        "insight": insight,
-        "tag": tag,
-        "type": memory_type,
-        "project": project_scope,
-        "status": "active",
-        "created_at": now_iso,
-        "superseded": [s["id"] for s in superseded_nodes],
-        "persisted": persisted,
-        "storage": storage,
+        "id": data.get("id"),
+        "insight": data.get("content", insight),
+        "status": "active" if not data.get("valid_to") else "expired",
+        "created_at": data.get("created_at"),
+        "persisted": True,
+        "storage": "user_memories",
     }
 
     if as_json:
@@ -161,22 +88,10 @@ def run_remember(
     bold = "\033[1m"
     green = "\033[32m"
     cyan = "\033[36m"
-    yellow = "\033[33m"
-    red = "\033[31m"
     reset = "\033[0m"
-
-    if storage == "graph":
-        print(f"\n{bold}{green}✓ Saved architectural memory{reset} [{cyan}{mem_id}{reset}]:")
-    elif storage == "local_fallback":
-        print(f"\n{bold}{yellow}✓ Saved architectural memory to local fallback (.veraxi/rules.json){reset} [{cyan}{mem_id}{reset}]:")
-    else:
-        print(f"\n{bold}{red}✗ Failed to persist architectural memory{reset} [{cyan}{mem_id}{reset}]:", file=sys.stderr)
-
-    print(f"  \"{insight}\"")
-    print(f"  Status: {green}active{reset} | Scope: {cyan}{project_scope}{reset} | Tag: {yellow}{tag}{reset} | Type: {memory_type}")
-
-    for s in superseded_nodes:
-        print(f"  {yellow}↪ Superseded older memory{reset} [{s['id']}]: \"{s['name']}\"")
+    print(f"\n{bold}{green}✓ Saved memory to user_memories (SSOT){reset} [{cyan}{result_data['id']}{reset}]:")
+    print(f'  "{insight}"')
+    print(f"  Status: {green}active{reset}")
     print()
 
 
@@ -192,6 +107,7 @@ def run_resolve(
     """
     Marks an issue or caveat as RESOLVED so agents stop treating it as an active bug.
     """
+    _deprecation_notice("veraxi resolve")
     if not target or not target.strip():
         print("Error: Target memory ID or keyword is required.", file=sys.stderr)
         sys.exit(1)
@@ -260,6 +176,7 @@ def run_reopen(
     Reopens a previously resolved memory (Human-in-the-Loop Override).
     If an AI agent falsely marked an issue resolved, the human can reopen it with feedback.
     """
+    _deprecation_notice("veraxi reopen")
     if not target or not target.strip():
         print("Error: Target memory ID or keyword is required.", file=sys.stderr)
         sys.exit(1)
@@ -323,36 +240,26 @@ def run_memory_list(
     as_json: bool = False,
 ) -> None:
     """
-    Lists memories with active, resolved, and superseded statuses.
+    Lists memories from Supabase user_memories (the SSOT going forward).
+
+    Repointed in PR6 (memory unification) from the Neo4j :Memory read.
+    status_filter/project scoping do not map to user_memories and are
+    dropped with a stderr warning; expired rows are hidden unless the
+    status filter asks for all (they carry valid_to).
     """
-    nodes = []
-    project_scope = None if all_projects else _resolve_project_scope(project)
-    try:
-        from backend.config import get_config
-        from backend.storage.neo4j_client import Neo4jStorageClient
+    _warn_dropped({
+        "status_filter": bool(status_filter and status_filter != "all"),
+        "project": bool(project or all_projects),
+    })
+    print("Note: 'veraxi memory list' now reads user_memories; prefer 'veraxi memories list'.", file=sys.stderr)
 
-        config = get_config()
-        neo4j = Neo4jStorageClient.from_config(config)
+    from veraxi.cli.http_client import api_request
 
-        where_clause = "(n.tenant_id = $tenant_id OR n.tenant_id = 'default')"
-        if status_filter != "all":
-            where_clause += f" AND n.status = '{status_filter}'"
-        if not all_projects:
-            where_clause += " AND (n.project = $project OR n.project = 'global' OR n.project IS NULL)"
-
-        query = f"""
-        MATCH (n:Memory)
-        WHERE {where_clause}
-        RETURN n.id as id, n.name as name, n.tag as tag, n.type as type, n.status as status,
-               n.project as project, n.created_at as created_at, n.resolved_ref as resolved_ref,
-               n.resolved_note as resolved_note, n.superseded_by as superseded_by
-        ORDER BY n.created_at DESC
-        LIMIT 50
-        """
-        nodes = neo4j.execute_read(query, {"tenant_id": tenant_id, "project": project_scope})
-        neo4j.close()
-    except Exception:
-        pass
+    data = api_request(
+        "GET", "/api/v1/memories", endpoint=endpoint, key=key, tenant=tenant_id,
+        params={"include_expired": "true"},
+    )
+    nodes = data.get("memories") or []
 
     if as_json:
         print(json.dumps(nodes, indent=2))
@@ -365,35 +272,20 @@ def run_memory_list(
     reset = "\033[0m"
 
     print(f"\n{bold}{cyan}╔════════════════════════════════════════════════════════════════════╗{reset}")
-    print(f"{bold}{cyan}║                 Veraxi Architectural Memories                      ║{reset}")
+    print(f"{bold}{cyan}║                 Veraxi Memories (user_memories)                    ║{reset}")
     print(f"{bold}{cyan}╚════════════════════════════════════════════════════════════════════╝{reset}")
 
     if not nodes:
-        print(f"\n  No architectural memories found for project '{project_scope or 'all'}'.")
-        print("  Use 'veraxi remember \"<insight>\" --tag <tag>' to record one.\n")
+        print("\n  No memories found.")
+        print("  Use 'veraxi memories add \"<content>\"' to record one.\n")
         return
 
-    scope_str = "All Projects" if all_projects else f"Project: {project_scope}"
-    print(f"\n  Found {len(nodes)} memory items ({scope_str} | Filter: {status_filter}):")
+    print(f"\n  Found {len(nodes)} memory items:")
     print("  " + "─" * 68)
-
     for n in nodes:
-        status = n.get("status", "active")
-        if status == "active":
-            status_badge = f"{green}[active]{reset}"
-        elif status == "resolved":
-            status_badge = f"{cyan}[resolved]{reset}"
-        else:
-            status_badge = f"{yellow}[superseded]{reset}"
-
-        tag = n.get("tag", "general")
-        proj_badge = f"\033[2m[{n.get('project', 'general')}]\033[0m "
-        print(f"  {status_badge:<18} {cyan}{n['id']}{reset} • {proj_badge}[{tag}] {n['name']}")
-        if status == "resolved" and n.get("resolved_ref"):
-            print(f"               └─ {green}Resolved ({n['resolved_ref']}){reset}: {n.get('resolved_note', '')}")
-        elif status == "superseded" and n.get("superseded_by"):
-            print(f"               └─ {yellow}Superseded by {n['superseded_by']}{reset}")
-
+        expired = bool(n.get("valid_to"))
+        status_badge = f"{yellow}[expired]{reset}" if expired else f"{green}[active]{reset}"
+        print(f"  {status_badge:<18} {cyan}{n.get('id')}{reset} • [{n.get('source', 'manual')}] {n.get('content', '')}")
     print()
 
 
@@ -410,6 +302,7 @@ def run_memory_export(
     Exports project memories into a portable JSON rulebook (.veraxi/rules.json).
     Allows teams to check architectural history into Git for zero-cloud sharing.
     """
+    _deprecation_notice("veraxi memory export")
     project_scope = None if all_projects else _resolve_project_scope(project)
     nodes = []
     try:
@@ -482,6 +375,7 @@ def run_memory_import(
     """
     Imports a JSON rulebook (.veraxi/rules.json) into the local or cloud knowledge graph.
     """
+    _deprecation_notice("veraxi memory import")
     src_file = file_path or os.path.join(os.getcwd(), ".veraxi", "rules.json")
     if not os.path.isfile(src_file):
         print(f"Error: memory file not found at '{src_file}'.", file=sys.stderr)
@@ -683,6 +577,7 @@ def run_memory_audit(
     """
     Audits the project memory bank for stale constraints, contradictions, tag crowding, and codebase drift.
     """
+    _deprecation_notice("veraxi memory audit")
     project_scope = _resolve_project_scope(project)
     nodes = []
     try:
@@ -818,6 +713,7 @@ def run_memory_prune(
     Safely prunes or archives stale resolved caveats and superseded notes.
     Active architectural rules are permanently protected from automated pruning.
     """
+    _deprecation_notice("veraxi memory prune")
     days = 90
     older_than_clean = (older_than or "90d").strip().lower()
     if older_than_clean.endswith("d"):
@@ -954,6 +850,7 @@ def run_memory_stats(
     Displays a comprehensive visual dashboard of hot memory prompt token footprints,
     editor sync statuses, and database quota capacity.
     """
+    _deprecation_notice("veraxi memory stats")
     project_scope = None if all_projects else _resolve_project_scope(project)
     nodes = []
     total_db_nodes = 0

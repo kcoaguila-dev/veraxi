@@ -336,8 +336,30 @@ def test_check_gate():
 
 
 # 15. test_remember_and_resolve_lifecycle: Test architectural memory tracking
+# PR6 (memory unification, Kazuo-approved): remember + memory list were
+# repointed from Neo4j :Memory onto Supabase user_memories
+# (/api/v1/memories). This test was updated to assert the NEW behavior:
+# remember POSTs via http_client (storage="user_memories", unmapped
+# tag dropped with a stderr warning); resolve/reopen remain legacy
+# Neo4j-backed (functional, deprecation notice) as follow-up.
 def test_remember_and_resolve_lifecycle(capsys):
     from veraxi.cli.memory import run_memory_list, run_remember, run_resolve
+
+    # Remember — now via the user_memories API, not Neo4j.
+    api_ret = {"id": "mem-api-1", "content": "Test rule", "source": "manual",
+               "valid_to": None, "created_at": "2026-11-18T00:00:00Z"}
+    with patch("veraxi.cli.http_client.api_request", return_value=api_ret) as mock_api:
+        run_remember("Test rule", tag="test", as_json=True)
+    captured = capsys.readouterr()
+    data = json.loads(captured.out)
+    assert data["insight"] == "Test rule"
+    assert data["status"] == "active"
+    assert data["storage"] == "user_memories"
+    assert data["id"] == "mem-api-1"
+    args, kwargs = mock_api.call_args
+    assert args[0] == "POST" and args[1] == "/api/v1/memories"
+    assert kwargs["body"] == {"content": "Test rule", "source": "manual"}
+    assert "tag" in captured.err  # unmapped field dropped with warning, not silently
 
     with patch(
         "backend.storage.neo4j_client.Neo4jStorageClient.from_config"
@@ -345,14 +367,7 @@ def test_remember_and_resolve_lifecycle(capsys):
         mock_client = MagicMock()
         mock_neo4j.return_value = mock_client
 
-        # Remember
-        run_remember("Test rule", tag="test", as_json=True)
-        captured = capsys.readouterr()
-        data = json.loads(captured.out)
-        assert data["insight"] == "Test rule"
-        assert data["status"] == "active"
-
-        # Resolve
+        # Resolve (legacy, still functional)
         mock_client.execute_read.return_value = [
             {"id": data["id"], "name": "Test rule"}
         ]
@@ -361,7 +376,7 @@ def test_remember_and_resolve_lifecycle(capsys):
         res_data = json.loads(captured.out)
         assert res_data["ref"] == "PR#1"
 
-        # Reopen (Human Override)
+        # Reopen (Human Override, legacy)
         from veraxi.cli.memory import run_reopen
 
         run_reopen(data["id"], note="Still broken in staging", as_json=True)
@@ -369,15 +384,16 @@ def test_remember_and_resolve_lifecycle(capsys):
         reopen_data = json.loads(captured.out)
         assert reopen_data["note"] == "Still broken in staging"
 
-        # List
-        mock_client.execute_read.return_value = [
-            {"id": data["id"], "name": "Test rule", "tag": "test", "status": "resolved"}
-        ]
+    # List — now reads user_memories via the API.
+    list_ret = {"memories": [
+        {"id": data["id"], "content": "Test rule", "source": "manual", "valid_to": None}
+    ]}
+    with patch("veraxi.cli.http_client.api_request", return_value=list_ret):
         run_memory_list(as_json=True)
-        captured = capsys.readouterr()
-        list_data = json.loads(captured.out)
-        assert len(list_data) == 1
-        assert list_data[0]["status"] == "resolved"
+    captured = capsys.readouterr()
+    list_data = json.loads(captured.out)
+    assert len(list_data) == 1
+    assert list_data[0]["content"] == "Test rule"
 
 
 # 16. test_context_packing: Test token-efficient context assembly
