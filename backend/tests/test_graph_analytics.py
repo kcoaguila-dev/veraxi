@@ -46,3 +46,56 @@ def test_get_node_degree_centrality_calls_client():
     assert len(result) == 2
     assert result[0]["id"] == "id1"
     assert result[0]["degree"] == 5
+
+
+# ---------------------------------------------------------------------------
+# WP3: pure-Python fallback communities (no label grouping)
+# ---------------------------------------------------------------------------
+
+from backend.retrieval.graph_analytics import detect_communities
+
+
+def _nodes(*specs):
+    return [{"name": name, "label": label} for name, label in specs]
+
+
+def test_detect_communities_clusters_by_edges_not_labels():
+    nodes = _nodes(
+        ("Alice", "Person"), ("Bob", "Person"), ("Carol", "Person"),
+        ("Dave", "Person"), ("Eve", "Person"), ("Frank", "Person"),
+        ("UnlinkedChunk_ab12", "Chunk"), ("Lonely", "Person"),
+    )
+    edges = [
+        ("Alice", "Bob"), ("Bob", "Carol"), ("Alice", "Carol"),
+        ("Dave", "Eve"), ("Eve", "Frank"), ("Dave", "Frank"),
+        ("Alice", "UnlinkedChunk_ab12"),
+    ]
+    rows = detect_communities(nodes, edges)
+    member_sets = {frozenset(r["members"]) for r in rows}
+    assert frozenset({"Alice", "Bob", "Carol"}) in member_sets
+    assert frozenset({"Dave", "Eve", "Frank"}) in member_sets
+    all_members = {m for r in rows for m in r["members"]}
+    assert "UnlinkedChunk_ab12" not in all_members
+    assert "Lonely" not in all_members  # degree-0 excluded
+    # Communities are edge clusters, not the single "Person" label.
+    assert len(rows) == 2
+
+
+def test_fallback_used_when_gds_unavailable():
+    mock_client = MagicMock()
+
+    def fake_read(query, parameters=None):
+        if "gds.louvain" in query:
+            raise RuntimeError("no GDS")
+        if "RETURN n.name AS name" in query:
+            return [
+                {"name": "Alice", "label": "Person"},
+                {"name": "Bob", "label": "Person"},
+                {"name": "UnlinkedChunk_ab12", "label": "Chunk"},
+            ]
+        return [{"source": "Alice", "target": "Bob"}]
+
+    mock_client.execute_read.side_effect = fake_read
+    result = get_community_detection(mock_client, min_community_size=1, tenant_id="t")
+    assert len(result) == 1
+    assert result[0]["members"] == ["Alice", "Bob"]

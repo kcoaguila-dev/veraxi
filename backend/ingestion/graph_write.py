@@ -17,6 +17,8 @@ class IngestionPayload:
 
 from backend.ingestion.entity_resolution import (
     acronym_candidates,
+    canonicalize_entities,
+    is_extractable_entity,
     normalize_name,
 )
 
@@ -142,7 +144,17 @@ def write_to_graph(
         for chunk_text, point_id in chunk_items
     ]
 
-    for entity in payload.entities:
+    # WP3 pre-filter: noisy extracted entities (bare percentages,
+    # currency fragments, stop-phrases, OCR fragments) never reach
+    # Neo4j, and surname-only variants are canonicalized into their
+    # full-name entity first. Relations naming a filtered entity are
+    # dropped with it (their endpoint lookup below simply misses).
+    # Chunk nodes are unaffected: every Qdrant point still gets its
+    # Neo4j Chunk node via the unlinked-chunk pass below.
+    clean_entities = canonicalize_entities(
+        [e for e in payload.entities if is_extractable_entity(e.get("name", ""))]
+    )
+    for entity in clean_entities:
         name = entity["name"]
         aliases = list({name} | set(entity.get("aliases", [])))
         matched_point_ids = _match_entity_to_chunks(entity, norm_chunks, all_point_ids)

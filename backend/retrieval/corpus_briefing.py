@@ -228,7 +228,16 @@ def _top_communities(
     )[:limit]
     communities: list[dict[str, Any]] = []
     for row in ranked:
-        members = [str(m) for m in (row.get("members") or []) if m]
+        # Chunk nodes (incl. UnlinkedChunk_* provenance stubs) are not
+        # entities: they never appear as community members or in the
+        # top-entity ranking, and a community of only chunks is dropped.
+        members = [
+            str(m)
+            for m in (row.get("members") or [])
+            if m and not str(m).startswith("UnlinkedChunk_")
+        ]
+        if not members:
+            continue
         degrees = {
             entry.get("name"): entry
             for entry in graph_client.entity_degrees(tenant_id, members)
@@ -240,6 +249,8 @@ def _top_communities(
                 "degree": int((degrees.get(name) or {}).get("degree") or 0),
             }
             for name in members
+            if (degrees.get(name) or {}).get("type") != "Chunk"
+            and int((degrees.get(name) or {}).get("degree") or 0) > 0
         ]
         top_entities = sorted(
             entities,

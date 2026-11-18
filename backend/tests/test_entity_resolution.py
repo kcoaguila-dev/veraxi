@@ -187,3 +187,81 @@ def test_resolve_entities_rewrites_relations_with_aliases():
     assert rewritten_relations[0]["to_entity"] == canonical_name
     assert rewritten_relations[1]["from_entity"] == canonical_name
     assert rewritten_relations[1]["to_entity"] == "AI"
+
+
+# ---------------------------------------------------------------------------
+# WP3: noisy-entity rejection + containment canonicalization
+# ---------------------------------------------------------------------------
+
+from backend.ingestion.entity_resolution import (
+    canonicalize_entities,
+    is_clean_entity_name,
+    is_extractable_entity,
+)
+
+
+def test_noisy_time_currency_percent_phrases_rejected():
+    for noisy in (
+        "$145 million-2.8",
+        "only 4.3 percent",
+        "the end of the day",
+        "every night",
+        "4.3%",
+        "$9.99",
+        "x9",  # <3-char OCR fragment, not an acronym
+    ):
+        assert is_extractable_entity(noisy) is False, noisy
+        assert is_clean_entity_name(noisy) is False or noisy == "x9"
+
+
+def test_real_entities_still_extractable():
+    for real in ("David Einhorn", "Apollo 11", "Acme Corp", "AI", "SEC"):
+        assert is_extractable_entity(real) is True, real
+
+
+def test_canonicalize_merges_surname_into_full_name():
+    entities = [
+        {"name": "Einhorn", "type": "Person", "source_point_ids": ["p1"]},
+        {"name": "David Einhorn", "type": "Person", "source_point_ids": ["p2"]},
+        {"name": "Greenlight Capital", "type": "Organization"},
+    ]
+    merged = canonicalize_entities([dict(e) for e in entities])
+    names = [e["name"] for e in merged]
+    assert names == ["David Einhorn", "Greenlight Capital"]
+    david = merged[0]
+    assert "Einhorn" in david["aliases"]
+    assert david["source_point_ids"] == ["p2", "p1"]
+
+
+def test_canonicalize_ambiguous_surname_left_alone():
+    entities = [
+        {"name": "Smith", "type": "Person"},
+        {"name": "John Smith", "type": "Person"},
+        {"name": "Anna Smith", "type": "Person"},
+    ]
+    merged = canonicalize_entities([dict(e) for e in entities])
+    assert len(merged) == 3
+
+
+def test_write_to_graph_filters_noise_and_preserves_chunk_links():
+    from unittest.mock import MagicMock
+
+    from backend.ingestion.graph_write import IngestionPayload, write_to_graph
+
+    mock_neo4j = MagicMock()
+    mock_neo4j.upsert_entity.side_effect = lambda **kw: f"node-{kw['name']}"
+    payload = IngestionPayload(
+        entities=[
+            {"name": "David Einhorn", "type": "Person", "aliases": []},
+            {"name": "the end of the day", "type": "Concept", "aliases": []},
+            {"name": "$145 million-2.8", "type": "Concept", "aliases": []},
+        ],
+        relations=[],
+        qdrant_point_ids={"David Einhorn spoke at the end of the day.": "p1"},
+    )
+    name_to_id, q2n, _ = write_to_graph(mock_neo4j, payload, tenant_id="t1")
+    assert "David Einhorn" in name_to_id
+    assert "the end of the day" not in name_to_id
+    assert "$145 million-2.8" not in name_to_id
+    # The chunk's Qdrant point ID is still linked in Neo4j.
+    assert "p1" in q2n
