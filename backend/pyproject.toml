@@ -98,7 +98,7 @@ eval = [
 [dependency-groups]
 dev = [
     "datasets>=5.0.1",
-    "deepeval>=4.2.6",
+    "deepeval>=4.3.4",
     "import-linter>=2.15",
     "pytest>=9.1.1",
     "pytest-asyncio>=1.4.0",
