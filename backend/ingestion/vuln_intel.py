@@ -85,6 +85,7 @@ KEV_JSON_URL = (
     "https://www.cisa.gov/sites/default/files/feeds/"
     "known_exploited_vulnerabilities.json"
 )
+EPSS_API_URL = "https://api.first.org/data/v1/epss"
 
 NODE_LABELS = ("CVE", "CWE", "Package")
 EDGE_TYPES = ("HAS_WEAKNESS", "AFFECTS")
@@ -243,9 +244,12 @@ class CVERecord:
     aliases: list[str] = field(default_factory=list)
     kev: bool = False
     kev_date: str | None = None
+    epss_score: float | None = None
+    epss_percentile: float | None = None
+    qdrant_point_ids: list[str] = field(default_factory=list)
 
     def properties(self, tenant_id: str) -> dict[str, Any]:
-        return {
+        props: dict[str, Any] = {
             "id": self.id,
             "description": self.description,
             "severity": self.severity,
@@ -254,9 +258,14 @@ class CVERecord:
             "last_modified": self.last_modified,
             "kev": self.kev,
             "kev_date": self.kev_date,
+            "epss_score": self.epss_score,
+            "epss_percentile": self.epss_percentile,
             "aliases": list(self.aliases),
             "tenant_id": tenant_id,
         }
+        if self.qdrant_point_ids:
+            props["qdrant_point_ids"] = list(self.qdrant_point_ids)
+        return props
 
 
 # ---------------------------------------------------------------------------
@@ -439,6 +448,44 @@ def apply_kev(records: list[CVERecord], kev_records: list[dict[str, Any]]) -> li
         if kev_entry is not None:
             record.kev = True
             record.kev_date = kev_entry.get("date_added")
+    return records
+
+
+def parse_epss_payload(payload: dict[str, Any]) -> dict[str, tuple[float, float]]:
+    """Parse a FIRST EPSS API response into ``{cve_id: (epss, percentile)}``."""
+    scores: dict[str, tuple[float, float]] = {}
+    for entry in (payload or {}).get("data") or []:
+        cve_id = (entry.get("cve") or "").strip().upper()
+        if not cve_id:
+            continue
+        try:
+            epss = float(entry["epss"])
+            percentile = float(entry["percentile"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        scores[cve_id] = (epss, percentile)
+    return scores
+
+
+def apply_epss(
+    records: list[CVERecord], epss_map: dict[str, tuple[float, float]]
+) -> list[CVERecord]:
+    """Attach EPSS score and percentile to CVE records (mutates + returns).
+
+    Matches ``record.id`` or any ``CVE-*`` alias, taking the highest EPSS
+    score if multiple aliases match.
+    """
+    if not epss_map:
+        return records
+    for record in records:
+        candidates = [record.id.upper()] + [a.upper() for a in record.aliases]
+        best: tuple[float, float] | None = None
+        for cid in candidates:
+            hit = epss_map.get(cid)
+            if hit is not None and (best is None or hit[0] > best[0]):
+                best = hit
+        if best is not None:
+            record.epss_score, record.epss_percentile = best
     return records
 
 
@@ -882,22 +929,149 @@ def fetch_kev_records(client: httpx.Client | None = None) -> list[dict[str, Any]
             http_client.close()
 
 
+def _collect_cve_ids(records: list[CVERecord]) -> list[str]:
+    """Collect unique ``CVE-*`` ids across record ids and aliases."""
+    seen: list[str] = []
+    seen_set: set[str] = set()
+    for record in records:
+        for cid in [record.id, *record.aliases]:
+            upper = (cid or "").strip().upper()
+            if upper.startswith("CVE-") and upper not in seen_set:
+                seen_set.add(upper)
+                seen.append(upper)
+    return seen
+
+
+def fetch_epss_scores(
+    cve_ids: list[str], client: httpx.Client | None = None
+) -> dict[str, tuple[float, float]]:
+    """Batch-fetch EPSS scores from FIRST.org (chunks of 100, no key needed)."""
+    clean_ids = sorted({c.strip().upper() for c in cve_ids if c and c.strip().upper().startswith("CVE-")})
+    if not clean_ids:
+        return {}
+    own_client = client is None
+    http_client = client or httpx.Client(timeout=30.0)
+    scores: dict[str, tuple[float, float]] = {}
+    try:
+        for start in range(0, len(clean_ids), 100):
+            chunk = clean_ids[start : start + 100]
+            response = http_client.get(EPSS_API_URL, params={"cve": ",".join(chunk)})
+            response.raise_for_status()
+            scores.update(parse_epss_payload(response.json()))
+        return scores
+    finally:
+        if own_client:
+            http_client.close()
+
+
+def format_cve_text(record: CVERecord) -> str:
+    """Format a CVE record into a searchable text passage for Qdrant."""
+    parts = [record.id]
+    if record.severity:
+        parts.append(f"[{record.severity}]")
+    if record.kev:
+        parts.append("[CISA KEV]")
+    if record.epss_score is not None:
+        parts.append(f"[EPSS {record.epss_score:.3f}]")
+    if record.cwe_ids:
+        parts.append(f"({', '.join(record.cwe_ids)})")
+    pkgs = sorted({a.product for a in record.affected if a.product})
+    if pkgs:
+        parts.append(f"Affects: {', '.join(pkgs[:10])}.")
+    if record.description:
+        parts.append(record.description)
+    return " ".join(parts)
+
+
+def index_vuln_vectors(
+    qdrant_client: Any,
+    records: list[CVERecord],
+    tenant_id: str = "default",
+    collection_name: str | None = None,
+) -> int:
+    """Embed and upsert CVE records into Qdrant, linking ``qdrant_point_ids``.
+
+    Uses deterministic UUID5 point IDs so re-syncing is idempotent, and stamps
+    ``record.qdrant_point_ids`` so Neo4j ``:CVE`` nodes stay bidirectionally
+    linked to Qdrant points.
+    """
+    if not records:
+        return 0
+    import uuid
+    from backend.config import get_config
+    from backend.ingestion.chunk_embed import embed_text, embed_text_sparse
+
+    col = collection_name or get_config().qdrant_collection_name
+    vectors: list[list[float]] = []
+    sparse_vectors: list[dict[str, Any]] = []
+    payloads: list[dict[str, Any]] = []
+    for record in records:
+        text = format_cve_text(record)
+        point_id = str(
+            uuid.uuid5(uuid.NAMESPACE_URL, f"veraxi:vuln:{tenant_id}:{record.id}")
+        )
+        record.qdrant_point_ids = [point_id]
+        vectors.append(embed_text(text))
+        sparse_vectors.append(embed_text_sparse(text))
+        payloads.append(
+            {
+                "point_id": point_id,
+                "text": text,
+                "title": record.id,
+                "cve_id": record.id,
+                "severity": record.severity,
+                "kev": record.kev,
+                "epss_score": record.epss_score,
+                "cwe_ids": list(record.cwe_ids),
+                "source_type": "vuln_intel",
+                "tenant_id": tenant_id,
+            }
+        )
+    qdrant_client.insert_points(
+        col,
+        vectors,
+        sparse_vectors=sparse_vectors,
+        payloads=payloads,
+        tenant_id=tenant_id,
+    )
+    return len(payloads)
+
+
 def fetch_and_write_vuln_intel(
     client: Any,
     tenant_id: str = "default",
     http_client: httpx.Client | None = None,
     api_key: str | None = None,
+    qdrant_client: Any = None,
 ) -> dict[str, int]:
-    """Fetch NVD + KEV data and write it for ``tenant_id``."""
+    """Fetch NVD + KEV (+ best-effort EPSS) data and write it for ``tenant_id``."""
     records = fetch_nvd_records(client=http_client, api_key=api_key)
     kev_records = fetch_kev_records(client=http_client)
-    return write_vuln_records_batch(
+    cve_ids = _collect_cve_ids(records)
+    if cve_ids:
+        try:
+            apply_epss(records, fetch_epss_scores(cve_ids, client=http_client))
+        except Exception as exc:
+            import sentry_sdk
+
+            sentry_sdk.capture_exception(exc)
+            logger.warning("EPSS enrichment failed: %s", exc)
+    vectors_written = 0
+    if qdrant_client is not None:
+        vectors_written = index_vuln_vectors(
+            qdrant_client, records, tenant_id=tenant_id
+        )
+    result = write_vuln_records_batch(
         client, records, tenant_id=tenant_id, kev_records=kev_records
     )
+    if qdrant_client is not None:
+        result["vectors_written"] = vectors_written
+    return result
 
 
 __all__ = [
     "EDGE_TYPES",
+    "EPSS_API_URL",
     "KEV_JSON_URL",
     "NODE_LABELS",
     "NVD_API_URL",
@@ -906,13 +1080,18 @@ __all__ = [
     "OSV_ECOSYSTEM_MAP",
     "CVERecord",
     "VersionRange",
+    "apply_epss",
     "apply_kev",
     "compare_versions",
     "fetch_and_write_vuln_intel",
+    "fetch_epss_scores",
     "fetch_kev_records",
     "fetch_nvd_records",
     "fetch_osv_for_packages",
+    "format_cve_text",
+    "index_vuln_vectors",
     "osv_ecosystem",
+    "parse_epss_payload",
     "parse_kev_csv",
     "parse_kev_payload",
     "parse_nvd_payload",

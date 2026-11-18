@@ -28,7 +28,7 @@ dependencies = [
     "sentry-sdk[fastapi]",
     "emoji",
     "python-multipart",
-    "pypdf>=5.0.0",
+    "pypdf>=7.1.1",
     "python-docx",
     "openpyxl",
     "python-pptx",
@@ -61,6 +61,8 @@ dependencies = [
     "duckduckgo_search>=7.0.0",
     "modal",
     "e2b",
+    "tree-sitter>=0.26.1",
+    "tree-sitter-language-pack>=1.25.2",
 ]
 
 [project.optional-dependencies]

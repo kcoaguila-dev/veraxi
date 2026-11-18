@@ -186,6 +186,7 @@ REGISTERED_TOOLS = [
             "properties": {
                 "dependencies": {"type": "array", "items": {"type": "object"}},
                 "repo_path": {"type": "string"},
+                "include_reachability": {"type": "boolean", "default": False},
             },
         },
     ),

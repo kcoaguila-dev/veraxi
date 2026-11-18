@@ -169,10 +169,24 @@ class CodeIngestGraphRequest(BaseModel):
 class VulnReportRequest(BaseModel):
     repo_path: str | None = None
     dependencies: list[dict] | None = None
+    sbom_json: dict | None = None
+    include_reachability: bool = False
     # Opt-in live OSV.dev fallback: only consulted when the tenant
     # graph yields no findings (e.g. no OSV packages synced yet).
     # Off by default so a report never makes surprise network calls.
     live_osv: bool = False
+
+
+class SarifIngestRequest(BaseModel):
+    sarif: dict
+
+
+class AttackSyncRequest(BaseModel):
+    stix_json: dict | None = None
+
+
+class ReconIngestRequest(BaseModel):
+    nuclei: str | list[dict]
 
 
 def _default_neo4j_client():
@@ -187,7 +201,11 @@ def _default_neo4j_client():
     return Neo4jStorageClient.from_config(get_config())
 
 
-def _live_osv_report(dependencies: list[dict], tenant_id: str) -> dict:
+def _live_osv_report(
+    dependencies: list[dict],
+    tenant_id: str,
+    include_reachability: bool = False,
+) -> dict:
     """Build a report from a live OSV.dev batch lookup (no graph writes).
 
     KEV enrichment is best-effort: if the KEV feed cannot be fetched,
@@ -195,12 +213,24 @@ def _live_osv_report(dependencies: list[dict], tenant_id: str) -> dict:
     failing the report.
     """
     from backend.ingestion.dependencies import normalize_package_name
+    from backend.ingestion.vuln_intel import apply_epss, fetch_epss_scores
 
     records = fetch_osv_for_packages(dependencies)
     try:
         apply_kev(records, fetch_kev_records())
     except Exception as exc:  # KEV is enrichment only
         logger.warning("KEV enrichment for live OSV report failed: %s", exc)
+    cve_ids = [
+        cid
+        for r in records
+        for cid in [r.id, *r.aliases]
+        if (cid or "").upper().startswith("CVE-")
+    ]
+    if cve_ids:
+        try:
+            apply_epss(records, fetch_epss_scores(cve_ids))
+        except Exception as exc:  # EPSS is enrichment only
+            logger.warning("EPSS enrichment for live OSV report failed: %s", exc)
     index: dict[str, list[dict]] = {}
     for record in records:
         for affected in record.affected:
@@ -210,6 +240,8 @@ def _live_osv_report(dependencies: list[dict], tenant_id: str) -> dict:
                 "advisory_id": record.id,
                 "severity": record.severity,
                 "kev": bool(record.kev),
+                "epss_score": record.epss_score,
+                "epss_percentile": record.epss_percentile,
                 "cwe_ids": list(record.cwe_ids),
                 **affected.properties(),
             }
@@ -225,6 +257,10 @@ def _live_osv_report(dependencies: list[dict], tenant_id: str) -> dict:
                 if ecosystem and ecosystem != "cpe":
                     index.setdefault(f"{ecosystem}:{artifact}", []).append(entry)
     report = build_vuln_report(dependencies, index)
+    if include_reachability:
+        from backend.retrieval.vuln_queries import attach_code_reachability
+
+        attach_code_reachability(report["findings"], tenant_id=tenant_id)
     report["tenant_id"] = tenant_id
     report["source"] = "osv_live"
     return report
@@ -246,8 +282,16 @@ def _sync_vuln_intel(tenant_id: str) -> dict:
     The NVD API key, when configured, comes from the ``NVD_API_KEY``
     environment variable inside ``fetch_and_write_vuln_intel``.
     """
+    qdrant_client = None
+    try:
+        from backend.config import get_config
+        from backend.storage.qdrant_client import QdrantStorageClient
+
+        qdrant_client = QdrantStorageClient.from_config(get_config())
+    except Exception as exc:
+        logger.warning("Qdrant unavailable during vuln sync; skipping vector indexing: %s", exc)
     return fetch_and_write_vuln_intel(
-        _default_neo4j_client(), tenant_id=tenant_id
+        _default_neo4j_client(), tenant_id=tenant_id, qdrant_client=qdrant_client
     )
 
 
@@ -361,9 +405,16 @@ def register_code_intel_routes(
         payload: VulnReportRequest,
         tenant_id: str = Depends(get_tenant_id),
     ):
-        """Join a repo's (or an explicit list of) dependencies to CVEs."""
+        """Join a repo's (or an explicit list of / SBOM) dependencies to CVEs."""
         if payload.dependencies is not None:
             dependencies = payload.dependencies
+        elif payload.sbom_json is not None:
+            import json
+            from backend.ingestion.dependencies import parse_sbom_json_text
+
+            dependencies = parse_sbom_json_text(
+                json.dumps(payload.sbom_json), source_file="sbom.json"
+            )
         elif payload.repo_path:
             resolved = _validate_repo_path(payload.repo_path)
             dependencies = await asyncio.to_thread(
@@ -372,11 +423,16 @@ def register_code_intel_routes(
         else:
             raise HTTPException(
                 status_code=400,
-                detail="Provide either repo_path or dependencies",
+                detail="Provide repo_path, dependencies, or sbom_json",
             )
         try:
+            vr_kwargs: dict = {"tenant_id": tenant_id}
+            if payload.include_reachability:
+                vr_kwargs["include_reachability"] = True
             report = await asyncio.to_thread(
-                vuln_report, dependencies, tenant_id=tenant_id
+                vuln_report,
+                dependencies,
+                **vr_kwargs,
             )
         except Exception as e:
             sentry_sdk.capture_exception(e)
@@ -386,7 +442,10 @@ def register_code_intel_routes(
         if payload.live_osv and not report.get("findings"):
             try:
                 return await asyncio.to_thread(
-                    _live_osv_report, dependencies, tenant_id
+                    _live_osv_report,
+                    dependencies,
+                    tenant_id,
+                    payload.include_reachability,
                 )
             except Exception as e:
                 # Live fallback is optional: a failed OSV lookup
@@ -394,3 +453,148 @@ def register_code_intel_routes(
                 logger.warning("Live OSV fallback failed: %s", e)
                 sentry_sdk.capture_exception(e)
         return report
+
+    @app_router.post("/api/v1/vuln/sarif")
+    async def ingest_sarif(
+        payload: SarifIngestRequest,
+        tenant_id: str = Depends(get_tenant_id),
+    ):
+        """Ingest SARIF 2.1.0 SAST findings into Neo4j and Qdrant."""
+        from backend.ingestion.sarif import parse_sarif_payload, write_sarif_findings
+
+        def _ingest() -> dict:
+            findings = parse_sarif_payload(payload.sarif)
+            qdrant_client = None
+            try:
+                from backend.config import get_config
+                from backend.storage.qdrant_client import QdrantStorageClient
+
+                qdrant_client = QdrantStorageClient.from_config(get_config())
+            except Exception as exc:
+                logger.warning("Qdrant unavailable during SARIF ingest: %s", exc)
+            return write_sarif_findings(
+                _default_neo4j_client(),
+                findings,
+                tenant_id=tenant_id,
+                qdrant_client=qdrant_client,
+            )
+
+        try:
+            counts = await asyncio.to_thread(_ingest)
+        except Exception as e:
+            sentry_sdk.capture_exception(e)
+            raise HTTPException(
+                status_code=500, detail="Failed to ingest SARIF findings"
+            ) from e
+        return {"status": "ok", "tenant_id": tenant_id, **counts}
+
+    @app_router.post("/api/v1/vuln/recon")
+    async def ingest_recon(
+        payload: ReconIngestRequest,
+        tenant_id: str = Depends(get_tenant_id),
+    ):
+        """Ingest Nuclei JSON/JSONL recon/DAST findings into Neo4j and Qdrant."""
+        from backend.ingestion.recon import parse_nuclei_output, write_recon_findings
+
+        def _ingest() -> dict:
+            findings = parse_nuclei_output(payload.nuclei)
+            qdrant_client = None
+            try:
+                from backend.config import get_config
+                from backend.storage.qdrant_client import QdrantStorageClient
+
+                qdrant_client = QdrantStorageClient.from_config(get_config())
+            except Exception as exc:
+                logger.warning("Qdrant unavailable during recon ingest: %s", exc)
+            return write_recon_findings(
+                _default_neo4j_client(),
+                findings,
+                tenant_id=tenant_id,
+                qdrant_client=qdrant_client,
+            )
+
+        try:
+            counts = await asyncio.to_thread(_ingest)
+        except Exception as e:
+            sentry_sdk.capture_exception(e)
+            raise HTTPException(
+                status_code=500, detail="Failed to ingest recon findings"
+            ) from e
+        return {"status": "ok", "tenant_id": tenant_id, **counts}
+
+    @app_router.post("/api/v1/vuln/attack/sync")
+    async def sync_attack_intel(
+        payload: AttackSyncRequest | None = None,
+        tenant_id: str = Depends(get_tenant_id),
+    ):
+        """Ingest MITRE ATT&CK (STIX 2.1) techniques, tactics, and mitigations."""
+        from backend.ingestion.attack_intel import (
+            fetch_attack_stix,
+            parse_attack_stix_payload,
+            write_attack_intel,
+        )
+
+        def _sync() -> dict:
+            bundle = (
+                payload.stix_json
+                if payload is not None and payload.stix_json is not None
+                else fetch_attack_stix()
+            )
+            parsed = parse_attack_stix_payload(bundle)
+            qdrant_client = None
+            try:
+                from backend.config import get_config
+                from backend.storage.qdrant_client import QdrantStorageClient
+
+                qdrant_client = QdrantStorageClient.from_config(get_config())
+            except Exception as exc:
+                logger.warning("Qdrant unavailable during ATT&CK sync: %s", exc)
+            return write_attack_intel(
+                _default_neo4j_client(),
+                parsed,
+                tenant_id=tenant_id,
+                qdrant_client=qdrant_client,
+            )
+
+        try:
+            counts = await asyncio.to_thread(_sync)
+        except Exception as e:
+            sentry_sdk.capture_exception(e)
+            raise HTTPException(
+                status_code=500, detail="Failed to sync MITRE ATT&CK intel"
+            ) from e
+        return {"status": "ok", "tenant_id": tenant_id, **counts}
+
+    @app_router.post("/api/v1/vuln/recon")
+    async def ingest_recon(
+        payload: ReconIngestRequest,
+        tenant_id: str = Depends(get_tenant_id),
+    ):
+        """Ingest Nuclei JSON/JSONL recon/DAST findings into Neo4j and Qdrant."""
+        from backend.ingestion.recon import parse_nuclei_output, write_recon_findings
+
+        def _ingest() -> dict:
+            findings = parse_nuclei_output(payload.nuclei)
+            qdrant_client = None
+            try:
+                from backend.config import get_config
+                from backend.storage.qdrant_client import QdrantStorageClient
+
+                qdrant_client = QdrantStorageClient.from_config(get_config())
+            except Exception as exc:
+                logger.warning("Qdrant unavailable during recon ingest: %s", exc)
+            return write_recon_findings(
+                _default_neo4j_client(),
+                findings,
+                tenant_id=tenant_id,
+                qdrant_client=qdrant_client,
+            )
+
+        try:
+            counts = await asyncio.to_thread(_ingest)
+        except Exception as e:
+            sentry_sdk.capture_exception(e)
+            raise HTTPException(
+                status_code=500, detail="Failed to ingest recon findings"
+            ) from e
+        return {"status": "ok", "tenant_id": tenant_id, **counts}

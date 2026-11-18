@@ -470,11 +470,14 @@ def _handle_dataset_discovery(args: dict, tenant_id: str) -> list[TextContent]:
 def _handle_vuln_report(args: dict, tenant_id: str) -> list[TextContent]:
     from backend.mcp_server.tools.vuln_tools import vuln_report
 
-    results = vuln_report(
-        tenant_id=tenant_id,
-        dependencies=args.get("dependencies"),
-        repo_path=args.get("repo_path"),
-    )
+    kwargs: dict[str, Any] = {
+        "tenant_id": tenant_id,
+        "dependencies": args.get("dependencies"),
+        "repo_path": args.get("repo_path"),
+    }
+    if args.get("include_reachability"):
+        kwargs["include_reachability"] = True
+    results = vuln_report(**kwargs)
     return [TextContent(type="text", text=json.dumps(results))]
 
 

@@ -96,7 +96,7 @@ def _format_reranker_document(item: MergedResult) -> str:
     source_entity = item.payload.get("source_entity")
     if source_entity:
         parts.append(f"{source_entity} ->")
-    name = item.payload.get("name") or item.payload.get("title")
+    name = item.payload.get("name") or item.payload.get("title") or item.payload.get("id")
     if name:
         parts.append(str(name))
     labels = item.payload.get("labels")
@@ -105,6 +105,9 @@ def _format_reranker_document(item: MergedResult) -> str:
     rel_type = item.payload.get("relation_type")
     if rel_type:
         parts.append(f"relation: {rel_type}")
+    description = item.payload.get("description")
+    if description and isinstance(description, str):
+        parts.append(description)
     return " ".join(parts) if parts else ""
 
 

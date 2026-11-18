@@ -132,6 +132,11 @@ Veraxi includes a dedicated, zero-dependency developer CLI (`vx`) for terminal k
 | `vx web fetch <url>` | Clean Markdown/text webpage extraction for AI agents and Termux. |
 | `vx trace "<entity>"` | Traces multi-hop causal paths in the terminal across Neo4j nodes. |
 | `vx stats` | Displays live counts of nodes, vectors, and relationships for the current tenant. |
+| `vx xray index <repo>` | Indexes a repository into Neo4j (`Tree-sitter` for Go/Rust/Java/JS/TS/Dart + Python `ast`). |
+| `vx xray symbol <name>` / `impact <sym>` | Looks up code symbols and runs transitive `CALLS`/`IMPORTS` blast-radius analysis. |
+| `vx vuln sync` / `attack-sync` | Syncs NVD + CISA KEV + FIRST EPSS or MITRE ATT&CK (STIX 2.1) into Neo4j & Qdrant. |
+| `vx vuln report [repo] [--sbom FILE] [--reachability]` | Checks dependencies or CycloneDX/SPDX SBOMs against CVEs (KEV + EPSS + code reachability). |
+| `vx vuln sarif <file>` / `recon <file>` | Uploads SARIF 2.1.0 (`codeFlows` taint paths) or Nuclei JSON/JSONL recon findings. |
 | `vx rules sync` | Synchronizes active architectural constraints to `CLAUDE.md`, `.cursorrules`, and `.clinerules`. |
 | `vx review` | 1-Command Git diff auditor and CI architectural rule enforcer. |
 
@@ -190,7 +195,22 @@ The exact set of tools exposed via MCP depends on the `VERAXI_MCP_PROFILE` envir
 | `mcp_insert_graph_nodes` | Upserts/merges structured causal entities and rich relations into Neo4j, preserving Qdrant vector links without duplicates. |
 | `mcp_purge_noisy_relationships` | Purges uncurated co-occurrence edges from Neo4j for a tenant while keeping all entity nodes and vector links intact. |
 | `mcp_get_database_stats` | Live counts of nodes, vectors, and relationships for the current tenant. |
+| `mcp_code_symbol` / `mcp_code_impact` / `mcp_code_overview` | Repo X-Ray symbol lookup, transitive `CALLS`/`IMPORTS` impact analysis, and graph counts. |
+| `mcp_vuln_report` | Fail-closed dependency/SBOM CVE matching (NVD + OSV + KEV + EPSS) with optional `include_reachability` code-graph cross-referencing. |
 | `mcp_export_data` | Exports structured timelines and research into CSV, OpenTimelineIO (`.otio`), or Final Cut Pro XML (`.fcpxml`). |
+
+---
+
+## 🛡️ Cybersecurity, AppSec & White-Hat Intelligence
+
+Veraxi’s Hybrid GraphRAG engine extends into **AppSec, DevSecOps, and white-box pentesting** while remaining 100% local and NDA-safe:
+
+* **Multi-Language Code Graph (`Tree-sitter` + Python `ast`):** Parses Python, Go, Rust, Java, JS/TS/TSX, and Dart into `CodeFile`, `CodeModule`, `Class`, and `Function` nodes (`IMPORTS`, `CALLS`, `DEFINES`, `INHERITS`).
+* **Exploit-Focused Vulnerability Triage:** Combines **NVD 2.0**, **OSV.dev**, **CISA KEV**, and **FIRST EPSS** with fail-closed version matching, sorted by `matched` → `KEV` → `EPSS`, plus optional code-graph reachability (`include_reachability=True`).
+* **Language-Agnostic SBOM & Lockfile Ingestion:** Parses **CycloneDX** and **SPDX** JSON SBOMs (`purl` across 13+ ecosystems) alongside `pyproject.toml`, `uv.lock`, `package.json`, `package-lock.json`, and `pubspec.yaml` (`POST /api/v1/vuln/report`).
+* **SAST & Taint Dataflows (SARIF 2.1.0):** Ingests Semgrep, Opengrep, Trivy, and CodeQL SARIF—including `codeFlows` source-to-sink taint paths—into Neo4j (`:SecurityFinding`) and Qdrant (`POST /api/v1/vuln/sarif`).
+* **DAST / Recon & Threat Modeling:** Ingests **Nuclei** JSON/JSONL (`POST /api/v1/vuln/recon`) and **MITRE ATT&CK STIX 2.1** (`POST /api/v1/vuln/attack/sync`), linking `:TargetHost` → `:ReconFinding` → `:CVE`/`:CWE` ← `:AttackTechnique` (`query_graph` + `search_vectors` + `merge_rank`).
+* **Shared Public Reference Graph:** Sync NVD and ATT&CK once under `tenant_id="public"`; all tenants query them in Neo4j and Qdrant with zero duplication while private code, SARIF, recon, and documents remain strictly tenant-isolated.
 
 ---
 

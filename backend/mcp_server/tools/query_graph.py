@@ -78,51 +78,60 @@ def query_graph(
     params = _build_query_graph_params(entity_name, tenant_id)
 
     # We parameterize all user inputs and rank candidate start nodes by match quality:
-    # Tier 0: Exact match on name or alias
+    # Tier 0: Exact match on name/id or alias
     # Tier 1: Token match or whole-phrase boundary containment (raw and punctuation-normalized)
     # Tier 2: Substring match on longer entity names
+    # Includes Entity plus security/code nodes (CVE, CWE, Package, CodeModule, Class, Function, CodeFile).
     query = f"""
-    MATCH (start:Entity {{tenant_id: $tenant_id}})
+    MATCH (start)
     WHERE (
-        start.name = $entity_name
-        OR toLower(start.name) = $lower_name
+        (start:Entity AND start.tenant_id = $tenant_id)
+        OR ((start:CodeModule OR start:Class OR start:Function OR start:CodeFile OR start:SecurityFinding OR start:ReconFinding OR start:TargetHost) AND start.tenant_id = $tenant_id)
+        OR ((start:CVE OR start:CWE OR start:Package OR start:AttackTechnique OR start:AttackTactic OR start:AttackMitigation) AND start.tenant_id IN [$tenant_id, 'public'])
+      )
+      AND coalesce(start.name, start.id, start.qualified_name) IS NOT NULL
+    WITH start, coalesce(start.name, start.id, start.qualified_name) AS start_label
+    WHERE (
+        start_label = $entity_name
+        OR toLower(start_label) = $lower_name
         OR any(a IN coalesce(start.aliases, []) WHERE toLower(a) = $lower_name)
-        OR (size(start.name) >= 3 AND toLower(start.name) IN $query_tokens)
+        OR (size(start_label) >= 3 AND toLower(start_label) IN $query_tokens)
         OR any(a IN coalesce(start.aliases, []) WHERE size(a) >= 2 AND toLower(a) IN $query_tokens)
-        OR (size(start.name) >= 3 AND $padded_norm_query CONTAINS (' ' + replace(replace(replace(toLower(start.name), '-', ' '), '.', ' '), '_', ' ') + ' '))
-        OR (size(start.name) >= 3 AND $padded_raw_query CONTAINS (' ' + toLower(start.name) + ' '))
+        OR (size(start_label) >= 3 AND $padded_norm_query CONTAINS (' ' + replace(replace(replace(toLower(start_label), '-', ' '), '.', ' '), '_', ' ') + ' '))
+        OR (size(start_label) >= 3 AND $padded_raw_query CONTAINS (' ' + toLower(start_label) + ' '))
         OR any(a IN coalesce(start.aliases, []) WHERE size(a) >= 2 AND $padded_norm_query CONTAINS (' ' + replace(replace(replace(toLower(a), '-', ' '), '.', ' '), '_', ' ') + ' '))
         OR any(a IN coalesce(start.aliases, []) WHERE size(a) >= 2 AND $padded_raw_query CONTAINS (' ' + toLower(a) + ' '))
-        OR (size($lower_name) >= 4 AND toLower(start.name) CONTAINS $lower_name)
+        OR (size($lower_name) >= 4 AND toLower(start_label) CONTAINS $lower_name)
       )
-    WITH start,
+    WITH start, start_label,
          CASE
-           WHEN start.name = $entity_name OR toLower(start.name) = $lower_name THEN 0
+           WHEN start_label = $entity_name OR toLower(start_label) = $lower_name THEN 0
            WHEN any(a IN coalesce(start.aliases, []) WHERE toLower(a) = $lower_name) THEN 0
-           WHEN size(start.name) >= 3 AND $padded_norm_query CONTAINS (' ' + replace(replace(replace(toLower(start.name), '-', ' '), '.', ' '), '_', ' ') + ' ') THEN 1
-           WHEN size(start.name) >= 3 AND $padded_raw_query CONTAINS (' ' + toLower(start.name) + ' ') THEN 1
+           WHEN size(start_label) >= 3 AND $padded_norm_query CONTAINS (' ' + replace(replace(replace(toLower(start_label), '-', ' '), '.', ' '), '_', ' ') + ' ') THEN 1
+           WHEN size(start_label) >= 3 AND $padded_raw_query CONTAINS (' ' + toLower(start_label) + ' ') THEN 1
            WHEN any(a IN coalesce(start.aliases, []) WHERE size(a) >= 2 AND $padded_norm_query CONTAINS (' ' + replace(replace(replace(toLower(a), '-', ' '), '.', ' '), '_', ' ') + ' ')) THEN 1
            WHEN any(a IN coalesce(start.aliases, []) WHERE size(a) >= 2 AND $padded_raw_query CONTAINS (' ' + toLower(a) + ' ')) THEN 1
-           WHEN size(start.name) >= 3 AND toLower(start.name) IN $query_tokens THEN 1
+           WHEN size(start_label) >= 3 AND toLower(start_label) IN $query_tokens THEN 1
            WHEN any(a IN coalesce(start.aliases, []) WHERE size(a) >= 2 AND toLower(a) IN $query_tokens) THEN 1
            ELSE 2
          END AS match_tier
-    ORDER BY match_tier ASC, size(start.name) DESC
+    ORDER BY match_tier ASC, size(start_label) DESC
     LIMIT 5
     MATCH path = (start)-[rels*1..{max_hops}]-(end)
     WHERE end.tenant_id = $tenant_id
-    WITH start, end, last(rels) AS last_rel, size(rels) AS hop_distance,
+       OR ((end:CVE OR end:CWE OR end:Package OR end:AttackTechnique OR end:AttackTactic OR end:AttackMitigation) AND end.tenant_id = 'public')
+    WITH start, start_label, end, last(rels) AS last_rel, size(rels) AS hop_distance,
          size([r IN rels WHERE type(r) IN ['MENTIONED_WITH', 'ASSOCIATED_WITH', 'RELATED_TO']]) AS noisy_hops,
-         [n IN nodes(path) | n.name] AS path_node_names,
+         [n IN nodes(path) | coalesce(n.name, n.id, n.qualified_name)] AS path_node_names,
          [r IN relationships(path) | type(r)] AS path_rel_types
     ORDER BY hop_distance ASC, noisy_hops ASC
-    WITH DISTINCT start, end, head(collect(last_rel)) AS last_rel, min(hop_distance) AS min_hops, min(noisy_hops) AS min_noisy_hops,
+    WITH DISTINCT start, start_label, end, head(collect(last_rel)) AS last_rel, min(hop_distance) AS min_hops, min(noisy_hops) AS min_noisy_hops,
          head(collect(path_node_names)) AS path_node_names, head(collect(path_rel_types)) AS path_rel_types
     ORDER BY min_hops ASC, min_noisy_hops ASC
     LIMIT 50
-    UNWIND (CASE WHEN size(coalesce(end.qdrant_point_ids, [])) > 0 THEN end.qdrant_point_ids ELSE ['neo4j:' + toString(end.id)] END) AS qid
-    RETURN DISTINCT end.id AS id,
-           start.name AS source_entity,
+    UNWIND (CASE WHEN size(coalesce(end.qdrant_point_ids, [])) > 0 THEN end.qdrant_point_ids ELSE ['neo4j:' + toString(coalesce(end.id, end.vuln_key, end.qualified_name, end.name))] END) AS qid
+    RETURN DISTINCT coalesce(end.id, end.vuln_key, end.qualified_name, end.name) AS id,
+           start_label AS source_entity,
            qid AS qdrant_point_id,
            labels(end) AS labels,
            properties(end) AS props,

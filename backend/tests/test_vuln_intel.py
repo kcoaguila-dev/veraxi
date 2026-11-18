@@ -656,3 +656,353 @@ def test_osv_writer_keys_packages_by_ecosystem_and_name():
     props = affects[0]["rows"][0]["properties"]
     assert props["ecosystem"] in ("PyPI", "Maven")
     assert "introduced" in props and "fixed" in props
+
+
+def test_parse_and_apply_epss_matches_alias():
+    from backend.ingestion.vuln_intel import (
+        CVERecord,
+        apply_epss,
+        parse_epss_payload,
+    )
+
+    payload = {
+        "status": "OK",
+        "data": [
+            {"cve": "CVE-2023-32681", "epss": "0.42", "percentile": "0.97"},
+            {"cve": "CVE-2024-9999", "epss": "bad", "percentile": "0.5"},
+        ],
+    }
+    scores = parse_epss_payload(payload)
+    assert scores == {"CVE-2023-32681": (0.42, 0.97)}
+
+    ghsa = CVERecord(id="GHSA-j8r2-6x86-q33q", aliases=["CVE-2023-32681"])
+    apply_epss([ghsa], scores)
+    assert ghsa.epss_score == 0.42
+    assert ghsa.epss_percentile == 0.97
+
+
+def test_fetch_epss_scores_mock_transport():
+    import json
+    import httpx
+    from backend.ingestion.vuln_intel import fetch_epss_scores
+
+    seen_params = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen_params.append(dict(request.url.params))
+        return httpx.Response(
+            200,
+            json={
+                "data": [
+                    {"cve": "CVE-2021-44228", "epss": "0.975", "percentile": "0.999"}
+                ]
+            },
+        )
+
+    client = httpx.Client(transport=httpx.MockTransport(handler))
+    scores = fetch_epss_scores(["CVE-2021-44228", "GHSA-ignored"], client=client)
+    assert scores == {"CVE-2021-44228": (0.975, 0.999)}
+    assert seen_params == [{"cve": "CVE-2021-44228"}]
+
+
+def test_index_vuln_vectors_links_qdrant_point_ids(monkeypatch):
+    from backend.ingestion.vuln_intel import (
+        CVERecord,
+        VersionRange,
+        format_cve_text,
+        index_vuln_vectors,
+    )
+
+    monkeypatch.setattr("backend.ingestion.chunk_embed.embed_text", lambda text: [0.1, 0.2])
+    monkeypatch.setattr(
+        "backend.ingestion.chunk_embed.embed_text_sparse",
+        lambda text: {"indices": [1], "values": [0.9]},
+    )
+
+    class FakeQdrant:
+        def __init__(self):
+            self.upserted = []
+
+        def insert_points(self, collection, vectors, sparse_vectors=None, payloads=None, tenant_id="default"):
+            self.upserted.append((collection, payloads or []))
+            return [p.get("point_id") for p in (payloads or [])]
+
+    rec = CVERecord(
+        id="CVE-2024-7777",
+        description="Remote code execution in widgetlib",
+        severity="CRITICAL",
+        kev=True,
+        epss_score=0.91,
+        cwe_ids=["CWE-94"],
+        affected=[VersionRange(product="widgetlib")],
+    )
+    text = format_cve_text(rec)
+    assert "CVE-2024-7777" in text and "[CISA KEV]" in text and "EPSS 0.910" in text
+
+    qdrant = FakeQdrant()
+    count = index_vuln_vectors(qdrant, [rec], tenant_id="t1", collection_name="test_col")
+    assert count == 1
+    assert len(rec.qdrant_point_ids) == 1
+    col, payloads = qdrant.upserted[0]
+    assert col == "test_col"
+    assert payloads[0]["point_id"] == rec.qdrant_point_ids[0]
+    assert payloads[0]["source_type"] == "vuln_intel"
+    assert payloads[0]["cve_id"] == "CVE-2024-7777"
+    assert rec.properties("t1")["qdrant_point_ids"] == rec.qdrant_point_ids
+
+
+def test_parse_cyclonedx_and_spdx_sbom(tmp_path):
+    import json
+    from backend.ingestion.dependencies import (
+        extract_dependencies_from_repo,
+        parse_sbom_json_text,
+    )
+
+    cdx = {
+        "bomFormat": "CycloneDX",
+        "specVersion": "1.5",
+        "components": [
+            {"name": "gin", "version": "1.9.1", "purl": "pkg:golang/github.com/gin-gonic/gin@1.9.1"},
+            {"name": "log4j-core", "version": "2.14.1", "purl": "pkg:maven/org.apache.logging.log4j/log4j-core@2.14.1"},
+            {"name": "serde", "version": "1.0.200", "purl": "pkg:cargo/serde@1.0.200"},
+            {"name": "foo", "version": "2.0.0", "purl": "pkg:npm/%40acme/foo@2.0.0"},
+        ],
+    }
+    spdx = {
+        "spdxVersion": "SPDX-2.3",
+        "packages": [
+            {
+                "name": "requests",
+                "versionInfo": "2.31.0",
+                "externalRefs": [
+                    {"referenceType": "purl", "referenceLocator": "pkg:pypi/requests@2.31.0"}
+                ],
+            }
+        ],
+    }
+
+    cdx_records = parse_sbom_json_text(json.dumps(cdx), source_file="app.cdx.json")
+    assert {(r["ecosystem"], r["name"], r["version"]) for r in cdx_records} == {
+        ("go", "github.com/gin-gonic/gin", "1.9.1"),
+        ("maven", "org.apache.logging.log4j:log4j-core", "2.14.1"),
+        ("crates.io", "serde", "1.0.200"),
+        ("npm", "@acme/foo", "2.0.0"),
+    }
+
+    (tmp_path / "app.cdx.json").write_text(json.dumps(cdx), encoding="utf-8")
+    (tmp_path / "app.spdx.json").write_text(json.dumps(spdx), encoding="utf-8")
+    repo_records = extract_dependencies_from_repo(tmp_path)
+    assert len(repo_records) == 5
+    assert any(r["ecosystem"] == "pypi" and r["name"] == "requests" for r in repo_records)
+
+
+def test_parse_and_write_sarif_findings(monkeypatch):
+    from backend.ingestion.sarif import parse_sarif_payload, write_sarif_findings
+
+    monkeypatch.setattr("backend.ingestion.chunk_embed.embed_text", lambda text: [0.1, 0.2])
+    monkeypatch.setattr(
+        "backend.ingestion.chunk_embed.embed_text_sparse",
+        lambda text: {"indices": [1], "values": [0.9]},
+    )
+
+    sarif = {
+        "version": "2.1.0",
+        "runs": [
+            {
+                "tool": {
+                    "driver": {
+                        "name": "Semgrep",
+                        "rules": [
+                            {
+                                "id": "python.lang.security.audit.sqli",
+                                "properties": {"tags": ["CWE-89", "security"]},
+                            }
+                        ],
+                    }
+                },
+                "results": [
+                    {
+                        "ruleId": "python.lang.security.audit.sqli",
+                        "level": "error",
+                        "message": {"text": "Possible SQL injection"},
+                        "locations": [
+                            {
+                                "physicalLocation": {
+                                    "artifactLocation": {"uri": "app/db.py"},
+                                    "region": {"startLine": 42},
+                                }
+                            }
+                        ],
+                        "codeFlows": [
+                            {
+                                "threadFlows": [
+                                    {
+                                        "locations": [
+                                            {"location": {"physicalLocation": {"artifactLocation": {"uri": "app/api.py"}, "region": {"startLine": 10}}}},
+                                            {"location": {"physicalLocation": {"artifactLocation": {"uri": "app/db.py"}, "region": {"startLine": 42}}}},
+                                        ]
+                                    }
+                                ]
+                            }
+                        ],
+                    }
+                ],
+            }
+        ],
+    }
+
+    findings = parse_sarif_payload(sarif)
+    assert len(findings) == 1
+    assert findings[0]["tool"] == "Semgrep"
+    assert findings[0]["severity"] == "HIGH"
+    assert findings[0]["cwe_ids"] == ["CWE-89"]
+    assert findings[0]["path"] == "app/db.py"
+    assert findings[0]["line"] == 42
+    assert findings[0]["taint_path"] == ["app/api.py:10", "app/db.py:42"]
+
+    neo4j = RecordingWriteClient()
+
+    class FakeQdrant:
+        def __init__(self):
+            self.points = []
+
+        def insert_points(self, col, vectors, sparse_vectors=None, payloads=None, tenant_id="default"):
+            self.points.extend(payloads or [])
+            return [p.get("point_id") for p in (payloads or [])]
+
+    qdrant = FakeQdrant()
+    counts = write_sarif_findings(neo4j, findings, tenant_id="t1", qdrant_client=qdrant)
+    assert counts == {
+        "findings_written": 1,
+        "file_links": 1,
+        "cwe_links": 1,
+        "vectors_written": 1,
+    }
+    assert len(qdrant.points) == 1
+    assert qdrant.points[0]["source_type"] == "sast_sarif"
+
+
+def test_parse_and_write_mitre_attack_stix(monkeypatch):
+    from backend.ingestion.attack_intel import (
+        parse_attack_stix_payload,
+        write_attack_intel,
+    )
+
+    monkeypatch.setattr("backend.ingestion.chunk_embed.embed_text", lambda text: [0.1, 0.2])
+    monkeypatch.setattr(
+        "backend.ingestion.chunk_embed.embed_text_sparse",
+        lambda text: {"indices": [1], "values": [0.9]},
+    )
+
+    stix = {
+        "type": "bundle",
+        "objects": [
+            {
+                "type": "x-mitre-tactic",
+                "id": "x-mitre-tactic--1",
+                "name": "Initial Access",
+                "x_mitre_shortname": "initial-access",
+                "external_references": [{"source_name": "mitre-attack", "external_id": "TA0001"}],
+            },
+            {
+                "type": "attack-pattern",
+                "id": "attack-pattern--1",
+                "name": "Exploit Public-Facing Application",
+                "description": "Adversaries may exploit CWE-89 SQLi.",
+                "kill_chain_phases": [{"kill_chain_name": "mitre-attack", "phase_name": "initial-access"}],
+                "external_references": [
+                    {"source_name": "mitre-attack", "external_id": "T1190"},
+                    {"source_name": "cwe", "external_id": "CWE-89"},
+                ],
+            },
+            {
+                "type": "course-of-action",
+                "id": "course-of-action--1",
+                "name": "Application Isolation and Sandboxing",
+                "external_references": [{"source_name": "mitre-attack", "external_id": "M1048"}],
+            },
+            {
+                "type": "relationship",
+                "relationship_type": "mitigates",
+                "source_ref": "course-of-action--1",
+                "target_ref": "attack-pattern--1",
+            },
+        ],
+    }
+
+    parsed = parse_attack_stix_payload(stix)
+    assert len(parsed["techniques"]) == 1
+    assert parsed["techniques"][0]["id"] == "T1190"
+    assert parsed["techniques"][0]["cwe_ids"] == ["CWE-89"]
+    assert parsed["mitigates"] == [{"mitigation_id": "M1048", "technique_id": "T1190"}]
+
+    neo4j = RecordingWriteClient()
+
+    class FakeQdrant:
+        def __init__(self):
+            self.points = []
+
+        def insert_points(self, col, vectors, sparse_vectors=None, payloads=None, tenant_id="default"):
+            self.points.extend(payloads or [])
+            return [p.get("point_id") for p in (payloads or [])]
+
+    qdrant = FakeQdrant()
+    counts = write_attack_intel(neo4j, parsed, tenant_id="t1", qdrant_client=qdrant)
+    assert counts == {
+        "techniques_written": 1,
+        "tactics_written": 1,
+        "mitigations_written": 1,
+        "mitigates_links": 1,
+        "vectors_written": 1,
+    }
+    assert qdrant.points[0]["source_type"] == "mitre_attack"
+    assert qdrant.points[0]["technique_id"] == "T1190"
+
+
+def test_parse_and_write_nuclei_recon_findings(monkeypatch):
+    import json
+    from backend.ingestion.recon import parse_nuclei_output, write_recon_findings
+
+    monkeypatch.setattr("backend.ingestion.chunk_embed.embed_text", lambda text: [0.1, 0.2])
+    monkeypatch.setattr(
+        "backend.ingestion.chunk_embed.embed_text_sparse",
+        lambda text: {"indices": [1], "values": [0.9]},
+    )
+
+    jsonl = json.dumps(
+        {
+            "template-id": "CVE-2021-44228",
+            "matched-at": "https://api.example.com/login",
+            "info": {
+                "name": "Log4j RCE",
+                "severity": "critical",
+                "classification": {"cve-id": ["CVE-2021-44228"], "cwe-id": ["CWE-502"]},
+            },
+        }
+    )
+    findings = parse_nuclei_output(jsonl)
+    assert len(findings) == 1
+    assert findings[0]["host"] == "api.example.com"
+    assert findings[0]["cve_ids"] == ["CVE-2021-44228"]
+    assert findings[0]["cwe_ids"] == ["CWE-502"]
+
+    neo4j = RecordingWriteClient()
+
+    class FakeQdrant:
+        def __init__(self):
+            self.points = []
+
+        def insert_points(self, col, vectors, sparse_vectors=None, payloads=None, tenant_id="default"):
+            self.points.extend(payloads or [])
+            return [p.get("point_id") for p in (payloads or [])]
+
+    qdrant = FakeQdrant()
+    counts = write_recon_findings(neo4j, findings, tenant_id="t1", qdrant_client=qdrant)
+    assert counts == {
+        "findings_written": 1,
+        "host_links": 1,
+        "cve_links": 1,
+        "cwe_links": 1,
+        "vectors_written": 1,
+    }
+    assert qdrant.points[0]["source_type"] == "dast_nuclei"

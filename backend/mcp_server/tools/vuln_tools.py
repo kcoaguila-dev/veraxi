@@ -40,6 +40,10 @@ TOOL_DEFS: list[dict] = [
                     "type": "string",
                     "description": "Repo path to extract dependencies from when 'dependencies' is not given.",
                 },
+                "include_reachability": {
+                    "type": "boolean",
+                    "description": "When true, cross-reference vulnerable packages against the Repo X-Ray code graph to show importing/calling files.",
+                },
             },
         },
     },
@@ -66,6 +70,8 @@ def vuln_report(
     dependencies: list[dict] | None = None,
     repo_path: str | None = None,
     client: Any = None,
+    include_reachability: bool = False,
+    code_client: Any = None,
 ) -> dict[str, Any]:
     """Join dependencies against stored CVE data for ``tenant_id``."""
     from backend.retrieval.vuln_queries import vuln_report as _vuln_report
@@ -79,7 +85,13 @@ def vuln_report(
 
             deps = extract_dependencies_from_repo(repo_path)
         deps = deps or []
-        return _vuln_report(deps, tenant_id=tenant_id, client=client)
+        return _vuln_report(
+            deps,
+            tenant_id=tenant_id,
+            client=client,
+            include_reachability=include_reachability,
+            code_client=code_client,
+        )
     except Exception as e:
         sentry_sdk.capture_exception(e)
         logger.error("vuln_report failed: %s", e)

@@ -171,8 +171,22 @@ def _match_single_dependency(
             "cwe_ids": list(entry.get("cwe_ids") or []),
             "match_status": status,
             "kev": bool(entry.get("kev", False)),
+            "epss_score": entry.get("epss_score"),
+            "epss_percentile": entry.get("epss_percentile"),
         }
     return list(by_cve.values())
+
+
+def _finding_sort_key(finding: dict[str, Any]) -> tuple[Any, ...]:
+    epss = finding.get("epss_score")
+    epss_rank = -(float(epss) if epss is not None else -1.0)
+    return (
+        finding["match_status"] != "matched",
+        not finding.get("kev", False),
+        epss_rank,
+        finding.get("package") or "",
+        finding.get("cve_id") or "",
+    )
 
 
 def match_dependencies(
@@ -190,9 +204,7 @@ def match_dependencies(
     findings: list[dict[str, Any]] = []
     for dependency in dependencies:
         findings.extend(_match_single_dependency(dependency, affected_index))
-    findings.sort(
-        key=lambda f: (f["match_status"] != "matched", f["package"] or "", f["cve_id"])
-    )
+    findings.sort(key=_finding_sort_key)
     return findings
 
 
@@ -253,13 +265,15 @@ class Neo4jVulnGraphClient:
             return {}
         query = """
         MATCH (cve:CVE)-[r:AFFECTS]->(pkg:Package)
-        WHERE cve.tenant_id = $tenant_id
-          AND pkg.tenant_id = $tenant_id
+        WHERE cve.tenant_id IN [$tenant_id, 'public']
+          AND pkg.tenant_id IN [$tenant_id, 'public']
           AND pkg.name IN $package_names
         OPTIONAL MATCH (cve)-[:HAS_WEAKNESS]->(cwe:CWE)
         RETURN pkg.name AS package, pkg.ecosystem AS package_ecosystem,
                cve.id AS cve_id,
                cve.severity AS severity, cve.kev AS kev,
+               cve.epss_score AS epss_score,
+               cve.epss_percentile AS epss_percentile,
                collect(DISTINCT cwe.id) AS cwe_ids,
                r.criteria AS criteria,
                r.criteria_version AS criteria_version,
@@ -300,10 +314,70 @@ def _default_client(client: VulnGraphClient | None) -> VulnGraphClient:
     return client if client is not None else Neo4jVulnGraphClient()
 
 
+def _package_import_candidates(package_name: str) -> list[str]:
+    """Return candidate module names used in code imports for a package."""
+    raw = (package_name or "").strip()
+    if not raw:
+        return []
+    candidates = [raw]
+    underscored = raw.replace("-", "_")
+    if underscored not in candidates:
+        candidates.append(underscored)
+    return candidates
+
+
+def attach_code_reachability(
+    findings: list[dict[str, Any]],
+    tenant_id: str = "default",
+    max_depth: int = 3,
+    code_client: Any = None,
+) -> list[dict[str, Any]]:
+    """Enrich vulnerability findings with Repo X-Ray code-graph reachability.
+
+    For each unique vulnerable package, queries ``code_queries.impact_analysis``
+    for modules/functions that ``IMPORTS`` or ``CALLS`` the package (transitively)
+    and attaches ``reachable_in_code`` and ``reachable_file_count`` to each
+    finding.
+    """
+    if not findings:
+        return findings
+
+    from backend.retrieval.code_queries import impact_analysis
+
+    cache: dict[str, list[dict[str, Any]]] = {}
+    for finding in findings:
+        pkg = finding.get("package") or ""
+        if pkg not in cache:
+            seen_qns: set[str] = set()
+            hits: list[dict[str, Any]] = []
+            for candidate in _package_import_candidates(pkg):
+                result = impact_analysis(
+                    candidate,
+                    tenant_id=tenant_id,
+                    max_depth=max_depth,
+                    client=code_client,
+                )
+                for item in result.get("impacted") or []:
+                    qn = item.get("qualified_name")
+                    if qn and qn not in seen_qns:
+                        seen_qns.add(qn)
+                        hits.append(item)
+            cache[pkg] = hits
+        impacted = cache[pkg]
+        finding["reachable_in_code"] = impacted[:20]
+        finding["reachable_file_count"] = len(
+            {item.get("path") for item in impacted if item.get("path")}
+        )
+    return findings
+
+
 def vuln_report(
     dependencies: list[dict[str, Any]],
     tenant_id: str = "default",
     client: VulnGraphClient | None = None,
+    include_reachability: bool = False,
+    code_client: Any = None,
+    max_depth: int = 3,
 ) -> dict[str, Any]:
     """DB-backed vuln report for already-extracted ``dependencies``."""
     graph_client = _default_client(client)
@@ -312,6 +386,13 @@ def vuln_report(
     )
     affected_index = graph_client.affected_index(tenant_id, names)
     report = build_vuln_report(dependencies, affected_index)
+    if include_reachability:
+        attach_code_reachability(
+            report["findings"],
+            tenant_id=tenant_id,
+            max_depth=max_depth,
+            code_client=code_client,
+        )
     report["tenant_id"] = tenant_id
     return report
 
@@ -319,6 +400,7 @@ def vuln_report(
 __all__ = [
     "Neo4jVulnGraphClient",
     "VulnGraphClient",
+    "attach_code_reachability",
     "build_vuln_report",
     "match_dependencies",
     "vuln_report",

@@ -181,10 +181,18 @@ def mcp_code_overview(path_prefix: str = "") -> str:
     name="mcp_vuln_report",
     description="Vulnerability report: which dependencies have known CVEs (NVD/CISA KEV), from an explicit dependency list or a repo path whose manifests are parsed.",
 )
-def mcp_vuln_report(dependencies: list | None = None, repo_path: str = "") -> str:
+def mcp_vuln_report(
+    dependencies: list | None = None,
+    repo_path: str = "",
+    include_reachability: bool = False,
+) -> str:
     return _dispatch(
         "mcp_vuln_report",
-        {"dependencies": dependencies, "repo_path": repo_path or None},
+        {
+            "dependencies": dependencies,
+            "repo_path": repo_path or None,
+            "include_reachability": include_reachability,
+        },
     )
 
 

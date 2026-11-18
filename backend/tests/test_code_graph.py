@@ -344,3 +344,25 @@ def test_graph_from_payload_whitelist_and_resolved():
     assert [n.qualified_name for n in graph.nodes] == ["m.f", "ext"]
     assert graph.nodes[1].resolved is False
     assert [e.type for e in graph.edges] == ["CALLS"]
+
+
+def test_treesitter_parses_go_and_js_calls(tmp_path: Path):
+    root = tmp_path / "poly"
+    root.mkdir()
+    (root / "server.go").write_text(
+        'package main\nimport "fmt"\nfunc helper() {}\nfunc handler() { helper(); fmt.Println("ok") }\n',
+        encoding="utf-8",
+    )
+    (root / "app.js").write_text(
+        'import axios from "axios";\nfunction fetchUser() { return axios.get("/me"); }\nfunction run() { return fetchUser(); }\n',
+        encoding="utf-8",
+    )
+    parsed = parse_repo(root)
+    assert parsed.node("Function", "server.handler") is not None
+    assert parsed.node("Function", "app.run") is not None
+    imports = _edge_set(parsed, "IMPORTS")
+    assert ("server", "fmt") in imports
+    assert ("app", "axios") in imports
+    calls = _edge_set(parsed, "CALLS")
+    assert ("server.handler", "server.helper") in calls
+    assert ("app.run", "app.fetchUser") in calls

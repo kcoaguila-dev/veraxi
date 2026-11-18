@@ -173,6 +173,7 @@ def test_qdrant_search_hybrid_prefetch_overfetch(qdrant_client):
         assert prefetch[1].params.quantization.oversampling == 2.0
         # Verify quantization search params were configured for rescoring
         search_params = call_kwargs.get("search_params")
+        assert prefetch[0].filter.should is not None
         assert search_params is not None
         assert search_params.quantization.rescore is True
         assert search_params.quantization.oversampling == 2.0

@@ -540,11 +540,14 @@ def _execute_single_tool(
             vuln_report as _vuln_report,
         )
 
-        result = _vuln_report(
-            tenant_id=tenant_id,
-            dependencies=tool_input.get("dependencies"),
-            repo_path=tool_input.get("repo_path"),
-        )
+        kwargs: dict[str, Any] = {
+            "tenant_id": tenant_id,
+            "dependencies": tool_input.get("dependencies"),
+            "repo_path": tool_input.get("repo_path"),
+        }
+        if tool_input.get("include_reachability"):
+            kwargs["include_reachability"] = True
+        result = _vuln_report(**kwargs)
         return [VulnHit(result)], []
 
     elif tool_name == "corpus_briefing":

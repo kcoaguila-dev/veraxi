@@ -41,7 +41,7 @@ from veraxi.cli.rules import run_rules_lint, run_rules_sync
 from veraxi.cli.schema import run_schema
 from veraxi.cli.stats import run_stats
 from veraxi.cli.trace import run_trace
-from veraxi.cli.code_intel import run_vuln_report, run_vuln_sync, run_xray_impact, run_xray_index, run_xray_symbol
+from veraxi.cli.code_intel import run_vuln_attack_sync, run_vuln_recon, run_vuln_report, run_vuln_sarif, run_vuln_sync, run_xray_impact, run_xray_index, run_xray_symbol
 from veraxi.cli.corpus import run_briefing, run_dbt_lineage, run_dbt_upload
 from veraxi.cli.evals import run_eval_ablation
 from veraxi.cli.web import run_web
@@ -796,11 +796,33 @@ def main():
     _rep = vuln_sub.add_parser("report", help="Vuln report for a repo or deps file")
     _rep.add_argument("repo_path", nargs="?", help="Repo path (server allowlist applies)")
     _rep.add_argument("--deps", help="JSON file of dependencies [{name, version, ...}]")
+    _rep.add_argument("--sbom", help="CycloneDX or SPDX JSON SBOM file")
+    _rep.add_argument("--local", action="store_true", help="Extract dependencies locally and upload the list")
+    _rep.add_argument("--live-osv", action="store_true", dest="live_osv", help="Query OSV.dev live when the graph has no findings")
+    _rep.add_argument("--reachability", action="store_true", help="Cross-reference vulnerable packages against Repo X-Ray code graph")
     _rep.add_argument("--fail-on", dest="fail_on", choices=["high", "critical"], help="Exit 2 if a finding is at/above this severity")
     _rep.add_argument("--key", help="Veraxi API key (vx-...)")
     _rep.add_argument("--tenant", help="Tenant ID")
     _rep.add_argument("--endpoint", default="https://api.veraxi.me/sse", help="Veraxi API endpoint")
     _rep.add_argument("--json", action="store_true", help="Output raw JSON")
+    _sarif = vuln_sub.add_parser("sarif", help="Upload a SARIF 2.1.0 SAST file (Semgrep, Trivy, CodeQL)")
+    _sarif.add_argument("sarif_path", help="Path to SARIF JSON file")
+    _sarif.add_argument("--key", help="Veraxi API key (vx-...)")
+    _sarif.add_argument("--tenant", help="Tenant ID")
+    _sarif.add_argument("--endpoint", default="https://api.veraxi.me/sse", help="Veraxi API endpoint")
+    _sarif.add_argument("--json", action="store_true", help="Output raw JSON")
+    _atk = vuln_sub.add_parser("attack-sync", help="Sync MITRE ATT&CK (STIX 2.1)")
+    _atk.add_argument("--stix", help="Optional local STIX 2.1 JSON bundle")
+    _atk.add_argument("--key", help="Veraxi API key (vx-...)")
+    _atk.add_argument("--tenant", help="Tenant ID")
+    _atk.add_argument("--endpoint", default="https://api.veraxi.me/sse", help="Veraxi API endpoint")
+    _atk.add_argument("--json", action="store_true", help="Output raw JSON")
+    _rec = vuln_sub.add_parser("recon", help="Upload a Nuclei JSON/JSONL recon file")
+    _rec.add_argument("nuclei_path", help="Path to Nuclei JSON or JSONL file")
+    _rec.add_argument("--key", help="Veraxi API key (vx-...)")
+    _rec.add_argument("--tenant", help="Tenant ID")
+    _rec.add_argument("--endpoint", default="https://api.veraxi.me/sse", help="Veraxi API endpoint")
+    _rec.add_argument("--json", action="store_true", help="Output raw JSON")
 
     # --- briefing ---
     briefing_parser = subparsers.add_parser("briefing", help="Corpus briefing (Knowledge Hub)")
@@ -1313,15 +1335,51 @@ def main():
             run_xray_impact(args.target, endpoint=endpoint, key=key, tenant=tenant_id, as_json=args.json, max_depth=args.max_depth)
 
     elif args.subcommand == "vuln":
-        if getattr(args, "vuln_command", None) not in ("sync", "report"):
+        if getattr(args, "vuln_command", None) not in ("sync", "report", "sarif", "attack-sync", "recon"):
             parser.parse_args(["vuln", "--help"])
             sys.exit(0)
         key, endpoint = resolve_credentials(args.key, args.endpoint)
         tenant_id = _resolve_tenant_id(args.tenant)
         if args.vuln_command == "sync":
             run_vuln_sync(endpoint=endpoint, key=key, tenant=tenant_id, as_json=args.json)
+        elif args.vuln_command == "sarif":
+            run_vuln_sarif(
+                args.sarif_path,
+                endpoint=endpoint,
+                key=key,
+                tenant=tenant_id,
+                as_json=args.json,
+            )
+        elif args.vuln_command == "attack-sync":
+            run_vuln_attack_sync(
+                stix_path=getattr(args, "stix", None),
+                endpoint=endpoint,
+                key=key,
+                tenant=tenant_id,
+                as_json=args.json,
+            )
+        elif args.vuln_command == "recon":
+            run_vuln_recon(
+                args.nuclei_path,
+                endpoint=endpoint,
+                key=key,
+                tenant=tenant_id,
+                as_json=args.json,
+            )
         else:
-            run_vuln_report(repo_path=args.repo_path, deps=args.deps, endpoint=endpoint, key=key, tenant=tenant_id, as_json=args.json, fail_on=args.fail_on)
+            run_vuln_report(
+                repo_path=args.repo_path,
+                deps=args.deps,
+                sbom=getattr(args, "sbom", None),
+                endpoint=endpoint,
+                key=key,
+                tenant=tenant_id,
+                as_json=args.json,
+                fail_on=args.fail_on,
+                live_osv=getattr(args, "live_osv", False),
+                local=getattr(args, "local", False),
+                reachability=getattr(args, "reachability", False),
+            )
 
     elif args.subcommand == "briefing":
         key, endpoint = resolve_credentials(args.key, args.endpoint)

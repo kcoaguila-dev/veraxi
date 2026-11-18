@@ -64,7 +64,22 @@ logger = logging.getLogger(__name__)
 
 MAX_FILE_BYTES = 200_000
 
-_SKIPPED_DIRS = {"node_modules", "vendor", ".git", "dist", "build", "__pycache__"}
+_SKIPPED_DIRS = {
+    "node_modules",
+    "vendor",
+    ".git",
+    "dist",
+    "build",
+    "__pycache__",
+    ".venv",
+    "venv",
+    "env",
+    ".tox",
+    ".mypy_cache",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".dart_tool",
+}
 _SKIPPED_FILES = {
     "package-lock.json",
     "yarn.lock",
@@ -91,6 +106,9 @@ _LANGUAGE_BY_EXTENSION = {
     ".cjs": "javascript",
     ".ts": "typescript",
     ".tsx": "typescript",
+    ".go": "go",
+    ".rs": "rust",
+    ".java": "java",
 }
 
 NODE_LABELS = ("CodeFile", "CodeModule", "Class", "Function")
@@ -542,6 +560,210 @@ _NON_FUNCTION_NAMES = {
 }
 
 
+# ---------------------------------------------------------------------------
+# Tree-sitter multi-language parser (JS/TS, Go, Rust, Java, Dart)
+# ---------------------------------------------------------------------------
+
+_TS_CLASS_TYPES = {
+    "class_declaration",
+    "class_definition",
+    "interface_declaration",
+    "struct_item",
+    "enum_item",
+    "trait_item",
+}
+_TS_FUNC_TYPES = {
+    "function_declaration",
+    "function_definition",
+    "method_declaration",
+    "method_definition",
+    "function_item",
+    "function_signature",
+}
+_TS_IMPORT_TYPES = {
+    "import_statement",
+    "import_declaration",
+    "import_spec",
+    "import_or_export",
+    "use_declaration",
+}
+_TS_CALL_TYPES = {
+    "call_expression",
+    "method_invocation",
+}
+
+
+def _ts_language_name(path: Path, language: str) -> str:
+    if path.suffix.lower() == ".tsx":
+        return "tsx"
+    return language
+
+
+def _ts_node_text(node: Any, source: bytes) -> str:
+    return source[node.start_byte : node.end_byte].decode("utf-8", errors="replace")
+
+
+def _ts_child_name(node: Any, source: bytes) -> str | None:
+    name_node = node.child_by_field_name("name")
+    if name_node is not None:
+        return _ts_node_text(name_node, source).strip()
+    for child in node.children:
+        if child.type in ("identifier", "type_identifier", "property_identifier"):
+            return _ts_node_text(child, source).strip()
+    return None
+
+
+def _ts_extract_superclasses(node: Any, source: bytes) -> list[str]:
+    """Extract base class/interface names from heritage/superclass children."""
+    bases: list[str] = []
+    for child in node.children:
+        if child.type in (
+            "superclass",
+            "class_heritage",
+            "extends_clause",
+            "extends_type_clause",
+            "super_interfaces",
+        ):
+            for sub in child.children:
+                if sub.type in ("type_identifier", "identifier"):
+                    val = _ts_node_text(sub, source).strip()
+                    if val:
+                        bases.append(val)
+                elif sub.type in ("extends_clause", "type_identifier"):
+                    bases.extend(_ts_extract_superclasses(sub, source))
+    return bases
+
+
+def _ts_extract_import_targets(node: Any, source: bytes) -> list[str]:
+    targets: list[str] = []
+    for child in node.children:
+        if child.type in ("string", "string_literal", "interpreted_string_literal", "uri"):
+            val = _ts_node_text(child, source).strip().strip("'\"`")
+            if val:
+                targets.append(val)
+        elif child.type == "identifier" and node.type in ("use_declaration", "import_declaration"):
+            val = _ts_node_text(child, source).strip()
+            if val:
+                targets.append(val)
+        else:
+            targets.extend(_ts_extract_import_targets(child, source))
+    return targets
+
+
+def _ts_extract_call_target(
+    node: Any,
+    source: bytes,
+    defined_funcs: dict[str, str],
+    imported_aliases: dict[str, str],
+) -> tuple[str, str] | None:
+    func_node = node.child_by_field_name("function") or node.child_by_field_name("name")
+    if func_node is None and node.children:
+        func_node = node.children[0]
+    if func_node is None:
+        return None
+    raw = _ts_node_text(func_node, source).strip()
+    if not raw:
+        return None
+    if raw in defined_funcs:
+        return defined_funcs[raw], "Function"
+    if "." in raw:
+        head, tail = raw.split(".", 1)
+        if head in imported_aliases:
+            return f"{imported_aliases[head]}.{tail}", "Function"
+    return None
+
+
+def _parse_treesitter_file(
+    builder: _GraphBuilder,
+    module_node: CodeNode,
+    path: Path,
+    relative_path: str,
+    language: str,
+) -> bool:
+    """Parse non-Python files via tree-sitter; returns False if unavailable."""
+    try:
+        from tree_sitter_language_pack import get_parser
+
+        parser = get_parser(_ts_language_name(path, language))
+        source = path.read_bytes()
+    except Exception as exc:
+        logger.debug("Tree-sitter unavailable for %s (%s): %s", relative_path, language, exc)
+        return False
+
+    tree = parser.parse(source)
+    module_qn = module_node.qualified_name
+    defined_funcs: dict[str, str] = {}
+    imported_aliases: dict[str, str] = {}
+    pending_calls: list[tuple[CodeNode, Any]] = []
+
+    def walk(node: Any, container: CodeNode) -> None:
+        ntype = node.type
+        if ntype in _TS_IMPORT_TYPES:
+            for target in _ts_extract_import_targets(node, source):
+                builder.add_edge("IMPORTS", module_node, target, "CodeModule")
+                alias = target.rsplit("/", 1)[-1].rsplit(".", 1)[-1]
+                if alias:
+                    imported_aliases[alias] = target
+            return
+
+        if ntype in _TS_CLASS_TYPES:
+            name = _ts_child_name(node, source)
+            if name:
+                class_qn = f"{container.qualified_name}.{name}"
+                class_node = builder.add_node(
+                    CodeNode(
+                        label="Class",
+                        name=name,
+                        qualified_name=class_qn,
+                        path=relative_path,
+                        line=node.start_point[0] + 1,
+                        language=language,
+                    )
+                )
+                builder.add_edge("DEFINES", container, class_qn, "Class")
+                for base in _ts_extract_superclasses(node, source):
+                    builder.add_edge("INHERITS", class_node, base, "Class")
+                for child in node.children:
+                    walk(child, class_node)
+                return
+
+        if ntype in _TS_FUNC_TYPES:
+            name = _ts_child_name(node, source)
+            if name and name not in _NON_FUNCTION_NAMES:
+                func_qn = f"{container.qualified_name}.{name}"
+                func_node = builder.add_node(
+                    CodeNode(
+                        label="Function",
+                        name=name,
+                        qualified_name=func_qn,
+                        path=relative_path,
+                        line=node.start_point[0] + 1,
+                        language=language,
+                    )
+                )
+                builder.add_edge("DEFINES", container, func_qn, "Function")
+                defined_funcs[name] = func_qn
+                for child in node.children:
+                    walk(child, func_node)
+                return
+
+        if ntype in _TS_CALL_TYPES and container.label == "Function":
+            pending_calls.append((container, node))
+
+        for child in node.children:
+            walk(child, container)
+
+    walk(tree.root_node, module_node)
+    for caller_node, call_node in pending_calls:
+        resolved = _ts_extract_call_target(
+            call_node, source, defined_funcs, imported_aliases
+        )
+        if resolved is not None:
+            target_qn, target_label = resolved
+            builder.add_edge("CALLS", caller_node, target_qn, target_label)
+    return True
+
+
 def _parse_declared_file(
     builder: _GraphBuilder,
     file_node: CodeNode,
@@ -708,7 +930,9 @@ def parse_repo(root: str | Path) -> CodeGraph:
         builder.add_edge("DEFINES", file_node, module_qn, "CodeModule")
         if language == "python":
             _parse_python_file(builder, file_node, module_node, path, relative_path)
-        else:
+        elif not _parse_treesitter_file(
+            builder, module_node, path, relative_path, language
+        ):
             _parse_declared_file(
                 builder, file_node, module_node, path, relative_path, language
             )

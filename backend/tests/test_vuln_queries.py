@@ -257,6 +257,7 @@ def test_neo4j_adapter_parameterized():
     assert "tenant-a" not in query
     assert "widgetlib" not in query
     assert params == {"tenant_id": "tenant-a", "package_names": ["widgetlib"]}
+    assert "IN [$tenant_id, 'public']" in query
     assert client.affected_index("tenant-a", []) == {}
 
 
@@ -344,3 +345,124 @@ def test_osv_ecosystem_mismatch_never_matches():
     # Fixed versions do not match.
     assert match_dependencies([_dep("requests", "2.32.0")], OSV_INDEX) == []
     assert match_dependencies([_dep("log4j-core", "2.17.0", ecosystem="maven")], OSV_INDEX) == []
+
+
+def test_match_dependencies_sorts_by_kev_then_epss():
+    index = {
+        "pkg": [
+            {
+                "cve_id": "CVE-2024-0001",
+                "severity": "MEDIUM",
+                "kev": False,
+                "epss_score": 0.15,
+                "epss_percentile": 0.80,
+                "cwe_ids": [],
+                "criteria": "",
+                "criteria_version": "1.0",
+                "vulnerable": True,
+            },
+            {
+                "cve_id": "CVE-2024-0002",
+                "severity": "HIGH",
+                "kev": False,
+                "epss_score": 0.85,
+                "epss_percentile": 0.99,
+                "cwe_ids": [],
+                "criteria": "",
+                "criteria_version": "1.0",
+                "vulnerable": True,
+            },
+            {
+                "cve_id": "CVE-2024-0003",
+                "severity": "HIGH",
+                "kev": True,
+                "epss_score": 0.05,
+                "epss_percentile": 0.40,
+                "cwe_ids": [],
+                "criteria": "",
+                "criteria_version": "1.0",
+                "vulnerable": True,
+            },
+        ]
+    }
+    findings = match_dependencies([_dep("pkg", "1.0")], index)
+    assert [f["cve_id"] for f in findings] == [
+        "CVE-2024-0003",
+        "CVE-2024-0002",
+        "CVE-2024-0001",
+    ]
+    assert findings[1]["epss_score"] == 0.85
+    assert findings[1]["epss_percentile"] == 0.99
+
+
+class _FakeCodeGraphClient:
+    def find_symbols(self, tenant_id, *, qualified_name=None, name=None):
+        if qualified_name == "widgetlib" or name == "widgetlib":
+            return [
+                {
+                    "label": "CodeModule",
+                    "name": "widgetlib",
+                    "qualified_name": "widgetlib",
+                    "path": "",
+                    "line": 0,
+                    "language": "python",
+                    "resolved": False,
+                }
+            ]
+        return []
+
+    def incoming_edges(self, tenant_id, target_qns):
+        if "widgetlib" in target_qns:
+            return [
+                {
+                    "source_qn": "app.api",
+                    "source_name": "api",
+                    "source_label": "CodeModule",
+                    "source_path": "app/api.py",
+                    "edge_type": "IMPORTS",
+                    "target_qn": "widgetlib",
+                }
+            ]
+        return []
+
+    def node_counts(self, tenant_id, path_prefix=None):  # pragma: no cover
+        return {}
+
+    def edge_counts(self, tenant_id, path_prefix=None):  # pragma: no cover
+        return {}
+
+    def top_connected(self, tenant_id, path_prefix=None, limit=10):  # pragma: no cover
+        return []
+
+
+def test_vuln_report_with_code_reachability():
+    report = vuln_report(
+        [_dep("widgetlib", "1.5.0"), _dep("otherpkg", "1.0")],
+        tenant_id="t1",
+        client=FakeVulnGraphClient(AFFECTED_INDEX),
+        include_reachability=True,
+        code_client=_FakeCodeGraphClient(),
+    )
+    by_pkg = {f["package"]: f for f in report["findings"]}
+    assert by_pkg["widgetlib"]["reachable_file_count"] == 1
+    assert by_pkg["widgetlib"]["reachable_in_code"][0]["path"] == "app/api.py"
+    assert by_pkg["otherpkg"]["reachable_file_count"] == 0
+    assert by_pkg["otherpkg"]["reachable_in_code"] == []
+
+
+def test_reranker_formats_cve_description():
+    from backend.retrieval.merge_rank import MergedResult, _format_reranker_document
+
+    item = MergedResult(
+        id="neo4j:CVE-2024-1111",
+        fused_score=0.5,
+        sources=["Neo4j"],
+        payload={
+            "id": "CVE-2024-1111",
+            "labels": ["CVE"],
+            "description": "Buffer overflow in parser",
+        },
+    )
+    doc = _format_reranker_document(item)
+    assert "CVE-2024-1111" in doc
+    assert "Buffer overflow in parser" in doc

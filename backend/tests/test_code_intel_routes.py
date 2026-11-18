@@ -367,3 +367,157 @@ class TestIngestGraphRoute:
             json={"repo_name": "demo", "nodes": [{"label": "Function"}, {"label": "Class"}], "edges": []},
         )
         assert resp.status_code == 413
+
+
+class TestSarifAndSbomRoutes:
+    def test_vuln_report_accepts_sbom_json(self, client, monkeypatch):
+        seen = {}
+
+        def fake_report(deps, tenant_id="default"):
+            seen["deps"] = deps
+            seen["tenant_id"] = tenant_id
+            return {
+                "dependencies_checked": len(deps),
+                "findings": [],
+                "matched_count": 0,
+                "unknown_count": 0,
+                "kev_count": 0,
+                "tenant_id": tenant_id,
+            }
+
+        monkeypatch.setattr(routes, "vuln_report", fake_report)
+        resp = client.post(
+            "/api/v1/vuln/report",
+            json={
+                "sbom_json": {
+                    "bomFormat": "CycloneDX",
+                    "components": [
+                        {"name": "gin", "version": "1.9.1", "purl": "pkg:golang/github.com/gin-gonic/gin@1.9.1"}
+                    ],
+                }
+            },
+        )
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["dependencies_checked"] == 1
+        assert seen["deps"][0]["ecosystem"] == "go"
+
+    def test_ingest_sarif_route(self, client, monkeypatch):
+        class FakeNeo4j:
+            def __init__(self):
+                self.calls = []
+
+            def execute_write(self, query, params=None):
+                self.calls.append((query, params or {}))
+                return []
+
+        fake_neo4j = FakeNeo4j()
+        monkeypatch.setattr(routes, "_default_neo4j_client", lambda: fake_neo4j)
+        monkeypatch.setattr(
+            "backend.storage.qdrant_client.QdrantStorageClient.from_config",
+            lambda cfg: (_ for _ in ()).throw(RuntimeError("no qdrant in unit test")),
+        )
+        resp = client.post(
+            "/api/v1/vuln/sarif",
+            json={
+                "sarif": {
+                    "version": "2.1.0",
+                    "runs": [
+                        {
+                            "tool": {"driver": {"name": "Semgrep", "rules": []}},
+                            "results": [
+                                {
+                                    "ruleId": "go.lang.security.sqli",
+                                    "level": "error",
+                                    "message": {"text": "SQL injection (CWE-89)"},
+                                    "locations": [
+                                        {
+                                            "physicalLocation": {
+                                                "artifactLocation": {"uri": "server.go"},
+                                                "region": {"startLine": 12},
+                                            }
+                                        }
+                                    ],
+                                }
+                            ],
+                        }
+                    ],
+                }
+            },
+        )
+        assert resp.status_code == 200, resp.text
+        body = resp.json()
+        assert body["status"] == "ok"
+        assert body["findings_written"] == 1
+        assert body["cwe_links"] == 1
+        assert len(fake_neo4j.calls) == 3
+
+    def test_sync_attack_intel_route(self, client, monkeypatch):
+        class FakeNeo4j:
+            def __init__(self):
+                self.calls = []
+
+            def execute_write(self, query, params=None):
+                self.calls.append((query, params or {}))
+                return []
+
+        fake_neo4j = FakeNeo4j()
+        monkeypatch.setattr(routes, "_default_neo4j_client", lambda: fake_neo4j)
+        monkeypatch.setattr(
+            "backend.storage.qdrant_client.QdrantStorageClient.from_config",
+            lambda cfg: (_ for _ in ()).throw(RuntimeError("no qdrant in unit test")),
+        )
+        resp = client.post(
+            "/api/v1/vuln/attack/sync",
+            json={
+                "stix_json": {
+                    "type": "bundle",
+                    "objects": [
+                        {
+                            "type": "attack-pattern",
+                            "id": "attack-pattern--1",
+                            "name": "Exploit Public-Facing Application",
+                            "external_references": [
+                                {"source_name": "mitre-attack", "external_id": "T1190"}
+                            ],
+                        }
+                    ],
+                }
+            },
+        )
+        assert resp.status_code == 200, resp.text
+        body = resp.json()
+        assert body["status"] == "ok"
+        assert body["techniques_written"] == 1
+
+    def test_ingest_recon_route(self, client, monkeypatch):
+        class FakeNeo4j:
+            def __init__(self):
+                self.calls = []
+
+            def execute_write(self, query, params=None):
+                self.calls.append((query, params or {}))
+                return []
+
+        fake_neo4j = FakeNeo4j()
+        monkeypatch.setattr(routes, "_default_neo4j_client", lambda: fake_neo4j)
+        monkeypatch.setattr(
+            "backend.storage.qdrant_client.QdrantStorageClient.from_config",
+            lambda cfg: (_ for _ in ()).throw(RuntimeError("no qdrant in unit test")),
+        )
+        resp = client.post(
+            "/api/v1/vuln/recon",
+            json={
+                "nuclei": [
+                    {
+                        "template-id": "exposed-env",
+                        "matched-at": "https://app.example.com/.env",
+                        "info": {"name": "Exposed .env", "severity": "high"},
+                    }
+                ]
+            },
+        )
+        assert resp.status_code == 200, resp.text
+        body = resp.json()
+        assert body["status"] == "ok"
+        assert body["findings_written"] == 1
+        assert body["host_links"] == 1

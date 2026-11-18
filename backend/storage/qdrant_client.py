@@ -326,10 +326,21 @@ class QdrantStorageClient:
         from qdrant_client.http import models
 
         query_filter = models.Filter(
-            must=[
+            should=[
                 models.FieldCondition(
                     key="tenant_id", match=models.MatchValue(value=tenant_id)
-                )
+                ),
+                models.Filter(
+                    must=[
+                        models.FieldCondition(
+                            key="tenant_id", match=models.MatchValue(value="public")
+                        ),
+                        models.FieldCondition(
+                            key="source_type",
+                            match=models.MatchAny(any=["vuln_intel", "mitre_attack"]),
+                        ),
+                    ]
+                ),
             ]
         )
 
