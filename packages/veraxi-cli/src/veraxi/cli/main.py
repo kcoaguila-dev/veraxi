@@ -33,6 +33,7 @@ from veraxi.cli.rules import run_rules_lint, run_rules_sync
 from veraxi.cli.schema import run_schema
 from veraxi.cli.stats import run_stats
 from veraxi.cli.trace import run_trace
+from veraxi.cli.code_intel import run_vuln_report, run_vuln_sync, run_xray_impact, run_xray_index, run_xray_symbol
 from veraxi.cli.evals import run_eval_ablation
 from veraxi.cli.web import run_web
 
@@ -771,6 +772,35 @@ def main():
     abl_parser.add_argument("--tenant", help="Tenant ID")
     abl_parser.add_argument("--endpoint", default="https://api.veraxi.me/sse", help="Veraxi API endpoint")
 
+    # --- xray ---
+    xray_parser = subparsers.add_parser("xray", help="Repo X-Ray code graph")
+    xray_sub = xray_parser.add_subparsers(dest="xray_command")
+    for _name, _help in (("index", "Index a repo into the code graph"), ("symbol", "Look up a symbol"), ("impact", "Impact analysis for a symbol")):
+        _sp = xray_sub.add_parser(_name, help=_help)
+        _sp.add_argument("target", help="Repo path (index) or symbol name")
+        _sp.add_argument("--max-depth", type=int, default=3, dest="max_depth")
+        _sp.add_argument("--key", help="Veraxi API key (vx-...)")
+        _sp.add_argument("--tenant", help="Tenant ID")
+        _sp.add_argument("--endpoint", default="https://api.veraxi.me/sse", help="Veraxi API endpoint")
+        _sp.add_argument("--json", action="store_true", help="Output raw JSON")
+
+    # --- vuln ---
+    vuln_parser = subparsers.add_parser("vuln", help="Vulnerability intel (NVD + CISA KEV)")
+    vuln_sub = vuln_parser.add_subparsers(dest="vuln_command")
+    _sync = vuln_sub.add_parser("sync", help="Sync NVD + CISA KEV intel")
+    _sync.add_argument("--key", help="Veraxi API key (vx-...)")
+    _sync.add_argument("--tenant", help="Tenant ID")
+    _sync.add_argument("--endpoint", default="https://api.veraxi.me/sse", help="Veraxi API endpoint")
+    _sync.add_argument("--json", action="store_true", help="Output raw JSON")
+    _rep = vuln_sub.add_parser("report", help="Vuln report for a repo or deps file")
+    _rep.add_argument("repo_path", nargs="?", help="Repo path (server allowlist applies)")
+    _rep.add_argument("--deps", help="JSON file of dependencies [{name, version, ...}]")
+    _rep.add_argument("--fail-on", dest="fail_on", choices=["high", "critical"], help="Exit 2 if a finding is at/above this severity")
+    _rep.add_argument("--key", help="Veraxi API key (vx-...)")
+    _rep.add_argument("--tenant", help="Tenant ID")
+    _rep.add_argument("--endpoint", default="https://api.veraxi.me/sse", help="Veraxi API endpoint")
+    _rep.add_argument("--json", action="store_true", help="Output raw JSON")
+
     args = parser.parse_args()
 
     if not args.subcommand:
@@ -1216,6 +1246,30 @@ def main():
             tenant=tenant_id, min_recall=args.min_recall, min_hit_rate=args.min_hit_rate,
             min_grounding=args.min_grounding,
         )
+
+    elif args.subcommand == "xray":
+        if getattr(args, "xray_command", None) not in ("index", "symbol", "impact"):
+            parser.parse_args(["xray", "--help"])
+            sys.exit(0)
+        key, endpoint = resolve_credentials(args.key, args.endpoint)
+        tenant_id = _resolve_tenant_id(args.tenant)
+        if args.xray_command == "index":
+            run_xray_index(args.target, endpoint=endpoint, key=key, tenant=tenant_id, as_json=args.json)
+        elif args.xray_command == "symbol":
+            run_xray_symbol(args.target, endpoint=endpoint, key=key, tenant=tenant_id, as_json=args.json)
+        else:
+            run_xray_impact(args.target, endpoint=endpoint, key=key, tenant=tenant_id, as_json=args.json, max_depth=args.max_depth)
+
+    elif args.subcommand == "vuln":
+        if getattr(args, "vuln_command", None) not in ("sync", "report"):
+            parser.parse_args(["vuln", "--help"])
+            sys.exit(0)
+        key, endpoint = resolve_credentials(args.key, args.endpoint)
+        tenant_id = _resolve_tenant_id(args.tenant)
+        if args.vuln_command == "sync":
+            run_vuln_sync(endpoint=endpoint, key=key, tenant=tenant_id, as_json=args.json)
+        else:
+            run_vuln_report(repo_path=args.repo_path, deps=args.deps, endpoint=endpoint, key=key, tenant=tenant_id, as_json=args.json, fail_on=args.fail_on)
 
     elif args.subcommand == "web":
         run_web(

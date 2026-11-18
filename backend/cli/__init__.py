@@ -17,6 +17,7 @@ _SUBMODULES = [
     "check",
     "client_configs",
     "cluster",
+    "code_intel",
     "completion",
     "config",
     "context",
