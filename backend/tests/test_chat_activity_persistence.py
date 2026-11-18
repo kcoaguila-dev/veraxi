@@ -2,7 +2,7 @@ import json
 from types import SimpleNamespace
 
 import pytest
-from langchain_core.messages import AIMessage
+from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
 from backend.routes.chat import (
     _extract_messages_from_state,
@@ -326,3 +326,68 @@ async def test_stream_failure_persists_partial_activity():
     assert output[-1] == "data: [DONE]\n\n"
     saved = redis.values[("tenant:tenant-1:thread_activities", "thread-1")]
     assert json.loads(saved)[0]["activity"][0]["status"] == "error"
+
+
+def test_intermediate_tool_message_is_folded_into_final_answer():
+    activity = [
+        {
+            "number": 1,
+            "name": "Planning & Discovery",
+            "status": "complete",
+            "toolEvents": [{"id": "run-1", "name": "create_slide", "isComplete": True}],
+        }
+    ]
+    messages = _extract_messages_from_state(
+        [
+            HumanMessage(content="create a slide"),
+            AIMessage(
+                content="",
+                tool_calls=[
+                    {"name": "create_slide", "args": {"title": "hi"}, "id": "run-1"}
+                ],
+            ),
+            ToolMessage(content="ok", tool_call_id="run-1"),
+            AIMessage(content="Here is the artifact block:"),
+        ],
+        activity_history=[activity],
+    )
+
+    assert [m["role"] for m in messages] == ["user", "assistant"]
+    assert messages[1]["content"] == "Here is the artifact block:"
+    assert messages[1]["activity"] == activity
+    assert [e["id"] for e in messages[1]["toolEvents"]] == ["run-1"]
+
+
+def test_intermediate_tool_message_synthesizes_tool_activity_when_no_history():
+    messages = _extract_messages_from_state(
+        [
+            HumanMessage(content="search"),
+            AIMessage(
+                content="",
+                tool_calls=[
+                    {"name": "web_search", "args": {"q": "test"}, "id": "run-1"}
+                ],
+            ),
+            ToolMessage(content="result", tool_call_id="run-1"),
+            AIMessage(content="Final answer"),
+        ]
+    )
+
+    assert [m["role"] for m in messages] == ["user", "assistant"]
+    assert messages[1]["activity"][0]["name"] == "Tool activity"
+    assert [e["id"] for e in messages[1]["toolEvents"]] == ["run-1"]
+
+
+def test_orphan_intermediate_tool_message_is_preserved():
+    messages = _extract_messages_from_state(
+        [
+            HumanMessage(content="search"),
+            AIMessage(
+                content="",
+                tool_calls=[{"name": "web_search", "args": {}, "id": "run-1"}],
+            ),
+        ]
+    )
+
+    assert [m["role"] for m in messages] == ["user", "assistant"]
+    assert messages[1]["activity"][0]["name"] == "Tool activity"

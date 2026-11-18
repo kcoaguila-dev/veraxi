@@ -269,7 +269,60 @@ def _extract_messages_from_state(
             assistant_messages[-len(reasoning_history) :], reasoning_history
         ):
             _apply_saved_reasoning(message, saved_reasoning)
-    return messages
+    return _merge_intermediate_tool_messages(messages)
+
+
+def _is_intermediate_tool_message(message: dict) -> bool:
+    return (
+        message.get("role") == "assistant"
+        and not str(message.get("content") or "").strip()
+        and bool(message.get("toolEvents"))
+    )
+
+
+def _merge_intermediate_tool_messages(messages: list[dict]) -> list[dict]:
+    """Fold tool-only assistant messages into the turn's final assistant reply."""
+    merged: list[dict] = []
+    pending_tool_msgs: list[dict] = []
+
+    for message in messages:
+        if _is_intermediate_tool_message(message):
+            pending_tool_msgs.append(message)
+            continue
+
+        if message.get("role") != "assistant":
+            if pending_tool_msgs:
+                merged.extend(pending_tool_msgs)
+                pending_tool_msgs.clear()
+            merged.append(message)
+            continue
+
+        if pending_tool_msgs:
+            inherited_events = [
+                event
+                for pending in pending_tool_msgs
+                for event in (pending.get("toolEvents") or [])
+            ]
+            message["toolEvents"] = inherited_events + (
+                message.get("toolEvents") or []
+            )
+            if not message.get("activity") and inherited_events:
+                message["activity"] = [
+                    {
+                        "number": 1,
+                        "name": "Tool activity",
+                        "description": "Tools used while preparing this answer.",
+                        "status": "complete",
+                        "toolEvents": message["toolEvents"],
+                    }
+                ]
+            pending_tool_msgs.clear()
+
+        merged.append(message)
+
+    if pending_tool_msgs:
+        merged.extend(pending_tool_msgs)
+    return merged
 
 
 def _final_assistant_messages(messages: list[dict]) -> list[dict]:

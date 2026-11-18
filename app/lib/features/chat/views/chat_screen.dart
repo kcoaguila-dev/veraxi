@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:cupertino_ui/cupertino_ui.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:veraxi_app/core/sidebar_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -49,13 +50,32 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   void _onScroll() {
     if (_scrollController.hasClients) {
-      final isUp = _scrollController.position.pixels <
-          _scrollController.position.maxScrollExtent - 400;
-      if (isUp != _isScrolledUp) {
-        setState(() {
-          _isScrolledUp = isUp;
-        });
-      }
+      _syncScrolledUp(_scrollController.position);
+    }
+  }
+
+  bool _isMetricsScrolledUp(ScrollMetrics metrics) =>
+      metrics.maxScrollExtent > 0 &&
+      (metrics.maxScrollExtent - metrics.pixels) > 400;
+
+  void _syncScrolledUp(ScrollMetrics metrics) {
+    final isUp = _isMetricsScrolledUp(metrics);
+    if (isUp == _isScrolledUp) return;
+    if (WidgetsBinding.instance.schedulerPhase ==
+        SchedulerPhase.persistentCallbacks) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || !_scrollController.hasClients) return;
+        final currentUp = _isMetricsScrolledUp(_scrollController.position);
+        if (currentUp != _isScrolledUp) {
+          setState(() {
+            _isScrolledUp = currentUp;
+          });
+        }
+      });
+    } else {
+      setState(() {
+        _isScrolledUp = isUp;
+      });
     }
   }
 
@@ -136,9 +156,25 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       }
     }
 
+    ref.listen<String?>(
+      chatViewModelProvider.select((s) => s.threadId),
+      (previous, next) {
+        if (previous != next && _isScrolledUp) {
+          setState(() {
+            _isScrolledUp = false;
+          });
+        }
+      },
+    );
+
     ref.listen<List<ChatMessage>>(
       chatViewModelProvider.select((s) => s.messages),
       (previous, next) {
+        if (next.isEmpty && _isScrolledUp) {
+          setState(() {
+            _isScrolledUp = false;
+          });
+        }
         // Feed sandbox tool events into the Terminal & Diff drawer.
         // ChatViewModel's SSE handler is private and message-bound, so
         // the drawer is fed from chat state here (its view model
@@ -263,26 +299,36 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                             ? _buildEmptyState(
                                                 theme, ext, state, viewModel,
                                                 sandboxEnabled: sandboxEnabled)
-                                            : ListView.builder(
-                                                controller: _scrollController,
-                                                padding: const EdgeInsets.only(
-                                                    left: 16,
-                                                    right: 16,
-                                                    top: 80,
-                                                    bottom: 140),
-                                                itemCount:
-                                                    state.messages.length,
-                                                itemBuilder: (context, index) {
-                                                  final msg =
-                                                      state.messages[index];
-                                                  return ChatMessageListItem(
-                                                    msg: msg,
-                                                    theme: theme,
-                                                    ext: ext,
-                                                    showTelemetry:
-                                                        state.showTelemetry,
-                                                  );
+                                            : NotificationListener<
+                                                    ScrollMetricsNotification>(
+                                                onNotification: (notification) {
+                                                  _syncScrolledUp(
+                                                      notification.metrics);
+                                                  return false;
                                                 },
+                                                child: ListView.builder(
+                                                  controller: _scrollController,
+                                                  padding:
+                                                      const EdgeInsets.only(
+                                                          left: 16,
+                                                          right: 16,
+                                                          top: 80,
+                                                          bottom: 140),
+                                                  itemCount:
+                                                      state.messages.length,
+                                                  itemBuilder:
+                                                      (context, index) {
+                                                    final msg =
+                                                        state.messages[index];
+                                                    return ChatMessageListItem(
+                                                      msg: msg,
+                                                      theme: theme,
+                                                      ext: ext,
+                                                      showTelemetry:
+                                                          state.showTelemetry,
+                                                    );
+                                                  },
+                                                ),
                                               ),
                           ),
                         ],
