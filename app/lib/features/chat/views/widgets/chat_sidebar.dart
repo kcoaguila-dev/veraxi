@@ -741,85 +741,10 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
                                       return SizedBox.shrink();
                                     }
 
-                                    final now = DateTime.now();
-                                    final today =
-                                        DateTime(now.year, now.month, now.day);
-                                    final yesterday =
-                                        today.subtract(const Duration(days: 1));
-                                    final lastWeek =
-                                        today.subtract(const Duration(days: 7));
-
-                                    final todayChats = <Map<String, dynamic>>[];
-                                    final yesterdayChats =
-                                        <Map<String, dynamic>>[];
-                                    final lastWeekChats =
-                                        <Map<String, dynamic>>[];
-                                    final olderChats = <Map<String, dynamic>>[];
-
-                                    for (final chat in timelineChats) {
-                                      final tsRaw = chat['_timestamp'];
-                                      final tsSec =
-                                          tsRaw is num ? tsRaw.toDouble() : 0.0;
-                                      final date = tsSec > 0
-                                          ? DateTime.fromMillisecondsSinceEpoch(
-                                              (tsSec * 1000).toInt())
-                                          : DateTime.now();
-                                      final justDate = DateTime(
-                                          date.year, date.month, date.day);
-
-                                      if (!justDate.isBefore(today)) {
-                                        todayChats.add(chat);
-                                      } else if (!justDate
-                                          .isBefore(yesterday)) {
-                                        yesterdayChats.add(chat);
-                                      } else if (!justDate.isBefore(lastWeek)) {
-                                        lastWeekChats.add(chat);
-                                      } else {
-                                        olderChats.add(chat);
-                                      }
-                                    }
-
-                                    final flatItems = <dynamic>[];
-                                    if (todayChats.isNotEmpty) {
-                                      flatItems.add('Today');
-                                      flatItems.addAll(todayChats);
-                                    }
-                                    if (yesterdayChats.isNotEmpty) {
-                                      flatItems.add('Yesterday');
-                                      flatItems.addAll(yesterdayChats);
-                                    }
-                                    if (lastWeekChats.isNotEmpty) {
-                                      flatItems.add('Previous 7 days');
-                                      flatItems.addAll(lastWeekChats);
-                                    }
-                                    if (olderChats.isNotEmpty) {
-                                      flatItems.add('Older');
-                                      flatItems.addAll(olderChats);
-                                    }
-
                                     return ListView.builder(
-                                      itemCount: flatItems.length,
+                                      itemCount: timelineChats.length,
                                       itemBuilder: (context, index) {
-                                        final item = flatItems[index];
-                                        if (item is String) {
-                                          return Padding(
-                                            padding: EdgeInsets.only(
-                                                top: 12.0,
-                                                bottom: 4.0,
-                                                left: 8.0),
-                                            child: Text(
-                                              item,
-                                              style: TextStyle(
-                                                color: Color(0xFF676767),
-                                                fontSize: 11,
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                            ),
-                                          );
-                                        }
-
-                                        final threadData =
-                                            item as Map<String, dynamic>;
+                                        final threadData = timelineChats[index];
                                         final threadId = threadData['thread_id']
                                                 as String? ??
                                             '';
