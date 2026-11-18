@@ -6,6 +6,8 @@ import 'package:veraxi_app/features/knowledge_hub/view_models/knowledge_hub_view
 import 'package:veraxi_app/features/chat/views/widgets/chat_sidebar.dart';
 import 'package:veraxi_app/core/sidebar_provider.dart';
 import 'widgets/schema_visual_builder.dart';
+import 'widgets/corpus_briefing_panel.dart';
+import 'widgets/code_intel_section.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:veraxi_app/core/widgets/model_selector_popup.dart';
@@ -706,6 +708,10 @@ class _KnowledgeHubScreenState extends ConsumerState<KnowledgeHubScreen> {
         _buildSchemaCard(theme),
         SizedBox(height: 32),
         _buildIngestionCard(theme),
+        SizedBox(height: 48),
+        const CorpusBriefingPanel(),
+        SizedBox(height: 48),
+        const CodeIntelSection(),
         SizedBox(height: 48),
         Text('Database Monitors',
             style: theme.textTheme.headlineMedium?.copyWith(
