@@ -1,19 +1,176 @@
-"""Recon / DAST ingestion (Nuclei JSON / JSONL) for white-hat & AppSec Hybrid RAG.
+"""Recon / DAST ingestion (Nuclei, Nmap XML, Burp XML, Caido JSON) for Hybrid RAG.
 
-Parses ProjectDiscovery Nuclei JSON/JSONL output into ``TargetHost`` and
-``ReconFinding`` nodes linked to ``CVE`` and ``CWE`` nodes in Neo4j, and
-optionally indexes findings in Qdrant.
+Parses ProjectDiscovery Nuclei JSON/JSONL, Nmap XML, Burp Suite XML, and
+Caido findings JSON into ``TargetHost`` and ``ReconFinding`` nodes linked
+to ``CVE`` and ``CWE`` nodes in Neo4j, and optionally indexes findings in Qdrant.
 """
 
 from __future__ import annotations
 
 import json
 import logging
+import re
 import uuid
+import xml.etree.ElementTree as ET
 from typing import Any
 from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
+
+_CVE_RE = re.compile(r"\b(CVE-\d{4}-\d{4,})\b", re.IGNORECASE)
+_CWE_RE = re.compile(r"\b(CWE-\d+)\b", re.IGNORECASE)
+_UNSAFE_XML_RE = re.compile(r"<!(?:DOCTYPE|ENTITY)\b", re.IGNORECASE)
+
+
+def _safe_xml_root(xml_text: str) -> ET.Element | None:
+    """Parse XML rejecting DOCTYPE/ENTITY declarations to prevent XXE."""
+    if not xml_text or _UNSAFE_XML_RE.search(xml_text):
+        return None
+    try:
+        return ET.fromstring(xml_text)
+    except ET.ParseError:
+        return None
+
+
+def parse_nmap_xml(xml_text: str) -> list[dict[str, Any]]:
+    """Parse Nmap XML (open ports, services, and NSE vuln script CVEs)."""
+    root = _safe_xml_root(xml_text)
+    if root is None or root.tag != "nmaprun":
+        return []
+    findings: list[dict[str, Any]] = []
+    for host_el in root.findall("host"):
+        addr_el = host_el.find("address")
+        host = (addr_el.get("addr") if addr_el is not None else "") or ""
+        hn_el = host_el.find("hostnames/hostname")
+        if hn_el is not None and hn_el.get("name"):
+            host = hn_el.get("name") or host
+        for port_el in host_el.findall("ports/port"):
+            state_el = port_el.find("state")
+            if state_el is None or state_el.get("state") != "open":
+                continue
+            port_id = port_el.get("portid") or ""
+            proto = port_el.get("protocol") or "tcp"
+            svc_el = port_el.find("service")
+            svc_name = (svc_el.get("name") if svc_el is not None else "") or "service"
+            product = (svc_el.get("product") if svc_el is not None else "") or ""
+            version = (svc_el.get("version") if svc_el is not None else "") or ""
+            script_text = " ".join(
+                (s.get("output") or "") for s in port_el.findall("script")
+            )
+            cves = sorted({m.upper() for m in _CVE_RE.findall(script_text)})
+            findings.append(
+                {
+                    "template_id": f"nmap:{proto}/{port_id}/{svc_name}",
+                    "name": f"Open {svc_name} ({proto}/{port_id}) {product} {version}".strip(),
+                    "severity": "HIGH" if cves else "INFO",
+                    "description": script_text.strip(),
+                    "matched_at": f"{host}:{port_id}" if host else port_id,
+                    "host": host,
+                    "cve_ids": cves,
+                    "cwe_ids": [],
+                    "tags": ["nmap", svc_name],
+                }
+            )
+    return findings
+
+
+def parse_burp_xml(xml_text: str) -> list[dict[str, Any]]:
+    """Parse Burp Suite XML issues export into normalized recon findings."""
+    root = _safe_xml_root(xml_text)
+    if root is None or root.tag != "issues":
+        return []
+    findings: list[dict[str, Any]] = []
+    for issue in root.findall("issue"):
+        name = (issue.findtext("name") or "Burp Issue").strip()
+        host = (issue.findtext("host") or "").strip()
+        path = (issue.findtext("path") or "").strip()
+        severity = (issue.findtext("severity") or "information").strip().upper()
+        detail = (issue.findtext("issueDetail") or issue.findtext("issueBackground") or "").strip()
+        vuln_class = (issue.findtext("vulnerabilityClassifications") or "").strip()
+        combined = f"{detail} {vuln_class}"
+        cves = sorted({m.upper() for m in _CVE_RE.findall(combined)})
+        cwes = sorted({m.upper() for m in _CWE_RE.findall(combined)})
+        matched_at = f"{host.rstrip('/')}{path}" if host else path
+        parsed = urlparse(matched_at) if "://" in matched_at else None
+        clean_host = parsed.hostname if parsed and parsed.hostname else host
+        findings.append(
+            {
+                "template_id": f"burp:{issue.findtext('type') or name}",
+                "name": name,
+                "severity": "INFO" if severity == "INFORMATION" else severity,
+                "description": detail[:1000],
+                "matched_at": matched_at,
+                "host": clean_host or "",
+                "cve_ids": cves,
+                "cwe_ids": cwes,
+                "tags": ["burp"],
+            }
+        )
+    return findings
+
+
+def parse_caido_output(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Parse Caido findings/requests JSON export into normalized recon findings."""
+    findings: list[dict[str, Any]] = []
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        title = str(item.get("title") or item.get("name") or item.get("reporter") or "Caido Finding")
+        desc = str(item.get("description") or "")
+        host = str(item.get("host") or "").strip()
+        path = str(item.get("path") or item.get("url") or "").strip()
+        matched_at = path or host
+        if not host and "://" in matched_at:
+            host = urlparse(matched_at).hostname or ""
+        combined = f"{title} {desc}"
+        findings.append(
+            {
+                "template_id": f"caido:{item.get('id') or title}",
+                "name": title,
+                "severity": str(item.get("severity") or "MEDIUM").upper(),
+                "description": desc,
+                "matched_at": matched_at,
+                "host": host,
+                "cve_ids": sorted({m.upper() for m in _CVE_RE.findall(combined)}),
+                "cwe_ids": sorted({m.upper() for m in _CWE_RE.findall(combined)}),
+                "tags": ["caido"],
+            }
+        )
+    return findings
+
+
+def parse_recon_output(raw: str | list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Auto-detect and parse Nuclei JSON/JSONL, Nmap XML, Burp XML, or Caido JSON."""
+    if isinstance(raw, str):
+        stripped = raw.lstrip()
+        if stripped.startswith("<"):
+            if "<nmaprun" in stripped[:300]:
+                return parse_nmap_xml(stripped)
+            if "<issues" in stripped[:300]:
+                return parse_burp_xml(stripped)
+            return []
+        if stripped.startswith("["):
+            try:
+                loaded = json.loads(stripped)
+                if (
+                    isinstance(loaded, list)
+                    and loaded
+                    and isinstance(loaded[0], dict)
+                    and "template-id" not in loaded[0]
+                    and "templateID" not in loaded[0]
+                ):
+                    return parse_caido_output(loaded)
+            except json.JSONDecodeError:
+                return []
+    elif (
+        isinstance(raw, list)
+        and raw
+        and isinstance(raw[0], dict)
+        and "template-id" not in raw[0]
+        and "templateID" not in raw[0]
+    ):
+        return parse_caido_output(raw)
+    return parse_nuclei_output(raw)
 
 
 def _as_list(value: Any) -> list[str]:
@@ -273,4 +430,12 @@ def write_recon_findings(
     }
 
 
-__all__ = ["index_recon_vectors", "parse_nuclei_output", "write_recon_findings"]
+__all__ = [
+    "index_recon_vectors",
+    "parse_burp_xml",
+    "parse_caido_output",
+    "parse_nmap_xml",
+    "parse_nuclei_output",
+    "parse_recon_output",
+    "write_recon_findings",
+]

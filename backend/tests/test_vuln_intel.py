@@ -1083,3 +1083,46 @@ def test_worker_scheduled_sync_gating_and_public_cron(monkeypatch):
     assert vuln_res == {"status": "ok", "cves_written": 5}
     assert atk_res == {"status": "ok", "techniques_written": 3}
     assert len(worker.WorkerSettings.cron_jobs) == 2
+
+
+def test_parse_nmap_burp_caido_and_xxe_rejected():
+    from backend.ingestion.recon import parse_recon_output
+
+    nmap_xml = (
+        '<nmaprun><host><address addr="10.0.0.5"/>'
+        '<hostnames><hostname name="api.internal"/></hostnames>'
+        '<ports><port protocol="tcp" portid="443"><state state="open"/>'
+        '<service name="https" product="nginx" version="1.24"/>'
+        '<script id="vulners" output="CVE-2023-44487"/></port></ports></host></nmaprun>'
+    )
+    nmap_findings = parse_recon_output(nmap_xml)
+    assert len(nmap_findings) == 1
+    assert nmap_findings[0]["host"] == "api.internal"
+    assert nmap_findings[0]["cve_ids"] == ["CVE-2023-44487"]
+    assert nmap_findings[0]["severity"] == "HIGH"
+
+    burp_xml = (
+        '<issues><issue><type>1048832</type><name>SQL Injection</name>'
+        '<host>https://app.example.com</host><path>/login</path>'
+        '<severity>High</severity><issueDetail>Possible CWE-89</issueDetail></issue></issues>'
+    )
+    burp_findings = parse_recon_output(burp_xml)
+    assert len(burp_findings) == 1
+    assert burp_findings[0]["host"] == "app.example.com"
+    assert burp_findings[0]["cwe_ids"] == ["CWE-89"]
+
+    caido_json = [
+        {
+            "id": "c-1",
+            "title": "IDOR on /api/users (CWE-639)",
+            "severity": "high",
+            "url": "https://target.example.com/api/users/2",
+        }
+    ]
+    caido_findings = parse_recon_output(caido_json)
+    assert len(caido_findings) == 1
+    assert caido_findings[0]["host"] == "target.example.com"
+    assert caido_findings[0]["cwe_ids"] == ["CWE-639"]
+
+    xxe_xml = '<!DOCTYPE foo [<!ENTITY xxe SYSTEM "file:///etc/passwd">]><issues/>'
+    assert parse_recon_output(xxe_xml) == []

@@ -549,11 +549,11 @@ def register_code_intel_routes(
         payload: ReconIngestRequest,
         tenant_id: str = Depends(get_tenant_id),
     ):
-        """Ingest Nuclei JSON/JSONL recon/DAST findings into Neo4j and Qdrant."""
-        from backend.ingestion.recon import parse_nuclei_output, write_recon_findings
+        """Ingest Nuclei, Nmap XML, Burp XML, or Caido recon/DAST findings."""
+        from backend.ingestion.recon import parse_recon_output, write_recon_findings
 
         def _ingest() -> dict:
-            findings = parse_nuclei_output(payload.nuclei)
+            findings = parse_recon_output(payload.nuclei)
             qdrant_client = None
             try:
                 from backend.config import get_config
