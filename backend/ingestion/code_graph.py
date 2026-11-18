@@ -54,6 +54,7 @@ from __future__ import annotations
 
 import ast
 import logging
+import os
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -208,6 +209,13 @@ class _GraphBuilder:
 
 def _is_parseable_file(path: Path, root: Path) -> bool:
     """True when ``path`` is a supported source file per sync conventions."""
+    if path.is_symlink() or not path.is_file():
+        return False
+    try:
+        if os.path.commonpath([str(root), os.path.realpath(path)]) != str(root):
+            return False
+    except ValueError:
+        return False
     if path.suffix.lower() not in _LANGUAGE_BY_EXTENSION:
         return False
     if path.name in _SKIPPED_FILES:
@@ -639,8 +647,10 @@ def parse_repo(root: str | Path) -> CodeGraph:
     Pure: no database or network access. Paths on nodes are relative to
     ``root`` (POSIX separators) so results are machine-independent.
     """
-    root_path = Path(root)
+    root_path = Path(os.path.realpath(root))
     builder = _GraphBuilder()
+    if not root_path.is_dir():
+        return builder.build()
     for path in sorted(root_path.rglob("*")):
         if not path.is_file() or not _is_parseable_file(path, root_path):
             continue

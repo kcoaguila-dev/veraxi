@@ -45,6 +45,43 @@ def _app_origin(app_base: str) -> str:
     return "*"
 
 
+_ALLOWED_PROVIDERS: dict[str, str] = {
+    "github": "github",
+    "google_drive": "google_drive",
+    "notion": "notion",
+    "linear": "linear",
+    "slack": "slack",
+}
+
+_ALLOWED_STATUSES: dict[str, str] = {
+    "connected": "connected",
+    "error": "error",
+}
+
+_ALLOWED_OAUTH_ERRORS: dict[str, str] = {
+    "": "",
+    "access_denied": "access_denied",
+    "invalid_request": "invalid_request",
+    "unauthorized_client": "unauthorized_client",
+    "unsupported_response_type": "unsupported_response_type",
+    "invalid_scope": "invalid_scope",
+    "server_error": "server_error",
+    "temporarily_unavailable": "temporarily_unavailable",
+    "storage_unavailable": "storage_unavailable",
+    "oauth_failed": "oauth_failed",
+}
+
+
+def _script_safe_json(value: object) -> str:
+    """Serialize to JSON with HTML-significant characters unicode-escaped."""
+    return (
+        json.dumps(value)
+        .replace("&", "\\u0026")
+        .replace("<", "\\u003c")
+        .replace(">", "\\u003e")
+    )
+
+
 def _oauth_callback_html(
     app_base: str,
     provider: str,
@@ -58,21 +95,29 @@ def _oauth_callback_html(
     """
     clean_app_url = f"{app_base.rstrip('/')}/#/chat"
     target_origin = _app_origin(app_base)
-    payload_json = json.dumps({
+    safe_provider = _ALLOWED_PROVIDERS.get(provider, "unknown")
+    safe_status = _ALLOWED_STATUSES.get(status, "error")
+    safe_error = (
+        ""
+        if safe_status == "connected"
+        else _ALLOWED_OAUTH_ERRORS.get(error, "oauth_failed") or "oauth_failed"
+    )
+    payload_json = _script_safe_json({
         "type": "veraxi_oauth_callback",
-        "provider": provider,
-        "status": status,
-        "error": error,
+        "provider": safe_provider,
+        "status": safe_status,
+        "error": safe_error,
     })
-    origin_json = json.dumps(target_origin)
-    fallback_json = json.dumps(clean_app_url)
+    origin_json = _script_safe_json(target_origin)
+    fallback_json = _script_safe_json(clean_app_url)
     heading = (
-        "Connection complete" if status == "connected" else "Authorization failed"
+        "Connection complete" if safe_status == "connected" else "Authorization failed"
     )
     detail = (
-        f"{html.escape(provider)} is now connected. You can close this window."
-        if status == "connected"
-        else f"Could not connect {html.escape(provider)}. You can close this window."
+        f"{html.escape(safe_provider)} is now connected. You can close this window."
+        if safe_status == "connected"
+        else f"Could not connect {html.escape(safe_provider)}. "
+        "You can close this window."
     )
     body = f"""<!doctype html>
 <html lang="en">

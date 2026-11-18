@@ -363,6 +363,17 @@ def test_extract_dependencies_from_repo(tmp_path):
     assert sources == {"pyproject.toml", "web/package.json"}
 
 
+def test_extract_dependencies_skips_symlinked_manifest_escaping_root(tmp_path):
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "pyproject.toml").write_text(PYPROJECT, encoding="utf-8")
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / "pyproject.toml").symlink_to(outside / "pyproject.toml")
+
+    assert extract_dependencies_from_repo(repo) == []
+
+
 # ---------------------------------------------------------------------------
 # Writer (recording fake client)
 # ---------------------------------------------------------------------------

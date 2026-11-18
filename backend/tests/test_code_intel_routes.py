@@ -6,6 +6,8 @@ against a tmp repo, including adversarial traversal attempts that
 must fail closed.
 """
 
+import os
+
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -55,6 +57,38 @@ class TestPathValidation:
             json={"repo_path": str(repo.parent / "does-not-exist")},
         )
         assert resp.status_code == 404
+
+    def test_encoded_traversal_rejected(self, client):
+        resp = client.post(
+            "/api/v1/code/ingest", json={"repo_path": "%2f..%2fetc"}
+        )
+        assert resp.status_code == 403
+
+    def test_symlink_escaping_root_rejected(
+        self, client, repo, tmp_path_factory, monkeypatch
+    ):
+        monkeypatch.setenv("VERAXI_CODE_ROOTS", str(repo))
+        outside = tmp_path_factory.mktemp("outside")
+        (repo / "escape").symlink_to(outside, target_is_directory=True)
+        resp = client.post(
+            "/api/v1/code/ingest", json={"repo_path": str(repo / "escape")}
+        )
+        assert resp.status_code == 403
+
+    def test_nested_subdir_inside_root_resolves(self, client, monkeypatch, repo):
+        sub = repo / "nested"
+        sub.mkdir()
+        monkeypatch.setattr(
+            routes,
+            "write_repo_code_graph",
+            lambda root, tenant_id="default", client=None: {
+                "nodes_written": 1,
+                "edges_written": 0,
+            },
+        )
+        resp = client.post("/api/v1/code/ingest", json={"repo_path": str(sub)})
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["repo_path"] == os.path.realpath(sub)
 
 
 class TestCodeRoutes:
