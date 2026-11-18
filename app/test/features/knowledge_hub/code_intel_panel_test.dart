@@ -84,7 +84,11 @@ class FakeCodeIntelRepository extends CodeIntelRepository {
   }
 
   @override
-  Future<VulnReport> runVulnReport({String? repoPath}) async {
+  Future<VulnReport> runVulnReport({
+    String? repoPath,
+    bool includeReachability = false,
+    Map<String, dynamic>? sbomJson,
+  }) async {
     return VulnReport.fromJson({
       'dependencies_checked': 3,
       'matched_count': 1,
@@ -101,6 +105,19 @@ class FakeCodeIntelRepository extends CodeIntelRepository {
           'cwe_ids': ['CWE-79'],
           'match_status': 'matched',
           'kev': true,
+          'epss_score': 0.873,
+          'epss_percentile': 0.97,
+          'reachable_file_count': 2,
+          'reachable_in_code': [
+            {
+              'qualified_name': 'app.main',
+              'name': 'main',
+              'label': 'Function',
+              'path': 'app.py',
+              'depth': 1,
+              'via_edge': 'CALLS',
+            },
+          ],
         },
         {
           'package': 'legacy-lib',
@@ -115,6 +132,44 @@ class FakeCodeIntelRepository extends CodeIntelRepository {
         },
       ],
     });
+  }
+
+  @override
+  Future<SarifIngestResult> ingestSarif(Map<String, dynamic> sarif) async {
+    return const SarifIngestResult(
+      findingsWritten: 5,
+      fileLinks: 5,
+      cweLinks: 2,
+    );
+  }
+
+  @override
+  Future<ReconIngestResult> ingestRecon(dynamic nucleiPayload) async {
+    return const ReconIngestResult(
+      findingsWritten: 3,
+      hostLinks: 2,
+      cveLinks: 1,
+    );
+  }
+
+  @override
+  Future<AttackSyncResult> syncAttackIntel({
+    Map<String, dynamic>? stixJson,
+  }) async {
+    return const AttackSyncResult(
+      techniquesWritten: 10,
+      tacticsWritten: 3,
+      mitigationsWritten: 4,
+    );
+  }
+
+  @override
+  Future<AlertIngestResult> ingestAlerts(dynamic alerts) async {
+    return const AlertIngestResult(
+      alertsWritten: 7,
+      iocLinks: 2,
+      techniqueLinks: 1,
+    );
   }
 }
 
@@ -140,7 +195,7 @@ ThemeData testTheme() {
 void main() {
   testWidgets('Repo X-Ray and Vuln Intel panels render and filter',
       (tester) async {
-    tester.view.physicalSize = const Size(1200, 3200);
+    tester.view.physicalSize = const Size(1200, 4400);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
     final fake = FakeCodeIntelRepository();
@@ -158,6 +213,9 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Repo X-Ray'), findsOneWidget);
     expect(find.text('Vulnerability Intel'), findsOneWidget);
+    expect(find.text('Security Feed'), findsOneWidget);
+    expect(find.text('Upload SBOM (CycloneDX/SPDX)'), findsOneWidget);
+    expect(find.text('Include reachability'), findsOneWidget);
 
     // Index the repo (first text field is the shared repo path).
     await tester.enterText(find.byType(TextField).first, '/repos/demo');
@@ -199,11 +257,44 @@ void main() {
       findsOneWidget,
     );
 
+    // EPSS badge and code-reachability pill render for the enriched
+    // finding; the legacy finding has neither.
+    expect(find.text('EPSS 87.3%'), findsOneWidget);
+    expect(find.text('Reachable in Code · 2 files'), findsOneWidget);
+
+    // Reachability expansion lists the reachable locations.
+    await tester.tap(find.text('Reachable from'));
+    await tester.pumpAndSettle();
+    expect(find.text('app.main'), findsWidgets);
+
+    // Quick filter: High EPSS keeps only the EPSS >= 0.5 finding.
+    await tester.tap(find.widgetWithText(ChoiceChip, 'High EPSS ≥ 0.5'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('CVE-2024-0001'), findsOneWidget);
+    expect(find.textContaining('CVE-2023-9999'), findsNothing);
+    await tester.tap(find.widgetWithText(ChoiceChip, 'All'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('CVE-2023-9999'), findsOneWidget);
+
     // Severity filter narrows the list to HIGH only.
     await tester.tap(find.widgetWithText(ChoiceChip, 'HIGH'));
     await tester.pumpAndSettle();
     expect(find.textContaining('CVE-2024-0001'), findsOneWidget);
     expect(find.textContaining('CVE-2023-9999'), findsNothing);
+
+    // Security Feed tabs switch between the four ingest sources.
+    await tester.tap(find.widgetWithText(ChoiceChip, 'Recon'));
+    await tester.pumpAndSettle();
+    expect(find.text('Upload Nuclei JSON/JSONL'), findsOneWidget);
+    await tester.tap(find.widgetWithText(ChoiceChip, 'ATT&CK'));
+    await tester.pumpAndSettle();
+    expect(find.text('Sync MITRE ATT&CK'), findsOneWidget);
+    await tester.tap(find.widgetWithText(ChoiceChip, 'SOC'));
+    await tester.pumpAndSettle();
+    expect(find.text('Upload Alerts / IOCs'), findsOneWidget);
+    await tester.tap(find.widgetWithText(ChoiceChip, 'SAST'));
+    await tester.pumpAndSettle();
+    expect(find.text('Upload SARIF 2.1.0'), findsOneWidget);
   });
 
   test('severity filter logic in state', () {
@@ -226,5 +317,43 @@ void main() {
       ]),
     );
     expect(state.filteredFindings.map((f) => f.cveId), ['CVE-2']);
+  });
+
+  test('quick filter logic in state (KEV / EPSS / reachability)', () {
+    const report = VulnReport(findings: [
+      VulnFinding(
+        package: 'a',
+        cveId: 'CVE-KEV',
+        matchStatus: 'matched',
+        kev: true,
+        epssScore: 0.2,
+      ),
+      VulnFinding(
+        package: 'b',
+        cveId: 'CVE-EPSS',
+        matchStatus: 'matched',
+        epssScore: 0.9,
+      ),
+      VulnFinding(
+        package: 'c',
+        cveId: 'CVE-REACH',
+        matchStatus: 'matched',
+        reachableFileCount: 3,
+      ),
+      VulnFinding(
+        package: 'd',
+        cveId: 'CVE-PLAIN',
+        matchStatus: 'matched',
+      ),
+    ]);
+    List<String> ids(String filter) => CodeIntelState(
+          vulnReport: report,
+          vulnQuickFilter: filter,
+        ).filteredFindings.map((f) => f.cveId).toList();
+    expect(ids(VulnQuickFilter.all),
+        ['CVE-KEV', 'CVE-EPSS', 'CVE-REACH', 'CVE-PLAIN']);
+    expect(ids(VulnQuickFilter.kevOnly), ['CVE-KEV']);
+    expect(ids(VulnQuickFilter.highEpss), ['CVE-EPSS']);
+    expect(ids(VulnQuickFilter.reachable), ['CVE-REACH']);
   });
 }
