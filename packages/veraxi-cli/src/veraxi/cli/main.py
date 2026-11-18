@@ -15,6 +15,7 @@ from veraxi.cli.impact import run_impact
 from veraxi.cli.ingest import run_ingest
 from veraxi.cli.init_project import init_project
 from veraxi.cli.learn import run_learn
+from veraxi.cli.memories import run_memories_add, run_memories_delete, run_memories_edit, run_memories_expire, run_memories_list
 from veraxi.cli.models import run_models_list, run_models_set
 from veraxi.cli.memory import (
     run_memory_audit,
@@ -341,7 +342,7 @@ def main():
 
     # --- remember ---
     remember_parser = subparsers.add_parser(
-        "remember", help="Save an architectural rule or constraint to memory"
+        "remember", help="[deprecated: use veraxi memories add] Save an architectural rule or constraint to memory"
     )
     remember_parser.add_argument(
         "insight", help="The architectural rule, pattern, or constraint"
@@ -411,7 +412,7 @@ def main():
 
     # --- memory ---
     memory_parser = subparsers.add_parser(
-        "memory", help="Inspect, export, import, audit, prune, or check memory stats"
+        "memory", help="[deprecated: use veraxi memories] Inspect, export, import, audit, prune, or check memory stats"
     )
     memory_parser.add_argument(
         "action",
@@ -825,6 +826,32 @@ def main():
     _lin.add_argument("--tenant", help="Tenant ID")
     _lin.add_argument("--endpoint", default="https://api.veraxi.me/sse", help="Veraxi API endpoint")
     _lin.add_argument("--json", action="store_true", help="Output raw JSON")
+
+    # --- memories (Supabase user_memories — the memory store going forward) ---
+    memories_parser = subparsers.add_parser(
+        "memories",
+        help="User memories (Supabase user_memories, SSOT going forward; legacy Neo4j 'memory'/'remember' are deprecated)",
+        description="Per-user memories in Supabase user_memories (temporal valid_to) — the single source of truth going forward. Legacy Neo4j-backed 'veraxi memory'/'remember' (project-scoped agent rules) are deprecated; there is no data to migrate and no dual-write.",
+    )
+    memories_sub = memories_parser.add_subparsers(dest="memories_command")
+    _ml = memories_sub.add_parser("list", help="List memories (expired hidden unless --all)")
+    _ml.add_argument("--all", action="store_true", dest="include_all", help="Also show expired memories with valid_to")
+    _ma = memories_sub.add_parser("add", help="Add a memory")
+    _ma.add_argument("content", help="Memory content")
+    _ma.add_argument("--source", default="manual", choices=["chat", "manual", "import"])
+    _me = memories_sub.add_parser("edit", help="Edit a memory")
+    _me.add_argument("memory_id", help="Memory ID")
+    _me.add_argument("--content", help="New content")
+    _me.add_argument("--source", choices=["chat", "manual", "import"])
+    _mx = memories_sub.add_parser("expire", help="Expire a memory (sets valid_to; row retained)")
+    _mx.add_argument("memory_id", help="Memory ID")
+    _md = memories_sub.add_parser("delete", help="Delete a memory (row removed)")
+    _md.add_argument("memory_id", help="Memory ID")
+    for _sp in (_ml, _ma, _me, _mx, _md):
+        _sp.add_argument("--key", help="Veraxi API key (vx-...)")
+        _sp.add_argument("--tenant", help="Tenant ID")
+        _sp.add_argument("--endpoint", default="https://api.veraxi.me/sse", help="Veraxi API endpoint")
+        _sp.add_argument("--json", action="store_true", help="Output raw JSON")
 
     args = parser.parse_args()
 
@@ -1311,6 +1338,23 @@ def main():
             run_dbt_upload(args.manifest, endpoint=endpoint, key=key, tenant=tenant_id, as_json=args.json)
         else:
             run_dbt_lineage(args.target, endpoint=endpoint, key=key, tenant=tenant_id, as_json=args.json)
+
+    elif args.subcommand == "memories":
+        if getattr(args, "memories_command", None) not in ("list", "add", "edit", "expire", "delete"):
+            parser.parse_args(["memories", "--help"])
+            sys.exit(0)
+        key, endpoint = resolve_credentials(args.key, args.endpoint)
+        tenant_id = _resolve_tenant_id(args.tenant)
+        if args.memories_command == "list":
+            run_memories_list(endpoint=endpoint, key=key, tenant=tenant_id, as_json=args.json, include_all=args.include_all)
+        elif args.memories_command == "add":
+            run_memories_add(args.content, endpoint=endpoint, key=key, tenant=tenant_id, as_json=args.json, source=args.source)
+        elif args.memories_command == "edit":
+            run_memories_edit(args.memory_id, content=args.content, source=args.source, endpoint=endpoint, key=key, tenant=tenant_id, as_json=args.json)
+        elif args.memories_command == "expire":
+            run_memories_expire(args.memory_id, endpoint=endpoint, key=key, tenant=tenant_id, as_json=args.json)
+        else:
+            run_memories_delete(args.memory_id, endpoint=endpoint, key=key, tenant=tenant_id, as_json=args.json)
 
     elif args.subcommand == "web":
         run_web(

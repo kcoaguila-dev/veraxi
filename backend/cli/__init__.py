@@ -31,6 +31,7 @@ _SUBMODULES = [
     "init_project",
     "learn",
     "main",
+    "memories",
     "memory",
     "models",
     "query",
