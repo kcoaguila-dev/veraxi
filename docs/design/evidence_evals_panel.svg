@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="900" viewBox="0 0 1440 900">
+  <!-- Visual contract: Evidence Evals section inside Observability
+       (evidence_evals_panel.dart in observability_view.dart, fed by
+       evals_view_model.dart over POST /api/v1/evals/ablation).
+       Power-user affordance, honest by design: there is NO saved
+       benchmark store in the backend, so the panel is two multiline
+       JSON fields (typed dataset cases + recorded rankings keyed by
+       config then query text, exactly like the CLI) plus a Run
+       button. Results render as one comparison table per query_type
+       present (lookup / multi_hop / global) plus Overall: rows are
+       configs (vector_only / hybrid_no_graph / hybrid_with_graph),
+       columns recall@k, hit_rate, grounding. Grounding renders
+       "n/a" when null — never 0.00. Invalid JSON or a backend 400
+       renders the error inline. Colors: surface #1F1F23,
+       border #2E2E34, card #222226, text #ECECEC / #A1A1AA. -->
+  <rect width="1440" height="900" fill="#0E0E10"/>
+  <rect x="0" y="0" width="1440" height="900" fill="#171719"/>
+  <text x="48" y="64" font-family="Inter, sans-serif" font-size="20" fill="#FFFFFF" font-weight="700">Security &amp; Observability</text>
+  <rect x="48" y="96" width="1344" height="560" rx="16" fill="#222226" stroke="#2E2E34"/>
+  <text x="72" y="132" font-family="Inter, sans-serif" font-size="16" fill="#FFFFFF" font-weight="600">Evidence Evals — Retrieval Ablation</text>
+  <text x="72" y="156" font-family="Inter, sans-serif" font-size="12" fill="#A1A1AA">Paste a typed dataset (cases) and recorded rankings (config → query → doc ids). Runs fully offline against the recorded rankings.</text>
+  <rect x="72" y="176" width="640" height="120" rx="8" fill="#1F1F23" stroke="#2E2E34"/>
+  <text x="88" y="200" font-family="monospace" font-size="11" fill="#71717A">{"cases": [{"id": "lookup-1", "query_type": "lookup", …}]}</text>
+  <rect x="728" y="176" width="640" height="120" rx="8" fill="#1F1F23" stroke="#2E2E34"/>
+  <text x="744" y="200" font-family="monospace" font-size="11" fill="#71717A">{"vector_only": {"What is Acme?": ["doc-1"]}, …}</text>
+  <rect x="72" y="312" width="140" height="36" rx="8" fill="#2E2E34"/>
+  <text x="94" y="335" font-family="Inter, sans-serif" font-size="12" fill="#ECECEC">Run Ablation</text>
+  <text x="72" y="386" font-family="Inter, sans-serif" font-size="13" fill="#ECECEC" font-weight="600">lookup</text>
+  <text x="72" y="412" font-family="Inter, sans-serif" font-size="12" fill="#A1A1AA">vector_only        recall@5 0.500 · hit 1.000 · grounding n/a</text>
+  <text x="72" y="436" font-family="Inter, sans-serif" font-size="12" fill="#A1A1AA">hybrid_no_graph    recall@5 1.000 · hit 1.000 · grounding n/a</text>
+  <text x="72" y="460" font-family="Inter, sans-serif" font-size="12" fill="#ECECEC">hybrid_with_graph  recall@5 1.000 · hit 1.000 · grounding 0.900</text>
+</svg>

@@ -3,6 +3,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
+import 'package:veraxi_app/features/knowledge_hub/views/widgets/tabs/evidence_evals_panel.dart';
 
 class ObservabilityView extends StatefulWidget {
   const ObservabilityView({super.key});
@@ -172,6 +173,8 @@ class _ObservabilityViewState extends State<ObservabilityView> {
             ],
           ),
         ),
+        SizedBox(height: 40),
+        const EvidenceEvalsPanel(),
       ],
     );
   }
