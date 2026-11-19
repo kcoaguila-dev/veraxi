@@ -142,6 +142,10 @@ void main() {
 
     await tester.pumpAndSettle();
 
+    // Navigate from landing page to Login Screen
+    await tester.tap(find.text('Start Building'));
+    await tester.pumpAndSettle();
+
     // 2. Assert we are on the Login Screen
     expect(find.text('Welcome Back'), findsOneWidget);
     expect(find.byType(TextField), findsNWidgets(2)); // Email and Password

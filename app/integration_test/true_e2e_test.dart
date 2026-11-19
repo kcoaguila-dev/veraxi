@@ -57,6 +57,10 @@ void main() async {
     await tester.pump(const Duration(seconds: 2));
     await tester.pumpAndSettle();
 
+    // Navigate from landing page to Login Screen
+    await tester.tap(find.text('Start Building'));
+    await tester.pumpAndSettle();
+
     // 1. Wait for Login Screen
     // We expect "Welcome Back" to be visible
     expect(find.text('Welcome Back'), findsOneWidget);
