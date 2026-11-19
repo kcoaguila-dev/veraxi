@@ -415,13 +415,10 @@ class ChatMessageListItem extends ConsumerWidget {
                                         ),
                                       ),
                                       SizedBox(width: 16),
-                                      InkWell(
-                                        onTap: () => Clipboard.setData(
-                                            ClipboardData(text: msg.content)),
-                                        child: Icon(Icons.copy_outlined,
-                                            size: 16,
-                                            color: theme.colorScheme.onSurface
-                                                .withValues(alpha: 0.5)),
+                                      _CopyMessageButton(
+                                        text: msg.content,
+                                        color: theme.colorScheme.onSurface
+                                            .withValues(alpha: 0.5),
                                       ),
                                       SizedBox(width: 16),
                                       InkWell(
@@ -715,6 +712,71 @@ class _RelativeTimeLabelState extends State<_RelativeTimeLabel> {
       child: Text(
         label,
         style: TextStyle(fontSize: 11, color: widget.color),
+      ),
+    );
+  }
+}
+
+class _CopyMessageButton extends StatefulWidget {
+  final String text;
+  final Color color;
+
+  const _CopyMessageButton({
+    required this.text,
+    required this.color,
+  });
+
+  @override
+  State<_CopyMessageButton> createState() => _CopyMessageButtonState();
+}
+
+class _CopyMessageButtonState extends State<_CopyMessageButton> {
+  bool _copied = false;
+  Timer? _resetTimer;
+
+  @override
+  void dispose() {
+    _resetTimer?.cancel();
+    super.dispose();
+  }
+
+  void _handleCopy() {
+    Clipboard.setData(ClipboardData(text: widget.text));
+    _resetTimer?.cancel();
+    setState(() => _copied = true);
+    _resetTimer = Timer(const Duration(seconds: 2), () {
+      if (!mounted) return;
+      setState(() => _copied = false);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: _copied ? 'Copied' : 'Copy',
+      child: InkWell(
+        onTap: _handleCopy,
+        borderRadius: BorderRadius.circular(4),
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 180),
+          transitionBuilder: (child, animation) => ScaleTransition(
+            scale: animation,
+            child: child,
+          ),
+          child: _copied
+              ? const Icon(
+                  Icons.check,
+                  key: ValueKey('copied'),
+                  size: 16,
+                  color: Color(0xFF10A37F),
+                )
+              : Icon(
+                  Icons.copy_outlined,
+                  key: const ValueKey('copy'),
+                  size: 16,
+                  color: widget.color,
+                ),
+        ),
       ),
     );
   }

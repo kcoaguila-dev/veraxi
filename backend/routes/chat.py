@@ -263,20 +263,26 @@ def _extract_messages_from_state(
             assistant_messages[-len(activity_history) :], activity_history
         ):
             message["activity"] = activity
-            if not message.get("toolEvents"):
-                message["toolEvents"] = [
-                    event
-                    for step in activity
-                    if isinstance(step, dict)
-                    for event in (step.get("toolEvents") or [])
-                ]
     if reasoning_history:
         assistant_messages = _final_assistant_messages(messages)
         for message, saved_reasoning in zip(
             assistant_messages[-len(reasoning_history) :], reasoning_history
         ):
             _apply_saved_reasoning(message, saved_reasoning)
-    return _merge_intermediate_tool_messages(messages)
+    merged = _merge_intermediate_tool_messages(messages)
+    for message in merged:
+        if (
+            message.get("role") == "assistant"
+            and not message.get("toolEvents")
+            and isinstance(message.get("activity"), list)
+        ):
+            message["toolEvents"] = [
+                event
+                for step in message["activity"]
+                if isinstance(step, dict)
+                for event in (step.get("toolEvents") or [])
+            ]
+    return merged
 
 
 def _is_intermediate_tool_message(message: dict) -> bool:
