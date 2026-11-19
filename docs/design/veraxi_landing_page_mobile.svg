@@ -1,4 +1,4 @@
-<svg width="390" height="1780" viewBox="0 0 390 1780" fill="none" xmlns="http://www.w3.org/2000/svg">
+<svg width="390" height="1820" viewBox="0 0 390 1820" fill="none" xmlns="http://www.w3.org/2000/svg">
   <defs>
     <style>
       @import url('https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@500;600;700;800&amp;family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,500;0,7..72,600&amp;family=IBM+Plex+Mono:wght@400;500;600&amp;display=swap');
@@ -8,48 +8,36 @@
     </style>
   </defs>
 
-  <!-- Cool Paper Background (#EDF0EE) -->
-  <rect width="390" height="1780" fill="#EDF0EE" />
+  <rect width="390" height="1820" fill="#EDF0EE" />
 
-  <!-- ========================================== -->
-  <!-- MOBILE HEADER (390px, 20px side padding)   -->
-  <!-- ========================================== -->
+  <!-- Header -->
   <g transform="translate(20, 18)">
     <rect width="26" height="26" rx="6" fill="#2436C9" />
     <path d="M8 8.5L13 18.5L18 8.5" stroke="#F4F6F4" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" />
     <text x="34" y="19" fill="#16191C" font-size="20" font-weight="800" letter-spacing="-0.6" class="font-sans">Veraxi</text>
-
     <text x="278" y="18" fill="#16191C" font-size="13.5" font-weight="600" class="font-sans" text-anchor="end">GitHub</text>
     <text x="350" y="18" fill="#2436C9" font-size="13.5" font-weight="700" class="font-sans" text-anchor="end">Sign in</text>
   </g>
   <line x1="20" y1="60" x2="370" y2="60" stroke="#C3CBC6" stroke-width="1" stroke-opacity="0.6" />
 
-  <!-- ========================================== -->
-  <!-- HERO (350px content width)                 -->
-  <!-- ========================================== -->
+  <!-- Hero -->
   <g transform="translate(20, 88)">
     <text x="0" y="0" fill="#2436C9" font-size="10.5" font-weight="600" letter-spacing="0.6" class="font-mono">OPEN-SOURCE DOCUMENT &amp; CODE INTELLIGENCE</text>
-
     <text x="0" y="48" fill="#16191C" font-size="44" font-weight="800" letter-spacing="-1.9" class="font-sans">Ask your files.</text>
     <text x="0" y="94" fill="#16191C" font-size="44" font-weight="800" letter-spacing="-1.9" class="font-sans">Check the answer.</text>
 
     <text x="0" y="136" fill="#55606A" font-size="14.5" class="font-serif">Veraxi reads your PDFs, Markdown and text</text>
-    <text x="0" y="158" fill="#55606A" font-size="14.5" class="font-serif">files. Every answer comes with the passages</text>
-    <text x="0" y="180" fill="#55606A" font-size="14.5" class="font-serif">behind it, even across different documents.</text>
+    <text x="0" y="158" fill="#55606A" font-size="14.5" class="font-serif">files. Every answer comes with inline</text>
+    <text x="0" y="180" fill="#55606A" font-size="14.5" class="font-serif">citations and the retrieval trail behind it.</text>
 
-    <!-- 44px+ Touch Target CTA -->
     <rect x="0" y="210" width="160" height="46" rx="8" fill="#2436C9" />
     <text x="80" y="238" fill="#F4F6F4" font-size="14.5" font-weight="700" class="font-sans" text-anchor="middle">Start Building</text>
-
     <text x="184" y="238" fill="#2436C9" font-size="14.5" font-weight="700" class="font-sans">Run it yourself ↓</text>
     <line x1="184" y1="243" x2="280" y2="243" stroke="#2436C9" stroke-width="1.5" />
   </g>
 
-  <!-- ========================================== -->
-  <!-- STACKED ANSWER DEMO (44px touch targets)   -->
-  <!-- ========================================== -->
+  <!-- Stacked Demo -->
   <g transform="translate(20, 376)">
-    <!-- 3 Stacked Question Pills (44px height) -->
     <rect x="0" y="0" width="350" height="44" rx="8" fill="#2436C9" />
     <text x="16" y="27" fill="#F4F6F4" font-size="13" font-weight="600" class="font-sans">When do I need to give notice to move out?</text>
 
@@ -59,61 +47,55 @@
     <rect x="0" y="104" width="350" height="44" rx="8" fill="#FAFBFA" stroke="#C3CBC6" stroke-width="1" />
     <text x="16" y="131" fill="#16191C" font-size="13" font-weight="500" class="font-sans">Which services call verify_jwt?</text>
 
-    <!-- Single-Column Demo Card -->
-    <rect y="164" width="350" height="580" rx="12" fill="#FAFBFA" stroke="#C3CBC6" stroke-width="1" />
+    <rect y="164" width="350" height="620" rx="12" fill="#FAFBFA" stroke="#C3CBC6" stroke-width="1" />
 
-    <!-- Answer Block -->
+    <!-- Answer + CitationChips + Collapsible Retrieval Trail -->
     <g transform="translate(18, 188)">
-      <text x="0" y="12" fill="#55606A" font-size="10.5" font-weight="600" class="font-sans">ANSWER · TAP A HIGHLIGHTED CLAIM</text>
-      <text x="0" y="42" fill="#16191C" font-size="15.5" class="font-serif">You need to send written notice by</text>
-      <rect x="0" y="54" width="94" height="24" rx="4" fill="#F4DD6B" stroke="#2436C9" stroke-width="1.5" />
-      <text x="47" y="72" fill="#16191C" font-size="15.5" font-weight="600" class="font-serif" text-anchor="middle">January 30</text>
-      <text x="102" y="72" fill="#16191C" font-size="15.5" class="font-serif">for a</text>
-      <rect x="142" y="54" width="78" height="24" rx="4" fill="#F4DD6B" fill-opacity="0.45" />
-      <text x="181" y="72" fill="#16191C" font-size="15.5" font-weight="500" class="font-serif" text-anchor="middle">March 31</text>
-      <text x="226" y="72" fill="#16191C" font-size="15.5" class="font-serif">move-out,</text>
-      <text x="0" y="100" fill="#16191C" font-size="15.5" class="font-serif">based on the</text>
-      <rect x="96" y="83" width="112" height="23" rx="4" fill="#F4DD6B" fill-opacity="0.45" />
-      <text x="152" y="100" fill="#16191C" font-size="15.5" font-weight="500" class="font-serif" text-anchor="middle">60-day clause</text>
-      <text x="214" y="100" fill="#16191C" font-size="15.5" class="font-serif">in your lease.</text>
+      <text x="0" y="12" fill="#55606A" font-size="10" font-weight="600" class="font-sans">HOW VERAXI TRACES AN ANSWER (SAMPLE DATA)</text>
+      <text x="0" y="42" fill="#16191C" font-size="15" class="font-serif">Send written notice by January 30 for a</text>
+      <text x="0" y="68" fill="#16191C" font-size="15" class="font-serif">March 31 move-out</text>
+      <rect x="148" y="51" width="128" height="22" rx="11" fill="#2436C9" />
+      <text x="212" y="66" fill="#F4F6F4" font-size="10.5" font-weight="600" class="font-mono" text-anchor="middle">[2] landlord-email</text>
 
-      <!-- Path -->
-      <line x1="0" y1="126" x2="314" y2="126" stroke="#C3CBC6" stroke-width="1" />
-      <text x="0" y="150" fill="#55606A" font-size="10.5" font-weight="600" class="font-sans">PATH VERAXI TOOK</text>
-      <rect x="0" y="162" width="314" height="32" rx="6" fill="#EDF0EE" stroke="#B9C3E6" stroke-width="1" />
-      <text x="10" y="182" fill="#2436C9" font-size="11" class="font-mono">landlord-email.txt → move-out → Mar 31</text>
-      <rect x="0" y="200" width="314" height="32" rx="6" fill="#EDF0EE" stroke="#B9C3E6" stroke-width="1" />
-      <text x="10" y="220" fill="#2436C9" font-size="11" class="font-mono">lease.pdf → notice period → 60 days</text>
-      <text x="0" y="254" fill="#065F46" font-size="11" font-weight="600" class="font-mono">✓ 2 passages verified · 0 unsupported claims</text>
+      <text x="0" y="96" fill="#16191C" font-size="15" class="font-serif">, per the 60-day clause</text>
+      <rect x="168" y="79" width="96" height="22" rx="11" fill="#EDF0EE" stroke="#2436C9" stroke-width="1.5" />
+      <text x="216" y="94" fill="#2436C9" font-size="10.5" font-weight="600" class="font-mono" text-anchor="middle">[1] lease.pdf</text>
+
+      <!-- Collapsible Retrieval Trail -->
+      <rect y="120" width="314" height="174" rx="8" fill="#EDF0EE" stroke="#C3CBC6" stroke-width="1" />
+      <text x="12" y="142" fill="#16191C" font-size="11.5" font-weight="700" class="font-sans">▾ Retrieval Trail · 3 steps</text>
+      <text x="302" y="142" fill="#065F46" font-size="10.5" font-weight="600" class="font-mono" text-anchor="end">✓ Verified</text>
+      <line x1="12" y1="154" x2="302" y2="154" stroke="#C3CBC6" stroke-width="1" />
+      <text x="12" y="176" fill="#2436C9" font-size="11" font-weight="600" class="font-mono">mcp_search_vectors</text>
+      <text x="12" y="194" fill="#55606A" font-size="11" class="font-sans">Matched lease.pdf &amp; landlord-email.txt</text>
+      <text x="12" y="218" fill="#2436C9" font-size="11" font-weight="600" class="font-mono">mcp_query_graph</text>
+      <text x="12" y="236" fill="#55606A" font-size="11" class="font-sans">landlord-email.txt → MOVE_OUT → Mar 31</text>
+      <text x="12" y="260" fill="#2436C9" font-size="11" font-weight="600" class="font-mono">mcp_evaluate_grounding</text>
+      <text x="12" y="278" fill="#065F46" font-size="11" font-weight="600" class="font-sans">2 citations grounded · 0 unsupported</text>
     </g>
 
-    <!-- Source Passages Stacked -->
-    <line x1="0" y1="464" x2="350" y2="464" stroke="#C3CBC6" stroke-width="1" />
-    <g transform="translate(18, 484)">
-      <text x="0" y="10" fill="#55606A" font-size="10.5" font-weight="600" class="font-sans">SOURCE PASSAGES (FICTIONAL SAMPLE)</text>
+    <!-- Sources Panel -->
+    <line x1="0" y1="496" x2="350" y2="496" stroke="#C3CBC6" stroke-width="1" />
+    <g transform="translate(18, 516)">
+      <text x="0" y="10" fill="#55606A" font-size="10.5" font-weight="600" class="font-sans">SOURCES PANEL</text>
 
       <rect y="24" width="314" height="106" rx="8" fill="#FFFFFF" stroke="#2436C9" stroke-width="1.5" />
       <text x="12" y="44" fill="#2436C9" font-size="11" font-weight="600" class="font-mono">[1] lease.pdf · p. 4</text>
-      <text x="302" y="44" fill="#2436C9" font-size="10.5" font-weight="600" class="font-sans" text-anchor="end">Matched</text>
+      <text x="302" y="44" fill="#2436C9" font-size="10.5" font-weight="600" class="font-sans" text-anchor="end">Cited</text>
       <text x="12" y="68" fill="#16191C" font-size="13" class="font-serif">"Tenant shall deliver written notice of</text>
-      <rect x="10" y="76" width="286" height="20" rx="3" fill="#F4DD6B" />
       <text x="12" y="90" fill="#16191C" font-size="13" font-weight="600" class="font-serif">non-renewal no fewer than sixty (60) days</text>
       <text x="12" y="112" fill="#16191C" font-size="13" class="font-serif">prior to lease expiration."</text>
 
-      <rect y="142" width="314" height="96" rx="8" fill="#FFFFFF" stroke="#C3CBC6" stroke-width="1" />
+      <rect y="142" width="314" height="96" rx="8" fill="#FFFFFF" stroke="#2436C9" stroke-width="1.5" />
       <text x="12" y="162" fill="#2436C9" font-size="11" font-weight="600" class="font-mono">[2] landlord-email.txt · line 12</text>
-      <text x="302" y="162" fill="#2436C9" font-size="10.5" font-weight="600" class="font-sans" text-anchor="end">Matched</text>
+      <text x="302" y="162" fill="#2436C9" font-size="10.5" font-weight="600" class="font-sans" text-anchor="end">Selected</text>
       <text x="12" y="186" fill="#16191C" font-size="13" class="font-serif">"Confirming your move-out date is</text>
-      <rect x="10" y="194" width="66" height="20" rx="3" fill="#F4DD6B" />
-      <text x="12" y="208" fill="#16191C" font-size="13" font-weight="600" class="font-serif">March 31.</text>
-      <text x="82" y="208" fill="#16191C" font-size="13" class="font-serif">Send notice per Section 4.2."</text>
+      <text x="12" y="208" fill="#16191C" font-size="13" font-weight="600" class="font-serif">March 31. Send notice per Section 4.2."</text>
     </g>
   </g>
 
-  <!-- ========================================== -->
-  <!-- HOW IT WORKS (Stacked 01-03)               -->
-  <!-- ========================================== -->
-  <g transform="translate(20, 1164)">
+  <!-- How It Works -->
+  <g transform="translate(20, 1204)">
     <text x="0" y="0" fill="#16191C" font-size="22" font-weight="800" letter-spacing="-0.5" class="font-sans">What happens when you add a file</text>
 
     <g transform="translate(0, 26)">
@@ -134,10 +116,8 @@
     </g>
   </g>
 
-  <!-- ========================================== -->
-  <!-- RUN IT YOURSELF + MCP (Stacked)            -->
-  <!-- ========================================== -->
-  <g transform="translate(20, 1408)">
+  <!-- Run It Yourself + MCP -->
+  <g transform="translate(20, 1448)">
     <rect width="350" height="140" rx="10" fill="#0E1550" />
     <text x="16" y="28" fill="#D9DEFF" font-size="11" font-weight="600" class="font-sans">RUN IT YOURSELF</text>
     <rect x="284" y="14" width="50" height="22" rx="4" fill="#1B2A9E" />
@@ -155,9 +135,7 @@
     <text x="16" y="260" fill="#2436C9" font-size="12.5" font-weight="600" class="font-mono">mcp_evaluate_grounding</text>
   </g>
 
-  <!-- ========================================== -->
-  <!-- MOBILE FOOTER                              -->
-  <!-- ========================================== -->
-  <line x1="20" y1="1720" x2="370" y2="1720" stroke="#C3CBC6" stroke-width="1" />
-  <text x="20" y="1748" fill="#55606A" font-size="12" class="font-sans">Veraxi · Open source (MIT) · Still in development</text>
+  <!-- Footer -->
+  <line x1="20" y1="1760" x2="370" y2="1760" stroke="#C3CBC6" stroke-width="1" />
+  <text x="20" y="1788" fill="#55606A" font-size="12" class="font-sans">Veraxi · Open source (MIT) · Still in development</text>
 </svg>
