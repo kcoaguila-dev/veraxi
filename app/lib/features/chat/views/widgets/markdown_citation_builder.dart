@@ -73,8 +73,7 @@ class CitationSyntax extends md.InlineSyntax {
   static const String _singleCitationPattern =
       r'\[([^\]\n]+)\](?:\s*\(\s*(?:-\s*)?(' + _urlPattern + r')\s*\))?';
   static final RegExp _singleCitationRegex = RegExp(_singleCitationPattern);
-  static const String _groupPattern =
-      r'\[[^\]\n]+\](?:\s*\(\s*(?:-\s*)?' +
+  static const String _groupPattern = r'\[[^\]\n]+\](?:\s*\(\s*(?:-\s*)?' +
       _urlPattern +
       r'\s*\))?(?:\s*[,;]?\s*\[[^\]\n]+\](?:\s*\(\s*(?:-\s*)?' +
       _urlPattern +

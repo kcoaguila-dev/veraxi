@@ -338,7 +338,8 @@ class SourcesButton extends StatelessWidget {
     for (var i = 0; i < sources.length; i++) {
       final source = sources[i];
       if (numericIndices.contains(i + 1) ||
-          resolvedCitations.any((cite) => _matchesSingleCitation(source, cite))) {
+          resolvedCitations
+              .any((cite) => _matchesSingleCitation(source, cite))) {
         kept.add(source);
       }
     }

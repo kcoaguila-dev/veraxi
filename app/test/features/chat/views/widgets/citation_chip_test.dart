@@ -95,7 +95,8 @@ void main() {
                 'content': 'Wikipedia bio snippet.',
               },
               {
-                'title': 'NVIDIA Names Colette Kress Interim CEO - Yahoo Finance',
+                'title':
+                    'NVIDIA Names Colette Kress Interim CEO - Yahoo Finance',
                 'url': 'https://finance.yahoo.com/news/nvidia-kress-123.html',
                 'content': 'Yahoo Finance article snippet.',
               },

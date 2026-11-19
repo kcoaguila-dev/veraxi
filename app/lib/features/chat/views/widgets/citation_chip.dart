@@ -66,8 +66,7 @@ List<String> extractCitationTokens(String value) {
   final normalized = normalizeCitationMatchText(value);
   if (normalized.isEmpty) return const [];
   final raw = normalized.split(' ').where((t) => t.length >= 2).toList();
-  final filtered =
-      raw.where((t) => !_citationNoiseTokens.contains(t)).toList();
+  final filtered = raw.where((t) => !_citationNoiseTokens.contains(t)).toList();
   return filtered.isNotEmpty ? filtered : raw;
 }
 
