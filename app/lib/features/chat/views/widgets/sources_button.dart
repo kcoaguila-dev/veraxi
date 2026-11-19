@@ -3,6 +3,7 @@ import 'package:veraxi_app/features/chat/view_models/chat_view_model.dart';
 import 'dart:convert';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
+import 'package:veraxi_app/features/chat/views/widgets/citation_chip.dart';
 
 class SourcesButton extends StatelessWidget {
   final ChatMessage message;
@@ -300,24 +301,116 @@ class SourcesButton extends StatelessWidget {
         '';
   }
 
+  static final RegExp _contentCitationRegex = RegExp(
+    r'\[([^\]\n]+)\](?:\s*\(\s*(?:-\s*)?((?:https?|file):\/\/(?:[^\s\(\)]|\([^\s\(\)]*\))+)\s*\))?',
+  );
+
   static void _filterUnreferencedSources(
       List<Map<String, dynamic>> sources, String content) {
-    final citationRegex = RegExp(r'\[([^\]]+)\]');
-    final citations = citationRegex
-        .allMatches(content)
-        .map((m) => m.group(1)?.toLowerCase() ?? '')
-        .where((s) => s.isNotEmpty && s.length > 2)
-        .toList();
+    final numericIndices = <int>{};
+    final textCitations = <({String label, String url})>[];
 
-    if (citations.isEmpty) return;
+    for (final match in _contentCitationRegex.allMatches(content)) {
+      final rawLabel = (match.group(1) ?? '').trim();
+      final rawUrl = (match.group(2) ?? '').trim();
+      if (rawLabel.isEmpty) continue;
 
-    sources.removeWhere((source) {
-      final rawMatch = source['_rawMatch'] as String? ?? '';
-      for (var citation in citations) {
-        if (rawMatch.contains(citation))
-          return false; // keep if any citation matches
+      final singleIndex = int.tryParse(rawLabel);
+      if (singleIndex != null) {
+        numericIndices.add(singleIndex);
+        continue;
       }
-      return true; // remove if no citations match
-    });
+
+      if (_tryAddNumericListIndices(rawLabel, numericIndices)) {
+        continue;
+      }
+
+      if (rawLabel.length > 2 || rawUrl.isNotEmpty) {
+        textCitations.add((label: rawLabel, url: rawUrl));
+      }
+    }
+
+    if (numericIndices.isEmpty && textCitations.isEmpty) return;
+
+    final resolvedCitations = _expandUnmatchedLists(sources, textCitations);
+
+    final kept = <Map<String, dynamic>>[];
+    for (var i = 0; i < sources.length; i++) {
+      final source = sources[i];
+      if (numericIndices.contains(i + 1) ||
+          resolvedCitations.any((cite) => _matchesSingleCitation(source, cite))) {
+        kept.add(source);
+      }
+    }
+    sources
+      ..clear()
+      ..addAll(kept);
+  }
+
+  static List<({String label, String url})> _expandUnmatchedLists(
+    List<Map<String, dynamic>> sources,
+    List<({String label, String url})> textCitations,
+  ) {
+    final pageSuffix = RegExp(
+      r',\s*(?:pp?\.|page|ch\.|chap\.|sec\.|fig\.)',
+      caseSensitive: false,
+    );
+    final result = <({String label, String url})>[];
+    for (final cite in textCitations) {
+      final hasDelim = cite.label.contains(',') || cite.label.contains(';');
+      if (cite.url.isEmpty &&
+          hasDelim &&
+          !pageSuffix.hasMatch(cite.label) &&
+          !sources.any((s) => _matchesSingleCitation(s, cite))) {
+        final parts = cite.label
+            .split(RegExp(r'\s*[,;]\s*'))
+            .map((p) => p.trim())
+            .where((p) => p.length > 2)
+            .toList();
+        if (parts.length >= 2) {
+          for (final part in parts) {
+            result.add((label: part, url: ''));
+          }
+          continue;
+        }
+      }
+      result.add(cite);
+    }
+    return result;
+  }
+
+  static bool _tryAddNumericListIndices(String rawLabel, Set<int> outIndices) {
+    if (!rawLabel.contains(',') && !rawLabel.contains(';')) return false;
+    final parts = rawLabel
+        .split(RegExp(r'\s*[,;]\s*'))
+        .map((p) => p.trim())
+        .where((p) => p.isNotEmpty)
+        .toList();
+    if (parts.length < 2 || !parts.every((p) => int.tryParse(p) != null)) {
+      return false;
+    }
+    for (final part in parts) {
+      outIndices.add(int.parse(part));
+    }
+    return true;
+  }
+
+  static bool _matchesSingleCitation(
+    Map<String, dynamic> source,
+    ({String label, String url}) cite,
+  ) {
+    final rawMatch = source['_rawMatch'] as String? ?? '';
+    final title = source['title']?.toString() ?? '';
+    final url = source['url']?.toString() ?? '';
+    final snippet = source['snippet']?.toString() ?? '';
+
+    if (rawMatch.contains(cite.label.toLowerCase())) return true;
+    return citationMatchesSourceItem(
+      citation: cite.label,
+      citationUrl: cite.url,
+      title: title,
+      url: url,
+      snippet: snippet,
+    );
   }
 }

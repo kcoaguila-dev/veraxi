@@ -569,5 +569,53 @@ void main() {
       // No "sources" label — widget renders as SizedBox.shrink
       expect(find.textContaining('source'), findsNothing);
     });
+
+    testWidgets(
+        'retains both sources (2 sources) when Finance Yahoo cites finance.yahoo.com',
+        (WidgetTester tester) async {
+      final toolEvent = ToolEvent(
+        id: 'tool-widget-yahoo',
+        name: 'web_search',
+        isComplete: true,
+        result: [
+          _webHitArtifact(
+            url: 'https://en.wikipedia.org/wiki/Colette_Kress',
+            title: 'Colette Kress - Wikipedia',
+            content: 'Colette Marie Kress is an American business executive.',
+          ),
+          _webHitArtifact(
+            url: 'https://finance.yahoo.com/news/nvidia-ceo-123.html',
+            title: 'NVIDIA Announces Leadership Transition - Yahoo Finance',
+            content: 'Colette Kress named interim CEO.',
+          ),
+        ],
+      );
+
+      final message = ChatMessage(
+        role: 'assistant',
+        content:
+            'Colette Marie Kress is interim CEO [Colette Kress - Wikipedia] [Finance Yahoo]',
+        toolEvents: [toolEvent],
+      );
+
+      final extracted = SourcesButton.extractSources(message);
+      expect(extracted.length, 2);
+      expect(extracted[1]['url'],
+          'https://finance.yahoo.com/news/nvidia-ceo-123.html');
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.lightTheme,
+          home: Scaffold(
+            body: SourcesButton(
+              message: message,
+              onSourceClicked: () {},
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('2 sources'), findsOneWidget);
+    });
   });
 }
