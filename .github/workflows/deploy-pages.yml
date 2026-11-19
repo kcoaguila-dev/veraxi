@@ -5,6 +5,7 @@ on:
     branches: ["main"]
     paths:
       - "app/**"
+      - "docs/site/**"
       - ".github/workflows/deploy-pages.yml"
 
   # Allow triggering manually from the Actions tab
@@ -38,18 +39,27 @@ jobs:
         run: |
           flutter clean
           flutter build web --release \
+            --base-href "/app/" \
             --pwa-strategy=none \
             --dart-define=API_URL=${{ secrets.API_URL }} \
             --dart-define=SUPABASE_URL=${{ secrets.SUPABASE_URL }} \
             --dart-define=SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }} \
             --dart-define=AUTH_ENABLED=true \
-            --dart-define=IS_SELF_HOSTED=false
+            --dart-define=IS_SELF_HOSTED=true
+
+      - name: Stage static landing site and Flutter app
+        working-directory: .
+        run: |
+          rm -rf gh_pages_dist
+          mkdir -p gh_pages_dist/app
+          cp docs/site/index.html gh_pages_dist/index.html
+          cp -r app/build/web/* gh_pages_dist/app/
 
       - name: Deploy to gh-pages branch
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./app/build/web
+          publish_dir: ./gh_pages_dist
           # Keep a custom domain file in the output so GitHub Pages
           # does not drop the veraxi.me CNAME on every deploy.
           cname: veraxi.me

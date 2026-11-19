@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Landing Page Redesign**: Replaced the Flutter landing screen with a new design built around a working answer demo. Visitors pick a sample question and select a highlighted phrase to see the passages and path behind it. The page has its own light palette and type (Schibsted Grotesk, Literata, IBM Plex Mono) and no longer follows the app's light/dark toggle. Adds `features/landing/data/demo_samples.dart` and `view_models/landing_demo_view_model.dart`, plus widget and view-model tests.
 - **Custom TTS Voices**: Configured a custom GPT-SoVITS TTS voice persona ("Luiz") with reference audio in `backend/tts/voices.json`.
 - **Frontend TTS Auto-Recovery**: Added state recovery in the Flutter chat UI (`chat_view_model.dart` and `tts_settings_view_model.dart`) to silently intercept and correct corrupted `default_system` voice IDs when using custom GPT-SoVITS endpoints.
 - **Architectural Linting**: Configured `import_lint` in `app/analysis_options.yaml` to strictly enforce clean architecture boundaries (views -> view_models -> data) in the Flutter frontend.
@@ -19,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Scratch Files Cleanup**: Purged untracked Python test scripts (`test_audio.py`, `test_redis.py`) and miscellaneous TTS scratch files from the repository root.
 
 ### Changed
+- **Landing Page Widgets**: Removed the old `HeroSection`, `FeaturesSection`, `CodeSnippetVisualization` and `DevelopmentBanner` widgets, which only the landing screen used. The shared `NavBar` is unchanged and still used by the docs screen.
 - **Storage Client Factories**: Replaced 15+ redundant instances of `Neo4jStorageClient` and `QdrantStorageClient` initialization with a unified DRY `from_config()` factory pattern.
 - **Connection Pools**: Refactored `chat_repository.dart` and `control_panel_repository.dart` to reuse the centralized `ApiClient` connection pool instead of repeatedly opening new HTTP clients.
 - **Riverpod Unification**: Eliminated duplicate state providers in `control_panel_view_model.dart` to maintain a single source of truth.

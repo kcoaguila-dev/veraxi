@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Veraxi — Ask your files. Check the answer.</title>
+  <meta name="description" content="Veraxi is an open-source Hybrid GraphRAG and MCP platform combining Neo4j, Qdrant (MiniLM + SPLADE RRF), and an adversarial Skeptic loop that traces every claim back to its source." />
+  <meta property="og:title" content="Veraxi — Ask your files. Check the answer." />
+  <meta property="og:description" content="Open-source document and code intelligence with inline citations, retrieval trails, and MCP tools." />
+  <meta property="og:type" content="website" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,500;0,7..72,600&family=Schibsted+Grotesk:wght@500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --paper: #EDF0EE;
+      --panel: #FAFBFA;
+      --line: #C3CBC6;
+      --ink: #16191C;
+      --grey: #55606A;
+      --cobalt: #2436C9;
+      --cobalt-dark: #1B2A9E;
+      --code-bg: #0E1550;
+      --on-cobalt: #F4F6F4;
+      --verified: #065F46;
+      --verified-bg: #D1FAE5;
+    }
+    *, *::before, *::after { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: 'Schibsted Grotesk', system-ui, -apple-system, sans-serif;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+    }
+    .serif { font-family: 'Literata', Georgia, serif; }
+    .mono { font-family: 'IBM Plex Mono', ui-monospace, monospace; }
+    .container { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
+    .hidden { display: none !important; }
+
+    /* Header */
+    header {
+      border-bottom: 1px solid rgba(195, 203, 198, 0.7);
+      background: var(--paper);
+    }
+    .header-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 72px;
+    }
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+      color: var(--ink);
+      font-weight: 800;
+      font-size: 22px;
+      letter-spacing: -0.03em;
+    }
+    .brand-mark {
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      background: var(--cobalt);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    nav { display: flex; align-items: center; gap: 20px; }
+    .nav-link {
+      background: none;
+      border: 0;
+      padding: 6px 2px;
+      font: inherit;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--ink);
+      cursor: pointer;
+      text-decoration: none;
+    }
+    .nav-link:hover, .nav-link.active { color: var(--cobalt); }
+    .nav-link.active { font-weight: 700; }
+
+    /* Buttons */
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--cobalt);
+      color: var(--on-cobalt);
+      border: 0;
+      border-radius: 8px;
+      padding: 13px 22px;
+      font-family: inherit;
+      font-size: 15px;
+      font-weight: 700;
+      text-decoration: none;
+      cursor: pointer;
+    }
+    .btn-primary:hover { background: var(--cobalt-dark); }
+    .link-inline {
+      color: var(--cobalt);
+      font-size: 15px;
+      font-weight: 700;
+      text-decoration: underline;
+      text-underline-offset: 4px;
+      background: none;
+      border: 0;
+      cursor: pointer;
+    }
+
+    /* Hero */
+    .hero { padding: 64px 0 40px; }
+    .eyebrow {
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      color: var(--cobalt);
+      margin-bottom: 16px;
+    }
+    h1 {
+      margin: 0;
+      font-size: clamp(44px, 6.2vw, 76px);
+      font-weight: 800;
+      line-height: 0.98;
+      letter-spacing: -0.045em;
+      max-width: 780px;
+    }
+    .hero-sub {
+      margin: 24px 0 28px;
+      max-width: 620px;
+      font-size: 20px;
+      color: var(--grey);
+      line-height: 1.55;
+    }
+    .hero-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 24px; }
+
+    /* Interactive Demo */
+    .demo-section { padding: 16px 0 72px; }
+    .question-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+      margin-bottom: 16px;
+    }
+    .q-btn {
+      padding: 11px 14px;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      background: var(--panel);
+      color: var(--ink);
+      font-family: inherit;
+      font-size: 13.5px;
+      font-weight: 500;
+      text-align: left;
+      cursor: pointer;
+    }
+    .q-btn.active {
+      background: var(--cobalt);
+      border-color: var(--cobalt);
+      color: var(--on-cobalt);
+      font-weight: 600;
+    }
+    .split-panel {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+    }
+    .split-left {
+      padding: 28px 32px;
+      border-right: 1px solid var(--line);
+    }
+    .split-right { padding: 28px 32px; }
+    .kicker {
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      color: var(--grey);
+      margin-bottom: 16px;
+    }
+    .answer-text {
+      font-size: 18px;
+      line-height: 1.75;
+      color: var(--ink);
+      margin: 0 0 20px;
+    }
+    .cite-chip {
+      display: inline-block;
+      padding: 2px 9px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+      border: 1.5px solid var(--cobalt);
+      background: var(--paper);
+      color: var(--cobalt);
+      cursor: pointer;
+      vertical-align: baseline;
+    }
+    .cite-chip.active {
+      background: var(--cobalt);
+      color: var(--on-cobalt);
+    }
+
+    /* Retrieval Trail (flat divider-based, no nested cards) */
+    .trail-box {
+      border-top: 1px solid var(--line);
+      padding-top: 16px;
+    }
+    .trail-toggle {
+      width: 100%;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: none;
+      border: 0;
+      padding: 4px 0;
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--ink);
+      cursor: pointer;
+    }
+    .trail-verified { font-size: 12px; color: var(--verified); font-weight: 600; }
+    .trail-steps { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
+    .trail-step { font-size: 12.5px; color: var(--grey); }
+    .trail-tool { color: var(--cobalt); font-weight: 600; margin-right: 8px; }
+
+    /* Sources List */
+    .source-item {
+      padding: 14px 16px;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      background: #FFFFFF;
+      margin-bottom: 12px;
+    }
+    .source-item.active { border-color: var(--cobalt); border-width: 1.5px; }
+    .source-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+      font-size: 12px;
+      color: var(--cobalt);
+      font-weight: 600;
+    }
+    .badge {
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-family: 'Schibsted Grotesk', sans-serif;
+      background: var(--paper);
+      color: var(--cobalt);
+    }
+    .source-item.active .badge { background: var(--cobalt); color: var(--on-cobalt); }
+    .source-quote { margin: 0; font-size: 15px; line-height: 1.55; color: var(--ink); }
+
+    /* 3-Step Grid */
+    .steps-section { padding: 16px 0 64px; }
+    h2 {
+      font-size: 32px;
+      font-weight: 800;
+      letter-spacing: -0.025em;
+      margin: 0 0 28px;
+    }
+    .steps-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 36px; }
+    .step { border-top: 1.5px solid var(--line); padding-top: 16px; }
+    .step-num { font-size: 13px; font-weight: 600; color: var(--cobalt); margin-bottom: 8px; }
+    .step h3 { margin: 0 0 8px; font-size: 19px; font-weight: 700; }
+    .step p { margin: 0; font-size: 15px; color: var(--grey); }
+
+    /* Quickstart + MCP Strip */
+    .dev-strip {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      padding-bottom: 64px;
+    }
+    .code-box {
+      background: var(--code-bg);
+      color: var(--on-cobalt);
+      border-radius: 10px;
+      padding: 24px;
+      position: relative;
+    }
+    .code-box pre { margin: 12px 0 0; overflow-x: auto; font-size: 13.5px; line-height: 1.7; }
+    .comment { color: #94A3B8; }
+    .mcp-box {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 24px;
+    }
+    .mcp-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--paper);
+      font-size: 13.5px;
+    }
+    .mcp-row:last-of-type { border-bottom: 0; }
+    .copy-btn {
+      position: absolute;
+      top: 18px;
+      right: 18px;
+      background: var(--cobalt-dark);
+      color: var(--on-cobalt);
+      border: 0;
+      border-radius: 6px;
+      padding: 5px 10px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    /* Docs & API View */
+    .docs-layout {
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      gap: 36px;
+      padding: 36px 0 72px;
+    }
+    .filter-input {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      background: var(--panel);
+      font-family: inherit;
+      font-size: 13.5px;
+      margin-bottom: 18px;
+    }
+    .side-group { margin-bottom: 20px; }
+    .side-label { font-size: 12px; font-weight: 700; color: var(--grey); margin-bottom: 8px; }
+    .side-btn {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      border: 0;
+      border-radius: 8px;
+      background: transparent;
+      color: var(--ink);
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 500;
+      text-align: left;
+      cursor: pointer;
+    }
+    .side-btn.active { background: var(--cobalt); color: var(--on-cobalt); font-weight: 600; }
+    .method-tag {
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 700;
+      background: #E2E8F0;
+      color: var(--cobalt);
+    }
+    .method-tag.get { background: var(--verified-bg); color: var(--verified); }
+    .side-btn.active .method-tag { background: var(--cobalt-dark); color: var(--on-cobalt); }
+    .doc-article {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 32px;
+    }
+    .doc-article h2 { margin-top: 8px; margin-bottom: 10px; }
+    .param-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 18px 0 24px;
+      background: #FFFFFF;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+    .param-table td {
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--paper);
+      font-size: 13.5px;
+      vertical-align: top;
+    }
+
+    /* Footer */
+    footer {
+      border-top: 1px solid var(--line);
+      padding: 28px 0 40px;
+      font-size: 13px;
+      color: var(--grey);
+    }
+    .footer-inner { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 16px; }
+    .footer-links { display: flex; gap: 20px; }
+
+    @media (max-width: 900px) {
+      .question-grid, .split-panel, .steps-grid, .dev-strip, .docs-layout {
+        grid-template-columns: 1fr;
+      }
+      .split-left { border-right: 0; border-bottom: 1px solid var(--line); }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="container header-inner">
+      <a href="#overview" class="brand" id="brand-link">
+        <span class="brand-mark" aria-hidden="true">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M5 6L12 19L19 6" stroke="#F4F6F4" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </span>
+        Veraxi
+      </a>
+      <nav aria-label="Primary">
+        <button type="button" class="nav-link active" data-view="overview">Overview</button>
+        <button type="button" class="nav-link" data-view="docs">Docs &amp; API</button>
+        <a href="https://github.com/kcoaguila-dev/veraxi" target="_blank" rel="noopener noreferrer" class="nav-link">GitHub</a>
+        <a href="/app/" class="nav-link" style="color: var(--cobalt); font-weight: 700;">Sign in</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="view-overview" class="container">
+    <section class="hero">
+      <div class="eyebrow mono">OPEN-SOURCE DOCUMENT &amp; CODE INTELLIGENCE · LOCAL OR CLOUD</div>
+      <h1>Ask your files.<br />Check the answer.</h1>
+      <p class="hero-sub serif">
+        Veraxi reads your PDFs, Markdown and text files. Every answer comes with inline citations and the retrieval trail behind it, even when the facts sit in different documents.
+      </p>
+      <div class="hero-actions">
+        <a href="/app/" class="btn-primary">Start Building</a>
+        <a href="#run-it-yourself" class="link-inline">Run it yourself ↓</a>
+      </div>
+    </section>
+
+    <section class="demo-section" aria-label="Interactive source verification demo">
+      <div class="question-grid" id="question-picker"></div>
+      <div class="split-panel">
+        <div class="split-left">
+          <div class="kicker">HOW VERAXI TRACES AN ANSWER (SAMPLE DATA)</div>
+          <p class="answer-text serif" id="answer-text"></p>
+          <div class="trail-box">
+            <button type="button" class="trail-toggle" id="trail-toggle" aria-expanded="true">
+              <span id="trail-label">▾ Retrieval Trail · 3 steps</span>
+              <span class="trail-verified mono">✓ Skeptic verified</span>
+            </button>
+            <div class="trail-steps" id="trail-steps"></div>
+          </div>
+        </div>
+        <div class="split-right">
+          <div class="kicker">SOURCES PANEL</div>
+          <div id="sources-list"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="steps-section">
+      <h2>What happens when you add a file</h2>
+      <div class="steps-grid">
+        <div class="step">
+          <div class="step-num mono">01</div>
+          <h3>It reads the file</h3>
+          <p class="serif">Pulls text out of PDFs, Markdown and plain text into citable passages.</p>
+        </div>
+        <div class="step">
+          <div class="step-num mono">02</div>
+          <h3>It links what the file mentions</h3>
+          <p class="serif">Indexes by meaning and keywords, tying acronyms like WHO across documents.</p>
+        </div>
+        <div class="step">
+          <div class="step-num mono">03</div>
+          <h3>It answers with a trail</h3>
+          <p class="serif">Searches both indexes and audits every claim in deep research mode.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="dev-strip" id="run-it-yourself">
+      <div class="code-box">
+        <div class="kicker" style="color: #D9DEFF;">RUN IT YOURSELF</div>
+        <button type="button" class="copy-btn" id="copy-quickstart">Copy</button>
+        <pre class="mono">make setup   <span class="comment"># .env + venv</span>
+make up      <span class="comment"># Neo4j, Qdrant, Redis, SearXNG</span>
+make seed    <span class="comment"># 0 API keys needed</span>
+<span style="color:#D9DEFF;">Swagger: http://localhost:8000/docs</span></pre>
+      </div>
+      <div class="mcp-box">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+          <span class="kicker" style="margin:0;">MCP TOOL SURFACE</span>
+          <button type="button" class="link-inline" style="font-size:12.5px;" data-view="docs" data-doc="mcp_merge_rank">Full Docs →</button>
+        </div>
+        <div class="mcp-row"><span class="mono" style="color:var(--cobalt);font-weight:600;">mcp_merge_rank</span><span class="serif" style="color:var(--grey);">Hybrid RRF vector + graph search</span></div>
+        <div class="mcp-row"><span class="mono" style="color:var(--cobalt);font-weight:600;">mcp_agentic_debate</span><span class="serif" style="color:var(--grey);">15–30s multi-agent cited debate</span></div>
+        <div class="mcp-row"><span class="mono" style="color:var(--cobalt);font-weight:600;">mcp_evaluate_grounding</span><span class="serif" style="color:var(--grey);">Adversarial Skeptic verification</span></div>
+      </div>
+    </section>
+  </main>
+
+  <main id="view-docs" class="container hidden">
+    <div class="docs-layout">
+      <aside>
+        <input type="search" id="docs-filter" class="filter-input" placeholder="Filter guides &amp; endpoints..." aria-label="Filter documentation" />
+        <div id="docs-sidebar"></div>
+      </aside>
+      <article class="doc-article" id="doc-article"></article>
+    </div>
+  </main>
+
+  <footer>
+    <div class="container footer-inner">
+      <span>Veraxi · Open source under MIT · Still in development · One developer</span>
+      <div class="footer-links">
+        <button type="button" class="nav-link" style="font-size:13px;" data-view="docs">Docs &amp; API</button>
+        <a href="https://github.com/kcoaguila-dev/veraxi" target="_blank" rel="noopener noreferrer" class="nav-link" style="font-size:13px;">GitHub</a>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    const samples = [
+      {
+        q: 'When do I need to give notice to move out?',
+        parts: ['Give written notice by January 30 for a March 31 move-out ', { cite: 1, label: '[2] landlord-email' }, '. Your lease requires 60 days of written notice ', { cite: 0, label: '[1] lease.pdf' }, '.'],
+        trail: [
+          ['mcp_search_vectors', 'Matched lease.pdf & landlord-email.txt (RRF)'],
+          ['mcp_query_graph', 'landlord-email.txt → MOVE_OUT → March 31'],
+          ['mcp_evaluate_grounding', '2 citations grounded · 0 unsupported']
+        ],
+        sources: [
+          { tag: '[1] lease.pdf · p. 4', quote: '"Section 4.2: Tenant shall deliver written notice of non-renewal no fewer than sixty (60) calendar days prior to the scheduled lease expiration."' },
+          { tag: '[2] landlord-email.txt · line 12', quote: '"Confirming your final move-out date is March 31. Please send your notice per Section 4.2 of the lease."' }
+        ]
+      },
+      {
+        q: 'What did WHO recommend in 2024?',
+        parts: ['World Health Organization guidance links updated screening intervals ', { cite: 0, label: '[1] who-brief.pdf' }, ' with regional clinic rollouts ', { cite: 1, label: '[2] field-notes.md' }, '.'],
+        trail: [
+          ['mcp_search_vectors', 'Normalized WHO ↔ World Health Organization'],
+          ['mcp_query_graph', 'WHO → PUBLISHED → 2024_brief'],
+          ['mcp_evaluate_grounding', '2 citations grounded · 0 unsupported']
+        ],
+        sources: [
+          { tag: '[1] who-brief.pdf · p. 2', quote: '"The World Health Organization recommends annual baseline screening for priority cohorts."' },
+          { tag: '[2] field-notes.md · line 19', quote: '"WHO acronym normalized across 14 regional clinic reports."' }
+        ]
+      },
+      {
+        q: 'Which services call verify_jwt?',
+        parts: ['verify_jwt is invoked by the auth login handler ', { cite: 0, label: '[1] auth.py' }, ' and enforced by the MCP scope guard ', { cite: 1, label: '[2] auth_guard.py' }, '.'],
+        trail: [
+          ['mcp_code_impact', 'Traversed 2-hop CALLS edges in Neo4j'],
+          ['mcp_search_vectors', 'Retrieved symbol docstrings'],
+          ['mcp_evaluate_grounding', '2 citations grounded · 0 unsupported']
+        ],
+        sources: [
+          { tag: '[1] backend/routes/auth.py · L42', quote: 'CALLS (depth 1): login_handler -> verify_jwt(token)' },
+          { tag: '[2] backend/mcp_server/auth_guard.py · L18', quote: 'CALLS (depth 2): require_scope -> verify_jwt(bearer)' }
+        ]
+      }
+    ];
+
+    let activeQ = 0, activeCite = 1, trailOpen = true;
+    function renderDemo() {
+      const s = samples[activeQ];
+      document.getElementById('question-picker').innerHTML = samples.map((item, idx) =>
+        `<button type="button" class="q-btn ${idx === activeQ ? 'active' : ''}" onclick="activeQ=${idx};activeCite=0;renderDemo()">${item.q}</button>`
+      ).join('');
+      document.getElementById('answer-text').innerHTML = s.parts.map(p =>
+        typeof p === 'string' ? p : `<button type="button" class="cite-chip mono ${p.cite === activeCite ? 'active' : ''}" onclick="activeCite=${p.cite};renderDemo()">${p.label}</button>`
+      ).join('');
+      document.getElementById('trail-steps').innerHTML = s.trail.map(([t, d]) =>
+        `<div class="trail-step"><span class="trail-tool mono">${t}</span><span>${d}</span></div>`
+      ).join('');
+      document.getElementById('sources-list').innerHTML = s.sources.map((src, idx) =>
+        `<div class="source-item ${idx === activeCite ? 'active' : ''}"><div class="source-head mono"><span>${src.tag}</span><span class="badge">${idx === activeCite ? 'Selected' : 'Cited'}</span></div><p class="source-quote serif">${src.quote}</p></div>`
+      ).join('');
+    }
+    document.getElementById('trail-toggle').addEventListener('click', () => {
+      trailOpen = !trailOpen;
+      document.getElementById('trail-steps').classList.toggle('hidden', !trailOpen);
+      document.getElementById('trail-label').textContent = `${trailOpen ? '▾' : '▸'} Retrieval Trail · 3 steps`;
+      document.getElementById('trail-toggle').setAttribute('aria-expanded', String(trailOpen));
+    });
+    document.getElementById('copy-quickstart').addEventListener('click', () => {
+      navigator.clipboard?.writeText('make setup && make up && make seed');
+      document.getElementById('copy-quickstart').textContent = 'Copied';
+      setTimeout(() => document.getElementById('copy-quickstart').textContent = 'Copy', 1500);
+    });
+    renderDemo();
+
+    const docEntries = [
+      { id: 'quickstart', group: 'GUIDES', title: 'Quickstart & Stack', summary: 'Run FastAPI, Neo4j, Qdrant, Redis, and SearXNG locally via Docker Compose or Helm.', code: 'git clone https://github.com/kcoaguila-dev/veraxi.git && cd veraxi\nmake setup && make up && make seed' },
+      { id: 'jit', group: 'GUIDES', title: 'Two-Tier JIT GraphRAG', summary: 'Tier 1 indexes MiniLM dense + SPLADE sparse vectors on CPU (<2m per 500-page book, 0 GB VRAM). Tier 2 weaves Neo4j causal edges on demand.' },
+      { id: 'cli', group: 'GUIDES', title: 'vx CLI Reference', summary: 'Pure Python stdlib CLI for Linux, macOS, and Android Termux: vx chat, vx doctor, vx xray impact, vx vuln report, vx rules sync.' },
+      { id: 'api_chat', group: 'REST API', method: 'POST', title: '/api/chat', summary: 'Streams hybrid GraphRAG responses over SSE with inline citation chips and Skeptic grounding verification.', params: [['message', 'string · required', 'User query'], ['mode', '"fast" | "deep"', 'Single loop (<2s) or LangGraph Skeptic swarm']], code: 'curl -N -X POST http://localhost:8000/api/chat -H "Content-Type: application/json" -d \'{"message":"Who calls verify_jwt?","mode":"deep"}\'' },
+      { id: 'api_ingest', group: 'REST API', method: 'POST', title: '/api/ingest', summary: 'Tier 1 CPU ingestion with SHA-256 pre-flight skip and deterministic UUIDv5 chunking.', code: 'curl -X POST http://localhost:8000/api/ingest -F "file=@./docs/architecture.md"' },
+      { id: 'api_impact', group: 'REST API', method: 'GET', title: '/api/v1/code/impact', summary: 'Returns transitive CALLS / IMPORTS callers from Neo4j.', code: 'curl "http://localhost:8000/api/v1/code/impact?symbol=verify_jwt&depth=3"' },
+      { id: 'mcp_merge_rank', group: 'MCP TOOLS (/sse)', method: 'MCP', title: 'mcp_merge_rank', summary: 'Primary default RRF search fusing Qdrant dense+sparse vectors with Neo4j traversals.', code: 'await mcp.call_tool("mcp_merge_rank", {"query": "JWT validation", "entity_name": "verify_jwt"})' },
+      { id: 'mcp_agentic_debate', group: 'MCP TOOLS (/sse)', method: 'MCP', title: 'mcp_agentic_debate', summary: 'Multi-agent Vector, Graph, and Web debate with adversarial Skeptic verification (15–30s).' },
+      { id: 'mcp_evaluate_grounding', group: 'MCP TOOLS (/sse)', method: 'MCP', title: 'mcp_evaluate_grounding', summary: 'Verifies drafted claims against retrieved evidence spans.' }
+    ];
+    let activeDoc = 'quickstart', filterText = '';
+    function renderDocs() {
+      const q = filterText.trim().toLowerCase();
+      const filtered = docEntries.filter(d => !q || d.title.toLowerCase().includes(q) || d.summary.toLowerCase().includes(q));
+      const side = document.getElementById('docs-sidebar');
+      if (!filtered.length) {
+        side.innerHTML = `<p style="font-size:13px;color:var(--grey);">No matching guides or endpoints.</p><button type="button" class="link-inline" style="font-size:13px;" onclick="filterText='';document.getElementById('docs-filter').value='';renderDocs()">Clear filter</button>`;
+      } else {
+        const groups = ['GUIDES', 'REST API', 'MCP TOOLS (/sse)'];
+        side.innerHTML = groups.map(g => {
+          const items = filtered.filter(d => d.group === g);
+          if (!items.length) return '';
+          return `<div class="side-group"><div class="side-label mono">${g}</div>${items.map(d =>
+            `<button type="button" class="side-btn ${d.id === activeDoc ? 'active' : ''}" onclick="activeDoc='${d.id}';renderDocs()">${d.method ? `<span class="method-tag mono ${d.method === 'GET' ? 'get' : ''}">${d.method}</span>` : ''}<span>${d.title}</span></button>`
+          ).join('')}</div>`;
+        }).join('');
+      }
+      const cur = docEntries.find(d => d.id === activeDoc) || docEntries[0];
+      document.getElementById('doc-article').innerHTML = `
+        ${cur.method ? `<span class="method-tag mono ${cur.method === 'GET' ? 'get' : ''}">${cur.method}</span>` : ''}
+        <h2>${cur.title}</h2>
+        <p class="serif" style="color:var(--grey);font-size:17px;">${cur.summary}</p>
+        ${cur.params ? `<table class="param-table">${cur.params.map(([n, t, desc]) => `<tr><td class="mono" style="color:var(--cobalt);font-weight:600;">${n}</td><td class="mono" style="color:var(--grey);">${t}</td><td>${desc}</td></tr>`).join('')}</table>` : ''}
+        ${cur.code ? `<div class="code-box" style="margin-top:20px;"><pre class="mono" style="margin:0;">${cur.code}</pre></div>` : ''}
+      `;
+    }
+    document.getElementById('docs-filter').addEventListener('input', e => { filterText = e.target.value; renderDocs(); });
+    renderDocs();
+
+    function showView(view, docId) {
+      const isDocs = view === 'docs';
+      document.getElementById('view-overview').classList.toggle('hidden', isDocs);
+      document.getElementById('view-docs').classList.toggle('hidden', !isDocs);
+      document.querySelectorAll('header .nav-link[data-view]').forEach(b => b.classList.toggle('active', b.dataset.view === view));
+      if (docId) { activeDoc = docId; renderDocs(); }
+      window.location.hash = isDocs ? (docId ? `docs/${docId}` : 'docs') : 'overview';
+      window.scrollTo({ top: 0 });
+    }
+    document.querySelectorAll('[data-view]').forEach(el => el.addEventListener('click', () => showView(el.dataset.view, el.dataset.doc)));
+    window.addEventListener('hashchange', () => {
+      const h = window.location.hash.replace('#', '');
+      if (h.startsWith('docs/')) showView('docs', h.slice(5));
+      else if (h === 'docs') showView('docs');
+      else showView('overview');
+    });
+    if (window.location.hash.startsWith('#docs')) {
+      const parts = window.location.hash.slice(1).split('/');
+      showView('docs', parts[1]);
+    }
+  </script>
+</body>
+</html>
