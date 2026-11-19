@@ -16,7 +16,7 @@ const bool isAuthEnabled =
     bool.fromEnvironment('AUTH_ENABLED', defaultValue: true);
 
 const bool isSelfHosted =
-    bool.fromEnvironment('IS_SELF_HOSTED', defaultValue: true);
+    bool.fromEnvironment('IS_SELF_HOSTED', defaultValue: false);
 
 bool? mockIsAuth;
 
