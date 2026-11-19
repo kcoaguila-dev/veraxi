@@ -300,7 +300,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                                 theme, ext, state, viewModel,
                                                 sandboxEnabled: sandboxEnabled)
                                             : NotificationListener<
-                                                    ScrollMetricsNotification>(
+                                                ScrollMetricsNotification>(
                                                 onNotification: (notification) {
                                                   _syncScrolledUp(
                                                       notification.metrics);
