@@ -37,7 +37,10 @@ class _CitationChipState extends State<CitationChip> {
       launchUrlString(cleanUrl);
       return;
     }
-    launchUrlString(_effectiveUrl);
+    if (_effectiveUrl.startsWith('http://') ||
+        _effectiveUrl.startsWith('https://')) {
+      launchUrlString(_effectiveUrl);
+    }
   }
 
   void _checkHide() {
@@ -157,9 +160,30 @@ class _CitationChipState extends State<CitationChip> {
   }
 
   String _extractUrl(Map item) {
-    if (item.containsKey('url')) return item['url'].toString();
-    if (item.containsKey('sources') && (item['sources'] as List).isNotEmpty) {
-      return item['sources'][0].toString();
+    final directUrl = item['url']?.toString().trim() ?? '';
+    if (directUrl.startsWith('http://') ||
+        directUrl.startsWith('https://') ||
+        directUrl.startsWith('file://')) {
+      return directUrl;
+    }
+    if (item['payload'] is Map) {
+      final payloadUrl = item['payload']['url']?.toString().trim() ?? '';
+      if (payloadUrl.startsWith('http://') ||
+          payloadUrl.startsWith('https://') ||
+          payloadUrl.startsWith('file://')) {
+        return payloadUrl;
+      }
+    }
+    if (item.containsKey('sources') &&
+        item['sources'] is List &&
+        (item['sources'] as List).isNotEmpty) {
+      for (final s in item['sources'] as List) {
+        final candidate = s.toString().trim();
+        if (candidate.startsWith('http://') ||
+            candidate.startsWith('https://')) {
+          return candidate;
+        }
+      }
     }
     return '';
   }
