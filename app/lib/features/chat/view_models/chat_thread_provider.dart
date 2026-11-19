@@ -57,7 +57,6 @@ class ChatThreadViewModel extends Notifier<ChatThreadState> {
   Future<void> _init() async {
     final prefs = await SharedPreferences.getInstance();
     final savedTelemetry = prefs.getBool('show_telemetry') ?? false;
-    await prefs.remove('tool_settings');
     state = state.copyWith(showTelemetry: savedTelemetry);
   }
 

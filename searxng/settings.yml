@@ -24,23 +24,39 @@ search:
     - html
     - json
 
-# Whitelisted engines with weights and timeouts to avoid CAPTCHA blocks
+# Whitelisted engines with weights and timeouts to avoid CAPTCHA/honeypot blocks
 engines:
-  - name: google
-    engine: google
-    shortcut: go
+  - name: yandex
+    engine: yandex
     weight: 2
     timeout: 10.0
-  - name: bing
-    engine: bing
-    shortcut: bi
-    weight: 1
+    disabled: false
+  - name: bing news
+    engine: bing_news
+    weight: 1.5
     timeout: 10.0
+    disabled: false
   - name: wikipedia
     engine: wikipedia
-    shortcut: wp
+    disabled: false
+  - name: google
+    engine: google
+    disabled: true
+  - name: bing
+    engine: bing
+    disabled: true
   - name: duckduckgo
     engine: duckduckgo
-    shortcut: dd
-    weight: 1
-    timeout: 10.0
+    disabled: true
+  - name: startpage
+    engine: startpage
+    disabled: true
+  - name: brave
+    engine: brave
+    disabled: true
+  - name: qwant
+    engine: qwant
+    disabled: true
+  - name: yahoo
+    engine: yahoo
+    disabled: true

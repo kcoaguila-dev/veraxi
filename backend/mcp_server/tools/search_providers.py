@@ -231,9 +231,9 @@ class SearXNGProvider(SearchProvider):
         if web_settings.get("categories"):
             params_dict["categories"] = web_settings["categories"]
         else:
-            # Engines fallback whitelist avoiding CAPTCHA-suspended engines
+            # Engines fallback whitelist avoiding CAPTCHA-suspended / honeypot engines
             params_dict["engines"] = web_settings.get(
-                "engines", "google,bing,duckduckgo"
+                "engines", "yandex,bing news,wikipedia"
             )
 
         if language and language.lower() not in ("auto", "all"):

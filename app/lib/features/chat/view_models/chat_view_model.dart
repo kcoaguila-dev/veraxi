@@ -75,10 +75,6 @@ class ChatViewModel extends StateNotifier<ChatState> {
     final prefs = await SharedPreferences.getInstance();
     final savedTelemetry = prefs.getBool('show_telemetry') ?? false;
 
-    // Force clear old tool_settings to ensure everyone defaults to false
-    // for file_search_enabled. This avoids the stale 'true' state.
-    await prefs.remove('tool_settings');
-
     state = state.copyWith(showTelemetry: savedTelemetry);
     await _migrateLocalChats();
     await loadThreads();
