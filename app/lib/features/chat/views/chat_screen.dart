@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
 import 'package:veraxi_app/features/chat/view_models/chat_view_model.dart';
+import 'package:veraxi_app/features/chat/view_models/token_usage.dart';
 import 'package:veraxi_app/features/chat/views/widgets/chat_input.dart';
 import 'package:veraxi_app/features/chat/views/widgets/chat_sidebar.dart';
 import 'package:veraxi_app/features/chat/views/widgets/chat_message_list_item.dart';
@@ -589,6 +590,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                       const SizedBox(height: 8),
                                     ],
                                     ChatInput(
+                                      usageSummary:
+                                          summarizeTokenUsage(state.messages),
                                       model: _selectedModel == 'Select a model'
                                           ? null
                                           : _selectedModel,

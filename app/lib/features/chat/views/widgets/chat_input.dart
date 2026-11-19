@@ -8,9 +8,11 @@ import 'package:speech_to_text/speech_to_text.dart';
 import 'web_search_dialog.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
+import 'package:veraxi_app/features/chat/view_models/token_usage.dart';
 import 'package:veraxi_app/features/chat/views/widgets/deep_cost_preflight.dart';
 import 'package:veraxi_app/features/chat/views/widgets/integration_chips_bar.dart';
 import 'package:veraxi_app/features/chat/views/widgets/sandbox_toggle.dart';
+import 'package:veraxi_app/features/chat/views/widgets/token_usage_ring.dart';
 
 class ChatInput extends StatefulWidget {
   final bool isLoading;
@@ -23,6 +25,10 @@ class ChatInput extends StatefulWidget {
   /// pre-flight cost estimate shown while High-Accuracy is on.
   final String? model;
 
+  /// Aggregated token usage for the current conversation. When null
+  /// (no response has reported usage yet) the context ring is hidden.
+  final TokenUsageSummary? usageSummary;
+
   const ChatInput({
     super.key,
     required this.isLoading,
@@ -31,6 +37,7 @@ class ChatInput extends StatefulWidget {
     this.errorText,
     this.onDismissError,
     this.model,
+    this.usageSummary,
   });
 
   @override
@@ -620,6 +627,10 @@ class _ChatInputState extends State<ChatInput> {
                       ),
                     ),
                   ),
+                  if (widget.usageSummary != null) ...[
+                    TokenUsageRing(usage: widget.usageSummary!),
+                    SizedBox(width: 4),
+                  ],
                   IconButton(
                     padding: EdgeInsets.zero,
                     constraints:

@@ -877,7 +877,9 @@ async def call_model(state: AgentState):
         # response (None when the provider reported none — never
         # estimated). _finalize_metrics flattens it into the metrics.
         "usage": shape_usage(
-            extract_usage_from_response(response), model_name=effective_model
+            extract_usage_from_response(response),
+            model_name=effective_model,
+            base_url=effective_base_url,
         ),
         "generation_seconds": round(time.perf_counter() - started_at, 3),
         # Pass embeddings into metrics so _finalize_metrics can compute cosine retrieval_relevance.
