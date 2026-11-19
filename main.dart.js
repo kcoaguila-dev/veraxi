@@ -175258,21 +175258,23 @@ A.aLm.prototype={
 $1(a){$.j4.$1("Failed to sync thread history: "+A.r(a))},
 $S:44}
 A.aLr.prototype={
-$1(a){var s,r,q,p,o,n,m,l,k,j,i="toolEvents",h=null,g=A.a([],t.UG),f=J.a6(a)
-if(f.h(a,i)!=null){s=J.cv(t.b.a(f.h(a,i)),new A.aLq(),t.fn)
-g=A.T(s,s.$ti.i("al.E"))}r=this.a.aSk(f.h(a,"activity"))
-q=r.length!==0||g.length===0?r:A.a([new A.il(1,"Activity","Tools used while answering",B.kd,h,g,h)],t.T4)
-s=A.aE(f.h(a,"id"))
-p=A.aV(f.h(a,"role"))
-o=A.aV(f.h(a,"content"))
-n=A.hh(f.h(a,"feedback"))
+$1(a){var s,r,q,p,o,n,m,l,k,j,i="toolEvents",h=null,g=t.UG,f=A.a([],g),e=J.a6(a)
+if(e.h(a,i)!=null){s=J.cv(t.b.a(e.h(a,i)),new A.aLq(),t.fn)
+f=A.T(s,s.$ti.i("al.E"))}r=this.a.aSk(e.h(a,"activity"))
+if(f.length===0&&r.length!==0){g=A.a([],g)
+for(s=r.length,q=0;q<r.length;r.length===s||(0,A.J)(r),++q)B.b.C(g,r[q].f)
+f=g}p=r.length!==0||f.length===0?r:A.a([new A.il(1,"Activity","Tools used while answering",B.kd,h,f,h)],t.T4)
+g=A.aE(e.h(a,"id"))
+s=A.aV(e.h(a,"role"))
+o=A.aV(e.h(a,"content"))
+n=A.hh(e.h(a,"feedback"))
 if(n==null)n=0
-m=A.aE(f.h(a,"model_name"))
-l=A.aE(f.h(a,"reasoning"))
-k=A.cm(f.h(a,"reasoning_duration_seconds"))
+m=A.aE(e.h(a,"model_name"))
+l=A.aE(e.h(a,"reasoning"))
+k=A.cm(e.h(a,"reasoning_duration_seconds"))
 if(k==null)k=h
 j=t.f
-return new A.fY(s,p,o,!1,h,l,k,g,q,!1,n,m,j.b(f.h(a,"metrics"))?A.bJ(j.a(f.h(a,"metrics")),t.N,t.z):h)},
+return new A.fY(g,s,o,!1,h,l,k,f,p,!1,n,m,j.b(e.h(a,"metrics"))?A.bJ(j.a(e.h(a,"metrics")),t.N,t.z):h)},
 $S:392}
 A.aLq.prototype={
 $1(a){var s,r,q,p,o=J.a6(a),n=A.aE(o.h(a,"id"))
