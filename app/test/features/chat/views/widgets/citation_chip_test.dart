@@ -373,4 +373,123 @@ void main() {
       expect(find.text('Knowledge Base'), findsOneWidget);
     });
   });
+
+  group('Claim-matched verbatim excerpt extraction', () {
+    testWidgets(
+        'prefers the exact supporting sentence from full text over generic meta snippet',
+        (tester) async {
+      final msg = ChatMessage(
+        role: 'assistant',
+        content:
+            'Colette Kress became interim CEO of NVIDIA in November 2026 [Colette Kress - Wikipedia].',
+        toolEvents: [
+          ToolEvent(
+            id: 't-excerpt-1',
+            name: 'web_search',
+            isComplete: true,
+            result: [
+              {
+                'id': 'wiki-1',
+                'payload': {
+                  'title': 'Colette Kress - Wikipedia',
+                  'url': 'https://en.wikipedia.org/wiki/Colette_Kress',
+                  'snippet': 'Generic meta description for Wikipedia article.',
+                  'text': 'Colette Marie Kress grew up in the Midwest and earned an MBA. '
+                      'She joined NVIDIA as CFO in 2013 after working at Cisco. '
+                      'In November 2026, Colette Kress was appointed interim CEO of NVIDIA following Jensen Huang stepping down.',
+                },
+                'sources': ['vector'],
+              },
+            ],
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(_wrapMarkdown(msg.content, msg));
+      await tester.pumpAndSettle();
+
+      await _hoverOver(tester, find.byType(CitationChip));
+
+      expect(
+        find.text(
+          'In November 2026, Colette Kress was appointed interim CEO of NVIDIA following Jensen Huang stepping down.',
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.text('Generic meta description for Wikipedia article.'),
+        findsNothing,
+      );
+    });
+
+    testWidgets(
+        'same source cited in two sentences shows each claim-specific excerpt on hover',
+        (tester) async {
+      final msg = ChatMessage(
+        role: 'assistant',
+        content: 'Acme completed the Beta acquisition in 2023 [Acme Filing]. '
+            'The combined unit generated 480 million in annual recurring revenue [Acme Filing].',
+        toolEvents: [
+          ToolEvent(
+            id: 't-excerpt-2',
+            name: 'web_search',
+            isComplete: true,
+            result: [
+              {
+                'id': 'acme-1',
+                'payload': {
+                  'title': 'Acme Filing',
+                  'url': 'https://sec.gov/acme-filing',
+                  'snippet': 'Acme Corporation regulatory filing summary.',
+                  'text': 'Acme Corporation was incorporated in Delaware in 2011. '
+                      'On May 4, 2023, Acme completed the acquisition of Beta LLC for cash. '
+                      'The combined business reached 480 million in annual recurring revenue by year end.',
+                },
+                'sources': ['vector'],
+              },
+            ],
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(_wrapMarkdown(msg.content, msg));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(CitationChip), findsNWidgets(2));
+
+      final gesture = await _hoverOver(tester, find.byType(CitationChip).at(0));
+      expect(
+        find.text(
+          'On May 4, 2023, Acme completed the acquisition of Beta LLC for cash.',
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.text(
+          'The combined business reached 480 million in annual recurring revenue by year end.',
+        ),
+        findsNothing,
+      );
+
+      await gesture.moveTo(Offset.zero);
+      await tester.pump(const Duration(milliseconds: 150));
+      await tester.pumpAndSettle();
+
+      await gesture.moveTo(tester.getCenter(find.byType(CitationChip).at(1)));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text(
+          'The combined business reached 480 million in annual recurring revenue by year end.',
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.text(
+          'On May 4, 2023, Acme completed the acquisition of Beta LLC for cash.',
+        ),
+        findsNothing,
+      );
+    });
+  });
 }

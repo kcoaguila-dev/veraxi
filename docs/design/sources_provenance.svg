@@ -5,8 +5,9 @@
           consecutive citations combine into a single pill showing the first
           source and "+N" (e.g., "+1" for 2 sources, "+2" for 3 sources), and
           hovering displays "< 1/N >" navigation + overlapping favicons +
-          "N sources" plus the active source's domain/title/snippet (never
-          falling back to "Knowledge Base" for unmatched web citations).
+          "N sources" plus the active source's domain, title, and a left
+          accent-bordered verbatim excerpt matched to the cited claim sentence
+          (never falling back to "Knowledge Base" for unmatched web citations).
        2. "Show me the path" provenance in the chat Sources drawer
           (implemented by sources_sidebar.dart + sources_button.dart), which
           parses the backend `provenance` object ({legs, fused_score,
@@ -46,8 +47,9 @@
   <circle cx="400" cy="420" r="7" fill="#4F8EF7"/>
   <text x="414" y="424" font-family="Inter, sans-serif" font-size="11" fill="#A0A0A0" font-weight="500">wikipedia</text>
   <text x="394" y="450" font-family="Inter, sans-serif" font-size="13" fill="#E8E8E8" font-weight="600">Colette Kress - Wikipedia</text>
-  <text x="394" y="474" font-family="Inter, sans-serif" font-size="12" fill="#9A9A9A">Colette Marie Kress is an American business</text>
-  <text x="394" y="492" font-family="Inter, sans-serif" font-size="12" fill="#9A9A9A">executive serving as interim CEO...</text>
+  <rect x="394" y="462" width="2" height="36" rx="1" fill="#4F8EF7"/>
+  <text x="404" y="474" font-family="Inter, sans-serif" font-size="12" fill="#B8B8B8">Colette Marie Kress is an American business</text>
+  <text x="404" y="492" font-family="Inter, sans-serif" font-size="12" fill="#B8B8B8">executive serving as interim CEO...</text>
 
   <rect x="48" y="812" width="994" height="52" rx="26" fill="#1F1F23" stroke="#2E2E34"/>
   <text x="72" y="844" font-family="Inter, sans-serif" font-size="13" fill="#71717A">Reply</text>

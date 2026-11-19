@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math' as math;
 
 import 'package:material_ui/material_ui.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
@@ -151,6 +152,250 @@ bool _hasMatchingHostDomain(List<String> searchTokens, String itemUrl) {
   return searchTokens.any(parts.contains);
 }
 
+const Set<String> _claimStopwords = {
+  'an',
+  'as',
+  'at',
+  'be',
+  'by',
+  'do',
+  'go',
+  'he',
+  'if',
+  'in',
+  'is',
+  'it',
+  'me',
+  'my',
+  'no',
+  'of',
+  'on',
+  'or',
+  'so',
+  'to',
+  'up',
+  'us',
+  'we',
+  'the',
+  'and',
+  'for',
+  'are',
+  'but',
+  'not',
+  'you',
+  'all',
+  'can',
+  'had',
+  'her',
+  'was',
+  'one',
+  'our',
+  'out',
+  'has',
+  'his',
+  'how',
+  'its',
+  'may',
+  'new',
+  'now',
+  'old',
+  'see',
+  'two',
+  'way',
+  'who',
+  'did',
+  'get',
+  'let',
+  'put',
+  'say',
+  'she',
+  'too',
+  'use',
+  'that',
+  'this',
+  'with',
+  'have',
+  'from',
+  'they',
+  'been',
+  'were',
+  'what',
+  'when',
+  'will',
+  'more',
+  'also',
+  'into',
+  'than',
+  'then',
+  'them',
+  'some',
+  'such',
+  'only',
+  'over',
+  'very',
+  'just',
+  'about',
+  'after',
+  'being',
+  'could',
+  'other',
+  'since',
+  'their',
+  'there',
+  'these',
+  'those',
+  'under',
+  'where',
+  'which',
+  'while',
+  'would',
+  'according',
+  'reported',
+  'shows',
+};
+
+final RegExp _wordTokenRegex = RegExp(r'[\p{L}\p{N}]+', unicode: true);
+final RegExp _digitRegex = RegExp(r'\d');
+final RegExp _sentenceSplitRegex = RegExp(r'(?<=[.!?])\s+|\n+');
+final RegExp _alphaThreeRegex = RegExp(r'[a-zA-Z]{3,}');
+final RegExp _tocTrailingDigitRegex = RegExp(r'\d+$');
+
+/// Select the verbatim sentence(s) from [fullText] that best support [claim].
+///
+/// Falls back to [fallbackSnippet] or the opening sentence of [fullText] when
+/// [claim] has no meaningful overlap with any sentence in [fullText].
+String extractRelevantSourceExcerpt({
+  required String claim,
+  required String fullText,
+  required String fallbackSnippet,
+}) {
+  final primarySentences = _splitSourceSentences(fullText);
+  final fallbackSentences = _splitSourceSentences(fallbackSnippet);
+  final candidates = <String>[
+    ...primarySentences,
+    for (final s in fallbackSentences)
+      if (!primarySentences.contains(s)) s,
+  ];
+
+  if (candidates.isEmpty) {
+    final cleanFallback = fallbackSnippet.trim();
+    return cleanFallback.isNotEmpty ? cleanFallback : fullText.trim();
+  }
+
+  final weights = _weightedClaimTokens(claim);
+  if (weights.isEmpty) {
+    final cleanFallback = fallbackSnippet.trim();
+    return cleanFallback.isNotEmpty ? cleanFallback : candidates.first;
+  }
+
+  var bestIdx = -1;
+  var bestScore = 0.0;
+  for (var i = 0; i < candidates.length; i++) {
+    final score = _scoreSentenceAgainstClaim(candidates[i], weights);
+    if (score > bestScore) {
+      bestScore = score;
+      bestIdx = i;
+    }
+  }
+
+  if (bestIdx < 0 || bestScore <= 0) {
+    final cleanFallback = fallbackSnippet.trim();
+    return cleanFallback.isNotEmpty ? cleanFallback : candidates.first;
+  }
+
+  var excerpt = candidates[bestIdx];
+  if (excerpt.length < 180 && bestIdx + 1 < candidates.length) {
+    final next = candidates[bestIdx + 1];
+    final combinedLen = excerpt.length + 1 + next.length;
+    if (combinedLen <= 280 &&
+        _scoreSentenceAgainstClaim(next, weights) >= bestScore * 0.45) {
+      excerpt = '$excerpt $next';
+    }
+  }
+  return excerpt;
+}
+
+List<String> _splitSourceSentences(String text) {
+  final trimmed = text.trim();
+  if (trimmed.isEmpty) return const [];
+
+  final raw = trimmed
+      .split(_sentenceSplitRegex)
+      .map((s) => s.replaceAll(RegExp(r'\s+'), ' ').trim())
+      .where((s) => s.isNotEmpty)
+      .toList();
+  if (raw.isEmpty) return const [];
+
+  final filtered = <String>[];
+  for (final s in raw) {
+    if (s.split(' ').length < 4) continue;
+    if (_isBoilerplateLine(s)) continue;
+    filtered.add(s);
+  }
+  return filtered.isNotEmpty ? filtered : raw;
+}
+
+bool _isBoilerplateLine(String line) {
+  final pipeCount = '|'.allMatches(line).length;
+  if (pipeCount >= 2 && _alphaThreeRegex.allMatches(line).length < 6) {
+    return true;
+  }
+  if ((line.contains('...') || line.contains('.....')) &&
+      _tocTrailingDigitRegex.hasMatch(line)) {
+    return true;
+  }
+  return false;
+}
+
+Map<String, double> _weightedClaimTokens(String claim) {
+  final weights = <String, double>{};
+  for (final match in _wordTokenRegex.allMatches(claim)) {
+    final raw = match.group(0) ?? '';
+    final lower = raw.toLowerCase();
+    final hasDigit = _digitRegex.hasMatch(raw);
+    if (!hasDigit && (lower.length < 2 || _claimStopwords.contains(lower))) {
+      continue;
+    }
+    var weight = 1.0;
+    if (hasDigit) {
+      weight = 3.0;
+    } else if (raw != lower && raw.length >= 2) {
+      weight = 2.0;
+    } else if (lower.length >= 6) {
+      weight = 1.5;
+    }
+    final existing = weights[lower] ?? 0.0;
+    if (weight > existing) weights[lower] = weight;
+  }
+  return weights;
+}
+
+double _scoreSentenceAgainstClaim(
+  String sentence,
+  Map<String, double> claimWeights,
+) {
+  final sentenceWords = _wordTokenRegex
+      .allMatches(sentence.toLowerCase())
+      .map((m) => m.group(0)!)
+      .toSet();
+  if (sentenceWords.isEmpty) return 0.0;
+
+  var overlap = 0.0;
+  for (final entry in claimWeights.entries) {
+    final token = entry.key;
+    if (sentenceWords.contains(token)) {
+      overlap += entry.value;
+    } else if (token.length >= 5) {
+      final prefix = token.substring(0, 5);
+      if (sentenceWords.any((w) => w.length >= 5 && w.startsWith(prefix))) {
+        overlap += entry.value * 0.75;
+      }
+    }
+  }
+  if (overlap <= 0) return 0.0;
+  return overlap / (math.sqrt(sentenceWords.length) + 1.0);
+}
+
 /// A single citation label and optional target URL parsed from markdown.
 class CitationEntry {
   final String text;
@@ -182,6 +427,7 @@ class CitationChip extends StatefulWidget {
   final String text;
   final String url;
   final List<CitationEntry>? citations;
+  final String claimText;
   final ChatMessage message;
 
   const CitationChip({
@@ -189,6 +435,7 @@ class CitationChip extends StatefulWidget {
     required this.text,
     required this.url,
     this.citations,
+    this.claimText = '',
     required this.message,
   });
 
@@ -218,6 +465,7 @@ class _CitationChipState extends State<CitationChip> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.text != widget.text ||
         oldWidget.url != widget.url ||
+        oldWidget.claimText != widget.claimText ||
         !_sameCitations(oldWidget.citations, widget.citations) ||
         oldWidget.message != widget.message) {
       _resolveAllSources();
@@ -559,19 +807,35 @@ class _CitationChipState extends State<CitationChip> {
     return '';
   }
 
-  String _extractItemSnippet(Map item) {
-    for (final key in ['content', 'snippet', 'text']) {
-      final val = item[key]?.toString() ?? '';
-      if (val.isNotEmpty) return val;
-    }
+  String _extractItemFullText(Map item) {
     if (item['payload'] is Map) {
       final payload = item['payload'] as Map;
-      for (final key in ['snippet', 'text', 'content']) {
+      for (final key in ['text', 'content']) {
         final val = payload[key]?.toString() ?? '';
         if (val.isNotEmpty) return val;
       }
     }
+    for (final key in ['content', 'text']) {
+      final val = item[key]?.toString() ?? '';
+      if (val.isNotEmpty) return val;
+    }
     return '';
+  }
+
+  String _extractItemFallbackSnippet(Map item) {
+    if (item['payload'] is Map) {
+      final payload = item['payload'] as Map;
+      final val = payload['snippet']?.toString() ?? '';
+      if (val.isNotEmpty) return val;
+    }
+    final direct = item['snippet']?.toString() ?? '';
+    if (direct.isNotEmpty) return direct;
+    return _extractItemFullText(item);
+  }
+
+  String _extractItemSnippet(Map item) {
+    final full = _extractItemFullText(item);
+    return full.isNotEmpty ? full : _extractItemFallbackSnippet(item);
   }
 
   String _displayTextFor(_ResolvedSource source) {
@@ -632,8 +896,16 @@ class _CitationChipState extends State<CitationChip> {
   }
 
   String _resolveSnippetFor(_ResolvedSource source) {
-    if (source.sourceData == null) return '';
-    return _extractItemSnippet(source.sourceData!);
+    final data = source.sourceData;
+    if (data == null) return '';
+    final effectiveClaim = widget.claimText.trim().isNotEmpty
+        ? widget.claimText.trim()
+        : widget.message.content;
+    return extractRelevantSourceExcerpt(
+      claim: effectiveClaim,
+      fullText: _extractItemFullText(data),
+      fallbackSnippet: _extractItemFallbackSnippet(data),
+    );
   }
 
   @override
@@ -973,16 +1245,27 @@ class _CitationChipState extends State<CitationChip> {
               ),
             ],
             if (snippet.isNotEmpty) ...[
-              const SizedBox(height: 6),
-              Text(
-                snippet,
-                style: const TextStyle(
-                  color: Color(0xFF9A9A9A),
-                  fontSize: 12,
-                  height: 1.4,
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.only(left: 8),
+                decoration: const BoxDecoration(
+                  border: Border(
+                    left: BorderSide(
+                      color: Color(0xFF4F8EF7),
+                      width: 2,
+                    ),
+                  ),
                 ),
-                maxLines: 4,
-                overflow: TextOverflow.ellipsis,
+                child: Text(
+                  snippet,
+                  style: const TextStyle(
+                    color: Color(0xFFB8B8B8),
+                    fontSize: 12,
+                    height: 1.4,
+                  ),
+                  maxLines: 4,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
             ],
           ],

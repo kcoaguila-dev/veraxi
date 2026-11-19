@@ -15,12 +15,14 @@ class CitationElementBuilder extends MarkdownElementBuilder {
 
   @override
   Widget? visitElementAfter(md.Element element, TextStyle? preferredStyle) {
+    final claimText = element.attributes['claim'] ?? '';
     if (element.tag == 'a') {
       final text = element.textContent;
       final href = element.attributes['href'];
       return CitationChip(
         text: text,
         url: href ?? '',
+        claimText: claimText,
         message: message,
       );
     } else if (element.tag == 'cite') {
@@ -35,6 +37,7 @@ class CitationElementBuilder extends MarkdownElementBuilder {
         text: firstText,
         url: firstUrl,
         citations: citations,
+        claimText: claimText,
         message: message,
       );
     }
@@ -102,7 +105,36 @@ class CitationSyntax extends md.InlineSyntax {
       element.attributes['href'] = first['url']!;
     }
     element.attributes['citations'] = jsonEncode(entries);
+    final claim = _extractClaimContext(parser.source, match.start);
+    if (claim.isNotEmpty) {
+      element.attributes['claim'] = claim;
+    }
     parser.addNode(element);
     return true;
+  }
+
+  static String _extractClaimContext(String source, int matchStart) {
+    if (source.isEmpty || matchStart <= 0) return '';
+    final safeEnd = matchStart.clamp(0, source.length);
+    var prefix = source.substring(0, safeEnd);
+    prefix = prefix.replaceAll(_singleCitationRegex, ' ');
+    prefix = prefix.replaceAll(RegExp(r'[*_`#>]'), '');
+    prefix = prefix.replaceAll(RegExp(r'[ \t]+'), ' ').trim();
+    if (prefix.isEmpty) return '';
+
+    final segments = prefix
+        .split(RegExp(r'(?<=[.!?])\s+|\n+'))
+        .map((s) => s.trim())
+        .where((s) => s.isNotEmpty)
+        .toList();
+    if (segments.isEmpty) return '';
+
+    var claim = segments.last;
+    if (claim.length < 20 && segments.length >= 2) {
+      claim = '${segments[segments.length - 2]} $claim';
+    }
+    claim = claim.replaceFirst(RegExp(r'^(?:[-*•]|\d+[.)])\s+'), '');
+    claim = claim.replaceFirst(RegExp(r'[,;:(\s]+$'), '').trim();
+    return claim;
   }
 }
