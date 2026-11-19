@@ -29,6 +29,10 @@ class LandingFooter extends StatelessWidget {
                 onPressed: () => context.go('/login'),
               ),
               LandingTextLink(
+                label: 'Docs & API',
+                onPressed: () => context.go('/docs'),
+              ),
+              LandingTextLink(
                 label: 'GitHub',
                 onPressed: () =>
                     openLandingUrl('https://github.com/kcoaguila-dev/veraxi'),

@@ -19,6 +19,14 @@ class LandingHero extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Text(
+            'OPEN-SOURCE DOCUMENT & CODE INTELLIGENCE · LOCAL OR CLOUD',
+            style: LandingType.mono(
+              size: 12,
+              color: LandingColors.cobalt,
+            ),
+          ),
+          const SizedBox(height: 16),
           Semantics(
             header: true,
             child: Text(
@@ -34,8 +42,8 @@ class LandingHero extends StatelessWidget {
           const SizedBox(height: 28),
           LandingBody(
             'Veraxi reads your PDFs, Markdown and text files. Every answer '
-            'comes with the passages behind it, even when the facts sit in '
-            'different documents.',
+            'comes with inline citations and the retrieval trail behind it, '
+            'even when the facts sit in different documents.',
             size: width < 600 ? 18 : 20,
             maxWidth: 620,
           ),

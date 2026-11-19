@@ -61,4 +61,17 @@ void main() {
     // The second phrase comes from the lease alone.
     expect(find.text('Used for the selected phrase'), findsOneWidget);
   });
+
+  testWidgets('expanding Retrieval Trail reveals MCP tool steps',
+      (tester) async {
+    await pumpLanding(tester);
+
+    expect(find.text('mcp_search_vectors'), findsNothing);
+
+    await tester.tap(find.textContaining('Retrieval Trail'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('mcp_search_vectors'), findsOneWidget);
+    expect(find.text('mcp_evaluate_grounding'), findsOneWidget);
+  });
 }
