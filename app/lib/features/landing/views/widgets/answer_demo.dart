@@ -17,9 +17,8 @@ class AnswerDemo extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Illustration with sample documents, not live data. Pick a '
-          'question, then select a highlighted phrase to see where it came '
-          'from.',
+          'How Veraxi traces an answer (sample data). Pick a question, then '
+          'select a citation to see where it came from.',
           style: LandingType.sans(
             size: 15,
             color: LandingColors.grey,
@@ -203,8 +202,134 @@ class _AnswerPanel extends StatelessWidget {
               height: 1.5,
             ),
           ),
+          const SizedBox(height: 18),
+          _RetrievalTrail(chainCount: claim.chains.length),
         ],
       ),
+    );
+  }
+}
+
+/// Collapsible retrieval activity trail mirroring ChatScreen's toolEvents.
+class _RetrievalTrail extends StatefulWidget {
+  final int chainCount;
+
+  const _RetrievalTrail({required this.chainCount});
+
+  @override
+  State<_RetrievalTrail> createState() => _RetrievalTrailState();
+}
+
+class _RetrievalTrailState extends State<_RetrievalTrail> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: LandingColors.paper,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: LandingColors.line),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          InkWell(
+            onTap: () => setState(() => _expanded = !_expanded),
+            borderRadius: BorderRadius.circular(8),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              child: Wrap(
+                alignment: WrapAlignment.spaceBetween,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: 12,
+                runSpacing: 4,
+                children: [
+                  Text(
+                    '${_expanded ? '▾' : '▸'} Retrieval Trail · 3 steps',
+                    style: LandingType.sans(
+                      size: 13,
+                      weight: FontWeight.w700,
+                      color: LandingColors.ink,
+                    ),
+                  ),
+                  Text(
+                    '✓ Skeptic verified',
+                    style: LandingType.mono(
+                      size: 11.5,
+                      color: const Color(0xFF065F46),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (_expanded) ...[
+            const Divider(height: 1, color: LandingColors.line),
+            Padding(
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _TrailRow(
+                    tool: 'mcp_search_vectors',
+                    detail: 'Qdrant MiniLM + SPLADE RRF lookup',
+                  ),
+                  const SizedBox(height: 6),
+                  _TrailRow(
+                    tool: 'mcp_query_graph',
+                    detail:
+                        '${widget.chainCount} causal path${widget.chainCount == 1 ? '' : 's'} traversed in Neo4j',
+                  ),
+                  const SizedBox(height: 6),
+                  const _TrailRow(
+                    tool: 'mcp_evaluate_grounding',
+                    detail: '0 unsupported claims',
+                    verified: true,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _TrailRow extends StatelessWidget {
+  final String tool;
+  final String detail;
+  final bool verified;
+
+  const _TrailRow({
+    required this.tool,
+    required this.detail,
+    this.verified = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 2,
+      children: [
+        Text(
+          tool,
+          style: LandingType.mono(
+            size: 12,
+            color: LandingColors.cobalt,
+          ),
+        ),
+        Text(
+          detail,
+          style: LandingType.sans(
+            size: 12.5,
+            weight: verified ? FontWeight.w600 : FontWeight.w400,
+            color: verified ? const Color(0xFF065F46) : LandingColors.grey,
+          ),
+        ),
+      ],
     );
   }
 }
