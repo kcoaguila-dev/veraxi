@@ -308,6 +308,25 @@ class ChatMessageListItem extends ConsumerWidget {
                                       color: Colors.white,
                                       fontWeight: FontWeight.w600,
                                     ),
+                                    tableHead:
+                                        theme.textTheme.bodyMedium?.copyWith(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                    tableBody:
+                                        theme.textTheme.bodyMedium?.copyWith(
+                                      color: const Color(0xFFE2E8F0),
+                                      height: 1.4,
+                                    ),
+                                    tableBorder: TableBorder.all(
+                                      color: const Color(0xFF3F3F3F),
+                                      width: 1,
+                                    ),
+                                    tableCellsPadding:
+                                        const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 8,
+                                    ),
                                     horizontalRuleDecoration:
                                         const BoxDecoration(
                                       border: Border(

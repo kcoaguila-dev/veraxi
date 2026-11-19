@@ -23,10 +23,8 @@ import 'package:veraxi_app/features/chat/view_models/code_artifact_provider.dart
 import 'package:veraxi_app/features/chat/views/widgets/code_artifact_panel.dart';
 import 'package:veraxi_app/features/chat/view_models/sandbox_drawer_view_model.dart';
 import 'package:veraxi_app/features/chat/view_models/sandbox_toggle_view_model.dart';
+import 'package:veraxi_app/core/providers/active_sources_provider.dart';
 import 'package:veraxi_app/features/chat/views/widgets/sandbox_drawer.dart';
-
-final activeSourcesProvider =
-    StateProvider<List<Map<String, dynamic>>>((ref) => []);
 
 class ChatScreen extends ConsumerStatefulWidget {
   const ChatScreen({super.key});
