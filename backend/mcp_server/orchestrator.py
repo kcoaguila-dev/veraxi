@@ -178,6 +178,112 @@ def _is_tool_generation_error(exc: Exception) -> bool:
     return any(marker in text for marker in _TOOL_GENERATION_ERROR_MARKERS)
 
 
+_RATE_LIMIT_RETRY_AFTER_RE = re.compile(
+    r"(?:try again in|retry after)\s+(\d+(?:\.\d+)?)s", re.IGNORECASE
+)
+_HARD_QUOTA_MARKERS = (
+    "insufficient_quota",
+    "exceeded your current quota",
+)
+_MAX_RATE_LIMIT_WAIT_SECONDS = 5.0
+_HARD_RATE_LIMIT_CUTOFF_SECONDS = 15.0
+
+
+def _extract_rate_limit_delay(exc: Exception) -> float | None:
+    """Return bounded retry delay in seconds for transient rate limits, or None if non-retryable."""
+    text = str(exc).lower()
+    if any(marker in text for marker in _HARD_QUOTA_MARKERS):
+        return None
+    match = _RATE_LIMIT_RETRY_AFTER_RE.search(text)
+    if match:
+        requested = float(match.group(1))
+        if requested > _HARD_RATE_LIMIT_CUTOFF_SECONDS:
+            return None
+        return min(requested + 0.25, _MAX_RATE_LIMIT_WAIT_SECONDS)
+    return 2.0
+
+
+async def _ainvoke_with_rate_limit_retry(
+    client: Any,
+    messages: list[BaseMessage],
+    model_name: str,
+    max_attempts: int = 3,
+):
+    """Invoke an LLM client with bounded backoff on transient RateLimitError."""
+    for attempt in range(max_attempts):
+        try:
+            return await client.ainvoke(messages)
+        except litellm.exceptions.RateLimitError as exc:
+            delay = _extract_rate_limit_delay(exc)
+            if delay is None or attempt >= max_attempts - 1:
+                raise
+            logger.warning(
+                "Rate limit hit for %s (attempt %d/%d); retrying in %.2fs",
+                model_name,
+                attempt + 1,
+                max_attempts,
+                delay,
+            )
+            await asyncio.sleep(delay)
+
+
+def _is_retryable_tool_error(exc: Exception, has_tools: bool) -> bool:
+    """True only when a tool-bound call failed due to malformed tool-call generation."""
+    if not has_tools:
+        return False
+    if not isinstance(exc, (litellm.exceptions.BadRequestError, ValueError)):
+        return False
+    return _is_tool_generation_error(exc)
+
+
+async def _ainvoke_with_tool_recovery(
+    llm: Any,
+    llm_with_tools: Any,
+    messages: list[BaseMessage],
+    model_name: str,
+    max_retries: int = 3,
+):
+    """Invoke the LLM, retrying only malformed tool-call errors and falling back without tools."""
+    has_tools = llm_with_tools is not llm
+    working_messages = list(messages)
+    for attempt in range(max_retries):
+        try:
+            return await _ainvoke_with_rate_limit_retry(
+                llm_with_tools, working_messages, model_name
+            )
+        except Exception as exc:
+            if not _is_retryable_tool_error(exc, has_tools):
+                raise
+            logger.warning(
+                "Tool invocation crashed (Attempt %d/%d) for %s: %s",
+                attempt + 1,
+                max_retries,
+                model_name,
+                exc,
+            )
+            if attempt < max_retries - 1:
+                working_messages.append(
+                    AIMessage(
+                        content="[I attempted to use a tool but generated invalid syntax.]"
+                    )
+                )
+                working_messages.append(
+                    HumanMessage(
+                        content=(
+                            f"Your previous tool call failed with error: {exc}. "
+                            "Please strictly follow the required JSON tool call format and try again."
+                        )
+                    )
+                )
+            else:
+                logger.warning(
+                    "Max retries reached. Falling back to llm without tools."
+                )
+                return await _ainvoke_with_rate_limit_retry(
+                    llm, messages, model_name
+                )
+
+
 class _ReasoningStrippedChatLiteLLM(ChatLiteLLM):
     def _create_message_dicts(
         self, messages: list[BaseMessage], stop: list[str] | None
@@ -653,42 +759,9 @@ async def call_model(state: AgentState):
         else:
             llm_with_tools = llm
 
-    MAX_RETRIES = 3
-    response = None
-    for attempt in range(MAX_RETRIES):
-        try:
-            response = await llm_with_tools.ainvoke(modified_messages)
-            break
-        except Exception as e:
-            import logging
-
-            if isinstance(e, litellm.exceptions.BadRequestError) and not (
-                llm_with_tools is not llm and _is_tool_generation_error(e)
-            ):
-                # Not a malformed tool call: retrying cannot fix it.
-                raise
-
-            logging.getLogger(__name__).warning(
-                f"Tool invocation crashed (Attempt {attempt + 1}/{MAX_RETRIES}) for {effective_model}: {e}"
-            )
-            if attempt < MAX_RETRIES - 1:
-                # Add the error to the context so the model can try to correct itself
-                modified_messages.append(
-                    AIMessage(
-                        content="[I attempted to use a tool but generated invalid syntax.]"
-                    )
-                )
-                modified_messages.append(
-                    HumanMessage(
-                        content=f"Your previous tool call failed with error: {e}. Please strictly follow the required JSON tool call format and try again."
-                    )
-                )
-            else:
-                logging.getLogger(__name__).warning(
-                    "Max retries reached. Falling back to llm without tools."
-                )
-                response = await llm.ainvoke(modified_messages)
-                break
+    response = await _ainvoke_with_tool_recovery(
+        llm, llm_with_tools, modified_messages, effective_model
+    )
 
     if not response:
         raise RuntimeError("Failed to get response from LLM")

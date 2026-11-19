@@ -225,7 +225,7 @@ async def test_call_model(mock_config):
 
     with patch("backend.mcp_server.orchestrator._create_chat_llm") as mock_create:
         mock_create.return_value = mock_llm
-        mock_llm.bind_tools.return_value = mock_llm
+        mock_llm.bind_tools = MagicMock(return_value=mock_llm)
 
         state = {
             "messages": [msg],
@@ -246,7 +246,7 @@ async def test_call_model_does_not_replay_reasoning_content(mock_config):
 
     with patch("backend.mcp_server.orchestrator._create_chat_llm") as mock_create:
         mock_create.return_value = mock_llm
-        mock_llm.bind_tools.return_value = mock_llm
+        mock_llm.bind_tools = MagicMock(return_value=mock_llm)
 
         state = {
             "messages": [

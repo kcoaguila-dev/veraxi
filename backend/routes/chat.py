@@ -116,6 +116,11 @@ def _friendly_provider_error(error: Exception) -> str:
         )
     if "timeout" in message or "timed out" in message:
         return "The provider took too long to respond. Please try again later."
+    if "tool_use_failed" in message or "failed_generation" in message:
+        return (
+            "The selected model encountered a tool-calling error. "
+            "Please try again or switch models."
+        )
     # Raw exception details are captured server-side via Sentry/logging;
     # clients only ever receive this generic message.
     return "Internal server error. Please try again later."

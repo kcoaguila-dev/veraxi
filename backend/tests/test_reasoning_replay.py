@@ -170,3 +170,75 @@ async def test_tool_generation_error_is_retried(mock_config):
         [err, err, AIMessage(content="success", additional_kwargs={})]
     )
     assert tool_llm.ainvoke.call_count == 3
+
+
+@pytest.mark.asyncio
+async def test_transient_rate_limit_retries_without_tool_pollution(mock_config):
+    rate_err = litellm.exceptions.RateLimitError(
+        message="Rate limit reached. Please try again in 1.65s. https://console.groq.com/settings/billing",
+        model="openai/gpt-oss-20b",
+        llm_provider="groq",
+    )
+    sleep_mock = AsyncMock()
+    with patch("backend.mcp_server.orchestrator.asyncio.sleep", new=sleep_mock):
+        tool_llm, plain_llm = await _run_call_model(
+            [rate_err, AIMessage(content="ok", additional_kwargs={})]
+        )
+    assert tool_llm.ainvoke.call_count == 2
+    plain_llm.ainvoke.assert_not_called()
+    sleep_mock.assert_awaited_once()
+    # Second call should receive the exact original messages (no fake tool-retry prompts)
+    first_msgs = tool_llm.ainvoke.call_args_list[0].args[0]
+    second_msgs = tool_llm.ainvoke.call_args_list[1].args[0]
+    assert len(first_msgs) == len(second_msgs)
+
+
+@pytest.mark.asyncio
+async def test_hard_quota_rate_limit_raises_immediately(mock_config):
+    quota_err = litellm.exceptions.RateLimitError(
+        message="insufficient_quota: You exceeded your current quota",
+        model="openai/gpt-oss-20b",
+        llm_provider="groq",
+    )
+    sleep_mock = AsyncMock()
+    plain_llm = AsyncMock()
+    tool_llm = AsyncMock()
+    tool_llm.ainvoke.side_effect = quota_err
+    plain_llm.bind_tools = MagicMock(return_value=tool_llm)
+    with (
+        patch("backend.mcp_server.orchestrator.asyncio.sleep", new=sleep_mock),
+        patch("backend.mcp_server.orchestrator._create_chat_llm", return_value=plain_llm),
+        patch(
+            "backend.mcp_server.orchestrator.get_tools",
+            new=AsyncMock(return_value=[MagicMock()]),
+        ),
+        pytest.raises(litellm.exceptions.RateLimitError),
+    ):
+        await call_model(_state())
+    assert tool_llm.ainvoke.call_count == 1
+    plain_llm.ainvoke.assert_not_called()
+    sleep_mock.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_midstream_tool_use_failed_value_error_recovers_cleanly(mock_config):
+    midstream_err = ValueError("invalid literal for int() with base 10: 'tool_use_failed'")
+    tool_llm, plain_llm = await _run_call_model(
+        [midstream_err, midstream_err, midstream_err]
+    )
+    assert tool_llm.ainvoke.call_count == 3
+    plain_llm.ainvoke.assert_awaited_once()
+    fallback_msgs = plain_llm.ainvoke.call_args.args[0]
+    assert all(
+        "Your previous tool call failed" not in str(m.content) for m in fallback_msgs
+    )
+
+
+def test_friendly_provider_error_maps_tool_use_failed():
+    from backend.routes.chat import _friendly_provider_error
+
+    msg = _friendly_provider_error(
+        ValueError("invalid literal for int() with base 10: 'tool_use_failed'")
+    )
+    assert "tool-calling error" in msg
+    assert "ValueError" not in msg
