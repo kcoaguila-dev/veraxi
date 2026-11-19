@@ -37,6 +37,7 @@ class _ChatMessageMetricsState extends State<ChatMessageMetrics> {
     final promptTokens = _toInt(usageMap['prompt_tokens']);
     final completionTokens = _toInt(usageMap['completion_tokens']);
     final totalTokens = _toInt(usageMap['total_tokens']);
+    final contextWindowTokens = _toInt(usageMap['context_window_tokens']);
     final estimatedCostUsd = _toDouble(usageMap['estimated_cost_usd']);
     final hasUsage =
         promptTokens != null || completionTokens != null || totalTokens != null;
@@ -100,6 +101,7 @@ class _ChatMessageMetricsState extends State<ChatMessageMetrics> {
                 promptTokens: promptTokens,
                 completionTokens: completionTokens,
                 totalTokens: totalTokens,
+                contextWindowTokens: contextWindowTokens,
                 estimatedCostUsd: estimatedCostUsd,
               ),
             ],
@@ -156,12 +158,14 @@ class _UsageTile extends StatelessWidget {
   final int? promptTokens;
   final int? completionTokens;
   final int? totalTokens;
+  final int? contextWindowTokens;
   final double? estimatedCostUsd;
 
   const _UsageTile({
     required this.promptTokens,
     required this.completionTokens,
     required this.totalTokens,
+    required this.contextWindowTokens,
     required this.estimatedCostUsd,
   });
 
@@ -204,6 +208,14 @@ class _UsageTile extends StatelessWidget {
             'Prompt ${promptTokens ?? '--'} · Completion ${completionTokens ?? '--'}',
             style: TextStyle(color: Color(0xFF8A8A8A), fontSize: 11),
           ),
+          if (promptTokens != null && contextWindowTokens != null) ...[
+            SizedBox(height: 4),
+            Text(
+              'Context ${promptTokens!} of ${contextWindowTokens!} tokens '
+              '(${(promptTokens! / contextWindowTokens! * 100).round()}%)',
+              style: TextStyle(color: Color(0xFF8A8A8A), fontSize: 11),
+            ),
+          ],
           if (estimatedCostUsd != null) ...[
             SizedBox(height: 4),
             Text(

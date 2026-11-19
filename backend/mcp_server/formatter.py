@@ -1,5 +1,6 @@
 import re
 from collections.abc import Sequence
+from functools import lru_cache
 from typing import Any
 
 from langchain_core.messages import BaseMessage, SystemMessage
@@ -65,7 +66,178 @@ def _token_value(usage: dict, *keys: str) -> int | None:
     return None
 
 
-def shape_usage(usage: Any, model_name: str | None = None) -> dict[str, Any] | None:
+@lru_cache(maxsize=128)
+def context_window_tokens_for_model(model_name: str | None) -> int | None:
+    """Context window size (max input tokens) for a model, or None.
+
+    Resolved from LiteLLM's bundled model map — the same library that
+    routes the call — so no extra dependency or network lookup is
+    introduced. Unknown / unmapped models (custom endpoints, local
+    GGUF, provider-specific aliases) return None: the UI then shows
+    token counts without a percentage rather than a fabricated window.
+    """
+    if not model_name:
+        return None
+    try:
+        import litellm
+
+        info = litellm.get_model_info(model_name)
+    except Exception:
+        return None
+    if not isinstance(info, dict):
+        return None
+    for key in ("max_input_tokens", "max_tokens"):
+        value = info.get(key)
+        if isinstance(value, (int, float)) and value > 0:
+            return int(value)
+    return None
+
+
+def _http_get_json(url: str) -> Any:
+    """GET a JSON document with a short timeout, or None on any failure."""
+    try:
+        import httpx
+
+        response = httpx.get(url, timeout=2.0)
+        if response.status_code != 200:
+            return None
+        return response.json()
+    except Exception:
+        return None
+
+
+def _http_post_json(url: str, payload: dict) -> Any:
+    """POST a JSON document with a short timeout, or None on any failure."""
+    try:
+        import httpx
+
+        response = httpx.post(url, json=payload, timeout=2.0)
+        if response.status_code != 200:
+            return None
+        return response.json()
+    except Exception:
+        return None
+
+
+def _positive_int(value: Any) -> int | None:
+    if isinstance(value, (int, float)) and value > 0:
+        return int(value)
+    return None
+
+
+def _ollama_runtime_window(model_name: str, base_url: str) -> int | None:
+    """Served context window from an Ollama endpoint's /api/show.
+
+    ``num_ctx`` in the model's parameters is the window the server
+    actually runs with, so it wins over the architecture's trained
+    ``*.context_length`` when both are present.
+    """
+    root = base_url.rstrip("/").removesuffix("/v1")
+    bare = model_name.split("/", 1)[-1]
+    data = _http_post_json(f"{root}/api/show", {"name": bare})
+    if not isinstance(data, dict):
+        return None
+    parameters = data.get("parameters")
+    if isinstance(parameters, str):
+        for line in parameters.splitlines():
+            parts = line.split()
+            if len(parts) == 2 and parts[0] == "num_ctx":
+                try:
+                    window = _positive_int(float(parts[1]))
+                except ValueError:
+                    window = None
+                if window is not None:
+                    return window
+    model_info = data.get("model_info")
+    if isinstance(model_info, dict):
+        for key, value in model_info.items():
+            if key.endswith(".context_length"):
+                window = _positive_int(value)
+                if window is not None:
+                    return window
+    return None
+
+
+def _openai_compat_runtime_window(model_name: str, base_url: str) -> int | None:
+    """Served context window from an OpenAI-compatible /models listing.
+
+    Covers the fields self-hosted servers actually publish: vLLM's
+    ``max_model_len``, llama.cpp's ``meta.n_ctx`` (served) ahead of
+    ``meta.n_ctx_train`` (trained), and generic ``context_length`` /
+    ``max_context_length`` spellings.
+    """
+    data = _http_get_json(f"{base_url.rstrip('/')}/models")
+    if not isinstance(data, dict):
+        return None
+    entries = data.get("data")
+    if not isinstance(entries, list):
+        return None
+    bare = model_name.split("/", 1)[-1]
+    entry = next(
+        (
+            e
+            for e in entries
+            if isinstance(e, dict) and e.get("id") in (model_name, bare)
+        ),
+        None,
+    )
+    if entry is None and len(entries) == 1 and isinstance(entries[0], dict):
+        entry = entries[0]
+    if entry is None:
+        return None
+    for key in ("max_model_len", "max_context_length", "context_length", "n_ctx"):
+        window = _positive_int(entry.get(key))
+        if window is not None:
+            return window
+    meta = entry.get("meta")
+    if isinstance(meta, dict):
+        for key in ("n_ctx", "n_ctx_train"):
+            window = _positive_int(meta.get(key))
+            if window is not None:
+                return window
+    return None
+
+
+@lru_cache(maxsize=128)
+def runtime_context_window_tokens(
+    model_name: str | None, base_url: str | None
+) -> int | None:
+    """Context window the serving endpoint itself reports, or None.
+
+    Only custom/self-hosted endpoints (those reached through an
+    explicit base URL) are queried — the same destination the LLM call
+    itself goes to, so no new host is contacted. Hosted provider APIs
+    do not publish a served window this way; they fall back to the
+    catalog. Any failure returns None: a percentage is shown only from
+    a number a real source actually reported.
+    """
+    if not model_name or not base_url:
+        return None
+    if "11434" in base_url or model_name.startswith("ollama"):
+        return _ollama_runtime_window(model_name, base_url)
+    return _openai_compat_runtime_window(model_name, base_url)
+
+
+def resolve_context_window_tokens(
+    model_name: str | None, base_url: str | None = None
+) -> int | None:
+    """Best real context window for a model: runtime-reported first.
+
+    A model can be served with a smaller window than its catalog
+    maximum (Ollama ``num_ctx``, a vLLM ``--max-model-len`` cap), so
+    when the endpoint itself reports a window it outranks LiteLLM's
+    bundled map; the catalog is the fallback, and unknown models stay
+    None rather than getting an invented denominator.
+    """
+    runtime = runtime_context_window_tokens(model_name, base_url)
+    if runtime is not None:
+        return runtime
+    return context_window_tokens_for_model(model_name)
+
+
+def shape_usage(
+    usage: Any, model_name: str | None = None, base_url: str | None = None
+) -> dict[str, Any] | None:
     """Shape a provider usage object into display-ready token/cost fields.
 
     Accepts the shapes LiteLLM/LangChain surface (``prompt_tokens`` /
@@ -74,6 +246,11 @@ def shape_usage(usage: Any, model_name: str | None = None) -> dict[str, Any] | N
     usage is absent or carries no token counts — usage is never
     estimated or fabricated. ``estimated_cost_usd`` is None unless the
     operator has priced the model in models_config.
+    ``context_window_tokens`` is the model's context window — the
+    serving endpoint's own reported window when it publishes one
+    (custom base URL), else LiteLLM's model map, else None when the
+    model is unmapped — the UI uses it as the denominator of its
+    context-usage ring.
     """
     if not isinstance(usage, dict):
         return None
@@ -93,6 +270,9 @@ def shape_usage(usage: Any, model_name: str | None = None) -> dict[str, Any] | N
         )
         if prompt_tokens is not None and completion_tokens is not None
         else None,
+        "context_window_tokens": resolve_context_window_tokens(
+            model_name, base_url
+        ),
     }
 
 
@@ -198,6 +378,7 @@ def _finalize_metrics(metrics: dict[str, Any]) -> dict[str, Any]:
             "completion_tokens",
             "total_tokens",
             "estimated_cost_usd",
+            "context_window_tokens",
         ):
             finalized[key] = usage.get(key)
     else:
@@ -205,6 +386,7 @@ def _finalize_metrics(metrics: dict[str, Any]) -> dict[str, Any]:
         finalized.setdefault("completion_tokens", None)
         finalized.setdefault("total_tokens", None)
         finalized.setdefault("estimated_cost_usd", None)
+        finalized.setdefault("context_window_tokens", None)
 
     # --- Context Adherence (grounding) ---
     grounding_score = finalized.get("grounding_score")

@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="880" height="560" viewBox="0 0 880 560" font-family="Inter, Roboto, sans-serif">
+  <!-- Design contract: Token Usage Ring (context gauge) for Veraxi chat.
+       Pattern source: LibreChat context gauge + the circular context ring
+       used by Kindo / Libre WebUI / ChatON composer widgets.
+       Ring sits in the chat input bottom action row, left of the mic button.
+       Always visible once the conversation has any provider-reported usage;
+       hidden before the first response (nothing measured yet). -->
+  <rect width="880" height="560" fill="#0E0E0E"/>
+  <text x="40" y="44" fill="#FFFFFF" font-size="20" font-weight="600">Token Usage Ring — design contract</text>
+  <text x="40" y="68" fill="#8A8A8A" font-size="12">Ring = latest prompt tokens (context actually sent) / model context window. Tap = breakdown sheet.</text>
+
+  <!-- Composer mock -->
+  <rect x="40" y="96" width="800" height="128" rx="16" fill="#141414" stroke="#242424"/>
+  <text x="64" y="128" fill="#5A5A5A" font-size="13">Message Veraxi…</text>
+  <!-- attach / tools -->
+  <circle cx="76" cy="188" r="10" fill="none" stroke="#8A8A8A" stroke-width="2"/>
+  <circle cx="116" cy="188" r="10" fill="none" stroke="#8A8A8A" stroke-width="2"/>
+  <!-- THE RING: 36px, stroke 3.5, track #2E2E2E, arc = context fraction -->
+  <g transform="translate(724,188)">
+    <circle r="15" fill="none" stroke="#2E2E2E" stroke-width="3.5"/>
+    <circle r="15" fill="none" stroke="#22C55E" stroke-width="3.5" stroke-linecap="round"
+            stroke-dasharray="30.2 94.2" transform="rotate(-90)"/>
+    <text y="4" text-anchor="middle" fill="#FFFFFF" font-size="9" font-weight="600">32%</text>
+  </g>
+  <text x="724" y="146" text-anchor="middle" fill="#8A8A8A" font-size="10">ring 36×36</text>
+  <!-- mic + send -->
+  <circle cx="764" cy="188" r="9" fill="none" stroke="#8A8A8A" stroke-width="2"/>
+  <circle cx="800" cy="188" r="16" fill="#FFFFFF"/>
+  <path d="M800 180 v14 M794 186 l6 -6 6 6" stroke="#000" stroke-width="2" fill="none"/>
+
+  <!-- States -->
+  <text x="40" y="272" fill="#FFFFFF" font-size="14" font-weight="600">States (arc color thresholds)</text>
+  <g transform="translate(70,330)">
+    <circle r="15" fill="none" stroke="#2E2E2E" stroke-width="3.5"/>
+    <circle r="15" fill="none" stroke="#22C55E" stroke-width="3.5" stroke-linecap="round" stroke-dasharray="30.2 94.2" transform="rotate(-90)"/>
+    <text y="4" text-anchor="middle" fill="#FFF" font-size="9" font-weight="600">32%</text>
+    <text y="44" text-anchor="middle" fill="#8A8A8A" font-size="11">healthy &lt; 70%</text>
+    <text y="60" text-anchor="middle" fill="#5A5A5A" font-size="10">accent green #22C55E</text>
+  </g>
+  <g transform="translate(230,330)">
+    <circle r="15" fill="none" stroke="#2E2E2E" stroke-width="3.5"/>
+    <circle r="15" fill="none" stroke="#F59E0B" stroke-width="3.5" stroke-linecap="round" stroke-dasharray="75.4 94.2" transform="rotate(-90)"/>
+    <text y="4" text-anchor="middle" fill="#FFF" font-size="9" font-weight="600">80%</text>
+    <text y="44" text-anchor="middle" fill="#8A8A8A" font-size="11">warning 70–89%</text>
+    <text y="60" text-anchor="middle" fill="#5A5A5A" font-size="10">amber #F59E0B</text>
+  </g>
+  <g transform="translate(390,330)">
+    <circle r="15" fill="none" stroke="#2E2E2E" stroke-width="3.5"/>
+    <circle r="15" fill="none" stroke="#EF4444" stroke-width="3.5" stroke-linecap="round" stroke-dasharray="90.5 94.2" transform="rotate(-90)"/>
+    <text y="4" text-anchor="middle" fill="#FFF" font-size="9" font-weight="600">96%</text>
+    <text y="44" text-anchor="middle" fill="#8A8A8A" font-size="11">critical ≥ 90%</text>
+    <text y="60" text-anchor="middle" fill="#5A5A5A" font-size="10">red #EF4444</text>
+  </g>
+  <g transform="translate(550,330)">
+    <circle r="15" fill="none" stroke="#5A5A5A" stroke-width="3.5" stroke-dasharray="4 5"/>
+    <text y="4" text-anchor="middle" fill="#FFF" font-size="9" font-weight="600">41k</text>
+    <text y="44" text-anchor="middle" fill="#8A8A8A" font-size="11">window unknown</text>
+    <text y="60" text-anchor="middle" fill="#5A5A5A" font-size="10">dashed ring, tokens only</text>
+  </g>
+  <g transform="translate(710,330)">
+    <circle r="15" fill="none" stroke="#2E2E2E" stroke-width="3.5"/>
+    <text y="4" text-anchor="middle" fill="#5A5A5A" font-size="9" font-weight="600">—</text>
+    <text y="44" text-anchor="middle" fill="#8A8A8A" font-size="11">no usage yet → hidden</text>
+    <text y="60" text-anchor="middle" fill="#5A5A5A" font-size="10">never an estimate</text>
+  </g>
+
+  <!-- Breakdown sheet mock -->
+  <text x="40" y="436" fill="#FFFFFF" font-size="14" font-weight="600">Tap ring → breakdown sheet</text>
+  <rect x="40" y="452" width="800" height="88" rx="14" fill="#141414" stroke="#242424"/>
+  <text x="64" y="478" fill="#FFFFFF" font-size="13" font-weight="600">Context window</text>
+  <text x="64" y="500" fill="#8A8A8A" font-size="12">41,203 of 128,000 tokens · 86,797 left</text>
+  <text x="64" y="522" fill="#8A8A8A" font-size="12">Last response  Prompt 41,203 · Completion 812 · Total 42,015 · Est. cost $0.0210 (only when priced)</text>
+  <text x="560" y="478" fill="#FFFFFF" font-size="13" font-weight="600">This conversation</text>
+  <text x="560" y="500" fill="#8A8A8A" font-size="12">Prompt 96,540 · Completion 3,204</text>
+  <text x="560" y="522" fill="#8A8A8A" font-size="12">Total 99,744 tokens · 6 responses</text>
+</svg>

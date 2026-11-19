@@ -6,8 +6,10 @@ import pytest
 
 from backend.mcp_server import formatter
 from backend.mcp_server.formatter import (
+    context_window_tokens_for_model,
     estimate_deep_usage,
     extract_usage_from_response,
+    resolve_context_window_tokens,
     shape_usage,
 )
 
@@ -63,6 +65,144 @@ class TestShapeUsage:
         assert shape_usage("tokens") is None
 
 
+class TestContextWindow:
+    def test_known_model_resolves_window(self):
+        # gpt-4o's 128k window is a stable entry in LiteLLM's bundled map.
+        assert context_window_tokens_for_model("gpt-4o") == 128_000
+
+    def test_provider_prefixed_model_resolves_window(self):
+        assert context_window_tokens_for_model("openai/gpt-4o") == 128_000
+
+    def test_unknown_model_window_is_null_not_invented(self):
+        assert context_window_tokens_for_model("no-such-model-xyz") is None
+
+    def test_missing_model_window_is_null(self):
+        assert context_window_tokens_for_model(None) is None
+        assert context_window_tokens_for_model("") is None
+
+    def test_shape_usage_carries_window(self):
+        shaped = shape_usage(
+            {"prompt_tokens": 100, "completion_tokens": 5},
+            model_name="gpt-4o",
+        )
+        assert shaped["context_window_tokens"] == 128_000
+
+    def test_shape_usage_unknown_model_window_null(self):
+        shaped = shape_usage(
+            {"prompt_tokens": 100, "completion_tokens": 5},
+            model_name="no-such-model-xyz",
+        )
+        assert shaped["context_window_tokens"] is None
+
+
+class TestRuntimeContextWindow:
+    """Runtime-reported windows outrank the catalog; failures fall back."""
+
+    def setup_method(self):
+        formatter.runtime_context_window_tokens.cache_clear()
+
+    def teardown_method(self):
+        formatter.runtime_context_window_tokens.cache_clear()
+
+    def test_vllm_max_model_len_overrides_catalog(self, monkeypatch):
+        monkeypatch.setattr(
+            formatter,
+            "_http_get_json",
+            lambda url: {
+                "data": [{"id": "gpt-4o", "max_model_len": 8192}],
+            },
+        )
+        # Catalog says 128k for gpt-4o; the served cap (8192) must win.
+        assert (
+            resolve_context_window_tokens("gpt-4o", "http://localhost:8000/v1")
+            == 8192
+        )
+
+    def test_llama_cpp_served_n_ctx_beats_trained(self, monkeypatch):
+        monkeypatch.setattr(
+            formatter,
+            "_http_get_json",
+            lambda url: {
+                "data": [
+                    {"id": "local-model", "meta": {"n_ctx": 4096, "n_ctx_train": 131072}}
+                ],
+            },
+        )
+        assert (
+            resolve_context_window_tokens("local-model", "http://localhost:8080/v1")
+            == 4096
+        )
+
+    def test_ollama_num_ctx_beats_trained_context_length(self, monkeypatch):
+        monkeypatch.setattr(
+            formatter,
+            "_http_post_json",
+            lambda url, payload: {
+                "parameters": "temperature 0.7\nnum_ctx 32768",
+                "model_info": {"llama.context_length": 131072},
+            },
+        )
+        assert (
+            resolve_context_window_tokens(
+                "ollama/llama3.1", "http://localhost:11434"
+            )
+            == 32768
+        )
+
+    def test_ollama_context_length_when_no_num_ctx(self, monkeypatch):
+        monkeypatch.setattr(
+            formatter,
+            "_http_post_json",
+            lambda url, payload: {
+                "model_info": {"qwen2.context_length": 32768},
+            },
+        )
+        assert (
+            resolve_context_window_tokens("qwen2", "http://localhost:11434/v1")
+            == 32768
+        )
+
+    def test_runtime_failure_falls_back_to_catalog(self, monkeypatch):
+        monkeypatch.setattr(formatter, "_http_get_json", lambda url: None)
+        assert (
+            resolve_context_window_tokens("gpt-4o", "http://localhost:8000/v1")
+            == 128_000
+        )
+
+    def test_runtime_without_window_falls_back_to_catalog(self, monkeypatch):
+        monkeypatch.setattr(
+            formatter,
+            "_http_get_json",
+            lambda url: {"data": [{"id": "gpt-4o"}]},
+        )
+        assert (
+            resolve_context_window_tokens("gpt-4o", "http://localhost:8000/v1")
+            == 128_000
+        )
+
+    def test_unknown_model_and_no_runtime_window_is_none(self, monkeypatch):
+        monkeypatch.setattr(formatter, "_http_get_json", lambda url: None)
+        assert (
+            resolve_context_window_tokens(
+                "no-such-model-xyz", "http://localhost:8000/v1"
+            )
+            is None
+        )
+
+    def test_shape_usage_uses_runtime_window(self, monkeypatch):
+        monkeypatch.setattr(
+            formatter,
+            "_http_get_json",
+            lambda url: {"data": [{"id": "gpt-4o", "max_model_len": 16384}]},
+        )
+        shaped = shape_usage(
+            {"prompt_tokens": 100, "completion_tokens": 5},
+            model_name="gpt-4o",
+            base_url="http://localhost:8000/v1",
+        )
+        assert shaped["context_window_tokens"] == 16384
+
+
 class TestExtractUsage:
     def test_usage_metadata(self):
         response = SimpleNamespace(
@@ -101,11 +241,24 @@ class TestFinalizeMetricsUsage:
         assert finalized["estimated_cost_usd"] is not None
         assert "usage" not in finalized
 
+    def test_context_window_flattened_into_metrics(self):
+        finalized = formatter._finalize_metrics(
+            {
+                "generation_seconds": 1.0,
+                "usage": shape_usage(
+                    {"prompt_tokens": 10, "completion_tokens": 5},
+                    model_name="gpt-4o",
+                ),
+            }
+        )
+        assert finalized["context_window_tokens"] == 128_000
+
     def test_absent_usage_flattens_to_nulls(self):
         finalized = formatter._finalize_metrics({"generation_seconds": 1.0, "usage": None})
         assert finalized["prompt_tokens"] is None
         assert finalized["total_tokens"] is None
         assert finalized["estimated_cost_usd"] is None
+        assert finalized["context_window_tokens"] is None
 
 
 class TestDeepEstimate:
