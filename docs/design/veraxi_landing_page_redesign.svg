@@ -1,0 +1,170 @@
+<svg width="1440" height="1480" viewBox="0 0 1440 1480" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@500;600;700;800&amp;family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,500;0,7..72,600&amp;family=IBM+Plex+Mono:wght@400;500;600&amp;display=swap');
+      .font-sans { font-family: 'Schibsted Grotesk', system-ui, sans-serif; }
+      .font-serif { font-family: 'Literata', Georgia, serif; }
+      .font-mono { font-family: 'IBM Plex Mono', monospace; }
+    </style>
+  </defs>
+
+  <!-- Cool Paper Background (#EDF0EE) -->
+  <rect width="1440" height="1480" fill="#EDF0EE" />
+
+  <!-- ========================================== -->
+  <!-- HEADER (LandingHeader)                     -->
+  <!-- ========================================== -->
+  <g transform="translate(120, 24)">
+    <!-- Logo + Wordmark -->
+    <rect width="28" height="28" rx="6" fill="#2436C9" />
+    <text x="14" y="19" fill="#F4F6F4" font-size="14" font-weight="800" class="font-sans" text-anchor="middle">V</text>
+    <text x="38" y="21" fill="#16191C" font-size="24" font-weight="800" letter-spacing="-0.7" class="font-sans">Veraxi</text>
+
+    <!-- Nav Links (Docs, GitHub, Sign in) -->
+    <g transform="translate(990, 20)">
+      <text x="0" y="0" fill="#16191C" font-size="14" font-weight="600" class="font-sans">Docs</text>
+      <text x="64" y="0" fill="#16191C" font-size="14" font-weight="600" class="font-sans">GitHub</text>
+      <text x="142" y="0" fill="#16191C" font-size="14" font-weight="600" class="font-sans">Sign in</text>
+    </g>
+  </g>
+
+  <!-- ========================================== -->
+  <!-- HERO (LandingHero)                         -->
+  <!-- ========================================== -->
+  <g transform="translate(120, 124)">
+    <text x="0" y="64" fill="#16191C" font-size="76" font-weight="800" letter-spacing="-3.2" class="font-sans">Ask your files.</text>
+    <text x="0" y="142" fill="#16191C" font-size="76" font-weight="800" letter-spacing="-3.2" class="font-sans">Check the answer.</text>
+
+    <text x="0" y="196" fill="#55606A" font-size="20" font-weight="400" class="font-serif">Veraxi reads your PDFs, Markdown and text files. Every answer</text>
+    <text x="0" y="226" fill="#55606A" font-size="20" font-weight="400" class="font-serif">comes with the passages behind it, even when the facts sit in</text>
+    <text x="0" y="256" fill="#55606A" font-size="20" font-weight="400" class="font-serif">different documents.</text>
+
+    <!-- Single Primary CTA (Start Building) + Text Link (Run it yourself) -->
+    <rect x="0" y="286" width="164" height="46" rx="8" fill="#2436C9" />
+    <text x="82" y="314" fill="#F4F6F4" font-size="15" font-weight="700" class="font-sans" text-anchor="middle">Start Building</text>
+
+    <text x="192" y="314" fill="#2436C9" font-size="15" font-weight="700" class="font-sans">Run it yourself</text>
+    <line x1="192" y1="319" x2="292" y2="319" stroke="#2436C9" stroke-width="1.5" />
+  </g>
+
+  <!-- ========================================== -->
+  <!-- WORKING ANSWER DEMO (AnswerDemo)           -->
+  <!-- ========================================== -->
+  <g transform="translate(120, 488)">
+    <!-- Sample Question Pills -->
+    <rect x="0" y="0" width="330" height="36" rx="8" fill="#2436C9" />
+    <text x="16" y="23" fill="#F4F6F4" font-size="13" font-weight="600" class="font-sans">When do I need to give notice to move out?</text>
+
+    <rect x="342" y="0" width="310" height="36" rx="8" fill="#FAFBFA" stroke="#C3CBC6" stroke-width="1" />
+    <text x="358" y="23" fill="#16191C" font-size="13" font-weight="500" class="font-sans">What did WHO recommend in 2024?</text>
+
+    <rect x="664" y="0" width="290" height="36" rx="8" fill="#FAFBFA" stroke="#C3CBC6" stroke-width="1" />
+    <text x="680" y="23" fill="#16191C" font-size="13" font-weight="500" class="font-sans">Which services call verify_jwt?</text>
+
+    <!-- Demo Split Card (#FAFBFA panel, #C3CBC6 hairline border) -->
+    <rect y="52" width="1200" height="360" rx="12" fill="#FAFBFA" stroke="#C3CBC6" stroke-width="1" />
+    <line x1="600" y1="52" x2="600" y2="412" stroke="#C3CBC6" stroke-width="1" />
+
+    <!-- Left Pane: Answer with Yellow Highlighter (#F4DD6B) -->
+    <g transform="translate(32, 84)">
+      <text x="0" y="14" fill="#55606A" font-size="11.5" font-weight="600" class="font-sans">ANSWER · SELECT A HIGHLIGHTED CLAIM</text>
+
+      <text x="0" y="54" fill="#16191C" font-size="18" class="font-serif">You need to send written notice by</text>
+      <rect x="314" y="34" width="106" height="26" rx="3" fill="#F4DD6B" />
+      <text x="367" y="54" fill="#16191C" font-size="18" font-weight="600" class="font-serif" text-anchor="middle">January 30</text>
+      <text x="426" y="54" fill="#16191C" font-size="18" class="font-serif">for a</text>
+
+      <rect x="0" y="68" width="90" height="26" rx="3" fill="#F4DD6B" fill-opacity="0.45" />
+      <text x="45" y="88" fill="#16191C" font-size="18" font-weight="500" class="font-serif" text-anchor="middle">March 31</text>
+      <text x="98" y="88" fill="#16191C" font-size="18" class="font-serif">move-out, based on the</text>
+      <rect x="296" y="68" width="128" height="26" rx="3" fill="#F4DD6B" fill-opacity="0.45" />
+      <text x="360" y="88" fill="#16191C" font-size="18" font-weight="500" class="font-serif" text-anchor="middle">60-day clause</text>
+
+      <text x="0" y="122" fill="#16191C" font-size="18" class="font-serif">in your residential lease.</text>
+
+      <!-- Causal Path Trace -->
+      <line x1="0" y1="164" x2="536" y2="164" stroke="#C3CBC6" stroke-width="1" />
+      <text x="0" y="192" fill="#55606A" font-size="11.5" font-weight="600" class="font-sans">PATH VERAXI TOOK</text>
+
+      <rect x="0" y="210" width="536" height="38" rx="6" fill="#EDF0EE" stroke="#B9C3E6" stroke-width="1" />
+      <text x="14" y="234" fill="#2436C9" font-size="12.5" font-weight="500" class="font-mono">landlord-email.txt → move-out → March 31</text>
+
+      <rect x="0" y="256" width="536" height="38" rx="6" fill="#EDF0EE" stroke="#B9C3E6" stroke-width="1" />
+      <text x="14" y="280" fill="#2436C9" font-size="12.5" font-weight="500" class="font-mono">lease.pdf → notice period → 60 days</text>
+    </g>
+
+    <!-- Right Pane: Source Passages -->
+    <g transform="translate(632, 84)">
+      <text x="0" y="14" fill="#55606A" font-size="11.5" font-weight="600" class="font-sans">SOURCE PASSAGES (FICTIONAL SAMPLE)</text>
+
+      <!-- Passage 1 (Lit up) -->
+      <rect y="32" width="536" height="128" rx="8" fill="#FFFFFF" stroke="#2436C9" stroke-width="1.5" />
+      <text x="18" y="56" fill="#2436C9" font-size="12" font-weight="600" class="font-mono">lease.pdf · p. 4</text>
+      <text x="18" y="84" fill="#16191C" font-size="15" class="font-serif">"Section 4.2: Tenant shall deliver written notice of</text>
+      <rect x="18" y="96" width="380" height="22" rx="3" fill="#F4DD6B" />
+      <text x="18" y="112" fill="#16191C" font-size="15" font-weight="600" class="font-serif">non-renewal no fewer than sixty (60) calendar days</text>
+      <text x="18" y="138" fill="#16191C" font-size="15" class="font-serif">prior to the scheduled lease expiration."</text>
+
+      <!-- Passage 2 -->
+      <rect y="176" width="536" height="118" rx="8" fill="#FFFFFF" stroke="#C3CBC6" stroke-width="1" />
+      <text x="18" y="200" fill="#55606A" font-size="12" font-weight="600" class="font-mono">landlord-email.txt · line 12</text>
+      <text x="18" y="228" fill="#16191C" font-size="15" class="font-serif">"Confirming your final move-out date is March 31.</text>
+      <text x="18" y="254" fill="#16191C" font-size="15" class="font-serif">Please send your notice per Section 4.2 of the lease."</text>
+    </g>
+  </g>
+
+  <!-- ========================================== -->
+  <!-- SECTION: CONNECTIONS + HOW IT WORKS        -->
+  <!-- ========================================== -->
+  <g transform="translate(120, 960)">
+    <text x="0" y="28" fill="#16191C" font-size="32" font-weight="800" letter-spacing="-0.8" class="font-sans">What happens when you add a file</text>
+
+    <!-- 3 Columns (HowItWorksSection) -->
+    <g transform="translate(0, 64)">
+      <text x="0" y="18" fill="#2436C9" font-size="13" font-weight="600" class="font-mono">01</text>
+      <text x="0" y="46" fill="#16191C" font-size="19" font-weight="700" class="font-sans">It reads the file</text>
+      <text x="0" y="76" fill="#55606A" font-size="15" class="font-serif">Pulls text out of PDFs, Markdown and</text>
+      <text x="0" y="98" fill="#55606A" font-size="15" class="font-serif">plain text into citable passages.</text>
+
+      <text x="410" y="18" fill="#2436C9" font-size="13" font-weight="600" class="font-mono">02</text>
+      <text x="410" y="46" fill="#16191C" font-size="19" font-weight="700" class="font-sans">It links what the file mentions</text>
+      <text x="410" y="76" fill="#55606A" font-size="15" class="font-serif">Indexes by meaning and keywords, tying</text>
+      <text x="410" y="98" fill="#55606A" font-size="15" class="font-serif">acronyms like WHO across documents.</text>
+
+      <text x="820" y="18" fill="#2436C9" font-size="13" font-weight="600" class="font-mono">03</text>
+      <text x="820" y="46" fill="#16191C" font-size="19" font-weight="700" class="font-sans">It answers with a trail</text>
+      <text x="820" y="76" fill="#55606A" font-size="15" class="font-serif">Searches both indexes and audits every</text>
+      <text x="820" y="98" fill="#55606A" font-size="15" class="font-serif">claim in deep research mode.</text>
+    </g>
+  </g>
+
+  <!-- ========================================== -->
+  <!-- SECTION: RUN IT YOURSELF + MCP TOOLS       -->
+  <!-- ========================================== -->
+  <g transform="translate(120, 1172)">
+    <!-- Cobalt Code Card (#0E1550) -->
+    <rect width="580" height="170" rx="10" fill="#0E1550" />
+    <text x="24" y="34" fill="#D9DEFF" font-size="12" font-weight="600" class="font-sans">RUN IT YOURSELF</text>
+    <text x="24" y="72" fill="#F4F6F4" font-size="14" class="font-mono">make setup</text>
+    <text x="24" y="100" fill="#F4F6F4" font-size="14" class="font-mono">make up</text>
+    <text x="24" y="128" fill="#F4F6F4" font-size="14" class="font-mono">make seed</text>
+
+    <!-- MCP Tools Card (#FAFBFA) -->
+    <rect x="620" y="0" width="580" height="170" rx="10" fill="#FAFBFA" stroke="#C3CBC6" stroke-width="1" />
+    <text x="644" y="34" fill="#55606A" font-size="12" font-weight="600" class="font-sans">MCP TOOL SURFACE</text>
+    <text x="644" y="72" fill="#2436C9" font-size="14" font-weight="600" class="font-mono">mcp_merge_rank</text>
+    <text x="830" y="72" fill="#55606A" font-size="14" class="font-serif">Hybrid RRF vector + graph search</text>
+    <text x="644" y="102" fill="#2436C9" font-size="14" font-weight="600" class="font-mono">mcp_agentic_debate</text>
+    <text x="830" y="102" fill="#55606A" font-size="14" class="font-serif">15–30s multi-agent cited debate</text>
+    <text x="644" y="132" fill="#2436C9" font-size="14" font-weight="600" class="font-mono">mcp_evaluate_grounding</text>
+    <text x="830" y="132" fill="#55606A" font-size="14" class="font-serif">Adversarial Skeptic verification</text>
+  </g>
+
+  <!-- ========================================== -->
+  <!-- FOOTER (LandingFooter)                     -->
+  <!-- ========================================== -->
+  <line x1="120" y1="1400" x2="1320" y2="1400" stroke="#C3CBC6" stroke-width="1" />
+  <g transform="translate(120, 1434)">
+    <text x="0" y="0" fill="#55606A" font-size="13" class="font-sans">Veraxi · Open source under MIT · Still in development · One developer</text>
+  </g>
+</svg>

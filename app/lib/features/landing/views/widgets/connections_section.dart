@@ -28,16 +28,14 @@ class ConnectionsSection extends StatelessWidget {
             children: [
               _Approach(
                 title: 'Searching by similarity',
-                body:
-                    'Finds passages that read like your question. The lease '
+                body: 'Finds passages that read like your question. The lease '
                     'clause is a close match. The email about your move-out '
                     'date is not, so the answer often stops at “60 days.”',
                 boxed: false,
               ),
               _Approach(
                 title: 'Following connections',
-                body:
-                    'Veraxi links the clause to the email through your '
+                body: 'Veraxi links the clause to the email through your '
                     'move-out date, then counts back 60 days from March 31 to '
                     'reach January 30. Both passages appear next to the '
                     'answer.',

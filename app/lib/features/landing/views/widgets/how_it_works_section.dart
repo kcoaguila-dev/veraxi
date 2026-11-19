@@ -12,35 +12,32 @@ class HowItWorksSection extends StatelessWidget {
       bottom: LandingLayout.sectionGap(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: const [
+        children: [
           ConstrainedBox(
-            constraints: BoxConstraints(maxWidth: 640),
+            constraints: const BoxConstraints(maxWidth: 640),
             child: LandingHeading('What happens when you add a file'),
           ),
-          SizedBox(height: 40),
+          const SizedBox(height: 40),
           LandingColumns(
             gap: 40,
-            children: [
+            children: const [
               _Step(
                 number: '1',
                 title: 'It reads the file',
-                body:
-                    'Veraxi pulls the text out of PDFs, Markdown and plain '
+                body: 'Veraxi pulls the text out of PDFs, Markdown and plain '
                     'text, then splits it into passages small enough to cite.',
               ),
               _Step(
                 number: '2',
                 title: 'It links what the file mentions',
-                body:
-                    'Each passage is indexed by meaning and by keywords. '
+                body: 'Each passage is indexed by meaning and by keywords. '
                     'Names that appear in more than one file, like “WHO” and '
                     '“World Health Organization,” are tied together.',
               ),
               _Step(
                 number: '3',
                 title: 'It answers with a trail',
-                body:
-                    'When you ask a hard question, Veraxi searches both '
+                body: 'When you ask a hard question, Veraxi searches both '
                     'indexes and builds the missing connections as it goes. '
                     'In deep research mode, every claim carries a citation, '
                     'and a skeptic sends unsupported claims back for '

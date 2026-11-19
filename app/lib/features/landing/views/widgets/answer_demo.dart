@@ -56,7 +56,8 @@ class _QuestionPicker extends StatelessWidget {
       builder: (context, constraints) {
         const gap = 12.0;
         final columns = constraints.maxWidth >= 840 ? 3 : 1;
-        final itemWidth = (constraints.maxWidth - gap * (columns - 1)) / columns;
+        final itemWidth =
+            (constraints.maxWidth - gap * (columns - 1)) / columns;
 
         return Wrap(
           spacing: gap,
@@ -254,9 +255,8 @@ class _ClaimChipState extends State<_ClaimChip> {
       );
     }
 
-    final number = widget.index < _superscripts.length
-        ? _superscripts[widget.index]
-        : '';
+    final number =
+        widget.index < _superscripts.length ? _superscripts[widget.index] : '';
 
     final label = Semantics(
       button: true,

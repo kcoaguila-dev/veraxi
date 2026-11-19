@@ -38,7 +38,8 @@ void main() {
     await pumpLanding(tester);
 
     await tester.tap(
-      find.text('Does a final exam land on the same day as a project deadline?'),
+      find.text(
+          'Does a final exam land on the same day as a project deadline?'),
     );
     await tester.pumpAndSettle();
 
