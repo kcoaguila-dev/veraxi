@@ -242,3 +242,85 @@ def test_friendly_provider_error_maps_tool_use_failed():
     )
     assert "tool-calling error" in msg
     assert "ValueError" not in msg
+
+
+@pytest.mark.asyncio
+async def test_after_tool_synthesis_strips_tool_protocol_and_recovers(mock_config):
+    plain_llm = AsyncMock()
+    tool_llm = AsyncMock()
+    plain_llm.bind_tools = MagicMock(return_value=tool_llm)
+    plain_llm.ainvoke.side_effect = [
+        ValueError("invalid literal for int() with base 10: 'tool_use_failed'"),
+        AIMessage(content="Colette Kress is interim CEO."),
+    ]
+    state = {
+        "messages": [
+            HumanMessage(content="whos the ceo of nvidia now?"),
+            AIMessage(
+                content="",
+                tool_calls=[
+                    {
+                        "name": "web_search",
+                        "args": {"query": "nvidia ceo"},
+                        "id": "call-1",
+                    }
+                ],
+            ),
+            ToolMessage(
+                content="Here is the context retrieved from the database:\n[Result 1]: Colette Kress",
+                tool_call_id="call-1",
+            ),
+        ],
+        "calculate_grounding": False,
+        "tool_settings": {"web_search": {"enabled": True}},
+    }
+
+    with (
+        patch(
+            "backend.mcp_server.orchestrator._create_chat_llm",
+            return_value=plain_llm,
+        ),
+        patch(
+            "backend.mcp_server.orchestrator.get_tools",
+            new=AsyncMock(return_value=[MagicMock()]),
+        ),
+    ):
+        result = await call_model(state)
+
+    assert result["messages"][0].content == "Colette Kress is interim CEO."
+    assert plain_llm.ainvoke.call_count == 2
+    tool_llm.ainvoke.assert_not_called()
+
+    first_sent = plain_llm.ainvoke.call_args_list[0].args[0]
+    assert all(not isinstance(m, ToolMessage) for m in first_sent)
+    assert all(not getattr(m, "tool_calls", None) for m in first_sent)
+    system_text = "\n".join(str(m.content) for m in first_sent)
+    assert "you MUST call the retrieval tools again" not in system_text
+    assert "do NOT attempt to call or invoke any tools" in system_text
+
+
+@pytest.mark.asyncio
+async def test_after_tool_synthesis_recovers_from_tool_choice_none_bad_request(
+    mock_config,
+):
+    plain_llm = AsyncMock()
+    plain_llm.bind_tools = MagicMock(return_value=AsyncMock())
+    plain_llm.ainvoke.side_effect = [
+        _bad_request("Tool choice is none, but model called a tool"),
+        AIMessage(content="Recovered answer."),
+    ]
+    state = {
+        "messages": [
+            HumanMessage(content="hello"),
+            ToolMessage(content="context", tool_call_id="c1"),
+        ],
+        "calculate_grounding": False,
+    }
+    with patch(
+        "backend.mcp_server.orchestrator._create_chat_llm",
+        return_value=plain_llm,
+    ):
+        result = await call_model(state)
+
+    assert result["messages"][0].content == "Recovered answer."
+    assert plain_llm.ainvoke.call_count == 2

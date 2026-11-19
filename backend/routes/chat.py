@@ -116,7 +116,12 @@ def _friendly_provider_error(error: Exception) -> str:
         )
     if "timeout" in message or "timed out" in message:
         return "The provider took too long to respond. Please try again later."
-    if "tool_use_failed" in message or "failed_generation" in message:
+    if (
+        "tool_use_failed" in message
+        or "failed_generation" in message
+        or "tool choice is none" in message
+        or "model called a tool" in message
+    ):
         return (
             "The selected model encountered a tool-calling error. "
             "Please try again or switch models."
@@ -242,6 +247,39 @@ def _apply_saved_reasoning(message: dict, saved: dict | None) -> None:
             message["reasoning_duration_seconds"] = float(saved_duration)
 
 
+def _sync_tool_results_from_activity(message: dict) -> None:
+    """Backfill structured tool results from persisted activity when missing or raw."""
+    activity = message.get("activity")
+    tool_events = message.get("toolEvents")
+    if not isinstance(activity, list) or not isinstance(tool_events, list):
+        return
+
+    by_id: dict[str, Any] = {}
+    for step in activity:
+        if not isinstance(step, dict):
+            continue
+        for ev in step.get("toolEvents") or []:
+            if not isinstance(ev, dict):
+                continue
+            ev_id = ev.get("id")
+            ev_result = ev.get("result")
+            if ev_id and ev_result:
+                by_id[ev_id] = ev_result
+
+    if not by_id:
+        return
+
+    for te in tool_events:
+        if not isinstance(te, dict):
+            continue
+        cur = te.get("result")
+        is_raw_db_text = isinstance(cur, str) and cur.startswith(
+            "Here is the context retrieved from the database:"
+        )
+        if (not cur or is_raw_db_text) and te.get("id") in by_id:
+            te["result"] = by_id[te["id"]]
+
+
 def _extract_messages_from_state(
     raw_messages: list,
     feedback_dict: dict | None = None,
@@ -256,7 +294,8 @@ def _extract_messages_from_state(
             getattr(msg, "type", "") == "tool"
             or msg.__class__.__name__ == "ToolMessage"
         ):
-            tool_results[msg.tool_call_id] = msg.content
+            artifact = getattr(msg, "artifact", None)
+            tool_results[msg.tool_call_id] = artifact if artifact else msg.content
     messages = [
         p
         for msg in raw_messages
@@ -276,17 +315,16 @@ def _extract_messages_from_state(
             _apply_saved_reasoning(message, saved_reasoning)
     merged = _merge_intermediate_tool_messages(messages)
     for message in merged:
-        if (
-            message.get("role") == "assistant"
-            and not message.get("toolEvents")
-            and isinstance(message.get("activity"), list)
-        ):
+        if message.get("role") != "assistant":
+            continue
+        if not message.get("toolEvents") and isinstance(message.get("activity"), list):
             message["toolEvents"] = [
                 event
                 for step in message["activity"]
                 if isinstance(step, dict)
                 for event in (step.get("toolEvents") or [])
             ]
+        _sync_tool_results_from_activity(message)
     return merged
 
 

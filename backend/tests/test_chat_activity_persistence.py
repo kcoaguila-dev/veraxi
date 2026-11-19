@@ -391,3 +391,42 @@ def test_orphan_intermediate_tool_message_is_preserved():
 
     assert [m["role"] for m in messages] == ["user", "assistant"]
     assert messages[1]["activity"][0]["name"] == "Tool activity"
+
+
+def test_history_extracts_structured_tool_artifact_instead_of_raw_db_text():
+    artifact = [
+        {
+            "id": "hit-1",
+            "payload": {
+                "title": "Colette Kress - Wikipedia",
+                "url": "https://en.wikipedia.org/wiki/Colette_Kress",
+                "text": "Colette Marie Kress is interim CEO.",
+            },
+            "sources": ["vector"],
+        }
+    ]
+    messages = _extract_messages_from_state(
+        [
+            HumanMessage(content="whos the ceo of nvidia now?"),
+            AIMessage(
+                content="",
+                tool_calls=[
+                    {
+                        "name": "web_search",
+                        "args": {"query": "nvidia ceo"},
+                        "id": "run-1",
+                    }
+                ],
+            ),
+            ToolMessage(
+                content="Here is the context retrieved from the database:\n[Result 1]: ...",
+                tool_call_id="run-1",
+                artifact=artifact,
+            ),
+            AIMessage(content="Colette Kress is interim CEO."),
+        ]
+    )
+
+    assert [m["role"] for m in messages] == ["user", "assistant"]
+    assert messages[1]["toolEvents"][0]["result"] == artifact
+    assert messages[1]["activity"][0]["toolEvents"][0]["result"] == artifact

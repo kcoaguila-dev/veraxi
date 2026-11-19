@@ -169,13 +169,60 @@ _TOOL_GENERATION_ERROR_MARKERS = (
     "failed to call a function",
     "invalid tool call",
     "tool call validation",
+    "tool choice is none",
+    "model called a tool",
+)
+
+_NO_TOOL_SYNTHESIS_SUFFIX = (
+    "\n\nTool execution is complete and no tools are available. "
+    "Answer the user's question directly in plain text/Markdown using the retrieved context above. "
+    "Do NOT call or invoke any tools or functions."
 )
 
 
+def _exception_chain_text(exc: BaseException) -> str:
+    parts: list[str] = []
+    seen: set[int] = set()
+    cur: BaseException | None = exc
+    while cur is not None and id(cur) not in seen:
+        seen.add(id(cur))
+        parts.append(str(cur).lower())
+        cur = cur.__cause__ or cur.__context__
+    return " ".join(parts)
+
+
 def _is_tool_generation_error(exc: Exception) -> bool:
-    """True if a provider 400 indicates the model emitted a malformed tool call."""
-    text = str(exc).lower()
+    """True if a provider error indicates a malformed or disallowed tool call."""
+    text = _exception_chain_text(exc)
     return any(marker in text for marker in _TOOL_GENERATION_ERROR_MARKERS)
+
+
+def _has_tool_calls(message: BaseMessage) -> bool:
+    if getattr(message, "tool_calls", None):
+        return True
+    kwargs = getattr(message, "additional_kwargs", None)
+    return isinstance(kwargs, dict) and bool(kwargs.get("tool_calls"))
+
+
+def _prepare_messages_for_no_tools(
+    messages: Sequence[BaseMessage],
+) -> list[BaseMessage]:
+    """Convert tool-protocol messages into plain messages when tools are unbound."""
+    prepared: list[BaseMessage] = []
+    for message in messages:
+        if isinstance(message, ToolMessage) or getattr(message, "type", "") == "tool":
+            prepared.append(
+                HumanMessage(content=f"{message.content}{_NO_TOOL_SYNTHESIS_SUFFIX}")
+            )
+            continue
+        if isinstance(message, AIMessage) and _has_tool_calls(message):
+            content = message.content
+            has_text = bool(content.strip()) if isinstance(content, str) else bool(content)
+            if has_text:
+                prepared.append(AIMessage(content=content))
+            continue
+        prepared.append(message)
+    return prepared
 
 
 _RATE_LIMIT_RETRY_AFTER_RE = re.compile(
@@ -227,13 +274,44 @@ async def _ainvoke_with_rate_limit_retry(
             await asyncio.sleep(delay)
 
 
-def _is_retryable_tool_error(exc: Exception, has_tools: bool) -> bool:
-    """True only when a tool-bound call failed due to malformed tool-call generation."""
-    if not has_tools:
-        return False
-    if not isinstance(exc, (litellm.exceptions.BadRequestError, ValueError)):
-        return False
+def _is_retryable_tool_error(exc: Exception, has_tools: bool = True) -> bool:
+    """True when an invocation failed due to malformed or disallowed tool-call generation."""
+    del has_tools
     return _is_tool_generation_error(exc)
+
+
+async def _invoke_without_tools_with_recovery(
+    llm: Any,
+    messages: Sequence[BaseMessage],
+    model_name: str,
+    max_retries: int = 3,
+):
+    """Invoke a tool-free LLM, retrying if it still tries to emit a tool call."""
+    working_messages = _prepare_messages_for_no_tools(messages)
+    for attempt in range(max_retries):
+        try:
+            return await _ainvoke_with_rate_limit_retry(
+                llm, working_messages, model_name
+            )
+        except Exception as exc:
+            if not _is_retryable_tool_error(exc) or attempt >= max_retries - 1:
+                raise
+            logger.warning(
+                "No-tool synthesis failed due to tool call attempt (Attempt %d/%d) for %s: %s",
+                attempt + 1,
+                max_retries,
+                model_name,
+                exc,
+            )
+            working_messages = list(working_messages)
+            working_messages.append(
+                HumanMessage(
+                    content=(
+                        "Tools are disabled for this response. Do NOT emit any tool or function calls. "
+                        "Provide the final answer directly in plain Markdown text."
+                    )
+                )
+            )
 
 
 async def _ainvoke_with_tool_recovery(
@@ -243,8 +321,13 @@ async def _ainvoke_with_tool_recovery(
     model_name: str,
     max_retries: int = 3,
 ):
-    """Invoke the LLM, retrying only malformed tool-call errors and falling back without tools."""
+    """Invoke the LLM, retrying malformed tool-call errors and falling back without tools."""
     has_tools = llm_with_tools is not llm
+    if not has_tools:
+        return await _invoke_without_tools_with_recovery(
+            llm, messages, model_name, max_retries=max_retries
+        )
+
     working_messages = list(messages)
     for attempt in range(max_retries):
         try:
@@ -252,7 +335,7 @@ async def _ainvoke_with_tool_recovery(
                 llm_with_tools, working_messages, model_name
             )
         except Exception as exc:
-            if not _is_retryable_tool_error(exc, has_tools):
+            if not _is_retryable_tool_error(exc):
                 raise
             logger.warning(
                 "Tool invocation crashed (Attempt %d/%d) for %s: %s",
@@ -279,8 +362,8 @@ async def _ainvoke_with_tool_recovery(
                 logger.warning(
                     "Max retries reached. Falling back to llm without tools."
                 )
-                return await _ainvoke_with_rate_limit_retry(
-                    llm, messages, model_name
+                return await _invoke_without_tools_with_recovery(
+                    llm, messages, model_name, max_retries=max_retries
                 )
 
 
@@ -699,12 +782,36 @@ async def call_model(state: AgentState):
             )
         )
 
+    # Determine if we should bind tools. We do not bind tools if we are executing a fallback,
+    # OR if we just received a ToolMessage (to prevent the LLM from hallucinating more tool calls and looping).
+    last_msg = messages[-1]
+    is_fallback = getattr(
+        last_msg, "type", ""
+    ) == "human" and "Web Search Fallback Context" in str(last_msg.content)
+    is_after_tool = (
+        getattr(last_msg, "type", "") == "tool"
+        or last_msg.__class__.__name__ == "ToolMessage"
+    )
+
     file_search_enabled = tool_settings.get("file_search_enabled", False)
     web_search = tool_settings.get("web_search", {})
     web_enabled = (
         web_search.get("enabled", False) if isinstance(web_search, dict) else False
     )
     if file_search_enabled or web_enabled:
+        if is_after_tool or is_fallback:
+            rule_2 = (
+                "2. ANTI-ATTRIBUTION-DRIFT: NEVER reuse citations from previous turns to justify new claims. "
+                "Tool execution for this turn is already complete and NO tools are available right now — "
+                "synthesize your final answer directly in plain text/Markdown using only the retrieved context above, "
+                "and do NOT attempt to call or invoke any tools.\n"
+            )
+        else:
+            rule_2 = (
+                "2. ANTI-ATTRIBUTION-DRIFT: In multi-turn conversations and follow-up questions, NEVER reuse citations "
+                "from previous turns to justify new claims. If a follow-up question introduces new entities or questions "
+                "not answered by prior tool outputs, you MUST call the retrieval tools again for fresh context.\n"
+            )
         extra_system_messages.append(
             SystemMessage(
                 content=(
@@ -712,9 +819,7 @@ async def call_model(state: AgentState):
                     "1. When information is retrieved from tools (such as web search, vector search, or knowledge graph), "
                     "ground your statements with inline bracketed citations [1], [2], or [Source Title] immediately after "
                     "the corresponding claim (like Perplexity).\n"
-                    "2. ANTI-ATTRIBUTION-DRIFT: In multi-turn conversations and follow-up questions, NEVER reuse citations "
-                    "from previous turns to justify new claims. If a follow-up question introduces new entities or questions "
-                    "not answered by prior tool outputs, you MUST call the retrieval tools again for fresh context.\n"
+                    f"{rule_2}"
                     "3. DO NOT make up URLs or cite materials not retrieved by tools for the current claim."
                 )
             )
@@ -727,17 +832,6 @@ async def call_model(state: AgentState):
         custom_system_prompt=custom_system_prompt,
     )
     modified_messages = _sanitize_messages_for_provider(modified_messages)
-
-    # Determine if we should bind tools. We do not bind tools if we are executing a fallback,
-    # OR if we just received a ToolMessage (to prevent the LLM from hallucinating more tool calls and looping).
-    last_msg = messages[-1]
-    is_fallback = getattr(
-        last_msg, "type", ""
-    ) == "human" and "Web Search Fallback Context" in str(last_msg.content)
-    is_after_tool = (
-        getattr(last_msg, "type", "") == "tool"
-        or last_msg.__class__.__name__ == "ToolMessage"
-    )
 
     if is_fallback or is_after_tool:
         llm_with_tools = llm
