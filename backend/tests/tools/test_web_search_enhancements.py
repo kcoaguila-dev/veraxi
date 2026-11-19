@@ -202,3 +202,61 @@ def test_authority_weighting():
     assert ranked[1]["url"] == "https://reuters.com/technology/article"
     assert ranked[1]["authority"] == "verified"
     assert ranked[2]["url"] == "https://random-dev-blog.net/post"
+
+
+def test_searxng_default_engines_and_ui_tool_settings():
+    """Verify SearXNGProvider uses working default engines and respects UI searxng_url."""
+    from backend.mcp_server.tools.web_search import mcp_web_search
+
+    captured_urls: list[str] = []
+
+    mock_resp = MagicMock(status=200)
+    mock_resp.read.return_value = json.dumps(
+        {
+            "results": [
+                {
+                    "title": "Nvidia CEO Jensen Huang news",
+                    "url": "https://www.bbc.com/news/example",
+                    "content": "Latest update on Jensen Huang and Nvidia.",
+                    "score": 1.0,
+                }
+            ]
+        }
+    ).encode("utf-8")
+    cm = MagicMock()
+    cm.__enter__.return_value = mock_resp
+
+    def _fake_urlopen(req, timeout=10):
+        captured_urls.append(req.full_url)
+        return cm
+
+    tool_settings = {
+        "web_search": {
+            "enabled": True,
+            "provider": "SearXNG",
+            "scraper": "Trafilatura (local)",
+            "scraper_max_pages": 5,
+            "searxng_url": "http://searxng:8080/search",
+        }
+    }
+
+    with (
+        patch("urllib.request.urlopen", side_effect=_fake_urlopen),
+        patch(
+            "backend.mcp_server.tools.web_search.build_scraper",
+            return_value=None,
+        ),
+    ):
+        results = mcp_web_search(
+            "whtas jensen huang news today",
+            language="en",
+            max_results=5,
+            tool_settings=tool_settings,
+        )
+
+    assert len(captured_urls) == 1
+    assert captured_urls[0].startswith("http://searxng:8080/search?")
+    assert "yandex" in captured_urls[0]
+    assert "duckduckgo" not in captured_urls[0]
+    assert len(results) == 1
+    assert results[0]["url"] == "https://www.bbc.com/news/example"
