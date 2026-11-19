@@ -263,6 +263,13 @@ def _extract_messages_from_state(
             assistant_messages[-len(activity_history) :], activity_history
         ):
             message["activity"] = activity
+            if not message.get("toolEvents"):
+                message["toolEvents"] = [
+                    event
+                    for step in activity
+                    if isinstance(step, dict)
+                    for event in (step.get("toolEvents") or [])
+                ]
     if reasoning_history:
         assistant_messages = _final_assistant_messages(messages)
         for message, saved_reasoning in zip(

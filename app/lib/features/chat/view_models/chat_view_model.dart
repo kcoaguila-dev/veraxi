@@ -188,6 +188,11 @@ class ChatViewModel extends StateNotifier<ChatState> {
             .toList();
       }
       final activity = _decodeActivity(m['activity']);
+      if (toolEvents.isEmpty && activity.isNotEmpty) {
+        toolEvents = [
+          for (final step in activity) ...step.toolEvents,
+        ];
+      }
       final restoredActivity = activity.isNotEmpty || toolEvents.isEmpty
           ? activity
           : [
