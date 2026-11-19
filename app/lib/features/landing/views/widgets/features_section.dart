@@ -111,8 +111,7 @@ class _FeatureCardState extends State<_FeatureCard> {
       cursor: SystemMouseCursors.click,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        constraints: const BoxConstraints(maxWidth: 340),
-        height: 260,
+        constraints: const BoxConstraints(maxWidth: 340, minHeight: 260),
         transform: Matrix4.translationValues(0, _isHovered ? -8 : 0, 0),
         decoration: BoxDecoration(
           color: theme.colorScheme.surface.withValues(alpha: 0.6),
@@ -126,6 +125,7 @@ class _FeatureCardState extends State<_FeatureCard> {
         ),
         padding: const EdgeInsets.all(32),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             AnimatedContainer(

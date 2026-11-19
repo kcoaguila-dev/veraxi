@@ -4,6 +4,7 @@ import 'package:integration_test/integration_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:veraxi_app/features/landing/views/landing_screen.dart';
 import 'package:veraxi_app/main.dart' as app;
 
 void main() {
@@ -30,10 +31,15 @@ void main() {
 
       runApp(const ProviderScope(child: app.VeraxiApp()));
 
-      // Wait for the app to fully load and settle.
+      // Wait for the app to fully load and settle on the landing page.
+      await tester.pumpAndSettle(const Duration(seconds: 3));
+      expect(find.byType(LandingScreen), findsOneWidget);
+
+      // Navigate from the landing page to the login screen.
+      await tester.tap(find.text('Start Building'));
       await tester.pumpAndSettle(const Duration(seconds: 3));
 
-      // Check if the chat input is present.
+      // Check if the login input fields are present.
       expect(find.byType(TextField), findsWidgets);
     });
   });
