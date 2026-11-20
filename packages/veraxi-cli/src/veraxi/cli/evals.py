@@ -108,7 +108,11 @@ def run_eval_ablation(
         results_dict = _remote_ablation(dataset_data, rankings_data, k, endpoint, key, tenant)
     else:
         try:
-            from backend.evaluation.ablation import run_ablation
+            from backend.evaluation.ablation import (
+                CODE_ABLATION_CONFIGURATIONS,
+                CONFIGURATIONS,
+                run_ablation,
+            )
             from backend.evaluation.report import render_markdown, results_to_dict
             from backend.evaluation.run_typed_ablation import RecordedRankingsRetriever
             from backend.evaluation.typed_dataset import load_dataset
@@ -121,10 +125,12 @@ def run_eval_ablation(
                 from backend.evaluation.code_ablation import RepoCodeAblationRetriever
 
                 retriever = RepoCodeAblationRetriever(repo_root)
+                configs = CODE_ABLATION_CONFIGURATIONS
             else:
                 rankings_data = _load_json_file(rankings, "rankings")
                 retriever = RecordedRankingsRetriever(rankings_data)
-            results = run_ablation(typed, retriever, k=k)
+                configs = CONFIGURATIONS
+            results = run_ablation(typed, retriever, configs=configs, k=k)
         except Exception as exc:
             print(f"Error: ablation failed: {exc}", file=sys.stderr)
             sys.exit(1)

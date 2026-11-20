@@ -9,6 +9,7 @@ from pathlib import Path
 import pytest
 
 from backend.evaluation.ablation import (
+    CODE_ABLATION_CONFIGURATIONS,
     CONFIGURATIONS,
     RetrievalResult,
     hit_at_k,
@@ -289,8 +290,9 @@ def test_markdown_report_renders_na_for_missing_grounding():
 def test_veraxi_code_dataset_validates_with_balanced_query_types():
     dataset = load_dataset(VERAXI_CODE_DATASET_PATH)
     assert dataset.name == "veraxi-code-ablation-v1"
+    assert len(dataset.cases) >= 24
     for query_type in QUERY_TYPES:
-        assert len(dataset.by_type(query_type)) >= 4
+        assert len(dataset.by_type(query_type)) >= 8
 
 
 def test_veraxi_code_ablation_measures_hybrid_and_graph_lifts():
@@ -298,11 +300,14 @@ def test_veraxi_code_ablation_measures_hybrid_and_graph_lifts():
 
     dataset = load_dataset(VERAXI_CODE_DATASET_PATH)
     retriever = RepoCodeAblationRetriever(REPO_ROOT)
-    results = run_ablation(dataset, retriever, k=5)
+    results = run_ablation(
+        dataset, retriever, configs=CODE_ABLATION_CONFIGURATIONS, k=5
+    )
 
     vec = results.config("vector_only")
     hyb = results.config("hybrid_no_graph")
     graph = results.config("hybrid_with_graph")
+    rerank = results.config("hybrid_with_graph_rerank")
 
     # Hybrid (dense + exact-identifier BM25) beats vector-only on identifier lookup & overall.
     assert hyb.by_query_type["lookup"].recall_at_k > vec.by_query_type["lookup"].recall_at_k
@@ -312,3 +317,7 @@ def test_veraxi_code_ablation_measures_hybrid_and_graph_lifts():
     assert graph.by_query_type["multi_hop"].recall_at_k > hyb.by_query_type["multi_hop"].recall_at_k
     assert graph.by_query_type["global"].recall_at_k > hyb.by_query_type["global"].recall_at_k
     assert graph.overall.recall_at_k > hyb.overall.recall_at_k
+
+    # Cross-encoder reranking adds further lift over hybrid_with_graph on multi_hop and overall.
+    assert rerank.by_query_type["multi_hop"].recall_at_k > graph.by_query_type["multi_hop"].recall_at_k
+    assert rerank.overall.recall_at_k > graph.overall.recall_at_k

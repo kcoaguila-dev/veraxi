@@ -17,6 +17,8 @@ import threading
 logger = logging.getLogger(__name__)
 
 DEFAULT_RRF_K = 60
+RERANK_WINDOW_CAP = 20
+CE_SIGMOID_WEIGHT = 0.012
 
 _CROSS_ENCODER_LOCK = threading.Lock()
 _CROSS_ENCODER_CACHE: dict[tuple[str, int], object] = {}
@@ -88,7 +90,7 @@ def _format_reranker_document(item: MergedResult) -> str:
     """Format payload content into text representation for cross-encoder reranking.
     Enriches pure graph hits with structured entity and relationship metadata."""
     if not isinstance(item.payload, dict):
-        return ""
+        return str(item.id) if item.id else ""
     text = item.payload.get("text")
     if text and isinstance(text, str):
         return text
@@ -96,15 +98,28 @@ def _format_reranker_document(item: MergedResult) -> str:
     source_entity = item.payload.get("source_entity")
     if source_entity:
         parts.append(f"{source_entity} ->")
-    name = item.payload.get("name") or item.payload.get("title") or item.payload.get("id")
+    name = (
+        item.payload.get("name")
+        or item.payload.get("title")
+        or item.payload.get("qualified_name")
+        or item.payload.get("path")
+        or item.payload.get("id")
+        or item.id
+    )
     if name:
         parts.append(str(name))
+    path = item.payload.get("path")
+    if path and str(path) != str(name):
+        parts.append(f"path: {path}")
     labels = item.payload.get("labels")
     if labels and isinstance(labels, list):
         parts.append(f"({', '.join(str(lbl) for lbl in labels)})")
     rel_type = item.payload.get("relation_type")
     if rel_type:
         parts.append(f"relation: {rel_type}")
+    graph_path = item.payload.get("graph_path")
+    if graph_path:
+        parts.append(f"graph_path: {graph_path}")
     description = item.payload.get("description")
     if description and isinstance(description, str):
         parts.append(description)
@@ -136,11 +151,16 @@ def _suppress_near_duplicates(
 def _rerank_with_cross_encoder(
     candidates: list[MergedResult], query_text: str, k: int = DEFAULT_RRF_K
 ) -> list[MergedResult]:
-    """Reranks candidates using ONNX cross-encoder model and blends as an RRF rank leg."""
+    """Reranks top candidates using ONNX cross-encoder model and blends as an RRF rank leg."""
     import math
     import sentry_sdk
 
     from backend.config import get_config
+
+    head = candidates[:RERANK_WINDOW_CAP]
+    tail = candidates[RERANK_WINDOW_CAP:]
+    if len(head) <= 1:
+        return candidates
 
     try:
         cfg = get_config()
@@ -150,20 +170,20 @@ def _rerank_with_cross_encoder(
         threads = getattr(cfg, "embedding_threads", 2)
         encoder = _get_cross_encoder(model_name, threads=threads)
 
-        docs = [_format_reranker_document(item) for item in candidates]
+        docs = [_format_reranker_document(item) for item in head]
 
         with _CROSS_ENCODER_LOCK:
             ce_scores = list(encoder.rerank(query=query_text, documents=docs))
 
         ranked_indices = sorted(
-            range(len(candidates)),
+            range(len(head)),
             key=lambda idx: float(ce_scores[idx]),
             reverse=True,
         )
 
         new_scores = []
         for ce_rank, orig_idx in enumerate(ranked_indices, start=1):
-            item = candidates[orig_idx]
+            item = head[orig_idx]
             try:
                 raw_val = float(ce_scores[orig_idx])
                 clamped_val = max(-50.0, min(50.0, raw_val))
@@ -171,13 +191,18 @@ def _rerank_with_cross_encoder(
             except Exception:
                 sigmoid_val = 0.5
 
-            new_fused_score = item.fused_score + (1.0 / (k + ce_rank)) + (1e-4 * sigmoid_val)
+            new_fused_score = (
+                item.fused_score
+                + (1.0 / (k + ce_rank))
+                + (CE_SIGMOID_WEIGHT * sigmoid_val)
+            )
             new_scores.append((orig_idx, new_fused_score))
 
         for orig_idx, new_fused_score in new_scores:
-            candidates[orig_idx].fused_score = new_fused_score
+            head[orig_idx].fused_score = new_fused_score
 
-        candidates.sort(key=lambda r: r.fused_score, reverse=True)
+        head.sort(key=lambda r: r.fused_score, reverse=True)
+        return [*head, *tail]
     except Exception as err:
         sentry_sdk.capture_exception(err)
         logger.warning(
@@ -269,7 +294,7 @@ def merge_rank(
         except Exception:
             should_rerank = False
 
-    if should_rerank and query_text and query_text.strip() and deduped:
+    if should_rerank and query_text and query_text.strip() and len(deduped) > 1:
         deduped = _rerank_with_cross_encoder(deduped, query_text=query_text, k=k)
 
     if limit is not None:

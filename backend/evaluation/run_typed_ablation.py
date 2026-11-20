@@ -28,7 +28,12 @@ import logging
 from pathlib import Path
 from typing import Any
 
-from backend.evaluation.ablation import RetrievalResult, run_ablation
+from backend.evaluation.ablation import (
+    CODE_ABLATION_CONFIGURATIONS,
+    CONFIGURATIONS,
+    RetrievalResult,
+    run_ablation,
+)
 from backend.evaluation.report import render_markdown, results_to_dict
 from backend.evaluation.typed_dataset import load_dataset
 
@@ -70,6 +75,12 @@ def main() -> None:
         help="Run live offline code-graph ablation over a local repository root",
     )
     parser.add_argument(
+        "--dense-backend",
+        choices=("tfidf", "minilm"),
+        default="tfidf",
+        help="Dense retrieval backend when running with --repo-root",
+    )
+    parser.add_argument(
         "--k", type=int, default=5, help="Cutoff for recall@k / hit-rate"
     )
     parser.add_argument("--out-json", help="Write the results dict as JSON here")
@@ -81,10 +92,14 @@ def main() -> None:
     if args.repo_root:
         from backend.evaluation.code_ablation import RepoCodeAblationRetriever
 
-        retriever = RepoCodeAblationRetriever(args.repo_root)
+        retriever = RepoCodeAblationRetriever(
+            args.repo_root, dense_backend=args.dense_backend
+        )
+        configs = CODE_ABLATION_CONFIGURATIONS
     else:
         retriever = RecordedRankingsRetriever(_load_rankings(Path(args.rankings)))
-    results = run_ablation(dataset, retriever, k=args.k)
+        configs = CONFIGURATIONS
+    results = run_ablation(dataset, retriever, configs=configs, k=args.k)
 
     if args.out_json:
         Path(args.out_json).write_text(

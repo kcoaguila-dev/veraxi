@@ -313,3 +313,56 @@ def test_cross_encoder_partial_failure_preserves_original_scores():
         assert results[1].fused_score == (1.0 / 62)
         assert results[0].id == "doc_a"
         assert results[1].id == "doc_b"
+
+
+def test_format_reranker_document_supports_code_graph_hits():
+    from backend.retrieval.merge_rank import MergedResult, _format_reranker_document
+
+    code_item = MergedResult(
+        id="backend/retrieval/merge_rank.py",
+        fused_score=0.03,
+        sources=["graph"],
+        payload={
+            "qualified_name": "backend.retrieval.merge_rank.merge_rank",
+            "path": "backend/retrieval/merge_rank.py",
+            "labels": ["Function"],
+            "graph_path": "tool_registry -> [CALLS] -> merge_rank",
+        },
+    )
+    doc_str = _format_reranker_document(code_item)
+    assert "backend.retrieval.merge_rank.merge_rank" in doc_str
+    assert "path: backend/retrieval/merge_rank.py" in doc_str
+    assert "graph_path: tool_registry -> [CALLS] -> merge_rank" in doc_str
+
+
+def test_rerank_with_cross_encoder_caps_window_and_preserves_tail():
+    from unittest.mock import MagicMock, patch
+
+    from backend.retrieval.merge_rank import RERANK_WINDOW_CAP, VectorHit, merge_rank
+
+    total = RERANK_WINDOW_CAP + 5
+    hits = [
+        VectorHit(id=f"doc-{i:02d}", score=1.0 - (i * 0.01), payload={"text": f"Doc {i}"})
+        for i in range(total)
+    ]
+
+    mock_encoder = MagicMock()
+    # Reverse scores within the capped head so doc-(CAP-1) ranks first
+    mock_encoder.rerank.return_value = [float(i) for i in range(RERANK_WINDOW_CAP)]
+
+    with patch("backend.retrieval.merge_rank._get_cross_encoder", return_value=mock_encoder):
+        results = merge_rank(
+            hits,
+            [],
+            limit=total,
+            query_text="find docs",
+            rerank=True,
+        )
+
+    assert len(results) == total
+    called_docs = mock_encoder.rerank.call_args.kwargs["documents"]
+    assert len(called_docs) == RERANK_WINDOW_CAP
+    # Tail candidates beyond RERANK_WINDOW_CAP stay after head in original RRF order
+    assert [r.id for r in results[RERANK_WINDOW_CAP:]] == [
+        f"doc-{i:02d}" for i in range(RERANK_WINDOW_CAP, total)
+    ]

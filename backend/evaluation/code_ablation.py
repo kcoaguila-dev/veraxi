@@ -1,15 +1,17 @@
 """Offline repository code-graph ablation retriever.
 
 Builds an in-memory structural code graph (via ``backend.ingestion.code_graph.parse_repo``),
-subword semantic/prose index, and exact-identifier BM25 index over a local
-repository tree with no external database, network, or LLM calls.
+subword semantic/prose index (TF-IDF or local MiniLM ONNX embeddings), and exact-identifier
+BM25 index over a local repository tree with no external database, network, or LLM calls.
 
 Used by ``backend.evaluation.ablation.run_ablation`` to compare:
-- ``vector_only``: subword/conceptual TF-IDF cosine ranking
+- ``vector_only``: subword/conceptual dense cosine ranking
 - ``hybrid_no_graph``: dense subword ranking fused with exact-identifier BM25
 - ``hybrid_with_graph``: hybrid ranking fused with AST graph lookup,
   transitive caller/importer traversal (``impact_analysis``), and
-  repository hub centrality (``repo_overview``) via ``merge_rank``.
+  repository hub centrality (``repo_overview``) via ``merge_rank``
+- ``hybrid_with_graph_rerank``: ``hybrid_with_graph`` followed by ONNX
+  cross-encoder reranking over AST- and graph-enriched candidate cards.
 """
 
 from __future__ import annotations
@@ -120,6 +122,102 @@ _CAMEL_RE = re.compile(r"[A-Z]+(?=[A-Z][a-z]|\b)|[A-Z]?[a-z]+|[0-9]+")
 _IDENT_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*")
 _DOCSTRING_RE = re.compile(r'"""(.*?)"""|\'\'\'(.*?)\'\'\'', re.DOTALL)
 _COMMENT_RE = re.compile(r"(?:^|\s)(?:#|//+|///)\s*(.+)")
+_FROM_IMPORT_RE = re.compile(
+    r"from\s+[A-Za-z0-9_.]+\s+import\s+\(?([A-Za-z0-9_,\s]+)\)?"
+)
+
+_ROLE_BY_PREFIX: tuple[tuple[str, str], ...] = (
+    ("backend/routes/", "FastAPI route handler module"),
+    ("backend/mcp_server/tools/", "MCP tool module"),
+    ("backend/mcp_server/", "MCP server and orchestrator module"),
+    ("backend/retrieval/", "backend retrieval module"),
+    ("backend/ingestion/", "backend ingestion pipeline module"),
+    ("backend/evaluation/", "backend evaluation pipeline module"),
+    ("backend/sandbox/", "agentic coding sandbox module"),
+    ("backend/tests/", "pytest test module"),
+    ("packages/veraxi-cli/", "CLI command wrapper"),
+    ("backend/cli/", "CLI command wrapper"),
+)
+
+_MINILM_MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
+
+
+def _role_for_path(path: str) -> str:
+    """Map a repository file path to a concise architectural role label."""
+    for prefix, role in _ROLE_BY_PREFIX:
+        if path.startswith(prefix):
+            return role
+    return "source module"
+
+
+def _collect_imported_symbols(source: str) -> list[str]:
+    """Extract public imported symbol names from ``from ... import ...`` statements."""
+    imported: list[str] = []
+    for match in _FROM_IMPORT_RE.finditer(source):
+        for raw_part in match.group(1).split(","):
+            stripped = raw_part.strip()
+            token = stripped.split()[0] if stripped else ""
+            if token and not token.startswith("_"):
+                imported.append(token)
+    return list(dict.fromkeys(imported))
+
+
+def _collect_path_definitions(
+    graph: CodeGraph,
+) -> tuple[dict[str, list[str]], dict[str, list[str]]]:
+    """Group top-level function and class names defined per repository file path."""
+    module_qns = {n.qualified_name for n in graph.nodes if n.label == "CodeModule"}
+    top_level_defs: dict[str, list[str]] = {}
+    class_defs: dict[str, list[str]] = {}
+    for node in graph.nodes:
+        if not node.resolved or not node.path or node.label in ("CodeFile", "CodeModule"):
+            continue
+        if node.label == "Class":
+            class_defs.setdefault(node.path, []).append(node.name)
+            continue
+        parent_qn = ".".join(node.qualified_name.split(".")[:-1])
+        if parent_qn in module_qns:
+            top_level_defs.setdefault(node.path, []).append(node.name)
+    return top_level_defs, class_defs
+
+
+def _build_ast_cards(
+    graph: CodeGraph, docs: dict[str, str], prose_docs: dict[str, str]
+) -> dict[str, str]:
+    """Precompute concise AST-grounded file cards for cross-encoder reranking."""
+    top_level_defs, class_defs = _collect_path_definitions(graph)
+    cards: dict[str, str] = {}
+    for path, source in docs.items():
+        all_funcs = list(dict.fromkeys(top_level_defs.get(path, [])))
+        public_funcs = [fn for fn in all_funcs if not fn.startswith("_")]
+        private_funcs = [fn for fn in all_funcs if fn.startswith("_")]
+        classes = list(dict.fromkeys(class_defs.get(path, [])))
+        defs = ", ".join((public_funcs + classes + private_funcs)[:16])
+        imps = ", ".join(_collect_imported_symbols(source)[:16])
+        prose_lines = [
+            ln.strip() for ln in prose_docs.get(path, "").splitlines()[1:] if ln.strip()
+        ]
+        prose_summary = " ".join(prose_lines)[:220]
+        cards[path] = f"Defines: {defs}. Imports: {imps}. {prose_summary}"
+    return cards
+
+
+def _build_minilm_index(
+    doc_paths: list[str], prose_docs: dict[str, str]
+) -> tuple[Any, Any]:
+    """Load MiniLM ONNX embeddings and encode concise per-file summaries."""
+    import numpy as np
+    from fastembed import TextEmbedding
+
+    model = TextEmbedding(model_name=_MINILM_MODEL_NAME, threads=4)
+    summaries = [prose_docs.get(path, path)[:420] for path in doc_paths]
+    if not summaries:
+        return model, np.empty((0, 384), dtype=np.float32)
+    raw = list(model.passage_embed(summaries, batch_size=32))
+    matrix = np.asarray(raw, dtype=np.float32)
+    norms = np.linalg.norm(matrix, axis=1, keepdims=True)
+    norms[norms == 0] = 1.0
+    return model, matrix / norms
 
 
 def _extract_conceptual_text(path: str, source: str) -> str:
@@ -312,20 +410,26 @@ class InMemoryCodeGraphClient:
 
 class RepoCodeAblationRetriever:
     """Offline code retriever implementing ``vector_only``, ``hybrid_no_graph``,
-    and ``hybrid_with_graph`` over a local repository tree."""
+    ``hybrid_with_graph``, and ``hybrid_with_graph_rerank`` over a local repository tree."""
 
     def __init__(
         self,
         repo_root: str | Path,
         *,
         candidate_pool: int = 150,
+        dense_backend: str = "tfidf",
     ) -> None:
+        if dense_backend not in ("tfidf", "minilm"):
+            raise ValueError(
+                f"Unknown dense_backend '{dense_backend}'; expected 'tfidf' or 'minilm'"
+            )
         self.repo_root = Path(repo_root)
         if not self.repo_root.is_dir():
             raise ValueError(
                 f"Repository root is not an existing directory: {self.repo_root}"
             )
         self.candidate_pool = candidate_pool
+        self.dense_backend = dense_backend
         self.graph = parse_repo(self.repo_root)
         self._graph_client = InMemoryCodeGraphClient(self.graph)
         self._known_names = {
@@ -342,6 +446,7 @@ class RepoCodeAblationRetriever:
             path: _extract_conceptual_text(path, text)
             for path, text in self._docs.items()
         }
+        self._base_cards = _build_ast_cards(self.graph, self._docs, self._prose_docs)
         self._prose_tf, self._prose_idf, self._prose_norms = self._build_tfidf(
             self._prose_docs, _tokenize_prose
         )
@@ -351,6 +456,12 @@ class RepoCodeAblationRetriever:
             self._ident_lens,
             self._ident_avg_len,
         ) = self._build_bm25_stats(self._docs, _tokenize_identifiers)
+        self._minilm_model: Any = None
+        self._minilm_matrix: Any = None
+        if self.dense_backend == "minilm":
+            self._minilm_model, self._minilm_matrix = _build_minilm_index(
+                self._doc_paths, self._prose_docs
+            )
 
     def _load_source_files(self) -> dict[str, str]:
         docs: dict[str, str] = {}
@@ -419,7 +530,32 @@ class RepoCodeAblationRetriever:
         avg_len = (total_len / n_docs) if n_docs else 1.0
         return tf_by_doc, idf, lengths, avg_len
 
+    def _dense_hits_minilm(self, query: str) -> list[VectorHit]:
+        """Rank repository files by cosine similarity over MiniLM embeddings."""
+        import numpy as np
+
+        if not self._doc_paths or self._minilm_model is None:
+            return []
+        q_raw = next(iter(self._minilm_model.query_embed([query])))
+        q_vec = np.asarray(q_raw, dtype=np.float32)
+        q_norm = float(np.linalg.norm(q_vec))
+        if q_norm > 0.0:
+            q_vec = q_vec / q_norm
+        sims = self._minilm_matrix @ q_vec
+        scored = [
+            (float(sims[idx]), self._doc_paths[idx])
+            for idx in range(len(self._doc_paths))
+            if float(sims[idx]) > 0.0
+        ]
+        scored.sort(key=lambda pair: (-pair[0], pair[1]))
+        return [
+            VectorHit(id=doc_id, score=score, payload={"path": doc_id})
+            for score, doc_id in scored[: self.candidate_pool]
+        ]
+
     def _dense_hits(self, query: str) -> list[VectorHit]:
+        if self.dense_backend == "minilm":
+            return self._dense_hits_minilm(query)
         q_counts = Counter(_tokenize_prose(query))
         if not q_counts:
             return []
@@ -550,6 +686,82 @@ class RepoCodeAblationRetriever:
                 break
         return hits
 
+    def _add_symbol_impact_notes(
+        self,
+        candidate: str,
+        notes_by_path: dict[str, list[str]],
+        *,
+        include_impacted: bool,
+    ) -> None:
+        """Record defining and dependent path provenance for a query symbol."""
+        impact = impact_analysis(
+            candidate, tenant_id="eval", max_depth=2, client=self._graph_client
+        )
+        if not impact["found"]:
+            return
+        for root in impact["roots"]:
+            path = root.get("path")
+            if path:
+                notes_by_path.setdefault(str(path), []).append(
+                    f"defines {candidate} ({root.get('label')})"
+                )
+        if not include_impacted:
+            return
+        for item in impact["impacted"]:
+            path = item.get("path")
+            if path:
+                notes_by_path.setdefault(str(path), []).append(
+                    f"calls or depends on {candidate} transitively (depth {item.get('depth')})"
+                )
+
+    def _add_global_hub_notes(
+        self, query: str, notes_by_path: dict[str, list[str]]
+    ) -> None:
+        """Record repository hub centrality notes when the query asks globally."""
+        words = {w.lower() for w in re.findall(r"[A-Za-z_]+", query)}
+        if not (words & _GLOBAL_CUES):
+            return
+        prefix = "backend/" if "backend" in words else None
+        overview = repo_overview(
+            tenant_id="eval",
+            path_prefix=prefix,
+            client=self._graph_client,
+            top_limit=10,
+        )
+        for rank_idx, hub in enumerate(overview["top_connected"], start=1):
+            path = hub.get("path")
+            if path:
+                notes_by_path.setdefault(str(path), []).append(
+                    f"most connected central architecture hub #{rank_idx} "
+                    f"({hub.get('connections')} connections)"
+                )
+
+    def _enrich_hits_for_reranker(
+        self, query: str, v_hits: list[VectorHit], g_hits: list[GraphHit]
+    ) -> None:
+        """Populate AST-grounded and graph-provenance text payloads for reranking."""
+        notes_by_path: dict[str, list[str]] = {}
+        words = {w.lower() for w in re.findall(r"[A-Za-z_]+", query)}
+        is_ripple = bool(words & _RIPPLE_CUES)
+        for cand in _extract_symbol_candidates(
+            query, self._known_names, self._known_qns
+        ):
+            self._add_symbol_impact_notes(
+                cand, notes_by_path, include_impacted=is_ripple
+            )
+        self._add_global_hub_notes(query, notes_by_path)
+
+        for hit in (*v_hits, *g_hits):
+            role = _role_for_path(hit.id)
+            card = self._base_cards.get(hit.id, "")
+            notes = "; ".join(dict.fromkeys(notes_by_path.get(hit.id, [])))
+            prefix_str = (
+                f"{hit.id} ({role}). Graph provenance: {notes}. "
+                if notes
+                else f"{hit.id} ({role}). "
+            )
+            hit.payload = {"path": hit.id, "text": f"{prefix_str}{card}"}
+
     def retrieve(self, config: str, query: str) -> RetrievalResult:
         """Return ranked repository file paths for ``query`` under ``config``."""
         if config == "vector_only":
@@ -572,6 +784,17 @@ class RepoCodeAblationRetriever:
                 self._graph_hits(query),
                 limit=self.candidate_pool,
                 rerank=False,
+            )
+        elif config == "hybrid_with_graph_rerank":
+            v_hits = self._hybrid_vector_hits(query)
+            g_hits = self._graph_hits(query)
+            self._enrich_hits_for_reranker(query, v_hits, g_hits)
+            merged = merge_rank(
+                v_hits,
+                g_hits,
+                limit=self.candidate_pool,
+                query_text=query,
+                rerank=True,
             )
         else:
             raise ValueError(f"Unknown configuration: {config}")

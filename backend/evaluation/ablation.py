@@ -23,6 +23,13 @@ CONFIGURATIONS: tuple[str, ...] = (
     "hybrid_no_graph",
     "hybrid_with_graph",
 )
+CODE_ABLATION_CONFIGURATIONS: tuple[str, ...] = (
+    "vector_only",
+    "hybrid_no_graph",
+    "hybrid_with_graph",
+    "hybrid_with_graph_rerank",
+)
+ALL_CONFIGURATIONS: tuple[str, ...] = CODE_ABLATION_CONFIGURATIONS
 
 DEFAULT_K = 5
 
@@ -185,11 +192,11 @@ def run_ablation(
         raise ValueError("k must be >= 1")
     if not configs:
         raise ValueError("at least one configuration is required")
-    unknown = [config for config in configs if config not in CONFIGURATIONS]
+    unknown = [config for config in configs if config not in ALL_CONFIGURATIONS]
     if unknown:
         raise ValueError(
             f"unknown configuration(s): {', '.join(unknown)} "
-            f"(expected one of: {', '.join(CONFIGURATIONS)})"
+            f"(expected one of: {', '.join(ALL_CONFIGURATIONS)})"
         )
     return AblationResults(
         dataset_name=dataset.name,
@@ -199,6 +206,8 @@ def run_ablation(
 
 
 __all__ = [
+    "ALL_CONFIGURATIONS",
+    "CODE_ABLATION_CONFIGURATIONS",
     "CONFIGURATIONS",
     "DEFAULT_K",
     "AblationResults",

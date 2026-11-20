@@ -26,6 +26,30 @@
       "relevant_doc_ids": ["backend/config.py"]
     },
     {
+      "id": "code-lookup-neo4j-code-graph-client",
+      "query_type": "lookup",
+      "query": "Which class Neo4jCodeGraphClient implements parameterized Cypher queries for find_symbols, incoming_edges, and top_connected?",
+      "relevant_doc_ids": ["backend/retrieval/code_queries.py"]
+    },
+    {
+      "id": "code-lookup-dense-embedding-adapter",
+      "query_type": "lookup",
+      "query": "Where is _DenseEmbeddingAdapter defined to wrap FastEmbed TextEmbedding and matryoshka remote embeddings?",
+      "relevant_doc_ids": ["backend/ingestion/chunk_embed.py"]
+    },
+    {
+      "id": "code-lookup-vuln-version-match",
+      "query_type": "lookup",
+      "query": "Which function _entry_match_status in vuln_queries classifies dependency versions against CVE affected ranges?",
+      "relevant_doc_ids": ["backend/retrieval/vuln_queries.py"]
+    },
+    {
+      "id": "code-lookup-recorded-rankings-retriever",
+      "query_type": "lookup",
+      "query": "Where does RecordedRankingsRetriever load pre-recorded query rankings for offline typed ablations?",
+      "relevant_doc_ids": ["backend/evaluation/run_typed_ablation.py"]
+    },
+    {
       "id": "code-multihop-ablation-callers",
       "query_type": "multi_hop",
       "query": "If run_ablation changes its signature, which CLI, route, and test modules directly call or test run_ablation?",
@@ -67,6 +91,50 @@
       ]
     },
     {
+      "id": "code-multihop-merge-rank-callers",
+      "query_type": "multi_hop",
+      "query": "Which MCP handler, fact check tool, and ephemeral web RAG modules call merge_rank to fuse vector and graph hits?",
+      "relevant_doc_ids": [
+        "backend/mcp_server/handlers/tool_registry.py",
+        "backend/mcp_server/tools/fact_check.py",
+        "backend/mcp_server/tools/ephemeral_web_rag.py",
+        "backend/mcp_server/tool_dispatch.py"
+      ]
+    },
+    {
+      "id": "code-multihop-parse-repo-callers",
+      "query_type": "multi_hop",
+      "query": "Where is parse_repo defined and which security benchmark and test modules invoke parse_repo?",
+      "relevant_doc_ids": [
+        "backend/ingestion/code_graph.py",
+        "backend/evaluation/security_benchmark.py",
+        "backend/tests/test_code_graph.py",
+        "backend/tests/test_code_queries.py"
+      ]
+    },
+    {
+      "id": "code-multihop-load-dataset-callers",
+      "query_type": "multi_hop",
+      "query": "Where is load_dataset defined and which evaluation runner, CLI, and test modules call load_dataset?",
+      "relevant_doc_ids": [
+        "backend/evaluation/typed_dataset.py",
+        "backend/evaluation/run_typed_ablation.py",
+        "packages/veraxi-cli/src/veraxi/cli/evals.py",
+        "backend/tests/test_evidence_evals.py"
+      ]
+    },
+    {
+      "id": "code-multihop-repo-overview-callers",
+      "query_type": "multi_hop",
+      "query": "Where is repo_overview defined and which MCP tool, tool registry, and test modules call or dispatch repo_overview?",
+      "relevant_doc_ids": [
+        "backend/retrieval/code_queries.py",
+        "backend/mcp_server/tools/code_tools.py",
+        "backend/mcp_server/handlers/tool_registry.py",
+        "backend/tests/test_code_queries.py"
+      ]
+    },
+    {
       "id": "code-global-config-hub",
       "query_type": "global",
       "query": "Across the backend architecture, which module is the most connected central hub referenced throughout routes, storage, and retrieval?",
@@ -102,6 +170,49 @@
         "backend/ingestion/scip_ingest.py",
         "backend/retrieval/code_queries.py",
         "backend/routes/code_intel.py"
+      ]
+    },
+    {
+      "id": "code-global-hybrid-retrieval-pipeline",
+      "query_type": "global",
+      "query": "Summarize the hybrid vector and graph retrieval pipeline across chunk_embed, search_vectors, query_graph, and merge_rank.",
+      "relevant_doc_ids": [
+        "backend/ingestion/chunk_embed.py",
+        "backend/mcp_server/tools/search_vectors.py",
+        "backend/mcp_server/tools/query_graph.py",
+        "backend/retrieval/merge_rank.py"
+      ]
+    },
+    {
+      "id": "code-global-vuln-intel-pipeline",
+      "query_type": "global",
+      "query": "Summarize the vulnerability intelligence pipeline across dependencies extraction, vuln_intel ingestion, vuln_queries reachability, and vuln_tools.",
+      "relevant_doc_ids": [
+        "backend/ingestion/dependencies.py",
+        "backend/ingestion/vuln_intel.py",
+        "backend/retrieval/vuln_queries.py",
+        "backend/mcp_server/tools/vuln_tools.py"
+      ]
+    },
+    {
+      "id": "code-global-compaction-pipeline",
+      "query_type": "global",
+      "query": "Summarize the conversation compaction architecture across compaction helpers, chat route compaction handlers, and compaction tests.",
+      "relevant_doc_ids": [
+        "backend/mcp_server/compaction.py",
+        "backend/routes/chat.py",
+        "backend/tests/test_compaction.py"
+      ]
+    },
+    {
+      "id": "code-global-sandbox-architecture",
+      "query_type": "global",
+      "query": "Summarize the agentic coding sandbox architecture across sandbox base policy, sandbox manager, and sandboxes route endpoints.",
+      "relevant_doc_ids": [
+        "backend/sandbox/base.py",
+        "backend/sandbox/policy.py",
+        "backend/sandbox/manager.py",
+        "backend/routes/sandboxes.py"
       ]
     }
   ]

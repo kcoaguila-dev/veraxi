@@ -136,7 +136,7 @@ class Config:
     qdrant_quantization_enabled: bool = True
     qdrant_rescore_oversampling: float = 2.0
     qdrant_prefetch_multiplier: int = 2
-    reranker_enabled: bool = False
+    reranker_enabled: bool = True
     reranker_model_name: str = "Xenova/ms-marco-MiniLM-L-6-v2"
     near_duplicate_threshold: float = 0.75
 
@@ -365,7 +365,7 @@ class Config:
             qdrant_prefetch_multiplier=int(
                 os.environ.get("QDRANT_PREFETCH_MULTIPLIER", "2")
             ),
-            reranker_enabled=os.environ.get("RERANKER_ENABLED", "false").lower()
+            reranker_enabled=os.environ.get("RERANKER_ENABLED", "true").lower()
             == "true",
             reranker_model_name=os.environ.get(
                 "RERANKER_MODEL_NAME", "Xenova/ms-marco-MiniLM-L-6-v2"
