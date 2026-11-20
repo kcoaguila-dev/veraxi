@@ -14,6 +14,7 @@ import 'package:veraxi_app/features/chat/data/local_chat_migration_service.dart'
 import 'package:veraxi_app/core/repositories/memory_repository.dart';
 export 'chat_state.dart';
 import 'package:veraxi_app/features/chat/view_models/chat_state.dart';
+import 'package:veraxi_app/features/chat/view_models/auto_compact.dart';
 import 'package:veraxi_app/features/chat/view_models/token_usage.dart';
 
 final chatViewModelProvider =
@@ -75,12 +76,16 @@ class ChatViewModel extends StateNotifier<ChatState> {
   Future<void> _init() async {
     final prefs = await SharedPreferences.getInstance();
     final savedTelemetry = prefs.getBool('show_telemetry') ?? false;
-    final savedUsageStyle = TokenUsageIndicatorStyle.fromStorage(
-        prefs.getString('token_usage_indicator_style'));
+    final savedUsageStyle =
+        TokenUsageIndicatorStyle.fromStorage(
+            prefs.getString('token_usage_indicator_style'));
+    final savedAutoCompact =
+        AutoCompactMode.fromStorage(prefs.getString('auto_compact_mode'));
 
     state = state.copyWith(
       showTelemetry: savedTelemetry,
       tokenUsageStyle: savedUsageStyle.storageValue,
+      autoCompactMode: savedAutoCompact.storageValue,
     );
     await _migrateLocalChats();
     await loadThreads();
@@ -163,6 +168,15 @@ class ChatViewModel extends StateNotifier<ChatState> {
       TokenUsageIndicatorStyle.fromStorage(state.tokenUsageStyle);
 
   /// Change how the token-usage indicator renders and persist it.
+  AutoCompactMode get autoCompactMode =>
+      AutoCompactMode.fromStorage(state.autoCompactMode);
+
+  Future<void> setAutoCompactMode(AutoCompactMode mode) async {
+    state = state.copyWith(autoCompactMode: mode.storageValue);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('auto_compact_mode', mode.storageValue);
+  }
+
   Future<void> setTokenUsageStyle(TokenUsageIndicatorStyle style) async {
     state = state.copyWith(tokenUsageStyle: style.storageValue);
     final prefs = await SharedPreferences.getInstance();

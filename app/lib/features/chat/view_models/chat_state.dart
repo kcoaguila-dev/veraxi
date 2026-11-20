@@ -196,6 +196,12 @@ class ChatState {
   /// token_usage.dart; stored as a string to keep this state class
   /// free of a view-model import cycle).
   final String tokenUsageStyle;
+
+  /// Automatic compaction behaviour when the context crosses the
+  /// trigger: 'off', 'ask' (default), or 'auto' (see
+  /// AutoCompactMode in auto_compact.dart; stored as a string for
+  /// the same import-cycle reason as [tokenUsageStyle]).
+  final String autoCompactMode;
   final String? error;
   final String? currentlyPlayingMessageId;
   final String? activeProjectId;
@@ -213,6 +219,7 @@ class ChatState {
     this.isTemporary = false,
     this.showTelemetry = false,
     this.tokenUsageStyle = 'ring',
+    this.autoCompactMode = 'ask',
     this.error,
     this.currentlyPlayingMessageId,
     this.activeProjectId,
@@ -232,6 +239,7 @@ class ChatState {
     bool? isTemporary,
     bool? showTelemetry,
     String? tokenUsageStyle,
+    String? autoCompactMode,
     String? error,
     bool clearError = false,
     String? currentlyPlayingMessageId,
@@ -252,6 +260,7 @@ class ChatState {
       isTemporary: isTemporary ?? this.isTemporary,
       showTelemetry: showTelemetry ?? this.showTelemetry,
       tokenUsageStyle: tokenUsageStyle ?? this.tokenUsageStyle,
+      autoCompactMode: autoCompactMode ?? this.autoCompactMode,
       error: clearError ? null : (error ?? this.error),
       currentlyPlayingMessageId: clearPlayingId
           ? null
