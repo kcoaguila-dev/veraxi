@@ -168,6 +168,7 @@ Map<String, dynamic> localCompactionBackup(
       'messages': [
         for (final message in prefix)
           {
+            'id': message['id'],
             'role': message['role'],
             'content': message['content'],
             'feedback': message['feedback'],

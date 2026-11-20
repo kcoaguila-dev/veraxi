@@ -1040,7 +1040,9 @@ class ChatViewModel extends StateNotifier<ChatState> {
       throw Exception('No active conversation.');
     }
     await _repository.restoreCompaction(threadId);
-    await selectThread(threadId);
+    if (state.threadId == threadId) {
+      await selectThread(threadId);
+    }
   }
 
   Future<Map<String, dynamic>> clearOldToolResults(

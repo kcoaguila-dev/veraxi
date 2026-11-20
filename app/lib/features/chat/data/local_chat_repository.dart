@@ -416,59 +416,61 @@ class LocalChatRepository implements IChatRepository {
         (backup['kept_ids'] as List? ?? []).map((e) => e.toString()).toSet();
     final backupMessages = (backup['messages'] as List? ?? []).cast<Map>();
 
-    // Anchor: the earliest kept message's timestamp; restored
-    // messages slot in just before it, 1ms apart, order preserved.
-    DateTime anchor = DateTime.now();
-    if (keptIds.isNotEmpty) {
-      final keptRows = await (db.select(db.localMessages)
-            ..where((m) =>
-                m.threadId.equals(threadId) & m.id.isIn(keptIds.toList()))
-            ..orderBy([(m) => OrderingTerm(expression: m.timestamp)])
-            ..limit(1))
-          .get();
-      if (keptRows.isNotEmpty && keptRows.first.timestamp != null) {
-        anchor = keptRows.first.timestamp!;
+    await db.transaction(() async {
+      // Anchor: the earliest kept message's timestamp; restored
+      // messages slot in just before it, 1ms apart, order preserved.
+      DateTime anchor = DateTime.now();
+      if (keptIds.isNotEmpty) {
+        final keptRows = await (db.select(db.localMessages)
+              ..where((m) =>
+                  m.threadId.equals(threadId) & m.id.isIn(keptIds.toList()))
+              ..orderBy([(m) => OrderingTerm(expression: m.timestamp)])
+              ..limit(1))
+            .get();
+        if (keptRows.isNotEmpty && keptRows.first.timestamp != null) {
+          anchor = keptRows.first.timestamp!;
+        }
       }
-    }
 
-    // Remove the summary and everything sent after the compaction;
-    // only the messages kept at compaction time survive.
-    if (keptIds.isEmpty) {
-      await (db.delete(db.localMessages)
-            ..where((m) => m.threadId.equals(threadId)))
-          .go();
-    } else {
-      await (db.delete(db.localMessages)
-            ..where((m) =>
-                m.threadId.equals(threadId) & m.id.isNotIn(keptIds.toList())))
-          .go();
-    }
+      // Remove the summary and everything sent after the compaction;
+      // only the messages kept at compaction time survive.
+      if (keptIds.isEmpty) {
+        await (db.delete(db.localMessages)
+              ..where((m) => m.threadId.equals(threadId)))
+            .go();
+      } else {
+        await (db.delete(db.localMessages)
+              ..where((m) =>
+                  m.threadId.equals(threadId) & m.id.isNotIn(keptIds.toList())))
+            .go();
+      }
 
-    for (var i = 0; i < backupMessages.length; i++) {
-      final message = Map<String, dynamic>.from(backupMessages[i]);
-      await db.into(db.localMessages).insert(LocalMessagesCompanion.insert(
-            id: _uuid.v4(),
-            threadId: threadId,
-            role: message['role'] as String? ?? 'user',
-            content: message['content'] as String? ?? '',
-            feedback: Value((message['feedback'] as num?)?.toInt() ?? 0),
-            modelName: Value(message['model_name'] as String?),
-            metrics: Value(message['metrics'] != null
-                ? jsonEncode(message['metrics'])
-                : null),
-            toolEvents: Value(message['toolEvents'] != null
-                ? jsonEncode(message['toolEvents'])
-                : null),
-            activity: Value(message['activity'] != null
-                ? jsonEncode(message['activity'])
-                : null),
-            reasoning: Value(message['reasoning'] as String?),
-            reasoningDurationSeconds: Value(
-                (message['reasoning_duration_seconds'] as num?)?.toDouble()),
-            timestamp: Value(anchor
-                .subtract(Duration(milliseconds: backupMessages.length - i))),
-          ));
-    }
+      for (var i = 0; i < backupMessages.length; i++) {
+        final message = Map<String, dynamic>.from(backupMessages[i]);
+        await db.into(db.localMessages).insert(LocalMessagesCompanion.insert(
+              id: (message['id'] as String?) ?? _uuid.v4(),
+              threadId: threadId,
+              role: message['role'] as String? ?? 'user',
+              content: message['content'] as String? ?? '',
+              feedback: Value((message['feedback'] as num?)?.toInt() ?? 0),
+              modelName: Value(message['model_name'] as String?),
+              metrics: Value(message['metrics'] != null
+                  ? jsonEncode(message['metrics'])
+                  : null),
+              toolEvents: Value(message['toolEvents'] != null
+                  ? jsonEncode(message['toolEvents'])
+                  : null),
+              activity: Value(message['activity'] != null
+                  ? jsonEncode(message['activity'])
+                  : null),
+              reasoning: Value(message['reasoning'] as String?),
+              reasoningDurationSeconds: Value(
+                  (message['reasoning_duration_seconds'] as num?)?.toDouble()),
+              timestamp: Value(anchor
+                  .subtract(Duration(milliseconds: backupMessages.length - i))),
+            ));
+      }
+    });
     return {'status': 'ok', 'messages_restored': backupMessages.length};
   }
 

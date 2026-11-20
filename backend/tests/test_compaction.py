@@ -184,3 +184,18 @@ def test_pick_pre_compaction_messages_none_when_no_older_checkpoint():
         is None
     )
     assert comp.pick_pre_compaction_messages([new], None) is None
+
+
+def test_pick_pre_compaction_messages_handles_c1_c2_restore_c2_restore_c1():
+    original = _history(6)
+    c1 = comp.apply_compaction(original, "sum1", 2, tokens_before=100)
+    _, c1_record = comp.find_latest_compaction(c1)
+    c2 = comp.apply_compaction(
+        [*c1, *_history(2)], "sum2", 2, tokens_before=200
+    )
+    # Newest-first after restoring C2 back to C1:
+    # [restored C1, C2 (replaced C1's summary), original C1, original]
+    picked = comp.pick_pre_compaction_messages(
+        [c1, c2, c1, original], c1_record["compacted_at"]
+    )
+    assert picked == original

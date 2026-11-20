@@ -189,13 +189,24 @@ def pick_pre_compaction_messages(
     history_message_lists: Sequence[Sequence[BaseMessage]],
     compacted_at,
 ) -> list[BaseMessage] | None:
-    """From checkpoint message lists (newest first), the first list
-    that does NOT contain that compaction's summary — i.e. the
-    state just before it was applied. None when no such checkpoint
-    survives."""
+    """From checkpoint message lists (newest first), the state just
+    before the compaction stamped [compacted_at] was originally
+    applied.
+
+    Searching after the *oldest* checkpoint carrying [compacted_at]
+    handles C1 -> C2 -> restore C2 -> restore C1: the intermediate C2
+    checkpoint replaced C1's summary so it lacks [compacted_at], yet
+    it is newer than the original C1 transition and must be skipped.
+    """
     if compacted_at is None:
         return None
-    for messages in history_message_lists:
+    carrying_indices = [
+        i
+        for i, messages in enumerate(history_message_lists)
+        if _carries_compaction(messages, compacted_at)
+    ]
+    start = carrying_indices[-1] + 1 if carrying_indices else 0
+    for messages in history_message_lists[start:]:
         if not _carries_compaction(messages, compacted_at):
             return list(messages)
     return None
