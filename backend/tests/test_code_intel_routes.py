@@ -646,3 +646,102 @@ class TestSarifAndSbomRoutes:
         assert body["alerts_written"] == 1
         assert body["ioc_links"] == 1
         assert body["technique_links"] == 1
+
+
+WIDGET_CONTENT = "def widget():\n    return 42\n\n\ndef gadget():\n    return 'gadget'\n"
+
+
+@pytest.fixture()
+def code_file_repo(tmp_path):
+    """An ingested repo living one level below an allowed root."""
+    repo_dir = tmp_path / "roots" / "demo_repo"
+    widget = repo_dir / "pkg" / "widget.py"
+    widget.parent.mkdir(parents=True)
+    widget.write_text(WIDGET_CONTENT, encoding="utf-8")
+    return tmp_path / "roots"
+
+
+def _register_file_app(monkeypatch, roots, tenant_id, indexed_paths):
+    """FastAPI app with the code-file endpoint and a fake graph index.
+
+    ``indexed_paths`` maps tenant_id -> set of repo-relative paths the
+    tenant's code graph holds; the fake mirrors the real
+    ``indexed_file`` contract (row dict or None).
+    """
+    monkeypatch.setenv("VERAXI_CODE_ROOTS", str(roots))
+
+    def fake_indexed_file(path, tenant_id="default", client=None):
+        if path in indexed_paths.get(tenant_id, set()):
+            return {"path": path, "language": "python"}
+        return None
+
+    monkeypatch.setattr(routes, "indexed_file", fake_indexed_file)
+    app = FastAPI()
+    routes.register_code_intel_routes(app, lambda: tenant_id, lambda: None, None)
+    return TestClient(app, raise_server_exceptions=False)
+
+
+@pytest.fixture()
+def file_client(monkeypatch, code_file_repo):
+    return _register_file_app(
+        monkeypatch,
+        code_file_repo,
+        "tenant-1",
+        {"tenant-1": {"pkg/widget.py", "pkg/ghost.py"}},
+    )
+
+
+class TestCodeFileEndpoint:
+    def test_serves_indexed_file_with_exact_content(self, file_client):
+        resp = file_client.get(
+            "/api/v1/code/file", params={"path": "pkg/widget.py"}
+        )
+        assert resp.status_code == 200, resp.text
+        body = resp.json()
+        assert body["path"] == "pkg/widget.py"
+        assert body["source"] == "file"
+        assert body["language"] == "python"
+        assert body["content"] == WIDGET_CONTENT
+        assert body["start_line"] == 1
+        assert body["end_line"] == len(WIDGET_CONTENT.splitlines())
+        assert body["line_count"] == body["end_line"]
+        # The served lines are exactly the file's lines, in order.
+        assert body["content"].splitlines()[4] == "def gadget():"
+
+    def test_traversal_attempts_rejected(self, file_client):
+        for bad in (
+            "../secret.py",
+            "pkg/../../secret.py",
+            "/etc/passwd",
+            "%2e%2e%2fsecret.py",
+        ):
+            resp = file_client.get("/api/v1/code/file", params={"path": bad})
+            assert resp.status_code == 403, (bad, resp.text)
+
+    def test_missing_path_param_is_400(self, file_client):
+        resp = file_client.get("/api/v1/code/file")
+        assert resp.status_code == 400
+
+    def test_unindexed_path_is_404(self, file_client):
+        resp = file_client.get(
+            "/api/v1/code/file", params={"path": "pkg/never_indexed.py"}
+        )
+        assert resp.status_code == 404
+
+    def test_indexed_but_missing_on_disk_is_404(self, file_client):
+        resp = file_client.get(
+            "/api/v1/code/file", params={"path": "pkg/ghost.py"}
+        )
+        assert resp.status_code == 404
+
+    def test_cross_tenant_path_is_404(self, monkeypatch, code_file_repo):
+        other_tenant_client = _register_file_app(
+            monkeypatch,
+            code_file_repo,
+            "tenant-2",
+            {"tenant-1": {"pkg/widget.py"}},
+        )
+        resp = other_tenant_client.get(
+            "/api/v1/code/file", params={"path": "pkg/widget.py"}
+        )
+        assert resp.status_code == 404

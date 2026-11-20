@@ -7,6 +7,8 @@ import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
 import 'package:veraxi_app/features/chat/view_models/chat_view_model.dart';
+import 'package:veraxi_app/features/chat/view_models/code_file_view_model.dart';
+import 'package:veraxi_app/features/chat/views/widgets/code_citation_viewer.dart';
 
 const Set<String> _citationNoiseTokens = {
   'http',
@@ -520,6 +522,19 @@ class _CitationChipState extends State<CitationChip> {
   void _openUrl(String url) {
     if (url.isEmpty) return;
     if (url.startsWith('file://')) {
+      // Line-anchored code citations open in the in-app viewer at
+      // the cited lines; every other file citation (documents with
+      // #page= anchors, plain file:// paths) keeps the historical
+      // external launch.
+      final target = CodeCitationTarget.tryParse(url);
+      if (target != null) {
+        Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => CodeCitationViewer(target: target),
+          ),
+        );
+        return;
+      }
       launchUrlString(fileCitationLaunchUrl(url));
       return;
     }

@@ -71,6 +71,17 @@ class CodeGraphClient(Protocol):
         """Return code nodes matching a qualified name or a simple name."""
         ...
 
+    def find_file(
+        self, tenant_id: str, path: str
+    ) -> dict[str, Any] | None:
+        """Return the CodeFile row for ``path`` under ``tenant_id``.
+
+        The row carries ``path`` and ``language``. ``None`` means the
+        tenant's code graph holds no file at that path — the tenant
+        scoping check for serving code file content.
+        """
+        ...
+
     def incoming_edges(
         self, tenant_id: str, target_qns: list[str]
     ) -> list[dict[str, Any]]:
@@ -149,6 +160,18 @@ class Neo4jCodeGraphClient:
         ORDER BY qualified_name
         """
         return self._read(query, params)
+
+    def find_file(
+        self, tenant_id: str, path: str
+    ) -> dict[str, Any] | None:
+        query = """
+        MATCH (n:CodeFile)
+        WHERE n.tenant_id = $tenant_id AND n.path = $path
+        RETURN n.path AS path, n.language AS language
+        LIMIT 1
+        """
+        rows = self._read(query, {"tenant_id": tenant_id, "path": path})
+        return rows[0] if rows else None
 
     def incoming_edges(
         self, tenant_id: str, target_qns: list[str]
@@ -264,6 +287,25 @@ def symbol_lookup(
         "match_type": "name" if matches else None,
         "matches": [_attach_url(match) for match in matches],
     }
+
+
+def indexed_file(
+    path: str,
+    tenant_id: str = "default",
+    client: CodeGraphClient | None = None,
+) -> dict[str, Any] | None:
+    """Return the indexed CodeFile row for ``path`` under ``tenant_id``.
+
+    This is the tenant-scoping check for serving code file content:
+    a repo-relative path is servable only when the tenant's code
+    graph holds a CodeFile node for it. Returns ``None`` when the
+    tenant has no such file indexed (or the path is blank).
+    """
+    graph_client = _default_client(client)
+    query = (path or "").strip()
+    if not query:
+        return None
+    return graph_client.find_file(tenant_id, query)
 
 
 def impact_analysis(

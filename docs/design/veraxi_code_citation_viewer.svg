@@ -1,0 +1,106 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="900" viewBox="0 0 1440 900">
+  <!-- Visual contract: in-app code citation viewer
+       (implemented by code_citation_viewer.dart + code_file_view_model.dart
+       + code_file_repository.dart in the chat feature):
+       1. Tapping a line-anchored code citation chip
+          (file://<path>#L<start>-L<end>, as emitted by the Repo X-Ray
+          tools) opens this viewer instead of launching the URL
+          externally. All other citations (documents with #page=,
+          plain file://, http/https) keep their existing behavior.
+       2. Header: close (X) affordance, the full repo-relative path,
+          and a source badge — "Full file" (blue) when the server
+          returned the complete file from GET /api/v1/code/file, or
+          "Excerpt" (amber) when only stored text was served. The
+          sub-header states the cited range and total line count.
+       3. Body: plain-text lines (no syntax highlighting), a dim
+          right-aligned line-number gutter whose numbers are the
+          file's real line numbers (an excerpt's gutter starts at the
+          excerpt's first line), and the cited range shown as an
+          accent-tinted band with a 2px accent left border and accent
+          gutter numbers. The viewer opens scrolled so the first cited
+          line sits near the top, with a couple of context lines above
+          it when they exist.
+       4. Loading and unavailable states replace the body only; the
+          header (path + close) is always present so the user can
+          always back out. -->
+  <rect width="1440" height="900" fill="#0E0E10"/>
+
+  <!-- Left chat column: the citation that opens the viewer -->
+  <rect x="0" y="0" width="430" height="900" fill="#171719"/>
+  <text x="36" y="64" font-family="Inter, sans-serif" font-size="15" fill="#ECECEC" font-weight="600">Chat</text>
+  <rect x="36" y="96" width="330" height="52" rx="12" fill="#26262A"/>
+  <text x="54" y="128" font-family="Inter, sans-serif" font-size="13" fill="#D4D4D8">Where is merge_rank defined?</text>
+  <text x="36" y="196" font-family="Inter, sans-serif" font-size="13" fill="#D4D4D8">The fusion step is implemented in the</text>
+  <text x="36" y="218" font-family="Inter, sans-serif" font-size="13" fill="#D4D4D8">retrieval layer, in the merge_rank function:</text>
+  <!-- Code citation chip (tapped state) -->
+  <rect x="36" y="240" width="252" height="26" rx="13" fill="#272727" stroke="#4F8EF7"/>
+  <circle cx="50" cy="253" r="5.5" fill="#4F8EF7"/>
+  <text x="61" y="257" font-family="Inter, sans-serif" font-size="11" fill="#CCCCCC" font-weight="500">merge_rank.py · L214–303</text>
+  <text x="36" y="306" font-family="Inter, sans-serif" font-size="12" fill="#8C8C8C">Tap the chip → the viewer opens at the</text>
+  <text x="36" y="326" font-family="Inter, sans-serif" font-size="12" fill="#8C8C8C">cited lines, inside the app. No external</text>
+  <text x="36" y="346" font-family="Inter, sans-serif" font-size="12" fill="#8C8C8C">handler, no lost line anchor.</text>
+  <rect x="36" y="812" width="358" height="52" rx="26" fill="#1F1F23" stroke="#2E2E34"/>
+  <text x="60" y="844" font-family="Inter, sans-serif" font-size="13" fill="#71717A">Reply</text>
+
+  <!-- Viewer (right, full-height page) -->
+  <rect x="430" y="0" width="1010" height="900" fill="#131315"/>
+  <rect x="430" y="0" width="1010" height="1" fill="#2E2E34"/>
+
+  <!-- Viewer header: close, path, source badge -->
+  <text x="466" y="52" font-family="Inter, sans-serif" font-size="17" fill="#B4B4B4">✕</text>
+  <text x="506" y="52" font-family="JetBrains Mono, monospace" font-size="14" fill="#ECECEC" font-weight="600">backend/retrieval/merge_rank.py</text>
+  <rect x="1290" y="32" width="86" height="24" rx="12" fill="#233148" stroke="#4F8EF7"/>
+  <text x="1307" y="48" font-family="Inter, sans-serif" font-size="11" fill="#BFD7FB" font-weight="500">Full file</text>
+  <rect x="430" y="72" width="1010" height="1" fill="#2E2E34"/>
+
+  <!-- Sub-header: cited range + totals -->
+  <text x="466" y="102" font-family="Inter, sans-serif" font-size="12" fill="#A1A1AA">Cited lines 214–303 · 303 lines · Python</text>
+
+  <!-- Code body: gutter + lines; cited band from line 214 -->
+  <rect x="430" y="122" width="1010" height="560" fill="#171719"/>
+  <!-- cited range band -->
+  <rect x="430" y="290" width="1010" height="392" fill="#1D2A44"/>
+  <rect x="430" y="290" width="2" height="392" fill="#4F8EF7"/>
+
+  <!-- context lines above the cited range -->
+  <text x="520" y="152" font-family="JetBrains Mono, monospace" font-size="12" fill="#8C8C8C" text-anchor="end">212</text>
+  <text x="540" y="152" font-family="JetBrains Mono, monospace" font-size="12" fill="#A1A1AA">    return candidates</text>
+  <text x="520" y="176" font-family="JetBrains Mono, monospace" font-size="12" fill="#8C8C8C" text-anchor="end">213</text>
+  <text x="520" y="200" font-family="JetBrains Mono, monospace" font-size="12" fill="#8C8C8C" text-anchor="end">214</text>
+  <text x="520" y="224" font-family="JetBrains Mono, monospace" font-size="12" fill="#8C8C8C" text-anchor="end">215</text>
+  <text x="520" y="248" font-family="JetBrains Mono, monospace" font-size="12" fill="#8C8C8C" text-anchor="end">216</text>
+  <text x="520" y="272" font-family="JetBrains Mono, monospace" font-size="12" fill="#8C8C8C" text-anchor="end">217</text>
+
+  <!-- cited lines (band starts at 214; numbers in accent) -->
+  <text x="520" y="314" font-family="JetBrains Mono, monospace" font-size="12" fill="#4F8EF7" text-anchor="end" font-weight="600">214</text>
+  <text x="540" y="314" font-family="JetBrains Mono, monospace" font-size="12" fill="#ECECEC">def merge_rank(</text>
+  <text x="520" y="338" font-family="JetBrains Mono, monospace" font-size="12" fill="#4F8EF7" text-anchor="end" font-weight="600">215</text>
+  <text x="540" y="338" font-family="JetBrains Mono, monospace" font-size="12" fill="#D4D4D8">    vector_hits: list[VectorHit],</text>
+  <text x="520" y="362" font-family="JetBrains Mono, monospace" font-size="12" fill="#4F8EF7" text-anchor="end" font-weight="600">216</text>
+  <text x="540" y="362" font-family="JetBrains Mono, monospace" font-size="12" fill="#D4D4D8">    graph_hits: list[GraphHit],</text>
+  <text x="520" y="386" font-family="JetBrains Mono, monospace" font-size="12" fill="#4F8EF7" text-anchor="end" font-weight="600">217</text>
+  <text x="540" y="386" font-family="JetBrains Mono, monospace" font-size="12" fill="#D4D4D8">    k: int = DEFAULT_RRF_K,</text>
+  <text x="520" y="410" font-family="JetBrains Mono, monospace" font-size="12" fill="#4F8EF7" text-anchor="end" font-weight="600">218</text>
+  <text x="540" y="410" font-family="JetBrains Mono, monospace" font-size="12" fill="#D4D4D8">    limit: int | None = None,</text>
+  <text x="520" y="434" font-family="JetBrains Mono, monospace" font-size="12" fill="#4F8EF7" text-anchor="end" font-weight="600">219</text>
+  <text x="540" y="434" font-family="JetBrains Mono, monospace" font-size="12" fill="#D4D4D8">    query_text: str | None = None,</text>
+  <text x="520" y="458" font-family="JetBrains Mono, monospace" font-size="12" fill="#4F8EF7" text-anchor="end" font-weight="600">220</text>
+  <text x="540" y="458" font-family="JetBrains Mono, monospace" font-size="12" fill="#D4D4D8">    rerank: bool | None = None,</text>
+  <text x="520" y="482" font-family="JetBrains Mono, monospace" font-size="12" fill="#4F8EF7" text-anchor="end" font-weight="600">221</text>
+  <text x="540" y="482" font-family="JetBrains Mono, monospace" font-size="12" fill="#D4D4D8">) -&gt; list[MergedResult]:</text>
+  <text x="520" y="506" font-family="JetBrains Mono, monospace" font-size="12" fill="#4F8EF7" text-anchor="end" font-weight="600">222</text>
+  <text x="540" y="506" font-family="JetBrains Mono, monospace" font-size="12" fill="#D4D4D8">    """Fuse vector search results and graph traversal results via RRF.</text>
+  <text x="540" y="560" font-family="Inter, sans-serif" font-size="12" fill="#8C8C8C">⋮  (band continues to line 303)</text>
+
+  <!-- Excerpt variant strip -->
+  <rect x="430" y="682" width="1010" height="1" fill="#2E2E34"/>
+  <text x="466" y="722" font-family="Inter, sans-serif" font-size="12" fill="#878787" letter-spacing="1">EXCERPT VARIANT</text>
+  <rect x="466" y="740" width="76" height="24" rx="12" fill="#2E2417" stroke="#D98A2B"/>
+  <text x="481" y="756" font-family="Inter, sans-serif" font-size="11" fill="#F3D3A7" font-weight="500">Excerpt</text>
+  <text x="558" y="756" font-family="Inter, sans-serif" font-size="12" fill="#A1A1AA">Shown when the server returns stored text instead of the full file;</text>
+  <text x="558" y="776" font-family="Inter, sans-serif" font-size="12" fill="#A1A1AA">the gutter then starts at the excerpt's first line (e.g. 180), never at 1.</text>
+
+  <!-- Loading / unavailable states -->
+  <text x="466" y="822" font-family="Inter, sans-serif" font-size="12" fill="#878787" letter-spacing="1">STATES</text>
+  <text x="466" y="848" font-family="Inter, sans-serif" font-size="12" fill="#A1A1AA">Loading: spinner in the body, header intact.  Unavailable: "This file isn't available on the server." + Back — header intact.</text>
+</svg>

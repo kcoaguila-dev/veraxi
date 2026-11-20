@@ -40,7 +40,12 @@ from backend.ingestion.vuln_intel import (
     fetch_kev_records,
     fetch_osv_for_packages,
 )
-from backend.retrieval.code_queries import impact_analysis, repo_overview, symbol_lookup
+from backend.retrieval.code_queries import (
+    impact_analysis,
+    indexed_file,
+    repo_overview,
+    symbol_lookup,
+)
 from backend.retrieval.vuln_queries import build_vuln_report, vuln_report
 
 logger = logging.getLogger(__name__)
@@ -154,6 +159,125 @@ def _validate_repo_path(raw_path: str) -> str:
     raise HTTPException(
         status_code=403, detail="Repository path is outside the allowed roots"
     )
+
+
+# Viewer cap for GET /api/v1/code/file: citations point at parsed
+# source files (ingestion already skips files past 200 KB), so 1 MB
+# leaves generous headroom while keeping a hostile or accidental
+# request from streaming an unbounded body into the viewer.
+MAX_CODE_FILE_VIEW_BYTES = 1_000_000
+
+# Directories never descended into while locating an ingested repo
+# under an allowed root: VCS metadata, dependency/vendor trees and
+# tool caches. Hidden directories (dot-prefixed) are skipped too.
+_REPO_SEARCH_SKIP_DIRS = {
+    ".git",
+    ".hg",
+    ".svn",
+    ".venv",
+    "venv",
+    "node_modules",
+    "__pycache__",
+    ".dart_tool",
+    ".mypy_cache",
+    ".pytest_cache",
+}
+_MAX_REPO_SEARCH_DIRS = 2048
+_MAX_REPO_SEARCH_DEPTH = 2
+
+
+def _is_code_file_traversal(raw_path: str) -> bool:
+    """True when a cited code path tries to escape the allowed roots.
+
+    Mirrors the fail-closed semantics of ``routes/files.py`` for the
+    document endpoint: null bytes, absolute paths, encoded separators
+    and ``..`` segments are traversal attempts (403), never servable
+    files.
+    """
+    if "\x00" in raw_path or os.path.isabs(raw_path):
+        return True
+    return _is_traversal_input(raw_path)
+
+
+def _candidate_repo_dirs(root: str) -> list[str]:
+    """Root itself plus subdirectories found by a bounded scandir descent.
+
+    Repos are ingested from directories *under* the allowed roots, so
+    a cited repo-relative path may live one or two levels below a
+    root. Only untainted ``os.scandir`` entry paths are returned, and
+    the walk is capped so a huge tree cannot make it unbounded.
+    """
+    candidates = [root]
+    frontier = [root]
+    visited = 0
+    for _depth in range(_MAX_REPO_SEARCH_DEPTH):
+        next_frontier: list[str] = []
+        for current in frontier:
+            try:
+                with os.scandir(current) as entries:
+                    subdirs = [
+                        entry.path
+                        for entry in entries
+                        if entry.name not in _REPO_SEARCH_SKIP_DIRS
+                        and not entry.name.startswith(".")
+                        and entry.is_dir(follow_symlinks=False)
+                    ]
+            except OSError:
+                continue
+            for subdir in subdirs:
+                visited += 1
+                if visited > _MAX_REPO_SEARCH_DIRS:
+                    return candidates
+                candidates.append(subdir)
+                next_frontier.append(subdir)
+        frontier = next_frontier
+        if not frontier:
+            break
+    return candidates
+
+
+def _resolve_code_file_on_disk(rel_path: str) -> str | None:
+    """Resolve a repo-relative code path to an on-disk file, or None.
+
+    Every candidate repo directory is tried through the shared
+    scandir resolver, so the path that reaches ``open()`` is built
+    from directory entries under a server-controlled root — the
+    same discipline as ``routes/files.py`` document serving.
+    """
+    from backend.mcp_server.handlers.tool_registry import (
+        _resolve_inside_allowed_dirs,
+    )
+
+    for root in _allowed_roots():
+        for candidate_dir in _candidate_repo_dirs(root):
+            resolved = _resolve_inside_allowed_dirs(rel_path, [candidate_dir])
+            if resolved is not None:
+                return resolved
+    return None
+
+
+def _read_code_file_text(resolved_path: str) -> str:
+    """Read a resolved code file as UTF-8 text, failing closed.
+
+    Raises HTTPException 404 if the file vanished after resolution,
+    413 past the viewer size cap, and 415 for content that is not
+    UTF-8 text (a code citation never legitimately points at a
+    binary file, and serving one would be garbage in the viewer).
+    """
+    try:
+        size = os.path.getsize(resolved_path)
+        with open(resolved_path, "rb") as fh:
+            raw = fh.read()
+    except OSError as e:
+        raise HTTPException(status_code=404, detail="Code file not found") from e
+    if size > MAX_CODE_FILE_VIEW_BYTES:
+        raise HTTPException(status_code=413, detail="Code file too large to view")
+    try:
+        return raw.decode("utf-8")
+    except UnicodeDecodeError as e:
+        raise HTTPException(
+            status_code=415, detail="Code file is not UTF-8 text"
+        ) from e
 
 
 class CodeIngestRequest(BaseModel):
@@ -443,6 +567,58 @@ def register_code_intel_routes(
             raise HTTPException(
                 status_code=500, detail="Failed to run impact analysis"
             ) from e
+
+    @app_router.get("/api/v1/code/file")
+    async def get_code_file(
+        path: str = "", tenant_id: str = Depends(get_tenant_id)
+    ):
+        """Serve one indexed code file's content for citation viewing.
+
+        ``path`` is the repo-relative path carried by line-anchored
+        code citations (``file://<path>#L<start>-L<end>``). A file is
+        served only when the tenant's own code graph holds a CodeFile
+        node for it — this endpoint never acts as a general file
+        reader — and only from inside the allowed roots, resolved
+        through the same scandir discipline as document serving.
+
+        The response labels what was served via ``source`` (``file``
+        for full on-disk content) and reports the 1-based line range
+        the content covers, so the viewer can number lines truthfully
+        for any future excerpt source.
+        """
+        if not path or "\x00" in path:
+            raise HTTPException(status_code=400, detail="path required")
+        if _is_code_file_traversal(path):
+            raise HTTPException(
+                status_code=403, detail="Path traversal is forbidden"
+            )
+        try:
+            indexed = await asyncio.to_thread(
+                indexed_file, path, tenant_id=tenant_id
+            )
+        except Exception as e:
+            sentry_sdk.capture_exception(e)
+            raise HTTPException(
+                status_code=500, detail="Failed to look up code file"
+            ) from e
+        if indexed is None:
+            raise HTTPException(status_code=404, detail="Code file not indexed")
+        resolved = await asyncio.to_thread(_resolve_code_file_on_disk, path)
+        if resolved is None:
+            raise HTTPException(
+                status_code=404, detail="Code file not found on server"
+            )
+        content = await asyncio.to_thread(_read_code_file_text, resolved)
+        lines = content.splitlines()
+        return {
+            "path": path,
+            "source": "file",
+            "language": indexed.get("language"),
+            "content": content,
+            "start_line": 1,
+            "end_line": len(lines),
+            "line_count": len(lines),
+        }
 
     @app_router.post("/api/v1/vuln/sync")
     async def sync_vuln(tenant_id: str = Depends(get_tenant_id)):
