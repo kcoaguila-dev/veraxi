@@ -1513,6 +1513,76 @@ def register_chat_routes(
                 detail="Internal server error. Please try again later.",
             )
 
+    @app_router.post("/api/chat/threads/{thread_id}/compact/restore")
+    async def compact_restore(
+        thread_id: str,
+        request: Request,
+        tenant_id: str = Depends(get_tenant_id),
+    ):
+        """Undo the latest compaction: roll the thread back to the
+        checkpoint just before it was applied. Messages sent after
+        the compaction are removed — the app warns about exactly
+        that before calling this. Prior checkpoints are retained by
+        the checkpointer, so the pre-compaction state is recovered
+        verbatim, never reconstructed."""
+        from backend.mcp_server.compaction import (
+            find_latest_compaction,
+            pick_pre_compaction_messages,
+        )
+
+        try:
+            config_obj, saver_ctx = await _compaction_saver(
+                request, tenant_id, thread_id
+            )
+            async with saver_ctx as memory:
+                if config_obj.postgres_url:
+                    await setup_postgres_checkpointer_once(
+                        memory, config_obj.postgres_url
+                    )
+                config = {"configurable": {"thread_id": thread_id}}
+                state = await memory.aget_tuple(config)
+                if not state:
+                    raise HTTPException(status_code=404, detail="Thread not found")
+                raw_messages = state.checkpoint.get("channel_values", {}).get(
+                    "messages", []
+                )
+                found = find_latest_compaction(raw_messages)
+                if found is None:
+                    raise HTTPException(
+                        status_code=409,
+                        detail="This conversation has not been compacted.",
+                    )
+                _, record = found
+                history_lists: list[Any] = []
+                async for tuple_ in memory.alist(config):
+                    history_lists.append(
+                        tuple_.checkpoint.get("channel_values", {}).get(
+                            "messages", []
+                        )
+                    )
+                restored = pick_pre_compaction_messages(
+                    history_lists, record.get("compacted_at")
+                )
+                if restored is None:
+                    raise HTTPException(
+                        status_code=409,
+                        detail="The pre-compaction checkpoint is no longer available.",
+                    )
+                await _replace_thread_messages(memory, thread_id, restored)
+                return {
+                    "status": "ok",
+                    "messages_restored": len(restored),
+                }
+        except HTTPException:
+            raise
+        except Exception as e:
+            sentry_sdk.capture_exception(e)
+            logger.exception("Error restoring compaction")
+            raise HTTPException(
+                status_code=500,
+                detail="Internal server error. Please try again later.",
+            )
+
     @app_router.post("/api/chat/threads/{thread_id}/clear-tool-results")
     async def clear_tool_results(
         thread_id: str,

@@ -1032,6 +1032,19 @@ class ChatViewModel extends StateNotifier<ChatState> {
 
   /// Stage 0: clears old tool-result bodies server-side (no LLM
   /// call), then reloads the thread.
+  /// Undo the latest compaction (server: checkpoint rollback;
+  /// local: on-device backup). Reloads the thread afterwards.
+  Future<void> restoreCompaction() async {
+    final threadId = state.threadId;
+    if (threadId == null) {
+      throw Exception('No active conversation.');
+    }
+    await _repository.restoreCompaction(threadId);
+    if (state.threadId == threadId) {
+      await selectThread(threadId);
+    }
+  }
+
   Future<Map<String, dynamic>> clearOldToolResults(
       {int keepRecentTurns = 4, String? model, String? threadId}) async {
     final targetId = threadId ?? state.threadId;

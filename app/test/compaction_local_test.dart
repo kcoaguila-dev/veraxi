@@ -143,6 +143,51 @@ void main() {
       expect((metrics['compaction'] as Map)['estimated'], isTrue);
     });
 
+    test('restore brings back the prefix and drops post-compaction messages',
+        () async {
+      await repository.applyCompaction('t1', summary: 'the summary');
+      // Two messages sent after the compaction.
+      final base = DateTime(2026, 1, 1);
+      await db.into(db.localMessages).insert(LocalMessagesCompanion.insert(
+            id: 'post1',
+            threadId: 't1',
+            role: 'user',
+            content: 'after compaction',
+            timestamp: Value(base.add(const Duration(hours: 5))),
+          ));
+      await db.into(db.localMessages).insert(LocalMessagesCompanion.insert(
+            id: 'post2',
+            threadId: 't1',
+            role: 'assistant',
+            content: 'reply after',
+            timestamp: Value(base.add(const Duration(hours: 5, minutes: 1))),
+          ));
+      var after = await repository.getThreadHistory('t1');
+      expect(after.length, 11); // summary + 8 kept + 2 post
+
+      final result = await repository.restoreCompaction('t1');
+      expect(result['messages_restored'], 4);
+      after = await repository.getThreadHistory('t1');
+      expect(after.length, 12);
+      expect(after.first['content'], contains('question 0'));
+      expect(after.last['content'], contains('answer 5'));
+      expect(
+          after.any(
+              (m) => (m['content'] as String).contains('after compaction')),
+          isFalse);
+      expect(after.any((m) => (m['metrics'] as Map?)?['compaction'] != null),
+          isFalse);
+    });
+
+    test('restore without a backup throws and changes nothing', () async {
+      await expectLater(
+        repository.restoreCompaction('t1'),
+        throwsException,
+      );
+      final after = await repository.getThreadHistory('t1');
+      expect(after.length, 12);
+    });
+
     test('clearOldToolResults reports none when there are no tool events',
         () async {
       await expectLater(

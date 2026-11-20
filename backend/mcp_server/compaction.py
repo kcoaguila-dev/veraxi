@@ -136,11 +136,80 @@ def build_summary_message(
         "messages_compacted": messages_compacted,
         "compacted_at": datetime.now(UTC).isoformat(),
         "tokens_before": tokens_before,
+        # The checkpointer retains the pre-compaction checkpoint, so
+        # this compaction can be undone via the restore endpoint;
+        # the app shows its Restore action only when this is set.
+        "restorable": True,
     }
     return HumanMessage(
         content=f"{SUMMARY_PREFIX}\n\n{summary.strip()}",
         additional_kwargs={"metrics": {"compaction": record}},
     )
+
+
+def find_latest_compaction(
+    messages: Sequence[BaseMessage],
+) -> tuple[int, dict] | None:
+    """Locate the newest compaction summary in a message list.
+
+    Returns (index, record) or None. The record lives in the
+    summary message's metrics — the same channel the app reads to
+    render the divider.
+    """
+    for index in range(len(messages) - 1, -1, -1):
+        message = messages[index]
+        metrics = (getattr(message, "additional_kwargs", None) or {}).get(
+            "metrics"
+        )
+        if isinstance(metrics, dict):
+            record = metrics.get("compaction")
+            if isinstance(record, dict):
+                return index, record
+    return None
+
+
+def _carries_compaction(messages: Sequence[BaseMessage], compacted_at) -> bool:
+    """True when a message list contains the summary of the
+    compaction stamped [compacted_at]. Matching on the record's
+    timestamp (unique per compaction) instead of message ids:
+    ids are None until the graph's reducer assigns them, so they
+    are not a reliable identity at every layer."""
+    for message in messages:
+        metrics = (getattr(message, "additional_kwargs", None) or {}).get(
+            "metrics"
+        )
+        if isinstance(metrics, dict):
+            record = metrics.get("compaction")
+            if isinstance(record, dict) and record.get("compacted_at") == compacted_at:
+                return True
+    return False
+
+
+def pick_pre_compaction_messages(
+    history_message_lists: Sequence[Sequence[BaseMessage]],
+    compacted_at,
+) -> list[BaseMessage] | None:
+    """From checkpoint message lists (newest first), the state just
+    before the compaction stamped [compacted_at] was originally
+    applied.
+
+    Searching after the *oldest* checkpoint carrying [compacted_at]
+    handles C1 -> C2 -> restore C2 -> restore C1: the intermediate C2
+    checkpoint replaced C1's summary so it lacks [compacted_at], yet
+    it is newer than the original C1 transition and must be skipped.
+    """
+    if compacted_at is None:
+        return None
+    carrying_indices = [
+        i
+        for i, messages in enumerate(history_message_lists)
+        if _carries_compaction(messages, compacted_at)
+    ]
+    start = carrying_indices[-1] + 1 if carrying_indices else 0
+    for messages in history_message_lists[start:]:
+        if not _carries_compaction(messages, compacted_at):
+            return list(messages)
+    return None
 
 
 def apply_compaction(
