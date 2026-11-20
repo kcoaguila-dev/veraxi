@@ -113,7 +113,7 @@ class TestCodeRoutes:
         monkeypatch.setattr(
             routes,
             "repo_overview",
-            lambda tenant_id: {
+            lambda tenant_id, repo=None: {
                 "tenant_id": tenant_id,
                 "node_counts": {"Function": 3},
                 "edge_counts": {"CALLS": 2},
@@ -130,7 +130,7 @@ class TestCodeRoutes:
         monkeypatch.setattr(
             routes,
             "symbol_lookup",
-            lambda name, tenant_id: {
+            lambda name, tenant_id, repo=None: {
                 "query": name,
                 "match_type": "name",
                 "matches": [{"name": name}],
@@ -144,7 +144,7 @@ class TestCodeRoutes:
         monkeypatch.setattr(
             routes,
             "impact_analysis",
-            lambda symbol, tenant_id, max_depth: {
+            lambda symbol, tenant_id, max_depth, repo=None: {
                 "symbol": symbol,
                 "found": True,
                 "roots": [],

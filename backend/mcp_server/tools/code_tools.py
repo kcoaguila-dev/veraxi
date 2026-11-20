@@ -28,7 +28,11 @@ TOOL_DEFS: list[dict] = [
                 "name": {
                     "type": "string",
                     "description": "Qualified name (e.g. 'pkg.mod.Class.method') or simple name.",
-                }
+                },
+                "repo": {
+                    "type": "string",
+                    "description": "Optional repo key (origin slug or repo root path) to scope the lookup to one indexed repo.",
+                },
             },
             "required": ["name"],
         },
@@ -50,6 +54,10 @@ TOOL_DEFS: list[dict] = [
                     "type": "integer",
                     "description": "Maximum reverse-dependency depth (default 3).",
                 },
+                "repo": {
+                    "type": "string",
+                    "description": "Optional repo key (origin slug or repo root path) to scope the analysis to one indexed repo.",
+                },
             },
             "required": ["symbol"],
         },
@@ -66,7 +74,11 @@ TOOL_DEFS: list[dict] = [
                 "path_prefix": {
                     "type": "string",
                     "description": "Optional repo-relative path prefix to scope counts to.",
-                }
+                },
+                "repo": {
+                    "type": "string",
+                    "description": "Optional repo key (origin slug or repo root path) to scope counts to one indexed repo.",
+                },
             },
         },
     },
@@ -89,13 +101,16 @@ def tool_schemas() -> list[dict]:
 
 
 def code_symbol(
-    name: str, tenant_id: str = "default", client: Any = None
+    name: str,
+    tenant_id: str = "default",
+    client: Any = None,
+    repo: str | None = None,
 ) -> dict[str, Any]:
     """Exact symbol lookup in the code graph (qualified name first)."""
     from backend.retrieval.code_queries import symbol_lookup
 
     try:
-        return symbol_lookup(name, tenant_id=tenant_id, client=client)
+        return symbol_lookup(name, tenant_id=tenant_id, client=client, repo=repo)
     except Exception as e:
         sentry_sdk.capture_exception(e)
         logger.error("code_symbol failed for %s: %s", name, e)
@@ -107,13 +122,14 @@ def code_impact(
     tenant_id: str = "default",
     max_depth: int = 3,
     client: Any = None,
+    repo: str | None = None,
 ) -> dict[str, Any]:
     """Transitive reverse-dependency (CALLS/IMPORTS) impact of a symbol."""
     from backend.retrieval.code_queries import impact_analysis
 
     try:
         return impact_analysis(
-            symbol, tenant_id=tenant_id, max_depth=max_depth, client=client
+            symbol, tenant_id=tenant_id, max_depth=max_depth, client=client, repo=repo
         )
     except Exception as e:
         sentry_sdk.capture_exception(e)
@@ -132,12 +148,15 @@ def code_overview(
     tenant_id: str = "default",
     path_prefix: str | None = None,
     client: Any = None,
+    repo: str | None = None,
 ) -> dict[str, Any]:
     """Code-graph counts and top connected symbols for the tenant."""
     from backend.retrieval.code_queries import repo_overview
 
     try:
-        return repo_overview(tenant_id=tenant_id, path_prefix=path_prefix, client=client)
+        return repo_overview(
+            tenant_id=tenant_id, path_prefix=path_prefix, client=client, repo=repo
+        )
     except Exception as e:
         sentry_sdk.capture_exception(e)
         logger.error("code_overview failed: %s", e)

@@ -86,6 +86,10 @@ class ModelNeo4jClient:
                 for key, (_label, props) in self.nodes.items()
                 if props.get("tenant_id") == params["tenant_id"]
                 and props.get("path") in paths
+                and (
+                    "repo_key" not in params
+                    or (props.get("repo_key") or "") == params["repo_key"]
+                )
             }
             for key in doomed:
                 del self.nodes[key]
@@ -100,6 +104,10 @@ class ModelNeo4jClient:
                 for key, (_label, props) in self.nodes.items()
                 if props.get("tenant_id") == params["tenant_id"]
                 and props.get("resolved") is False
+                and (
+                    "repo_key" not in params
+                    or (props.get("repo_key") or "") == params["repo_key"]
+                )
                 and key not in incident
             }
             for key in doomed:
@@ -125,9 +133,11 @@ class ModelNeo4jClient:
                 continue
             if "tenant_id" in params and props.get("tenant_id") != params["tenant_id"]:
                 continue
-            if "repo_key" in params and props.get("repo_key") != params["repo_key"]:
+            # A None filter value means "unscoped", mirroring the
+            # ($param IS NULL OR ...) shape of the real queries.
+            if params.get("repo_key") is not None and props.get("repo_key") != params["repo_key"]:
                 continue
-            if "repo_root" in params and props.get("repo_root") != params["repo_root"]:
+            if params.get("repo_root") is not None and props.get("repo_root") != params["repo_root"]:
                 continue
             rows.append(dict(props))
         rows.sort(key=lambda r: r.get("indexed_at") or "", reverse=True)
@@ -142,6 +152,10 @@ class ModelNeo4jClient:
                 continue
             if props.get("resolved") is False:
                 continue
+            if params.get("repo_key") is not None and (
+                props.get("repo_key") or ""
+            ) != params["repo_key"]:
+                continue
             rows.append(
                 {
                     "label": label,
@@ -151,6 +165,7 @@ class ModelNeo4jClient:
                     "line": props.get("line"),
                     "end_line": props.get("end_line"),
                     "language": props.get("language"),
+                    "repo_key": props.get("repo_key") or "",
                 }
             )
         return rows
@@ -164,6 +179,11 @@ class ModelNeo4jClient:
                 continue
             if source[1].get("tenant_id") != params["tenant_id"]:
                 continue
+            if params.get("repo_key") is not None and (
+                (source[1].get("repo_key") or "") != params["repo_key"]
+                or (target[1].get("repo_key") or "") != params["repo_key"]
+            ):
+                continue
             rows.append(
                 {
                     "type": edge_type,
@@ -171,6 +191,7 @@ class ModelNeo4jClient:
                     "source_label": source[0],
                     "target_qn": target[1].get("qualified_name"),
                     "target_label": target[0],
+                    "repo_key": source[1].get("repo_key") or "",
                 }
             )
         return rows
@@ -584,7 +605,7 @@ def _webhook_client(monkeypatch, update_calls):
         routes, "_resolve_webhook_checkout", lambda full_name: "/srv/demo"
     )
 
-    def fake_update(root, tenant_id=None):
+    def fake_update(root, tenant_id=None, client=None):
         update_calls.append((root, tenant_id))
         return {"mode": "incremental", "nodes_written": 1, "edges_written": 1}
 

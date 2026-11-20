@@ -29,13 +29,16 @@ from typing import Any
 
 import sentry_sdk
 from fastapi import Depends, HTTPException, Request
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from backend.ingestion.code_graph import (
     MAX_INGEST_EDGES,
     MAX_INGEST_NODES,
+    derive_repo_key,
     find_index_meta_for_root,
     git_origin_repo,
+    git_pull_ff_only,
     update_repo_code_graph,
     write_parsed_code_graph,
     write_repo_code_graph,
@@ -307,6 +310,9 @@ class VulnReportRequest(BaseModel):
     dependencies: list[dict] | None = None
     sbom_json: dict | None = None
     include_reachability: bool = False
+    # Optional repo key scoping code reachability to one indexed
+    # repo when the tenant has several (see code_queries).
+    repo: str | None = None
     # Opt-in live OSV.dev fallback: only consulted when the tenant
     # graph yields no findings (e.g. no OSV packages synced yet).
     # Off by default so a report never makes surprise network calls.
@@ -349,6 +355,7 @@ def _live_osv_report(
     dependencies: list[dict],
     tenant_id: str,
     include_reachability: bool = False,
+    repo: str | None = None,
 ) -> dict:
     """Build a report from a live OSV.dev batch lookup (no graph writes).
 
@@ -404,7 +411,7 @@ def _live_osv_report(
     if include_reachability:
         from backend.retrieval.vuln_queries import attach_code_reachability
 
-        attach_code_reachability(report["findings"], tenant_id=tenant_id)
+        attach_code_reachability(report["findings"], tenant_id=tenant_id, repo=repo)
     report["tenant_id"] = tenant_id
     report["source"] = "osv_live"
     return report
@@ -531,22 +538,33 @@ def register_code_intel_routes(
 
     @app_router.post("/api/v1/code/github-webhook")
     async def github_push_webhook(request: Request):
-        """Trigger an incremental code-graph update on a GitHub push.
+        """Trigger a code-graph update on a GitHub push.
 
-        Thin by design: verify, resolve, delegate. The signature is
-        checked with HMAC-SHA256 against ``GITHUB_WEBHOOK_SECRET``
-        when that env var is configured (invalid signatures are
-        rejected with 401); when no secret is configured the payload
-        is accepted with a warning logged — deployments that expose
-        this route publicly must set the secret. Resolution: the
-        pushed repo is matched to a local checkout under the code
-        roots (by origin remote slug, then by directory name), and
-        the tenant(s) come from the index metadata stamped for that
-        checkout at ingestion time — there is no separate repo ↔
-        tenant registry to consult. Unresolvable pushes are answered
-        202 with ``status: "unresolved"`` and change nothing. The
-        update itself diffs the checkout's local HEAD, so it reflects
-        the checkout's state, not the pushed commits directly.
+        Thin by design: verify, resolve, sync, delegate. The
+        signature is checked with HMAC-SHA256 against
+        ``GITHUB_WEBHOOK_SECRET`` when that env var is configured
+        (invalid signatures are rejected with 401); when no secret
+        is configured the payload is accepted with a warning logged
+        — deployments that expose this route publicly must set the
+        secret. Resolution: the pushed repo is matched to a local
+        checkout under the code roots (by origin remote slug, then
+        by directory name); a push with no matching checkout is
+        answered 202 with ``status: "unresolved"`` and changes
+        nothing (the webhook never clones — it holds no credentials
+        for the repo host).
+
+        Before updating, the checkout is synced toward the pushed
+        commit with a fast-forward-only pull (see
+        ``code_graph.git_pull_ff_only``): it runs only on a clean
+        working tree and never discards local changes; the response
+        carries the outcome as ``pull: {"pulled", "head", "reason"}``
+        either way. The tenant(s) to update come from the index
+        metadata stamped for that checkout at ingestion time — there
+        is no separate repo ↔ tenant registry to consult. A checkout
+        that resolves but was never indexed is fully indexed on this
+        first push, under the ``default`` tenant (the tenant the
+        query layer defaults to), and the response says so with
+        ``status: "indexed"``.
         """
         payload_bytes = await request.body()
         secret = os.environ.get("GITHUB_WEBHOOK_SECRET")
@@ -578,25 +596,61 @@ def register_code_intel_routes(
             raise HTTPException(status_code=400, detail="Payload has no repository.full_name")
         checkout = _resolve_webhook_checkout(str(full_name))
         if checkout is None:
-            return {
-                "status": "unresolved",
-                "repo": full_name,
-                "reason": "no local checkout under the code roots",
-            }
+            return JSONResponse(
+                status_code=202,
+                content={
+                    "status": "unresolved",
+                    "repo": full_name,
+                    "reason": "no local checkout under the code roots",
+                },
+            )
+        after = payload.get("after")
+        pull = await asyncio.to_thread(
+            git_pull_ff_only, checkout, str(after) if after else None
+        )
         client = _default_neo4j_client()
         metas = await asyncio.to_thread(find_index_meta_for_root, client, checkout)
         tenants = sorted({m["tenant_id"] for m in metas if m.get("tenant_id")})
         if not tenants:
+            # First push for a known checkout: index it in full so
+            # later pushes take the incremental path.
+            try:
+                counts = await asyncio.to_thread(
+                    write_repo_code_graph,
+                    checkout,
+                    tenant_id="default",
+                    client=client,
+                )
+            except Exception as e:
+                sentry_sdk.capture_exception(e)
+                return JSONResponse(
+                    status_code=202,
+                    content={
+                        "status": "unresolved",
+                        "repo": full_name,
+                        "reason": "checkout could not be indexed",
+                        "pull": pull,
+                    },
+                )
             return {
-                "status": "unresolved",
+                "status": "indexed",
                 "repo": full_name,
-                "reason": "checkout is not indexed for any tenant",
+                "after": after,
+                "pull": pull,
+                "indexed": {
+                    "tenant_id": "default",
+                    "repo_key": derive_repo_key(checkout),
+                    **counts,
+                },
             }
         updates: dict[str, Any] = {}
         for tenant_id in tenants:
             try:
                 updates[tenant_id] = await asyncio.to_thread(
-                    update_repo_code_graph, checkout, tenant_id=tenant_id
+                    update_repo_code_graph,
+                    checkout,
+                    tenant_id=tenant_id,
+                    client=client,
                 )
             except Exception as e:
                 sentry_sdk.capture_exception(e)
@@ -604,7 +658,8 @@ def register_code_intel_routes(
         return {
             "status": "ok",
             "repo": full_name,
-            "after": payload.get("after"),
+            "after": after,
+            "pull": pull,
             "updates": updates,
         }
 
@@ -675,10 +730,18 @@ def register_code_intel_routes(
         return {"status": "ok", **counts}
 
     @app_router.get("/api/v1/code/overview")
-    async def get_code_overview(tenant_id: str = Depends(get_tenant_id)):
-        """Node/edge counts plus the most-connected symbols."""
+    async def get_code_overview(
+        repo: str | None = None, tenant_id: str = Depends(get_tenant_id)
+    ):
+        """Node/edge counts plus the most-connected symbols.
+
+        ``repo`` (a repo key) scopes the overview to one indexed
+        repo when the tenant has several.
+        """
         try:
-            return await asyncio.to_thread(repo_overview, tenant_id=tenant_id)
+            return await asyncio.to_thread(
+                repo_overview, tenant_id=tenant_id, repo=repo
+            )
         except Exception as e:
             sentry_sdk.capture_exception(e)
             raise HTTPException(
@@ -687,12 +750,14 @@ def register_code_intel_routes(
 
     @app_router.get("/api/v1/code/symbol")
     async def get_code_symbol(
-        name: str = "", tenant_id: str = Depends(get_tenant_id)
+        name: str = "",
+        repo: str | None = None,
+        tenant_id: str = Depends(get_tenant_id),
     ):
         """Look up a code symbol by qualified or simple name."""
         try:
             return await asyncio.to_thread(
-                symbol_lookup, name, tenant_id=tenant_id
+                symbol_lookup, name, tenant_id=tenant_id, repo=repo
             )
         except Exception as e:
             sentry_sdk.capture_exception(e)
@@ -704,12 +769,17 @@ def register_code_intel_routes(
     async def get_code_impact(
         symbol: str = "",
         max_depth: int = 3,
+        repo: str | None = None,
         tenant_id: str = Depends(get_tenant_id),
     ):
         """Reverse-dependency impact tree for a symbol."""
         try:
             return await asyncio.to_thread(
-                impact_analysis, symbol, tenant_id=tenant_id, max_depth=max_depth
+                impact_analysis,
+                symbol,
+                tenant_id=tenant_id,
+                max_depth=max_depth,
+                repo=repo,
             )
         except Exception as e:
             sentry_sdk.capture_exception(e)
@@ -810,6 +880,8 @@ def register_code_intel_routes(
             vr_kwargs: dict = {"tenant_id": tenant_id}
             if payload.include_reachability:
                 vr_kwargs["include_reachability"] = True
+            if payload.repo is not None:
+                vr_kwargs["repo"] = payload.repo
             report = await asyncio.to_thread(
                 vuln_report,
                 dependencies,
@@ -827,6 +899,7 @@ def register_code_intel_routes(
                     dependencies,
                     tenant_id,
                     payload.include_reachability,
+                    payload.repo,
                 )
             except Exception as e:
                 # Live fallback is optional: a failed OSV lookup
