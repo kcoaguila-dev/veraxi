@@ -53,8 +53,7 @@ class LocalLlmEngine {
     final contextId = _contextId;
     if (contextId == null) return null;
     try {
-      final result =
-          await Fllama.instance()?.tokenize(contextId, text: text);
+      final result = await Fllama.instance()?.tokenize(contextId, text: text);
       final tokens = result?['tokens'];
       if (tokens is List) return tokens.length;
       return null;

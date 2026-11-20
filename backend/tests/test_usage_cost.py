@@ -341,9 +341,7 @@ class TestContextSegments:
         assert count_context_segments(self._messages(), None, "gpt-4o") is None
 
     def test_finalize_metrics_flattens_breakdown(self):
-        from backend.mcp_server.formatter import _finalize_metrics
-
-        finalized = _finalize_metrics(
+        finalized = formatter._finalize_metrics(
             {
                 "usage": None,
                 "context_breakdown": {
@@ -361,8 +359,69 @@ class TestContextSegments:
         assert "context_breakdown" not in finalized
 
     def test_finalize_metrics_without_breakdown_sets_none(self):
-        from backend.mcp_server.formatter import _finalize_metrics
-
-        finalized = _finalize_metrics({"usage": None})
+        finalized = formatter._finalize_metrics({"usage": None})
         assert finalized["context_system_tokens"] is None
         assert finalized["context_messages_tokens"] is None
+
+
+def test_shape_usage_extracts_cache_and_reasoning_langchain_spelling():
+    shaped = shape_usage(
+        {
+            "input_tokens": 1000,
+            "output_tokens": 200,
+            "total_tokens": 1200,
+            "input_token_details": {"cache_read": 600, "cache_creation": 100},
+            "output_token_details": {"reasoning": 80},
+        },
+        model_name="gpt-4o",
+    )
+    assert shaped["cache_read_tokens"] == 600
+    assert shaped["cache_creation_tokens"] == 100
+    assert shaped["reasoning_tokens"] == 80
+
+
+def test_shape_usage_extracts_cache_and_reasoning_litellm_spelling():
+    shaped = shape_usage(
+        {
+            "prompt_tokens": 1000,
+            "completion_tokens": 200,
+            "total_tokens": 1200,
+            "prompt_tokens_details": {"cached_tokens": 512},
+            "cache_creation_input_tokens": 64,
+            "completion_tokens_details": {"reasoning_tokens": 33},
+        },
+        model_name="gpt-4o",
+    )
+    assert shaped["cache_read_tokens"] == 512
+    assert shaped["cache_creation_tokens"] == 64
+    assert shaped["reasoning_tokens"] == 33
+
+
+def test_shape_usage_cache_reasoning_absent_is_none_not_zero():
+    shaped = shape_usage(
+        {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
+        model_name="gpt-4o",
+    )
+    assert shaped["cache_read_tokens"] is None
+    assert shaped["cache_creation_tokens"] is None
+    assert shaped["reasoning_tokens"] is None
+
+
+def test_finalize_flattens_cache_and_reasoning():
+    finalized = formatter._finalize_metrics(
+        {
+            "usage": {
+                "prompt_tokens": 10,
+                "completion_tokens": 5,
+                "total_tokens": 15,
+                "estimated_cost_usd": None,
+                "context_window_tokens": 100,
+                "cache_read_tokens": 4,
+                "cache_creation_tokens": 2,
+                "reasoning_tokens": 3,
+            }
+        }
+    )
+    assert finalized["cache_read_tokens"] == 4
+    assert finalized["cache_creation_tokens"] == 2
+    assert finalized["reasoning_tokens"] == 3

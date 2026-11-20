@@ -367,8 +367,7 @@ void main() {
   });
 
   group('compaction entry point', () {
-    TokenUsageSummary summaryAt(int prompt, int window) =>
-        summarizeTokenUsage([
+    TokenUsageSummary summaryAt(int prompt, int window) => summarizeTokenUsage([
           assistant({
             'prompt_tokens': prompt,
             'completion_tokens': 10,
@@ -397,8 +396,7 @@ void main() {
       expect(taps, 1);
     });
 
-    testWidgets('no Compact button below 50% or when unwired',
-        (tester) async {
+    testWidgets('no Compact button below 50% or when unwired', (tester) async {
       await tester.pumpWidget(MaterialApp(
         theme: testTheme(),
         home: Scaffold(
@@ -429,9 +427,73 @@ void main() {
 
     test('empty thread still returns null', () {
       expect(summarizeTokenUsage(const []), isNull);
-      expect(
-          summarizeTokenUsage([ChatMessage(role: 'user', content: '')]),
+      expect(summarizeTokenUsage([ChatMessage(role: 'user', content: '')]),
           isNull);
+    });
+  });
+  group('cache / reasoning splits', () {
+    test('splits belong to the latest response: no carry-over', () {
+      final summary = summarizeTokenUsage([
+        assistant({
+          'prompt_tokens': 1000,
+          'completion_tokens': 200,
+          'total_tokens': 1200,
+          'cache_read_tokens': 600,
+          'cache_creation_tokens': 100,
+          'reasoning_tokens': 80,
+        }),
+        assistant({
+          'prompt_tokens': 1100,
+          'completion_tokens': 210,
+          'total_tokens': 1310,
+        }),
+      ])!;
+      expect(summary.lastCacheReadTokens, isNull);
+      expect(summary.lastCacheCreationTokens, isNull);
+      expect(summary.lastReasoningTokens, isNull);
+    });
+
+    test('latest response splits are surfaced', () {
+      final summary = summarizeTokenUsage([
+        assistant({
+          'prompt_tokens': 1000,
+          'completion_tokens': 200,
+          'total_tokens': 1200,
+          'cache_read_tokens': 600,
+          'cache_creation_tokens': 100,
+          'reasoning_tokens': 80,
+        }),
+      ])!;
+      expect(summary.lastCacheReadTokens, 600);
+      expect(summary.lastCacheCreationTokens, 100);
+      expect(summary.lastReasoningTokens, 80);
+    });
+
+    test('reads splits from the nested usage map too', () {
+      final summary = summarizeTokenUsage([
+        assistant({
+          'usage': {
+            'prompt_tokens': 500,
+            'completion_tokens': 50,
+            'total_tokens': 550,
+            'reasoning_tokens': 12,
+          },
+        }),
+      ])!;
+      expect(summary.lastReasoningTokens, 12);
+    });
+
+    test('absent splits stay null, never zero-filled', () {
+      final summary = summarizeTokenUsage([
+        assistant({
+          'prompt_tokens': 10,
+          'completion_tokens': 5,
+          'total_tokens': 15,
+        }),
+      ])!;
+      expect(summary.lastCacheReadTokens, isNull);
+      expect(summary.lastCacheCreationTokens, isNull);
+      expect(summary.lastReasoningTokens, isNull);
     });
   });
 }

@@ -51,7 +51,8 @@ void main() {
       await tester.pumpWidget(MaterialApp(
         home: Scaffold(body: CompactionDivider(message: summaryMessage())),
       ));
-      await tester.tap(find.text('Conversation compacted · 12 messages summarized'));
+      await tester
+          .tap(find.text('Conversation compacted · 12 messages summarized'));
       await tester.pumpAndSettle();
       expect(find.text('Conversation summary'), findsOneWidget);
       expect(find.textContaining('Ship the thing.'), findsOneWidget);
@@ -116,8 +117,8 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Nothing old enough to compact yet.'), findsOneWidget);
       expect(find.widgetWithText(FilledButton, 'Compact'), findsOneWidget);
-      final button = tester.widget<FilledButton>(
-          find.widgetWithText(FilledButton, 'Compact'));
+      final button = tester
+          .widget<FilledButton>(find.widgetWithText(FilledButton, 'Compact'));
       expect(button.onPressed, isNull);
       expect(applyCalls, 0);
     });

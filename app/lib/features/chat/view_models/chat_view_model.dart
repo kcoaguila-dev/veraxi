@@ -75,9 +75,8 @@ class ChatViewModel extends StateNotifier<ChatState> {
   Future<void> _init() async {
     final prefs = await SharedPreferences.getInstance();
     final savedTelemetry = prefs.getBool('show_telemetry') ?? false;
-    final savedUsageStyle =
-        TokenUsageIndicatorStyle.fromStorage(
-            prefs.getString('token_usage_indicator_style'));
+    final savedUsageStyle = TokenUsageIndicatorStyle.fromStorage(
+        prefs.getString('token_usage_indicator_style'));
 
     state = state.copyWith(
       showTelemetry: savedTelemetry,

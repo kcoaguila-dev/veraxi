@@ -69,6 +69,23 @@ def _token_value(usage: dict, *keys: str) -> int | None:
     return None
 
 
+def _usage_detail(
+    usage: dict, top_level: tuple[str, ...], *nested: tuple[str, str]
+) -> int | None:
+    """Read a usage sub-count (cache / reasoning) across provider
+    spellings: top-level keys first, then (parent, child) nests."""
+    value = _token_value(usage, *top_level)
+    if value is not None:
+        return value
+    for parent, child in nested:
+        container = usage.get(parent)
+        if isinstance(container, dict):
+            value = _token_value(container, child)
+            if value is not None:
+                return value
+    return None
+
+
 @lru_cache(maxsize=128)
 def context_window_tokens_for_model(model_name: str | None) -> int | None:
     """Context window size (max input tokens) for a model, or None.
@@ -268,6 +285,30 @@ def shape_usage(
         "prompt_tokens": prompt_tokens,
         "completion_tokens": completion_tokens,
         "total_tokens": total_tokens,
+        # Cache + reasoning splits, when the provider reports them.
+        # Spellings differ by source: LangChain usage_metadata nests
+        # them under input_token_details/output_token_details;
+        # LiteLLM mirrors OpenAI-style *_tokens_details plus
+        # Anthropic-style top-level cache_*_input_tokens. All are
+        # subsets of prompt/completion respectively — display-only,
+        # never added into the totals.
+        "cache_read_tokens": _usage_detail(
+            usage,
+            ("cache_read_input_tokens", "cache_read_tokens"),
+            ("input_token_details", "cache_read"),
+            ("prompt_tokens_details", "cached_tokens"),
+        ),
+        "cache_creation_tokens": _usage_detail(
+            usage,
+            ("cache_creation_input_tokens", "cache_creation_tokens"),
+            ("input_token_details", "cache_creation"),
+        ),
+        "reasoning_tokens": _usage_detail(
+            usage,
+            ("reasoning_tokens",),
+            ("output_token_details", "reasoning"),
+            ("completion_tokens_details", "reasoning_tokens"),
+        ),
         "estimated_cost_usd": estimate_cost_usd(
             prompt_tokens or 0, completion_tokens or 0, model_name
         )
@@ -501,6 +542,9 @@ def _finalize_metrics(metrics: dict[str, Any]) -> dict[str, Any]:
             "total_tokens",
             "estimated_cost_usd",
             "context_window_tokens",
+            "cache_read_tokens",
+            "cache_creation_tokens",
+            "reasoning_tokens",
         ):
             finalized[key] = usage.get(key)
     else:
@@ -509,6 +553,9 @@ def _finalize_metrics(metrics: dict[str, Any]) -> dict[str, Any]:
         finalized.setdefault("total_tokens", None)
         finalized.setdefault("estimated_cost_usd", None)
         finalized.setdefault("context_window_tokens", None)
+        finalized.setdefault("cache_read_tokens", None)
+        finalized.setdefault("cache_creation_tokens", None)
+        finalized.setdefault("reasoning_tokens", None)
 
     # --- Context breakdown (local segment counts, flattened likewise) ---
     breakdown = finalized.pop("context_breakdown", None)

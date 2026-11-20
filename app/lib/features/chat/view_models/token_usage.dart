@@ -66,6 +66,14 @@ class TokenUsageSummary {
   final int? contextToolResultsTokens;
   final int? contextMessagesTokens;
 
+  /// Cache / reasoning splits of the latest response, when the
+  /// provider reported them. Cache counts are subsets of the prompt
+  /// total and reasoning is a subset of completion — display-only,
+  /// never added into the totals. Null when unreported.
+  final int? lastCacheReadTokens;
+  final int? lastCacheCreationTokens;
+  final int? lastReasoningTokens;
+
   /// True when NO response in the thread reported usage (pure
   /// on-device .gguf threads) and the counts were estimated from
   /// message text instead (chars / 4). Estimates are always labelled
@@ -91,6 +99,9 @@ class TokenUsageSummary {
     this.contextToolResultsTokens,
     this.contextMessagesTokens,
     this.isEstimated = false,
+    this.lastCacheReadTokens,
+    this.lastCacheCreationTokens,
+    this.lastReasoningTokens,
   });
 
   /// Whether the latest response carried a category split.
@@ -148,6 +159,9 @@ TokenUsageSummary? summarizeTokenUsage(List<ChatMessage> messages) {
   int? segTools;
   int? segToolResults;
   int? segMessages;
+  int? lastCacheRead;
+  int? lastCacheCreation;
+  int? lastReasoning;
 
   for (final message in messages) {
     if (message.isUser) continue;
@@ -187,6 +201,17 @@ TokenUsageSummary? summarizeTokenUsage(List<ChatMessage> messages) {
     segToolResults =
         _toInt(metrics['context_tool_results_tokens']) ?? segToolResults;
     segMessages = _toInt(metrics['context_messages_tokens']) ?? segMessages;
+    // Cache / reasoning splits belong to THIS response, exactly
+    // like the totals above: plain overwrite, no carry-over — a
+    // later response that reports no splits clears them rather
+    // than leaving stale numbers under its heading. Flattened
+    // metrics win; the nested `usage` map is the fallback shape.
+    lastCacheRead = _toInt(metrics['cache_read_tokens']) ??
+        _toInt(source['cache_read_tokens']);
+    lastCacheCreation = _toInt(metrics['cache_creation_tokens']) ??
+        _toInt(source['cache_creation_tokens']);
+    lastReasoning = _toInt(metrics['reasoning_tokens']) ??
+        _toInt(source['reasoning_tokens']);
   }
 
   if (count == 0) {
@@ -235,6 +260,9 @@ TokenUsageSummary? summarizeTokenUsage(List<ChatMessage> messages) {
     contextToolsTokens: segTools,
     contextToolResultsTokens: segToolResults,
     contextMessagesTokens: segMessages,
+    lastCacheReadTokens: lastCacheRead,
+    lastCacheCreationTokens: lastCacheCreation,
+    lastReasoningTokens: lastReasoning,
   );
 }
 
