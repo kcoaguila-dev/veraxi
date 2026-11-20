@@ -5,6 +5,7 @@ import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:veraxi_app/features/chat/data/chat_repository.dart';
 import 'package:veraxi_app/features/chat/view_models/chat_view_model.dart';
+import 'package:veraxi_app/features/chat/view_models/token_usage.dart';
 
 class MockChatRepository extends Mock implements IChatRepository {
   @override
@@ -309,6 +310,22 @@ void main() {
     await viewModel.toggleTelemetry();
     expect(container.read(chatViewModelProvider).showTelemetry, isFalse);
     expect(prefs.getBool('show_telemetry'), isFalse);
+  });
+
+  test('token usage indicator style defaults to ring and persists changes',
+      () async {
+    await pumpEventQueue();
+
+    expect(viewModel.tokenUsageStyle, TokenUsageIndicatorStyle.ring);
+
+    await viewModel.setTokenUsageStyle(TokenUsageIndicatorStyle.bar);
+    expect(viewModel.tokenUsageStyle, TokenUsageIndicatorStyle.bar);
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getString('token_usage_indicator_style'), 'bar');
+
+    await viewModel.setTokenUsageStyle(TokenUsageIndicatorStyle.off);
+    expect(viewModel.tokenUsageStyle, TokenUsageIndicatorStyle.off);
+    expect(prefs.getString('token_usage_indicator_style'), 'off');
   });
 
   test('selectThread persists last_active_thread_id and startNewChat clears it',

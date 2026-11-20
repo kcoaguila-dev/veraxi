@@ -1,5 +1,32 @@
 import 'package:veraxi_app/features/chat/view_models/chat_state.dart';
 
+/// How the context-usage indicator is rendered in the chat composer.
+///
+/// User-selectable (persisted) because the two visible forms serve
+/// different readers: the ring is compact and glanceable, the bar is
+/// read faster and shows the counts as text. Rivals ship only an
+/// on/off toggle (LibreChat `interface.contextUsage`, VS Code's
+/// indicator setting); Veraxi lets the user pick the form too.
+/// [off] hides the indicator entirely, matching the hide option users
+/// asked VS Code for (issue #293578, token-budget anxiety).
+enum TokenUsageIndicatorStyle {
+  ring,
+  bar,
+  off;
+
+  /// Storage value used in SharedPreferences.
+  String get storageValue => name;
+
+  /// Parse a stored value; anything unrecognised falls back to the
+  /// [ring] default rather than failing.
+  static TokenUsageIndicatorStyle fromStorage(String? value) {
+    for (final style in TokenUsageIndicatorStyle.values) {
+      if (style.name == value) return style;
+    }
+    return TokenUsageIndicatorStyle.ring;
+  }
+}
+
 /// Aggregated token usage for one conversation, derived purely from the
 /// per-message metrics the backend already returns (and persists).
 ///

@@ -7,6 +7,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 
 import 'package:veraxi_app/features/chat/view_models/chat_view_model.dart';
 import 'package:veraxi_app/features/chat/view_models/token_usage.dart';
+import 'package:veraxi_app/features/chat/views/widgets/token_usage_ring.dart';
 import 'package:veraxi_app/features/chat/views/widgets/chat_input.dart';
 import 'package:veraxi_app/features/chat/views/widgets/chat_sidebar.dart';
 import 'package:veraxi_app/features/chat/views/widgets/chat_message_list_item.dart';
@@ -141,6 +142,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final sandboxEnabled = ref.watch(sandboxToggleViewModelProvider).enabled;
     final panelExpanded = ref.watch(artifactPanelExpandedProvider);
     final viewModel = ref.read(chatViewModelProvider.notifier);
+    final usageSummary = summarizeTokenUsage(state.messages);
     final theme = Theme.of(context);
     final ext = theme.extension<AppThemeExtension>()!;
     final allProviderModels = ref.watch(providerModelsProvider);
@@ -464,6 +466,50 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                   ),
                                 ),
                               ),
+                              // Token-usage indicator style — always in
+                              // the header so "Off" stays reversible.
+                              PopupMenuButton<TokenUsageIndicatorStyle>(
+                                tooltip: 'Token usage indicator',
+                                color: const Color(0xFF1C1C1C),
+                                icon: const Icon(
+                                  Icons.data_usage_outlined,
+                                  size: 18,
+                                  color: Color(0xFF878787),
+                                ),
+                                onSelected: viewModel.setTokenUsageStyle,
+                                itemBuilder: (menuContext) => [
+                                  for (final style
+                                      in TokenUsageIndicatorStyle.values)
+                                    PopupMenuItem(
+                                      value: style,
+                                      child: Row(
+                                        children: [
+                                          Icon(
+                                            viewModel.tokenUsageStyle == style
+                                                ? Icons.check
+                                                : null,
+                                            size: 16,
+                                            color: Colors.white,
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            style == TokenUsageIndicatorStyle.ring
+                                                ? 'Ring'
+                                                : style ==
+                                                        TokenUsageIndicatorStyle
+                                                            .bar
+                                                    ? 'Bar'
+                                                    : 'Off',
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 13,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                ],
+                              ),
                             ],
                           ),
                         ),
@@ -589,9 +635,28 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                       const SandboxDrawer(),
                                       const SizedBox(height: 8),
                                     ],
+                                    if (viewModel.tokenUsageStyle ==
+                                            TokenUsageIndicatorStyle.bar &&
+                                        usageSummary != null) ...[
+                                      TokenUsageBar(
+                                        usage: usageSummary,
+                                        indicatorStyle:
+                                            viewModel.tokenUsageStyle,
+                                        onIndicatorStyleChanged:
+                                            viewModel.setTokenUsageStyle,
+                                      ),
+                                      const SizedBox(height: 8),
+                                    ],
                                     ChatInput(
                                       usageSummary:
-                                          summarizeTokenUsage(state.messages),
+                                          viewModel.tokenUsageStyle ==
+                                                  TokenUsageIndicatorStyle.ring
+                                              ? usageSummary
+                                              : null,
+                                      tokenUsageStyle:
+                                          viewModel.tokenUsageStyle,
+                                      onTokenUsageStyleChanged:
+                                          viewModel.setTokenUsageStyle,
                                       model: _selectedModel == 'Select a model'
                                           ? null
                                           : _selectedModel,

@@ -217,4 +217,91 @@ void main() {
       expect(find.text('\$0.0020'), findsWidgets);
     });
   });
+
+  group('TokenUsageIndicatorStyle', () {
+    test('fromStorage parses stored values and defaults to ring', () {
+      expect(TokenUsageIndicatorStyle.fromStorage('ring'),
+          TokenUsageIndicatorStyle.ring);
+      expect(TokenUsageIndicatorStyle.fromStorage('bar'),
+          TokenUsageIndicatorStyle.bar);
+      expect(TokenUsageIndicatorStyle.fromStorage('off'),
+          TokenUsageIndicatorStyle.off);
+      expect(TokenUsageIndicatorStyle.fromStorage(null),
+          TokenUsageIndicatorStyle.ring);
+      expect(TokenUsageIndicatorStyle.fromStorage('bogus'),
+          TokenUsageIndicatorStyle.ring);
+    });
+  });
+
+  group('TokenUsageBar', () {
+    TokenUsageSummary summaryFor(Map<String, dynamic> metrics) =>
+        summarizeTokenUsage([assistant(metrics)])!;
+
+    testWidgets('prints counts and percentage as text', (tester) async {
+      await tester.pumpWidget(MaterialApp(
+        theme: testTheme(),
+        home: Scaffold(
+          body: TokenUsageBar(
+            usage: summaryFor({
+              'prompt_tokens': 41203,
+              'completion_tokens': 812,
+              'total_tokens': 42015,
+              'context_window_tokens': 128000,
+            }),
+          ),
+        ),
+      ));
+      expect(find.text('41,203 / 128,000 · 32%'), findsOneWidget);
+      final bar = tester.widget<LinearProgressIndicator>(
+          find.byType(LinearProgressIndicator));
+      expect(bar.value, closeTo(0.322, 0.001));
+    });
+
+    testWidgets('unknown window shows the count only, with an empty track',
+        (tester) async {
+      await tester.pumpWidget(MaterialApp(
+        theme: testTheme(),
+        home: Scaffold(
+          body: TokenUsageBar(
+            usage: summaryFor({
+              'prompt_tokens': 41203,
+              'completion_tokens': 812,
+              'total_tokens': 42015,
+            }),
+          ),
+        ),
+      ));
+      expect(find.text('41,203 tokens'), findsOneWidget);
+      expect(find.textContaining('%'), findsNothing);
+      final bar = tester.widget<LinearProgressIndicator>(
+          find.byType(LinearProgressIndicator));
+      expect(bar.value, 0);
+    });
+
+    testWidgets('style switcher in the sheet reports the chosen style',
+        (tester) async {
+      TokenUsageIndicatorStyle? chosen;
+      await tester.pumpWidget(MaterialApp(
+        theme: testTheme(),
+        home: Scaffold(
+          body: TokenUsageBar(
+            usage: summaryFor({
+              'prompt_tokens': 100,
+              'completion_tokens': 10,
+              'total_tokens': 110,
+              'context_window_tokens': 1000,
+            }),
+            indicatorStyle: TokenUsageIndicatorStyle.bar,
+            onIndicatorStyleChanged: (style) => chosen = style,
+          ),
+        ),
+      ));
+      await tester.tap(find.byType(TokenUsageBar));
+      await tester.pumpAndSettle();
+      expect(find.text('INDICATOR STYLE'), findsOneWidget);
+      await tester.tap(find.text('Ring'));
+      await tester.pumpAndSettle();
+      expect(chosen, TokenUsageIndicatorStyle.ring);
+    });
+  });
 }

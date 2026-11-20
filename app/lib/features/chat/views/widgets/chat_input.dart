@@ -29,6 +29,11 @@ class ChatInput extends StatefulWidget {
   /// (no response has reported usage yet) the context ring is hidden.
   final TokenUsageSummary? usageSummary;
 
+  /// Indicator form + change callback, forwarded to the ring and its
+  /// breakdown sheet's style switcher.
+  final TokenUsageIndicatorStyle? tokenUsageStyle;
+  final ValueChanged<TokenUsageIndicatorStyle>? onTokenUsageStyleChanged;
+
   const ChatInput({
     super.key,
     required this.isLoading,
@@ -38,6 +43,8 @@ class ChatInput extends StatefulWidget {
     this.onDismissError,
     this.model,
     this.usageSummary,
+    this.tokenUsageStyle,
+    this.onTokenUsageStyleChanged,
   });
 
   @override
@@ -628,7 +635,12 @@ class _ChatInputState extends State<ChatInput> {
                     ),
                   ),
                   if (widget.usageSummary != null) ...[
-                    TokenUsageRing(usage: widget.usageSummary!),
+                    TokenUsageRing(
+                      usage: widget.usageSummary!,
+                      indicatorStyle: widget.tokenUsageStyle,
+                      onIndicatorStyleChanged:
+                          widget.onTokenUsageStyleChanged,
+                    ),
                     SizedBox(width: 4),
                   ],
                   IconButton(
