@@ -8,9 +8,10 @@ Pipeline:
      fetch uncached pages, replacing `content` with the full extracted text.
   4. Return results to the LLM for synthesis and citation.
 
-IMPORTANT (to LLM): When citing sources in your response, use inline bracketed
-citations containing ONLY the source name (e.g. [Yahoo Finance], [Reuters]).
-Do not use numbers (like [1]) or markdown hyperlinks.
+IMPORTANT (to LLM): When citing sources in your response, use inline markdown
+links with the source title and the exact URL from the results
+(e.g. [Yahoo Finance](https://finance.yahoo.com/...), [Reuters](https://www.reuters.com/...)).
+Do not use bare numbers (like [1]) as citations.
 """
 
 from __future__ import annotations
@@ -42,7 +43,7 @@ def mcp_web_search(
     Performs a web search using the configured SearXNG instance, then optionally
     enriches results with full page content via the configured scraper strategy.
 
-    IMPORTANT: When citing sources, you MUST use inline bracketed citations containing ONLY the source title EXACTLY as it appears in the results (e.g. `[Yahoo Finance]`, `[Reuters]`). NEVER append URLs next to the citations. NEVER use markdown hyperlinks like `[Title](URL)`. Just use `[Title]`.
+    IMPORTANT: When citing sources, you MUST use inline markdown links containing the source title EXACTLY as it appears in the results and the exact URL from the results (e.g. `[Yahoo Finance](https://finance.yahoo.com/...)`, `[Reuters](https://www.reuters.com/...)`). NEVER use bare numeric citations like `[1]`. ONLY cite URLs explicitly provided in the results.
 
     Args:
         query: The search string.
