@@ -365,4 +365,52 @@ void main() {
       expect(find.text('300'), findsOneWidget);
     });
   });
+
+  group('compaction entry point', () {
+    TokenUsageSummary summaryAt(int prompt, int window) =>
+        summarizeTokenUsage([
+          assistant({
+            'prompt_tokens': prompt,
+            'completion_tokens': 10,
+            'total_tokens': prompt + 10,
+            'context_window_tokens': window,
+          }),
+        ])!;
+
+    testWidgets('sheet offers Compact at >=50% full when wired',
+        (tester) async {
+      var taps = 0;
+      await tester.pumpWidget(MaterialApp(
+        theme: testTheme(),
+        home: Scaffold(
+          body: TokenUsageRing(
+            usage: summaryAt(6000, 10000),
+            onCompactPressed: () => taps++,
+          ),
+        ),
+      ));
+      await tester.tap(find.byType(TokenUsageRing));
+      await tester.pumpAndSettle();
+      expect(find.text('Compact conversation…'), findsOneWidget);
+      await tester.tap(find.text('Compact conversation…'));
+      await tester.pumpAndSettle();
+      expect(taps, 1);
+    });
+
+    testWidgets('no Compact button below 50% or when unwired',
+        (tester) async {
+      await tester.pumpWidget(MaterialApp(
+        theme: testTheme(),
+        home: Scaffold(
+          body: TokenUsageRing(
+            usage: summaryAt(3000, 10000),
+            onCompactPressed: () {},
+          ),
+        ),
+      ));
+      await tester.tap(find.byType(TokenUsageRing));
+      await tester.pumpAndSettle();
+      expect(find.text('Compact conversation…'), findsNothing);
+    });
+  });
 }

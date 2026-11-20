@@ -279,6 +279,28 @@ class LocalChatRepository implements IChatRepository {
   }
 
   @override
+  @override
+  Future<Map<String, dynamic>> previewCompaction(String threadId,
+      {String? model, int keepRecentTurns = 4, String? focus}) async {
+    throw UnsupportedError(
+        'Compaction is available for synced conversations only.');
+  }
+
+  @override
+  Future<Map<String, dynamic>> applyCompaction(String threadId,
+      {required String summary, int keepRecentTurns = 4}) async {
+    throw UnsupportedError(
+        'Compaction is available for synced conversations only.');
+  }
+
+  @override
+  Future<Map<String, dynamic>> clearOldToolResults(String threadId,
+      {int keepRecentTurns = 4}) async {
+    throw UnsupportedError(
+        'Compaction is available for synced conversations only.');
+  }
+
+  @override
   Future<void> regenerateResponse(String threadId) async {
     // Regenerate not fully supported locally yet, requires deleting last AI message and re-running stream
   }
