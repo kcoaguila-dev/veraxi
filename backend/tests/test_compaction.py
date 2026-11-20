@@ -1,13 +1,13 @@
 """Manual compaction: splitting, applying, clearing, validation."""
 
 import pytest
-from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
+from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, ToolMessage
 
 from backend.mcp_server import compaction as comp
 
 
-def _history(turns: int = 6):
-    messages = []
+def _history(turns: int = 6) -> list[BaseMessage]:
+    messages: list[BaseMessage] = []
     for i in range(turns):
         messages.append(HumanMessage(content=f"question {i} " * 10))
         messages.append(

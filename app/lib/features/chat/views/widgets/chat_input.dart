@@ -8,6 +8,7 @@ import 'package:speech_to_text/speech_to_text.dart';
 import 'web_search_dialog.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
+import 'package:veraxi_app/features/chat/view_models/auto_compact.dart';
 import 'package:veraxi_app/features/chat/view_models/token_usage.dart';
 import 'package:veraxi_app/features/chat/views/widgets/deep_cost_preflight.dart';
 import 'package:veraxi_app/features/chat/views/widgets/integration_chips_bar.dart';
@@ -34,6 +35,11 @@ class ChatInput extends StatefulWidget {
   final TokenUsageIndicatorStyle? tokenUsageStyle;
   final ValueChanged<TokenUsageIndicatorStyle>? onTokenUsageStyleChanged;
 
+  /// Auto-compact behaviour + change callback, forwarded to the
+  /// breakdown sheet's auto-compact switcher.
+  final AutoCompactMode? autoCompactMode;
+  final ValueChanged<AutoCompactMode>? onAutoCompactModeChanged;
+
   /// Opens the manual-compaction flow from the breakdown sheet.
   final VoidCallback? onCompactPressed;
 
@@ -48,6 +54,8 @@ class ChatInput extends StatefulWidget {
     this.usageSummary,
     this.tokenUsageStyle,
     this.onTokenUsageStyleChanged,
+    this.autoCompactMode,
+    this.onAutoCompactModeChanged,
     this.onCompactPressed,
   });
 
@@ -643,6 +651,8 @@ class _ChatInputState extends State<ChatInput> {
                       usage: widget.usageSummary!,
                       indicatorStyle: widget.tokenUsageStyle,
                       onIndicatorStyleChanged: widget.onTokenUsageStyleChanged,
+                      autoCompactMode: widget.autoCompactMode,
+                      onAutoCompactModeChanged: widget.onAutoCompactModeChanged,
                       onCompactPressed: widget.onCompactPressed,
                     ),
                     SizedBox(width: 4),

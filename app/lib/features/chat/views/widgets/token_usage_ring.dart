@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:material_ui/material_ui.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
+import 'package:veraxi_app/features/chat/view_models/auto_compact.dart';
 import 'package:veraxi_app/features/chat/view_models/token_usage.dart';
 
 /// Circular context-usage gauge for the chat composer, following the
@@ -32,6 +33,8 @@ class TokenUsageRing extends StatelessWidget {
   /// can render standalone (tests, previews).
   final TokenUsageIndicatorStyle? indicatorStyle;
   final ValueChanged<TokenUsageIndicatorStyle>? onIndicatorStyleChanged;
+  final AutoCompactMode? autoCompactMode;
+  final ValueChanged<AutoCompactMode>? onAutoCompactModeChanged;
 
   /// Opens the manual-compaction flow (owned by the chat screen,
   /// which has the view model). Null hides the sheet's Compact
@@ -43,6 +46,8 @@ class TokenUsageRing extends StatelessWidget {
     required this.usage,
     this.indicatorStyle,
     this.onIndicatorStyleChanged,
+    this.autoCompactMode,
+    this.onAutoCompactModeChanged,
     this.onCompactPressed,
   });
 
@@ -63,6 +68,8 @@ class TokenUsageRing extends StatelessWidget {
           usage,
           indicatorStyle: indicatorStyle,
           onIndicatorStyleChanged: onIndicatorStyleChanged,
+          autoCompactMode: autoCompactMode,
+          onAutoCompactModeChanged: onAutoCompactModeChanged,
           onCompactPressed: onCompactPressed,
         ),
         customBorder: const CircleBorder(),
@@ -106,6 +113,8 @@ class TokenUsageBar extends StatelessWidget {
   final TokenUsageSummary usage;
   final TokenUsageIndicatorStyle? indicatorStyle;
   final ValueChanged<TokenUsageIndicatorStyle>? onIndicatorStyleChanged;
+  final AutoCompactMode? autoCompactMode;
+  final ValueChanged<AutoCompactMode>? onAutoCompactModeChanged;
   final VoidCallback? onCompactPressed;
 
   const TokenUsageBar({
@@ -113,6 +122,8 @@ class TokenUsageBar extends StatelessWidget {
     required this.usage,
     this.indicatorStyle,
     this.onIndicatorStyleChanged,
+    this.autoCompactMode,
+    this.onAutoCompactModeChanged,
     this.onCompactPressed,
   });
 
@@ -134,6 +145,8 @@ class TokenUsageBar extends StatelessWidget {
           usage,
           indicatorStyle: indicatorStyle,
           onIndicatorStyleChanged: onIndicatorStyleChanged,
+          autoCompactMode: autoCompactMode,
+          onAutoCompactModeChanged: onAutoCompactModeChanged,
           onCompactPressed: onCompactPressed,
         ),
         child: Padding(
@@ -250,6 +263,8 @@ Future<void> showTokenUsageBreakdown(
   TokenUsageSummary usage, {
   TokenUsageIndicatorStyle? indicatorStyle,
   ValueChanged<TokenUsageIndicatorStyle>? onIndicatorStyleChanged,
+  AutoCompactMode? autoCompactMode,
+  ValueChanged<AutoCompactMode>? onAutoCompactModeChanged,
   VoidCallback? onCompactPressed,
 }) {
   return showModalBottomSheet<void>(
@@ -262,6 +277,8 @@ Future<void> showTokenUsageBreakdown(
       usage: usage,
       indicatorStyle: indicatorStyle,
       onIndicatorStyleChanged: onIndicatorStyleChanged,
+      autoCompactMode: autoCompactMode,
+      onAutoCompactModeChanged: onAutoCompactModeChanged,
       onCompactPressed: onCompactPressed,
     ),
   );
@@ -271,12 +288,16 @@ class _TokenUsageBreakdown extends StatelessWidget {
   final TokenUsageSummary usage;
   final TokenUsageIndicatorStyle? indicatorStyle;
   final ValueChanged<TokenUsageIndicatorStyle>? onIndicatorStyleChanged;
+  final AutoCompactMode? autoCompactMode;
+  final ValueChanged<AutoCompactMode>? onAutoCompactModeChanged;
   final VoidCallback? onCompactPressed;
 
   const _TokenUsageBreakdown({
     required this.usage,
     this.indicatorStyle,
     this.onIndicatorStyleChanged,
+    this.autoCompactMode,
+    this.onAutoCompactModeChanged,
     this.onCompactPressed,
   });
 
@@ -505,6 +526,59 @@ class _TokenUsageBreakdown extends StatelessWidget {
                     side: const BorderSide(color: Color(0xFF2E2E2E)),
                     textStyle: const TextStyle(fontSize: 12),
                   ),
+                ),
+              ],
+              if (autoCompactMode != null &&
+                  onAutoCompactModeChanged != null) ...[
+                const SizedBox(height: 18),
+                const Text(
+                  'AUTO-COMPACT AT 80% FULL',
+                  style: TextStyle(
+                    color: Color(0xFF8A8A8A),
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.6,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                SegmentedButton<AutoCompactMode>(
+                  segments: const [
+                    ButtonSegment(
+                      value: AutoCompactMode.off,
+                      label: Text('Off'),
+                      icon: Icon(Icons.visibility_off_outlined, size: 16),
+                    ),
+                    ButtonSegment(
+                      value: AutoCompactMode.ask,
+                      label: Text('Ask'),
+                      icon: Icon(Icons.help_outline, size: 16),
+                    ),
+                    ButtonSegment(
+                      value: AutoCompactMode.auto,
+                      label: Text('Auto'),
+                      icon: Icon(Icons.compress, size: 16),
+                    ),
+                  ],
+                  selected: {autoCompactMode!},
+                  onSelectionChanged: (selection) {
+                    onAutoCompactModeChanged!(selection.first);
+                    Navigator.of(context).pop();
+                  },
+                  style: SegmentedButton.styleFrom(
+                    foregroundColor: const Color(0xFFB0B0B0),
+                    selectedForegroundColor: Colors.white,
+                    selectedBackgroundColor: const Color(0xFF2E2E2E),
+                    backgroundColor: const Color(0xFF1C1C1C),
+                    side: const BorderSide(color: Color(0xFF2E2E2E)),
+                    textStyle: const TextStyle(fontSize: 12),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'Ask prompts you first and opens the review sheet. '
+                  'Auto compacts at the end of a turn and tells you it did. '
+                  'Either way the summary uses the same checks as manual compaction.',
+                  style: TextStyle(color: Color(0xFF8A8A8A), fontSize: 11),
                 ),
               ],
             ],

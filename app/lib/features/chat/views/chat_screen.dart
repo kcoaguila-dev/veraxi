@@ -5,6 +5,7 @@ import 'package:veraxi_app/core/sidebar_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
+import 'package:veraxi_app/features/chat/view_models/auto_compact.dart';
 import 'package:veraxi_app/features/chat/view_models/chat_view_model.dart';
 import 'package:veraxi_app/features/chat/view_models/token_usage.dart';
 import 'package:veraxi_app/features/chat/views/widgets/token_usage_ring.dart';
@@ -59,6 +60,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       metrics.maxScrollExtent > 0 &&
       (metrics.maxScrollExtent - metrics.pixels) > 400;
 
+  /// Per-thread Ask-mode gate (re-arms after a "Not now" only when
+  /// the context grows meaningfully) + re-entry guard for Auto runs.
+  final AutoCompactGate _autoCompactGate = AutoCompactGate();
+  bool _autoCompactBusy = false;
+
   void _openCompaction(BuildContext context, ChatViewModel viewModel) {
     showCompactionSheet(
       context,
@@ -69,6 +75,182 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           model: _selectedModel == 'Select a model' ? null : _selectedModel),
       onClearToolResults: () => viewModel.clearOldToolResults(
           model: _selectedModel == 'Select a model' ? null : _selectedModel),
+    );
+  }
+
+  /// Turn-end auto-compact check: runs when a response finishes,
+  /// never mid-generation. Ask mode prompts and opens the same
+  /// review sheet as manual compaction; Auto mode runs the same
+  /// fail-closed pipeline unattended (Stage 0 pruning first) and
+  /// always leaves a notice. Failures change nothing.
+  Future<void> _maybeAutoCompact(ChatViewModel viewModel) async {
+    if (_autoCompactBusy || !mounted) return;
+    final mode = viewModel.autoCompactMode;
+    if (mode == AutoCompactMode.off) return;
+    final state = ref.read(chatViewModelProvider);
+    if (state.isLoading || state.threadId == null) return;
+    final summary = summarizeTokenUsage(state.messages);
+    if (summary == null || !_autoCompactGate.shouldFire(summary)) return;
+    if (mode == AutoCompactMode.ask) {
+      await _askAutoCompact(viewModel, summary);
+    } else {
+      await _runAutoCompact(viewModel, summary, state.threadId!);
+    }
+  }
+
+  Future<void> _askAutoCompact(
+      ChatViewModel viewModel, TokenUsageSummary summary) async {
+    final fraction = summary.contextFraction;
+    final title = fraction != null
+        ? 'Context is ${(fraction * 100).round()}% full'
+        : 'This conversation is getting long';
+    final body = fraction != null
+        ? 'Compacting summarizes earlier messages to free context. '
+            'Nothing changes until you review and approve the summary.'
+        : 'About ${formatTokenCountFull(summary.contextTokens ?? 0)} tokens '
+            'so far (estimated). Compacting summarizes earlier messages '
+            'to free context — nothing changes until you review and '
+            'approve the summary.';
+    final choice = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(title),
+        content: Text(body),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop('off'),
+            child: const Text('Turn off'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop('skip'),
+            child: const Text('Not now'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop('review'),
+            child: const Text('Review & compact'),
+          ),
+        ],
+      ),
+    );
+    if (!mounted) return;
+    switch (choice) {
+      case 'review':
+        _openCompaction(context, viewModel);
+      case 'off':
+        await viewModel.setAutoCompactMode(AutoCompactMode.off);
+        _showAutoCompactNotice(
+            'Auto-compact is off. You can turn it back on from the token usage sheet.');
+      default:
+        // 'skip' or a dismissed dialog: don't ask again until the
+        // context grows past the re-arm delta.
+        _autoCompactGate.skip(summary);
+    }
+  }
+
+  void _setAutoCompactBusy(bool busy) {
+    if (!mounted) {
+      _autoCompactBusy = busy;
+      return;
+    }
+    setState(() {
+      _autoCompactBusy = busy;
+    });
+  }
+
+  bool _canContinueAutoCompact(String targetThreadId) {
+    if (!mounted) return false;
+    final current = ref.read(chatViewModelProvider);
+    return current.threadId == targetThreadId && !current.isLoading;
+  }
+
+  TokenUsageSummary? _postStage0Summary(
+      TokenUsageSummary prior, Map<String, dynamic>? stage0Result) {
+    final postTokens = stage0Result?['tokens_after_estimate'];
+    if (postTokens is int) {
+      return TokenUsageSummary(
+        contextTokens: postTokens,
+        contextWindowTokens: prior.contextWindowTokens,
+        lastPromptTokens: postTokens,
+        lastCompletionTokens: prior.lastCompletionTokens,
+        lastTotalTokens: prior.lastTotalTokens,
+        lastEstimatedCostUsd: prior.lastEstimatedCostUsd,
+        sessionPromptTokens: prior.sessionPromptTokens,
+        sessionCompletionTokens: prior.sessionCompletionTokens,
+        sessionTotalTokens: prior.sessionTotalTokens,
+        sessionEstimatedCostUsd: prior.sessionEstimatedCostUsd,
+        hasSessionCost: prior.hasSessionCost,
+        responseCount: prior.responseCount,
+        isEstimated: prior.isEstimated,
+      );
+    }
+    return summarizeTokenUsage(ref.read(chatViewModelProvider).messages);
+  }
+
+  Future<Map<String, dynamic>?> _tryStage0Clear(
+      ChatViewModel viewModel, String targetThreadId, String? model) async {
+    try {
+      return await viewModel.clearOldToolResults(
+          threadId: targetThreadId, model: model);
+    } catch (_) {
+      // Stage 0 is best-effort; summarisation below is the gate.
+      return null;
+    }
+  }
+
+  Future<void> _runAutoCompact(ChatViewModel viewModel,
+      TokenUsageSummary summary, String targetThreadId) async {
+    _setAutoCompactBusy(true);
+    final model = _selectedModel == 'Select a model' ? null : _selectedModel;
+    var stage0Cleared = false;
+    try {
+      // Stage 0 first: clearing old tool results is deterministic
+      // and may free enough on its own — summarise only if not.
+      final stage0Result =
+          await _tryStage0Clear(viewModel, targetThreadId, model);
+      stage0Cleared = stage0Result != null;
+      if (!_canContinueAutoCompact(targetThreadId)) return;
+      final afterStage0 = _postStage0Summary(summary, stage0Result);
+      if (afterStage0 != null && !autoCompactDue(afterStage0)) {
+        _autoCompactGate.reset();
+        _showAutoCompactNotice(
+            'Freed context by clearing old tool results — no summary needed.');
+        return;
+      }
+      final preview = await viewModel.previewCompaction(
+          threadId: targetThreadId, model: model);
+      if (!_canContinueAutoCompact(targetThreadId)) return;
+      await viewModel.applyCompaction(
+          threadId: targetThreadId,
+          summary: preview['summary'] as String,
+          model: model);
+      _autoCompactGate.reset();
+      final before = formatTokenCountFull(summary.contextTokens ?? 0);
+      final afterTokens = preview['tokens_after_estimate'];
+      final after =
+          afterTokens is int ? formatTokenCountFull(afterTokens) : 'less';
+      _showAutoCompactNotice(
+          'Conversation compacted automatically (~$before → ~$after tokens). '
+          'Tap the divider in the chat to read the summary.');
+    } catch (_) {
+      // Report Stage 0 accurately if tool results were cleared before failure.
+      _showAutoCompactNotice(
+        stage0Cleared
+            ? 'Cleared old tool results to free context; full summary was skipped.'
+            : 'Auto-compact could not run — your context is unchanged.',
+      );
+    } finally {
+      _setAutoCompactBusy(false);
+    }
+  }
+
+  void _showAutoCompactNotice(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 6),
+      ),
     );
   }
 
@@ -174,9 +356,25 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     ref.listen<String?>(
       chatViewModelProvider.select((s) => s.threadId),
       (previous, next) {
-        if (previous != next && _isScrolledUp) {
-          setState(() {
-            _isScrolledUp = false;
+        if (previous != next) {
+          _autoCompactGate.reset();
+          if (_isScrolledUp) {
+            setState(() {
+              _isScrolledUp = false;
+            });
+          }
+        }
+      },
+    );
+
+    // Auto-compact is evaluated only at a turn boundary: when a
+    // response finishes generating, never mid-stream.
+    ref.listen<bool>(
+      chatViewModelProvider.select((s) => s.isLoading),
+      (previous, next) {
+        if (previous == true && next == false) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _maybeAutoCompact(viewModel);
           });
         }
       },
@@ -660,6 +858,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                             viewModel.tokenUsageStyle,
                                         onIndicatorStyleChanged:
                                             viewModel.setTokenUsageStyle,
+                                        autoCompactMode:
+                                            viewModel.autoCompactMode,
+                                        onAutoCompactModeChanged:
+                                            viewModel.setAutoCompactMode,
                                         onCompactPressed: () =>
                                             _openCompaction(context, viewModel),
                                       ),
@@ -674,13 +876,18 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                           viewModel.tokenUsageStyle,
                                       onTokenUsageStyleChanged:
                                           viewModel.setTokenUsageStyle,
+                                      autoCompactMode:
+                                          viewModel.autoCompactMode,
+                                      onAutoCompactModeChanged:
+                                          viewModel.setAutoCompactMode,
                                       onCompactPressed: () =>
                                           _openCompaction(context, viewModel),
                                       model: _selectedModel == 'Select a model'
                                           ? null
                                           : _selectedModel,
                                       projectName: state.activeProjectName,
-                                      isLoading: state.isLoading,
+                                      isLoading:
+                                          state.isLoading || _autoCompactBusy,
                                       onSend: (text, {attachments}) =>
                                           viewModel.sendMessage(text,
                                               model: _selectedModel ==
