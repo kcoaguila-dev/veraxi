@@ -66,6 +66,13 @@ class TokenUsageSummary {
   final int? contextToolResultsTokens;
   final int? contextMessagesTokens;
 
+  /// True when NO response in the thread reported usage (pure
+  /// on-device .gguf threads) and the counts were estimated from
+  /// message text instead (chars / 4). Estimates are always labelled
+  /// as such in the UI and never presented as provider truth; the
+  /// window stays unknown so no percentage is shown.
+  final bool isEstimated;
+
   const TokenUsageSummary({
     required this.contextTokens,
     required this.contextWindowTokens,
@@ -83,6 +90,7 @@ class TokenUsageSummary {
     this.contextToolsTokens,
     this.contextToolResultsTokens,
     this.contextMessagesTokens,
+    this.isEstimated = false,
   });
 
   /// Whether the latest response carried a category split.
@@ -181,7 +189,35 @@ TokenUsageSummary? summarizeTokenUsage(List<ChatMessage> messages) {
     segMessages = _toInt(metrics['context_messages_tokens']) ?? segMessages;
   }
 
-  if (count == 0) return null;
+  if (count == 0) {
+    // No usage reported anywhere (on-device models): fall back to a
+    // clearly-labelled estimate from message text so the thread
+    // still gets a context indicator and the compaction entry point.
+    var estimated = 0;
+    var responses = 0;
+    for (final message in messages) {
+      estimated += estimateTextTokens(message.content);
+      if (!message.isUser) responses++;
+    }
+    // A floor keeps a brand-new thread (one short exchange) from
+    // growing a noise indicator.
+    if (estimated < 100) return null;
+    return TokenUsageSummary(
+      contextTokens: estimated,
+      contextWindowTokens: null,
+      lastPromptTokens: null,
+      lastCompletionTokens: null,
+      lastTotalTokens: null,
+      lastEstimatedCostUsd: null,
+      sessionPromptTokens: 0,
+      sessionCompletionTokens: 0,
+      sessionTotalTokens: estimated,
+      sessionEstimatedCostUsd: 0,
+      hasSessionCost: false,
+      responseCount: responses,
+      isEstimated: true,
+    );
+  }
   return TokenUsageSummary(
     contextTokens: contextTokens,
     contextWindowTokens: contextWindow,
@@ -231,3 +267,8 @@ double? _toDouble(dynamic value) {
   if (value is num) return value.toDouble();
   return null;
 }
+
+/// Rough token estimate for text when no provider count exists
+/// (~4 chars per token). Twin of estimateTokens in
+/// data/compaction_local.dart — keep the two in sync.
+int estimateTextTokens(String text) => (text.length / 4).ceil();

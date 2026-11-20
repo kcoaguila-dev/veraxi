@@ -345,6 +345,15 @@ class _TokenUsageBreakdown extends StatelessWidget {
                           '(window size unknown for this model)'
                       : 'Window size unknown for this model',
                 ),
+              if (usage.isEstimated) ...[
+                const SizedBox(height: 8),
+                const Text(
+                  'Estimated from message text — this model does not '
+                  'report token usage, so counts are approximate and '
+                  'no percentage is shown.',
+                  style: TextStyle(color: Color(0xFF8A8A8A), fontSize: 11),
+                ),
+              ],
               if (usage.hasBreakdown && usage.breakdownTotal > 0) ...[
                 const SizedBox(height: 14),
                 const Text(
@@ -400,6 +409,7 @@ class _TokenUsageBreakdown extends StatelessWidget {
                     ),
                   ),
               ],
+              if (!usage.isEstimated) ...[
               const SizedBox(height: 14),
               _row(
                 'Last response',
@@ -422,6 +432,7 @@ class _TokenUsageBreakdown extends StatelessWidget {
               if (usage.hasSessionCost)
                 _row('Conversation est. cost',
                     '\$${usage.sessionEstimatedCostUsd.toStringAsFixed(4)}'),
+              ],
               if (_canCompact) ...[
                 const SizedBox(height: 18),
                 SizedBox(

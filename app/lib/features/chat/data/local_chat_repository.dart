@@ -3,6 +3,7 @@ import 'package:drift/drift.dart';
 import 'package:veraxi_app/core/network/api_client.dart';
 import 'package:veraxi_app/core/api_key_storage.dart';
 import 'package:veraxi_app/features/chat/data/chat_repository.dart';
+import 'package:veraxi_app/features/chat/data/compaction_local.dart';
 import 'package:veraxi_app/features/chat/data/local_chat_database.dart';
 import 'package:uuid/uuid.dart';
 import 'package:veraxi_app/features/chat/data/local_chat_data_source.dart'
@@ -279,25 +280,115 @@ class LocalChatRepository implements IChatRepository {
   }
 
   @override
-  @override
   Future<Map<String, dynamic>> previewCompaction(String threadId,
       {String? model, int keepRecentTurns = 4, String? focus}) async {
-    throw UnsupportedError(
-        'Compaction is available for synced conversations only.');
+    final history = await getThreadHistory(threadId);
+    final (prefix, recent) = splitLocalHistory(history, keepRecentTurns);
+    if (prefix.isEmpty) {
+      throw Exception('Nothing old enough to compact yet.');
+    }
+    if (model == null || !model.endsWith('.gguf')) {
+      throw Exception(
+          'On-device compaction needs a local (.gguf) model selected.');
+    }
+    final prompt = buildLocalCompactionPrompt(prefix, focus);
+    final summary =
+        (await LocalChatDataSource.forModel().generateText(prompt, model))
+            .trim();
+    if (summary.isEmpty) {
+      throw Exception('The model returned an empty summary.');
+    }
+    final tokensBefore = estimateHistoryTokens(history);
+    final tokensAfter = estimateHistoryTokens([
+      {'role': 'user', 'content': buildLocalSummaryContent(summary)},
+      ...recent,
+    ]);
+    checkLocalMinProgress(tokensBefore, tokensAfter);
+    return {
+      'summary': summary,
+      'messages_compacted': prefix.length,
+      'tokens_before': tokensBefore,
+      'tokens_after_estimate': tokensAfter,
+    };
   }
 
   @override
   Future<Map<String, dynamic>> applyCompaction(String threadId,
       {required String summary, int keepRecentTurns = 4}) async {
-    throw UnsupportedError(
-        'Compaction is available for synced conversations only.');
+    if (summary.trim().isEmpty) {
+      throw Exception('Summary is empty — nothing to apply.');
+    }
+    final history = await getThreadHistory(threadId);
+    final (prefix, recent) = splitLocalHistory(history, keepRecentTurns);
+    if (prefix.isEmpty) {
+      throw Exception('Nothing old enough to compact yet.');
+    }
+    final tokensBefore = estimateHistoryTokens(history);
+    final summaryContent = buildLocalSummaryContent(summary);
+    final tokensAfter = estimateHistoryTokens([
+      {'role': 'user', 'content': summaryContent},
+      ...recent,
+    ]);
+    // Gate BEFORE mutating anything.
+    checkLocalMinProgress(tokensBefore, tokensAfter);
+
+    final prefixIds = prefix.map((m) => m['id'] as String).toList();
+    await (db.delete(db.localMessages)
+          ..where((m) => m.id.isIn(prefixIds)))
+        .go();
+
+    // The summary sorts just before the first kept message.
+    DateTime summaryTimestamp = DateTime.now();
+    if (recent.isNotEmpty) {
+      final firstRecent = await (db.select(db.localMessages)
+            ..where((m) => m.id.equals(recent.first['id'] as String)))
+          .getSingleOrNull();
+      if (firstRecent?.timestamp != null) {
+        summaryTimestamp =
+            firstRecent!.timestamp!.subtract(const Duration(milliseconds: 1));
+      }
+    }
+    await db.into(db.localMessages).insert(LocalMessagesCompanion.insert(
+          id: _uuid.v4(),
+          threadId: threadId,
+          role: 'user',
+          content: summaryContent,
+          metrics:
+              Value(jsonEncode(localCompactionRecord(prefix.length, tokensBefore))),
+          timestamp: Value(summaryTimestamp),
+        ));
+    return {
+      'status': 'ok',
+      'messages_compacted': prefix.length,
+      'tokens_after_estimate': tokensAfter,
+    };
   }
 
   @override
   Future<Map<String, dynamic>> clearOldToolResults(String threadId,
       {int keepRecentTurns = 4}) async {
-    throw UnsupportedError(
-        'Compaction is available for synced conversations only.');
+    final history = await getThreadHistory(threadId);
+    final (newHistory, cleared) =
+        clearLocalToolResults(history, keepRecentTurns);
+    if (cleared == 0) {
+      throw Exception('No old tool results to clear.');
+    }
+    final (prefix, _) = splitLocalHistory(history, keepRecentTurns);
+    for (var i = 0; i < prefix.length; i++) {
+      final before = prefix[i];
+      final after = newHistory[i];
+      if (after['toolEvents'] != before['toolEvents']) {
+        await (db.update(db.localMessages)
+              ..where((m) => m.id.equals(before['id'] as String)))
+            .write(LocalMessagesCompanion(
+                toolEvents: Value(jsonEncode(after['toolEvents']))));
+      }
+    }
+    return {
+      'status': 'ok',
+      'tool_results_cleared': cleared,
+      'tokens_after_estimate': estimateHistoryTokens(newHistory),
+    };
   }
 
   @override
