@@ -26,6 +26,10 @@ from backend.evaluation.typed_dataset import (
 SEED_DATASET_PATH = (
     Path(__file__).resolve().parents[1] / "evaluation" / "seed_dataset.json"
 )
+VERAXI_CODE_DATASET_PATH = (
+    Path(__file__).resolve().parents[1] / "evaluation" / "veraxi_code_dataset.json"
+)
+REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 def _case(**overrides):
@@ -280,3 +284,31 @@ def test_markdown_report_has_per_type_sections_and_config_names():
 def test_markdown_report_renders_na_for_missing_grounding():
     markdown = render_markdown(run_ablation(_ablation_dataset(), FakeRetriever()))
     assert "n/a" in markdown
+
+
+def test_veraxi_code_dataset_validates_with_balanced_query_types():
+    dataset = load_dataset(VERAXI_CODE_DATASET_PATH)
+    assert dataset.name == "veraxi-code-ablation-v1"
+    for query_type in QUERY_TYPES:
+        assert len(dataset.by_type(query_type)) >= 4
+
+
+def test_veraxi_code_ablation_measures_hybrid_and_graph_lifts():
+    from backend.evaluation.code_ablation import RepoCodeAblationRetriever
+
+    dataset = load_dataset(VERAXI_CODE_DATASET_PATH)
+    retriever = RepoCodeAblationRetriever(REPO_ROOT)
+    results = run_ablation(dataset, retriever, k=5)
+
+    vec = results.config("vector_only")
+    hyb = results.config("hybrid_no_graph")
+    graph = results.config("hybrid_with_graph")
+
+    # Hybrid (dense + exact-identifier BM25) beats vector-only on identifier lookup & overall.
+    assert hyb.by_query_type["lookup"].recall_at_k > vec.by_query_type["lookup"].recall_at_k
+    assert hyb.overall.recall_at_k > vec.overall.recall_at_k
+
+    # AST code-graph fusion beats hybrid_no_graph on multi_hop ripple, global architecture, and overall.
+    assert graph.by_query_type["multi_hop"].recall_at_k > hyb.by_query_type["multi_hop"].recall_at_k
+    assert graph.by_query_type["global"].recall_at_k > hyb.by_query_type["global"].recall_at_k
+    assert graph.overall.recall_at_k > hyb.overall.recall_at_k

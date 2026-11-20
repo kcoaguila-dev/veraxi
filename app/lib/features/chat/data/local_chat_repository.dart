@@ -567,14 +567,17 @@ class LocalChatRepository implements IChatRepository {
     final messages = await (db.select(db.localMessages)
           ..where((m) => m.threadId.equals(threadId)))
         .get();
+    final idMap = <String, String>{for (final m in messages) m.id: _uuid.v4()};
     for (var m in messages) {
+      final remappedMetrics =
+          remapCompactionMetrics(m.metrics, idMap, () => _uuid.v4());
       await db.into(db.localMessages).insert(LocalMessagesCompanion.insert(
-            id: _uuid.v4(),
+            id: idMap[m.id]!,
             threadId: newThreadId,
             role: m.role,
             content: m.content,
             modelName: Value(m.modelName),
-            metrics: Value(m.metrics),
+            metrics: Value(remappedMetrics),
             toolEvents: Value(m.toolEvents),
             activity: Value(m.activity),
             reasoning: Value(m.reasoning),

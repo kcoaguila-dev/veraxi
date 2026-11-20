@@ -10,6 +10,8 @@
 /// estimates everywhere they surface.
 library;
 
+import 'dart:convert';
+
 const String kSummaryPrefix =
     '[Conversation summary — earlier messages were compacted]';
 const String kClearedToolPlaceholder = '[Tool result cleared to free context]';
@@ -182,3 +184,87 @@ Map<String, dynamic> localCompactionBackup(
       ],
       'kept_ids': keptIds,
     };
+
+/// Remaps message IDs inside a JSON-encoded `metrics` string when a local
+/// thread is duplicated, so `compaction_backup.kept_ids` points at the
+/// duplicated rows and backed-up prefix messages get fresh primary-key IDs
+/// that cannot collide with the source thread on restore.
+String? remapCompactionMetrics(
+  String? rawMetrics,
+  Map<String, String> idMap,
+  String Function() generateId,
+) {
+  if (rawMetrics == null || rawMetrics.isEmpty) return rawMetrics;
+  try {
+    final decoded = jsonDecode(rawMetrics);
+    if (decoded is! Map<String, dynamic>) return rawMetrics;
+    final remapped = _remapMetricsMap(decoded, idMap, generateId);
+    return jsonEncode(remapped);
+  } catch (_) {
+    return rawMetrics;
+  }
+}
+
+Map<String, dynamic> _remapMetricsMap(
+  Map<String, dynamic> metrics,
+  Map<String, String> idMap,
+  String Function() generateId,
+) {
+  final backup = metrics['compaction_backup'];
+  if (backup is! Map) return metrics;
+  final copy = Map<String, dynamic>.from(metrics);
+  copy['compaction_backup'] = _remapBackupMap(
+    Map<String, dynamic>.from(backup),
+    idMap,
+    generateId,
+  );
+  return copy;
+}
+
+Map<String, dynamic> _remapBackupMap(
+  Map<String, dynamic> backup,
+  Map<String, String> idMap,
+  String Function() generateId,
+) {
+  final rawKept = backup['kept_ids'];
+  if (rawKept is List) {
+    backup['kept_ids'] = [
+      for (final id in rawKept.whereType<String>())
+        idMap.putIfAbsent(id, generateId),
+    ];
+  }
+  final rawMessages = backup['messages'];
+  if (rawMessages is List) {
+    backup['messages'] = [
+      for (final item in rawMessages.whereType<Map>())
+        _remapBackedUpMessage(
+          Map<String, dynamic>.from(item),
+          idMap,
+          generateId,
+        ),
+    ];
+  }
+  return backup;
+}
+
+Map<String, dynamic> _remapBackedUpMessage(
+  Map<String, dynamic> message,
+  Map<String, String> idMap,
+  String Function() generateId,
+) {
+  final oldId = message['id'];
+  if (oldId is String && oldId.isNotEmpty) {
+    message['id'] = idMap.putIfAbsent(oldId, generateId);
+  } else {
+    message['id'] = generateId();
+  }
+  final nestedMetrics = message['metrics'];
+  if (nestedMetrics is Map) {
+    message['metrics'] = _remapMetricsMap(
+      Map<String, dynamic>.from(nestedMetrics),
+      idMap,
+      generateId,
+    );
+  }
+  return message;
+}

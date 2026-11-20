@@ -195,5 +195,44 @@ void main() {
         throwsA(predicate((e) => e.toString().contains('No old tool results'))),
       );
     });
+
+    test(
+        'duplicateThread remaps compaction_backup IDs so both original and copy restore cleanly',
+        () async {
+      await repository.applyCompaction('t1', summary: 'the summary');
+      final t2 = await repository.duplicateThread('t1');
+
+      // Append a post-compaction turn on the duplicated thread.
+      final postBase = DateTime(2026, 1, 2, 1);
+      await db.into(db.localMessages).insert(LocalMessagesCompanion.insert(
+            id: 'dup-post-1',
+            threadId: t2,
+            role: 'user',
+            content: 'after copy',
+            timestamp: Value(postBase),
+          ));
+
+      // Restoring the duplicated thread keeps its 8 copied turns, restores the
+      // 4 prefix turns with remapped IDs, and drops the post-compaction message.
+      final restoreDup = await repository.restoreCompaction(t2);
+      expect(restoreDup['messages_restored'], 4);
+      final dupHistory = await repository.getThreadHistory(t2);
+      expect(dupHistory.length, 12);
+      expect(dupHistory.first['content'], contains('question 0'));
+      expect(dupHistory.last['content'], contains('answer 5'));
+      expect(
+          dupHistory
+              .any((m) => (m['content'] as String).contains('after copy')),
+          isFalse);
+
+      // Restoring the original thread afterwards must not hit a primary-key
+      // conflict with the duplicated thread's restored rows.
+      final restoreOrig = await repository.restoreCompaction('t1');
+      expect(restoreOrig['messages_restored'], 4);
+      final origHistory = await repository.getThreadHistory('t1');
+      expect(origHistory.length, 12);
+      expect(origHistory.first['content'], contains('question 0'));
+      expect(origHistory.last['content'], contains('answer 5'));
+    });
   });
 }
