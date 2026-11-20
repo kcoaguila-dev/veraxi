@@ -86,6 +86,7 @@ from backend.ingestion.code_graph import (
     CodeGraph,
     CodeNode,
     write_code_graph,
+    write_index_meta,
 )
 
 logger = logging.getLogger(__name__)
@@ -466,9 +467,25 @@ def write_scip_graph(
     persistence follows the same tenant-scoped, parameterized,
     whitelist-validated path as every other code-graph write. Returns
     the writer's ``{"nodes_written", "edges_written"}`` counts.
+
+    Also stamps the index metadata (see
+    :func:`backend.ingestion.code_graph.write_index_meta`): a SCIP
+    payload carries no commit SHA, so provenance records the
+    timestamp and the payload's ``metadata.project_root`` when
+    present — the commit stays unknown rather than fabricated.
     """
     graph = parse_scip_payload(payload)
-    return write_code_graph(client, graph, tenant_id=tenant_id)
+    counts = write_code_graph(client, graph, tenant_id=tenant_id)
+    metadata = payload.get("metadata") or {}
+    write_index_meta(
+        client,
+        tenant_id,
+        repo_key=str(metadata.get("project_root") or "scip-upload"),
+        repo_root="",
+        source_commit=None,
+        kind="scip",
+    )
+    return counts
 
 
 __all__ = [

@@ -15,6 +15,7 @@ identical against the real adapter and any test fake.
 from __future__ import annotations
 
 import logging
+import subprocess
 from typing import Any, Protocol, runtime_checkable
 
 logger = logging.getLogger(__name__)
@@ -100,6 +101,17 @@ class CodeGraphClient(Protocol):
         self, tenant_id: str, path_prefix: str | None = None, limit: int = 10
     ) -> list[dict[str, Any]]:
         """Return the most-connected code nodes for the tenant."""
+        ...
+
+    def index_meta(self, tenant_id: str) -> dict[str, Any] | None:
+        """Return the tenant's latest index-provenance stamp, or None.
+
+        The stamp (written at ingestion time by
+        ``backend.ingestion.code_graph.write_index_meta``) carries
+        ``repo_key``, ``repo_root``, ``source_commit``, ``indexed_at``
+        and ``kind``. None means the graph predates index metadata —
+        provenance is unknown, not zero.
+        """
         ...
 
 
@@ -231,9 +243,78 @@ class Neo4jCodeGraphClient:
             query, {"tenant_id": tenant_id, "path_prefix": path_prefix}
         )
 
+    def index_meta(self, tenant_id: str) -> dict[str, Any] | None:
+        query = """
+        MATCH (m:CodeIndexMeta)
+        WHERE m.tenant_id = $tenant_id
+        RETURN m.repo_key AS repo_key, m.repo_root AS repo_root,
+               m.source_commit AS source_commit, m.indexed_at AS indexed_at,
+               m.kind AS kind
+        ORDER BY m.indexed_at DESC
+        LIMIT 1
+        """
+        rows = self._read(query, {"tenant_id": tenant_id})
+        return rows[0] if rows else None
+
 
 def _default_client(client: CodeGraphClient | None) -> CodeGraphClient:
     return client if client is not None else Neo4jCodeGraphClient()
+
+
+def _git_head_sha(root: str) -> str | None:
+    """Current HEAD SHA of the checkout at ``root``, or None.
+
+    A five-line stdlib probe kept local to the retrieval layer (the
+    ingestion layer owns the full git machinery). Any failure — no
+    git binary, not a checkout, missing directory — yields None so
+    callers omit staleness rather than guess it.
+    """
+    try:
+        result = subprocess.run(
+            ["git", "-C", root, "rev-parse", "HEAD"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if result.returncode != 0:
+        return None
+    return result.stdout.strip() or None
+
+
+def _freshness_block(client: CodeGraphClient, tenant_id: str) -> dict[str, Any]:
+    """Index-provenance disclosure attached to every query result.
+
+    Always present, additive: ``indexed_commit`` / ``indexed_at``
+    mirror the ingestion stamp (None when the graph predates index
+    metadata or the client keeps no stamp). ``current_commit`` and
+    ``stale`` are added only when the stamped repo root is a checkout
+    on this machine whose HEAD can be read — when HEAD cannot be
+    checked, ``stale`` is omitted rather than guessed.
+    """
+    block: dict[str, Any] = {"indexed_commit": None, "indexed_at": None}
+    meta_fn = getattr(client, "index_meta", None)
+    if not callable(meta_fn):
+        return block
+    try:
+        meta = meta_fn(tenant_id)
+    except Exception:
+        logger.warning("index_meta lookup failed for tenant %s", tenant_id, exc_info=True)
+        return block
+    if not meta:
+        return block
+    block["indexed_commit"] = meta.get("source_commit")
+    block["indexed_at"] = meta.get("indexed_at")
+    root = meta.get("repo_root")
+    indexed = meta.get("source_commit")
+    if root and indexed:
+        head = _git_head_sha(str(root))
+        if head is not None:
+            block["current_commit"] = head
+            block["stale"] = head != indexed
+    return block
 
 
 def symbol_lookup(
@@ -248,21 +329,24 @@ def symbol_lookup(
     query never returns same-named symbols from other modules.
     """
     graph_client = _default_client(client)
+    freshness = _freshness_block(graph_client, tenant_id)
     query = (name or "").strip()
     if not query:
-        return {"query": query, "match_type": None, "matches": []}
+        return {"query": query, "match_type": None, "matches": [], "freshness": freshness}
     matches = graph_client.find_symbols(tenant_id, qualified_name=query)
     if matches:
         return {
             "query": query,
             "match_type": "qualified_name",
             "matches": [_attach_url(match) for match in matches],
+            "freshness": freshness,
         }
     matches = graph_client.find_symbols(tenant_id, name=query)
     return {
         "query": query,
         "match_type": "name" if matches else None,
         "matches": [_attach_url(match) for match in matches],
+        "freshness": freshness,
     }
 
 
@@ -280,6 +364,7 @@ def impact_analysis(
     directly; deeper entries reach it through a chain of callers.
     """
     graph_client = _default_client(client)
+    freshness = _freshness_block(graph_client, tenant_id)
     depth_limit = min(max(1, int(max_depth)), MAX_IMPACT_DEPTH)
     lookup = symbol_lookup(symbol, tenant_id=tenant_id, client=graph_client)
     roots = lookup["matches"]
@@ -290,6 +375,7 @@ def impact_analysis(
             "roots": [],
             "max_depth": depth_limit,
             "impacted": [],
+            "freshness": freshness,
         }
     root_qns = {root["qualified_name"] for root in roots}
     seen: set[str] = set(root_qns)
@@ -328,6 +414,7 @@ def impact_analysis(
         "roots": roots,
         "max_depth": depth_limit,
         "impacted": impacted,
+        "freshness": freshness,
     }
 
 
@@ -348,6 +435,7 @@ def repo_overview(
         "edge_counts": edge_counts,
         "total_nodes": sum(node_counts.values()),
         "total_edges": sum(edge_counts.values()),
+        "freshness": _freshness_block(graph_client, tenant_id),
         # top_connected rows carry a path but no line, so their URLs
         # are plain file:// links without a line anchor.
         "top_connected": [

@@ -2,6 +2,7 @@
 
 HTTP primary via backend/routes/code_intel.py:
 - POST /api/v1/code/ingest {repo_path}
+- POST /api/v1/code/update {repo_path} (incremental refresh)
 - GET  /api/v1/code/symbol?name=
 - GET  /api/v1/code/impact?symbol=&max_depth=
 - POST /api/v1/vuln/sync
@@ -17,6 +18,7 @@ import ast
 import json
 import os
 import re
+import subprocess
 import sys
 import tomllib
 from pathlib import Path
@@ -117,6 +119,28 @@ def _parse_python_locally(tree, module_qn, relative, nodes, edges, seen):
                                   "target_qn": mqn, "target_label": "Function"})
 
 
+def _local_git_head(root):
+    """The HEAD commit SHA of the checkout at ``root``, or None.
+
+    Provenance for the ingest payload: the server stamps it into the
+    index metadata verbatim. None when ``root`` is not a git checkout
+    — the commit is then unknown, never guessed.
+    """
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(root), "rev-parse", "HEAD"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if result.returncode != 0:
+        return None
+    return result.stdout.strip() or None
+
+
 def parse_repo_locally(repo_path):
     """Parse a local repo into an ingest-graph payload (client-side).
 
@@ -158,12 +182,36 @@ def parse_repo_locally(repo_path):
                     if match:
                         edges.append({"type": "IMPORTS", "source_qn": module_qn, "source_label": "CodeModule",
                                       "target_qn": match.group(1), "target_label": "CodeModule"})
-    return {"repo_name": root.name, "nodes": nodes, "edges": edges}
+    return {
+        "repo_name": root.name,
+        "nodes": nodes,
+        "edges": edges,
+        "source_commit": _local_git_head(root),
+    }
 
 
-def run_xray_index(repo_path, endpoint=None, key=None, tenant=None, as_json=False, local=False):
+def run_xray_index(repo_path, endpoint=None, key=None, tenant=None, as_json=False, local=False, update=False):
     from veraxi.cli.http_client import api_request
 
+    if update and not local:
+        # Incremental refresh of an already-indexed repo: the server
+        # diffs its index stamp against the checkout and re-parses
+        # only the changed files (POST /api/v1/code/update).
+        data = api_request("POST", "/api/v1/code/update", body={"repo_path": repo_path},
+                           endpoint=endpoint, key=key, tenant=tenant, timeout=300)
+        _print_result(data, as_json, lambda d: print(
+            f"Updated {d.get('repo_path')}: {json.dumps({k: v for k, v in d.items() if k not in ('status', 'repo_path')})}"
+        ))
+        sys.exit(0)
+    if update and local:
+        # A local parse uploads a full graph snapshot; there is no
+        # incremental upload, so --update degrades to a full re-index
+        # rather than pretending otherwise.
+        print(
+            "Note: --update applies to server-side indexing; "
+            "performing a full local re-index instead.",
+            file=sys.stderr,
+        )
     if local:
         # Parse on this machine and upload the graph: the server never
         # needs filesystem access to the repo.
