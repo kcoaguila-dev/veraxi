@@ -299,8 +299,8 @@ class LocalChatRepository implements IChatRepository {
           }
         }
       }
-      final exact = await LocalChatDataSource.forModel()
-          .countTokensTotal(texts, model);
+      final exact =
+          await LocalChatDataSource.forModel().countTokensTotal(texts, model);
       if (exact != null) return (exact, true);
     }
     return (estimateHistoryTokens(messages), false);
@@ -361,8 +361,7 @@ class LocalChatRepository implements IChatRepository {
     checkLocalMinProgress(tokensBefore, tokensAfter);
 
     final prefixIds = prefix.map((m) => m['id'] as String).toList();
-    await (db.delete(db.localMessages)
-          ..where((m) => m.id.isIn(prefixIds)))
+    await (db.delete(db.localMessages)..where((m) => m.id.isIn(prefixIds)))
         .go();
 
     // The summary sorts just before the first kept message.
@@ -386,8 +385,7 @@ class LocalChatRepository implements IChatRepository {
                 estimated: !exact),
             // On-device restore data: the removed prefix, verbatim.
             'compaction_backup': localCompactionBackup(
-                prefix,
-                recent.map((m) => m['id'] as String).toList()),
+                prefix, recent.map((m) => m['id'] as String).toList()),
           })),
           timestamp: Value(summaryTimestamp),
         ));
@@ -406,8 +404,7 @@ class LocalChatRepository implements IChatRepository {
     for (final message in history.reversed) {
       final metrics = message['metrics'];
       if (metrics is Map && metrics['compaction_backup'] is Map) {
-        backup = Map<String, dynamic>.from(
-            metrics['compaction_backup'] as Map);
+        backup = Map<String, dynamic>.from(metrics['compaction_backup'] as Map);
         break;
       }
     }
@@ -417,8 +414,7 @@ class LocalChatRepository implements IChatRepository {
     }
     final keptIds =
         (backup['kept_ids'] as List? ?? []).map((e) => e.toString()).toSet();
-    final backupMessages =
-        (backup['messages'] as List? ?? []).cast<Map>();
+    final backupMessages = (backup['messages'] as List? ?? []).cast<Map>();
 
     // Anchor: the earliest kept message's timestamp; restored
     // messages slot in just before it, 1ms apart, order preserved.
@@ -427,9 +423,7 @@ class LocalChatRepository implements IChatRepository {
       final keptRows = await (db.select(db.localMessages)
             ..where((m) =>
                 m.threadId.equals(threadId) & m.id.isIn(keptIds.toList()))
-            ..orderBy([
-              (m) => OrderingTerm(expression: m.timestamp)
-            ])
+            ..orderBy([(m) => OrderingTerm(expression: m.timestamp)])
             ..limit(1))
           .get();
       if (keptRows.isNotEmpty && keptRows.first.timestamp != null) {
@@ -446,8 +440,7 @@ class LocalChatRepository implements IChatRepository {
     } else {
       await (db.delete(db.localMessages)
             ..where((m) =>
-                m.threadId.equals(threadId) &
-                m.id.isNotIn(keptIds.toList())))
+                m.threadId.equals(threadId) & m.id.isNotIn(keptIds.toList())))
           .go();
     }
 
@@ -470,10 +463,10 @@ class LocalChatRepository implements IChatRepository {
                 ? jsonEncode(message['activity'])
                 : null),
             reasoning: Value(message['reasoning'] as String?),
-            reasoningDurationSeconds:
-                Value((message['reasoning_duration_seconds'] as num?)?.toDouble()),
-            timestamp: Value(anchor.subtract(
-                Duration(milliseconds: backupMessages.length - i))),
+            reasoningDurationSeconds: Value(
+                (message['reasoning_duration_seconds'] as num?)?.toDouble()),
+            timestamp: Value(anchor
+                .subtract(Duration(milliseconds: backupMessages.length - i))),
           ));
     }
     return {'status': 'ok', 'messages_restored': backupMessages.length};

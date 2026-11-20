@@ -1553,7 +1553,7 @@ def register_chat_routes(
                         detail="This conversation has not been compacted.",
                     )
                 _, record = found
-                history_lists = []
+                history_lists: list[Any] = []
                 async for tuple_ in memory.alist(config):
                     history_lists.append(
                         tuple_.checkpoint.get("channel_values", {}).get(

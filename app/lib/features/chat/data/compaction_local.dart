@@ -64,8 +64,8 @@ void checkLocalMinProgress(int before, int after) {
 String buildLocalSummaryContent(String summary) =>
     '$kSummaryPrefix\n\n${summary.trim()}';
 
-Map<String, dynamic> localCompactionRecord(int messagesCompacted,
-        int tokensBefore,
+Map<String, dynamic> localCompactionRecord(
+        int messagesCompacted, int tokensBefore,
         {bool estimated = true}) =>
     {
       'compaction': {
@@ -133,8 +133,7 @@ Summary:''';
         if (event is Map &&
             event['result'] is String &&
             (event['result'] as String).isNotEmpty &&
-            !(event['result'] as String)
-                .startsWith(kClearedToolPlaceholder)) {
+            !(event['result'] as String).startsWith(kClearedToolPlaceholder)) {
           final copy = Map<String, dynamic>.from(event);
           copy['result'] =
               '$kClearedToolPlaceholder (originally ~${(event['result'] as String).length} chars)';
@@ -177,8 +176,7 @@ Map<String, dynamic> localCompactionBackup(
             'toolEvents': message['toolEvents'],
             'activity': message['activity'],
             'reasoning': message['reasoning'],
-            'reasoning_duration_seconds':
-                message['reasoning_duration_seconds'],
+            'reasoning_duration_seconds': message['reasoning_duration_seconds'],
           },
       ],
       'kept_ids': keptIds,
