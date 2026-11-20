@@ -420,6 +420,15 @@ class _TokenUsageBreakdown extends StatelessWidget {
               if (usage.lastEstimatedCostUsd != null)
                 _row('Last est. cost',
                     '\$${usage.lastEstimatedCostUsd!.toStringAsFixed(4)}'),
+              if ((usage.lastReasoningTokens ?? 0) > 0)
+                _row('Reasoning',
+                    '${formatTokenCountFull(usage.lastReasoningTokens!)} of the completion'),
+              if ((usage.lastCacheReadTokens ?? 0) > 0)
+                _row('Cache read',
+                    '${formatTokenCountFull(usage.lastCacheReadTokens!)} of the prompt'),
+              if ((usage.lastCacheCreationTokens ?? 0) > 0)
+                _row('Cache written',
+                    '${formatTokenCountFull(usage.lastCacheCreationTokens!)} of the prompt'),
               const SizedBox(height: 14),
               _row(
                 'This conversation',
