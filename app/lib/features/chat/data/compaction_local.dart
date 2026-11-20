@@ -64,14 +64,15 @@ void checkLocalMinProgress(int before, int after) {
 String buildLocalSummaryContent(String summary) =>
     '$kSummaryPrefix\n\n${summary.trim()}';
 
-Map<String, dynamic> localCompactionRecord(
-        int messagesCompacted, int tokensBefore) =>
+Map<String, dynamic> localCompactionRecord(int messagesCompacted,
+        int tokensBefore,
+        {bool estimated = true}) =>
     {
       'compaction': {
         'messages_compacted': messagesCompacted,
         'compacted_at': DateTime.now().toUtc().toIso8601String(),
         'tokens_before': tokensBefore,
-        'estimated': true,
+        'estimated': estimated,
       },
     };
 

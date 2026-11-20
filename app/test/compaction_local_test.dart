@@ -136,6 +136,17 @@ void main() {
       expect(after.length, 12);
     });
 
+
+    test('apply with an unavailable .gguf falls back to estimated counts',
+        () async {
+      final result = await repository.applyCompaction('t1',
+          summary: 's', model: 'missing-model.gguf');
+      expect(result['estimated'], isTrue);
+      final after = await repository.getThreadHistory('t1');
+      final metrics = after.first['metrics'] as Map;
+      expect((metrics['compaction'] as Map)['estimated'], isTrue);
+    });
+
     test('clearOldToolResults reports none when there are no tool events',
         () async {
       await expectLater(

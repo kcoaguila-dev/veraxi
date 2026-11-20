@@ -279,6 +279,33 @@ class LocalChatRepository implements IChatRepository {
         .write(LocalMessagesCompanion(content: Value(content)));
   }
 
+  /// Token total for a local history: EXACT counts from the loaded
+  /// model's own tokenizer when a .gguf model is available (the
+  /// second element reports whether the total is exact), otherwise
+  /// the chars/4 estimate. Never fabricates: exactness is reported,
+  /// not assumed.
+  Future<(int, bool)> _historyTokens(
+      List<Map<String, dynamic>> messages, String? model) async {
+    if (model != null && model.endsWith('.gguf')) {
+      final texts = <String>[];
+      for (final message in messages) {
+        texts.add(message['content'] as String? ?? '');
+        final toolEvents = message['toolEvents'];
+        if (toolEvents is List) {
+          for (final event in toolEvents) {
+            if (event is Map && event['result'] is String) {
+              texts.add(event['result'] as String);
+            }
+          }
+        }
+      }
+      final exact = await LocalChatDataSource.forModel()
+          .countTokensTotal(texts, model);
+      if (exact != null) return (exact, true);
+    }
+    return (estimateHistoryTokens(messages), false);
+  }
+
   @override
   Future<Map<String, dynamic>> previewCompaction(String threadId,
       {String? model, int keepRecentTurns = 4, String? focus}) async {
@@ -298,23 +325,24 @@ class LocalChatRepository implements IChatRepository {
     if (summary.isEmpty) {
       throw Exception('The model returned an empty summary.');
     }
-    final tokensBefore = estimateHistoryTokens(history);
-    final tokensAfter = estimateHistoryTokens([
+    final (tokensBefore, exact) = await _historyTokens(history, model);
+    final (tokensAfter, _) = await _historyTokens([
       {'role': 'user', 'content': buildLocalSummaryContent(summary)},
       ...recent,
-    ]);
+    ], model);
     checkLocalMinProgress(tokensBefore, tokensAfter);
     return {
       'summary': summary,
       'messages_compacted': prefix.length,
       'tokens_before': tokensBefore,
       'tokens_after_estimate': tokensAfter,
+      'estimated': !exact,
     };
   }
 
   @override
   Future<Map<String, dynamic>> applyCompaction(String threadId,
-      {required String summary, int keepRecentTurns = 4}) async {
+      {required String summary, int keepRecentTurns = 4, String? model}) async {
     if (summary.trim().isEmpty) {
       throw Exception('Summary is empty — nothing to apply.');
     }
@@ -323,12 +351,12 @@ class LocalChatRepository implements IChatRepository {
     if (prefix.isEmpty) {
       throw Exception('Nothing old enough to compact yet.');
     }
-    final tokensBefore = estimateHistoryTokens(history);
+    final (tokensBefore, exact) = await _historyTokens(history, model);
     final summaryContent = buildLocalSummaryContent(summary);
-    final tokensAfter = estimateHistoryTokens([
+    final (tokensAfter, _) = await _historyTokens([
       {'role': 'user', 'content': summaryContent},
       ...recent,
-    ]);
+    ], model);
     // Gate BEFORE mutating anything.
     checkLocalMinProgress(tokensBefore, tokensAfter);
 
@@ -353,20 +381,22 @@ class LocalChatRepository implements IChatRepository {
           threadId: threadId,
           role: 'user',
           content: summaryContent,
-          metrics:
-              Value(jsonEncode(localCompactionRecord(prefix.length, tokensBefore))),
+          metrics: Value(jsonEncode(localCompactionRecord(
+              prefix.length, tokensBefore,
+              estimated: !exact))),
           timestamp: Value(summaryTimestamp),
         ));
     return {
       'status': 'ok',
       'messages_compacted': prefix.length,
       'tokens_after_estimate': tokensAfter,
+      'estimated': !exact,
     };
   }
 
   @override
   Future<Map<String, dynamic>> clearOldToolResults(String threadId,
-      {int keepRecentTurns = 4}) async {
+      {int keepRecentTurns = 4, String? model}) async {
     final history = await getThreadHistory(threadId);
     final (newHistory, cleared) =
         clearLocalToolResults(history, keepRecentTurns);
@@ -384,10 +414,12 @@ class LocalChatRepository implements IChatRepository {
                 toolEvents: Value(jsonEncode(after['toolEvents']))));
       }
     }
+    final (tokensAfter, exact) = await _historyTokens(newHistory, model);
     return {
       'status': 'ok',
       'tool_results_cleared': cleared,
-      'tokens_after_estimate': estimateHistoryTokens(newHistory),
+      'tokens_after_estimate': tokensAfter,
+      'estimated': !exact,
     };
   }
 

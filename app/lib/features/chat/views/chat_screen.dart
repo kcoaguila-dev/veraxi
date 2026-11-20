@@ -64,8 +64,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       context,
       onPreview: () => viewModel.previewCompaction(
           model: _selectedModel == 'Select a model' ? null : _selectedModel),
-      onApply: (summary) => viewModel.applyCompaction(summary: summary),
-      onClearToolResults: () => viewModel.clearOldToolResults(),
+      onApply: (summary) => viewModel.applyCompaction(
+          summary: summary,
+          model: _selectedModel == 'Select a model' ? null : _selectedModel),
+      onClearToolResults: () => viewModel.clearOldToolResults(
+          model: _selectedModel == 'Select a model' ? null : _selectedModel),
     );
   }
 
