@@ -145,3 +145,42 @@ async def test_generate_summary_returns_text(monkeypatch):
     )
     result = await comp.generate_summary(_history(3), "gpt-4o", "key", None)
     assert result == "## Goal\nDo the thing."
+
+
+def test_find_latest_compaction_locates_summary():
+    messages = _history(6)
+    new = comp.apply_compaction(messages, "sum", 2, tokens_before=100)
+    found = comp.find_latest_compaction(new)
+    assert found is not None
+    index, record = found
+    assert new[index] is new[0]
+    assert record["messages_compacted"] > 0
+    assert record["restorable"] is True
+
+
+def test_find_latest_compaction_none_when_uncompacted():
+    assert comp.find_latest_compaction(_history(3)) is None
+
+
+def test_pick_pre_compaction_messages_skips_checkpoints_with_summary():
+    messages = _history(6)
+    new = comp.apply_compaction(messages, "sum", 2, tokens_before=100)
+    _, record = comp.find_latest_compaction(new)
+    # History newest-first: current (compacted), a later edit still
+    # containing the summary, then the pre-compaction checkpoint.
+    later = [*new, HumanMessage(content="after")]
+    picked = comp.pick_pre_compaction_messages(
+        [new, later, messages], record["compacted_at"]
+    )
+    assert picked == messages
+
+
+def test_pick_pre_compaction_messages_none_when_no_older_checkpoint():
+    messages = _history(6)
+    new = comp.apply_compaction(messages, "sum", 2, tokens_before=100)
+    _, record = comp.find_latest_compaction(new)
+    assert (
+        comp.pick_pre_compaction_messages([new], record["compacted_at"])
+        is None
+    )
+    assert comp.pick_pre_compaction_messages([new], None) is None

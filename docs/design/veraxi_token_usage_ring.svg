@@ -72,6 +72,7 @@
   <text x="64" y="522" fill="#8A8A8A" font-size="12">Last response  Prompt 41,203 · Completion 812 · Total 42,015 · Est. cost $0.0210 (only when priced)</text>
   <text x="64" y="540" fill="#8A8A8A" font-size="12">Conditional rows, only when the provider reports them (&gt; 0): Reasoning N of the completion · Cache read N of the prompt · Cache written N of the prompt. Subsets — never added into totals.</text>
   <text x="64" y="558" fill="#8A8A8A" font-size="12">Sheet setting: AUTO-COMPACT AT 80% FULL [ Off | Ask | Auto ] (default Ask). Ask = dialog at a turn boundary (Review &amp; compact / Not now / Turn off) opening this review flow; "Not now" re-arms only after +10% growth. Auto = Stage-0 clear first, then the same gated summary, applied with a snackbar notice; failures change nothing. Never mid-generation, never silent.</text>
+  <text x="64" y="576" fill="#8A8A8A" font-size="12">Compaction is reversible: the divider's summary sheet carries "Restore pre-compaction context" (server: checkpoint rollback, record flagged restorable at apply; local: on-device backup stored in the summary row). Restore removes messages sent after the compaction — the confirm dialog says so.</text>
   <text x="560" y="478" fill="#FFFFFF" font-size="13" font-weight="600">This conversation</text>
   <text x="560" y="500" fill="#8A8A8A" font-size="12">Prompt 96,540 · Completion 3,204</text>
   <text x="560" y="522" fill="#8A8A8A" font-size="12">Total 99,744 tokens · 6 responses</text>

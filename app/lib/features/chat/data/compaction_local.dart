@@ -64,8 +64,8 @@ void checkLocalMinProgress(int before, int after) {
 String buildLocalSummaryContent(String summary) =>
     '$kSummaryPrefix\n\n${summary.trim()}';
 
-Map<String, dynamic> localCompactionRecord(
-        int messagesCompacted, int tokensBefore,
+Map<String, dynamic> localCompactionRecord(int messagesCompacted,
+        int tokensBefore,
         {bool estimated = true}) =>
     {
       'compaction': {
@@ -133,7 +133,8 @@ Summary:''';
         if (event is Map &&
             event['result'] is String &&
             (event['result'] as String).isNotEmpty &&
-            !(event['result'] as String).startsWith(kClearedToolPlaceholder)) {
+            !(event['result'] as String)
+                .startsWith(kClearedToolPlaceholder)) {
           final copy = Map<String, dynamic>.from(event);
           copy['result'] =
               '$kClearedToolPlaceholder (originally ~${(event['result'] as String).length} chars)';
@@ -153,3 +154,32 @@ Summary:''';
   }
   return ([...newPrefix, ...recent], cleared);
 }
+
+/// Backup of the messages a local compaction is about to remove,
+/// stored inside the summary row's metrics so the compaction can
+/// be undone on-device (server threads restore from checkpointer
+/// history instead). Local apply DELETES the prefix rows, so
+/// without this backup restore would be impossible — the payload
+/// keeps every field getThreadHistory exposes, plus the ids of
+/// the kept recent messages so restore can tell them apart from
+/// messages sent after the compaction.
+Map<String, dynamic> localCompactionBackup(
+        List<Map<String, dynamic>> prefix, List<String> keptIds) =>
+    {
+      'messages': [
+        for (final message in prefix)
+          {
+            'role': message['role'],
+            'content': message['content'],
+            'feedback': message['feedback'],
+            'model_name': message['model_name'],
+            'metrics': message['metrics'],
+            'toolEvents': message['toolEvents'],
+            'activity': message['activity'],
+            'reasoning': message['reasoning'],
+            'reasoning_duration_seconds':
+                message['reasoning_duration_seconds'],
+          },
+      ],
+      'kept_ids': keptIds,
+    };

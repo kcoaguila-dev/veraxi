@@ -65,6 +65,10 @@ abstract class IChatRepository {
       {required String summary, int keepRecentTurns = 4, String? model});
   Future<Map<String, dynamic>> clearOldToolResults(String threadId,
       {int keepRecentTurns = 4, String? model});
+
+  /// Undo the latest compaction, restoring the pre-compaction
+  /// context. Messages sent after the compaction are removed.
+  Future<Map<String, dynamic>> restoreCompaction(String threadId);
   Future<void> renameThread(String threadId, String newTitle);
   Future<void> togglePinThread(String threadId);
   Future<void> toggleArchiveThread(String threadId);
@@ -256,8 +260,8 @@ class CloudChatRepository implements IChatRepository {
     final uri = Uri.parse('${apiClient.baseUrl}$path');
     final headers = await apiClient.getDefaultHeaders();
     headers['Content-Type'] = 'application/json';
-    final response = await apiClient.client
-        .post(uri, headers: headers, body: jsonEncode(body));
+    final response = await apiClient.client.post(uri,
+        headers: headers, body: jsonEncode(body));
     final decoded = response.body.isEmpty
         ? <String, dynamic>{}
         : jsonDecode(response.body) as Map<String, dynamic>;
@@ -308,6 +312,12 @@ class CloudChatRepository implements IChatRepository {
     return _postCompaction('/chat/threads/$threadId/clear-tool-results', {
       'keep_recent_turns': keepRecentTurns,
     });
+  }
+
+  @override
+  Future<Map<String, dynamic>> restoreCompaction(String threadId) async {
+    return _postCompaction(
+        '/chat/threads/$threadId/compact/restore', const {});
   }
 
   @override
