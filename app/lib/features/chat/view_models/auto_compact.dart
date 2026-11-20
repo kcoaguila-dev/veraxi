@@ -45,15 +45,18 @@ const int autoCompactEstimatedFloor = 20000;
 /// catch a growing thread before the emergency zone.
 const double autoCompactRearmDelta = 0.10;
 
-/// Normalised fullness of a thread: the context fraction when the
-/// window is known, otherwise estimated tokens scaled by the
-/// floor (20k tokens = 1.0). Null when there is nothing to judge.
+/// Normalised fullness of a thread: the unclamped context ratio when
+/// the window is known (so re-arm growth past 100% stays measurable),
+/// otherwise estimated tokens scaled by the floor (20k tokens = 1.0).
+/// Null when there is nothing to judge.
 double? autoCompactLevel(TokenUsageSummary summary) {
-  final fraction = summary.contextFraction;
-  if (fraction != null) return fraction;
-  final tokens = summary.contextTokens;
-  if (tokens == null) return null;
-  return tokens / autoCompactEstimatedFloor;
+  final used = summary.contextTokens;
+  if (used == null) return null;
+  final window = summary.contextWindowTokens;
+  if (window != null && window > 0) {
+    return used / window;
+  }
+  return used / autoCompactEstimatedFloor;
 }
 
 /// Whether [summary] is past the trigger: ≥80% of a known window,

@@ -76,9 +76,8 @@ class ChatViewModel extends StateNotifier<ChatState> {
   Future<void> _init() async {
     final prefs = await SharedPreferences.getInstance();
     final savedTelemetry = prefs.getBool('show_telemetry') ?? false;
-    final savedUsageStyle =
-        TokenUsageIndicatorStyle.fromStorage(
-            prefs.getString('token_usage_indicator_style'));
+    final savedUsageStyle = TokenUsageIndicatorStyle.fromStorage(
+        prefs.getString('token_usage_indicator_style'));
     final savedAutoCompact =
         AutoCompactMode.fromStorage(prefs.getString('auto_compact_mode'));
 
@@ -1001,39 +1000,49 @@ class ChatViewModel extends StateNotifier<ChatState> {
   /// turns. Applies nothing — the user reviews/edits the summary in
   /// the compaction sheet first.
   Future<Map<String, dynamic>> previewCompaction(
-      {String? model, int keepRecentTurns = 4, String? focus}) async {
-    final threadId = state.threadId;
-    if (threadId == null) {
+      {String? model,
+      int keepRecentTurns = 4,
+      String? focus,
+      String? threadId}) async {
+    final targetId = threadId ?? state.threadId;
+    if (targetId == null) {
       throw Exception('No active conversation to compact.');
     }
-    return _repository.previewCompaction(threadId,
+    return _repository.previewCompaction(targetId,
         model: model, keepRecentTurns: keepRecentTurns, focus: focus);
   }
 
   /// Applies a user-accepted summary, then reloads the thread so the
   /// compaction divider and trimmed history render.
   Future<void> applyCompaction(
-      {required String summary, int keepRecentTurns = 4, String? model}) async {
-    final threadId = state.threadId;
-    if (threadId == null) {
+      {required String summary,
+      int keepRecentTurns = 4,
+      String? model,
+      String? threadId}) async {
+    final targetId = threadId ?? state.threadId;
+    if (targetId == null) {
       throw Exception('No active conversation to compact.');
     }
-    await _repository.applyCompaction(threadId,
+    await _repository.applyCompaction(targetId,
         summary: summary, keepRecentTurns: keepRecentTurns, model: model);
-    await selectThread(threadId);
+    if (state.threadId == targetId) {
+      await selectThread(targetId);
+    }
   }
 
   /// Stage 0: clears old tool-result bodies server-side (no LLM
   /// call), then reloads the thread.
   Future<Map<String, dynamic>> clearOldToolResults(
-      {int keepRecentTurns = 4, String? model}) async {
-    final threadId = state.threadId;
-    if (threadId == null) {
+      {int keepRecentTurns = 4, String? model, String? threadId}) async {
+    final targetId = threadId ?? state.threadId;
+    if (targetId == null) {
       throw Exception('No active conversation.');
     }
-    final result = await _repository.clearOldToolResults(threadId,
+    final result = await _repository.clearOldToolResults(targetId,
         keepRecentTurns: keepRecentTurns, model: model);
-    await selectThread(threadId);
+    if (state.threadId == targetId) {
+      await selectThread(targetId);
+    }
     return result;
   }
 
