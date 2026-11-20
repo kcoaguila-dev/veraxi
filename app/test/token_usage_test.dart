@@ -413,4 +413,25 @@ void main() {
       expect(find.text('Compact conversation…'), findsNothing);
     });
   });
+
+  group('estimated fallback (on-device threads)', () {
+    test('no usage anywhere -> labelled estimate, window unknown', () {
+      final summary = summarizeTokenUsage([
+        ChatMessage(role: 'user', content: 'x' * 400),
+        ChatMessage(role: 'assistant', content: 'y' * 400),
+      ])!;
+      expect(summary.isEstimated, isTrue);
+      expect(summary.contextTokens, 200);
+      expect(summary.contextWindowTokens, isNull);
+      expect(summary.contextFraction, isNull);
+      expect(summary.responseCount, 1);
+    });
+
+    test('empty thread still returns null', () {
+      expect(summarizeTokenUsage(const []), isNull);
+      expect(
+          summarizeTokenUsage([ChatMessage(role: 'user', content: '')]),
+          isNull);
+    });
+  });
 }

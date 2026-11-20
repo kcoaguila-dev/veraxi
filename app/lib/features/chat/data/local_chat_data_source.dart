@@ -26,6 +26,24 @@ class LocalChatDataSource {
     );
   }
 
+  /// One-shot raw generation with the on-device model — used by
+  /// local compaction to summarize a thread without any server.
+  /// Throws when the model file is missing.
+  Future<String> generateText(String prompt, String modelName) async {
+    final appDocsDir = await getApplicationDocumentsDirectory();
+    final modelPath = p.join(appDocsDir.path, modelName);
+    if (!await File(modelPath).exists()) {
+      throw StateError(
+          'Model file $modelName not found on device. Download it from the Local API Key settings.');
+    }
+    await _llmEngine.loadModel(modelPath);
+    final buffer = StringBuffer();
+    await for (final chunk in _llmEngine.streamGenerate(prompt)) {
+      buffer.write(chunk);
+    }
+    return buffer.toString();
+  }
+
   Stream<Map<String, dynamic>> streamChat(
       String question, String modelName) async* {
     final appDocsDir = await getApplicationDocumentsDirectory();

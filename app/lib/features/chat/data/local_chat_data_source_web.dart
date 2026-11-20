@@ -8,4 +8,10 @@ class LocalChatDataSource {
       UnsupportedError('Local models are not supported on Flutter Web.'),
     );
   }
+
+  Future<String> generateText(String prompt, String modelName) {
+    return Future.error(
+      UnsupportedError('Local models are not supported on Flutter Web.'),
+    );
+  }
 }
