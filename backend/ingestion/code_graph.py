@@ -15,7 +15,9 @@ Node/edge model:
 
 * Nodes: ``CodeFile``, ``CodeModule``, ``Class``, ``Function`` with
   properties ``name``, ``qualified_name``, ``path``, ``line``,
-  ``tenant_id`` and ``language``.
+  ``tenant_id`` and ``language``. Class/Function nodes parsed from a
+  real AST also carry ``end_line`` (the last line of the definition);
+  parsers that only know the declaration line leave it unset.
 * Edges: ``IMPORTS`` (module -> imported module), ``CALLS``
   (function/module -> resolved callee), ``DEFINES`` (file -> its module,
   module -> top-level class/function, class -> its methods) and
@@ -144,13 +146,17 @@ class CodeNode:
     # lives outside the parsed tree (external / unresolved). Parsed
     # nodes are always resolved.
     resolved: bool = True
+    # Last line of the definition (1-based, inclusive) when the parser
+    # knows the symbol's extent (Python ``ast`` / tree-sitter). None
+    # when only the declaration line is known — never guessed.
+    end_line: int | None = None
 
     @property
     def key(self) -> tuple[str, str]:
         return (self.label, self.qualified_name)
 
     def properties(self, tenant_id: str) -> dict[str, Any]:
-        return {
+        props: dict[str, Any] = {
             "name": self.name,
             "qualified_name": self.qualified_name,
             "path": self.path,
@@ -159,6 +165,9 @@ class CodeNode:
             "language": self.language,
             "resolved": self.resolved,
         }
+        if self.end_line is not None:
+            props["end_line"] = self.end_line
+        return props
 
 
 @dataclass
@@ -477,6 +486,7 @@ class _PythonFileParser:
                 path=self.relative_path,
                 line=node.lineno,
                 language="python",
+                end_line=node.end_lineno,
             )
         )
         self.builder.add_edge("DEFINES", container, class_qn, "Class")
@@ -509,6 +519,7 @@ class _PythonFileParser:
                 path=self.relative_path,
                 line=node.lineno,
                 language="python",
+                end_line=node.end_lineno,
             )
         )
         self.builder.add_edge("DEFINES", container, func_qn, "Function")
@@ -745,6 +756,7 @@ def _parse_treesitter_file(
                         path=relative_path,
                         line=node.start_point[0] + 1,
                         language=language,
+                        end_line=node.end_point[0] + 1,
                     )
                 )
                 builder.add_edge("DEFINES", container, class_qn, "Class")
@@ -766,6 +778,7 @@ def _parse_treesitter_file(
                         path=relative_path,
                         line=node.start_point[0] + 1,
                         language=language,
+                        end_line=node.end_point[0] + 1,
                     )
                 )
                 builder.add_edge("DEFINES", container, func_qn, "Function")
@@ -1076,6 +1089,12 @@ def graph_from_payload(
                 line=int(raw.get("line") or 0),
                 language=str(raw.get("language") or ""),
                 resolved=bool(raw.get("resolved", True)),
+                end_line=(
+                    int(raw["end_line"])
+                    if isinstance(raw.get("end_line"), int)
+                    and raw["end_line"] > 0
+                    else None
+                ),
             )
         )
     parsed_edges: list[CodeEdge] = []

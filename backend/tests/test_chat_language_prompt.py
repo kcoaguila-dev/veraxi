@@ -66,3 +66,49 @@ async def test_call_model_passes_language_system_prompt(
         in captured_messages[0].content
     )
     assert result["messages"][0].content == "元気です！あなたはどうですか？"
+
+
+@pytest.mark.asyncio
+@patch("backend.mcp_server.orchestrator.get_tools", new_callable=AsyncMock)
+@patch("backend.mcp_server.orchestrator._create_chat_llm")
+async def test_call_model_citation_rules_use_markdown_link_style(
+    mock_create_llm, mock_get_tools
+):
+    """The orchestrator's citation block must match prompts.py: markdown
+    links with real URLs from tool output, never bare numeric [1]."""
+    mock_get_tools.return_value = []
+    mock_instance = AsyncMock()
+    mock_create_llm.return_value = mock_instance
+    mock_instance.bind_tools.return_value = mock_instance
+
+    captured_messages = []
+
+    async def mock_invoke(messages):
+        captured_messages.extend(messages)
+        return AIMessage(content="Answer.")
+
+    mock_instance.ainvoke = AsyncMock(side_effect=mock_invoke)
+
+    state = {
+        "messages": [HumanMessage(content="What calls merge_rank?")],
+        "tenant_id": "test",
+        "context_relevance": "",
+        "retrieved_context": "",
+        "calculate_grounding": False,
+        "tool_settings": {"file_search_enabled": True},
+    }
+
+    await call_model(state)
+
+    blocks = [
+        m.content
+        for m in captured_messages
+        if isinstance(m, SystemMessage) and "CITATION & GROUNDING RULES" in m.content
+    ]
+    assert len(blocks) == 1
+    block = blocks[0]
+    assert "standard markdown links" in block
+    assert "file://" in block
+    assert "DO NOT use bare numeric citations like [1]" in block
+    assert "[1], [2], or [Source Title]" not in block
+    assert "Perplexity" not in block

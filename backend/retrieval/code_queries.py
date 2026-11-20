@@ -24,6 +24,39 @@ IMPACT_EDGE_TYPES = ("CALLS", "IMPORTS")
 MAX_IMPACT_DEPTH = 10
 
 
+def code_source_url(
+    path: Any, line: Any = None, end_line: Any = None
+) -> str | None:
+    """Build the citable ``file://`` URL for one code hit.
+
+    This is the single place code-hit citation URLs are formatted, so
+    every consumer (chat tools, REST routes, CLI) cites identically.
+    The anchor uses only line data the graph actually stored: a full
+    ``#L<start>-L<end>`` range when an end line is known, a bare
+    ``#L<start>`` when only the declaration line is known, and no
+    anchor at all when no line is known. Lines are never invented —
+    a hit without a path yields ``None`` (no citation target).
+    """
+    if not isinstance(path, str) or not path.strip():
+        return None
+    url = f"file://{path.strip()}"
+    start = line if isinstance(line, int) and line > 0 else None
+    if start is None:
+        return url
+    end = end_line if isinstance(end_line, int) and end_line > start else None
+    if end is not None:
+        return f"{url}#L{start}-L{end}"
+    return f"{url}#L{start}"
+
+
+def _attach_url(row: dict[str, Any]) -> dict[str, Any]:
+    """Add the citable ``url`` to one code-hit row, in place."""
+    url = code_source_url(row.get("path"), row.get("line"), row.get("end_line"))
+    if url is not None:
+        row["url"] = url
+    return row
+
+
 @runtime_checkable
 class CodeGraphClient(Protocol):
     """Injectable graph-client interface for code-graph queries."""
@@ -44,7 +77,10 @@ class CodeGraphClient(Protocol):
         """Return CALLS/IMPORTS edges pointing INTO any of ``target_qns``.
 
         Each row: ``source_qn``, ``source_name``, ``source_label``,
-        ``source_path``, ``edge_type`` and ``target_qn``.
+        ``source_path``, ``source_line``, ``source_end_line``,
+        ``edge_type`` and ``target_qn``. The line fields mirror the
+        source node's stored ``line``/``end_line`` and may be missing
+        on clients backed by graphs ingested before they existed.
         """
         ...
 
@@ -108,7 +144,7 @@ class Neo4jCodeGraphClient:
           AND {where}
         RETURN labels(n)[0] AS label, n.name AS name,
                n.qualified_name AS qualified_name, n.path AS path,
-               n.line AS line, n.language AS language,
+               n.line AS line, n.end_line AS end_line, n.language AS language,
                coalesce(n.resolved, true) AS resolved
         ORDER BY qualified_name
         """
@@ -127,6 +163,7 @@ class Neo4jCodeGraphClient:
           AND target.qualified_name IN $target_qns
         RETURN source.qualified_name AS source_qn, source.name AS source_name,
                labels(source)[0] AS source_label, source.path AS source_path,
+               source.line AS source_line, source.end_line AS source_end_line,
                type(r) AS edge_type, target.qualified_name AS target_qn
         """
         return self._read(
@@ -216,12 +253,16 @@ def symbol_lookup(
         return {"query": query, "match_type": None, "matches": []}
     matches = graph_client.find_symbols(tenant_id, qualified_name=query)
     if matches:
-        return {"query": query, "match_type": "qualified_name", "matches": matches}
+        return {
+            "query": query,
+            "match_type": "qualified_name",
+            "matches": [_attach_url(match) for match in matches],
+        }
     matches = graph_client.find_symbols(tenant_id, name=query)
     return {
         "query": query,
         "match_type": "name" if matches else None,
-        "matches": matches,
+        "matches": [_attach_url(match) for match in matches],
     }
 
 
@@ -264,17 +305,21 @@ def impact_analysis(
                 continue
             seen.add(source_qn)
             next_frontier.append(source_qn)
-            impacted.append(
-                {
-                    "qualified_name": source_qn,
-                    "name": row.get("source_name"),
-                    "label": row.get("source_label"),
-                    "path": row.get("source_path"),
-                    "depth": depth,
-                    "via_edge": row.get("edge_type"),
-                    "via_target": row.get("target_qn"),
-                }
-            )
+            entry = {
+                "qualified_name": source_qn,
+                "name": row.get("source_name"),
+                "label": row.get("source_label"),
+                "path": row.get("source_path"),
+                "line": row.get("source_line"),
+                "end_line": row.get("source_end_line"),
+                "depth": depth,
+                "via_edge": row.get("edge_type"),
+                "via_target": row.get("target_qn"),
+            }
+            url = code_source_url(entry["path"], entry["line"], entry["end_line"])
+            if url is not None:
+                entry["url"] = url
+            impacted.append(entry)
         frontier = sorted(next_frontier)
     impacted.sort(key=lambda item: (item["depth"], item["qualified_name"]))
     return {
@@ -303,9 +348,14 @@ def repo_overview(
         "edge_counts": edge_counts,
         "total_nodes": sum(node_counts.values()),
         "total_edges": sum(edge_counts.values()),
-        "top_connected": graph_client.top_connected(
-            tenant_id, path_prefix, limit=top_limit
-        ),
+        # top_connected rows carry a path but no line, so their URLs
+        # are plain file:// links without a line anchor.
+        "top_connected": [
+            _attach_url(row)
+            for row in graph_client.top_connected(
+                tenant_id, path_prefix, limit=top_limit
+            )
+        ],
     }
 
 
@@ -315,6 +365,7 @@ __all__ = [
     "MAX_IMPACT_DEPTH",
     "CodeGraphClient",
     "Neo4jCodeGraphClient",
+    "code_source_url",
     "impact_analysis",
     "repo_overview",
     "symbol_lookup",
