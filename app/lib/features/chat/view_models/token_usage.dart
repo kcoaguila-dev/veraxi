@@ -1,5 +1,32 @@
 import 'package:veraxi_app/features/chat/view_models/chat_state.dart';
 
+/// How the context-usage indicator is rendered in the chat composer.
+///
+/// User-selectable (persisted) because the two visible forms serve
+/// different readers: the ring is compact and glanceable, the bar is
+/// read faster and shows the counts as text. Rivals ship only an
+/// on/off toggle (LibreChat `interface.contextUsage`, VS Code's
+/// indicator setting); Veraxi lets the user pick the form too.
+/// [off] hides the indicator entirely, matching the hide option users
+/// asked VS Code for (issue #293578, token-budget anxiety).
+enum TokenUsageIndicatorStyle {
+  ring,
+  bar,
+  off;
+
+  /// Storage value used in SharedPreferences.
+  String get storageValue => name;
+
+  /// Parse a stored value; anything unrecognised falls back to the
+  /// [ring] default rather than failing.
+  static TokenUsageIndicatorStyle fromStorage(String? value) {
+    for (final style in TokenUsageIndicatorStyle.values) {
+      if (style.name == value) return style;
+    }
+    return TokenUsageIndicatorStyle.ring;
+  }
+}
+
 /// Aggregated token usage for one conversation, derived purely from the
 /// per-message metrics the backend already returns (and persists).
 ///
@@ -28,6 +55,17 @@ class TokenUsageSummary {
   final bool hasSessionCost;
   final int responseCount;
 
+  /// Category split of the *latest* request's context, counted
+  /// locally by the backend at prompt-build time (system prompts /
+  /// tool schemas / tool results incl. retrieved context / dialogue).
+  /// All four are null when the backend could not count (older
+  /// payloads, counting failure) — the split is explanatory and the
+  /// headline totals stay provider-reported.
+  final int? contextSystemTokens;
+  final int? contextToolsTokens;
+  final int? contextToolResultsTokens;
+  final int? contextMessagesTokens;
+
   const TokenUsageSummary({
     required this.contextTokens,
     required this.contextWindowTokens,
@@ -41,7 +79,26 @@ class TokenUsageSummary {
     required this.sessionEstimatedCostUsd,
     required this.hasSessionCost,
     required this.responseCount,
+    this.contextSystemTokens,
+    this.contextToolsTokens,
+    this.contextToolResultsTokens,
+    this.contextMessagesTokens,
   });
+
+  /// Whether the latest response carried a category split.
+  bool get hasBreakdown =>
+      contextSystemTokens != null &&
+      contextToolsTokens != null &&
+      contextToolResultsTokens != null &&
+      contextMessagesTokens != null;
+
+  /// Sum of the split segments (local counts; may drift slightly
+  /// from the provider-reported prompt total — different tokenizers).
+  int get breakdownTotal =>
+      (contextSystemTokens ?? 0) +
+      (contextToolsTokens ?? 0) +
+      (contextToolResultsTokens ?? 0) +
+      (contextMessagesTokens ?? 0);
 
   /// Fraction of the context window in use, 0.0–1.0 (clamped), or null
   /// when the window or the latest prompt count is unknown.
@@ -79,6 +136,10 @@ TokenUsageSummary? summarizeTokenUsage(List<ChatMessage> messages) {
   int? lastCompletion;
   int? lastTotal;
   double? lastCost;
+  int? segSystem;
+  int? segTools;
+  int? segToolResults;
+  int? segMessages;
 
   for (final message in messages) {
     if (message.isUser) continue;
@@ -111,6 +172,13 @@ TokenUsageSummary? summarizeTokenUsage(List<ChatMessage> messages) {
     lastCompletion = completion;
     lastTotal = total;
     lastCost = cost;
+    // Segment counts are flattened at metrics top level by the
+    // backend (not inside the nested `usage` map), so read `metrics`.
+    segSystem = _toInt(metrics['context_system_tokens']) ?? segSystem;
+    segTools = _toInt(metrics['context_tools_tokens']) ?? segTools;
+    segToolResults =
+        _toInt(metrics['context_tool_results_tokens']) ?? segToolResults;
+    segMessages = _toInt(metrics['context_messages_tokens']) ?? segMessages;
   }
 
   if (count == 0) return null;
@@ -127,6 +195,10 @@ TokenUsageSummary? summarizeTokenUsage(List<ChatMessage> messages) {
     sessionEstimatedCostUsd: sessionCost,
     hasSessionCost: hasCost,
     responseCount: count,
+    contextSystemTokens: segSystem,
+    contextToolsTokens: segTools,
+    contextToolResultsTokens: segToolResults,
+    contextMessagesTokens: segMessages,
   );
 }
 

@@ -14,10 +14,31 @@ import 'package:veraxi_app/features/chat/view_models/token_usage.dart';
 /// shows the context token count instead of a percentage — counts are
 /// still real, a denominator is never invented. Tapping opens a
 /// breakdown sheet with last-response and whole-conversation totals.
+/// Severity colour shared by the ring, the bar, and the breakdown
+/// sheet: green below 70% full, amber 70–89%, red at 90%+. A null
+/// fraction (window unknown) is neutral grey.
+Color tokenUsageSeverityColor(double? fraction) {
+  if (fraction == null) return const Color(0xFF8A8A8A);
+  if (fraction >= 0.9) return const Color(0xFFEF4444);
+  if (fraction >= 0.7) return const Color(0xFFF59E0B);
+  return const Color(0xFF22C55E);
+}
+
 class TokenUsageRing extends StatelessWidget {
   final TokenUsageSummary usage;
 
-  const TokenUsageRing({super.key, required this.usage});
+  /// Current indicator form + change callback, forwarded to the
+  /// breakdown sheet's display-style switcher. Optional so the ring
+  /// can render standalone (tests, previews).
+  final TokenUsageIndicatorStyle? indicatorStyle;
+  final ValueChanged<TokenUsageIndicatorStyle>? onIndicatorStyleChanged;
+
+  const TokenUsageRing({
+    super.key,
+    required this.usage,
+    this.indicatorStyle,
+    this.onIndicatorStyleChanged,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -31,7 +52,12 @@ class TokenUsageRing extends StatelessWidget {
     return Tooltip(
       message: tooltip,
       child: InkWell(
-        onTap: () => showTokenUsageBreakdown(context, usage),
+        onTap: () => showTokenUsageBreakdown(
+          context,
+          usage,
+          indicatorStyle: indicatorStyle,
+          onIndicatorStyleChanged: onIndicatorStyleChanged,
+        ),
         customBorder: const CircleBorder(),
         child: SizedBox(
           width: 36,
@@ -39,7 +65,7 @@ class TokenUsageRing extends StatelessWidget {
           child: CustomPaint(
             painter: _RingPainter(
               fraction: fraction,
-              color: _arcColor(fraction),
+              color: tokenUsageSeverityColor(fraction),
               trackColor: const Color(0xFF2E2E2E),
             ),
             child: Center(
@@ -58,11 +84,79 @@ class TokenUsageRing extends StatelessWidget {
     );
   }
 
-  Color _arcColor(double? fraction) {
-    if (fraction == null) return const Color(0xFF8A8A8A);
-    if (fraction >= 0.9) return const Color(0xFFEF4444);
-    if (fraction >= 0.7) return const Color(0xFFF59E0B);
-    return const Color(0xFF22C55E);
+}
+
+/// Linear context-usage bar: the alternative indicator form, placed
+/// as a slim strip directly above the composer (the placement Theia
+/// and LibreChat use for a bar). Where the ring encodes the fraction
+/// as an arc, the bar prints the truth as text — "41,203 / 128,000 ·
+/// 32%" — because users who build their own indicators (Claude Code
+/// statuslines) overwhelmingly choose a bar plus printed counts.
+///
+/// When the window is unknown the track stays empty and the text
+/// shows the real token count only; a fill is never fabricated.
+/// Tapping opens the same breakdown sheet as the ring.
+class TokenUsageBar extends StatelessWidget {
+  final TokenUsageSummary usage;
+  final TokenUsageIndicatorStyle? indicatorStyle;
+  final ValueChanged<TokenUsageIndicatorStyle>? onIndicatorStyleChanged;
+
+  const TokenUsageBar({
+    super.key,
+    required this.usage,
+    this.indicatorStyle,
+    this.onIndicatorStyleChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final fraction = usage.contextFraction;
+    final label = fraction != null
+        ? '${formatTokenCountFull(usage.contextTokens!)} / '
+            '${formatTokenCountFull(usage.contextWindowTokens!)} · '
+            '${(fraction * 100).round()}%'
+        : '${formatTokenCountFull(usage.contextTokens ?? usage.sessionTotalTokens)} tokens';
+    return Material(
+      color: const Color(0xFF141414),
+      borderRadius: BorderRadius.circular(8),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(8),
+        onTap: () => showTokenUsageBreakdown(
+          context,
+          usage,
+          indicatorStyle: indicatorStyle,
+          onIndicatorStyleChanged: onIndicatorStyleChanged,
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Row(
+            children: [
+              Expanded(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(999),
+                  child: LinearProgressIndicator(
+                    minHeight: 6,
+                    value: fraction ?? 0,
+                    backgroundColor: const Color(0xFF2E2E2E),
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                        tokenUsageSeverityColor(fraction)),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Text(
+                label,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -135,25 +229,43 @@ class _RingPainter extends CustomPainter {
       trackColor != oldDelegate.trackColor;
 }
 
-/// Bottom-sheet breakdown opened from the ring: context window state,
-/// the last response's usage, and whole-conversation totals. Cost
-/// lines appear only when the backend could price the model.
+/// Bottom-sheet breakdown opened from the ring or the bar: context
+/// window state, the last response's usage, and whole-conversation
+/// totals. Cost lines appear only when the backend could price the
+/// model. When [onIndicatorStyleChanged] is provided, the sheet also
+/// carries the Ring / Bar / Off display switcher; the same switcher
+/// lives permanently in the chat header menu, so choosing Off here
+/// is always reversible from the header.
 Future<void> showTokenUsageBreakdown(
-    BuildContext context, TokenUsageSummary usage) {
+  BuildContext context,
+  TokenUsageSummary usage, {
+  TokenUsageIndicatorStyle? indicatorStyle,
+  ValueChanged<TokenUsageIndicatorStyle>? onIndicatorStyleChanged,
+}) {
   return showModalBottomSheet<void>(
     context: context,
     backgroundColor: const Color(0xFF141414),
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
     ),
-    builder: (sheetContext) => _TokenUsageBreakdown(usage: usage),
+    builder: (sheetContext) => _TokenUsageBreakdown(
+      usage: usage,
+      indicatorStyle: indicatorStyle,
+      onIndicatorStyleChanged: onIndicatorStyleChanged,
+    ),
   );
 }
 
 class _TokenUsageBreakdown extends StatelessWidget {
   final TokenUsageSummary usage;
+  final TokenUsageIndicatorStyle? indicatorStyle;
+  final ValueChanged<TokenUsageIndicatorStyle>? onIndicatorStyleChanged;
 
-  const _TokenUsageBreakdown({required this.usage});
+  const _TokenUsageBreakdown({
+    required this.usage,
+    this.indicatorStyle,
+    this.onIndicatorStyleChanged,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -191,8 +303,8 @@ class _TokenUsageBreakdown extends StatelessWidget {
                     minHeight: 6,
                     value: fraction,
                     backgroundColor: const Color(0xFF2E2E2E),
-                    valueColor:
-                        AlwaysStoppedAnimation<Color>(_barColor(fraction)),
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                        tokenUsageSeverityColor(fraction)),
                   ),
                 ),
                 const SizedBox(height: 10),
@@ -210,6 +322,61 @@ class _TokenUsageBreakdown extends StatelessWidget {
                           '(window size unknown for this model)'
                       : 'Window size unknown for this model',
                 ),
+              if (usage.hasBreakdown && usage.breakdownTotal > 0) ...[
+                const SizedBox(height: 14),
+                const Text(
+                  'WHAT FILLS IT · LAST REQUEST',
+                  style: TextStyle(
+                    color: Color(0xFF8A8A8A),
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.6,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(999),
+                  child: Row(
+                    children: [
+                      for (final segment in _segments(usage))
+                        if (segment.tokens > 0)
+                          Expanded(
+                            flex: segment.tokens,
+                            child: Container(height: 8, color: segment.color),
+                          ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 8),
+                for (final segment in _segments(usage))
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 3),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 8,
+                          height: 8,
+                          decoration: BoxDecoration(
+                            color: segment.color,
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          segment.label,
+                          style: const TextStyle(
+                              color: Color(0xFFB0B0B0), fontSize: 12),
+                        ),
+                        const Spacer(),
+                        Text(
+                          formatTokenCountFull(segment.tokens),
+                          style: const TextStyle(
+                              color: Colors.white, fontSize: 12),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
               const SizedBox(height: 14),
               _row(
                 'Last response',
@@ -232,6 +399,52 @@ class _TokenUsageBreakdown extends StatelessWidget {
               if (usage.hasSessionCost)
                 _row('Conversation est. cost',
                     '\$${usage.sessionEstimatedCostUsd.toStringAsFixed(4)}'),
+              if (indicatorStyle != null &&
+                  onIndicatorStyleChanged != null) ...[
+                const SizedBox(height: 18),
+                const Text(
+                  'INDICATOR STYLE',
+                  style: TextStyle(
+                    color: Color(0xFF8A8A8A),
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.6,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                SegmentedButton<TokenUsageIndicatorStyle>(
+                  segments: const [
+                    ButtonSegment(
+                      value: TokenUsageIndicatorStyle.ring,
+                      label: Text('Ring'),
+                      icon: Icon(Icons.donut_large_outlined, size: 16),
+                    ),
+                    ButtonSegment(
+                      value: TokenUsageIndicatorStyle.bar,
+                      label: Text('Bar'),
+                      icon: Icon(Icons.linear_scale, size: 16),
+                    ),
+                    ButtonSegment(
+                      value: TokenUsageIndicatorStyle.off,
+                      label: Text('Off'),
+                      icon: Icon(Icons.visibility_off_outlined, size: 16),
+                    ),
+                  ],
+                  selected: {indicatorStyle!},
+                  onSelectionChanged: (selection) {
+                    onIndicatorStyleChanged!(selection.first);
+                    Navigator.of(context).pop();
+                  },
+                  style: SegmentedButton.styleFrom(
+                    foregroundColor: const Color(0xFFB0B0B0),
+                    selectedForegroundColor: Colors.white,
+                    selectedBackgroundColor: const Color(0xFF2E2E2E),
+                    backgroundColor: const Color(0xFF1C1C1C),
+                    side: const BorderSide(color: Color(0xFF2E2E2E)),
+                    textStyle: const TextStyle(fontSize: 12),
+                  ),
+                ),
+              ],
             ],
           ),
         ),
@@ -239,13 +452,37 @@ class _TokenUsageBreakdown extends StatelessWidget {
     );
   }
 
-  Color _barColor(double fraction) {
-    if (fraction >= 0.9) return const Color(0xFFEF4444);
-    if (fraction >= 0.7) return const Color(0xFFF59E0B);
-    return const Color(0xFF22C55E);
-  }
-
   String _fmt(int? value) => value == null ? '--' : formatTokenCountFull(value);
+
+  /// The four context segments with their display colours, in
+  /// stacking order. Colours are categorical (this bar answers
+  /// "what fills it"), deliberately distinct from the severity
+  /// colours used by the ring/bar.
+  List<({String label, int tokens, Color color})> _segments(
+      TokenUsageSummary usage) {
+    return [
+      (
+        label: 'System',
+        tokens: usage.contextSystemTokens ?? 0,
+        color: const Color(0xFF5B8DEF),
+      ),
+      (
+        label: 'Tools',
+        tokens: usage.contextToolsTokens ?? 0,
+        color: const Color(0xFF9B7EDE),
+      ),
+      (
+        label: 'Tool results (incl. retrieved)',
+        tokens: usage.contextToolResultsTokens ?? 0,
+        color: const Color(0xFF3BA272),
+      ),
+      (
+        label: 'Messages',
+        tokens: usage.contextMessagesTokens ?? 0,
+        color: const Color(0xFFD9A441),
+      ),
+    ];
+  }
 
   Widget _row(String label, String value) {
     return Padding(

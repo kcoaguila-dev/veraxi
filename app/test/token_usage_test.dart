@@ -217,4 +217,152 @@ void main() {
       expect(find.text('\$0.0020'), findsWidgets);
     });
   });
+
+  group('TokenUsageIndicatorStyle', () {
+    test('fromStorage parses stored values and defaults to ring', () {
+      expect(TokenUsageIndicatorStyle.fromStorage('ring'),
+          TokenUsageIndicatorStyle.ring);
+      expect(TokenUsageIndicatorStyle.fromStorage('bar'),
+          TokenUsageIndicatorStyle.bar);
+      expect(TokenUsageIndicatorStyle.fromStorage('off'),
+          TokenUsageIndicatorStyle.off);
+      expect(TokenUsageIndicatorStyle.fromStorage(null),
+          TokenUsageIndicatorStyle.ring);
+      expect(TokenUsageIndicatorStyle.fromStorage('bogus'),
+          TokenUsageIndicatorStyle.ring);
+    });
+  });
+
+  group('TokenUsageBar', () {
+    TokenUsageSummary summaryFor(Map<String, dynamic> metrics) =>
+        summarizeTokenUsage([assistant(metrics)])!;
+
+    testWidgets('prints counts and percentage as text', (tester) async {
+      await tester.pumpWidget(MaterialApp(
+        theme: testTheme(),
+        home: Scaffold(
+          body: TokenUsageBar(
+            usage: summaryFor({
+              'prompt_tokens': 41203,
+              'completion_tokens': 812,
+              'total_tokens': 42015,
+              'context_window_tokens': 128000,
+            }),
+          ),
+        ),
+      ));
+      expect(find.text('41,203 / 128,000 · 32%'), findsOneWidget);
+      final bar = tester.widget<LinearProgressIndicator>(
+          find.byType(LinearProgressIndicator));
+      expect(bar.value, closeTo(0.322, 0.001));
+    });
+
+    testWidgets('unknown window shows the count only, with an empty track',
+        (tester) async {
+      await tester.pumpWidget(MaterialApp(
+        theme: testTheme(),
+        home: Scaffold(
+          body: TokenUsageBar(
+            usage: summaryFor({
+              'prompt_tokens': 41203,
+              'completion_tokens': 812,
+              'total_tokens': 42015,
+            }),
+          ),
+        ),
+      ));
+      expect(find.text('41,203 tokens'), findsOneWidget);
+      expect(find.textContaining('%'), findsNothing);
+      final bar = tester.widget<LinearProgressIndicator>(
+          find.byType(LinearProgressIndicator));
+      expect(bar.value, 0);
+    });
+
+    testWidgets('style switcher in the sheet reports the chosen style',
+        (tester) async {
+      TokenUsageIndicatorStyle? chosen;
+      await tester.pumpWidget(MaterialApp(
+        theme: testTheme(),
+        home: Scaffold(
+          body: TokenUsageBar(
+            usage: summaryFor({
+              'prompt_tokens': 100,
+              'completion_tokens': 10,
+              'total_tokens': 110,
+              'context_window_tokens': 1000,
+            }),
+            indicatorStyle: TokenUsageIndicatorStyle.bar,
+            onIndicatorStyleChanged: (style) => chosen = style,
+          ),
+        ),
+      ));
+      await tester.tap(find.byType(TokenUsageBar));
+      await tester.pumpAndSettle();
+      expect(find.text('INDICATOR STYLE'), findsOneWidget);
+      await tester.tap(find.text('Ring'));
+      await tester.pumpAndSettle();
+      expect(chosen, TokenUsageIndicatorStyle.ring);
+    });
+  });
+
+  group('context breakdown aggregation', () {
+    test('reads the flattened segment fields from the latest metrics', () {
+      final summary = summarizeTokenUsage([
+        assistant({
+          'prompt_tokens': 1000,
+          'completion_tokens': 50,
+          'total_tokens': 1050,
+          'context_window_tokens': 8000,
+          'context_system_tokens': 100,
+          'context_tools_tokens': 200,
+          'context_tool_results_tokens': 300,
+          'context_messages_tokens': 400,
+        }),
+      ])!;
+      expect(summary.hasBreakdown, isTrue);
+      expect(summary.contextSystemTokens, 100);
+      expect(summary.contextToolsTokens, 200);
+      expect(summary.contextToolResultsTokens, 300);
+      expect(summary.contextMessagesTokens, 400);
+      expect(summary.breakdownTotal, 1000);
+    });
+
+    test('payloads without segments have no breakdown', () {
+      final summary = summarizeTokenUsage([
+        assistant({
+          'prompt_tokens': 100,
+          'completion_tokens': 5,
+          'total_tokens': 105,
+        }),
+      ])!;
+      expect(summary.hasBreakdown, isFalse);
+    });
+
+    testWidgets('breakdown sheet renders the segment legend', (tester) async {
+      await tester.pumpWidget(MaterialApp(
+        theme: testTheme(),
+        home: Scaffold(
+          body: TokenUsageRing(
+            usage: summarizeTokenUsage([
+              assistant({
+                'prompt_tokens': 1000,
+                'completion_tokens': 50,
+                'total_tokens': 1050,
+                'context_window_tokens': 8000,
+                'context_system_tokens': 100,
+                'context_tools_tokens': 200,
+                'context_tool_results_tokens': 300,
+                'context_messages_tokens': 400,
+              }),
+            ])!,
+          ),
+        ),
+      ));
+      await tester.tap(find.byType(TokenUsageRing));
+      await tester.pumpAndSettle();
+      expect(find.text('WHAT FILLS IT · LAST REQUEST'), findsOneWidget);
+      expect(find.text('Tool results (incl. retrieved)'), findsOneWidget);
+      expect(find.text('300'), findsOneWidget);
+    });
+  });
 }

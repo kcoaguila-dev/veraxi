@@ -190,6 +190,12 @@ class ChatState {
   final bool isLoading;
   final bool isTemporary;
   final bool showTelemetry;
+
+  /// How the token-usage indicator renders in the composer:
+  /// 'ring', 'bar', or 'off' (see TokenUsageIndicatorStyle in
+  /// token_usage.dart; stored as a string to keep this state class
+  /// free of a view-model import cycle).
+  final String tokenUsageStyle;
   final String? error;
   final String? currentlyPlayingMessageId;
   final String? activeProjectId;
@@ -206,6 +212,7 @@ class ChatState {
     this.isLoading = false,
     this.isTemporary = false,
     this.showTelemetry = false,
+    this.tokenUsageStyle = 'ring',
     this.error,
     this.currentlyPlayingMessageId,
     this.activeProjectId,
@@ -224,6 +231,7 @@ class ChatState {
     bool? isLoading,
     bool? isTemporary,
     bool? showTelemetry,
+    String? tokenUsageStyle,
     String? error,
     bool clearError = false,
     String? currentlyPlayingMessageId,
@@ -243,6 +251,7 @@ class ChatState {
       isLoading: isLoading ?? this.isLoading,
       isTemporary: isTemporary ?? this.isTemporary,
       showTelemetry: showTelemetry ?? this.showTelemetry,
+      tokenUsageStyle: tokenUsageStyle ?? this.tokenUsageStyle,
       error: clearError ? null : (error ?? this.error),
       currentlyPlayingMessageId: clearPlayingId
           ? null

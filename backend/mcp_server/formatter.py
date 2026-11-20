@@ -1,3 +1,4 @@
+import logging
 import re
 from collections.abc import Sequence
 from functools import lru_cache
@@ -6,6 +7,8 @@ from typing import Any
 from langchain_core.messages import BaseMessage, SystemMessage
 
 from backend.prompts import CHAT_SYSTEM_PROMPT
+
+logger = logging.getLogger(__name__)
 
 
 def _extract_metrics_from_state(state: dict) -> dict[str, Any]:
@@ -276,6 +279,125 @@ def shape_usage(
     }
 
 
+def _segment_text(content: Any) -> str:
+    """Plain text of a message content (str or block list)."""
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        parts: list[str] = []
+        for block in content:
+            if isinstance(block, str):
+                parts.append(block)
+            elif isinstance(block, dict) and isinstance(block.get("text"), str):
+                parts.append(block["text"])
+        return "".join(parts)
+    return "" if content is None else str(content)
+
+
+def _count_tokens(model_name: str | None, text: str) -> int:
+    """Token count via LiteLLM's counter (already a dependency).
+
+    Falls back to the gpt-4o (cl100k) tokenizer when the effective
+    model is unknown to LiteLLM — segment counts are local counts by
+    definition (the headline total stays provider-reported), so an
+    approximate tokenizer for an unmapped model is acceptable here
+    and only here. Raises if both fail; callers fail open.
+    """
+    if not text:
+        return 0
+    import litellm
+
+    try:
+        return int(litellm.token_counter(model=model_name, text=text))
+    except Exception:
+        return int(litellm.token_counter(model="gpt-4o", text=text))
+
+
+def _serialize_tools_for_counting(tools: Sequence[Any] | None) -> str:
+    """Name + description + arg-schema text for the bound tools.
+
+    Approximates what the provider receives as tool definitions.
+    Per-tool failures are skipped — a partial tools segment beats
+    losing the whole breakdown.
+    """
+    if not tools:
+        return ""
+    parts: list[str] = []
+    for tool in tools:
+        try:
+            if isinstance(tool, dict):
+                parts.append(str(tool))
+                continue
+            name = getattr(tool, "name", "")
+            description = getattr(tool, "description", "")
+            schema = getattr(tool, "args_schema", None)
+            schema_text = ""
+            if schema is not None:
+                json_schema = getattr(schema, "model_json_schema", None)
+                schema_text = str(json_schema()) if callable(json_schema) else str(schema)
+            parts.append(f"{name}\n{description}\n{schema_text}")
+        except Exception:
+            logger.debug("Skipping unserializable tool in segment counting", exc_info=True)
+            continue
+    return "\n".join(parts)
+
+
+@lru_cache(maxsize=128)
+def _count_static_segments(
+    model_name: str | None, system_text: str, tools_text: str
+) -> tuple[int, int]:
+    """Cached counts for the rarely-changing system/tools segments."""
+    return (
+        _count_tokens(model_name, system_text),
+        _count_tokens(model_name, tools_text),
+    )
+
+
+def count_context_segments(
+    messages: Sequence[Any],
+    tools: Sequence[Any] | None,
+    model_name: str | None,
+) -> dict[str, int] | None:
+    """Split one request's context into system / tools / tool-results
+    / messages token counts, or None when counting fails.
+
+    These are *local counts* (LiteLLM's tokenizer for the effective
+    model) taken at prompt-build time — they explain what fills the
+    window; they never replace the provider-reported prompt total.
+    Retrieval (RAG) content reaches the model as ToolMessages in
+    Veraxi, so it lands in ``tool_results``. Any failure returns None
+    (fail-open: a missing breakdown must never break a chat request).
+    """
+    try:
+        system_parts: list[str] = []
+        tool_result_parts: list[str] = []
+        dialogue_parts: list[str] = []
+        for message in messages or []:
+            text = _segment_text(getattr(message, "content", ""))
+            if not text:
+                continue
+            message_type = getattr(message, "type", "")
+            if message_type == "system":
+                system_parts.append(text)
+            elif message_type == "tool":
+                tool_result_parts.append(text)
+            else:
+                dialogue_parts.append(text)
+        system_tokens, tools_tokens = _count_static_segments(
+            model_name,
+            "\n".join(system_parts),
+            _serialize_tools_for_counting(tools),
+        )
+        return {
+            "system": system_tokens,
+            "tools": tools_tokens,
+            "tool_results": _count_tokens(model_name, "\n".join(tool_result_parts)),
+            "messages": _count_tokens(model_name, "\n".join(dialogue_parts)),
+        }
+    except Exception:
+        return None
+
+
 def extract_usage_from_response(response: Any) -> dict[str, Any] | None:
     """Pull the raw usage dict off an LLM response, or None if absent.
 
@@ -387,6 +509,19 @@ def _finalize_metrics(metrics: dict[str, Any]) -> dict[str, Any]:
         finalized.setdefault("total_tokens", None)
         finalized.setdefault("estimated_cost_usd", None)
         finalized.setdefault("context_window_tokens", None)
+
+    # --- Context breakdown (local segment counts, flattened likewise) ---
+    breakdown = finalized.pop("context_breakdown", None)
+    if isinstance(breakdown, dict):
+        finalized["context_system_tokens"] = breakdown.get("system")
+        finalized["context_tools_tokens"] = breakdown.get("tools")
+        finalized["context_tool_results_tokens"] = breakdown.get("tool_results")
+        finalized["context_messages_tokens"] = breakdown.get("messages")
+    else:
+        finalized.setdefault("context_system_tokens", None)
+        finalized.setdefault("context_tools_tokens", None)
+        finalized.setdefault("context_tool_results_tokens", None)
+        finalized.setdefault("context_messages_tokens", None)
 
     # --- Context Adherence (grounding) ---
     grounding_score = finalized.get("grounding_score")
