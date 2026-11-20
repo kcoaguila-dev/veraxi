@@ -304,4 +304,65 @@ void main() {
       expect(chosen, TokenUsageIndicatorStyle.ring);
     });
   });
+
+  group('context breakdown aggregation', () {
+    test('reads the flattened segment fields from the latest metrics', () {
+      final summary = summarizeTokenUsage([
+        assistant({
+          'prompt_tokens': 1000,
+          'completion_tokens': 50,
+          'total_tokens': 1050,
+          'context_window_tokens': 8000,
+          'context_system_tokens': 100,
+          'context_tools_tokens': 200,
+          'context_tool_results_tokens': 300,
+          'context_messages_tokens': 400,
+        }),
+      ])!;
+      expect(summary.hasBreakdown, isTrue);
+      expect(summary.contextSystemTokens, 100);
+      expect(summary.contextToolsTokens, 200);
+      expect(summary.contextToolResultsTokens, 300);
+      expect(summary.contextMessagesTokens, 400);
+      expect(summary.breakdownTotal, 1000);
+    });
+
+    test('payloads without segments have no breakdown', () {
+      final summary = summarizeTokenUsage([
+        assistant({
+          'prompt_tokens': 100,
+          'completion_tokens': 5,
+          'total_tokens': 105,
+        }),
+      ])!;
+      expect(summary.hasBreakdown, isFalse);
+    });
+
+    testWidgets('breakdown sheet renders the segment legend', (tester) async {
+      await tester.pumpWidget(MaterialApp(
+        theme: testTheme(),
+        home: Scaffold(
+          body: TokenUsageRing(
+            usage: summarizeTokenUsage([
+              assistant({
+                'prompt_tokens': 1000,
+                'completion_tokens': 50,
+                'total_tokens': 1050,
+                'context_window_tokens': 8000,
+                'context_system_tokens': 100,
+                'context_tools_tokens': 200,
+                'context_tool_results_tokens': 300,
+                'context_messages_tokens': 400,
+              }),
+            ])!,
+          ),
+        ),
+      ));
+      await tester.tap(find.byType(TokenUsageRing));
+      await tester.pumpAndSettle();
+      expect(find.text('WHAT FILLS IT · LAST REQUEST'), findsOneWidget);
+      expect(find.text('Tool results (incl. retrieved)'), findsOneWidget);
+      expect(find.text('300'), findsOneWidget);
+    });
+  });
 }

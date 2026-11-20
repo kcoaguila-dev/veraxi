@@ -29,6 +29,7 @@ from backend.config import get_config
 from backend.mcp_server.formatter import (
     _finalize_metrics,
     _prepend_system_messages,
+    count_context_segments,
     extract_usage_from_response,
     shape_usage,
 )
@@ -833,11 +834,13 @@ async def call_model(state: AgentState):
     )
     modified_messages = _sanitize_messages_for_provider(modified_messages)
 
+    bound_tools: list = []
     if is_fallback or is_after_tool:
         llm_with_tools = llm
     else:
         tools_list = await get_tools(tool_settings, tenant_id=state.get("tenant_id"))
         if tools_list:
+            bound_tools = tools_list
             note = _integration_capability_note(tools_list)
             if note:
                 modified_messages = _append_system_note(modified_messages, note)
@@ -880,6 +883,13 @@ async def call_model(state: AgentState):
             extract_usage_from_response(response),
             model_name=effective_model,
             base_url=effective_base_url,
+        ),
+        # What filled this request's context, counted locally at
+        # build time (system / tool schemas / tool results incl.
+        # retrieved context / dialogue). None when counting fails —
+        # the breakdown is explanatory, never load-bearing.
+        "context_breakdown": count_context_segments(
+            modified_messages, bound_tools, effective_model
         ),
         "generation_seconds": round(time.perf_counter() - started_at, 3),
         # Pass embeddings into metrics so _finalize_metrics can compute cosine retrieval_relevance.

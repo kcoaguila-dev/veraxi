@@ -284,3 +284,85 @@ class TestDeepEstimate:
         cost = estimate["estimated_cost_usd"]
         assert cost is not None
         assert 0 < cost["min"] < cost["max"]
+
+
+class TestContextSegments:
+    def _messages(self):
+        from langchain_core.messages import (
+            AIMessage,
+            HumanMessage,
+            SystemMessage,
+            ToolMessage,
+        )
+
+        return [
+            SystemMessage(content="You are a careful research assistant."),
+            HumanMessage(content="What did the retrieval find about Qdrant?"),
+            ToolMessage(
+                content="Qdrant is a vector database written in Rust.",
+                tool_call_id="call-1",
+            ),
+            AIMessage(content="It is a vector database."),
+        ]
+
+    def test_segments_split_by_message_type(self):
+        from backend.mcp_server.formatter import count_context_segments
+
+        segments = count_context_segments(self._messages(), None, "gpt-4o")
+        assert segments is not None
+        assert segments["system"] > 0
+        assert segments["tool_results"] > 0
+        assert segments["messages"] > 0
+        assert segments["tools"] == 0
+
+    def test_tools_segment_counts_bound_tool_schemas(self):
+        from langchain_core.tools import tool
+
+        @tool
+        def search_docs(query: str) -> str:
+            """Search the document corpus."""
+            return query
+
+        from backend.mcp_server.formatter import count_context_segments
+
+        segments = count_context_segments(self._messages(), [search_docs], "gpt-4o")
+        assert segments is not None
+        assert segments["tools"] > 0
+
+    def test_counting_failure_returns_none(self, monkeypatch):
+        import litellm
+
+        def boom(**kwargs):
+            raise RuntimeError("no tokenizer")
+
+        monkeypatch.setattr(litellm, "token_counter", boom)
+        from backend.mcp_server.formatter import count_context_segments
+
+        assert count_context_segments(self._messages(), None, "gpt-4o") is None
+
+    def test_finalize_metrics_flattens_breakdown(self):
+        from backend.mcp_server.formatter import _finalize_metrics
+
+        finalized = _finalize_metrics(
+            {
+                "usage": None,
+                "context_breakdown": {
+                    "system": 10,
+                    "tools": 20,
+                    "tool_results": 30,
+                    "messages": 40,
+                },
+            }
+        )
+        assert finalized["context_system_tokens"] == 10
+        assert finalized["context_tools_tokens"] == 20
+        assert finalized["context_tool_results_tokens"] == 30
+        assert finalized["context_messages_tokens"] == 40
+        assert "context_breakdown" not in finalized
+
+    def test_finalize_metrics_without_breakdown_sets_none(self):
+        from backend.mcp_server.formatter import _finalize_metrics
+
+        finalized = _finalize_metrics({"usage": None})
+        assert finalized["context_system_tokens"] is None
+        assert finalized["context_messages_tokens"] is None

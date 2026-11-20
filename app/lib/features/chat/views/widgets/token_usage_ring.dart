@@ -322,6 +322,61 @@ class _TokenUsageBreakdown extends StatelessWidget {
                           '(window size unknown for this model)'
                       : 'Window size unknown for this model',
                 ),
+              if (usage.hasBreakdown && usage.breakdownTotal > 0) ...[
+                const SizedBox(height: 14),
+                const Text(
+                  'WHAT FILLS IT · LAST REQUEST',
+                  style: TextStyle(
+                    color: Color(0xFF8A8A8A),
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.6,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(999),
+                  child: Row(
+                    children: [
+                      for (final segment in _segments(usage))
+                        if (segment.tokens > 0)
+                          Expanded(
+                            flex: segment.tokens,
+                            child: Container(height: 8, color: segment.color),
+                          ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 8),
+                for (final segment in _segments(usage))
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 3),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 8,
+                          height: 8,
+                          decoration: BoxDecoration(
+                            color: segment.color,
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          segment.label,
+                          style: const TextStyle(
+                              color: Color(0xFFB0B0B0), fontSize: 12),
+                        ),
+                        const Spacer(),
+                        Text(
+                          formatTokenCountFull(segment.tokens),
+                          style: const TextStyle(
+                              color: Colors.white, fontSize: 12),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
               const SizedBox(height: 14),
               _row(
                 'Last response',
@@ -398,6 +453,36 @@ class _TokenUsageBreakdown extends StatelessWidget {
   }
 
   String _fmt(int? value) => value == null ? '--' : formatTokenCountFull(value);
+
+  /// The four context segments with their display colours, in
+  /// stacking order. Colours are categorical (this bar answers
+  /// "what fills it"), deliberately distinct from the severity
+  /// colours used by the ring/bar.
+  List<({String label, int tokens, Color color})> _segments(
+      TokenUsageSummary usage) {
+    return [
+      (
+        label: 'System',
+        tokens: usage.contextSystemTokens ?? 0,
+        color: const Color(0xFF5B8DEF),
+      ),
+      (
+        label: 'Tools',
+        tokens: usage.contextToolsTokens ?? 0,
+        color: const Color(0xFF9B7EDE),
+      ),
+      (
+        label: 'Tool results (incl. retrieved)',
+        tokens: usage.contextToolResultsTokens ?? 0,
+        color: const Color(0xFF3BA272),
+      ),
+      (
+        label: 'Messages',
+        tokens: usage.contextMessagesTokens ?? 0,
+        color: const Color(0xFFD9A441),
+      ),
+    ];
+  }
 
   Widget _row(String label, String value) {
     return Padding(
