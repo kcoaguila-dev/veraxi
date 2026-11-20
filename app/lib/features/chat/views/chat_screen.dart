@@ -8,6 +8,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:veraxi_app/features/chat/view_models/chat_view_model.dart';
 import 'package:veraxi_app/features/chat/view_models/token_usage.dart';
 import 'package:veraxi_app/features/chat/views/widgets/token_usage_ring.dart';
+import 'package:veraxi_app/features/chat/views/widgets/compaction_sheet.dart';
 import 'package:veraxi_app/features/chat/views/widgets/chat_input.dart';
 import 'package:veraxi_app/features/chat/views/widgets/chat_sidebar.dart';
 import 'package:veraxi_app/features/chat/views/widgets/chat_message_list_item.dart';
@@ -57,6 +58,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   bool _isMetricsScrolledUp(ScrollMetrics metrics) =>
       metrics.maxScrollExtent > 0 &&
       (metrics.maxScrollExtent - metrics.pixels) > 400;
+
+  void _openCompaction(BuildContext context, ChatViewModel viewModel) {
+    showCompactionSheet(
+      context,
+      onPreview: () => viewModel.previewCompaction(
+          model: _selectedModel == 'Select a model' ? null : _selectedModel),
+      onApply: (summary) => viewModel.applyCompaction(summary: summary),
+      onClearToolResults: () => viewModel.clearOldToolResults(),
+    );
+  }
 
   void _syncScrolledUp(ScrollMetrics metrics) {
     final isUp = _isMetricsScrolledUp(metrics);
@@ -644,6 +655,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                             viewModel.tokenUsageStyle,
                                         onIndicatorStyleChanged:
                                             viewModel.setTokenUsageStyle,
+                                        onCompactPressed: () =>
+                                            _openCompaction(context, viewModel),
                                       ),
                                       const SizedBox(height: 8),
                                     ],
@@ -657,6 +670,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                           viewModel.tokenUsageStyle,
                                       onTokenUsageStyleChanged:
                                           viewModel.setTokenUsageStyle,
+                                      onCompactPressed: () =>
+                                          _openCompaction(context, viewModel),
                                       model: _selectedModel == 'Select a model'
                                           ? null
                                           : _selectedModel,

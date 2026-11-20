@@ -62,6 +62,23 @@ class TitleRequest(BaseModel):
     title: str
 
 
+class CompactPreviewRequest(BaseModel):
+    model: str | None = None
+    api_key: str | None = None
+    base_url: str | None = None
+    keep_recent_turns: int = 4
+    focus: str | None = None
+
+
+class CompactApplyRequest(BaseModel):
+    summary: str
+    keep_recent_turns: int = 4
+
+
+class ClearToolResultsRequest(BaseModel):
+    keep_recent_turns: int = 4
+
+
 class ImportedMessage(BaseModel):
     id: str
     role: Literal["user", "assistant"]
@@ -1301,6 +1318,252 @@ def register_chat_routes(
         except Exception as e:
             sentry_sdk.capture_exception(e)
             logger.exception("Error")
+            raise HTTPException(
+                status_code=500,
+                detail="Internal server error. Please try again later.",
+            )
+
+    async def _compaction_saver(request: Request, tenant_id: str, thread_id: str):
+        """Ownership check + checkpointer saver for the compaction
+        endpoints (same pattern as edit_message). Server threads only:
+        local-guest threads live on-device and have no server state."""
+        if tenant_id == "local_guest":
+            raise HTTPException(
+                status_code=400,
+                detail="Compaction is available for synced conversations only.",
+            )
+        is_owner = await request.app.state.redis.sismember(
+            f"tenant:{tenant_id}:threads", thread_id
+        )
+        if not is_owner:
+            raise HTTPException(status_code=404, detail="Thread not found")
+        from backend.config import get_config as _get_config
+
+        config_obj = _get_config()
+        if config_obj.postgres_url:
+            from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+
+            saver_ctx = AsyncPostgresSaver.from_conn_string(config_obj.postgres_url)
+        else:
+            from langgraph.checkpoint.redis.aio import AsyncRedisSaver
+
+            saver_ctx = AsyncRedisSaver.from_conn_string(config_obj.redis_url)
+        return config_obj, saver_ctx
+
+    async def _replace_thread_messages(memory, thread_id: str, new_messages: list):
+        """Replace a thread's full message list in the checkpointer."""
+        from langchain_core.messages import RemoveMessage
+        from langgraph.graph.message import REMOVE_ALL_MESSAGES
+
+        from backend.mcp_server.orchestrator import _get_workflow
+
+        workflow = _get_workflow()
+        app = workflow.compile(checkpointer=memory)
+        await app.aupdate_state(
+            {"configurable": {"thread_id": thread_id}},
+            {"messages": [RemoveMessage(id=REMOVE_ALL_MESSAGES), *new_messages]},
+        )
+
+    @app_router.post("/api/chat/threads/{thread_id}/compact/preview")
+    async def compact_preview(
+        thread_id: str,
+        payload: CompactPreviewRequest,
+        request: Request,
+        tenant_id: str = Depends(get_tenant_id),
+    ):
+        """Generate a compaction summary WITHOUT applying anything."""
+        from backend.mcp_server.compaction import (
+            CompactionError,
+            apply_compaction,
+            check_minimum_progress,
+            count_messages_tokens,
+            generate_summary,
+            split_for_compaction,
+        )
+
+        try:
+            config_obj, saver_ctx = await _compaction_saver(
+                request, tenant_id, thread_id
+            )
+            async with saver_ctx as memory:
+                if config_obj.postgres_url:
+                    await setup_postgres_checkpointer_once(
+                        memory, config_obj.postgres_url
+                    )
+                state = await memory.aget_tuple(
+                    {"configurable": {"thread_id": thread_id}}
+                )
+                if not state:
+                    raise HTTPException(status_code=404, detail="Thread not found")
+                raw_messages = state.checkpoint.get("channel_values", {}).get(
+                    "messages", []
+                )
+                _, prefix, _ = split_for_compaction(
+                    raw_messages, payload.keep_recent_turns
+                )
+                if not prefix:
+                    raise HTTPException(
+                        status_code=400,
+                        detail="Nothing old enough to compact yet.",
+                    )
+                if not payload.model or not payload.api_key:
+                    raise HTTPException(
+                        status_code=403,
+                        detail="You must provide your own LLM API key. "
+                        "Add your key in Settings → API Keys.",
+                    )
+                tokens_before = count_messages_tokens(raw_messages, payload.model)
+                try:
+                    summary = await generate_summary(
+                        prefix,
+                        payload.model,
+                        payload.api_key,
+                        payload.base_url,
+                        focus=payload.focus,
+                    )
+                    new_messages = apply_compaction(
+                        raw_messages,
+                        summary,
+                        payload.keep_recent_turns,
+                        tokens_before,
+                    )
+                    tokens_after = count_messages_tokens(new_messages, payload.model)
+                    check_minimum_progress(tokens_before, tokens_after)
+                except CompactionError as e:
+                    raise HTTPException(status_code=400, detail=str(e))
+                return {
+                    "summary": summary,
+                    "messages_compacted": len(prefix),
+                    "tokens_before": tokens_before,
+                    "tokens_after_estimate": tokens_after,
+                }
+        except HTTPException:
+            raise
+        except Exception as e:
+            sentry_sdk.capture_exception(e)
+            logger.exception("Error generating compaction preview")
+            raise HTTPException(
+                status_code=502,
+                detail="The model could not generate a summary. "
+                "Nothing was changed.",
+            )
+
+    @app_router.post("/api/chat/threads/{thread_id}/compact/apply")
+    async def compact_apply(
+        thread_id: str,
+        payload: CompactApplyRequest,
+        request: Request,
+        tenant_id: str = Depends(get_tenant_id),
+    ):
+        """Apply a user-accepted (possibly edited) compaction summary."""
+        from backend.mcp_server.compaction import (
+            CompactionError,
+            apply_compaction,
+            check_minimum_progress,
+            count_messages_tokens,
+            split_for_compaction,
+        )
+
+        try:
+            config_obj, saver_ctx = await _compaction_saver(
+                request, tenant_id, thread_id
+            )
+            async with saver_ctx as memory:
+                if config_obj.postgres_url:
+                    await setup_postgres_checkpointer_once(
+                        memory, config_obj.postgres_url
+                    )
+                state = await memory.aget_tuple(
+                    {"configurable": {"thread_id": thread_id}}
+                )
+                if not state:
+                    raise HTTPException(status_code=404, detail="Thread not found")
+                raw_messages = state.checkpoint.get("channel_values", {}).get(
+                    "messages", []
+                )
+                tokens_before = count_messages_tokens(raw_messages, None)
+                _, prefix, _ = split_for_compaction(
+                    raw_messages, payload.keep_recent_turns
+                )
+                try:
+                    new_messages = apply_compaction(
+                        raw_messages,
+                        payload.summary,
+                        payload.keep_recent_turns,
+                        tokens_before,
+                    )
+                    tokens_after = count_messages_tokens(new_messages, None)
+                    check_minimum_progress(tokens_before, tokens_after)
+                except CompactionError as e:
+                    raise HTTPException(status_code=400, detail=str(e))
+                await _replace_thread_messages(memory, thread_id, new_messages)
+                return {
+                    "status": "ok",
+                    "messages_compacted": len(prefix),
+                    "tokens_after_estimate": tokens_after,
+                }
+        except HTTPException:
+            raise
+        except Exception as e:
+            sentry_sdk.capture_exception(e)
+            logger.exception("Error applying compaction")
+            raise HTTPException(
+                status_code=500,
+                detail="Internal server error. Please try again later.",
+            )
+
+    @app_router.post("/api/chat/threads/{thread_id}/clear-tool-results")
+    async def clear_tool_results(
+        thread_id: str,
+        payload: ClearToolResultsRequest,
+        request: Request,
+        tenant_id: str = Depends(get_tenant_id),
+    ):
+        """Stage 0: replace old tool-result bodies with placeholders.
+
+        Deterministic, no LLM call — the cheap context-recovery step
+        that runs before summarization is even considered."""
+        from backend.mcp_server.compaction import (
+            clear_old_tool_results,
+            count_messages_tokens,
+        )
+
+        try:
+            config_obj, saver_ctx = await _compaction_saver(
+                request, tenant_id, thread_id
+            )
+            async with saver_ctx as memory:
+                if config_obj.postgres_url:
+                    await setup_postgres_checkpointer_once(
+                        memory, config_obj.postgres_url
+                    )
+                state = await memory.aget_tuple(
+                    {"configurable": {"thread_id": thread_id}}
+                )
+                if not state:
+                    raise HTTPException(status_code=404, detail="Thread not found")
+                raw_messages = state.checkpoint.get("channel_values", {}).get(
+                    "messages", []
+                )
+                new_messages, cleared = clear_old_tool_results(
+                    raw_messages, payload.keep_recent_turns
+                )
+                if cleared == 0:
+                    raise HTTPException(
+                        status_code=400,
+                        detail="No old tool results to clear.",
+                    )
+                await _replace_thread_messages(memory, thread_id, new_messages)
+                return {
+                    "status": "ok",
+                    "tool_results_cleared": cleared,
+                    "tokens_after_estimate": count_messages_tokens(new_messages, None),
+                }
+        except HTTPException:
+            raise
+        except Exception as e:
+            sentry_sdk.capture_exception(e)
+            logger.exception("Error clearing tool results")
             raise HTTPException(
                 status_code=500,
                 detail="Internal server error. Please try again later.",

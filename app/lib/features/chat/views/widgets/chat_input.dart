@@ -34,6 +34,9 @@ class ChatInput extends StatefulWidget {
   final TokenUsageIndicatorStyle? tokenUsageStyle;
   final ValueChanged<TokenUsageIndicatorStyle>? onTokenUsageStyleChanged;
 
+  /// Opens the manual-compaction flow from the breakdown sheet.
+  final VoidCallback? onCompactPressed;
+
   const ChatInput({
     super.key,
     required this.isLoading,
@@ -45,6 +48,7 @@ class ChatInput extends StatefulWidget {
     this.usageSummary,
     this.tokenUsageStyle,
     this.onTokenUsageStyleChanged,
+    this.onCompactPressed,
   });
 
   @override
@@ -640,6 +644,7 @@ class _ChatInputState extends State<ChatInput> {
                       indicatorStyle: widget.tokenUsageStyle,
                       onIndicatorStyleChanged:
                           widget.onTokenUsageStyleChanged,
+                      onCompactPressed: widget.onCompactPressed,
                     ),
                     SizedBox(width: 4),
                   ],

@@ -59,6 +59,12 @@ abstract class IChatRepository {
   Future<List<Map<String, dynamic>>> getIntegrations();
   Future<void> editMessage(String messageId, String content, String threadId);
   Future<void> regenerateResponse(String threadId);
+  Future<Map<String, dynamic>> previewCompaction(String threadId,
+      {String? model, int keepRecentTurns = 4, String? focus});
+  Future<Map<String, dynamic>> applyCompaction(String threadId,
+      {required String summary, int keepRecentTurns = 4});
+  Future<Map<String, dynamic>> clearOldToolResults(String threadId,
+      {int keepRecentTurns = 4});
   Future<void> renameThread(String threadId, String newTitle);
   Future<void> togglePinThread(String threadId);
   Future<void> toggleArchiveThread(String threadId);
@@ -239,6 +245,69 @@ class CloudChatRepository implements IChatRepository {
   @override
   Future<void> regenerateResponse(String threadId) async {
     await apiClient.post('/chat/threads/$threadId/regenerate', body: {});
+  }
+
+  /// POST helper for the compaction endpoints: unlike ApiClient.post
+  /// it surfaces the server's `detail` message, because compaction
+  /// refusals (nothing to compact, <10% savings, truncated summary)
+  /// are user-actionable and must not collapse into "Server error".
+  Future<Map<String, dynamic>> _postCompaction(
+      String path, Map<String, dynamic> body) async {
+    final uri = Uri.parse('${apiClient.baseUrl}$path');
+    final headers = await apiClient.getDefaultHeaders();
+    headers['Content-Type'] = 'application/json';
+    final response = await apiClient.client.post(uri,
+        headers: headers, body: jsonEncode(body));
+    final decoded = response.body.isEmpty
+        ? <String, dynamic>{}
+        : jsonDecode(response.body) as Map<String, dynamic>;
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      return decoded;
+    }
+    throw Exception(
+        decoded['detail'] ?? 'Server error: ${response.statusCode}');
+  }
+
+  @override
+  Future<Map<String, dynamic>> previewCompaction(String threadId,
+      {String? model, int keepRecentTurns = 4, String? focus}) async {
+    // Same BYOK resolution as streamChat: the summarizer runs on the
+    // user's own key for the currently selected model.
+    final provider = ModelProviderMapper.resolve(model);
+    final apiKey = await apiKeyStorage.getKey(provider);
+    String? baseUrl;
+    if (provider == 'local') {
+      baseUrl = await apiKeyStorage.getValue('local_base_url');
+      final customModelName = await apiKeyStorage.getValue('local_model_name');
+      if (customModelName != null && customModelName.isNotEmpty) {
+        model = customModelName;
+      }
+    }
+    return _postCompaction('/chat/threads/$threadId/compact/preview', {
+      'keep_recent_turns': keepRecentTurns,
+      if (model != null && model.isNotEmpty && model != 'Select a model')
+        'model': model,
+      if (apiKey != null && apiKey.isNotEmpty) 'api_key': apiKey,
+      if (baseUrl != null) 'base_url': baseUrl,
+      if (focus != null && focus.isNotEmpty) 'focus': focus,
+    });
+  }
+
+  @override
+  Future<Map<String, dynamic>> applyCompaction(String threadId,
+      {required String summary, int keepRecentTurns = 4}) async {
+    return _postCompaction('/chat/threads/$threadId/compact/apply', {
+      'summary': summary,
+      'keep_recent_turns': keepRecentTurns,
+    });
+  }
+
+  @override
+  Future<Map<String, dynamic>> clearOldToolResults(String threadId,
+      {int keepRecentTurns = 4}) async {
+    return _postCompaction('/chat/threads/$threadId/clear-tool-results', {
+      'keep_recent_turns': keepRecentTurns,
+    });
   }
 
   @override

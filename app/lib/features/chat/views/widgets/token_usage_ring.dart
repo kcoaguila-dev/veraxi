@@ -33,11 +33,17 @@ class TokenUsageRing extends StatelessWidget {
   final TokenUsageIndicatorStyle? indicatorStyle;
   final ValueChanged<TokenUsageIndicatorStyle>? onIndicatorStyleChanged;
 
+  /// Opens the manual-compaction flow (owned by the chat screen,
+  /// which has the view model). Null hides the sheet's Compact
+  /// button (standalone rendering, local threads).
+  final VoidCallback? onCompactPressed;
+
   const TokenUsageRing({
     super.key,
     required this.usage,
     this.indicatorStyle,
     this.onIndicatorStyleChanged,
+    this.onCompactPressed,
   });
 
   @override
@@ -57,6 +63,7 @@ class TokenUsageRing extends StatelessWidget {
           usage,
           indicatorStyle: indicatorStyle,
           onIndicatorStyleChanged: onIndicatorStyleChanged,
+          onCompactPressed: onCompactPressed,
         ),
         customBorder: const CircleBorder(),
         child: SizedBox(
@@ -100,12 +107,14 @@ class TokenUsageBar extends StatelessWidget {
   final TokenUsageSummary usage;
   final TokenUsageIndicatorStyle? indicatorStyle;
   final ValueChanged<TokenUsageIndicatorStyle>? onIndicatorStyleChanged;
+  final VoidCallback? onCompactPressed;
 
   const TokenUsageBar({
     super.key,
     required this.usage,
     this.indicatorStyle,
     this.onIndicatorStyleChanged,
+    this.onCompactPressed,
   });
 
   @override
@@ -126,6 +135,7 @@ class TokenUsageBar extends StatelessWidget {
           usage,
           indicatorStyle: indicatorStyle,
           onIndicatorStyleChanged: onIndicatorStyleChanged,
+          onCompactPressed: onCompactPressed,
         ),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -241,6 +251,7 @@ Future<void> showTokenUsageBreakdown(
   TokenUsageSummary usage, {
   TokenUsageIndicatorStyle? indicatorStyle,
   ValueChanged<TokenUsageIndicatorStyle>? onIndicatorStyleChanged,
+  VoidCallback? onCompactPressed,
 }) {
   return showModalBottomSheet<void>(
     context: context,
@@ -252,6 +263,7 @@ Future<void> showTokenUsageBreakdown(
       usage: usage,
       indicatorStyle: indicatorStyle,
       onIndicatorStyleChanged: onIndicatorStyleChanged,
+      onCompactPressed: onCompactPressed,
     ),
   );
 }
@@ -260,12 +272,23 @@ class _TokenUsageBreakdown extends StatelessWidget {
   final TokenUsageSummary usage;
   final TokenUsageIndicatorStyle? indicatorStyle;
   final ValueChanged<TokenUsageIndicatorStyle>? onIndicatorStyleChanged;
+  final VoidCallback? onCompactPressed;
 
   const _TokenUsageBreakdown({
     required this.usage,
     this.indicatorStyle,
     this.onIndicatorStyleChanged,
+    this.onCompactPressed,
   });
+
+  /// Compaction is offered once the context is at least half full
+  /// (or large in absolute terms when the window is unknown) —
+  /// earlier than that there is rarely enough worth summarizing,
+  /// and the server gates refuse trivial compactions anyway.
+  bool get _canCompact =>
+      onCompactPressed != null &&
+      ((usage.contextFraction ?? 0) >= 0.5 ||
+          (usage.contextTokens ?? 0) >= 20000);
 
   @override
   Widget build(BuildContext context) {
@@ -399,6 +422,26 @@ class _TokenUsageBreakdown extends StatelessWidget {
               if (usage.hasSessionCost)
                 _row('Conversation est. cost',
                     '\$${usage.sessionEstimatedCostUsd.toStringAsFixed(4)}'),
+              if (_canCompact) ...[
+                const SizedBox(height: 18),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                      onCompactPressed!();
+                    },
+                    icon: const Icon(Icons.compress, size: 16),
+                    label: const Text('Compact conversation…'),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'Summarize earlier messages to free context. '
+                  'You review and edit the summary before anything changes.',
+                  style: TextStyle(color: Color(0xFF8A8A8A), fontSize: 11),
+                ),
+              ],
               if (indicatorStyle != null &&
                   onIndicatorStyleChanged != null) ...[
                 const SizedBox(height: 18),

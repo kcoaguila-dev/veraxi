@@ -984,6 +984,46 @@ class ChatViewModel extends StateNotifier<ChatState> {
     }
   }
 
+  /// Compaction preview: asks the server to summarize the older
+  /// turns. Applies nothing — the user reviews/edits the summary in
+  /// the compaction sheet first.
+  Future<Map<String, dynamic>> previewCompaction(
+      {String? model, int keepRecentTurns = 4, String? focus}) async {
+    final threadId = state.threadId;
+    if (threadId == null) {
+      throw Exception('No active conversation to compact.');
+    }
+    return _repository.previewCompaction(threadId,
+        model: model, keepRecentTurns: keepRecentTurns, focus: focus);
+  }
+
+  /// Applies a user-accepted summary, then reloads the thread so the
+  /// compaction divider and trimmed history render.
+  Future<void> applyCompaction(
+      {required String summary, int keepRecentTurns = 4}) async {
+    final threadId = state.threadId;
+    if (threadId == null) {
+      throw Exception('No active conversation to compact.');
+    }
+    await _repository.applyCompaction(threadId,
+        summary: summary, keepRecentTurns: keepRecentTurns);
+    await selectThread(threadId);
+  }
+
+  /// Stage 0: clears old tool-result bodies server-side (no LLM
+  /// call), then reloads the thread.
+  Future<Map<String, dynamic>> clearOldToolResults(
+      {int keepRecentTurns = 4}) async {
+    final threadId = state.threadId;
+    if (threadId == null) {
+      throw Exception('No active conversation.');
+    }
+    final result = await _repository.clearOldToolResults(threadId,
+        keepRecentTurns: keepRecentTurns);
+    await selectThread(threadId);
+    return result;
+  }
+
   Future<void> saveToMemory(String content, {String? model}) async {
     try {
       await _memoryRepository.saveToMemory(content, model: model);

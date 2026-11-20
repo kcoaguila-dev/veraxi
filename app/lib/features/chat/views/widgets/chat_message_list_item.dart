@@ -9,6 +9,7 @@ import 'package:veraxi_app/core/models/model_provider_mapper.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
 import 'package:veraxi_app/features/chat/view_models/chat_view_model.dart';
 import 'package:veraxi_app/features/chat/views/widgets/chat_message_metrics.dart';
+import 'package:veraxi_app/features/chat/views/widgets/compaction_divider.dart';
 import 'package:veraxi_app/features/chat/views/widgets/tool_event_card.dart';
 import 'package:veraxi_app/features/chat/views/widgets/chat_activity_disclosure.dart';
 import 'package:veraxi_app/features/chat/views/widgets/markdown_citation_builder.dart';
@@ -43,6 +44,9 @@ class ChatMessageListItem extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    if (CompactionDivider.isCompactionMessage(msg)) {
+      return CompactionDivider(message: msg);
+    }
     return _buildChatMessageActual(msg, theme, ext,
         showTelemetry: showTelemetry, context: context, ref: ref);
   }
