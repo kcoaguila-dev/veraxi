@@ -129,8 +129,7 @@ def _extract_conceptual_text(path: str, source: str) -> str:
         chunk = triple_d or triple_s
         if chunk:
             parts.append(chunk)
-    for comment in _COMMENT_RE.findall(source):
-        parts.append(comment)
+    parts.extend(_COMMENT_RE.findall(source))
     joined = "\n".join(parts)
     # Fall back to source only if no comments/docstrings were present.
     return joined if len(parts) > 1 else f"{path}\n{source}"
@@ -180,10 +179,11 @@ def _extract_symbol_candidates(
             or "_" in token
             or any(c.isupper() for c in token[1:])
         )
-        if token in known_qns or token in known_names or is_compound:
-            if token not in seen:
-                seen.add(token)
-                candidates.append(token)
+        if (
+            token in known_qns or token in known_names or is_compound
+        ) and token not in seen:
+            seen.add(token)
+            candidates.append(token)
     return candidates
 
 
@@ -321,6 +321,10 @@ class RepoCodeAblationRetriever:
         candidate_pool: int = 150,
     ) -> None:
         self.repo_root = Path(repo_root)
+        if not self.repo_root.is_dir():
+            raise ValueError(
+                f"Repository root is not an existing directory: {self.repo_root}"
+            )
         self.candidate_pool = candidate_pool
         self.graph = parse_repo(self.repo_root)
         self._graph_client = InMemoryCodeGraphClient(self.graph)

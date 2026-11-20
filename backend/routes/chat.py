@@ -540,6 +540,10 @@ async def _store_thread_activity_entries(
 ) -> None:
     if not redis_client:
         return
+    if hasattr(redis_client, "sismember") and not await redis_client.sismember(
+        f"tenant:{tenant_id}:threads", thread_id
+    ):
+        return
     await redis_client.hset(
         f"tenant:{tenant_id}:thread_activities",
         thread_id,
@@ -1362,9 +1366,9 @@ def register_chat_routes(
                             if isinstance(item, (dict, list))
                         ]
                         response_times = [
-                            item.get("response_at")
+                            item.get("response_at") if isinstance(item, dict) else None
                             for item in decoded
-                            if isinstance(item, dict)
+                            if isinstance(item, (dict, list))
                         ]
                         assistant_messages = [
                             message
@@ -1729,10 +1733,10 @@ def register_chat_routes(
     ):
         """Apply a user-accepted (possibly edited) compaction summary."""
         try:
-            _ensure_thread_not_generating(thread_id)
             config_obj, saver_ctx = await _compaction_saver(
                 request, tenant_id, thread_id
             )
+            _ensure_thread_not_generating(thread_id)
             async with _get_thread_mutation_lock(thread_id):
                 _ensure_thread_not_generating(thread_id)
                 async with saver_ctx as memory:
@@ -1771,10 +1775,10 @@ def register_chat_routes(
         the checkpointer, so the pre-compaction state is recovered
         verbatim, never reconstructed."""
         try:
-            _ensure_thread_not_generating(thread_id)
             config_obj, saver_ctx = await _compaction_saver(
                 request, tenant_id, thread_id
             )
+            _ensure_thread_not_generating(thread_id)
             async with _get_thread_mutation_lock(thread_id):
                 _ensure_thread_not_generating(thread_id)
                 async with saver_ctx as memory:
@@ -1811,10 +1815,10 @@ def register_chat_routes(
         Deterministic, no LLM call — the cheap context-recovery step
         that runs before summarization is even considered."""
         try:
-            _ensure_thread_not_generating(thread_id)
             config_obj, saver_ctx = await _compaction_saver(
                 request, tenant_id, thread_id
             )
+            _ensure_thread_not_generating(thread_id)
             async with _get_thread_mutation_lock(thread_id):
                 _ensure_thread_not_generating(thread_id)
                 async with saver_ctx as memory:
