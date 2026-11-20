@@ -26,6 +26,28 @@ class LocalChatDataSource {
     );
   }
 
+  /// Exact total token count for [texts] under the model's own
+  /// tokenizer (loads the model once). Null when the model file is
+  /// missing or any count fails — callers fall back to estimates
+  /// rather than fabricate.
+  Future<int?> countTokensTotal(List<String> texts, String modelName) async {
+    try {
+      final appDocsDir = await getApplicationDocumentsDirectory();
+      final modelPath = p.join(appDocsDir.path, modelName);
+      if (!await File(modelPath).exists()) return null;
+      await _llmEngine.loadModel(modelPath);
+      var total = 0;
+      for (final text in texts) {
+        final count = await _llmEngine.countTokens(text);
+        if (count == null) return null;
+        total += count;
+      }
+      return total;
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// One-shot raw generation with the on-device model — used by
   /// local compaction to summarize a thread without any server.
   /// Throws when the model file is missing.
@@ -93,6 +115,23 @@ $question
         'event': 'on_chat_model_stream',
         'data': {
           'chunk': {'content': chunk}
+        }
+      };
+    }
+
+    // 5. Report the engine's real usage when the binding surfaced
+    // it, in the same metadata shape the cloud path uses, so the
+    // message is saved with provider-style token metrics.
+    final usage = _llmEngine.lastCompletionUsage;
+    if (usage != null) {
+      yield {
+        'event': 'metadata',
+        'data': {
+          'metrics': {
+            'prompt_tokens': usage.promptTokens,
+            'completion_tokens': usage.completionTokens,
+            'total_tokens': usage.promptTokens + usage.completionTokens,
+          }
         }
       };
     }

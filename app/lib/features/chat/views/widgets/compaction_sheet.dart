@@ -173,7 +173,8 @@ class _CompactionSheetState extends State<_CompactionSheet> {
               Text(
                 '${preview['messages_compacted']} messages · '
                 '~${formatTokenCountFull(preview['tokens_before'] as int)} '
-                '→ ~${preview['tokens_after_estimate'] == null ? '—' : formatTokenCountFull(preview['tokens_after_estimate'] as int)} tokens',
+                '→ ~${preview['tokens_after_estimate'] == null ? '—' : formatTokenCountFull(preview['tokens_after_estimate'] as int)} tokens'
+                '${preview['estimated'] == true ? ' (estimated)' : ''}',
                 style: const TextStyle(
                     color: Color(0xFFB0B0B0), fontSize: 12),
               ),

@@ -62,9 +62,9 @@ abstract class IChatRepository {
   Future<Map<String, dynamic>> previewCompaction(String threadId,
       {String? model, int keepRecentTurns = 4, String? focus});
   Future<Map<String, dynamic>> applyCompaction(String threadId,
-      {required String summary, int keepRecentTurns = 4});
+      {required String summary, int keepRecentTurns = 4, String? model});
   Future<Map<String, dynamic>> clearOldToolResults(String threadId,
-      {int keepRecentTurns = 4});
+      {int keepRecentTurns = 4, String? model});
   Future<void> renameThread(String threadId, String newTitle);
   Future<void> togglePinThread(String threadId);
   Future<void> toggleArchiveThread(String threadId);
@@ -295,7 +295,7 @@ class CloudChatRepository implements IChatRepository {
 
   @override
   Future<Map<String, dynamic>> applyCompaction(String threadId,
-      {required String summary, int keepRecentTurns = 4}) async {
+      {required String summary, int keepRecentTurns = 4, String? model}) async {
     return _postCompaction('/chat/threads/$threadId/compact/apply', {
       'summary': summary,
       'keep_recent_turns': keepRecentTurns,
@@ -304,7 +304,7 @@ class CloudChatRepository implements IChatRepository {
 
   @override
   Future<Map<String, dynamic>> clearOldToolResults(String threadId,
-      {int keepRecentTurns = 4}) async {
+      {int keepRecentTurns = 4, String? model}) async {
     return _postCompaction('/chat/threads/$threadId/clear-tool-results', {
       'keep_recent_turns': keepRecentTurns,
     });

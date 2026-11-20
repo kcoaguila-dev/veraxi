@@ -1000,26 +1000,26 @@ class ChatViewModel extends StateNotifier<ChatState> {
   /// Applies a user-accepted summary, then reloads the thread so the
   /// compaction divider and trimmed history render.
   Future<void> applyCompaction(
-      {required String summary, int keepRecentTurns = 4}) async {
+      {required String summary, int keepRecentTurns = 4, String? model}) async {
     final threadId = state.threadId;
     if (threadId == null) {
       throw Exception('No active conversation to compact.');
     }
     await _repository.applyCompaction(threadId,
-        summary: summary, keepRecentTurns: keepRecentTurns);
+        summary: summary, keepRecentTurns: keepRecentTurns, model: model);
     await selectThread(threadId);
   }
 
   /// Stage 0: clears old tool-result bodies server-side (no LLM
   /// call), then reloads the thread.
   Future<Map<String, dynamic>> clearOldToolResults(
-      {int keepRecentTurns = 4}) async {
+      {int keepRecentTurns = 4, String? model}) async {
     final threadId = state.threadId;
     if (threadId == null) {
       throw Exception('No active conversation.');
     }
     final result = await _repository.clearOldToolResults(threadId,
-        keepRecentTurns: keepRecentTurns);
+        keepRecentTurns: keepRecentTurns, model: model);
     await selectThread(threadId);
     return result;
   }

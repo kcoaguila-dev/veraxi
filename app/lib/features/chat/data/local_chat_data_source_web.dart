@@ -14,4 +14,8 @@ class LocalChatDataSource {
       UnsupportedError('Local models are not supported on Flutter Web.'),
     );
   }
+
+  Future<int?> countTokensTotal(List<String> texts, String modelName) async {
+    return null;
+  }
 }
