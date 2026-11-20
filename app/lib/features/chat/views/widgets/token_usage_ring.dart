@@ -97,7 +97,6 @@ class TokenUsageRing extends StatelessWidget {
       ),
     );
   }
-
 }
 
 /// Linear context-usage bar: the alternative indicator form, placed
@@ -431,37 +430,37 @@ class _TokenUsageBreakdown extends StatelessWidget {
                   ),
               ],
               if (!usage.isEstimated) ...[
-              const SizedBox(height: 14),
-              _row(
-                'Last response',
-                'Prompt ${_fmt(usage.lastPromptTokens)} · '
-                    'Completion ${_fmt(usage.lastCompletionTokens)} · '
-                    'Total ${_fmt(usage.lastTotalTokens)}',
-              ),
-              if (usage.lastEstimatedCostUsd != null)
-                _row('Last est. cost',
-                    '\$${usage.lastEstimatedCostUsd!.toStringAsFixed(4)}'),
-              if ((usage.lastReasoningTokens ?? 0) > 0)
-                _row('Reasoning',
-                    '${formatTokenCountFull(usage.lastReasoningTokens!)} of the completion'),
-              if ((usage.lastCacheReadTokens ?? 0) > 0)
-                _row('Cache read',
-                    '${formatTokenCountFull(usage.lastCacheReadTokens!)} of the prompt'),
-              if ((usage.lastCacheCreationTokens ?? 0) > 0)
-                _row('Cache written',
-                    '${formatTokenCountFull(usage.lastCacheCreationTokens!)} of the prompt'),
-              const SizedBox(height: 14),
-              _row(
-                'This conversation',
-                'Prompt ${formatTokenCountFull(usage.sessionPromptTokens)} · '
-                    'Completion ${formatTokenCountFull(usage.sessionCompletionTokens)} · '
-                    'Total ${formatTokenCountFull(usage.sessionTotalTokens)} '
-                    'tokens · ${usage.responseCount} '
-                    '${usage.responseCount == 1 ? 'response' : 'responses'}',
-              ),
-              if (usage.hasSessionCost)
-                _row('Conversation est. cost',
-                    '\$${usage.sessionEstimatedCostUsd.toStringAsFixed(4)}'),
+                const SizedBox(height: 14),
+                _row(
+                  'Last response',
+                  'Prompt ${_fmt(usage.lastPromptTokens)} · '
+                      'Completion ${_fmt(usage.lastCompletionTokens)} · '
+                      'Total ${_fmt(usage.lastTotalTokens)}',
+                ),
+                if (usage.lastEstimatedCostUsd != null)
+                  _row('Last est. cost',
+                      '\$${usage.lastEstimatedCostUsd!.toStringAsFixed(4)}'),
+                if ((usage.lastReasoningTokens ?? 0) > 0)
+                  _row('Reasoning',
+                      '${formatTokenCountFull(usage.lastReasoningTokens!)} of the completion'),
+                if ((usage.lastCacheReadTokens ?? 0) > 0)
+                  _row('Cache read',
+                      '${formatTokenCountFull(usage.lastCacheReadTokens!)} of the prompt'),
+                if ((usage.lastCacheCreationTokens ?? 0) > 0)
+                  _row('Cache written',
+                      '${formatTokenCountFull(usage.lastCacheCreationTokens!)} of the prompt'),
+                const SizedBox(height: 14),
+                _row(
+                  'This conversation',
+                  'Prompt ${formatTokenCountFull(usage.sessionPromptTokens)} · '
+                      'Completion ${formatTokenCountFull(usage.sessionCompletionTokens)} · '
+                      'Total ${formatTokenCountFull(usage.sessionTotalTokens)} '
+                      'tokens · ${usage.responseCount} '
+                      '${usage.responseCount == 1 ? 'response' : 'responses'}',
+                ),
+                if (usage.hasSessionCost)
+                  _row('Conversation est. cost',
+                      '\$${usage.sessionEstimatedCostUsd.toStringAsFixed(4)}'),
               ],
               if (_canCompact) ...[
                 const SizedBox(height: 18),

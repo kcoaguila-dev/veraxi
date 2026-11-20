@@ -88,13 +88,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final mode = viewModel.autoCompactMode;
     if (mode == AutoCompactMode.off) return;
     final state = ref.read(chatViewModelProvider);
-    if (state.threadId == null) return;
+    if (state.isLoading || state.threadId == null) return;
     final summary = summarizeTokenUsage(state.messages);
     if (summary == null || !_autoCompactGate.shouldFire(summary)) return;
     if (mode == AutoCompactMode.ask) {
       await _askAutoCompact(viewModel, summary);
     } else {
-      await _runAutoCompact(viewModel, summary);
+      await _runAutoCompact(viewModel, summary, state.threadId!);
     }
   }
 
@@ -147,44 +147,99 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     }
   }
 
-  Future<void> _runAutoCompact(
-      ChatViewModel viewModel, TokenUsageSummary summary) async {
-    _autoCompactBusy = true;
+  void _setAutoCompactBusy(bool busy) {
+    if (!mounted) {
+      _autoCompactBusy = busy;
+      return;
+    }
+    setState(() {
+      _autoCompactBusy = busy;
+    });
+  }
+
+  bool _canContinueAutoCompact(String targetThreadId) {
+    if (!mounted) return false;
+    final current = ref.read(chatViewModelProvider);
+    return current.threadId == targetThreadId && !current.isLoading;
+  }
+
+  TokenUsageSummary? _postStage0Summary(
+      TokenUsageSummary prior, Map<String, dynamic>? stage0Result) {
+    final postTokens = stage0Result?['tokens_after_estimate'];
+    if (postTokens is int) {
+      return TokenUsageSummary(
+        contextTokens: postTokens,
+        contextWindowTokens: prior.contextWindowTokens,
+        lastPromptTokens: postTokens,
+        lastCompletionTokens: prior.lastCompletionTokens,
+        lastTotalTokens: prior.lastTotalTokens,
+        lastEstimatedCostUsd: prior.lastEstimatedCostUsd,
+        sessionPromptTokens: prior.sessionPromptTokens,
+        sessionCompletionTokens: prior.sessionCompletionTokens,
+        sessionTotalTokens: prior.sessionTotalTokens,
+        sessionEstimatedCostUsd: prior.sessionEstimatedCostUsd,
+        hasSessionCost: prior.hasSessionCost,
+        responseCount: prior.responseCount,
+        isEstimated: prior.isEstimated,
+      );
+    }
+    return summarizeTokenUsage(ref.read(chatViewModelProvider).messages);
+  }
+
+  Future<Map<String, dynamic>?> _tryStage0Clear(
+      ChatViewModel viewModel, String targetThreadId, String? model) async {
+    try {
+      return await viewModel.clearOldToolResults(
+          threadId: targetThreadId, model: model);
+    } catch (_) {
+      // Stage 0 is best-effort; summarisation below is the gate.
+      return null;
+    }
+  }
+
+  Future<void> _runAutoCompact(ChatViewModel viewModel,
+      TokenUsageSummary summary, String targetThreadId) async {
+    _setAutoCompactBusy(true);
     final model = _selectedModel == 'Select a model' ? null : _selectedModel;
+    var stage0Cleared = false;
     try {
       // Stage 0 first: clearing old tool results is deterministic
       // and may free enough on its own — summarise only if not.
-      try {
-        await viewModel.clearOldToolResults(model: model);
-      } catch (_) {
-        // Stage 0 is best-effort; summarisation below is the gate.
-      }
-      final afterStage0 =
-          summarizeTokenUsage(ref.read(chatViewModelProvider).messages);
+      final stage0Result =
+          await _tryStage0Clear(viewModel, targetThreadId, model);
+      stage0Cleared = stage0Result != null;
+      if (!_canContinueAutoCompact(targetThreadId)) return;
+      final afterStage0 = _postStage0Summary(summary, stage0Result);
       if (afterStage0 != null && !autoCompactDue(afterStage0)) {
         _autoCompactGate.reset();
         _showAutoCompactNotice(
             'Freed context by clearing old tool results — no summary needed.');
         return;
       }
-      final preview = await viewModel.previewCompaction(model: model);
+      final preview = await viewModel.previewCompaction(
+          threadId: targetThreadId, model: model);
+      if (!_canContinueAutoCompact(targetThreadId)) return;
       await viewModel.applyCompaction(
-          summary: preview['summary'] as String, model: model);
+          threadId: targetThreadId,
+          summary: preview['summary'] as String,
+          model: model);
       _autoCompactGate.reset();
       final before = formatTokenCountFull(summary.contextTokens ?? 0);
       final afterTokens = preview['tokens_after_estimate'];
-      final after = afterTokens is int
-          ? formatTokenCountFull(afterTokens)
-          : 'less';
+      final after =
+          afterTokens is int ? formatTokenCountFull(afterTokens) : 'less';
       _showAutoCompactNotice(
           'Conversation compacted automatically (~$before → ~$after tokens). '
           'Tap the divider in the chat to read the summary.');
     } catch (_) {
-      // Fail open: a failed auto-compact changes nothing.
+      // Report Stage 0 accurately if tool results were cleared before failure.
       _showAutoCompactNotice(
-          'Auto-compact could not run — your context is unchanged.');
+        stage0Cleared
+            ? 'Cleared old tool results to free context; full summary was skipped.'
+            : 'Auto-compact could not run — your context is unchanged.',
+      );
     } finally {
-      _autoCompactBusy = false;
+      _setAutoCompactBusy(false);
     }
   }
 
@@ -650,7 +705,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                           ),
                                           const SizedBox(width: 8),
                                           Text(
-                                            style == TokenUsageIndicatorStyle.ring
+                                            style ==
+                                                    TokenUsageIndicatorStyle
+                                                        .ring
                                                 ? 'Ring'
                                                 : style ==
                                                         TokenUsageIndicatorStyle
@@ -811,11 +868,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                       const SizedBox(height: 8),
                                     ],
                                     ChatInput(
-                                      usageSummary:
-                                          viewModel.tokenUsageStyle ==
-                                                  TokenUsageIndicatorStyle.ring
-                                              ? usageSummary
-                                              : null,
+                                      usageSummary: viewModel.tokenUsageStyle ==
+                                              TokenUsageIndicatorStyle.ring
+                                          ? usageSummary
+                                          : null,
                                       tokenUsageStyle:
                                           viewModel.tokenUsageStyle,
                                       onTokenUsageStyleChanged:
@@ -830,7 +886,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                           ? null
                                           : _selectedModel,
                                       projectName: state.activeProjectName,
-                                      isLoading: state.isLoading,
+                                      isLoading:
+                                          state.isLoading || _autoCompactBusy,
                                       onSend: (text, {attachments}) =>
                                           viewModel.sendMessage(text,
                                               model: _selectedModel ==

@@ -1340,6 +1340,7 @@ def register_chat_routes(
         from backend.config import get_config as _get_config
 
         config_obj = _get_config()
+        saver_ctx: Any
         if config_obj.postgres_url:
             from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 

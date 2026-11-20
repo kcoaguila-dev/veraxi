@@ -59,12 +59,10 @@ void main() {
       gate.skip(at80);
       // Same level and small growth: stay quiet.
       expect(gate.shouldFire(at80), isFalse);
-      expect(
-          gate.shouldFire(summary(contextTokens: 110000, window: 128000)),
+      expect(gate.shouldFire(summary(contextTokens: 110000, window: 128000)),
           isFalse);
       // Past skipped level (0.80) + 0.10 delta: ask again.
-      expect(
-          gate.shouldFire(summary(contextTokens: 116000, window: 128000)),
+      expect(gate.shouldFire(summary(contextTokens: 116000, window: 128000)),
           isTrue);
     });
 
@@ -81,6 +79,16 @@ void main() {
       final gate = AutoCompactGate();
       expect(gate.shouldFire(summary(contextTokens: 100, window: 128000)),
           isFalse);
+    });
+
+    test('skipping at >=90% still re-arms once usage grows past 1.0', () {
+      final gate = AutoCompactGate();
+      final at95 = summary(contextTokens: 95000, window: 100000);
+      gate.skip(at95);
+      expect(gate.shouldFire(summary(contextTokens: 100000, window: 100000)),
+          isFalse);
+      expect(gate.shouldFire(summary(contextTokens: 105000, window: 100000)),
+          isTrue);
     });
   });
 }

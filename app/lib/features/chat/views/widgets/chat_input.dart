@@ -650,11 +650,9 @@ class _ChatInputState extends State<ChatInput> {
                     TokenUsageRing(
                       usage: widget.usageSummary!,
                       indicatorStyle: widget.tokenUsageStyle,
-                      onIndicatorStyleChanged:
-                          widget.onTokenUsageStyleChanged,
+                      onIndicatorStyleChanged: widget.onTokenUsageStyleChanged,
                       autoCompactMode: widget.autoCompactMode,
-                      onAutoCompactModeChanged:
-                          widget.onAutoCompactModeChanged,
+                      onAutoCompactModeChanged: widget.onAutoCompactModeChanged,
                       onCompactPressed: widget.onCompactPressed,
                     ),
                     SizedBox(width: 4),
