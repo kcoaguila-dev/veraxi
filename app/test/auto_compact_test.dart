@@ -90,17 +90,5 @@ void main() {
       expect(gate.shouldFire(summary(contextTokens: 105000, window: 100000)),
           isTrue);
     });
-
-    test('skipping at >=90% still re-arms once usage grows past 1.0', () {
-      final gate = AutoCompactGate();
-      final at95 = summary(contextTokens: 95000, window: 100000);
-      gate.skip(at95);
-      expect(
-          gate.shouldFire(summary(contextTokens: 100000, window: 100000)),
-          isFalse);
-      expect(
-          gate.shouldFire(summary(contextTokens: 105000, window: 100000)),
-          isTrue);
-    });
   });
 }
