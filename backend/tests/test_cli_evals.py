@@ -65,3 +65,38 @@ def test_ablation_out_markdown(tmp_path):
     assert exc.value.code == 0
     text = out.read_text(encoding="utf-8")
     assert "lookup" in text and "vector_only" in text
+
+
+def test_ablation_repo_root_mode(tmp_path, capsys):
+    repo = tmp_path / "repo"
+    (repo / "pkg").mkdir(parents=True)
+    (repo / "pkg" / "core.py").write_text(
+        '"""Core math helpers."""\ndef compute_magic_hash(x):\n    return x\n',
+        encoding="utf-8",
+    )
+    (repo / "pkg" / "caller.py").write_text(
+        'from pkg.core import compute_magic_hash\n\ndef run():\n    return compute_magic_hash(1)\n',
+        encoding="utf-8",
+    )
+    ds = tmp_path / "ds.json"
+    ds.write_text(
+        json.dumps(
+            {
+                "name": "mini-code",
+                "cases": [
+                    {
+                        "id": "m1",
+                        "query_type": "multi_hop",
+                        "query": "Which caller invokes compute_magic_hash?",
+                        "relevant_doc_ids": ["pkg/caller.py"],
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    with pytest.raises(SystemExit) as exc:
+        run_eval_ablation(dataset=str(ds), repo_root=str(repo), k=5, as_json=True)
+    assert exc.value.code == 0
+    data = json.loads(capsys.readouterr().out)
+    assert data["configurations"]["hybrid_with_graph"]["overall"]["recall_at_k"] == 1.0

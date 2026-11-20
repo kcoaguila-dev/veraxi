@@ -759,7 +759,12 @@ def main():
     eval_sub = eval_parser.add_subparsers(dest="eval_command")
     abl_parser = eval_sub.add_parser("ablation", help="Run typed ablation (offline by default)")
     abl_parser.add_argument("--dataset", required=True, help="Typed dataset JSON")
-    abl_parser.add_argument("--rankings", required=True, help="Recorded rankings JSON")
+    abl_parser.add_argument("--rankings", help="Recorded rankings JSON")
+    abl_parser.add_argument(
+        "--repo-root",
+        dest="repo_root",
+        help="Offline code-graph ablation over a local repository checkout",
+    )
     abl_parser.add_argument("--k", type=int, default=5)
     abl_parser.add_argument("--json", action="store_true", help="Output raw JSON")
     abl_parser.add_argument("--out-markdown", dest="out_markdown", help="Write markdown report")
@@ -1322,7 +1327,7 @@ def main():
             dataset=args.dataset, rankings=args.rankings, k=args.k, as_json=args.json,
             out_markdown=args.out_markdown, remote=args.remote, endpoint=endpoint, key=key,
             tenant=tenant_id, min_recall=args.min_recall, min_hit_rate=args.min_hit_rate,
-            min_grounding=args.min_grounding,
+            min_grounding=args.min_grounding, repo_root=getattr(args, "repo_root", None),
         )
 
     elif args.subcommand == "xray":

@@ -1,0 +1,108 @@
+{
+  "name": "veraxi-code-ablation-v1",
+  "cases": [
+    {
+      "id": "code-lookup-pre-compaction-picker",
+      "query_type": "lookup",
+      "query": "Which function pick_pre_compaction_messages finds pre-compaction history before compacted_at across multiple checkpoints?",
+      "relevant_doc_ids": ["backend/mcp_server/compaction.py"]
+    },
+    {
+      "id": "code-lookup-merge-rank",
+      "query_type": "lookup",
+      "query": "Where does Veraxi combine Qdrant VectorHit results and Neo4j GraphHit results with Reciprocal Rank Fusion and optional cross-encoder reranking?",
+      "relevant_doc_ids": ["backend/retrieval/merge_rank.py"]
+    },
+    {
+      "id": "code-lookup-save-activity-history",
+      "query_type": "lookup",
+      "query": "Where does _save_activity_history write per-turn reasoning_duration_seconds and tool activity into Redis thread_activities?",
+      "relevant_doc_ids": ["backend/routes/chat.py"]
+    },
+    {
+      "id": "code-lookup-config-ingestion-profiles",
+      "query_type": "lookup",
+      "query": "Where are _INGESTION_PROFILES and sparse_embedding_model_name defaults like Qdrant bm25 configured?",
+      "relevant_doc_ids": ["backend/config.py"]
+    },
+    {
+      "id": "code-multihop-ablation-callers",
+      "query_type": "multi_hop",
+      "query": "If run_ablation changes its signature, which CLI, route, and test modules directly call or test run_ablation?",
+      "relevant_doc_ids": [
+        "backend/evaluation/run_typed_ablation.py",
+        "backend/routes/evals.py",
+        "packages/veraxi-cli/src/veraxi/cli/evals.py",
+        "backend/tests/test_evidence_evals.py"
+      ]
+    },
+    {
+      "id": "code-multihop-impact-analysis-ripple",
+      "query_type": "multi_hop",
+      "query": "Which retrieval, MCP tool, FastAPI route, and test modules depend on impact_analysis transitively?",
+      "relevant_doc_ids": [
+        "backend/mcp_server/tools/code_tools.py",
+        "backend/retrieval/vuln_queries.py",
+        "backend/routes/code_intel.py",
+        "backend/tests/test_code_queries.py"
+      ]
+    },
+    {
+      "id": "code-multihop-apply-compaction-callers",
+      "query_type": "multi_hop",
+      "query": "Which backend route handler and entrypoint modules invoke apply_compaction directly or transitively?",
+      "relevant_doc_ids": [
+        "backend/routes/chat.py",
+        "backend/api_gateway.py"
+      ]
+    },
+    {
+      "id": "code-multihop-symbol-lookup-chain",
+      "query_type": "multi_hop",
+      "query": "Where is symbol_lookup defined and which modules call symbol_lookup or dispatch into it?",
+      "relevant_doc_ids": [
+        "backend/retrieval/code_queries.py",
+        "backend/mcp_server/tools/code_tools.py",
+        "backend/retrieval/vuln_queries.py"
+      ]
+    },
+    {
+      "id": "code-global-config-hub",
+      "query_type": "global",
+      "query": "Across the backend architecture, which module is the most connected central hub referenced throughout routes, storage, and retrieval?",
+      "relevant_doc_ids": ["backend/config.py"]
+    },
+    {
+      "id": "code-global-gateway-orchestration",
+      "query_type": "global",
+      "query": "Across the backend repository, which central hubs connect api_gateway, tool_registry, and orchestrator workflows?",
+      "relevant_doc_ids": [
+        "backend/api_gateway.py",
+        "backend/mcp_server/handlers/tool_registry.py",
+        "backend/mcp_server/orchestrator.py"
+      ]
+    },
+    {
+      "id": "code-global-eval-modules",
+      "query_type": "global",
+      "query": "Summarize the backend evaluation pipeline across TypedDataset, run_ablation, render_markdown, and run_typed_ablation.",
+      "relevant_doc_ids": [
+        "backend/evaluation/typed_dataset.py",
+        "backend/evaluation/ablation.py",
+        "backend/evaluation/report.py",
+        "backend/evaluation/run_typed_ablation.py"
+      ]
+    },
+    {
+      "id": "code-global-code-intel-pipeline",
+      "query_type": "global",
+      "query": "Summarize the backend code intelligence pipeline across parse_repo, scip_ingest, repo_overview, and code_intel routes.",
+      "relevant_doc_ids": [
+        "backend/ingestion/code_graph.py",
+        "backend/ingestion/scip_ingest.py",
+        "backend/retrieval/code_queries.py",
+        "backend/routes/code_intel.py"
+      ]
+    }
+  ]
+}

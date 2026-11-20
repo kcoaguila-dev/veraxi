@@ -199,3 +199,153 @@ def test_pick_pre_compaction_messages_handles_c1_c2_restore_c2_restore_c1():
         [c1, c2, c1, original], c1_record["compacted_at"]
     )
     assert picked == original
+
+
+class _FakeAsyncRedis:
+    def __init__(self) -> None:
+        self.sets: dict[str, set[bytes]] = {}
+        self.hashes: dict[tuple[str, str], bytes] = {}
+
+    async def sismember(self, key: str, value: str) -> bool:
+        return value.encode("utf-8") in self.sets.get(key, set())
+
+    async def hget(self, key: str, field: str) -> bytes | None:
+        return self.hashes.get((key, field))
+
+    async def hset(self, key: str, field: str, value: str) -> None:
+        self.hashes[(key, field)] = value.encode("utf-8")
+
+
+class _AsyncSaverCM:
+    def __init__(self, saver) -> None:
+        self._saver = saver
+
+    async def __aenter__(self):
+        return self._saver
+
+    async def __aexit__(self, exc_type, exc, tb) -> None:
+        return None
+
+
+class _NoopLimiter:
+    def limit(self, *_a, **_k):
+        return lambda fn: fn
+
+
+@pytest.mark.asyncio
+async def test_e2e_checkpointer_compact_activity_sync_guard_and_restore(monkeypatch):
+    import json
+    from contextlib import ExitStack
+    from types import SimpleNamespace
+
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+    from langgraph.checkpoint.memory import InMemorySaver
+
+    from backend.mcp_server.orchestrator import _get_workflow
+    from backend.routes import chat as chat_routes
+
+    memory = InMemorySaver()
+    graph = _get_workflow().compile(checkpointer=memory)
+    original = _history(6)
+    await graph.aupdate_state({"configurable": {"thread_id": "t-e2e"}}, {"messages": original})
+
+    redis = _FakeAsyncRedis()
+    redis.sets["tenant:tenant-1:threads"] = {b"t-e2e"}
+    activities = [
+        {
+            "activity": [{"number": 1, "name": f"step-{i}"}],
+            "response_at": float(1000 + i),
+            "reasoning": f"reasoning-{i}",
+            "reasoning_duration_seconds": float(i + 1),
+        }
+        for i in range(6)
+    ]
+    redis.hashes[("tenant:tenant-1:thread_activities", "t-e2e")] = json.dumps(activities).encode("utf-8")
+
+    monkeypatch.setattr(
+        "backend.config.get_config",
+        lambda: SimpleNamespace(postgres_url="", redis_url="redis://test"),
+    )
+    monkeypatch.setattr(
+        "langgraph.checkpoint.redis.aio.AsyncRedisSaver.from_conn_string",
+        lambda _url: _AsyncSaverCM(memory),
+    )
+
+    app = FastAPI()
+    app.state.redis = redis
+    limiter_cfg = SimpleNamespace(
+        rate_limit_chat="100/day",
+        rate_limit_sse="10/minute",
+        rate_limit_ingest="50/day",
+        rate_limit_artifact_complete="20/minute",
+    )
+    chat_routes.register_chat_routes(app, lambda: "tenant-1", lambda: None, _NoopLimiter(), limiter_cfg)
+
+    with ExitStack() as stack:
+        client = stack.enter_context(TestClient(app, raise_server_exceptions=False))
+
+        # 1. Apply compaction keeping 2 recent turns.
+        resp = client.post(
+            "/api/chat/threads/t-e2e/compact/apply",
+            json={"summary": "## Goal\nCompacted summary", "keep_recent_turns": 2},
+        )
+        assert resp.status_code == 200, resp.text
+
+        # Activity entries trimmed to the 2 kept assistant turns (4, 5).
+        saved_after_compact = json.loads(
+            redis.hashes[("tenant:tenant-1:thread_activities", "t-e2e")].decode("utf-8")
+        )
+        assert [a["reasoning"] for a in saved_after_compact] == ["reasoning-4", "reasoning-5"]
+        assert [a["response_at"] for a in saved_after_compact] == [1004.0, 1005.0]
+
+        # Extract history mirrors kept turns' reasoning without exposing activity_backup in metrics.
+        state_after_compact = await memory.aget_tuple({"configurable": {"thread_id": "t-e2e"}})
+        assert state_after_compact is not None
+        compacted_msgs = state_after_compact.checkpoint["channel_values"]["messages"]
+        extracted = chat_routes._extract_messages_from_state(
+            compacted_msgs,
+            activity_history=[a["activity"] for a in saved_after_compact],
+            reasoning_history=saved_after_compact,
+        )
+        assert "activity_backup" not in (extracted[0]["metrics"] or {})
+        final_ai_extracted = [
+            m for m in extracted if m["role"] == "assistant" and not m.get("toolEvents")
+        ]
+        assert [m["reasoning"] for m in final_ai_extracted] == ["reasoning-4", "reasoning-5"]
+
+        # 2. Simulate a post-compaction turn + activity entry.
+        await graph.aupdate_state(
+            {"configurable": {"thread_id": "t-e2e"}},
+            {"messages": [HumanMessage(content="post-q"), AIMessage(content="post-a")]},
+        )
+        saved_after_compact.append({"activity": [], "response_at": 2000.0, "reasoning": "post-r"})
+        redis.hashes[("tenant:tenant-1:thread_activities", "t-e2e")] = json.dumps(
+            saved_after_compact
+        ).encode("utf-8")
+
+        # 3. Active generation guard rejects mutations with 409 Conflict.
+        chat_routes._active_thread_generations.add("t-e2e")
+        try:
+            conflict_resp = client.post("/api/chat/threads/t-e2e/compact/restore")
+            assert conflict_resp.status_code == 409
+        finally:
+            chat_routes._active_thread_generations.discard("t-e2e")
+
+        # 4. Duplicate helper clears restorable + activity_backup cleanly.
+        duplicated = chat_routes._prepare_duplicated_messages(compacted_msgs)
+        assert duplicated[0].additional_kwargs["metrics"]["compaction"]["restorable"] is False
+        assert "activity_backup" not in duplicated[0].additional_kwargs
+
+        # 5. Restore rolls checkpointer back verbatim and restores original 6 activities.
+        restore_resp = client.post("/api/chat/threads/t-e2e/compact/restore")
+        assert restore_resp.status_code == 200, restore_resp.text
+        restored_state = await memory.aget_tuple({"configurable": {"thread_id": "t-e2e"}})
+        assert restored_state is not None
+        restored_msgs = restored_state.checkpoint["channel_values"]["messages"]
+        assert [str(m.content) for m in restored_msgs] == [str(m.content) for m in original]
+        restored_activities = json.loads(
+            redis.hashes[("tenant:tenant-1:thread_activities", "t-e2e")].decode("utf-8")
+        )
+        assert restored_activities == activities
+    chat_routes._thread_mutation_locks.pop("t-e2e", None)

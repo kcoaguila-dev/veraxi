@@ -26,6 +26,25 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api", tags=["chat"])
 
+_active_thread_generations: set[str] = set()
+_thread_mutation_locks: dict[str, asyncio.Lock] = {}
+
+
+def _get_thread_mutation_lock(thread_id: str) -> asyncio.Lock:
+    lock = _thread_mutation_locks.get(thread_id)
+    if lock is None:
+        lock = asyncio.Lock()
+        _thread_mutation_locks[thread_id] = lock
+    return lock
+
+
+def _ensure_thread_not_generating(thread_id: str) -> None:
+    if thread_id in _active_thread_generations:
+        raise HTTPException(
+            status_code=409,
+            detail="Cannot modify conversation history while a response is generating.",
+        )
+
 
 class ChatRequest(BaseModel):
     question: str
@@ -320,16 +339,20 @@ def _extract_messages_from_state(
     ]
     if activity_history:
         assistant_messages = _final_assistant_messages(messages)
-        for message, activity in zip(
-            assistant_messages[-len(activity_history) :], activity_history
-        ):
-            message["activity"] = activity
+        if assistant_messages:
+            for message, activity in zip(
+                assistant_messages[-len(activity_history) :],
+                activity_history[-len(assistant_messages) :],
+            ):
+                message["activity"] = activity
     if reasoning_history:
         assistant_messages = _final_assistant_messages(messages)
-        for message, saved_reasoning in zip(
-            assistant_messages[-len(reasoning_history) :], reasoning_history
-        ):
-            _apply_saved_reasoning(message, saved_reasoning)
+        if assistant_messages:
+            for message, saved_reasoning in zip(
+                assistant_messages[-len(reasoning_history) :],
+                reasoning_history[-len(assistant_messages) :],
+            ):
+                _apply_saved_reasoning(message, saved_reasoning)
     merged = _merge_intermediate_tool_messages(messages)
     for message in merged:
         if message.get("role") != "assistant":
@@ -490,6 +513,248 @@ async def _save_activity_history(
     await redis.hset(key, thread_id, json.dumps(history))
 
 
+def _count_final_ai_messages(raw_messages: list[Any]) -> int:
+    return sum(
+        1
+        for m in raw_messages
+        if (getattr(m, "type", "") == "ai" or m.__class__.__name__ == "AIMessage")
+        and not getattr(m, "tool_calls", None)
+    )
+
+
+async def _load_thread_activity_entries(
+    redis_client: Any, tenant_id: str, thread_id: str
+) -> list[Any]:
+    if not redis_client:
+        return []
+    raw = await redis_client.hget(f"tenant:{tenant_id}:thread_activities", thread_id)
+    if not raw:
+        return []
+    decoded = raw.decode("utf-8") if isinstance(raw, bytes) else raw
+    loaded = json.loads(decoded)
+    return loaded if isinstance(loaded, list) else []
+
+
+async def _store_thread_activity_entries(
+    redis_client: Any, tenant_id: str, thread_id: str, entries: list[Any]
+) -> None:
+    if not redis_client:
+        return
+    if hasattr(redis_client, "sismember") and not await redis_client.sismember(
+        f"tenant:{tenant_id}:threads", thread_id
+    ):
+        return
+    await redis_client.hset(
+        f"tenant:{tenant_id}:thread_activities",
+        thread_id,
+        json.dumps(entries),
+    )
+
+
+def _attach_activity_backup(
+    new_messages: list[Any], activity_entries: list[Any]
+) -> None:
+    from backend.mcp_server.compaction import find_latest_compaction
+
+    found = find_latest_compaction(new_messages)
+    if found is None:
+        return
+    index, _ = found
+    kwargs = dict(getattr(new_messages[index], "additional_kwargs", None) or {})
+    kwargs["activity_backup"] = activity_entries
+    new_messages[index].additional_kwargs = kwargs
+
+
+async def _trim_activities_after_compact(
+    redis_client: Any,
+    tenant_id: str,
+    thread_id: str,
+    entries: list[Any],
+    new_messages: list[Any],
+) -> None:
+    try:
+        kept_ai = _count_final_ai_messages(new_messages)
+        trimmed = entries[-kept_ai:] if kept_ai > 0 else []
+        await _store_thread_activity_entries(
+            redis_client, tenant_id, thread_id, trimmed
+        )
+    except Exception as e:
+        sentry_sdk.capture_exception(e)
+        logger.warning(f"Failed to reconcile thread_activities on compact: {e}")
+
+
+async def _reconcile_activities_on_restore(
+    redis_client: Any,
+    tenant_id: str,
+    thread_id: str,
+    summary_message: Any,
+    record: dict[str, Any],
+    restored_messages: list[Any],
+) -> None:
+    try:
+        kwargs = getattr(summary_message, "additional_kwargs", None) or {}
+        backup = kwargs.get("activity_backup")
+        if not isinstance(backup, list):
+            backup = record.get("activity_backup")
+        if isinstance(backup, list):
+            await _store_thread_activity_entries(
+                redis_client, tenant_id, thread_id, backup
+            )
+            return
+        entries = await _load_thread_activity_entries(
+            redis_client, tenant_id, thread_id
+        )
+        restored_ai = _count_final_ai_messages(restored_messages)
+        trimmed = entries[:restored_ai] if restored_ai > 0 else []
+        await _store_thread_activity_entries(
+            redis_client, tenant_id, thread_id, trimmed
+        )
+    except Exception as e:
+        sentry_sdk.capture_exception(e)
+        logger.warning(f"Failed to reconcile thread_activities on restore: {e}")
+
+
+async def _apply_compaction_tx(
+    memory: Any,
+    replace_messages: Any,
+    redis_client: Any,
+    tenant_id: str,
+    thread_id: str,
+    payload: CompactApplyRequest,
+) -> dict[str, Any]:
+    from backend.mcp_server.compaction import (
+        CompactionError,
+        apply_compaction,
+        check_minimum_progress,
+        count_messages_tokens,
+        split_for_compaction,
+    )
+
+    state = await memory.aget_tuple({"configurable": {"thread_id": thread_id}})
+    if not state:
+        raise HTTPException(status_code=404, detail="Thread not found")
+    raw_messages = state.checkpoint.get("channel_values", {}).get("messages", [])
+    tokens_before = count_messages_tokens(raw_messages, None)
+    _, prefix, _ = split_for_compaction(raw_messages, payload.keep_recent_turns)
+    try:
+        new_messages = apply_compaction(
+            raw_messages,
+            payload.summary,
+            payload.keep_recent_turns,
+            tokens_before,
+        )
+        tokens_after = count_messages_tokens(new_messages, None)
+        check_minimum_progress(tokens_before, tokens_after)
+    except CompactionError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    activity_entries = await _load_thread_activity_entries(
+        redis_client, tenant_id, thread_id
+    )
+    _attach_activity_backup(new_messages, activity_entries)
+    await replace_messages(memory, thread_id, new_messages)
+    await _trim_activities_after_compact(
+        redis_client, tenant_id, thread_id, activity_entries, new_messages
+    )
+    return {
+        "status": "ok",
+        "messages_compacted": len(prefix),
+        "tokens_after_estimate": tokens_after,
+    }
+
+
+async def _restore_compaction_tx(
+    memory: Any,
+    replace_messages: Any,
+    redis_client: Any,
+    tenant_id: str,
+    thread_id: str,
+) -> dict[str, Any]:
+    from backend.mcp_server.compaction import (
+        find_latest_compaction,
+        pick_pre_compaction_messages,
+    )
+
+    config = {"configurable": {"thread_id": thread_id}}
+    state = await memory.aget_tuple(config)
+    if not state:
+        raise HTTPException(status_code=404, detail="Thread not found")
+    raw_messages = state.checkpoint.get("channel_values", {}).get("messages", [])
+    found = find_latest_compaction(raw_messages)
+    if found is None:
+        raise HTTPException(
+            status_code=409,
+            detail="This conversation has not been compacted.",
+        )
+    index, record = found
+    summary_message = raw_messages[index]
+    history_lists: list[Any] = []
+    async for tuple_ in memory.alist(config):
+        history_lists.append(
+            tuple_.checkpoint.get("channel_values", {}).get("messages", [])
+        )
+    restored = pick_pre_compaction_messages(history_lists, record.get("compacted_at"))
+    if restored is None:
+        raise HTTPException(
+            status_code=409,
+            detail="The pre-compaction checkpoint is no longer available.",
+        )
+    await replace_messages(memory, thread_id, restored)
+    await _reconcile_activities_on_restore(
+        redis_client, tenant_id, thread_id, summary_message, record, restored
+    )
+    return {
+        "status": "ok",
+        "messages_restored": len(restored),
+    }
+
+
+async def _clear_tool_results_tx(
+    memory: Any,
+    replace_messages: Any,
+    thread_id: str,
+    payload: ClearToolResultsRequest,
+) -> dict[str, Any]:
+    from backend.mcp_server.compaction import (
+        clear_old_tool_results,
+        count_messages_tokens,
+    )
+
+    state = await memory.aget_tuple({"configurable": {"thread_id": thread_id}})
+    if not state:
+        raise HTTPException(status_code=404, detail="Thread not found")
+    raw_messages = state.checkpoint.get("channel_values", {}).get("messages", [])
+    new_messages, cleared = clear_old_tool_results(
+        raw_messages, payload.keep_recent_turns
+    )
+    if cleared == 0:
+        raise HTTPException(
+            status_code=400,
+            detail="No old tool results to clear.",
+        )
+    await replace_messages(memory, thread_id, new_messages)
+    return {
+        "status": "ok",
+        "tool_results_cleared": cleared,
+        "tokens_after_estimate": count_messages_tokens(new_messages, None),
+    }
+
+
+def _prepare_duplicated_messages(raw_messages: list[Any]) -> list[Any]:
+    copied_messages = copy.deepcopy(raw_messages)
+    for msg in copied_messages:
+        msg.id = str(uuid.uuid4())
+        kwargs = getattr(msg, "additional_kwargs", None)
+        if not isinstance(kwargs, dict):
+            continue
+        if "id" in kwargs:
+            kwargs["id"] = msg.id
+        kwargs.pop("activity_backup", None)
+        metrics = kwargs.get("metrics")
+        if isinstance(metrics, dict) and isinstance(metrics.get("compaction"), dict):
+            metrics["compaction"]["restorable"] = False
+    return copied_messages
+
+
 def _build_thread_list(threads, titles, pinned, archived, projects, timestamps):
     thread_list = []
     for t in threads:
@@ -571,6 +836,8 @@ async def _stream_events(
     activity: list[dict] = []
     reasoning_parts: list[str] = []
     reasoning_duration_seconds: float | None = None
+    async with _get_thread_mutation_lock(thread_id):
+        _active_thread_generations.add(thread_id)
     try:
         yield f"data: {json.dumps({'event': 'metadata', 'data': {'thread_id': thread_id}})}\n\n"
         ts = chat_request.tool_settings or {}
@@ -636,6 +903,8 @@ async def _stream_events(
             logger.exception("Error saving activity after stream failure")
         yield f"data: {json.dumps({'error': _friendly_provider_error(e)})}\n\n"
         yield "data: [DONE]\n\n"
+    finally:
+        _active_thread_generations.discard(thread_id)
 
 
 async def notify_sync_event(
@@ -943,19 +1212,24 @@ def register_chat_routes(
             if chat_request.custom_system_prompt:
                 ts["custom_system_prompt"] = chat_request.custom_system_prompt
 
-            answer, context, metrics = await answer_question(
-                chat_request.question,
-                tenant_id=tenant_id,
-                thread_id=thread_id,
-                return_context=True,
-                return_metrics=True,
-                is_temporary=chat_request.is_temporary,
-                api_key_override=api_key_override,
-                base_url_override=chat_request.base_url,
-                model_override=chat_request.model,
-                calculate_grounding=chat_request.calculate_grounding,
-                tool_settings=ts,
-            )
+            async with _get_thread_mutation_lock(thread_id):
+                _active_thread_generations.add(thread_id)
+            try:
+                answer, context, metrics = await answer_question(
+                    chat_request.question,
+                    tenant_id=tenant_id,
+                    thread_id=thread_id,
+                    return_context=True,
+                    return_metrics=True,
+                    is_temporary=chat_request.is_temporary,
+                    api_key_override=api_key_override,
+                    base_url_override=chat_request.base_url,
+                    model_override=chat_request.model,
+                    calculate_grounding=chat_request.calculate_grounding,
+                    tool_settings=ts,
+                )
+            finally:
+                _active_thread_generations.discard(thread_id)
             return ChatResponse(
                 answer=answer,
                 context=context,
@@ -1092,9 +1366,9 @@ def register_chat_routes(
                             if isinstance(item, (dict, list))
                         ]
                         response_times = [
-                            item.get("response_at")
+                            item.get("response_at") if isinstance(item, dict) else None
                             for item in decoded
-                            if isinstance(item, dict)
+                            if isinstance(item, (dict, list))
                         ]
                         assistant_messages = [
                             message
@@ -1102,14 +1376,15 @@ def register_chat_routes(
                             if message.__class__.__name__ == "AIMessage"
                             and not getattr(message, "tool_calls", None)
                         ]
-                        for message, response_at in zip(
-                            assistant_messages[-len(response_times) :],
-                            response_times,
-                        ):
-                            if response_at is not None:
-                                message.additional_kwargs.setdefault(
-                                    "metrics", {}
-                                )["response_at"] = response_at
+                        if assistant_messages and response_times:
+                            for message, response_at in zip(
+                                assistant_messages[-len(response_times) :],
+                                response_times[-len(assistant_messages) :],
+                            ):
+                                if response_at is not None:
+                                    message.additional_kwargs.setdefault(
+                                        "metrics", {}
+                                    )["response_at"] = response_at
             except Exception as e:
                 sentry_sdk.capture_exception(e)
                 logger.error(f"Failed to fetch activity history: {e}")
@@ -1457,52 +1732,26 @@ def register_chat_routes(
         tenant_id: str = Depends(get_tenant_id),
     ):
         """Apply a user-accepted (possibly edited) compaction summary."""
-        from backend.mcp_server.compaction import (
-            CompactionError,
-            apply_compaction,
-            check_minimum_progress,
-            count_messages_tokens,
-            split_for_compaction,
-        )
-
         try:
             config_obj, saver_ctx = await _compaction_saver(
                 request, tenant_id, thread_id
             )
-            async with saver_ctx as memory:
-                if config_obj.postgres_url:
-                    await setup_postgres_checkpointer_once(
-                        memory, config_obj.postgres_url
+            _ensure_thread_not_generating(thread_id)
+            async with _get_thread_mutation_lock(thread_id):
+                _ensure_thread_not_generating(thread_id)
+                async with saver_ctx as memory:
+                    if config_obj.postgres_url:
+                        await setup_postgres_checkpointer_once(
+                            memory, config_obj.postgres_url
+                        )
+                    return await _apply_compaction_tx(
+                        memory,
+                        _replace_thread_messages,
+                        request.app.state.redis,
+                        tenant_id,
+                        thread_id,
+                        payload,
                     )
-                state = await memory.aget_tuple(
-                    {"configurable": {"thread_id": thread_id}}
-                )
-                if not state:
-                    raise HTTPException(status_code=404, detail="Thread not found")
-                raw_messages = state.checkpoint.get("channel_values", {}).get(
-                    "messages", []
-                )
-                tokens_before = count_messages_tokens(raw_messages, None)
-                _, prefix, _ = split_for_compaction(
-                    raw_messages, payload.keep_recent_turns
-                )
-                try:
-                    new_messages = apply_compaction(
-                        raw_messages,
-                        payload.summary,
-                        payload.keep_recent_turns,
-                        tokens_before,
-                    )
-                    tokens_after = count_messages_tokens(new_messages, None)
-                    check_minimum_progress(tokens_before, tokens_after)
-                except CompactionError as e:
-                    raise HTTPException(status_code=400, detail=str(e))
-                await _replace_thread_messages(memory, thread_id, new_messages)
-                return {
-                    "status": "ok",
-                    "messages_compacted": len(prefix),
-                    "tokens_after_estimate": tokens_after,
-                }
         except HTTPException:
             raise
         except Exception as e:
@@ -1525,54 +1774,25 @@ def register_chat_routes(
         that before calling this. Prior checkpoints are retained by
         the checkpointer, so the pre-compaction state is recovered
         verbatim, never reconstructed."""
-        from backend.mcp_server.compaction import (
-            find_latest_compaction,
-            pick_pre_compaction_messages,
-        )
-
         try:
             config_obj, saver_ctx = await _compaction_saver(
                 request, tenant_id, thread_id
             )
-            async with saver_ctx as memory:
-                if config_obj.postgres_url:
-                    await setup_postgres_checkpointer_once(
-                        memory, config_obj.postgres_url
-                    )
-                config = {"configurable": {"thread_id": thread_id}}
-                state = await memory.aget_tuple(config)
-                if not state:
-                    raise HTTPException(status_code=404, detail="Thread not found")
-                raw_messages = state.checkpoint.get("channel_values", {}).get(
-                    "messages", []
-                )
-                found = find_latest_compaction(raw_messages)
-                if found is None:
-                    raise HTTPException(
-                        status_code=409,
-                        detail="This conversation has not been compacted.",
-                    )
-                _, record = found
-                history_lists: list[Any] = []
-                async for tuple_ in memory.alist(config):
-                    history_lists.append(
-                        tuple_.checkpoint.get("channel_values", {}).get(
-                            "messages", []
+            _ensure_thread_not_generating(thread_id)
+            async with _get_thread_mutation_lock(thread_id):
+                _ensure_thread_not_generating(thread_id)
+                async with saver_ctx as memory:
+                    if config_obj.postgres_url:
+                        await setup_postgres_checkpointer_once(
+                            memory, config_obj.postgres_url
                         )
+                    return await _restore_compaction_tx(
+                        memory,
+                        _replace_thread_messages,
+                        request.app.state.redis,
+                        tenant_id,
+                        thread_id,
                     )
-                restored = pick_pre_compaction_messages(
-                    history_lists, record.get("compacted_at")
-                )
-                if restored is None:
-                    raise HTTPException(
-                        status_code=409,
-                        detail="The pre-compaction checkpoint is no longer available.",
-                    )
-                await _replace_thread_messages(memory, thread_id, restored)
-                return {
-                    "status": "ok",
-                    "messages_restored": len(restored),
-                }
         except HTTPException:
             raise
         except Exception as e:
@@ -1594,42 +1814,24 @@ def register_chat_routes(
 
         Deterministic, no LLM call — the cheap context-recovery step
         that runs before summarization is even considered."""
-        from backend.mcp_server.compaction import (
-            clear_old_tool_results,
-            count_messages_tokens,
-        )
-
         try:
             config_obj, saver_ctx = await _compaction_saver(
                 request, tenant_id, thread_id
             )
-            async with saver_ctx as memory:
-                if config_obj.postgres_url:
-                    await setup_postgres_checkpointer_once(
-                        memory, config_obj.postgres_url
+            _ensure_thread_not_generating(thread_id)
+            async with _get_thread_mutation_lock(thread_id):
+                _ensure_thread_not_generating(thread_id)
+                async with saver_ctx as memory:
+                    if config_obj.postgres_url:
+                        await setup_postgres_checkpointer_once(
+                            memory, config_obj.postgres_url
+                        )
+                    return await _clear_tool_results_tx(
+                        memory,
+                        _replace_thread_messages,
+                        thread_id,
+                        payload,
                     )
-                state = await memory.aget_tuple(
-                    {"configurable": {"thread_id": thread_id}}
-                )
-                if not state:
-                    raise HTTPException(status_code=404, detail="Thread not found")
-                raw_messages = state.checkpoint.get("channel_values", {}).get(
-                    "messages", []
-                )
-                new_messages, cleared = clear_old_tool_results(
-                    raw_messages, payload.keep_recent_turns
-                )
-                if cleared == 0:
-                    raise HTTPException(
-                        status_code=400,
-                        detail="No old tool results to clear.",
-                    )
-                await _replace_thread_messages(memory, thread_id, new_messages)
-                return {
-                    "status": "ok",
-                    "tool_results_cleared": cleared,
-                    "tokens_after_estimate": count_messages_tokens(new_messages, None),
-                }
         except HTTPException:
             raise
         except Exception as e:
@@ -1795,14 +1997,7 @@ def register_chat_routes(
                             "messages", []
                         )
                         if raw_messages:
-                            copied_messages = copy.deepcopy(raw_messages)
-                            for msg in copied_messages:
-                                msg.id = str(uuid.uuid4())
-                                if (
-                                    hasattr(msg, "additional_kwargs")
-                                    and "id" in msg.additional_kwargs
-                                ):
-                                    msg.additional_kwargs["id"] = msg.id
+                            copied_messages = _prepare_duplicated_messages(raw_messages)
                             from backend.mcp_server.orchestrator import _get_workflow
 
                             workflow = _get_workflow()

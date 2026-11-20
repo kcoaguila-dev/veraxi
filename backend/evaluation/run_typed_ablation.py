@@ -63,7 +63,12 @@ def _load_rankings(path: Path) -> dict[str, dict[str, Any]]:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dataset", required=True, help="Typed dataset JSON path")
-    parser.add_argument("--rankings", required=True, help="Recorded rankings JSON path")
+    source_group = parser.add_mutually_exclusive_group(required=True)
+    source_group.add_argument("--rankings", help="Recorded rankings JSON path")
+    source_group.add_argument(
+        "--repo-root",
+        help="Run live offline code-graph ablation over a local repository root",
+    )
     parser.add_argument(
         "--k", type=int, default=5, help="Cutoff for recall@k / hit-rate"
     )
@@ -72,7 +77,13 @@ def main() -> None:
     args = parser.parse_args()
 
     dataset = load_dataset(args.dataset)
-    retriever = RecordedRankingsRetriever(_load_rankings(Path(args.rankings)))
+    retriever: Any
+    if args.repo_root:
+        from backend.evaluation.code_ablation import RepoCodeAblationRetriever
+
+        retriever = RepoCodeAblationRetriever(args.repo_root)
+    else:
+        retriever = RecordedRankingsRetriever(_load_rankings(Path(args.rankings)))
     results = run_ablation(dataset, retriever, k=args.k)
 
     if args.out_json:

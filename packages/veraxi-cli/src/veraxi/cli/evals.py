@@ -89,15 +89,22 @@ def run_eval_ablation(
     min_recall=None,
     min_hit_rate=None,
     min_grounding=None,
+    repo_root=None,
 ):
-    if not dataset or not rankings:
-        print("Error: --dataset and --rankings are required.", file=sys.stderr)
+    if not dataset or (not rankings and not repo_root):
+        print(
+            "Error: --dataset and (--rankings or --repo-root) are required.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    if remote and not rankings:
+        print("Error: --remote requires --rankings.", file=sys.stderr)
         sys.exit(1)
     dataset_data = _load_json_file(dataset, "dataset")
-    rankings_data = _load_json_file(rankings, "rankings")
 
     markdown_text = None
     if remote:
+        rankings_data = _load_json_file(rankings, "rankings")
         results_dict = _remote_ablation(dataset_data, rankings_data, k, endpoint, key, tenant)
     else:
         try:
@@ -110,7 +117,14 @@ def run_eval_ablation(
             sys.exit(1)
         try:
             typed = load_dataset(dataset)
-            results = run_ablation(typed, RecordedRankingsRetriever(rankings_data), k=k)
+            if repo_root:
+                from backend.evaluation.code_ablation import RepoCodeAblationRetriever
+
+                retriever = RepoCodeAblationRetriever(repo_root)
+            else:
+                rankings_data = _load_json_file(rankings, "rankings")
+                retriever = RecordedRankingsRetriever(rankings_data)
+            results = run_ablation(typed, retriever, k=k)
         except Exception as exc:
             print(f"Error: ablation failed: {exc}", file=sys.stderr)
             sys.exit(1)
