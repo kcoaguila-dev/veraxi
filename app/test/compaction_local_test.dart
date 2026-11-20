@@ -1,4 +1,3 @@
-
 import 'package:drift/drift.dart' hide isNotNull, isNull;
 import 'package:drift/native.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -55,11 +54,9 @@ void main() {
       ];
       final (cleared1, count1) = clearLocalToolResults(messages, 1);
       expect(count1, 1);
-      final prefixEvent =
-          (cleared1[1]['toolEvents'] as List).single as Map;
+      final prefixEvent = (cleared1[1]['toolEvents'] as List).single as Map;
       expect(prefixEvent['result'], startsWith(kClearedToolPlaceholder));
-      final recentEvent =
-          (cleared1[7]['toolEvents'] as List).single as Map;
+      final recentEvent = (cleared1[7]['toolEvents'] as List).single as Map;
       expect(recentEvent['result'], 'recent result');
       final (_, count2) = clearLocalToolResults(cleared1, 1);
       expect(count2, 0);
@@ -136,7 +133,6 @@ void main() {
       expect(after.length, 12);
     });
 
-
     test('apply with an unavailable .gguf falls back to estimated counts',
         () async {
       final result = await repository.applyCompaction('t1',
@@ -151,8 +147,7 @@ void main() {
         () async {
       await expectLater(
         repository.clearOldToolResults('t1'),
-        throwsA(predicate(
-            (e) => e.toString().contains('No old tool results'))),
+        throwsA(predicate((e) => e.toString().contains('No old tool results'))),
       );
     });
   });

@@ -36,14 +36,13 @@ class CompactionDivider extends StatelessWidget {
               children: [
                 const Expanded(child: Divider(color: Color(0xFF2E2E2E))),
                 const SizedBox(width: 10),
-                const Icon(Icons.compress,
-                    size: 14, color: Color(0xFF8A8A8A)),
+                const Icon(Icons.compress, size: 14, color: Color(0xFF8A8A8A)),
                 const SizedBox(width: 6),
                 Flexible(
                   child: Text(
                     label,
-                    style: const TextStyle(
-                        color: Color(0xFF8A8A8A), fontSize: 11),
+                    style:
+                        const TextStyle(color: Color(0xFF8A8A8A), fontSize: 11),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),

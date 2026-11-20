@@ -256,8 +256,8 @@ class CloudChatRepository implements IChatRepository {
     final uri = Uri.parse('${apiClient.baseUrl}$path');
     final headers = await apiClient.getDefaultHeaders();
     headers['Content-Type'] = 'application/json';
-    final response = await apiClient.client.post(uri,
-        headers: headers, body: jsonEncode(body));
+    final response = await apiClient.client
+        .post(uri, headers: headers, body: jsonEncode(body));
     final decoded = response.body.isEmpty
         ? <String, dynamic>{}
         : jsonDecode(response.body) as Map<String, dynamic>;

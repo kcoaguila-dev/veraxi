@@ -64,8 +64,7 @@ class _CompactionSheetState extends State<_CompactionSheet> {
     super.dispose();
   }
 
-  String _cleanError(Object e) =>
-      e.toString().replaceFirst('Exception: ', '');
+  String _cleanError(Object e) => e.toString().replaceFirst('Exception: ', '');
 
   Future<void> _loadPreview() async {
     try {
@@ -161,8 +160,7 @@ class _CompactionSheetState extends State<_CompactionSheet> {
                     SizedBox(height: 12),
                     Text(
                       'Summarizing earlier messages…',
-                      style:
-                          TextStyle(color: Color(0xFF8A8A8A), fontSize: 12),
+                      style: TextStyle(color: Color(0xFF8A8A8A), fontSize: 12),
                     ),
                   ],
                 ),
@@ -175,8 +173,7 @@ class _CompactionSheetState extends State<_CompactionSheet> {
                 '~${formatTokenCountFull(preview['tokens_before'] as int)} '
                 '→ ~${preview['tokens_after_estimate'] == null ? '—' : formatTokenCountFull(preview['tokens_after_estimate'] as int)} tokens'
                 '${preview['estimated'] == true ? ' (estimated)' : ''}',
-                style: const TextStyle(
-                    color: Color(0xFFB0B0B0), fontSize: 12),
+                style: const TextStyle(color: Color(0xFFB0B0B0), fontSize: 12),
               ),
             const SizedBox(height: 8),
             ConstrainedBox(
@@ -212,8 +209,7 @@ class _CompactionSheetState extends State<_CompactionSheet> {
             children: [
               const Spacer(),
               TextButton(
-                onPressed:
-                    _applying ? null : () => Navigator.of(context).pop(),
+                onPressed: _applying ? null : () => Navigator.of(context).pop(),
                 child: const Text('Cancel'),
               ),
               const SizedBox(width: 8),

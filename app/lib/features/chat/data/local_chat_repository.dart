@@ -299,8 +299,8 @@ class LocalChatRepository implements IChatRepository {
           }
         }
       }
-      final exact = await LocalChatDataSource.forModel()
-          .countTokensTotal(texts, model);
+      final exact =
+          await LocalChatDataSource.forModel().countTokensTotal(texts, model);
       if (exact != null) return (exact, true);
     }
     return (estimateHistoryTokens(messages), false);
@@ -361,8 +361,7 @@ class LocalChatRepository implements IChatRepository {
     checkLocalMinProgress(tokensBefore, tokensAfter);
 
     final prefixIds = prefix.map((m) => m['id'] as String).toList();
-    await (db.delete(db.localMessages)
-          ..where((m) => m.id.isIn(prefixIds)))
+    await (db.delete(db.localMessages)..where((m) => m.id.isIn(prefixIds)))
         .go();
 
     // The summary sorts just before the first kept message.

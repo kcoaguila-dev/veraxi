@@ -367,8 +367,7 @@ void main() {
   });
 
   group('compaction entry point', () {
-    TokenUsageSummary summaryAt(int prompt, int window) =>
-        summarizeTokenUsage([
+    TokenUsageSummary summaryAt(int prompt, int window) => summarizeTokenUsage([
           assistant({
             'prompt_tokens': prompt,
             'completion_tokens': 10,
@@ -397,8 +396,7 @@ void main() {
       expect(taps, 1);
     });
 
-    testWidgets('no Compact button below 50% or when unwired',
-        (tester) async {
+    testWidgets('no Compact button below 50% or when unwired', (tester) async {
       await tester.pumpWidget(MaterialApp(
         theme: testTheme(),
         home: Scaffold(
@@ -429,8 +427,7 @@ void main() {
 
     test('empty thread still returns null', () {
       expect(summarizeTokenUsage(const []), isNull);
-      expect(
-          summarizeTokenUsage([ChatMessage(role: 'user', content: '')]),
+      expect(summarizeTokenUsage([ChatMessage(role: 'user', content: '')]),
           isNull);
     });
   });
@@ -499,5 +496,4 @@ void main() {
       expect(summary.lastReasoningTokens, isNull);
     });
   });
-
 }

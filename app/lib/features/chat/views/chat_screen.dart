@@ -507,7 +507,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                           ),
                                           const SizedBox(width: 8),
                                           Text(
-                                            style == TokenUsageIndicatorStyle.ring
+                                            style ==
+                                                    TokenUsageIndicatorStyle
+                                                        .ring
                                                 ? 'Ring'
                                                 : style ==
                                                         TokenUsageIndicatorStyle
@@ -664,11 +666,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                       const SizedBox(height: 8),
                                     ],
                                     ChatInput(
-                                      usageSummary:
-                                          viewModel.tokenUsageStyle ==
-                                                  TokenUsageIndicatorStyle.ring
-                                              ? usageSummary
-                                              : null,
+                                      usageSummary: viewModel.tokenUsageStyle ==
+                                              TokenUsageIndicatorStyle.ring
+                                          ? usageSummary
+                                          : null,
                                       tokenUsageStyle:
                                           viewModel.tokenUsageStyle,
                                       onTokenUsageStyleChanged:
