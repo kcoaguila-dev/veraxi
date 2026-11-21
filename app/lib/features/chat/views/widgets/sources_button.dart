@@ -148,7 +148,10 @@ class SourcesButton extends StatelessWidget {
         event.name.contains('merge_rank') ||
         event.name.contains('search_vectors') ||
         event.name.contains('query_graph') ||
-        event.name.contains('build_lazy_dossier');
+        event.name.contains('build_lazy_dossier') ||
+        event.name.contains('code_symbol') ||
+        event.name.contains('code_impact') ||
+        event.name.contains('code_overview');
   }
 
   static List<dynamic> _parseEventResult(dynamic result) {

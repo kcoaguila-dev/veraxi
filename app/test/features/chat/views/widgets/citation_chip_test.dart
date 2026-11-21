@@ -8,6 +8,7 @@ import 'package:veraxi_app/core/theme.dart';
 import 'package:veraxi_app/features/chat/view_models/chat_view_model.dart';
 import 'package:veraxi_app/features/chat/views/widgets/citation_chip.dart';
 import 'package:veraxi_app/features/chat/views/widgets/markdown_citation_builder.dart';
+import 'package:veraxi_app/features/chat/views/widgets/sources_button.dart';
 
 Widget _wrapMarkdown(String data, ChatMessage message) {
   return MaterialApp(
@@ -371,6 +372,122 @@ void main() {
       await _hoverOver(tester, find.byType(CitationChip));
 
       expect(find.text('Knowledge Base'), findsOneWidget);
+    });
+  });
+
+  group('fileCitationLaunchUrl', () {
+    test('preserves a line-range anchor from a code citation', () {
+      expect(
+        fileCitationLaunchUrl(
+            'file://backend/retrieval/merge_rank.py#L214-L303'),
+        'file://backend/retrieval/merge_rank.py#L214-L303',
+      );
+    });
+
+    test('preserves a single-line anchor from a code citation', () {
+      expect(
+        fileCitationLaunchUrl('file://backend/retrieval/code_queries.py#L42'),
+        'file://backend/retrieval/code_queries.py#L42',
+      );
+    });
+
+    test('strips a page anchor, keeping the historical bare-file launch', () {
+      expect(
+        fileCitationLaunchUrl('file://docs/book.pdf#page=158'),
+        'file://docs/book.pdf',
+      );
+    });
+
+    test('strips any other non-line fragment', () {
+      expect(
+        fileCitationLaunchUrl('file://docs/notes.md#section-2'),
+        'file://docs/notes.md',
+      );
+    });
+
+    test('returns an anchorless file URL unchanged', () {
+      expect(
+        fileCitationLaunchUrl('file://backend/config.py'),
+        'file://backend/config.py',
+      );
+    });
+  });
+
+  group('Code tool source events', () {
+    testWidgets(
+        'code_symbol event feeds hover-card enrichment for a code citation',
+        (tester) async {
+      final msg = ChatMessage(
+        role: 'assistant',
+        content:
+            'The merge step lives in the retrieval layer [merge_rank](file://backend/retrieval/merge_rank.py#L214-L303).',
+        toolEvents: [
+          ToolEvent(
+            id: 'tc1',
+            name: 'mcp_code_symbol',
+            isComplete: true,
+            result: [
+              {
+                'id': 'code_graph',
+                'payload': {
+                  'title': 'merge_rank',
+                  'url': 'file://backend/retrieval/merge_rank.py#L214-L303',
+                  'text':
+                      'The merge_rank function combines graph and vector hits into one ranked list.',
+                },
+                'sources': ['Repo X-Ray'],
+              },
+            ],
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(_wrapMarkdown(msg.content, msg));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(CitationChip), findsOneWidget);
+
+      await _hoverOver(tester, find.byType(CitationChip));
+
+      expect(find.text('merge_rank'), findsWidgets);
+      expect(
+        find.text(
+            'The merge_rank function combines graph and vector hits into one ranked list.'),
+        findsOneWidget,
+      );
+      expect(find.text('Knowledge Base'), findsNothing);
+    });
+
+    test('SourcesButton.extractSources includes code tool events', () {
+      final msg = ChatMessage(
+        role: 'assistant',
+        content:
+            'The overview entry point is [code_queries](file://backend/retrieval/code_queries.py).',
+        toolEvents: [
+          ToolEvent(
+            id: 'tc2',
+            name: 'code_impact',
+            isComplete: true,
+            result: [
+              {
+                'id': 'code_graph',
+                'payload': {
+                  'title': 'code_queries',
+                  'url': 'file://backend/retrieval/code_queries.py',
+                  'text': 'Repo X-Ray query layer for the code graph.',
+                },
+                'sources': ['Repo X-Ray'],
+              },
+            ],
+          ),
+        ],
+      );
+
+      final sources = SourcesButton.extractSources(msg);
+
+      expect(sources, hasLength(1));
+      expect(sources.single['url'], 'file://backend/retrieval/code_queries.py');
+      expect(sources.single['title'], 'code_queries');
     });
   });
 

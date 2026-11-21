@@ -56,6 +56,7 @@ final RegExp _pageRefSuffixRegex = RegExp(
   r',\s*(?:pp?\.|page|ch\.|chap\.|sec\.|fig\.)',
   caseSensitive: false,
 );
+final RegExp _lineAnchorFragmentRegex = RegExp(r'^L\d+(?:-L\d+)?$');
 
 /// Normalize [value] into lowercase space-separated alphanumeric tokens.
 String normalizeCitationMatchText(String value) {
@@ -100,6 +101,21 @@ bool citationMatchesSourceItem({
   }
 
   return _hasMatchingHostDomain(tokens, url);
+}
+
+/// Resolve the URL handed to the platform launcher when a `file://`
+/// citation is tapped.
+///
+/// A line anchor (`#L<start>` / `#L<start>-L<end>`, as emitted for code
+/// citations) is preserved so the receiving editor or viewer can
+/// position at the cited line. Any other fragment (e.g. `#page=158`)
+/// keeps the historical behavior of launching the bare file path.
+String fileCitationLaunchUrl(String url) {
+  final hashIndex = url.indexOf('#');
+  if (hashIndex < 0) return url;
+  final fragment = url.substring(hashIndex + 1);
+  if (_lineAnchorFragmentRegex.hasMatch(fragment)) return url;
+  return url.substring(0, hashIndex);
 }
 
 bool _urlsMatch(String a, String b) {
@@ -503,8 +519,8 @@ class _CitationChipState extends State<CitationChip> {
 
   void _openUrl(String url) {
     if (url.isEmpty) return;
-    if (url.startsWith('file://') && url.contains('#')) {
-      launchUrlString(url.split('#').first);
+    if (url.startsWith('file://')) {
+      launchUrlString(fileCitationLaunchUrl(url));
       return;
     }
     if (url.startsWith('http://') || url.startsWith('https://')) {
@@ -632,7 +648,10 @@ class _CitationChipState extends State<CitationChip> {
         n.contains('build_lazy_dossier') ||
         n.contains('ephemeral_web_rag') ||
         n.contains('agentic_debate') ||
-        n.contains('dynamic_web_graph');
+        n.contains('dynamic_web_graph') ||
+        n.contains('code_symbol') ||
+        n.contains('code_impact') ||
+        n.contains('code_overview');
   }
 
   List<Map<String, dynamic>> _extractAllSourceItems() {

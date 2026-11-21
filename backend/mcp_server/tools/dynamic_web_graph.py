@@ -90,8 +90,10 @@ def mcp_dynamic_web_graph(
     multi-hop reasoning questions over live web data. It provides higher accuracy
     and eliminates noise by structuring the web results before you process them.
 
-    IMPORTANT: When citing sources, use inline bracketed citations containing ONLY
-    the source title EXACTLY as it appears in the 'sources' list (e.g. `[Yahoo Finance]`).
+    IMPORTANT: When citing sources, use inline markdown links containing the
+    source title EXACTLY as it appears in the 'sources' list and the exact URL
+    from the 'sources' list (e.g. `[Yahoo Finance](https://finance.yahoo.com/...)`).
+    NEVER use bare numeric citations like `[1]`.
 
     Args:
         query: The search string.
