@@ -17,6 +17,7 @@ from backend.retrieval.code_queries import (
     Neo4jCodeGraphClient,
     code_source_url,
     impact_analysis,
+    indexed_file,
     repo_overview,
     symbol_lookup,
 )
@@ -58,6 +59,12 @@ class FakeCodeGraphClient:
             if (qualified_name is not None and node.qualified_name == qualified_name)
             or (qualified_name is None and name is not None and node.name == name)
         ]
+
+    def find_file(self, tenant_id, path):
+        for node in self.graph.nodes:
+            if node.label == "CodeFile" and node.path == path:
+                return self._row(node)
+        return None
 
     def incoming_edges(self, tenant_id, target_qns):
         rows = []
@@ -150,6 +157,23 @@ def test_symbol_lookup_missing(fake):
     result = symbol_lookup("does_not_exist", tenant_id="t", client=fake)
     assert result["match_type"] is None
     assert result["matches"] == []
+
+
+def test_indexed_file_returns_code_file_row(fake):
+    row = indexed_file("pkg/helpers.py", tenant_id="t", client=fake)
+    assert row is not None
+    assert row["path"] == "pkg/helpers.py"
+    assert row["label"] == "CodeFile"
+    assert row["language"] == "python"
+
+
+def test_indexed_file_missing_path(fake):
+    assert indexed_file("pkg/nope.py", tenant_id="t", client=fake) is None
+
+
+def test_indexed_file_blank_path(fake):
+    assert indexed_file("", tenant_id="t", client=fake) is None
+    assert indexed_file("   ", tenant_id="t", client=fake) is None
 
 
 def test_impact_transitive_callers(fake):

@@ -338,6 +338,20 @@ class InMemoryCodeGraphClient:
             ]
         return []
 
+    def find_file(
+        self, tenant_id: str, path: str
+    ) -> dict[str, Any] | None:
+        """Return the CodeFile row for ``path`` (in-memory store is
+        single-tenant, so ``tenant_id`` is accepted but not scoped)."""
+        for node in self.graph.nodes:
+            if (
+                node.label == "CodeFile"
+                and node.path == path
+                and node.resolved
+            ):
+                return self._row(node)
+        return None
+
     def incoming_edges(
         self, tenant_id: str, target_qns: list[str]
     ) -> list[dict[str, Any]]:
