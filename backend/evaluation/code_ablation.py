@@ -288,9 +288,21 @@ def _extract_symbol_candidates(
 class InMemoryCodeGraphClient:
     """In-memory ``CodeGraphClient`` backed by a parsed ``CodeGraph``."""
 
-    def __init__(self, graph: CodeGraph) -> None:
+    def __init__(
+        self, graph: CodeGraph, index_meta: dict[str, Any] | None = None
+    ) -> None:
         self.graph = graph
         self._by_qn = {node.qualified_name: node for node in graph.nodes}
+        self._index_meta = index_meta
+
+    def index_meta(self, tenant_id: str) -> dict[str, Any] | None:
+        """Return the stamp supplied at construction (None by default).
+
+        The offline ablation graph is parsed in memory and never
+        ingested, so it carries no provenance unless a caller
+        explicitly models one.
+        """
+        return self._index_meta
 
     def _row(self, node: Any) -> dict[str, Any]:
         return {

@@ -29,6 +29,15 @@ point ID and the chunk dual-write rule does not apply to them. Where a
 code file also has ingested chunks, the two are linked only by the
 shared ``path`` property — no point IDs are invented here.
 
+Index freshness: every ingestion entry point stamps a
+``CodeIndexMeta`` node (see :func:`write_index_meta`) with the source
+commit SHA (when the repo is a git checkout) and an ``indexed_at``
+timestamp, so consumers can disclose staleness instead of silently
+serving a graph that no longer matches the code. :func:`update_repo_code_graph`
+refreshes a stored graph incrementally from ``git diff`` — only
+changed files (plus the owners of edges into them, whose stored
+edges must be re-resolved) are re-parsed.
+
 Parsing is deliberately conservative (under-claim):
 
 * Python files use the stdlib ``ast`` module. Call targets are recorded
@@ -58,7 +67,9 @@ import ast
 import logging
 import os
 import re
+import subprocess
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -206,9 +217,17 @@ class CodeGraph:
 class _GraphBuilder:
     """Accumulates nodes/edges, deduplicating both by identity."""
 
-    def __init__(self) -> None:
+    def __init__(
+        self, known_target_labels: dict[str, str] | None = None
+    ) -> None:
         self.nodes: dict[tuple[str, str], CodeNode] = {}
         self.edges: dict[tuple[str, str, str], CodeEdge] = {}
+        # Labels of nodes that already exist outside this parse (the
+        # surviving part of a stored graph during an incremental
+        # update). Consulted at build() time so an edge into an
+        # un-reparsed file still gets its target label corrected,
+        # exactly as a full parse of the whole tree would correct it.
+        self.known_target_labels = dict(known_target_labels or {})
 
     def add_node(self, node: CodeNode) -> CodeNode:
         existing = self.nodes.get(node.key)
@@ -236,8 +255,11 @@ class _GraphBuilder:
         # A qualified name identifies one symbol regardless of label;
         # when the target was parsed, correct the edge's target label
         # to the parsed node's label (e.g. a call to an imported class).
+        # Nodes parsed in this pass win over the externally-known
+        # labels (which describe files this pass did not re-parse).
         label_by_qn = {
-            node.qualified_name: node.label for node in self.nodes.values()
+            **self.known_target_labels,
+            **{node.qualified_name: node.label for node in self.nodes.values()},
         }
         edges = []
         for edge in self.edges.values():
@@ -931,6 +953,48 @@ def _declared_function_name(line: str, language: str) -> str | None:
 # ---------------------------------------------------------------------------
 
 
+def _parse_one_file(builder: _GraphBuilder, root_path: Path, path: Path) -> None:
+    """Parse a single file into ``builder`` (file + module nodes, edges).
+
+    Shared by :func:`parse_repo` (every file in the tree) and
+    :func:`parse_files` (an explicit subset, for incremental updates),
+    so both produce identical nodes/edges for the same file content.
+    The caller guarantees ``path`` passed :func:`_is_parseable_file`.
+    """
+    relative_path = path.relative_to(root_path).as_posix()
+    language = _LANGUAGE_BY_EXTENSION[path.suffix.lower()]
+    module_qn = _module_qualified_name(relative_path)
+    file_node = builder.add_node(
+        CodeNode(
+            label="CodeFile",
+            name=path.name,
+            qualified_name=relative_path,
+            path=relative_path,
+            line=1,
+            language=language,
+        )
+    )
+    module_node = builder.add_node(
+        CodeNode(
+            label="CodeModule",
+            name=module_qn.rsplit(".", 1)[-1] if module_qn else path.stem,
+            qualified_name=module_qn,
+            path=relative_path,
+            line=1,
+            language=language,
+        )
+    )
+    builder.add_edge("DEFINES", file_node, module_qn, "CodeModule")
+    if language == "python":
+        _parse_python_file(builder, file_node, module_node, path, relative_path)
+    elif not _parse_treesitter_file(
+        builder, module_node, path, relative_path, language
+    ):
+        _parse_declared_file(
+            builder, file_node, module_node, path, relative_path, language
+        )
+
+
 def parse_repo(root: str | Path) -> CodeGraph:
     """Parse the repo tree at ``root`` into an in-memory :class:`CodeGraph`.
 
@@ -944,38 +1008,33 @@ def parse_repo(root: str | Path) -> CodeGraph:
     for path in sorted(root_path.rglob("*")):
         if not path.is_file() or not _is_parseable_file(path, root_path):
             continue
-        relative_path = path.relative_to(root_path).as_posix()
-        language = _LANGUAGE_BY_EXTENSION[path.suffix.lower()]
-        module_qn = _module_qualified_name(relative_path)
-        file_node = builder.add_node(
-            CodeNode(
-                label="CodeFile",
-                name=path.name,
-                qualified_name=relative_path,
-                path=relative_path,
-                line=1,
-                language=language,
-            )
-        )
-        module_node = builder.add_node(
-            CodeNode(
-                label="CodeModule",
-                name=module_qn.rsplit(".", 1)[-1] if module_qn else path.stem,
-                qualified_name=module_qn,
-                path=relative_path,
-                line=1,
-                language=language,
-            )
-        )
-        builder.add_edge("DEFINES", file_node, module_qn, "CodeModule")
-        if language == "python":
-            _parse_python_file(builder, file_node, module_node, path, relative_path)
-        elif not _parse_treesitter_file(
-            builder, module_node, path, relative_path, language
-        ):
-            _parse_declared_file(
-                builder, file_node, module_node, path, relative_path, language
-            )
+        _parse_one_file(builder, root_path, path)
+    return builder.build()
+
+
+def parse_files(
+    root: str | Path,
+    relative_paths: list[str],
+    known_target_labels: dict[str, str] | None = None,
+) -> CodeGraph:
+    """Parse exactly ``relative_paths`` of the repo at ``root``.
+
+    The per-file counterpart of :func:`parse_repo`, used by the
+    incremental updater: paths that are missing (deleted files) or no
+    longer parseable are skipped, so the result holds only the nodes
+    and edges the listed files currently produce. ``known_target_labels``
+    seeds edge target-label correction with the labels of nodes that
+    exist outside this subset (see :class:`_GraphBuilder`).
+    """
+    root_path = Path(os.path.realpath(root))
+    builder = _GraphBuilder(known_target_labels=known_target_labels)
+    if not root_path.is_dir():
+        return builder.build()
+    for relative_path in relative_paths:
+        path = root_path / relative_path
+        if not path.is_file() or not _is_parseable_file(path, root_path):
+            continue
+        _parse_one_file(builder, root_path, path)
     return builder.build()
 
 
@@ -1125,22 +1184,521 @@ def write_parsed_code_graph(
     nodes: list[dict[str, Any]],
     edges: list[dict[str, Any]],
     tenant_id: str = "default",
+    repo_name: str | None = None,
+    source_commit: str | None = None,
 ) -> dict[str, int]:
-    """Persist a pre-parsed graph payload (see :func:`graph_from_payload`)."""
+    """Persist a pre-parsed graph payload (see :func:`graph_from_payload`).
+
+    Stamps the index metadata (see :func:`write_index_meta`) with the
+    client-reported ``repo_name`` / ``source_commit``: the parsing
+    client runs where the repo lives, so its git HEAD is the honest
+    provenance; the server never invents one. Both default to unknown.
+    """
     graph = graph_from_payload(nodes, edges)
-    return write_code_graph(client, graph, tenant_id=tenant_id)
+    counts = write_code_graph(client, graph, tenant_id=tenant_id)
+    write_index_meta(
+        client,
+        tenant_id,
+        repo_key=repo_name or "uploaded-graph",
+        repo_root="",
+        source_commit=source_commit,
+        kind="upload",
+    )
+    return counts
 
 
 def write_repo_code_graph(
     root: str | Path, tenant_id: str = "default", client: Any = None
 ) -> dict[str, int]:
-    """Parse ``root`` and persist its code graph for ``tenant_id``."""
+    """Parse ``root`` and persist its code graph for ``tenant_id``.
+
+    Also stamps the index metadata with the repo's current git HEAD
+    (``None`` when ``root`` is not a git checkout — never fabricated).
+    """
     if client is None:
         from backend.storage.neo4j_client import Neo4jStorageClient
 
         client = Neo4jStorageClient.from_config(_load_config())
-    graph = parse_repo(root)
-    return write_code_graph(client, graph, tenant_id=tenant_id)
+    root_path = Path(os.path.realpath(root))
+    graph = parse_repo(root_path)
+    counts = write_code_graph(client, graph, tenant_id=tenant_id)
+    write_index_meta(
+        client,
+        tenant_id,
+        repo_key=str(root_path),
+        repo_root=str(root_path),
+        source_commit=git_head_sha(root_path),
+        kind="repo",
+    )
+    return counts
+
+
+# ---------------------------------------------------------------------------
+# Git probes (stdlib subprocess; every failure reads as "unknown")
+# ---------------------------------------------------------------------------
+
+
+def _run_git(root: str | Path, args: list[str]) -> str | None:
+    """Run ``git -C <root> <args>``; return stdout, or None on any failure."""
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(root), *args],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if result.returncode != 0:
+        return None
+    return result.stdout
+
+
+def git_head_sha(root: str | Path) -> str | None:
+    """The HEAD commit SHA of the checkout at ``root``, or None.
+
+    None when ``root`` is not inside a git work tree, git is missing,
+    or the repo has no commits yet — callers must treat the commit as
+    unknown rather than guess.
+    """
+    out = _run_git(root, ["rev-parse", "HEAD"])
+    if out is None:
+        return None
+    sha = out.strip()
+    return sha or None
+
+
+def git_origin_repo(root: str | Path) -> str | None:
+    """The ``owner/repo`` slug of the checkout's origin remote, or None."""
+    out = _run_git(root, ["remote", "get-url", "origin"])
+    if out is None:
+        return None
+    url = out.strip().rstrip("/").removesuffix(".git")
+    parts = [p for p in re.split(r"[/:]", url) if p]
+    if len(parts) < 2:
+        return None
+    return f"{parts[-2]}/{parts[-1]}"
+
+
+def _parse_name_status_z(out: str) -> set[str]:
+    """Paths from ``git diff --name-status -z`` output (renames give both)."""
+    paths: set[str] = set()
+    fields = out.split("\0")
+    i = 0
+    while i < len(fields):
+        status = fields[i]
+        i += 1
+        if not status:
+            continue
+        if status[0] in ("R", "C"):
+            # Rename/copy: old path then new path follow as fields.
+            if i + 1 < len(fields):
+                paths.add(fields[i])
+                paths.add(fields[i + 1])
+            i += 2
+        elif i < len(fields):
+            paths.add(fields[i])
+            i += 1
+    return paths
+
+
+def _parse_porcelain_z(out: str) -> set[str]:
+    """Paths from ``git status --porcelain -z`` output (renames give both)."""
+    paths: set[str] = set()
+    fields = out.split("\0")
+    i = 0
+    while i < len(fields):
+        entry = fields[i]
+        i += 1
+        if len(entry) < 4:
+            continue
+        status = entry[:2]
+        paths.add(entry[3:])
+        # In -z mode a rename/copy source path follows as its own field.
+        if ("R" in status or "C" in status) and i < len(fields):
+            paths.add(fields[i])
+            i += 1
+    return paths
+
+
+def git_changed_paths(root: str | Path, since_sha: str) -> set[str] | None:
+    """Repo-relative paths changed between ``since_sha`` and the work tree.
+
+    Union of the committed diff ``since_sha..HEAD`` (renames contribute
+    both paths) and every path ``git status`` reports — staged,
+    unstaged, deleted and untracked — all relative to ``root`` (which
+    may be a subdirectory of the checkout). Returns None when the
+    change set cannot be determined (not a git repo, ``since_sha``
+    unknown to this repo's history, git failure): callers must fall
+    back to a full re-parse rather than trust a partial answer.
+    """
+    if not since_sha:
+        return None
+    if _run_git(root, ["cat-file", "-e", f"{since_sha}^{{commit}}"]) is None:
+        return None
+    diff = _run_git(
+        root, ["diff", "--name-status", "-M", "-z", "--relative", f"{since_sha}..HEAD"]
+    )
+    if diff is None:
+        return None
+    status = _run_git(
+        root, ["status", "--porcelain=v1", "-z", "--untracked-files=all"]
+    )
+    if status is None:
+        return None
+    return _parse_name_status_z(diff) | _parse_porcelain_z(status)
+
+
+# ---------------------------------------------------------------------------
+# Index metadata: provenance stamp for a tenant's indexed repo
+# ---------------------------------------------------------------------------
+
+INDEX_META_LABEL = "CodeIndexMeta"
+
+
+def write_index_meta(
+    client: Any,
+    tenant_id: str,
+    *,
+    repo_key: str,
+    repo_root: str,
+    source_commit: str | None,
+    kind: str,
+) -> dict[str, Any]:
+    """Upsert the tenant's index-provenance stamp for one repo.
+
+    The stamp is a ``CodeIndexMeta`` node in the same graph (keyed by
+    the structural ``code_key`` like every code node), chosen over a
+    side store because it inherits the writer's tenant scoping and
+    parameterized-Cypher discipline and is readable through the same
+    client as the graph itself. One stamp per (tenant, repo_key);
+    re-ingesting overwrites it. An unknown ``source_commit`` is
+    stored as null (which clears any previous SHA) — never a guess.
+
+    The MERGE is issued directly rather than via
+    ``upsert_structural_node`` so the metadata write stays visibly
+    distinct from code-node writes: the stamp is not a code node and
+    carries no ``qualified_name``.
+    """
+    from backend.ingestion.graph_write import structural_key
+
+    indexed_at = datetime.now(UTC).isoformat()
+    properties: dict[str, Any] = {
+        "tenant_id": tenant_id,
+        "repo_key": repo_key,
+        "repo_root": repo_root,
+        "indexed_at": indexed_at,
+        "kind": kind,
+        # Always present in the map: with SET +=, a null value clears
+        # a previously stamped SHA instead of leaving it behind when
+        # the new provenance is unknown.
+        "source_commit": source_commit,
+    }
+    client.execute_write(
+        f"""
+        MERGE (m:{INDEX_META_LABEL} {{code_key: $code_key}})
+        SET m += $properties
+        """,
+        {
+            "code_key": structural_key(tenant_id, INDEX_META_LABEL, repo_key),
+            "properties": properties,
+        },
+    )
+    return {
+        "repo_key": repo_key,
+        "repo_root": repo_root,
+        "source_commit": source_commit,
+        "indexed_at": indexed_at,
+        "kind": kind,
+    }
+
+
+def read_index_meta(
+    client: Any, tenant_id: str, repo_key: str | None = None
+) -> dict[str, Any] | None:
+    """The tenant's most recent index stamp (or one repo's), or None.
+
+    None means nothing was ever stamped for the tenant (graphs
+    ingested before index metadata existed) — consumers disclose
+    provenance as unknown rather than inventing it.
+    """
+    query = """
+    MATCH (m:CodeIndexMeta)
+    WHERE m.tenant_id = $tenant_id
+      AND ($repo_key IS NULL OR m.repo_key = $repo_key)
+    RETURN m.repo_key AS repo_key, m.repo_root AS repo_root,
+           m.source_commit AS source_commit, m.indexed_at AS indexed_at,
+           m.kind AS kind
+    ORDER BY m.indexed_at DESC
+    LIMIT 1
+    """
+    rows = client.execute_read(query, {"tenant_id": tenant_id, "repo_key": repo_key})
+    return rows[0] if rows else None
+
+
+def find_index_meta_for_root(client: Any, repo_root: str) -> list[dict[str, Any]]:
+    """All tenants' index stamps for one on-disk repo root.
+
+    Used by the GitHub push webhook to resolve which tenant(s) indexed
+    a local checkout: the stamp is the only durable tenant ↔ repo-root
+    association the code graph keeps.
+    """
+    query = """
+    MATCH (m:CodeIndexMeta)
+    WHERE m.repo_root = $repo_root
+    RETURN m.tenant_id AS tenant_id, m.repo_key AS repo_key,
+           m.repo_root AS repo_root, m.source_commit AS source_commit,
+           m.indexed_at AS indexed_at, m.kind AS kind
+    ORDER BY m.indexed_at DESC
+    """
+    return client.execute_read(query, {"repo_root": repo_root})
+
+
+# ---------------------------------------------------------------------------
+# Incremental update: re-parse changed files, keep the rest of the graph
+# ---------------------------------------------------------------------------
+
+
+def load_stored_code_graph(client: Any, tenant_id: str) -> CodeGraph:
+    """Read the tenant's stored code graph back into parse-space form.
+
+    Placeholder nodes (``resolved = false``) are excluded: in
+    parse-space they are not nodes at all, only edge targets, and the
+    writer recreates them deterministically from the edge set. Edge
+    target labels come from the stored target node (parsed or
+    placeholder), which is exactly the label a full parse's build()
+    correction would have produced.
+    """
+    node_rows = client.execute_read(
+        """
+        MATCH (n)
+        WHERE n.tenant_id = $tenant_id
+          AND (n:CodeFile OR n:CodeModule OR n:Class OR n:Function)
+          AND coalesce(n.resolved, true) = true
+        RETURN labels(n)[0] AS label, n.name AS name,
+               n.qualified_name AS qualified_name, n.path AS path,
+               n.line AS line, n.end_line AS end_line,
+               n.language AS language
+        """,
+        {"tenant_id": tenant_id},
+    )
+    nodes = [
+        CodeNode(
+            label=str(row["label"]),
+            name=str(row.get("name") or ""),
+            qualified_name=str(row["qualified_name"]),
+            path=str(row.get("path") or ""),
+            line=int(row.get("line") or 0),
+            language=str(row.get("language") or ""),
+            resolved=True,
+            end_line=(
+                int(row["end_line"])
+                if isinstance(row.get("end_line"), int) and row["end_line"] > 0
+                else None
+            ),
+        )
+        for row in node_rows
+    ]
+    parsed_qns = {node.qualified_name for node in nodes}
+    edge_rows = client.execute_read(
+        """
+        MATCH (a)-[r]->(b)
+        WHERE a.tenant_id = $tenant_id
+          AND b.tenant_id = $tenant_id
+          AND type(r) IN $edge_types
+        RETURN type(r) AS type, a.qualified_name AS source_qn,
+               labels(a)[0] AS source_label, b.qualified_name AS target_qn,
+               labels(b)[0] AS target_label
+        """,
+        {"tenant_id": tenant_id, "edge_types": list(EDGE_TYPES)},
+    )
+    edges = [
+        CodeEdge(
+            type=str(row["type"]),
+            source_qn=str(row["source_qn"]),
+            source_label=str(row["source_label"]),
+            target_qn=str(row["target_qn"]),
+            target_label=str(row["target_label"]),
+        )
+        for row in edge_rows
+        if row.get("source_qn") in parsed_qns
+    ]
+    return CodeGraph(nodes=nodes, edges=edges)
+
+
+def plan_incremental_update(
+    stored: CodeGraph, changed_paths: set[str]
+) -> set[str]:
+    """File paths that must be re-parsed for an incremental update.
+
+    The changed files themselves, plus every file that owns an edge
+    INTO a changed file's nodes: deleting a changed file's nodes
+    deletes those incoming edges with them, and only re-parsing the
+    owner recomputes them against the new definitions (a renamed
+    callee must not leave its callers' CALLS edges dangling or
+    pointing at the old name). One hop suffices because an edge's
+    existence and target are determined solely by its source file's
+    own content plus the target's node label — both stable for files
+    outside this set.
+    """
+    reparse = set(changed_paths)
+    changed_qns = {
+        node.qualified_name for node in stored.nodes if node.path in changed_paths
+    }
+    if not changed_qns:
+        return reparse
+    path_by_qn = {node.qualified_name: node.path for node in stored.nodes}
+    for edge in stored.edges:
+        if edge.target_qn in changed_qns:
+            source_path = path_by_qn.get(edge.source_qn)
+            if source_path:
+                reparse.add(source_path)
+    return reparse
+
+
+def update_code_graph_incremental(
+    stored: CodeGraph, root: str | Path, changed_paths: set[str]
+) -> tuple[CodeGraph, set[str]]:
+    """Apply an incremental update to ``stored`` purely, in memory.
+
+    Returns ``(updated_graph, reparse_paths)``. Nodes owned by
+    re-parsed files are dropped together with every edge they source;
+    the files are re-parsed from disk with target-label correction
+    seeded from the surviving nodes, so the result equals a full
+    :func:`parse_repo` of the current tree (asserted by the
+    equivalence test in ``backend/tests/test_code_freshness.py``).
+    """
+    reparse_paths = plan_incremental_update(stored, changed_paths)
+    survivors = [node for node in stored.nodes if node.path not in reparse_paths]
+    survivor_qns = {node.qualified_name for node in survivors}
+    kept_edges = [edge for edge in stored.edges if edge.source_qn in survivor_qns]
+    known_labels = {node.qualified_name: node.label for node in survivors}
+    fresh = parse_files(
+        root, sorted(reparse_paths), known_target_labels=known_labels
+    )
+    merged: dict[tuple[str, str, str], CodeEdge] = {}
+    for edge in kept_edges + fresh.edges:
+        merged[(edge.type, edge.source_qn, edge.target_qn)] = edge
+    return (
+        CodeGraph(nodes=survivors + fresh.nodes, edges=list(merged.values())),
+        reparse_paths,
+    )
+
+
+def _delete_nodes_for_paths(client: Any, tenant_id: str, paths: list[str]) -> None:
+    """DETACH DELETE every code node owned by one of ``paths``."""
+    if not paths:
+        return
+    client.execute_write(
+        """
+        MATCH (n)
+        WHERE n.tenant_id = $tenant_id
+          AND n.path IN $paths
+          AND (n:CodeFile OR n:CodeModule OR n:Class OR n:Function)
+        DETACH DELETE n
+        """,
+        {"tenant_id": tenant_id, "paths": paths},
+    )
+
+
+def _delete_orphan_placeholders(client: Any, tenant_id: str) -> None:
+    """Delete placeholder nodes no remaining edge references.
+
+    A full write only ever creates a placeholder because some edge
+    targets it; after an incremental delete/rewrite, a placeholder
+    whose last referencing edge disappeared must go too, or the
+    stored graph would keep nodes a full re-parse never produces.
+    """
+    client.execute_write(
+        """
+        MATCH (n)
+        WHERE n.tenant_id = $tenant_id
+          AND (n:CodeFile OR n:CodeModule OR n:Class OR n:Function)
+          AND coalesce(n.resolved, true) = false
+          AND NOT (n)--()
+        DELETE n
+        """,
+        {"tenant_id": tenant_id},
+    )
+
+
+def update_repo_code_graph(
+    root: str | Path, tenant_id: str = "default", client: Any = None
+) -> dict[str, Any]:
+    """Incrementally refresh the stored code graph for ``root``.
+
+    Diffs the stored index stamp's commit against the checkout's
+    current state (see :func:`git_changed_paths`), re-parses only the
+    changed files and their incoming-edge owners, syncs Neo4j to the
+    result, and re-stamps the index at the new HEAD. Falls back to a
+    full re-parse — with a log line saying so — whenever the
+    incremental inputs are unavailable: no stamp, a non-git repo, an
+    unknown stamped SHA, or an undeterminable change set.
+    """
+    if client is None:
+        from backend.storage.neo4j_client import Neo4jStorageClient
+
+        client = Neo4jStorageClient.from_config(_load_config())
+    root_path = Path(os.path.realpath(root))
+    meta = read_index_meta(client, tenant_id, repo_key=str(root_path))
+    indexed_sha = (meta or {}).get("source_commit")
+    head_sha = git_head_sha(root_path)
+    changed = git_changed_paths(root_path, indexed_sha) if indexed_sha else None
+    if changed is None or head_sha is None:
+        logger.info(
+            "Incremental update unavailable for %s (indexed_sha=%s, head=%s); "
+            "falling back to a full re-parse",
+            root_path,
+            indexed_sha,
+            head_sha,
+        )
+        counts = write_repo_code_graph(root_path, tenant_id=tenant_id, client=client)
+        return {**counts, "mode": "full", "changed_files": None}
+    if not changed:
+        return {
+            "nodes_written": 0,
+            "edges_written": 0,
+            "changed_files": 0,
+            "reparsed_files": 0,
+            "mode": "incremental",
+            "source_commit": head_sha,
+        }
+    stored = load_stored_code_graph(client, tenant_id)
+    updated, reparse_paths = update_code_graph_incremental(
+        stored, root_path, changed
+    )
+    _delete_nodes_for_paths(client, tenant_id, sorted(reparse_paths))
+    path_by_qn = {node.qualified_name: node.path for node in updated.nodes}
+    sub_nodes = [node for node in updated.nodes if node.path in reparse_paths]
+    sub_edges = [
+        edge for edge in updated.edges if path_by_qn.get(edge.source_qn) in reparse_paths
+    ]
+    known_keys = {node.key for node in updated.nodes}
+    for node in sub_nodes:
+        _write_node(client, node, tenant_id)
+    for edge in sub_edges:
+        _write_placeholder_node(client, edge, tenant_id, known_keys)
+    for edge in sub_edges:
+        _write_edge(client, edge, tenant_id)
+    _delete_orphan_placeholders(client, tenant_id)
+    stamp = write_index_meta(
+        client,
+        tenant_id,
+        repo_key=str(root_path),
+        repo_root=str(root_path),
+        source_commit=head_sha,
+        kind="repo",
+    )
+    return {
+        "nodes_written": len(sub_nodes),
+        "edges_written": len(sub_edges),
+        "changed_files": len(changed),
+        "reparsed_files": len(reparse_paths),
+        "mode": "incremental",
+        "source_commit": head_sha,
+        "indexed_at": stamp["indexed_at"],
+    }
 
 
 def _load_config() -> Any:
@@ -1151,14 +1709,26 @@ def _load_config() -> Any:
 
 __all__ = [
     "EDGE_TYPES",
+    "INDEX_META_LABEL",
     "MAX_FILE_BYTES",
     "NODE_LABELS",
     "CodeEdge",
     "CodeGraph",
     "CodeNode",
+    "find_index_meta_for_root",
+    "git_changed_paths",
+    "git_head_sha",
+    "git_origin_repo",
     "graph_from_payload",
+    "load_stored_code_graph",
+    "parse_files",
     "parse_repo",
+    "plan_incremental_update",
+    "read_index_meta",
+    "update_code_graph_incremental",
+    "update_repo_code_graph",
     "write_code_graph",
+    "write_index_meta",
     "write_parsed_code_graph",
     "write_repo_code_graph",
 ]

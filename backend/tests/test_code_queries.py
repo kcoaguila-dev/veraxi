@@ -83,6 +83,11 @@ class FakeCodeGraphClient:
             )
         return rows
 
+    def index_meta(self, tenant_id):
+        # The fixture graph is parsed in memory and never ingested:
+        # no provenance stamp exists for it.
+        return None
+
     def _scoped_nodes(self, path_prefix):
         return [
             node

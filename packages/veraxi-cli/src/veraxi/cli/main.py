@@ -787,6 +787,7 @@ def main():
             _sp.add_argument("target", help="Repo path (index) or symbol name")
         _sp.add_argument("--max-depth", type=int, default=3, dest="max_depth")
         _sp.add_argument("--local", action="store_true", help="Index: parse the repo locally and upload the graph")
+        _sp.add_argument("--update", action="store_true", help="Index: incrementally refresh an already-indexed repo (server-side; re-parses only changed files)")
         _sp.add_argument("--scip", dest="scip", help="Index: upload a SCIP JSON index file (scip print --json output) instead of a repo path")
         _sp.add_argument("--resolved-only", action="store_true", dest="resolved_only", help="Symbol: hide external/unresolved placeholders")
         _sp.add_argument("--key", help="Veraxi API key (vx-...)")
@@ -1343,7 +1344,7 @@ def main():
                 parser.parse_args(["xray", "index", "--help"])
                 sys.exit(0)
             else:
-                run_xray_index(args.target, endpoint=endpoint, key=key, tenant=tenant_id, as_json=args.json, local=getattr(args, "local", False))
+                run_xray_index(args.target, endpoint=endpoint, key=key, tenant=tenant_id, as_json=args.json, local=getattr(args, "local", False), update=getattr(args, "update", False))
         elif args.xray_command == "symbol":
             run_xray_symbol(args.target, endpoint=endpoint, key=key, tenant=tenant_id, as_json=args.json, resolved_only=getattr(args, "resolved_only", False))
         else:

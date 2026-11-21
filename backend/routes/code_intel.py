@@ -20,16 +20,23 @@ outside the allowed roots are rejected before any filesystem walk.
 """
 
 import asyncio
+import hashlib
+import hmac
+import json
 import logging
 import os
+from typing import Any
 
 import sentry_sdk
-from fastapi import Depends, HTTPException
+from fastapi import Depends, HTTPException, Request
 from pydantic import BaseModel
 
 from backend.ingestion.code_graph import (
     MAX_INGEST_EDGES,
     MAX_INGEST_NODES,
+    find_index_meta_for_root,
+    git_origin_repo,
+    update_repo_code_graph,
     write_parsed_code_graph,
     write_repo_code_graph,
 )
@@ -164,6 +171,11 @@ class CodeIngestGraphRequest(BaseModel):
     repo_name: str
     nodes: list[dict] = []
     edges: list[dict] = []
+    # Optional client-reported provenance: the parsing client runs
+    # where the repo lives, so its git HEAD is stamped into the index
+    # metadata verbatim (see code_graph.write_index_meta). Absent =
+    # unknown, never guessed server-side.
+    source_commit: str | None = None
 
 
 class VulnReportRequest(BaseModel):
@@ -281,6 +293,8 @@ def _write_parsed_graph(payload: CodeIngestGraphRequest, tenant_id: str) -> dict
         payload.nodes,
         payload.edges,
         tenant_id=tenant_id,
+        repo_name=payload.repo_name,
+        source_commit=payload.source_commit,
     )
 
 
@@ -291,6 +305,37 @@ def _write_scip(payload: ScipIngestRequest, tenant_id: str) -> dict:
     return write_scip_graph(
         _default_neo4j_client(), payload.scip, tenant_id=tenant_id
     )
+
+
+def _resolve_webhook_checkout(full_name: str) -> str | None:
+    """Find the local checkout for a pushed ``owner/repo``, or None.
+
+    Candidates are the allowed code roots themselves plus their
+    immediate subdirectories (repos live one level below a root, the
+    same layout the code-file endpoint scans). A candidate matches
+    when its git origin slug equals ``full_name``; failing that, when
+    its directory name equals the repo part of ``full_name``.
+    """
+    repo_name = full_name.rsplit("/", 1)[-1]
+    candidates: list[str] = []
+    for root in _allowed_roots():
+        candidates.append(root)
+        try:
+            with os.scandir(root) as entries:
+                for entry in entries:
+                    if entry.name.startswith("."):
+                        continue
+                    if entry.is_dir(follow_symlinks=False):
+                        candidates.append(entry.path)
+        except OSError:
+            continue
+    by_name: str | None = None
+    for candidate in candidates:
+        if git_origin_repo(candidate) == full_name:
+            return os.path.realpath(candidate)
+        if by_name is None and os.path.basename(candidate) == repo_name:
+            by_name = os.path.realpath(candidate)
+    return by_name
 
 
 def _sync_vuln_intel(tenant_id: str) -> dict:
@@ -334,6 +379,110 @@ def register_code_intel_routes(
                 status_code=500, detail="Failed to index code graph"
             ) from e
         return {"status": "ok", "repo_path": resolved, **counts}
+
+    @app_router.post("/api/v1/code/update")
+    async def update_code_graph(
+        payload: CodeIngestRequest,
+        tenant_id: str = Depends(get_tenant_id),
+    ):
+        """Incrementally refresh a previously indexed repo.
+
+        Diffs the index stamp's commit against the checkout and
+        re-parses only the changed files (falling back to a full
+        re-parse when the incremental inputs are unavailable — see
+        ``code_graph.update_repo_code_graph``). The response carries
+        ``mode`` ("incremental" / "full") and the change counts.
+        """
+        resolved = _validate_repo_path(payload.repo_path)
+        try:
+            counts = await asyncio.to_thread(
+                update_repo_code_graph, resolved, tenant_id=tenant_id
+            )
+        except Exception as e:
+            sentry_sdk.capture_exception(e)
+            raise HTTPException(
+                status_code=500, detail="Failed to update code graph"
+            ) from e
+        return {"status": "ok", "repo_path": resolved, **counts}
+
+    @app_router.post("/api/v1/code/github-webhook")
+    async def github_push_webhook(request: Request):
+        """Trigger an incremental code-graph update on a GitHub push.
+
+        Thin by design: verify, resolve, delegate. The signature is
+        checked with HMAC-SHA256 against ``GITHUB_WEBHOOK_SECRET``
+        when that env var is configured (invalid signatures are
+        rejected with 401); when no secret is configured the payload
+        is accepted with a warning logged — deployments that expose
+        this route publicly must set the secret. Resolution: the
+        pushed repo is matched to a local checkout under the code
+        roots (by origin remote slug, then by directory name), and
+        the tenant(s) come from the index metadata stamped for that
+        checkout at ingestion time — there is no separate repo ↔
+        tenant registry to consult. Unresolvable pushes are answered
+        202 with ``status: "unresolved"`` and change nothing. The
+        update itself diffs the checkout's local HEAD, so it reflects
+        the checkout's state, not the pushed commits directly.
+        """
+        payload_bytes = await request.body()
+        secret = os.environ.get("GITHUB_WEBHOOK_SECRET")
+        if secret:
+            signature = request.headers.get("x-hub-signature-256") or ""
+            expected = (
+                "sha256="
+                + hmac.new(
+                    secret.encode("utf-8"), payload_bytes, hashlib.sha256
+                ).hexdigest()
+            )
+            if not hmac.compare_digest(signature, expected):
+                raise HTTPException(status_code=401, detail="Invalid webhook signature")
+        else:
+            logger.warning(
+                "GITHUB_WEBHOOK_SECRET is not configured; "
+                "accepting an unsigned GitHub webhook payload"
+            )
+        event = request.headers.get("x-github-event")
+        if event != "push":
+            return {"status": "ignored", "event": event}
+        try:
+            payload = json.loads(payload_bytes)
+        except (ValueError, UnicodeDecodeError) as e:
+            raise HTTPException(status_code=400, detail="Invalid JSON payload") from e
+        repository = payload.get("repository") or {}
+        full_name = repository.get("full_name")
+        if not full_name:
+            raise HTTPException(status_code=400, detail="Payload has no repository.full_name")
+        checkout = _resolve_webhook_checkout(str(full_name))
+        if checkout is None:
+            return {
+                "status": "unresolved",
+                "repo": full_name,
+                "reason": "no local checkout under the code roots",
+            }
+        client = _default_neo4j_client()
+        metas = await asyncio.to_thread(find_index_meta_for_root, client, checkout)
+        tenants = sorted({m["tenant_id"] for m in metas if m.get("tenant_id")})
+        if not tenants:
+            return {
+                "status": "unresolved",
+                "repo": full_name,
+                "reason": "checkout is not indexed for any tenant",
+            }
+        updates: dict[str, Any] = {}
+        for tenant_id in tenants:
+            try:
+                updates[tenant_id] = await asyncio.to_thread(
+                    update_repo_code_graph, checkout, tenant_id=tenant_id
+                )
+            except Exception as e:
+                sentry_sdk.capture_exception(e)
+                updates[tenant_id] = {"error": "update failed"}
+        return {
+            "status": "ok",
+            "repo": full_name,
+            "after": payload.get("after"),
+            "updates": updates,
+        }
 
     @app_router.post("/api/v1/code/ingest-graph")
     async def ingest_parsed_code_graph(
