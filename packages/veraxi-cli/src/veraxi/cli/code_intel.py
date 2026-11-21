@@ -74,12 +74,16 @@ def _local_module_qn(relative_path):
     return ".".join(parts)
 
 
-def _local_node(nodes, seen, label, name, qn, path, line, language, resolved=True):
+def _local_node(nodes, seen, label, name, qn, path, line, language, resolved=True,
+                end_line=None):
     if (label, qn) in seen:
         return
     seen.add((label, qn))
-    nodes.append({"label": label, "name": name, "qualified_name": qn, "path": path,
-                  "line": line, "language": language, "resolved": resolved})
+    node = {"label": label, "name": name, "qualified_name": qn, "path": path,
+            "line": line, "language": language, "resolved": resolved}
+    if end_line is not None:
+        node["end_line"] = end_line
+    nodes.append(node)
 
 
 def _parse_python_locally(tree, module_qn, relative, nodes, edges, seen):
@@ -94,18 +98,21 @@ def _parse_python_locally(tree, module_qn, relative, nodes, edges, seen):
                               "target_qn": node.module, "target_label": "CodeModule"})
         elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             qn = f"{module_qn}.{node.name}"
-            _local_node(nodes, seen, "Function", node.name, qn, relative, node.lineno, "python")
+            _local_node(nodes, seen, "Function", node.name, qn, relative, node.lineno, "python",
+                        end_line=node.end_lineno)
             edges.append({"type": "DEFINES", "source_qn": module_qn, "source_label": "CodeModule",
                           "target_qn": qn, "target_label": "Function"})
         elif isinstance(node, ast.ClassDef):
             qn = f"{module_qn}.{node.name}"
-            _local_node(nodes, seen, "Class", node.name, qn, relative, node.lineno, "python")
+            _local_node(nodes, seen, "Class", node.name, qn, relative, node.lineno, "python",
+                        end_line=node.end_lineno)
             edges.append({"type": "DEFINES", "source_qn": module_qn, "source_label": "CodeModule",
                           "target_qn": qn, "target_label": "Class"})
             for child in node.body:
                 if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
                     mqn = f"{qn}.{child.name}"
-                    _local_node(nodes, seen, "Function", child.name, mqn, relative, child.lineno, "python")
+                    _local_node(nodes, seen, "Function", child.name, mqn, relative, child.lineno, "python",
+                                end_line=child.end_lineno)
                     edges.append({"type": "DEFINES", "source_qn": qn, "source_label": "Class",
                                   "target_qn": mqn, "target_label": "Function"})
 

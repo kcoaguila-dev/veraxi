@@ -15,6 +15,7 @@ import pytest
 from backend.ingestion.code_graph import CodeGraph, parse_repo
 from backend.retrieval.code_queries import (
     Neo4jCodeGraphClient,
+    code_source_url,
     impact_analysis,
     repo_overview,
     symbol_lookup,
@@ -46,6 +47,7 @@ class FakeCodeGraphClient:
             "qualified_name": node.qualified_name,
             "path": node.path,
             "line": node.line,
+            "end_line": node.end_line,
             "language": node.language,
         }
 
@@ -73,6 +75,8 @@ class FakeCodeGraphClient:
                     "source_name": source.name,
                     "source_label": source.label,
                     "source_path": source.path,
+                    "source_line": source.line,
+                    "source_end_line": source.end_line,
                     "edge_type": edge.type,
                     "target_qn": edge.target_qn,
                 }
@@ -196,6 +200,56 @@ def test_repo_overview_counts(fake, parsed):
 def test_repo_overview_path_prefix(fake):
     result = repo_overview(tenant_id="t", path_prefix="lib/", client=fake)
     assert result["node_counts"] == {"CodeFile": 1, "CodeModule": 1, "Class": 1, "Function": 1}
+
+
+# ---------------------------------------------------------------------------
+# Citation URLs (file:// with line anchors)
+# ---------------------------------------------------------------------------
+
+
+def test_code_source_url_variants():
+    # Full range when both lines are known.
+    assert (
+        code_source_url("pkg/helpers.py", 1, 2) == "file://pkg/helpers.py#L1-L2"
+    )
+    # Start line only: single-line anchor, no invented end.
+    assert code_source_url("pkg/helpers.py", 5, None) == "file://pkg/helpers.py#L5"
+    assert code_source_url("pkg/helpers.py", 5, 5) == "file://pkg/helpers.py#L5"
+    # No usable line data: plain file URL, no anchor.
+    assert code_source_url("pkg/helpers.py", None, None) == "file://pkg/helpers.py"
+    assert code_source_url("pkg/helpers.py", 0, None) == "file://pkg/helpers.py"
+    # No path: no citation target at all.
+    assert code_source_url("", 1, 2) is None
+    assert code_source_url(None, 1, 2) is None
+
+
+def test_symbol_lookup_match_carries_line_anchored_url(fake):
+    result = symbol_lookup("pkg.helpers.shout", tenant_id="t", client=fake)
+    match = result["matches"][0]
+    assert match["line"] == 1
+    assert match["end_line"] == 2
+    assert match["url"] == "file://pkg/helpers.py#L1-L2"
+
+
+def test_impact_entries_carry_line_anchored_urls(fake):
+    result = impact_analysis("pkg.helpers.shout", tenant_id="t", client=fake)
+    assert result["roots"][0]["url"] == "file://pkg/helpers.py#L1-L2"
+    by_qn = {item["qualified_name"]: item for item in result["impacted"]}
+    render = by_qn["pkg.core.render"]
+    assert render["line"] == 10
+    assert render["end_line"] == 11
+    assert render["url"] == "file://pkg/core.py#L10-L11"
+    greet = by_qn["pkg.core.LoudGreeter.greet"]
+    assert greet["url"] == "file://pkg/core.py#L6-L7"
+
+
+def test_repo_overview_top_connected_plain_file_urls(fake):
+    result = repo_overview(tenant_id="t", client=fake)
+    assert result["top_connected"]
+    for row in result["top_connected"]:
+        # top_connected rows carry a path but no line: plain file:// URL.
+        assert row["url"] == f"file://{row['path']}"
+        assert "#" not in row["url"]
 
 
 # ---------------------------------------------------------------------------

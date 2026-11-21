@@ -323,6 +323,41 @@ def test_unresolved_import_placeholder_marked(tmp_path: Path):
     assert placeholders[0]["path"] == ""
 
 
+def test_parse_python_end_lines(graph):
+    shout = graph.node("Function", "pkg.helpers.shout")
+    assert shout.line == 1
+    assert shout.end_line == 2
+    assert shout.properties("tenant-a")["end_line"] == 2
+
+    greeter = graph.node("Class", "pkg.base.BaseGreeter")
+    assert greeter.line == 1
+    assert greeter.end_line == 6
+    greet = graph.node("Function", "pkg.base.BaseGreeter.greet")
+    assert greet.end_line == 3
+
+    # Nodes without a known extent leave end_line unset, and the
+    # property is then absent from the persisted properties.
+    module = graph.node("CodeModule", "pkg.helpers")
+    assert module.end_line is None
+    assert "end_line" not in module.properties("tenant-a")
+
+
+def test_graph_from_payload_end_line_round_trip():
+    from backend.ingestion.code_graph import graph_from_payload
+
+    graph = graph_from_payload(
+        nodes=[
+            {"label": "Function", "name": "f", "qualified_name": "m.f",
+             "path": "m.py", "line": 3, "end_line": 9, "language": "python"},
+            {"label": "Function", "name": "g", "qualified_name": "m.g",
+             "path": "m.py", "line": 12, "language": "python"},
+        ],
+        edges=[],
+    )
+    assert graph.nodes[0].end_line == 9
+    assert graph.nodes[1].end_line is None
+
+
 def test_graph_from_payload_whitelist_and_resolved():
     from backend.ingestion.code_graph import graph_from_payload
 

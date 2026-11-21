@@ -817,9 +817,11 @@ async def call_model(state: AgentState):
             SystemMessage(
                 content=(
                     "CITATION & GROUNDING RULES:\n"
-                    "1. When information is retrieved from tools (such as web search, vector search, or knowledge graph), "
-                    "ground your statements with inline bracketed citations [1], [2], or [Source Title] immediately after "
-                    "the corresponding claim (like Perplexity).\n"
+                    "1. When information is retrieved from tools (such as web search, vector search, knowledge graph, or code search), "
+                    "ground your statements with inline citations as standard markdown links immediately after the corresponding "
+                    "claim, using the source or symbol name as the link text and the exact URL provided in the tool output as "
+                    "the target (e.g. [Reuters](https://...) or [merge_rank](file://backend/retrieval/merge_rank.py#L136-L278)). "
+                    "DO NOT use bare numeric citations like [1], and DO NOT wrap citations in parentheses.\n"
                     f"{rule_2}"
                     "3. DO NOT make up URLs or cite materials not retrieved by tools for the current claim."
                 )

@@ -299,6 +299,7 @@ class InMemoryCodeGraphClient:
             "qualified_name": node.qualified_name,
             "path": node.path,
             "line": node.line,
+            "end_line": node.end_line,
             "language": node.language,
             "resolved": node.resolved,
         }
@@ -343,6 +344,8 @@ class InMemoryCodeGraphClient:
                     "source_name": source.name,
                     "source_label": source.label,
                     "source_path": source.path,
+                    "source_line": source.line,
+                    "source_end_line": source.end_line,
                     "edge_type": edge.type,
                     "target_qn": edge.target_qn,
                 }
