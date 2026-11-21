@@ -486,8 +486,7 @@ void main() {
       final sources = SourcesButton.extractSources(msg);
 
       expect(sources, hasLength(1));
-      expect(sources.single['url'],
-          'file://backend/retrieval/code_queries.py');
+      expect(sources.single['url'], 'file://backend/retrieval/code_queries.py');
       expect(sources.single['title'], 'code_queries');
     });
   });
