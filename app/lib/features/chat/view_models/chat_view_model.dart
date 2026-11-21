@@ -38,10 +38,12 @@ class ChatViewModel extends StateNotifier<ChatState> {
   DateTime? _currentRequestStartTime;
   StreamSubscription<AuthState>? _authSubscription;
   StreamSubscription<Map<String, dynamic>>? _syncSubscription;
+  bool _isInitializing = true;
+  bool _lastLoadThreadsSucceeded = false;
 
   ChatViewModel(this._repository, TTSRepository? _, this._memoryRepository,
       [this._localChatMigrationService])
-      : super(ChatState()) {
+      : super(ChatState(isLoadingHistory: true)) {
     _init();
 
     // Listen to Auth State changes to reload threads if they failed initially
@@ -52,8 +54,10 @@ class ChatViewModel extends StateNotifier<ChatState> {
         if (data.event == AuthChangeEvent.signedIn ||
             data.event == AuthChangeEvent.tokenRefreshed ||
             data.event == AuthChangeEvent.initialSession) {
-          if (state.pastThreads.isEmpty && !state.isLoadingThreads) {
-            loadThreads();
+          if (!_isInitializing &&
+              state.pastThreads.isEmpty &&
+              !state.isLoadingThreads) {
+            _handleAuthRefresh();
           }
         }
       });
@@ -73,35 +77,98 @@ class ChatViewModel extends StateNotifier<ChatState> {
     }
   }
 
-  Future<void> _init() async {
-    final prefs = await SharedPreferences.getInstance();
-    final savedTelemetry = prefs.getBool('show_telemetry') ?? false;
-    final savedUsageStyle = TokenUsageIndicatorStyle.fromStorage(
-        prefs.getString('token_usage_indicator_style'));
-    final savedAutoCompact =
-        AutoCompactMode.fromStorage(prefs.getString('auto_compact_mode'));
-
-    state = state.copyWith(
-      showTelemetry: savedTelemetry,
-      tokenUsageStyle: savedUsageStyle.storageValue,
-      autoCompactMode: savedAutoCompact.storageValue,
-    );
-    await _migrateLocalChats();
-    await loadThreads();
-
-    final savedThreadId = prefs.getString(_lastThreadIdKey);
-    if (savedThreadId != null &&
+  bool _canStartInitialThreadRestore(String? savedThreadId) {
+    return savedThreadId != null &&
         savedThreadId.isNotEmpty &&
         state.threadId == null &&
-        !state.isTemporary) {
-      final exists = state.pastThreads.any(
-        (t) => t['thread_id'] == savedThreadId || t['id'] == savedThreadId,
+        state.messages.isEmpty &&
+        !state.isTemporary &&
+        !state.showProjectDashboard &&
+        !state.showAllProjectsDashboard;
+  }
+
+  bool _isCurrentlyLoadingThread() {
+    return state.threadId != null &&
+        state.messages.isEmpty &&
+        state.isLoadingHistory;
+  }
+
+  bool _shouldCompleteThreadRestore(String? savedThreadId) {
+    return savedThreadId != null &&
+        savedThreadId.isNotEmpty &&
+        state.threadId == savedThreadId &&
+        state.messages.isEmpty &&
+        !state.isTemporary &&
+        !state.showProjectDashboard &&
+        !state.showAllProjectsDashboard;
+  }
+
+  bool _threadExistsInLoadedList(String threadId) {
+    return state.pastThreads.any(
+      (t) => t['thread_id'] == threadId || t['id'] == threadId,
+    );
+  }
+
+  Future<void> _restoreSavedThread(
+    SharedPreferences prefs,
+    String? savedThreadId, {
+    required bool threadsLoaded,
+  }) async {
+    if (!_shouldCompleteThreadRestore(savedThreadId)) return;
+    if (_threadExistsInLoadedList(savedThreadId!)) {
+      await selectThread(savedThreadId);
+      return;
+    }
+    if (threadsLoaded) {
+      await prefs.remove(_lastThreadIdKey);
+    }
+    state = state.copyWith(clearThreadId: true, isLoadingHistory: false);
+  }
+
+  Future<void> _handleAuthRefresh() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedThreadId = prefs.getString(_lastThreadIdKey);
+    final shouldRestore = _canStartInitialThreadRestore(savedThreadId);
+    if (shouldRestore) {
+      state = state.copyWith(threadId: savedThreadId, isLoadingHistory: true);
+    }
+    await loadThreads();
+    await _restoreSavedThread(
+      prefs,
+      savedThreadId,
+      threadsLoaded: _lastLoadThreadsSucceeded,
+    );
+  }
+
+  Future<void> _init() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final savedTelemetry = prefs.getBool('show_telemetry') ?? false;
+      final savedUsageStyle = TokenUsageIndicatorStyle.fromStorage(
+          prefs.getString('token_usage_indicator_style'));
+      final savedAutoCompact =
+          AutoCompactMode.fromStorage(prefs.getString('auto_compact_mode'));
+      final savedThreadId = prefs.getString(_lastThreadIdKey);
+      final shouldRestore = _canStartInitialThreadRestore(savedThreadId);
+
+      // Keep isLoadingHistory true while restoring a saved thread so the empty
+      // "New chat" screen does not flash before the thread history arrives.
+      state = state.copyWith(
+        showTelemetry: savedTelemetry,
+        tokenUsageStyle: savedUsageStyle.storageValue,
+        autoCompactMode: savedAutoCompact.storageValue,
+        threadId: shouldRestore ? savedThreadId : null,
+        isLoadingHistory: shouldRestore || _isCurrentlyLoadingThread(),
       );
-      if (exists) {
-        await selectThread(savedThreadId);
-      } else if (state.pastThreads.isNotEmpty) {
-        await prefs.remove(_lastThreadIdKey);
-      }
+      await _migrateLocalChats();
+      await loadThreads();
+      await _restoreSavedThread(
+        prefs,
+        savedThreadId,
+        threadsLoaded: _lastLoadThreadsSucceeded,
+      );
+    } finally {
+      _isInitializing = false;
     }
 
     _syncSubscription?.cancel();
@@ -189,15 +256,23 @@ class ChatViewModel extends StateNotifier<ChatState> {
     super.dispose();
   }
 
-  Future<void> loadThreads() async {
+  Future<bool> _fetchThreads() async {
     state = state.copyWith(isLoadingThreads: true);
     try {
       final threads = await _repository.getThreads();
       state = state.copyWith(pastThreads: threads, isLoadingThreads: false);
-    } catch (e, stack) {
-      Sentry.captureException(e, stackTrace: stack);
+      _lastLoadThreadsSucceeded = true;
+      return true;
+    } catch (e, stackTrace) {
+      Sentry.captureException(e, stackTrace: stackTrace);
       state = state.copyWith(isLoadingThreads: false);
+      _lastLoadThreadsSucceeded = false;
+      return false;
     }
+  }
+
+  Future<void> loadThreads() async {
+    await _fetchThreads();
   }
 
   List<ChatMessage> _parseHistory(List<Map<String, dynamic>> history) {
@@ -281,6 +356,7 @@ class ChatViewModel extends StateNotifier<ChatState> {
     state = state.copyWith(
       clearThreadId: true,
       messages: [],
+      isLoadingHistory: false,
       clearActiveProject: true,
       showProjectDashboard: false,
       showAllProjectsDashboard: false,
@@ -296,6 +372,7 @@ class ChatViewModel extends StateNotifier<ChatState> {
       showAllProjectsDashboard: false,
       clearThreadId: true,
       messages: [],
+      isLoadingHistory: false,
     );
   }
 
@@ -307,6 +384,7 @@ class ChatViewModel extends StateNotifier<ChatState> {
       showAllProjectsDashboard: false,
       clearThreadId: true,
       messages: [],
+      isLoadingHistory: false,
     );
   }
 
@@ -317,6 +395,7 @@ class ChatViewModel extends StateNotifier<ChatState> {
       showProjectDashboard: false,
       clearThreadId: true,
       messages: [],
+      isLoadingHistory: false,
       clearActiveProject: true,
     );
   }
@@ -329,6 +408,7 @@ class ChatViewModel extends StateNotifier<ChatState> {
       showAllProjectsDashboard: false,
       clearThreadId: true,
       messages: [],
+      isLoadingHistory: false,
     );
   }
 
@@ -337,8 +417,12 @@ class ChatViewModel extends StateNotifier<ChatState> {
     if (newIsTemporary) {
       _persistActiveThreadId(null);
       // If toggling ON, clear the current context
-      state = state
-          .copyWith(isTemporary: newIsTemporary, threadId: null, messages: []);
+      state = state.copyWith(
+        isTemporary: newIsTemporary,
+        threadId: null,
+        messages: [],
+        isLoadingHistory: false,
+      );
     } else {
       state = state.copyWith(isTemporary: newIsTemporary);
     }

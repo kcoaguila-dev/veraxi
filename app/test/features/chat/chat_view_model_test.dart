@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -373,7 +374,88 @@ void main() {
 
     final restoredState = restoredContainer.read(chatViewModelProvider);
     expect(restoredState.threadId, 't-restored');
+    expect(restoredState.isLoadingHistory, isFalse);
     expect(restoredState.messages, hasLength(1));
     expect(restoredState.messages.first.content, 'Saved message');
+  });
+
+  test(
+      'keeps isLoadingHistory true while restoring saved thread across pending getThreads and getThreadHistory',
+      () async {
+    SharedPreferences.setMockInitialValues({
+      'last_active_thread_id': 't-pending',
+    });
+    final repo = MockChatRepository();
+    final threadsCompleter = Completer<List<Map<String, dynamic>>>();
+    final historyCompleter = Completer<List<Map<String, dynamic>>>();
+    when(() => repo.getThreads()).thenAnswer((_) => threadsCompleter.future);
+    when(() => repo.getThreadHistory('t-pending'))
+        .thenAnswer((_) => historyCompleter.future);
+
+    final restoredContainer = ProviderContainer(
+      overrides: [chatRepositoryProvider.overrideWithValue(repo)],
+    );
+    addTearDown(restoredContainer.dispose);
+    restoredContainer.read(chatViewModelProvider.notifier);
+
+    var state = restoredContainer.read(chatViewModelProvider);
+    expect(state.isLoadingHistory, isTrue);
+    expect(state.messages, isEmpty);
+
+    await pumpEventQueue();
+    state = restoredContainer.read(chatViewModelProvider);
+    expect(state.isLoadingHistory, isTrue);
+    expect(state.threadId, 't-pending');
+    expect(state.messages, isEmpty);
+
+    threadsCompleter.complete([
+      {'thread_id': 't-pending', 'title': 'Pending thread'},
+    ]);
+    await pumpEventQueue();
+    state = restoredContainer.read(chatViewModelProvider);
+    expect(state.isLoadingHistory, isTrue);
+    expect(state.threadId, 't-pending');
+    expect(state.messages, isEmpty);
+
+    historyCompleter.complete([
+      {'role': 'user', 'content': 'Restored msg'},
+    ]);
+    await pumpEventQueue();
+    state = restoredContainer.read(chatViewModelProvider);
+    expect(state.isLoadingHistory, isFalse);
+    expect(state.threadId, 't-pending');
+    expect(state.messages, hasLength(1));
+    expect(state.messages.first.content, 'Restored msg');
+  });
+
+  test(
+      'clears saved threadId, stops loading history, and removes last_active_thread_id when thread no longer exists',
+      () async {
+    SharedPreferences.setMockInitialValues({
+      'last_active_thread_id': 't-deleted',
+    });
+    final repo = MockChatRepository();
+    when(() => repo.getThreads()).thenAnswer(
+      (_) async => [
+        {'thread_id': 't-other', 'title': 'Other thread'},
+      ],
+    );
+
+    final restoredContainer = ProviderContainer(
+      overrides: [chatRepositoryProvider.overrideWithValue(repo)],
+    );
+    addTearDown(restoredContainer.dispose);
+    restoredContainer.read(chatViewModelProvider.notifier);
+    await pumpEventQueue();
+    await pumpEventQueue();
+
+    final restoredState = restoredContainer.read(chatViewModelProvider);
+    expect(restoredState.threadId, isNull);
+    expect(restoredState.isLoadingHistory, isFalse);
+    expect(restoredState.messages, isEmpty);
+
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getString('last_active_thread_id'), isNull);
+    verifyNever(() => repo.getThreadHistory(any()));
   });
 }
