@@ -38,6 +38,10 @@ class ChatScreen extends ConsumerStatefulWidget {
 }
 
 class _ChatScreenState extends ConsumerState<ChatScreen> {
+  static const _scrollThreadIdKey = 'last_active_thread_scroll_thread_id';
+  static const _scrollOffsetKey = 'last_active_thread_scroll_offset';
+  static const _scrollAtBottomKey = 'last_active_thread_scroll_at_bottom';
+
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   final ScrollController _scrollController = ScrollController();
@@ -45,15 +49,59 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   String _selectedModel = 'Select a model';
   final Set<String> _pinnedModels = {};
   bool _isScrolledUp = false;
+  bool _pendingHistoryScrollRestore = false;
+  bool _historyScrollRestoreScheduled = false;
+  String? _savedScrollThreadId;
+  double? _savedScrollOffset;
+  bool _savedScrollAtBottom = true;
+  double? _lastPersistedPixels;
+  bool? _lastPersistedAtBottom;
 
   /// Artifacts the panel has already auto-opened (or the user manually
   /// closed): auto-open fires at most once per artifact occurrence.
   final Set<String> _autoOpenSuppressedKeys = {};
 
   void _onScroll() {
-    if (_scrollController.hasClients) {
-      _syncScrolledUp(_scrollController.position);
-    }
+    if (!_scrollController.hasClients || _pendingHistoryScrollRestore) return;
+    final position = _scrollController.position;
+    _syncScrolledUp(position);
+    _persistScrollPosition(position);
+  }
+
+  void _persistScrollPosition(ScrollMetrics metrics) {
+    if (_pendingHistoryScrollRestore) return;
+    final threadId = ref.read(chatViewModelProvider).threadId;
+    if (threadId == null || threadId.isEmpty) return;
+
+    final atBottom = (metrics.maxScrollExtent - metrics.pixels) <= 24.0;
+    _savedScrollThreadId = threadId;
+    _savedScrollOffset = metrics.pixels;
+    _savedScrollAtBottom = atBottom;
+
+    final movedEnough = _lastPersistedPixels == null ||
+        (metrics.pixels - _lastPersistedPixels!).abs() >= 16.0;
+    if (!movedEnough && _lastPersistedAtBottom == atBottom) return;
+
+    _lastPersistedPixels = metrics.pixels;
+    _lastPersistedAtBottom = atBottom;
+    SharedPreferences.getInstance().then((prefs) {
+      prefs.setString(_scrollThreadIdKey, threadId);
+      prefs.setDouble(_scrollOffsetKey, metrics.pixels);
+      prefs.setBool(_scrollAtBottomKey, atBottom);
+    });
+  }
+
+  void _clearSavedScrollPosition() {
+    _savedScrollThreadId = null;
+    _savedScrollOffset = null;
+    _savedScrollAtBottom = true;
+    _lastPersistedPixels = null;
+    _lastPersistedAtBottom = null;
+    SharedPreferences.getInstance().then((prefs) {
+      prefs.remove(_scrollThreadIdKey);
+      prefs.remove(_scrollOffsetKey);
+      prefs.remove(_scrollAtBottomKey);
+    });
   }
 
   bool _isMetricsScrolledUp(ScrollMetrics metrics) =>
@@ -255,12 +303,17 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   }
 
   void _syncScrolledUp(ScrollMetrics metrics) {
+    if (_pendingHistoryScrollRestore) return;
     final isUp = _isMetricsScrolledUp(metrics);
     if (isUp == _isScrolledUp) return;
     if (WidgetsBinding.instance.schedulerPhase ==
         SchedulerPhase.persistentCallbacks) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted || !_scrollController.hasClients) return;
+        if (!mounted ||
+            !_scrollController.hasClients ||
+            _pendingHistoryScrollRestore) {
+          return;
+        }
         final currentUp = _isMetricsScrolledUp(_scrollController.position);
         if (currentUp != _isScrolledUp) {
           setState(() {
@@ -278,12 +331,19 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   @override
   void initState() {
     super.initState();
+    _pendingHistoryScrollRestore =
+        ref.read(chatViewModelProvider).isLoadingHistory;
     _scrollController.addListener(_onScroll);
     _loadSavedModel();
   }
 
   Future<void> _loadSavedModel() async {
     final prefs = await SharedPreferences.getInstance();
+    if (mounted && _lastPersistedPixels == null) {
+      _savedScrollThreadId = prefs.getString(_scrollThreadIdKey);
+      _savedScrollOffset = prefs.getDouble(_scrollOffsetKey);
+      _savedScrollAtBottom = prefs.getBool(_scrollAtBottomKey) ?? true;
+    }
     final savedModel = prefs.getString('selected_model');
     final availableModels = ref
         .read(providerModelsProvider)
@@ -322,13 +382,68 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final target = _scrollController.position.maxScrollExtent;
     if (animate) {
       _scrollController.animateTo(
-        target + 100, // Overscroll slightly
+        target,
         duration: const Duration(milliseconds: 250),
         curve: Curves.easeOut,
       );
     } else {
       _scrollController.jumpTo(target);
     }
+  }
+
+  bool _applyRestoredScrollJump(String? threadId) {
+    final position = _scrollController.position;
+    final maxExtent = position.maxScrollExtent;
+    final hasSavedOffset = threadId != null &&
+        threadId == _savedScrollThreadId &&
+        !_savedScrollAtBottom &&
+        _savedScrollOffset != null;
+    final target =
+        hasSavedOffset ? _savedScrollOffset!.clamp(0.0, maxExtent) : maxExtent;
+    if ((position.pixels - target).abs() <= 0.5) return false;
+    _scrollController.jumpTo(target);
+    return true;
+  }
+
+  void _scheduleHistoryScrollRestore(String? threadId) {
+    if (_historyScrollRestoreScheduled) return;
+    _historyScrollRestoreScheduled = true;
+    _settleHistoryScroll(threadId, remainingPasses: 4);
+  }
+
+  void _settleHistoryScroll(String? threadId, {required int remainingPasses}) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (!_scrollController.hasClients) {
+        setState(() {
+          _pendingHistoryScrollRestore = false;
+          _historyScrollRestoreScheduled = false;
+        });
+        return;
+      }
+      final moved = _applyRestoredScrollJump(threadId);
+      if (moved && remainingPasses > 1) {
+        SchedulerBinding.instance.ensureVisualUpdate();
+        _settleHistoryScroll(threadId, remainingPasses: remainingPasses - 1);
+        return;
+      }
+      setState(() {
+        _isScrolledUp = _isMetricsScrolledUp(_scrollController.position);
+        _pendingHistoryScrollRestore = false;
+        _historyScrollRestoreScheduled = false;
+      });
+      _persistScrollPosition(_scrollController.position);
+    });
+  }
+
+  bool _shouldAutoScrollOnMessagesChange(
+      List<ChatMessage>? previous, List<ChatMessage> next) {
+    if (previous == null || previous.isEmpty) {
+      return next.last.isStreaming;
+    }
+    return next.last.isStreaming ||
+        previous.last.isStreaming ||
+        next.length > previous.length;
   }
 
   Widget build(BuildContext context) {
@@ -363,6 +478,24 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               _isScrolledUp = false;
             });
           }
+          if (next == null ||
+              (previous != null && previous != next) ||
+              (_savedScrollThreadId != null && next != _savedScrollThreadId)) {
+            _clearSavedScrollPosition();
+          }
+        }
+      },
+    );
+
+    ref.listen<bool>(
+      chatViewModelProvider.select((s) => s.isLoadingHistory),
+      (previous, next) {
+        if (next) {
+          _pendingHistoryScrollRestore = true;
+          _historyScrollRestoreScheduled = false;
+        } else if (ref.read(chatViewModelProvider).messages.isEmpty) {
+          _pendingHistoryScrollRestore = false;
+          _historyScrollRestoreScheduled = false;
         }
       },
     );
@@ -428,16 +561,24 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             });
           }
         }
-        if (!_isScrolledUp && next.isNotEmpty) {
-          final isStreaming = next.last.isStreaming;
+        if (!_pendingHistoryScrollRestore &&
+            !_isScrolledUp &&
+            next.isNotEmpty &&
+            _shouldAutoScrollOnMessagesChange(previous, next)) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted && !_isScrolledUp) {
-              _scrollToBottom(animate: !isStreaming);
+            if (mounted && !_isScrolledUp && !_pendingHistoryScrollRestore) {
+              _scrollToBottom(animate: false);
             }
           });
         }
       },
     );
+
+    if (_pendingHistoryScrollRestore &&
+        !state.isLoadingHistory &&
+        state.messages.isNotEmpty) {
+      _scheduleHistoryScrollRestore(state.threadId);
+    }
 
     ref.listen(audioPlayerServiceProvider, (previous, next) {
       if (next.errorMessage != null) {
@@ -512,35 +653,46 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                             ? _buildEmptyState(
                                                 theme, ext, state, viewModel,
                                                 sandboxEnabled: sandboxEnabled)
-                                            : NotificationListener<
-                                                ScrollMetricsNotification>(
-                                                onNotification: (notification) {
-                                                  _syncScrolledUp(
-                                                      notification.metrics);
-                                                  return false;
-                                                },
-                                                child: ListView.builder(
-                                                  controller: _scrollController,
-                                                  padding:
-                                                      const EdgeInsets.only(
-                                                          left: 16,
-                                                          right: 16,
-                                                          top: 80,
-                                                          bottom: 140),
-                                                  itemCount:
-                                                      state.messages.length,
-                                                  itemBuilder:
-                                                      (context, index) {
-                                                    final msg =
-                                                        state.messages[index];
-                                                    return ChatMessageListItem(
-                                                      msg: msg,
-                                                      theme: theme,
-                                                      ext: ext,
-                                                      showTelemetry:
-                                                          state.showTelemetry,
-                                                    );
+                                            : Opacity(
+                                                opacity:
+                                                    _pendingHistoryScrollRestore
+                                                        ? 0.0
+                                                        : 1.0,
+                                                child: NotificationListener<
+                                                    ScrollMetricsNotification>(
+                                                  onNotification:
+                                                      (notification) {
+                                                    _syncScrolledUp(
+                                                        notification.metrics);
+                                                    return false;
                                                   },
+                                                  child: ListView.builder(
+                                                    controller:
+                                                        _scrollController,
+                                                    scrollCacheExtent:
+                                                        const ScrollCacheExtent
+                                                            .pixels(3000),
+                                                    padding:
+                                                        const EdgeInsets.only(
+                                                            left: 16,
+                                                            right: 16,
+                                                            top: 80,
+                                                            bottom: 140),
+                                                    itemCount:
+                                                        state.messages.length,
+                                                    itemBuilder:
+                                                        (context, index) {
+                                                      final msg =
+                                                          state.messages[index];
+                                                      return ChatMessageListItem(
+                                                        msg: msg,
+                                                        theme: theme,
+                                                        ext: ext,
+                                                        showTelemetry:
+                                                            state.showTelemetry,
+                                                      );
+                                                    },
+                                                  ),
                                                 ),
                                               ),
                           ),

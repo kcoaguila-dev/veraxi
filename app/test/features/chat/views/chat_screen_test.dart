@@ -6,17 +6,52 @@ import 'package:mocktail/mocktail.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:veraxi_app/core/theme.dart';
 import 'package:veraxi_app/features/chat/view_models/chat_view_model.dart';
 import 'package:veraxi_app/features/chat/views/chat_screen.dart';
 
 void main() {
-  testWidgets('ChatScreen shows past threads in desktop sidebar',
-      (WidgetTester tester) async {
-    // We will set a wide screen size to trigger desktop layout
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+  });
+
+  List<ChatMessage> buildLongHistory() => List<ChatMessage>.generate(
+        20,
+        (i) => ChatMessage(
+          role: 'user',
+          content: 'Message $i\nLine 2\nLine 3\nLine 4',
+        ),
+      );
+
+  Future<MockChatViewModel> pumpChatScreen(
+    WidgetTester tester,
+    ChatState initialState,
+  ) async {
     tester.view.physicalSize = const Size(1200, 800);
     tester.view.devicePixelRatio = 1.0;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
 
+    final viewModel = MockChatViewModel(initialState);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          chatViewModelProvider.overrideWith((ref) => viewModel),
+        ],
+        child: MaterialApp(
+          theme: AppTheme.lightTheme,
+          home: const Scaffold(body: ChatScreen()),
+        ),
+      ),
+    );
+    return viewModel;
+  }
+
+  testWidgets('ChatScreen shows past threads in desktop sidebar',
+      (WidgetTester tester) async {
     final mockState = ChatState(
       pastThreads: [
         {'thread_id': 'thread-1', 'title': 'Test Chat 1'},
@@ -25,28 +60,79 @@ void main() {
       messages: [],
     );
 
-    // Provide the mock state
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          chatViewModelProvider
-              .overrideWith((ref) => MockChatViewModel(mockState)),
-        ],
-        child: MaterialApp(
-          theme: AppTheme.lightTheme,
-          home: const Scaffold(body: ChatScreen()),
-        ),
-      ),
-    );
+    await pumpChatScreen(tester, mockState);
     await tester.pumpAndSettle();
 
     // Verify that the titles are rendered
     expect(find.text('Test Chat 1'), findsOneWidget);
     expect(find.text('Test Chat 2'), findsOneWidget);
+  });
 
-    // Reset size
-    tester.view.resetPhysicalSize();
-    tester.view.resetDevicePixelRatio();
+  testWidgets(
+      'ChatScreen hides initial layout and settles at bottom without scrolling animation on history restore',
+      (WidgetTester tester) async {
+    final viewModel = await pumpChatScreen(
+      tester,
+      ChatState(threadId: 'thread-1', isLoadingHistory: true, messages: []),
+    );
+    await tester.pump();
+
+    viewModel.setStateForTesting(
+      ChatState(
+        threadId: 'thread-1',
+        isLoadingHistory: false,
+        messages: buildLongHistory(),
+      ),
+    );
+    await tester.pump();
+
+    final listFinder = find.byType(ListView);
+    expect(listFinder, findsOneWidget);
+    final hiddenOpacity = tester.widget<Opacity>(
+      find.ancestor(of: listFinder, matching: find.byType(Opacity)).first,
+    );
+    expect(hiddenOpacity.opacity, 0.0);
+
+    await tester.pumpAndSettle();
+
+    final visibleOpacity = tester.widget<Opacity>(
+      find.ancestor(of: listFinder, matching: find.byType(Opacity)).first,
+    );
+    expect(visibleOpacity.opacity, 1.0);
+    final controller = tester.widget<ListView>(listFinder).controller!;
+    expect(controller.position.maxScrollExtent, greaterThan(0));
+    expect(controller.position.pixels,
+        closeTo(controller.position.maxScrollExtent, 0.5));
+  });
+
+  testWidgets(
+      'ChatScreen restores saved non-bottom scroll offset within the same thread on refresh',
+      (WidgetTester tester) async {
+    SharedPreferences.setMockInitialValues({
+      'last_active_thread_scroll_thread_id': 'thread-1',
+      'last_active_thread_scroll_offset': 250.0,
+      'last_active_thread_scroll_at_bottom': false,
+    });
+
+    final viewModel = await pumpChatScreen(
+      tester,
+      ChatState(threadId: 'thread-1', isLoadingHistory: true, messages: []),
+    );
+    await tester.pump();
+
+    viewModel.setStateForTesting(
+      ChatState(
+        threadId: 'thread-1',
+        isLoadingHistory: false,
+        messages: buildLongHistory(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final listFinder = find.byType(ListView);
+    final controller = tester.widget<ListView>(listFinder).controller!;
+    expect(controller.position.maxScrollExtent, greaterThan(250.0));
+    expect(controller.position.pixels, closeTo(250.0, 0.5));
   });
 }
 
