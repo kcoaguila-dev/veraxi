@@ -60,7 +60,15 @@ def _attach_url(row: dict[str, Any]) -> dict[str, Any]:
 
 @runtime_checkable
 class CodeGraphClient(Protocol):
-    """Injectable graph-client interface for code-graph queries."""
+    """Injectable graph-client interface for code-graph queries.
+
+    Every method takes an optional ``repo_key``: when given, results
+    are scoped to that one repo of the tenant's graph; when None,
+    they span every repo the tenant has indexed. Node rows carry the
+    node's ``repo_key`` (empty for graphs ingested before repo
+    namespacing), so callers can attribute cross-repo results
+    instead of silently merging them.
+    """
 
     def find_symbols(
         self,
@@ -68,6 +76,7 @@ class CodeGraphClient(Protocol):
         *,
         qualified_name: str | None = None,
         name: str | None = None,
+        repo_key: str | None = None,
     ) -> list[dict[str, Any]]:
         """Return code nodes matching a qualified name or a simple name."""
         ...
@@ -84,44 +93,66 @@ class CodeGraphClient(Protocol):
         ...
 
     def incoming_edges(
-        self, tenant_id: str, target_qns: list[str]
+        self, tenant_id: str, target_qns: list[str], repo_key: str | None = None
     ) -> list[dict[str, Any]]:
         """Return CALLS/IMPORTS edges pointing INTO any of ``target_qns``.
 
         Each row: ``source_qn``, ``source_name``, ``source_label``,
         ``source_path``, ``source_line``, ``source_end_line``,
-        ``edge_type`` and ``target_qn``. The line fields mirror the
-        source node's stored ``line``/``end_line`` and may be missing
-        on clients backed by graphs ingested before they existed.
+        ``source_repo_key``, ``edge_type`` and ``target_qn``. The line
+        fields mirror the source node's stored ``line``/``end_line``
+        and may be missing on clients backed by graphs ingested
+        before they existed.
         """
         ...
 
     def node_counts(
-        self, tenant_id: str, path_prefix: str | None = None
+        self,
+        tenant_id: str,
+        path_prefix: str | None = None,
+        repo_key: str | None = None,
     ) -> dict[str, int]:
         """Return code-node counts keyed by label."""
         ...
 
     def edge_counts(
-        self, tenant_id: str, path_prefix: str | None = None
+        self,
+        tenant_id: str,
+        path_prefix: str | None = None,
+        repo_key: str | None = None,
     ) -> dict[str, int]:
         """Return code-edge counts keyed by relationship type."""
         ...
 
     def top_connected(
-        self, tenant_id: str, path_prefix: str | None = None, limit: int = 10
+        self,
+        tenant_id: str,
+        path_prefix: str | None = None,
+        limit: int = 10,
+        repo_key: str | None = None,
     ) -> list[dict[str, Any]]:
         """Return the most-connected code nodes for the tenant."""
         ...
 
-    def index_meta(self, tenant_id: str) -> dict[str, Any] | None:
+    def index_meta(
+        self, tenant_id: str, repo_key: str | None = None
+    ) -> dict[str, Any] | None:
         """Return the tenant's latest index-provenance stamp, or None.
 
         The stamp (written at ingestion time by
         ``backend.ingestion.code_graph.write_index_meta``) carries
         ``repo_key``, ``repo_root``, ``source_commit``, ``indexed_at``
-        and ``kind``. None means the graph predates index metadata —
-        provenance is unknown, not zero.
+        and ``kind``. With ``repo_key`` given, that repo's stamp.
+        None means the graph predates index metadata — provenance is
+        unknown, not zero.
+        """
+        ...
+
+    def index_metas(self, tenant_id: str) -> list[dict[str, Any]]:
+        """Return all of the tenant's index-provenance stamps.
+
+        One stamp per indexed repo, most recent first. Used to
+        disclose which repos a tenant-wide (unscoped) result spans.
         """
         ...
 
@@ -150,25 +181,29 @@ class Neo4jCodeGraphClient:
         *,
         qualified_name: str | None = None,
         name: str | None = None,
+        repo_key: str | None = None,
     ) -> list[dict[str, Any]]:
         if qualified_name is not None:
             where = "n.qualified_name = $qualified_name"
             params: dict[str, Any] = {
                 "tenant_id": tenant_id,
                 "qualified_name": qualified_name,
+                "repo_key": repo_key,
             }
         else:
             where = "n.name = $name"
-            params = {"tenant_id": tenant_id, "name": name}
+            params = {"tenant_id": tenant_id, "name": name, "repo_key": repo_key}
         query = f"""
         MATCH (n)
         WHERE n.tenant_id = $tenant_id
           AND (n:CodeFile OR n:CodeModule OR n:Class OR n:Function)
+          AND ($repo_key IS NULL OR coalesce(n.repo_key, '') = $repo_key)
           AND {where}
         RETURN labels(n)[0] AS label, n.name AS name,
                n.qualified_name AS qualified_name, n.path AS path,
                n.line AS line, n.end_line AS end_line, n.language AS language,
-               coalesce(n.resolved, true) AS resolved
+               coalesce(n.resolved, true) AS resolved,
+               coalesce(n.repo_key, '') AS repo_key
         ORDER BY qualified_name
         """
         return self._read(query, params)
@@ -186,7 +221,7 @@ class Neo4jCodeGraphClient:
         return rows[0] if rows else None
 
     def incoming_edges(
-        self, tenant_id: str, target_qns: list[str]
+        self, tenant_id: str, target_qns: list[str], repo_key: str | None = None
     ) -> list[dict[str, Any]]:
         if not target_qns:
             return []
@@ -196,9 +231,12 @@ class Neo4jCodeGraphClient:
           AND target.tenant_id = $tenant_id
           AND type(r) IN $edge_types
           AND target.qualified_name IN $target_qns
+          AND ($repo_key IS NULL OR (coalesce(source.repo_key, '') = $repo_key
+               AND coalesce(target.repo_key, '') = $repo_key))
         RETURN source.qualified_name AS source_qn, source.name AS source_name,
                labels(source)[0] AS source_label, source.path AS source_path,
                source.line AS source_line, source.end_line AS source_end_line,
+               coalesce(source.repo_key, '') AS source_repo_key,
                type(r) AS edge_type, target.qualified_name AS target_qn
         """
         return self._read(
@@ -207,26 +245,39 @@ class Neo4jCodeGraphClient:
                 "tenant_id": tenant_id,
                 "edge_types": list(IMPACT_EDGE_TYPES),
                 "target_qns": list(target_qns),
+                "repo_key": repo_key,
             },
         )
 
     def node_counts(
-        self, tenant_id: str, path_prefix: str | None = None
+        self,
+        tenant_id: str,
+        path_prefix: str | None = None,
+        repo_key: str | None = None,
     ) -> dict[str, int]:
         query = """
         MATCH (n)
         WHERE n.tenant_id = $tenant_id
           AND (n:CodeFile OR n:CodeModule OR n:Class OR n:Function)
           AND ($path_prefix IS NULL OR n.path STARTS WITH $path_prefix)
+          AND ($repo_key IS NULL OR coalesce(n.repo_key, '') = $repo_key)
         RETURN labels(n)[0] AS label, count(n) AS count
         """
         rows = self._read(
-            query, {"tenant_id": tenant_id, "path_prefix": path_prefix}
+            query,
+            {
+                "tenant_id": tenant_id,
+                "path_prefix": path_prefix,
+                "repo_key": repo_key,
+            },
         )
         return {row["label"]: int(row["count"]) for row in rows if row.get("label")}
 
     def edge_counts(
-        self, tenant_id: str, path_prefix: str | None = None
+        self,
+        tenant_id: str,
+        path_prefix: str | None = None,
+        repo_key: str | None = None,
     ) -> dict[str, int]:
         query = """
         MATCH (a)-[r]->(b)
@@ -234,10 +285,17 @@ class Neo4jCodeGraphClient:
           AND b.tenant_id = $tenant_id
           AND type(r) IN ['IMPORTS', 'CALLS', 'DEFINES', 'INHERITS']
           AND ($path_prefix IS NULL OR a.path STARTS WITH $path_prefix)
+          AND ($repo_key IS NULL OR (coalesce(a.repo_key, '') = $repo_key
+               AND coalesce(b.repo_key, '') = $repo_key))
         RETURN type(r) AS edge_type, count(r) AS count
         """
         rows = self._read(
-            query, {"tenant_id": tenant_id, "path_prefix": path_prefix}
+            query,
+            {
+                "tenant_id": tenant_id,
+                "path_prefix": path_prefix,
+                "repo_key": repo_key,
+            },
         )
         return {
             row["edge_type"]: int(row["count"])
@@ -246,7 +304,11 @@ class Neo4jCodeGraphClient:
         }
 
     def top_connected(
-        self, tenant_id: str, path_prefix: str | None = None, limit: int = 10
+        self,
+        tenant_id: str,
+        path_prefix: str | None = None,
+        limit: int = 10,
+        repo_key: str | None = None,
     ) -> list[dict[str, Any]]:
         limit = min(max(1, int(limit)), 100)
         query = f"""
@@ -254,19 +316,42 @@ class Neo4jCodeGraphClient:
         WHERE n.tenant_id = $tenant_id
           AND (n:CodeFile OR n:CodeModule OR n:Class OR n:Function)
           AND ($path_prefix IS NULL OR n.path STARTS WITH $path_prefix)
+          AND ($repo_key IS NULL OR coalesce(n.repo_key, '') = $repo_key)
         OPTIONAL MATCH (n)-[r]-()
         WHERE r.tenant_id = $tenant_id
         RETURN n.qualified_name AS qualified_name, n.name AS name,
                labels(n)[0] AS label, n.path AS path,
+               coalesce(n.repo_key, '') AS repo_key,
                count(r) AS connections
         ORDER BY connections DESC, qualified_name ASC
         LIMIT {limit}
         """
         return self._read(
-            query, {"tenant_id": tenant_id, "path_prefix": path_prefix}
+            query,
+            {
+                "tenant_id": tenant_id,
+                "path_prefix": path_prefix,
+                "repo_key": repo_key,
+            },
         )
 
-    def index_meta(self, tenant_id: str) -> dict[str, Any] | None:
+    def index_meta(
+        self, tenant_id: str, repo_key: str | None = None
+    ) -> dict[str, Any] | None:
+        query = """
+        MATCH (m:CodeIndexMeta)
+        WHERE m.tenant_id = $tenant_id
+          AND ($repo_key IS NULL OR m.repo_key = $repo_key)
+        RETURN m.repo_key AS repo_key, m.repo_root AS repo_root,
+               m.source_commit AS source_commit, m.indexed_at AS indexed_at,
+               m.kind AS kind
+        ORDER BY m.indexed_at DESC
+        LIMIT 1
+        """
+        rows = self._read(query, {"tenant_id": tenant_id, "repo_key": repo_key})
+        return rows[0] if rows else None
+
+    def index_metas(self, tenant_id: str) -> list[dict[str, Any]]:
         query = """
         MATCH (m:CodeIndexMeta)
         WHERE m.tenant_id = $tenant_id
@@ -274,10 +359,8 @@ class Neo4jCodeGraphClient:
                m.source_commit AS source_commit, m.indexed_at AS indexed_at,
                m.kind AS kind
         ORDER BY m.indexed_at DESC
-        LIMIT 1
         """
-        rows = self._read(query, {"tenant_id": tenant_id})
-        return rows[0] if rows else None
+        return self._read(query, {"tenant_id": tenant_id})
 
 
 def _default_client(client: CodeGraphClient | None) -> CodeGraphClient:
@@ -307,7 +390,9 @@ def _git_head_sha(root: str) -> str | None:
     return result.stdout.strip() or None
 
 
-def _freshness_block(client: CodeGraphClient, tenant_id: str) -> dict[str, Any]:
+def _freshness_block(
+    client: CodeGraphClient, tenant_id: str, repo_key: str | None = None
+) -> dict[str, Any]:
     """Index-provenance disclosure attached to every query result.
 
     Always present, additive: ``indexed_commit`` / ``indexed_at``
@@ -315,14 +400,18 @@ def _freshness_block(client: CodeGraphClient, tenant_id: str) -> dict[str, Any]:
     metadata or the client keeps no stamp). ``current_commit`` and
     ``stale`` are added only when the stamped repo root is a checkout
     on this machine whose HEAD can be read — when HEAD cannot be
-    checked, ``stale`` is omitted rather than guessed.
+    checked, ``stale`` is omitted rather than guessed. With
+    ``repo_key`` given, the block describes that repo's stamp;
+    without one it describes the tenant's most recent stamp, and the
+    stamp's ``repo_key`` is included so the reader can tell which
+    repo the disclosure is about.
     """
     block: dict[str, Any] = {"indexed_commit": None, "indexed_at": None}
     meta_fn = getattr(client, "index_meta", None)
     if not callable(meta_fn):
         return block
     try:
-        meta = meta_fn(tenant_id)
+        meta = meta_fn(tenant_id, repo_key)
     except Exception:
         logger.warning("index_meta lookup failed for tenant %s", tenant_id, exc_info=True)
         return block
@@ -330,6 +419,7 @@ def _freshness_block(client: CodeGraphClient, tenant_id: str) -> dict[str, Any]:
         return block
     block["indexed_commit"] = meta.get("source_commit")
     block["indexed_at"] = meta.get("indexed_at")
+    block["repo_key"] = meta.get("repo_key")
     root = meta.get("repo_root")
     indexed = meta.get("source_commit")
     if root and indexed:
@@ -340,36 +430,67 @@ def _freshness_block(client: CodeGraphClient, tenant_id: str) -> dict[str, Any]:
     return block
 
 
+def _repo_disambiguation(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    """Disclosure added when unscoped results span several repos.
+
+    Empty dict when the rows touch at most one repo (the common
+    single-repo case, whose result shape is unchanged). Otherwise a
+    ``repos`` list plus a ``note``: the results are NOT merged —
+    every row carries its own ``repo_key`` — but the reader must be
+    told more than one repo contributed, and how to scope down.
+    """
+    keys = sorted({str(row.get("repo_key")) for row in rows if row.get("repo_key")})
+    if len(keys) <= 1:
+        return {}
+    return {
+        "repos": keys,
+        "note": (
+            f"Results span {len(keys)} indexed repos "
+            f"({', '.join(keys)}); each row carries its repo_key. "
+            "Pass repo to scope the query to one repo."
+        ),
+    }
+
+
 def symbol_lookup(
     name: str,
     tenant_id: str = "default",
     client: CodeGraphClient | None = None,
+    repo: str | None = None,
 ) -> dict[str, Any]:
     """Look up a code symbol by qualified name, then by simple name.
 
     Exact qualified-name matches win: simple-name matches are only
     consulted when no qualified name matches, so a fully-qualified
     query never returns same-named symbols from other modules.
+    ``repo`` scopes the lookup to one indexed repo (its repo key);
+    without it, matches from every repo are returned — each carrying
+    its ``repo_key`` — and a ``repos``/``note`` disclosure is added
+    when they span more than one repo.
     """
     graph_client = _default_client(client)
-    freshness = _freshness_block(graph_client, tenant_id)
+    freshness = _freshness_block(graph_client, tenant_id, repo_key=repo)
     query = (name or "").strip()
     if not query:
         return {"query": query, "match_type": None, "matches": [], "freshness": freshness}
-    matches = graph_client.find_symbols(tenant_id, qualified_name=query)
+    matches = graph_client.find_symbols(
+        tenant_id, qualified_name=query, repo_key=repo
+    )
     if matches:
         return {
             "query": query,
             "match_type": "qualified_name",
             "matches": [_attach_url(match) for match in matches],
             "freshness": freshness,
+            **_repo_disambiguation(matches),
         }
-    matches = graph_client.find_symbols(tenant_id, name=query)
+    matches = graph_client.find_symbols(tenant_id, name=query, repo_key=repo)
     return {
         "query": query,
         "match_type": "name" if matches else None,
         "matches": [_attach_url(match) for match in matches],
         "freshness": freshness,
+        **_repo_disambiguation(matches),
     }
 
 
@@ -397,6 +518,7 @@ def impact_analysis(
     tenant_id: str = "default",
     max_depth: int = 3,
     client: CodeGraphClient | None = None,
+    repo: str | None = None,
 ) -> dict[str, Any]:
     """Reverse-dependency impact: who CALLS/IMPORTS ``symbol``, transitively.
 
@@ -404,11 +526,20 @@ def impact_analysis(
     name), then breadth-first walks incoming CALLS/IMPORTS edges from
     the defining node(s). A caller at depth 1 calls/imports the symbol
     directly; deeper entries reach it through a chain of callers.
+
+    The walk is repo-partitioned: a symbol defined in several of the
+    tenant's repos is walked once per repo, and callers are only ever
+    collected from the repo that defines the root they reach — impact
+    never crosses repos. ``repo`` restricts the walk to one repo.
+    Without it, impacted entries carry their ``repo_key`` and a
+    ``repos``/``note`` disclosure is added when roots span repos.
     """
     graph_client = _default_client(client)
-    freshness = _freshness_block(graph_client, tenant_id)
+    freshness = _freshness_block(graph_client, tenant_id, repo_key=repo)
     depth_limit = min(max(1, int(max_depth)), MAX_IMPACT_DEPTH)
-    lookup = symbol_lookup(symbol, tenant_id=tenant_id, client=graph_client)
+    lookup = symbol_lookup(
+        symbol, tenant_id=tenant_id, client=graph_client, repo=repo
+    )
     roots = lookup["matches"]
     if not roots:
         return {
@@ -419,36 +550,55 @@ def impact_analysis(
             "impacted": [],
             "freshness": freshness,
         }
-    root_qns = {root["qualified_name"] for root in roots}
-    seen: set[str] = set(root_qns)
+    # Frontier and visited set are keyed by (repo_key, qualified
+    # name): the same qualified name in two repos is two distinct
+    # nodes, and each repo's walk proceeds independently.
+    seen: set[tuple[str, str]] = set()
+    frontiers: dict[str, list[str]] = {}
+    for root in roots:
+        root_key = str(root.get("repo_key") or "")
+        root_qn = root["qualified_name"]
+        if (root_key, root_qn) not in seen:
+            seen.add((root_key, root_qn))
+            frontiers.setdefault(root_key, []).append(root_qn)
     impacted: list[dict[str, Any]] = []
-    frontier = sorted(root_qns)
     for depth in range(1, depth_limit + 1):
-        if not frontier:
+        if not any(frontiers.values()):
             break
-        next_frontier: list[str] = []
-        for row in graph_client.incoming_edges(tenant_id, frontier):
-            source_qn = row.get("source_qn")
-            if not source_qn or source_qn in seen:
+        next_frontiers: dict[str, list[str]] = {}
+        for root_key, frontier in frontiers.items():
+            if not frontier:
                 continue
-            seen.add(source_qn)
-            next_frontier.append(source_qn)
-            entry = {
-                "qualified_name": source_qn,
-                "name": row.get("source_name"),
-                "label": row.get("source_label"),
-                "path": row.get("source_path"),
-                "line": row.get("source_line"),
-                "end_line": row.get("source_end_line"),
-                "depth": depth,
-                "via_edge": row.get("edge_type"),
-                "via_target": row.get("target_qn"),
-            }
-            url = code_source_url(entry["path"], entry["line"], entry["end_line"])
-            if url is not None:
-                entry["url"] = url
-            impacted.append(entry)
-        frontier = sorted(next_frontier)
+            rows = graph_client.incoming_edges(
+                tenant_id, sorted(frontier), repo_key=root_key or None
+            )
+            for row in rows:
+                source_qn = row.get("source_qn")
+                if not source_qn:
+                    continue
+                source_key = str(row.get("source_repo_key") or root_key)
+                if (source_key, source_qn) in seen:
+                    continue
+                seen.add((source_key, source_qn))
+                next_frontiers.setdefault(source_key, []).append(source_qn)
+                entry = {
+                    "qualified_name": source_qn,
+                    "name": row.get("source_name"),
+                    "label": row.get("source_label"),
+                    "path": row.get("source_path"),
+                    "line": row.get("source_line"),
+                    "end_line": row.get("source_end_line"),
+                    "depth": depth,
+                    "via_edge": row.get("edge_type"),
+                    "via_target": row.get("target_qn"),
+                }
+                if source_key:
+                    entry["repo_key"] = source_key
+                url = code_source_url(entry["path"], entry["line"], entry["end_line"])
+                if url is not None:
+                    entry["url"] = url
+                impacted.append(entry)
+        frontiers = next_frontiers
     impacted.sort(key=lambda item: (item["depth"], item["qualified_name"]))
     return {
         "symbol": symbol,
@@ -457,7 +607,35 @@ def impact_analysis(
         "max_depth": depth_limit,
         "impacted": impacted,
         "freshness": freshness,
+        **_repo_disambiguation(roots),
     }
+
+
+def _tenant_repo_keys(
+    client: CodeGraphClient, tenant_id: str, rows: list[dict[str, Any]]
+) -> list[str]:
+    """Sorted repo keys a tenant-wide result spans.
+
+    From the tenant's index stamps when the client keeps them (the
+    authoritative list of indexed repos); otherwise from the repo
+    keys carried by the result rows themselves.
+    """
+    metas_fn = getattr(client, "index_metas", None)
+    if callable(metas_fn):
+        try:
+            keys = {
+                str(meta.get("repo_key"))
+                for meta in metas_fn(tenant_id) or []
+                if meta.get("repo_key")
+            }
+        except Exception:
+            logger.warning(
+                "index_metas lookup failed for tenant %s", tenant_id, exc_info=True
+            )
+            keys = set()
+        if keys:
+            return sorted(keys)
+    return sorted({str(row.get("repo_key")) for row in rows if row.get("repo_key")})
 
 
 def repo_overview(
@@ -465,28 +643,41 @@ def repo_overview(
     path_prefix: str | None = None,
     client: CodeGraphClient | None = None,
     top_limit: int = 10,
+    repo: str | None = None,
 ) -> dict[str, Any]:
-    """Counts per node/edge type plus the most-connected symbols."""
+    """Counts per node/edge type plus the most-connected symbols.
+
+    ``repo`` scopes every count to one indexed repo. Without it the
+    counts span the tenant's whole graph; when that graph holds more
+    than one repo, a ``repos`` list discloses which repos the totals
+    cover (the counts are the tenant's, not one repo's).
+    """
     graph_client = _default_client(client)
-    node_counts = graph_client.node_counts(tenant_id, path_prefix)
-    edge_counts = graph_client.edge_counts(tenant_id, path_prefix)
-    return {
+    node_counts = graph_client.node_counts(tenant_id, path_prefix, repo_key=repo)
+    edge_counts = graph_client.edge_counts(tenant_id, path_prefix, repo_key=repo)
+    top_rows = [
+        _attach_url(row)
+        for row in graph_client.top_connected(
+            tenant_id, path_prefix, limit=top_limit, repo_key=repo
+        )
+    ]
+    result: dict[str, Any] = {
         "tenant_id": tenant_id,
         "path_prefix": path_prefix,
         "node_counts": node_counts,
         "edge_counts": edge_counts,
         "total_nodes": sum(node_counts.values()),
         "total_edges": sum(edge_counts.values()),
-        "freshness": _freshness_block(graph_client, tenant_id),
+        "freshness": _freshness_block(graph_client, tenant_id, repo_key=repo),
         # top_connected rows carry a path but no line, so their URLs
         # are plain file:// links without a line anchor.
-        "top_connected": [
-            _attach_url(row)
-            for row in graph_client.top_connected(
-                tenant_id, path_prefix, limit=top_limit
-            )
-        ],
+        "top_connected": top_rows,
     }
+    if repo is None:
+        repo_keys = _tenant_repo_keys(graph_client, tenant_id, top_rows)
+        if len(repo_keys) > 1:
+            result["repos"] = repo_keys
+    return result
 
 
 __all__ = [

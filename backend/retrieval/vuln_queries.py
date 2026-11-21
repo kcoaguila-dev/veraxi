@@ -331,13 +331,17 @@ def attach_code_reachability(
     tenant_id: str = "default",
     max_depth: int = 3,
     code_client: Any = None,
+    repo: str | None = None,
 ) -> list[dict[str, Any]]:
     """Enrich vulnerability findings with Repo X-Ray code-graph reachability.
 
     For each unique vulnerable package, queries ``code_queries.impact_analysis``
     for modules/functions that ``IMPORTS`` or ``CALLS`` the package (transitively)
     and attaches ``reachable_in_code`` and ``reachable_file_count`` to each
-    finding.
+    finding. ``repo`` scopes reachability to one indexed repo; without
+    it, hits from every repo are attached — each hit carries its
+    ``repo_key``, and hits are deduplicated per (repo, symbol), so
+    the same symbol reached in two repos counts for both.
     """
     if not findings:
         return findings
@@ -348,7 +352,7 @@ def attach_code_reachability(
     for finding in findings:
         pkg = finding.get("package") or ""
         if pkg not in cache:
-            seen_qns: set[str] = set()
+            seen_hits: set[tuple[str, str]] = set()
             hits: list[dict[str, Any]] = []
             for candidate in _package_import_candidates(pkg):
                 result = impact_analysis(
@@ -356,11 +360,13 @@ def attach_code_reachability(
                     tenant_id=tenant_id,
                     max_depth=max_depth,
                     client=code_client,
+                    repo=repo,
                 )
                 for item in result.get("impacted") or []:
                     qn = item.get("qualified_name")
-                    if qn and qn not in seen_qns:
-                        seen_qns.add(qn)
+                    hit_key = (str(item.get("repo_key") or ""), str(qn or ""))
+                    if qn and hit_key not in seen_hits:
+                        seen_hits.add(hit_key)
                         hits.append(item)
             cache[pkg] = hits
         impacted = cache[pkg]
@@ -378,6 +384,7 @@ def vuln_report(
     include_reachability: bool = False,
     code_client: Any = None,
     max_depth: int = 3,
+    repo: str | None = None,
 ) -> dict[str, Any]:
     """DB-backed vuln report for already-extracted ``dependencies``."""
     graph_client = _default_client(client)
@@ -392,6 +399,7 @@ def vuln_report(
             tenant_id=tenant_id,
             max_depth=max_depth,
             code_client=code_client,
+            repo=repo,
         )
     report["tenant_id"] = tenant_id
     return report

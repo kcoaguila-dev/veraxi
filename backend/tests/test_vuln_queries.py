@@ -396,7 +396,7 @@ def test_match_dependencies_sorts_by_kev_then_epss():
 
 
 class _FakeCodeGraphClient:
-    def find_symbols(self, tenant_id, *, qualified_name=None, name=None):
+    def find_symbols(self, tenant_id, *, qualified_name=None, name=None, repo_key=None):
         if qualified_name == "widgetlib" or name == "widgetlib":
             return [
                 {
@@ -411,7 +411,7 @@ class _FakeCodeGraphClient:
             ]
         return []
 
-    def incoming_edges(self, tenant_id, target_qns):
+    def incoming_edges(self, tenant_id, target_qns, repo_key=None):
         if "widgetlib" in target_qns:
             return [
                 {
@@ -425,13 +425,13 @@ class _FakeCodeGraphClient:
             ]
         return []
 
-    def node_counts(self, tenant_id, path_prefix=None):  # pragma: no cover
+    def node_counts(self, tenant_id, path_prefix=None, repo_key=None):  # pragma: no cover
         return {}
 
-    def edge_counts(self, tenant_id, path_prefix=None):  # pragma: no cover
+    def edge_counts(self, tenant_id, path_prefix=None, repo_key=None):  # pragma: no cover
         return {}
 
-    def top_connected(self, tenant_id, path_prefix=None, limit=10):  # pragma: no cover
+    def top_connected(self, tenant_id, path_prefix=None, limit=10, repo_key=None):  # pragma: no cover
         return []
 
 

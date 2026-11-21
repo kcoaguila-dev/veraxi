@@ -292,17 +292,34 @@ class InMemoryCodeGraphClient:
         self, graph: CodeGraph, index_meta: dict[str, Any] | None = None
     ) -> None:
         self.graph = graph
-        self._by_qn = {node.qualified_name: node for node in graph.nodes}
+        # Keyed by (repo_key, qualified_name): one in-memory graph
+        # may hold several repos whose symbols share qualified names.
+        self._by_qn = {
+            (node.repo_key, node.qualified_name): node for node in graph.nodes
+        }
         self._index_meta = index_meta
 
-    def index_meta(self, tenant_id: str) -> dict[str, Any] | None:
+    def index_meta(
+        self, tenant_id: str, repo_key: str | None = None
+    ) -> dict[str, Any] | None:
         """Return the stamp supplied at construction (None by default).
 
         The offline ablation graph is parsed in memory and never
         ingested, so it carries no provenance unless a caller
-        explicitly models one.
+        explicitly models one. A ``repo_key`` that does not match
+        the modeled stamp's repo reads as no stamp.
         """
+        if (
+            repo_key is not None
+            and self._index_meta is not None
+            and self._index_meta.get("repo_key") != repo_key
+        ):
+            return None
         return self._index_meta
+
+    def index_metas(self, tenant_id: str) -> list[dict[str, Any]]:
+        """Return the modeled stamp as a one-element list (or empty)."""
+        return [self._index_meta] if self._index_meta is not None else []
 
     def _row(self, node: Any) -> dict[str, Any]:
         return {
@@ -314,6 +331,7 @@ class InMemoryCodeGraphClient:
             "end_line": node.end_line,
             "language": node.language,
             "resolved": node.resolved,
+            "repo_key": node.repo_key,
         }
 
     def find_symbols(
@@ -322,19 +340,24 @@ class InMemoryCodeGraphClient:
         *,
         qualified_name: str | None = None,
         name: str | None = None,
+        repo_key: str | None = None,
     ) -> list[dict[str, Any]]:
         """Return matching nodes by qualified name or simple name."""
         if qualified_name is not None:
             return [
                 self._row(n)
                 for n in self.graph.nodes
-                if n.resolved and n.qualified_name == qualified_name
+                if n.resolved
+                and n.qualified_name == qualified_name
+                and (repo_key is None or n.repo_key == repo_key)
             ]
         if name is not None:
             return [
                 self._row(n)
                 for n in self.graph.nodes
-                if n.resolved and n.name == name
+                if n.resolved
+                and n.name == name
+                and (repo_key is None or n.repo_key == repo_key)
             ]
         return []
 
@@ -353,7 +376,7 @@ class InMemoryCodeGraphClient:
         return None
 
     def incoming_edges(
-        self, tenant_id: str, target_qns: list[str]
+        self, tenant_id: str, target_qns: list[str], repo_key: str | None = None
     ) -> list[dict[str, Any]]:
         """Return resolved incoming ``CALLS`` / ``IMPORTS`` edges."""
         targets = set(target_qns)
@@ -361,7 +384,9 @@ class InMemoryCodeGraphClient:
         for edge in self.graph.edges:
             if edge.type not in IMPACT_EDGE_TYPES or edge.target_qn not in targets:
                 continue
-            source = self._by_qn.get(edge.source_qn)
+            if repo_key is not None and edge.repo_key != repo_key:
+                continue
+            source = self._by_qn.get((edge.repo_key, edge.source_qn))
             if source is None or not source.resolved:
                 continue
             rows.append(
@@ -372,6 +397,7 @@ class InMemoryCodeGraphClient:
                     "source_path": source.path,
                     "source_line": source.line,
                     "source_end_line": source.end_line,
+                    "source_repo_key": source.repo_key,
                     "edge_type": edge.type,
                     "target_qn": edge.target_qn,
                 }
@@ -384,53 +410,74 @@ class InMemoryCodeGraphClient:
         for edge in self.graph.edges:
             if edge.type not in IMPACT_EDGE_TYPES or edge.source_qn not in source_qns:
                 continue
-            target = self._by_qn.get(edge.target_qn)
+            target = self._by_qn.get((edge.repo_key, edge.target_qn))
             if target is not None and target.resolved and target.path:
                 paths.append(target.path)
         return paths
 
-    def _scoped_nodes(self, path_prefix: str | None) -> list[Any]:
+    def _scoped_nodes(
+        self, path_prefix: str | None, repo_key: str | None = None
+    ) -> list[Any]:
         return [
             node
             for node in self.graph.nodes
             if node.resolved
             and (path_prefix is None or node.path.startswith(path_prefix))
+            and (repo_key is None or node.repo_key == repo_key)
         ]
 
     def node_counts(
-        self, tenant_id: str, path_prefix: str | None = None
+        self,
+        tenant_id: str,
+        path_prefix: str | None = None,
+        repo_key: str | None = None,
     ) -> dict[str, int]:
         """Count resolved nodes per label within optional path prefix."""
-        return dict(Counter(node.label for node in self._scoped_nodes(path_prefix)))
+        return dict(
+            Counter(node.label for node in self._scoped_nodes(path_prefix, repo_key))
+        )
 
     def edge_counts(
-        self, tenant_id: str, path_prefix: str | None = None
+        self,
+        tenant_id: str,
+        path_prefix: str | None = None,
+        repo_key: str | None = None,
     ) -> dict[str, int]:
         """Count edges originating in scoped nodes."""
-        scoped = {node.qualified_name for node in self._scoped_nodes(path_prefix)}
+        scoped = {
+            (node.repo_key, node.qualified_name)
+            for node in self._scoped_nodes(path_prefix, repo_key)
+        }
         return dict(
             Counter(
-                edge.type for edge in self.graph.edges if edge.source_qn in scoped
+                edge.type
+                for edge in self.graph.edges
+                if (edge.repo_key, edge.source_qn) in scoped
             )
         )
 
     def top_connected(
-        self, tenant_id: str, path_prefix: str | None = None, limit: int = 10
+        self,
+        tenant_id: str,
+        path_prefix: str | None = None,
+        limit: int = 10,
+        repo_key: str | None = None,
     ) -> list[dict[str, Any]]:
         """Return highest-degree resolved code nodes within optional path prefix."""
-        degree: Counter[str] = Counter()
+        degree: Counter[tuple[str, str]] = Counter()
         for edge in self.graph.edges:
-            degree[edge.source_qn] += 1
-            degree[edge.target_qn] += 1
+            degree[(edge.repo_key, edge.source_qn)] += 1
+            degree[(edge.repo_key, edge.target_qn)] += 1
         rows = [
             {
                 "qualified_name": node.qualified_name,
                 "name": node.name,
                 "label": node.label,
                 "path": node.path,
-                "connections": degree[node.qualified_name],
+                "repo_key": node.repo_key,
+                "connections": degree[(node.repo_key, node.qualified_name)],
             }
-            for node in self._scoped_nodes(path_prefix)
+            for node in self._scoped_nodes(path_prefix, repo_key)
             if node.path
         ]
         rows.sort(key=lambda r: (-int(r["connections"]), str(r["qualified_name"])))

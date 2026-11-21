@@ -50,14 +50,18 @@ class FakeCodeGraphClient:
             "line": node.line,
             "end_line": node.end_line,
             "language": node.language,
+            "repo_key": node.repo_key,
         }
 
-    def find_symbols(self, tenant_id, *, qualified_name=None, name=None):
+    def find_symbols(self, tenant_id, *, qualified_name=None, name=None, repo_key=None):
         return [
             self._row(node)
             for node in self.graph.nodes
-            if (qualified_name is not None and node.qualified_name == qualified_name)
-            or (qualified_name is None and name is not None and node.name == name)
+            if (
+                (qualified_name is not None and node.qualified_name == qualified_name)
+                or (qualified_name is None and name is not None and node.name == name)
+            )
+            and (repo_key is None or node.repo_key == repo_key)
         ]
 
     def find_file(self, tenant_id, path):
@@ -66,12 +70,14 @@ class FakeCodeGraphClient:
                 return self._row(node)
         return None
 
-    def incoming_edges(self, tenant_id, target_qns):
+    def incoming_edges(self, tenant_id, target_qns, repo_key=None):
         rows = []
         for edge in self.graph.edges:
             if edge.type not in ("CALLS", "IMPORTS"):
                 continue
             if edge.target_qn not in target_qns:
+                continue
+            if repo_key is not None and edge.repo_key != repo_key:
                 continue
             source = self._by_qn.get(edge.source_qn)
             if source is None:
@@ -84,49 +90,60 @@ class FakeCodeGraphClient:
                     "source_path": source.path,
                     "source_line": source.line,
                     "source_end_line": source.end_line,
+                    "source_repo_key": source.repo_key,
                     "edge_type": edge.type,
                     "target_qn": edge.target_qn,
                 }
             )
         return rows
 
-    def index_meta(self, tenant_id):
+    def index_meta(self, tenant_id, repo_key=None):
         # The fixture graph is parsed in memory and never ingested:
         # no provenance stamp exists for it.
         return None
 
-    def _scoped_nodes(self, path_prefix):
+    def index_metas(self, tenant_id):
+        return []
+
+    def _scoped_nodes(self, path_prefix, repo_key=None):
         return [
             node
             for node in self.graph.nodes
-            if path_prefix is None or node.path.startswith(path_prefix)
+            if (path_prefix is None or node.path.startswith(path_prefix))
+            and (repo_key is None or node.repo_key == repo_key)
         ]
 
-    def node_counts(self, tenant_id, path_prefix=None):
-        return dict(Counter(n.label for n in self._scoped_nodes(path_prefix)))
+    def node_counts(self, tenant_id, path_prefix=None, repo_key=None):
+        return dict(Counter(n.label for n in self._scoped_nodes(path_prefix, repo_key)))
 
-    def edge_counts(self, tenant_id, path_prefix=None):
-        scoped = {n.qualified_name for n in self._scoped_nodes(path_prefix)}
+    def edge_counts(self, tenant_id, path_prefix=None, repo_key=None):
+        scoped = {
+            (n.repo_key, n.qualified_name)
+            for n in self._scoped_nodes(path_prefix, repo_key)
+        }
         return dict(
             Counter(
-                edge.type for edge in self.graph.edges if edge.source_qn in scoped
+                edge.type
+                for edge in self.graph.edges
+                if (edge.repo_key, edge.source_qn) in scoped
             )
         )
 
-    def top_connected(self, tenant_id, path_prefix=None, limit=10):
+    def top_connected(self, tenant_id, path_prefix=None, limit=10, repo_key=None):
         degree: Counter = Counter()
         for edge in self.graph.edges:
-            degree[edge.source_qn] += 1
-            degree[edge.target_qn] += 1
+            degree[(edge.repo_key, edge.source_qn)] += 1
+            degree[(edge.repo_key, edge.target_qn)] += 1
         rows = []
-        for node in self._scoped_nodes(path_prefix):
+        for node in self._scoped_nodes(path_prefix, repo_key):
             rows.append(
                 {
                     "qualified_name": node.qualified_name,
                     "name": node.name,
                     "label": node.label,
                     "path": node.path,
-                    "connections": degree[node.qualified_name],
+                    "repo_key": node.repo_key,
+                    "connections": degree[(node.repo_key, node.qualified_name)],
                 }
             )
         rows.sort(key=lambda r: (-r["connections"], r["qualified_name"]))
