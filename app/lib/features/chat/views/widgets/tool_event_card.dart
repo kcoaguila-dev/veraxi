@@ -51,8 +51,10 @@ class _ToolEventCardState extends State<ToolEventCard>
     final isComplete = event.isComplete;
     final result = event.result;
 
-    // Friendly name shown in the pill
+    // Friendly name and retrieval metadata shown in the pill
     final label = _friendlyLabel(event.name);
+    final meta = _summarizeResultMeta(result);
+    final subtitle = _buildMetadataSubtitle(event, meta);
 
     // Determine icon / colour from result content
     final isError = result is String && result.startsWith('Error:');
@@ -120,13 +122,11 @@ class _ToolEventCardState extends State<ToolEventCard>
                                 fontWeight: FontWeight.w500,
                               ),
                             ),
-                            if (isComplete &&
-                                event.summary != null &&
-                                event.summary!.isNotEmpty)
+                            if (subtitle != null)
                               Padding(
                                 padding: const EdgeInsets.only(top: 2),
                                 child: Text(
-                                  event.summary!,
+                                  subtitle,
                                   style: TextStyle(
                                     fontSize: 11,
                                     color: Colors.white.withValues(alpha: 0.55),
@@ -138,6 +138,14 @@ class _ToolEventCardState extends State<ToolEventCard>
                           ],
                         ),
                       ),
+                      if (isComplete) ...[
+                        for (final leg in meta.legs)
+                          if (leg == 'Vector' || leg == 'Graph')
+                            Padding(
+                              padding: const EdgeInsets.only(right: 6),
+                              child: _ChannelBadge(leg: leg),
+                            ),
+                      ],
                       if (isComplete && event.durationMs != null)
                         Tooltip(
                           message:
@@ -203,34 +211,154 @@ class _ToolEventCardState extends State<ToolEventCard>
   }
 
   static String _friendlyLabel(String toolName) {
-    switch (toolName) {
+    final normalized =
+        toolName.startsWith('mcp_') ? toolName.substring(4) : toolName;
+    switch (normalized) {
       case 'read_file':
-        return '📄 Reading file…';
+        return 'Reading file';
       case 'write_file':
-        return '💾 Writing file…';
+        return 'Writing file';
       case 'list_files':
-        return '📂 Listing files…';
+        return 'Listing files';
       case 'run_shell':
-        return '⚡ Running shell command…';
+        return 'Running shell command';
       case 'open_app':
-        return '📱 Opening app…';
+        return 'Opening app';
       case 'web_search':
-        return '🌐 Searching the web…';
-      case 'mcp_build_lazy_dossier':
-        return '📑 Compiling briefing doc…';
-      case 'mcp_purge_noisy_relationships':
-        return '🧹 Purging noisy graph edges…';
-      case 'mcp_search_vectors':
-        return '🔍 Searching vector database…';
-      case 'mcp_query_graph':
-        return '🕸️ Querying knowledge graph…';
-      case 'mcp_ephemeral_web_rag':
-        return '🌐 Ephemeral web ingestion…';
-      case 'mcp_agentic_debate':
-        return '⚔️ Multi-agent reasoning debate…';
+      case 'ephemeral_web_rag':
+        return 'Web Search';
+      case 'build_lazy_dossier':
+        return 'Causal Graph Dossier';
+      case 'purge_noisy_relationships':
+        return 'Purging noisy graph edges';
+      case 'search_vectors':
+        return 'Hybrid Vector Search';
+      case 'query_graph':
+        return 'Knowledge Graph Traversal';
+      case 'merge_rank':
+        return 'Hybrid RRF Fusion & Rerank';
+      case 'code_symbol':
+      case 'code_impact':
+      case 'code_overview':
+        return 'Code Graph X-Ray';
+      case 'agentic_debate':
+        return 'Multi-Agent Debate';
       default:
-        return '🔧 $toolName…';
+        return toolName;
     }
+  }
+
+  static String? _extractQueryArg(Map<String, dynamic> args) {
+    const keys = [
+      'query_text',
+      'query',
+      'entity_name',
+      'name',
+      'symbol',
+      'task',
+    ];
+    for (final key in keys) {
+      final val = args[key];
+      if (val is String && val.trim().isNotEmpty) {
+        return val.trim();
+      }
+    }
+    return null;
+  }
+
+  static List<dynamic>? _decodeResultItems(dynamic result) {
+    dynamic decoded = result;
+    if (result is String) {
+      final trimmed = result.trimLeft();
+      if (!trimmed.startsWith('[') && !trimmed.startsWith('{')) return null;
+      try {
+        decoded = jsonDecode(trimmed);
+      } catch (_) {
+        return null;
+      }
+    }
+    if (decoded is List) return decoded;
+    if (decoded is Map && decoded['chunks'] is List) {
+      return decoded['chunks'] as List;
+    }
+    return null;
+  }
+
+  static void _collectLeg(String raw, List<String> legs) {
+    final normalized = raw.toLowerCase();
+    String? label;
+    if (normalized == 'vector') label = 'Vector';
+    if (normalized == 'sparse') label = 'Sparse';
+    if (normalized == 'graph') label = 'Graph';
+    if (label != null && !legs.contains(label)) legs.add(label);
+  }
+
+  static ({int? count, List<String> legs}) _summarizeResultMeta(
+      dynamic result) {
+    if (result == null) return (count: null, legs: const []);
+    final items = _decodeResultItems(result);
+    if (items == null) return (count: null, legs: const []);
+    final legs = <String>[];
+    for (final item in items) {
+      if (item is! Map) continue;
+      final prov = item['provenance'];
+      final rawLegs = prov is Map ? prov['legs'] : item['sources'];
+      if (rawLegs is List) {
+        for (final leg in rawLegs) {
+          if (leg is String) _collectLeg(leg, legs);
+        }
+      }
+    }
+    return (count: items.length, legs: legs);
+  }
+
+  static String? _buildMetadataSubtitle(
+    ToolEvent event,
+    ({int? count, List<String> legs}) meta,
+  ) {
+    final queryArg = _extractQueryArg(event.args);
+    final parts = <String>[
+      if (queryArg != null) '"$queryArg"',
+      if (event.isComplete && meta.count != null)
+        '${meta.count} ${meta.count == 1 ? 'result' : 'results'}',
+      if (event.isComplete && meta.legs.isNotEmpty) meta.legs.join(' + '),
+    ];
+    if (parts.isNotEmpty) return parts.join(' · ');
+    if (event.isComplete &&
+        event.summary != null &&
+        event.summary!.isNotEmpty) {
+      return event.summary;
+    }
+    return null;
+  }
+}
+
+class _ChannelBadge extends StatelessWidget {
+  const _ChannelBadge({required this.leg});
+
+  final String leg;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = leg == 'Graph'
+        ? const Color(0xFFD98A2B)
+        : const Color(0xFF4F8EF7);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color, width: 0.7),
+      ),
+      child: Text(
+        leg,
+        style: const TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w500,
+          color: Colors.white,
+        ),
+      ),
+    );
   }
 }
 

@@ -102,4 +102,91 @@ void main() {
       findsOneWidget,
     );
   });
+
+  testWidgets(
+      'expanding activity humanizes internal steps and shows hybrid channels, query args, and counts',
+      (WidgetTester tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ChatActivityDisclosure(
+            reasoningDurationSeconds: 1.8,
+            activity: [
+              ActivityStep(
+                number: 1,
+                name: 'Planning & Discovery',
+                description: 'Analyzing intent and selecting domain tools...',
+                status: ActivityStepStatus.complete,
+                toolEvents: [
+                  ToolEvent(
+                    id: 't1',
+                    name: 'search_vectors',
+                    args: {'query_text': 'whos the ceo of nvidia'},
+                    isComplete: true,
+                    result: [
+                      {
+                        'id': 'c1',
+                        'provenance': {
+                          'legs': ['vector', 'graph'],
+                          'fused_score': 0.032,
+                        },
+                      },
+                      {
+                        'id': 'c2',
+                        'provenance': {
+                          'legs': ['vector'],
+                          'fused_score': 0.016,
+                        },
+                      },
+                    ],
+                  ),
+                  ToolEvent(
+                    id: 't2',
+                    name: 'mcp_query_graph',
+                    args: {'entity_name': 'NVIDIA'},
+                    isComplete: true,
+                    result: [
+                      {'id': 'g1'},
+                    ],
+                  ),
+                ],
+              ),
+              const ActivityStep(
+                number: 2,
+                name: 'Answer Synthesis',
+                description:
+                    'Synthesizing answer grounded in retrieved knowledge...',
+                status: ActivityStepStatus.complete,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    final summaryFinder = find.text(
+      'Thought for 1.8s · Checked your corpus · Traversed knowledge graph',
+    );
+    expect(summaryFinder, findsOneWidget);
+
+    await tester.tap(summaryFinder);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Retrieved evidence'), findsOneWidget);
+    expect(find.text('Checked Hybrid Vector, Knowledge Graph'), findsOneWidget);
+    expect(find.text('Drafted grounded answer'), findsOneWidget);
+    expect(find.text('Grounded in retrieved sources'), findsOneWidget);
+    expect(find.text('Planning & Discovery'), findsNothing);
+    expect(find.text('Answer Synthesis'), findsNothing);
+
+    expect(find.text('Hybrid Vector Search'), findsOneWidget);
+    expect(find.text('Knowledge Graph Traversal'), findsOneWidget);
+    expect(
+      find.text('"whos the ceo of nvidia" · 2 results · Vector + Graph'),
+      findsOneWidget,
+    );
+    expect(find.text('"NVIDIA" · 1 result'), findsOneWidget);
+    expect(find.text('Vector'), findsOneWidget);
+    expect(find.text('Graph'), findsOneWidget);
+  });
 }

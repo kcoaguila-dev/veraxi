@@ -260,6 +260,62 @@ class _ActivityStepView extends StatelessWidget {
 
   final ActivityStep step;
 
+  static String _channelLabelForTool(String toolName) {
+    final lower = toolName.toLowerCase();
+    if (lower.contains('search_vectors') ||
+        lower.contains('merge_rank') ||
+        lower.contains('build_lazy_dossier')) {
+      return 'Hybrid Vector';
+    }
+    if (lower.contains('query_graph')) return 'Knowledge Graph';
+    if (lower.contains('code_symbol') ||
+        lower.contains('code_impact') ||
+        lower.contains('code_overview')) {
+      return 'Code Graph';
+    }
+    if (lower.contains('web_search') || lower.contains('ephemeral_web_rag')) {
+      return 'Web';
+    }
+    return toolName.replaceAll('_', ' ');
+  }
+
+  static String _displayStepTitle(ActivityStep step) {
+    if (step.name == 'Planning & Discovery') {
+      return step.toolEvents.isNotEmpty
+          ? 'Retrieved evidence'
+          : 'Analyzed question';
+    }
+    if (step.name == 'Answer Synthesis') {
+      return 'Drafted grounded answer';
+    }
+    return step.name;
+  }
+
+  static String _displayStepDescription(ActivityStep step) {
+    if (step.name == 'Planning & Discovery') {
+      if (step.toolEvents.isNotEmpty) {
+        final channels = <String>[];
+        for (final event in step.toolEvents) {
+          final label = _channelLabelForTool(event.name);
+          if (!channels.contains(label)) channels.add(label);
+        }
+        return 'Checked ${channels.join(', ')}';
+      }
+      if (step.description.isEmpty ||
+          step.description == 'Analyzing intent and selecting domain tools...') {
+        return 'Selected retrieval channels';
+      }
+    }
+    if (step.name == 'Answer Synthesis') {
+      if (step.description.isEmpty ||
+          step.description ==
+              'Synthesizing answer grounded in retrieved knowledge...') {
+        return 'Grounded in retrieved sources';
+      }
+    }
+    return step.description;
+  }
+
   @override
   Widget build(BuildContext context) {
     final isError = step.status == ActivityStepStatus.error;
@@ -269,6 +325,8 @@ class _ActivityStepView extends StatelessWidget {
         : isRunning
             ? Colors.lightBlueAccent
             : Colors.greenAccent.shade400;
+    final title = _displayStepTitle(step);
+    final description = _displayStepDescription(step);
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 7),
@@ -289,18 +347,18 @@ class _ActivityStepView extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  step.name,
+                  title,
                   style: const TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
                     color: Colors.white70,
                   ),
                 ),
-                if (step.description.isNotEmpty)
+                if (description.isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.only(top: 2),
                     child: Text(
-                      step.description,
+                      description,
                       style: const TextStyle(
                         fontSize: 11,
                         color: Colors.white54,

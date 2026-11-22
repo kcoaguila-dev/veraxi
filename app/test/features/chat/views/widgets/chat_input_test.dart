@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:veraxi_app/core/theme.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -193,6 +195,39 @@ void main() {
         // Verify chip is STILL visible because it was pinned
         expect(find.text('File Search'),
             findsWidgets); // First pin is file_search usually
+      });
+
+      testWidgets(
+          'Unpinned active File Search persists file_search_enabled during send then restores false',
+          (tester) async {
+        bool? fileSearchDuringSend;
+        await tester.pumpWidget(wrap(ChatInput(
+          isLoading: false,
+          onSend: (text, {attachments}) async {
+            final prefs = await SharedPreferences.getInstance();
+            final raw = prefs.getString('tool_settings');
+            if (raw != null) {
+              fileSearchDuringSend =
+                  (jsonDecode(raw) as Map)['file_search_enabled'] as bool?;
+            }
+          },
+        )));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byIcon(Icons.tune));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('File Search'));
+        await tester.pumpAndSettle();
+
+        await tester.enterText(find.byType(TextField), 'Check hybrid docs');
+        await tester.pump();
+        await tester.tap(find.byIcon(Icons.arrow_upward));
+        await tester.pumpAndSettle();
+
+        expect(fileSearchDuringSend, isTrue);
+        final prefs = await SharedPreferences.getInstance();
+        final afterRaw = prefs.getString('tool_settings') ?? '{}';
+        expect((jsonDecode(afterRaw) as Map)['file_search_enabled'], isFalse);
       });
     });
   });

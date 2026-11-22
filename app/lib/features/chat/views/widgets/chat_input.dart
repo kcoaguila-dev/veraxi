@@ -164,108 +164,178 @@ class _ChatInputState extends State<ChatInput> {
     }
   }
 
+  static const String _transientToolOverridesKey = 'transient_tool_overrides';
+
+  Future<Map<String, dynamic>> _readSettingsMap(SharedPreferences prefs) async {
+    final raw = prefs.getString('tool_settings');
+    if ((raw ?? '').isEmpty) return {};
+    try {
+      return Map<String, dynamic>.from(jsonDecode(raw!) as Map);
+    } catch (e) {
+      debugPrint('[ChatInput] Failed to decode tool_settings: $e');
+      return {};
+    }
+  }
+
+  Future<Map<String, bool>> _readTransientOverrides(
+      SharedPreferences prefs) async {
+    final raw = prefs.getString(_transientToolOverridesKey);
+    if ((raw ?? '').isEmpty) return {};
+    try {
+      final decoded = jsonDecode(raw!) as Map;
+      return {
+        for (final entry in decoded.entries)
+          if (entry.value is bool) entry.key.toString(): entry.value as bool,
+      };
+    } catch (_) {
+      return {};
+    }
+  }
+
+  static void _applyToolFlag(
+      Map<String, dynamic> settings, String toolKey, bool enabled) {
+    switch (toolKey) {
+      case 'file_search':
+        settings['file_search_enabled'] = enabled;
+      case 'web_search':
+        final web = settings['web_search'] is Map
+            ? Map<String, dynamic>.from(settings['web_search'] as Map)
+            : <String, dynamic>{};
+        web['enabled'] = enabled;
+        settings['web_search'] = web;
+      case 'skills':
+        settings['skills_enabled'] = enabled;
+      case 'run_code':
+        settings['run_code_enabled'] = enabled;
+      case 'artifacts':
+        settings['artifacts_enabled'] = enabled;
+    }
+  }
+
+  bool _isToolPinned(String toolKey) {
+    switch (toolKey) {
+      case 'file_search':
+        return _fileSearchPinned;
+      case 'web_search':
+        return _webSearchPinned;
+      case 'skills':
+        return _skillsPinned;
+      case 'run_code':
+        return _runCodePinned;
+      case 'artifacts':
+        return _artifactsPinned;
+      default:
+        return false;
+    }
+  }
+
   Future<void> _loadToolSettings() async {
     final prefs = await SharedPreferences.getInstance();
-    final settingsJson = prefs.getString('tool_settings');
-    if ((settingsJson ?? '').isNotEmpty) {
-      try {
-        final settings = jsonDecode(settingsJson!) as Map<String, dynamic>;
-        bool fileEnabled = settings.containsKey('file_search_enabled')
-            ? settings['file_search_enabled'] as bool
+    final settings = await _readSettingsMap(prefs);
+    final overrides = await _readTransientOverrides(prefs);
+
+    final fileStored = settings['file_search_enabled'] as bool? ?? false;
+    final webMap = settings['web_search'];
+    final webStored = webMap is Map && webMap['enabled'] is bool
+        ? webMap['enabled'] as bool
+        : false;
+    final highAccuracyEnabled =
+        webMap is Map && webMap['high_accuracy'] is bool
+            ? webMap['high_accuracy'] as bool
             : false;
+    final skillsStored = settings['skills_enabled'] as bool? ?? false;
+    final runCodeStored = settings['run_code_enabled'] as bool? ?? false;
+    final artifactsStored = settings['artifacts_enabled'] as bool? ?? false;
 
-        bool webEnabled = false;
-        bool highAccuracyEnabled = false;
-        if (settings['web_search'] != null) {
-          if (settings['web_search']['enabled'] != null) {
-            webEnabled = settings['web_search']['enabled'] as bool;
-          }
-          if (settings['web_search']['high_accuracy'] != null) {
-            highAccuracyEnabled =
-                settings['web_search']['high_accuracy'] as bool;
-          }
-        }
+    final filePinned = overrides['file_search'] ?? fileStored;
+    final webPinned = overrides['web_search'] ?? webStored;
+    final skillsPinned = overrides['skills'] ?? skillsStored;
+    final runCodePinned = overrides['run_code'] ?? runCodeStored;
+    final artifactsPinned = overrides['artifacts'] ?? artifactsStored;
 
-        bool skillsEnabled = settings['skills_enabled'] as bool? ?? false;
-        bool runCodeEnabled = settings['run_code_enabled'] as bool? ?? false;
-        bool artifactsEnabled = settings['artifacts_enabled'] as bool? ?? false;
-
-        if (mounted) {
-          setState(() {
-            _fileSearchPinned = fileEnabled;
-            _fileSearchActive = fileEnabled;
-            _webSearchPinned = webEnabled;
-            _webSearchActive = webEnabled;
-            _highAccuracyEnabled = highAccuracyEnabled;
-            _skillsPinned = skillsEnabled;
-            _skillsActive = skillsEnabled;
-            _runCodePinned = runCodeEnabled;
-            _runCodeActive = runCodeEnabled;
-            _artifactsPinned = artifactsEnabled;
-            _artifactsActive = artifactsEnabled;
-          });
-        }
-      } catch (e) {
-        debugPrint('[ChatInput] Failed to decode tool_settings: $e');
-      }
+    if (mounted) {
+      setState(() {
+        _fileSearchPinned = filePinned;
+        _fileSearchActive = filePinned;
+        _webSearchPinned = webPinned;
+        _webSearchActive = webPinned;
+        _highAccuracyEnabled = highAccuracyEnabled;
+        _skillsPinned = skillsPinned;
+        _skillsActive = skillsPinned;
+        _runCodePinned = runCodePinned;
+        _runCodeActive = runCodePinned;
+        _artifactsPinned = artifactsPinned;
+        _artifactsActive = artifactsPinned;
+      });
     }
   }
 
   void _toggleActive(String toolKey, bool currentActive) {
+    final nextActive = !currentActive;
     setState(() {
       if (toolKey == 'file_search')
-        _fileSearchActive = !currentActive;
+        _fileSearchActive = nextActive;
       else if (toolKey == 'web_search')
-        _webSearchActive = !currentActive;
+        _webSearchActive = nextActive;
       else if (toolKey == 'skills')
-        _skillsActive = !currentActive;
+        _skillsActive = nextActive;
       else if (toolKey == 'run_code')
-        _runCodeActive = !currentActive;
-      else if (toolKey == 'artifacts') _artifactsActive = !currentActive;
+        _runCodeActive = nextActive;
+      else if (toolKey == 'artifacts') _artifactsActive = nextActive;
     });
+    _persistTransientToolToggle(toolKey, nextActive);
+  }
+
+  Future<void> _persistTransientToolToggle(
+      String toolKey, bool nextActive) async {
+    final prefs = await SharedPreferences.getInstance();
+    final settings = await _readSettingsMap(prefs);
+    final overrides = await _readTransientOverrides(prefs);
+    final pinned = _isToolPinned(toolKey);
+    if (nextActive != pinned) {
+      overrides[toolKey] = pinned;
+    } else {
+      overrides.remove(toolKey);
+    }
+    _applyToolFlag(settings, toolKey, nextActive);
+    await prefs.setString('tool_settings', jsonEncode(settings));
+    if (overrides.isEmpty) {
+      await prefs.remove(_transientToolOverridesKey);
+    } else {
+      await prefs.setString(_transientToolOverridesKey, jsonEncode(overrides));
+    }
   }
 
   Future<void> _togglePin(String toolKey, bool currentPinned) async {
     final prefs = await SharedPreferences.getInstance();
-    final currentSettingsJson = prefs.getString('tool_settings');
-    Map<String, dynamic> settings = {};
-    if ((currentSettingsJson ?? '').isNotEmpty) {
-      try {
-        settings = jsonDecode(currentSettingsJson!) as Map<String, dynamic>;
-      } catch (e) {
-        debugPrint('[ChatInput] Failed to decode tool_settings: $e');
-      }
-    }
+    final settings = await _readSettingsMap(prefs);
+    final overrides = await _readTransientOverrides(prefs);
+    final newPinned = !currentPinned;
 
-    bool newPinned = !currentPinned;
+    overrides.remove(toolKey);
+    _applyToolFlag(settings, toolKey, newPinned);
 
     if (toolKey == 'file_search') {
-      settings['file_search_enabled'] = newPinned;
       setState(() {
         _fileSearchPinned = newPinned;
         _fileSearchActive = newPinned;
       });
     } else if (toolKey == 'web_search') {
-      settings['web_search'] = settings['web_search'] ?? {};
-      settings['web_search']['enabled'] = newPinned;
       setState(() {
         _webSearchPinned = newPinned;
         _webSearchActive = newPinned;
       });
     } else if (toolKey == 'skills') {
-      settings['skills_enabled'] = newPinned;
       setState(() {
         _skillsPinned = newPinned;
         _skillsActive = newPinned;
       });
     } else if (toolKey == 'run_code') {
-      settings['run_code_enabled'] = newPinned;
       setState(() {
         _runCodePinned = newPinned;
         _runCodeActive = newPinned;
       });
     } else if (toolKey == 'artifacts') {
-      settings['artifacts_enabled'] = newPinned;
       setState(() {
         _artifactsPinned = newPinned;
         _artifactsActive = newPinned;
@@ -273,30 +343,46 @@ class _ChatInputState extends State<ChatInput> {
     }
 
     await prefs.setString('tool_settings', jsonEncode(settings));
+    if (overrides.isEmpty) {
+      await prefs.remove(_transientToolOverridesKey);
+    } else {
+      await prefs.setString(_transientToolOverridesKey, jsonEncode(overrides));
+    }
   }
 
   Future<void> _toggleHighAccuracy(bool currentValue) async {
     final prefs = await SharedPreferences.getInstance();
-    final currentSettingsJson = prefs.getString('tool_settings');
-    Map<String, dynamic> settings = {};
-    if ((currentSettingsJson ?? '').isNotEmpty) {
-      try {
-        settings = jsonDecode(currentSettingsJson!) as Map<String, dynamic>;
-      } catch (e) {
-        debugPrint('[ChatInput] Failed to decode tool_settings: $e');
-      }
-    }
-    settings['web_search'] = settings['web_search'] ?? {};
-    settings['web_search']['high_accuracy'] = !currentValue;
+    final settings = await _readSettingsMap(prefs);
+    final web = settings['web_search'] is Map
+        ? Map<String, dynamic>.from(settings['web_search'] as Map)
+        : <String, dynamic>{};
+    web['high_accuracy'] = !currentValue;
+    settings['web_search'] = web;
     setState(() => _highAccuracyEnabled = !currentValue);
     await prefs.setString('tool_settings', jsonEncode(settings));
+  }
+
+  Future<void> _restorePinnedToolSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    final overrides = await _readTransientOverrides(prefs);
+    if (overrides.isEmpty) return;
+    final settings = await _readSettingsMap(prefs);
+    for (final entry in overrides.entries) {
+      _applyToolFlag(settings, entry.key, entry.value);
+    }
+    await prefs.setString('tool_settings', jsonEncode(settings));
+    await prefs.remove(_transientToolOverridesKey);
   }
 
   void _handleSend() {
     final text = _controller.text;
     if (text.trim().isNotEmpty && !widget.isLoading) {
-      widget.onSend(text,
-          attachments: _attachedFiles.isNotEmpty ? _attachedFiles : null);
+      final attachments =
+          _attachedFiles.isNotEmpty ? List<PlatformFile>.from(_attachedFiles) : null;
+      final sendFuture = Future<void>.sync(
+        () => widget.onSend(text, attachments: attachments),
+      );
+      sendFuture.whenComplete(_restorePinnedToolSettings);
       _controller.clear();
       setState(() {
         _attachedFiles.clear();
