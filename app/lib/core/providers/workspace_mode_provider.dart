@@ -16,6 +16,7 @@ enum CodeSubView {
 class IndexedRepoItem {
   final String repoKey;
   final String displayName;
+  final String? rootPath;
   final int fileCount;
   final int symbolCount;
   final bool isStale;
@@ -23,6 +24,7 @@ class IndexedRepoItem {
   const IndexedRepoItem({
     required this.repoKey,
     required this.displayName,
+    this.rootPath,
     required this.fileCount,
     required this.symbolCount,
     this.isStale = false,
@@ -35,6 +37,7 @@ class IndexedRepoItem {
     return IndexedRepoItem(
       repoKey: key,
       displayName: json['display_name'] as String? ?? key,
+      rootPath: json['root_path'] as String?,
       fileCount: (json['file_count'] as num?)?.toInt() ?? 0,
       symbolCount: (json['symbol_count'] as num?)?.toInt() ?? 0,
       isStale: json['is_stale'] as bool? ?? false,
@@ -57,21 +60,6 @@ class IngestionQueueItem {
   });
 }
 
-const List<IndexedRepoItem> defaultIndexedRepos = [
-  IndexedRepoItem(
-    repoKey: 'veraxi/backend',
-    displayName: 'veraxi/backend',
-    fileCount: 142,
-    symbolCount: 812,
-  ),
-  IndexedRepoItem(
-    repoKey: 'veraxi/app',
-    displayName: 'veraxi/app',
-    fileCount: 96,
-    symbolCount: 410,
-  ),
-];
-
 /// Active workspace mode (`Chat` vs `Code`), preserved across tab switches.
 final workspaceModeProvider =
     StateProvider<WorkspaceMode>((ref) => WorkspaceMode.chat);
@@ -83,14 +71,13 @@ final codeSubViewProvider =
 /// Number of active CISA KEV alerts surfaced as a sidebar indicator dot/pill.
 final activeKevCountProvider = StateProvider<int>((ref) => 0);
 
-/// Currently scoped indexed repository label in the Code sidebar.
-final selectedIndexedRepoProvider =
-    StateProvider<String>((ref) => 'veraxi/backend');
+/// Currently scoped indexed repository key in the Code sidebar.
+final selectedIndexedRepoProvider = StateProvider<String?>((ref) => null);
 
-/// Live indexed repositories for the Code sidebar, initialized with defaults
-/// until `/api/v1/code/repos` responds.
+/// Live indexed repositories for the Code sidebar, populated from
+/// `/api/v1/code/repos`.
 final indexedReposProvider =
-    StateProvider<List<IndexedRepoItem>>((ref) => defaultIndexedRepos);
+    StateProvider<List<IndexedRepoItem>>((ref) => const []);
 
 /// Live ingestion queue items shared with the Knowledge Hub left rail.
 final ingestionQueueProvider =

@@ -27,8 +27,7 @@ class CodeWorkbenchView extends ConsumerStatefulWidget {
 }
 
 class _CodeWorkbenchViewState extends ConsumerState<CodeWorkbenchView> {
-  final TextEditingController _repoPathController =
-      TextEditingController(text: 'backend');
+  final TextEditingController _repoPathController = TextEditingController();
   VulnFinding? _selectedFinding;
   bool _narrowSidecarOpen = false;
 
@@ -45,9 +44,27 @@ class _CodeWorkbenchViewState extends ConsumerState<CodeWorkbenchView> {
   Future<void> _refreshIndexedRepos() async {
     final raw =
         await ref.read(codeIntelViewModelProvider.notifier).fetchIndexedRepos();
-    if (!mounted || raw.isEmpty) return;
-    ref.read(indexedReposProvider.notifier).state =
-        raw.map(IndexedRepoItem.fromJson).toList();
+    if (!mounted || raw == null) return;
+    final repos = raw.map(IndexedRepoItem.fromJson).toList();
+    ref.read(indexedReposProvider.notifier).state = repos;
+
+    final selectedNotifier = ref.read(selectedIndexedRepoProvider.notifier);
+    if (repos.isEmpty) {
+      selectedNotifier.state = null;
+      return;
+    }
+
+    final current = selectedNotifier.state;
+    final hasCurrent =
+        current != null && repos.any((r) => r.repoKey == current);
+    if (!hasCurrent) {
+      final first = repos.first;
+      selectedNotifier.state = first.repoKey;
+      final nextPath = first.rootPath ?? first.repoKey;
+      if (_repoPathController.text != nextPath) {
+        _repoPathController.text = nextPath;
+      }
+    }
   }
 
   @override
@@ -99,8 +116,22 @@ class _CodeWorkbenchViewState extends ConsumerState<CodeWorkbenchView> {
     });
 
     // Keep repo path synced when user switches indexed repo in the sidebar.
-    ref.listen<String>(selectedIndexedRepoProvider, (_, nextRepo) {
-      final mapped = nextRepo == 'veraxi/app' ? 'app' : 'backend';
+    ref.listen<String?>(selectedIndexedRepoProvider, (_, nextRepo) {
+      if (nextRepo == null) {
+        if (_repoPathController.text.isNotEmpty) {
+          _repoPathController.text = '';
+        }
+        return;
+      }
+      final repos = ref.read(indexedReposProvider);
+      IndexedRepoItem? matched;
+      for (final repo in repos) {
+        if (repo.repoKey == nextRepo) {
+          matched = repo;
+          break;
+        }
+      }
+      final mapped = matched?.rootPath ?? matched?.repoKey ?? nextRepo;
       if (_repoPathController.text != mapped) {
         _repoPathController.text = mapped;
       }
@@ -202,7 +233,7 @@ class _CodeWorkbenchViewState extends ConsumerState<CodeWorkbenchView> {
   Widget _buildHeaderBar({
     required BuildContext context,
     required String title,
-    required String repoLabel,
+    required String? repoLabel,
     required bool isWideDesktop,
     required VulnFinding? activeFinding,
   }) {
@@ -215,75 +246,115 @@ class _CodeWorkbenchViewState extends ConsumerState<CodeWorkbenchView> {
           bottom: BorderSide(color: Color(0xFF2B2B2E), width: 1),
         ),
       ),
-      child: Row(
-        children: [
-          if (widget.onOpenMobileSidebar != null) ...[
-            IconButton(
-              icon: const Icon(Icons.menu, color: Color(0xFFB4B4B4)),
-              onPressed: widget.onOpenMobileSidebar,
-              tooltip: 'Open sidebar',
-            ),
-            const SizedBox(width: 4),
-          ],
-          Text(
-            title,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: const Color(0xFF27272B),
-              borderRadius: BorderRadius.circular(11),
-              border: Border.all(color: const Color(0xFF3A3A40), width: 0.8),
-            ),
-            child: Text(
-              repoLabel,
-              style: const TextStyle(
-                color: Color(0xFFA1A1AA),
-                fontSize: 11.5,
-              ),
-            ),
-          ),
-          const Spacer(),
-          if (!isWideDesktop)
-            InkWell(
-              borderRadius: BorderRadius.circular(8),
-              onTap: () => setState(() => _narrowSidecarOpen = true),
-              child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF1F2D29),
-                  borderRadius: BorderRadius.circular(8),
-                  border:
-                      Border.all(color: const Color(0xFF10B981), width: 0.8),
-                ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final showRepoPill = constraints.maxWidth >= 520 &&
+              repoLabel != null &&
+              repoLabel.isNotEmpty;
+          return Row(
+            children: [
+              Expanded(
                 child: Row(
-                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.auto_awesome,
-                        size: 14, color: Color(0xFF34D399)),
-                    const SizedBox(width: 6),
-                    Text(
-                      activeFinding != null
-                          ? 'Ask Veraxi · ${activeFinding.cveId}'
-                          : 'Ask Veraxi',
-                      style: const TextStyle(
-                        color: Color(0xFF34D399),
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
+                    if (widget.onOpenMobileSidebar != null) ...[
+                      IconButton(
+                        icon: const Icon(Icons.menu, color: Color(0xFFB4B4B4)),
+                        onPressed: widget.onOpenMobileSidebar,
+                        tooltip: 'Open sidebar',
+                      ),
+                      const SizedBox(width: 4),
+                    ],
+                    Flexible(
+                      child: Text(
+                        title,
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
+                    if (showRepoPill) ...[
+                      const SizedBox(width: 12),
+                      Flexible(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF27272B),
+                            borderRadius: BorderRadius.circular(11),
+                            border: Border.all(
+                              color: const Color(0xFF3A3A40),
+                              width: 0.8,
+                            ),
+                          ),
+                          child: Text(
+                            repoLabel,
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
+                            style: const TextStyle(
+                              color: Color(0xFFA1A1AA),
+                              fontSize: 11.5,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
-            ),
-        ],
+              if (!isWideDesktop) ...[
+                const SizedBox(width: 8),
+                InkWell(
+                  borderRadius: BorderRadius.circular(8),
+                  onTap: () => setState(() => _narrowSidecarOpen = true),
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF1F2D29),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: const Color(0xFF10B981),
+                        width: 0.8,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.auto_awesome,
+                          size: 14,
+                          color: Color(0xFF34D399),
+                        ),
+                        const SizedBox(width: 6),
+                        ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 180),
+                          child: Text(
+                            activeFinding != null
+                                ? 'Ask Veraxi · ${activeFinding.cveId}'
+                                : 'Ask Veraxi',
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
+                            style: const TextStyle(
+                              color: Color(0xFF34D399),
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          );
+        },
       ),
     );
   }

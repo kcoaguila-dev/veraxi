@@ -854,7 +854,9 @@ class _KnowledgeHubScreenState extends ConsumerState<KnowledgeHubScreen> {
             ),
           ),
           const Divider(color: Color(0xFF2B2B30), height: 1),
-          if (filtered.isEmpty)
+          if (!hubState.sourcesLoaded)
+            _buildSourcesLoadingSkeleton()
+          else if (filtered.isEmpty)
             Padding(
               padding: const EdgeInsets.all(24),
               child: Text(
@@ -874,6 +876,97 @@ class _KnowledgeHubScreenState extends ConsumerState<KnowledgeHubScreen> {
         ],
       ),
     );
+  }
+
+  Widget _buildSourcesLoadingSkeleton() {
+    return Column(
+      children: [
+        for (int i = 0; i < 3; i++)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            decoration: BoxDecoration(
+              border: Border(
+                bottom: i < 2
+                    ? const BorderSide(color: Color(0xFF242428), width: 1)
+                    : BorderSide.none,
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 160,
+                  height: 12,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF27272B),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+                const Spacer(),
+                Container(
+                  width: 72,
+                  height: 12,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF232327),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+
+  Future<void> _confirmDeleteSource(
+    BuildContext context,
+    IndexedSourceItem row,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF171717),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: const BorderSide(color: Color(0xFF2E2E34)),
+        ),
+        title: const Text(
+          'Delete Indexed Source?',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        content: Text(
+          'Permanently purge "${row.name}" from both Neo4j and Qdrant? This cannot be undone.',
+          style: const TextStyle(
+            color: Color(0xFFA1A1AA),
+            fontSize: 13,
+            height: 1.45,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(color: Color(0xFFA1A1AA)),
+            ),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF7F1D1D),
+              foregroundColor: const Color(0xFFFCA5A5),
+            ),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Delete Source'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && mounted) {
+      await ref.read(knowledgeHubViewModelProvider.notifier).deleteSource(row);
+    }
   }
 
   Widget _buildSourceRow(IndexedSourceItem row, {required bool isBusy}) {
@@ -990,11 +1083,7 @@ class _KnowledgeHubScreenState extends ConsumerState<KnowledgeHubScreen> {
               const SizedBox(width: 8),
               InkWell(
                 borderRadius: BorderRadius.circular(6),
-                onTap: isBusy
-                    ? null
-                    : () => ref
-                        .read(knowledgeHubViewModelProvider.notifier)
-                        .deleteSource(row),
+                onTap: isBusy ? null : () => _confirmDeleteSource(context, row),
                 child: Container(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 10, vertical: 5),

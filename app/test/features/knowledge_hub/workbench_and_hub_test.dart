@@ -6,9 +6,11 @@ import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:veraxi_app/core/network/api_client.dart';
 import 'package:veraxi_app/core/network/tts_repository.dart';
+import 'package:veraxi_app/core/providers/model_selection_provider.dart';
 import 'package:veraxi_app/core/providers/workspace_mode_provider.dart';
 import 'package:veraxi_app/core/repositories/memory_repository.dart';
 import 'package:veraxi_app/core/theme.dart';
+import 'package:veraxi_app/core/widgets/code_lines_view.dart';
 import 'package:veraxi_app/features/chat/data/chat_repository.dart';
 import 'package:veraxi_app/features/chat/data/local_chat_migration_service.dart';
 import 'package:veraxi_app/features/chat/view_models/chat_view_model.dart';
@@ -46,9 +48,32 @@ class _StubChatViewModel extends ChatViewModel {
 class _FakeKnowledgeHubRepository extends KnowledgeHubRepository {
   final List<String> deletedIds = [];
   final List<String> reindexedIds = [];
+  final List<IndexedSourceItem> sourcesToReturn;
 
-  _FakeKnowledgeHubRepository()
-      : super(
+  _FakeKnowledgeHubRepository({
+    this.sourcesToReturn = const [
+      IndexedSourceItem(
+        id: 'veraxi/backend',
+        name: 'veraxi/backend',
+        subtitle: '/repo/backend',
+        type: 'Code AST',
+        category: 'repo',
+        counts: '142 files · 812 nodes',
+        lastSynced: '12m ago',
+        isStale: false,
+      ),
+      IndexedSourceItem(
+        id: 'architecture_v2_draft.pdf',
+        name: 'architecture_v2_draft.pdf',
+        subtitle: 'Uploaded · 4.2 MB',
+        type: 'PDF',
+        category: 'doc',
+        counts: '64 chunks · 91 nodes',
+        lastSynced: '18d ago',
+        isStale: true,
+      ),
+    ],
+  }) : super(
           apiClient: ApiClient(
             baseUrl: 'https://api.test/api',
             tenantId: 'test-token',
@@ -67,28 +92,7 @@ class _FakeKnowledgeHubRepository extends KnowledgeHubRepository {
 
   @override
   Future<SourcesSnapshot> fetchSources() async => SourcesSnapshot(
-        sources: const [
-          IndexedSourceItem(
-            id: 'veraxi/backend',
-            name: 'veraxi/backend',
-            subtitle: '/repo/backend',
-            type: 'Code AST',
-            category: 'repo',
-            counts: '142 files · 812 nodes',
-            lastSynced: '12m ago',
-            isStale: false,
-          ),
-          IndexedSourceItem(
-            id: 'architecture_v2_draft.pdf',
-            name: 'architecture_v2_draft.pdf',
-            subtitle: 'Uploaded · 4.2 MB',
-            type: 'PDF',
-            category: 'doc',
-            counts: '64 chunks · 91 nodes',
-            lastSynced: '18d ago',
-            isStale: true,
-          ),
-        ],
+        sources: sourcesToReturn,
         queue: const [
           IngestionJobItem(
             jobId: 'job-1',
@@ -119,8 +123,24 @@ class _FakeKnowledgeHubRepository extends KnowledgeHubRepository {
 }
 
 class _FakeCodeIntelRepository extends CodeIntelRepository {
-  _FakeCodeIntelRepository()
-      : super(
+  final List<Map<String, dynamic>> reposToReturn;
+  final String streamedSourcePath;
+  String? lastSidecarModel;
+  String? lastScanRepoPath;
+
+  _FakeCodeIntelRepository({
+    this.reposToReturn = const [
+      {
+        'repo_key': 'veraxi/custom-service',
+        'display_name': 'veraxi/custom-service',
+        'root_path': '/repos/custom',
+        'file_count': 48,
+        'symbol_count': 310,
+        'is_stale': false,
+      },
+    ],
+    this.streamedSourcePath = 'routes.py',
+  }) : super(
           apiClient: ApiClient(
             baseUrl: 'https://api.test/api',
             tenantId: 'test-token',
@@ -128,21 +148,16 @@ class _FakeCodeIntelRepository extends CodeIntelRepository {
         );
 
   @override
-  Future<List<Map<String, dynamic>>> fetchIndexedRepos() async => [
-        {
-          'repo_key': 'veraxi/custom-service',
-          'display_name': 'veraxi/custom-service',
-          'file_count': 48,
-          'symbol_count': 310,
-          'is_stale': false,
-        },
-      ];
+  Future<List<Map<String, dynamic>>> fetchIndexedRepos() async => reposToReturn;
 
   @override
   Future<Map<String, dynamic>> fetchIndexedFile(String path) async => {
         'path': path,
+        'source': 'file',
         'language': 'python',
-        'content': 'def ingest_route(upload):\n    return parse_tar(upload)\n',
+        'start_line': 1,
+        'line_count': 2,
+        'content': 'def ingest_route(upload):\n    return parse_tar(upload)',
       };
 
   @override
@@ -151,14 +166,16 @@ class _FakeCodeIntelRepository extends CodeIntelRepository {
     VulnFinding? finding,
     String? repoKey,
     String? threadId,
+    String? model,
   }) async* {
+    lastSidecarModel = model;
     yield {'type': 'activity', 'label': 'Checked Code Graph · routes.py'};
     yield {'type': 'token', 'content': 'Streamed answer: '};
     yield {'type': 'token', 'content': 'parse_tar reads uploaded bytes.'};
     yield {
       'type': 'sources',
       'sources': [
-        {'path': 'routes.py'}
+        {'path': streamedSourcePath}
       ],
     };
   }
@@ -169,6 +186,7 @@ class _FakeCodeIntelRepository extends CodeIntelRepository {
     bool includeReachability = false,
     Map<String, dynamic>? sbomJson,
   }) async {
+    lastScanRepoPath = repoPath;
     return VulnReport.fromJson({
       'dependencies_checked': 42,
       'matched_count': 2,
@@ -266,7 +284,7 @@ void main() {
     expect(find.text('Corpus Briefing'), findsOneWidget);
     expect(find.text('dbt Lineage'), findsOneWidget);
     expect(find.text('INDEXED REPOS'), findsOneWidget);
-    expect(find.text('veraxi/custom-service'), findsOneWidget);
+    expect(find.text('veraxi/custom-service'), findsNWidgets(2));
     expect(find.text('48 files · 310 symbols'), findsOneWidget);
     expect(find.text('Ask Veraxi'), findsOneWidget);
     expect(
@@ -274,11 +292,16 @@ void main() {
       findsOneWidget,
     );
 
-    // Run Vuln Scan -> verifies Triage Funnel + column header + Ask/Path actions.
+    // Run Vuln Scan -> verifies Triage Funnel + aligned desktop table + Ask/Path actions.
     await tester.tap(find.text('Run Vulnerability Scan'));
     await tester.pumpAndSettle();
+    expect(codeRepo.lastScanRepoPath, '/repos/custom');
     expect(find.text('TRIAGE FUNNEL'), findsOneWidget);
     expect(find.text('CVE / PACKAGE'), findsOneWidget);
+    expect(find.text('CVE-2024-3094'), findsWidgets);
+    expect(find.text('Static Path (1 hop)'), findsOneWidget);
+    expect(find.text('Include reachability'), findsOneWidget);
+    expect(find.text('CWE-502'), findsOneWidget);
     expect(find.text('All Findings (2)'), findsOneWidget);
     expect(find.text('CISA KEV (1)'), findsOneWidget);
     expect(find.text('Reachable (1)'), findsOneWidget);
@@ -286,9 +309,16 @@ void main() {
     expect(find.text('Ask'), findsNWidgets(2));
     expect(find.text('Path'), findsOneWidget);
 
-    // Submit a scoped follow-up via quick chip -> verifies streaming + clickable citation.
+    // Select a model and submit a scoped follow-up via quick chip -> verifies model forwarding, streaming, & line-numbered citation.
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(ChatScreen)),
+    );
+    await container
+        .read(modelSelectionProvider.notifier)
+        .selectModel('claude-3.5-sonnet');
     await tester.tap(find.text('What input reaches this symbol?'));
     await tester.pumpAndSettle();
+    expect(codeRepo.lastSidecarModel, 'claude-3.5-sonnet');
     expect(find.text('Checked Code Graph · routes.py'), findsOneWidget);
     expect(
       find.text('Streamed answer: parse_tar reads uploaded bytes.'),
@@ -298,11 +328,13 @@ void main() {
 
     await tester.tap(find.text('routes.py').last);
     await tester.pumpAndSettle();
-    expect(find.text('routes.py (python)'), findsOneWidget);
-    expect(
-      find.text('def ingest_route(upload):\n    return parse_tar(upload)\n'),
-      findsOneWidget,
-    );
+    expect(find.text('routes.py'), findsWidgets);
+    expect(find.text('Full file'), findsOneWidget);
+    expect(find.text('2 lines · python'), findsOneWidget);
+    expect(find.text('1'), findsOneWidget);
+    expect(find.text('2'), findsOneWidget);
+    expect(find.text('def ingest_route(upload):'), findsOneWidget);
+    expect(find.text('    return parse_tar(upload)'), findsOneWidget);
     await tester.tap(find.byIcon(Icons.close).last);
     await tester.pumpAndSettle();
 
@@ -396,12 +428,17 @@ void main() {
     expect(find.text('INGESTION QUEUE'), findsWidgets);
     expect(find.text('Stale'), findsOneWidget);
 
-    // Re-index and Delete call repository methods.
+    // Re-index and Delete (with confirmation dialog) call repository methods.
     await tester.tap(find.text('Re-index').last);
     await tester.pumpAndSettle();
     expect(hubRepo.reindexedIds, ['architecture_v2_draft.pdf']);
 
     await tester.tap(find.text('Del').last);
+    await tester.pumpAndSettle();
+    expect(find.text('Delete Indexed Source?'), findsOneWidget);
+    expect(hubRepo.deletedIds, isEmpty);
+
+    await tester.tap(find.text('Delete Source'));
     await tester.pumpAndSettle();
     expect(hubRepo.deletedIds, ['architecture_v2_draft.pdf']);
     expect(find.text('architecture_v2_draft.pdf'), findsNothing);
@@ -416,5 +453,170 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Qdrant'), findsOneWidget);
     expect(find.text('Neo4j'), findsOneWidget);
+  });
+
+  testWidgets(
+      'VulnIntelPanel falls back to stacked cards below 640px in workbench mode',
+      (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(580, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    final chatVm = _StubChatViewModel(ChatState(messages: []));
+    final codeRepo = _FakeCodeIntelRepository();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          chatViewModelProvider.overrideWith((ref) => chatVm),
+          codeIntelRepositoryProvider.overrideWithValue(codeRepo),
+          workspaceModeProvider.overrideWith((ref) => WorkspaceMode.code),
+        ],
+        child: MaterialApp(
+          theme: AppTheme.darkTheme,
+          home: const ChatScreen(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Run Vulnerability Scan'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('CVE / PACKAGE'), findsNothing);
+    expect(
+      find.text('archive-utils 5.6.1 — CVE-2024-3094'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets(
+      'Empty-tenant states render honest empty messages when APIs return []',
+      (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(1440, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    final chatVm = _StubChatViewModel(ChatState(messages: []));
+    final emptyCodeRepo = _FakeCodeIntelRepository(reposToReturn: const []);
+    final emptyHubRepo = _FakeKnowledgeHubRepository(sourcesToReturn: const []);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          chatViewModelProvider.overrideWith((ref) => chatVm),
+          codeIntelRepositoryProvider.overrideWithValue(emptyCodeRepo),
+          workspaceModeProvider.overrideWith((ref) => WorkspaceMode.code),
+        ],
+        child: MaterialApp(
+          theme: AppTheme.darkTheme,
+          home: const ChatScreen(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('No repos indexed yet'), findsOneWidget);
+    expect(find.text('veraxi/backend'), findsNothing);
+
+    final hubChatVm = _StubChatViewModel(ChatState(messages: []));
+    await tester.pumpWidget(
+      ProviderScope(
+        key: UniqueKey(),
+        overrides: [
+          chatViewModelProvider.overrideWith((ref) => hubChatVm),
+          knowledgeHubRepositoryProvider.overrideWithValue(emptyHubRepo),
+        ],
+        child: MaterialApp(
+          theme: AppTheme.darkTheme,
+          home: const KnowledgeHubScreen(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.text(
+          'No indexed sources yet. Upload a document or ingest a URL above.'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets(
+      'Sidecar Q&A turns persist across 1440x900 -> 1000x800 -> 1440x900 resizes and citation highlights #L1-L2',
+      (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(1440, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    final chatVm = _StubChatViewModel(ChatState(messages: []));
+    final codeRepo = _FakeCodeIntelRepository(
+      streamedSourcePath: 'routes.py#L1-L2',
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          chatViewModelProvider.overrideWith((ref) => chatVm),
+          codeIntelRepositoryProvider.overrideWithValue(codeRepo),
+          workspaceModeProvider.overrideWith((ref) => WorkspaceMode.code),
+        ],
+        child: MaterialApp(
+          theme: AppTheme.darkTheme,
+          home: const ChatScreen(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Run Vulnerability Scan'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('What input reaches this symbol?'));
+    await tester.pumpAndSettle();
+    expect(
+      find.text('Streamed answer: parse_tar reads uploaded bytes.'),
+      findsOneWidget,
+    );
+
+    // Resize below 1200px: docked sidecar unmounts, narrow header button opens drawer.
+    tester.view.physicalSize = const Size(1000, 800);
+    await tester.pumpAndSettle();
+    await tester.tap(find.textContaining('Ask Veraxi · CVE-2024-3094'));
+    await tester.pumpAndSettle();
+    expect(
+      find.text('Streamed answer: parse_tar reads uploaded bytes.'),
+      findsOneWidget,
+    );
+
+    // Resize back to >= 1200px: docked sidecar still has the turn.
+    tester.view.physicalSize = const Size(1440, 900);
+    await tester.pumpAndSettle();
+    expect(
+      find.text('Streamed answer: parse_tar reads uploaded bytes.'),
+      findsOneWidget,
+    );
+
+    // Open #L1-L2 citation and verify Full file badge + highlighted lines.
+    await tester.tap(find.text('routes.py#L1-L2'));
+    await tester.pumpAndSettle();
+    expect(find.text('Full file'), findsOneWidget);
+    expect(find.text('Cited lines 1–2 · 2 lines · python'), findsOneWidget);
+    final highlightedContainers = tester.widgetList<Container>(
+      find.descendant(
+        of: find.byType(CodeLinesView),
+        matching: find.byWidgetPredicate(
+          (w) => w is Container && w.color == CodeLinesView.citedBandColor,
+        ),
+      ),
+    );
+    expect(highlightedContainers.length, 2);
   });
 }

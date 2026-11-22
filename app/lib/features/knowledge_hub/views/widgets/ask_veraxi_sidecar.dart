@@ -1,41 +1,8 @@
-import 'dart:async';
-
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:veraxi_app/core/providers/workspace_mode_provider.dart';
+import 'package:veraxi_app/core/widgets/code_lines_view.dart';
 import 'package:veraxi_app/features/knowledge_hub/view_models/code_intel_view_model.dart';
-
-/// A single scoped Q&A turn in the Ask Veraxi sidecar.
-class SidecarQaTurn {
-  final String question;
-  final String answer;
-  final String? citation;
-  final String? activityLabel;
-  final bool isStreaming;
-
-  const SidecarQaTurn({
-    required this.question,
-    required this.answer,
-    this.citation,
-    this.activityLabel,
-    this.isStreaming = false,
-  });
-
-  SidecarQaTurn copyWith({
-    String? answer,
-    String? citation,
-    String? activityLabel,
-    bool? isStreaming,
-  }) {
-    return SidecarQaTurn(
-      question: question,
-      answer: answer ?? this.answer,
-      citation: citation ?? this.citation,
-      activityLabel: activityLabel ?? this.activityLabel,
-      isStreaming: isStreaming ?? this.isStreaming,
-    );
-  }
-}
+import 'package:veraxi_app/features/knowledge_hub/view_models/sidecar_qa_provider.dart';
 
 /// Docked (380px on >= 1200px) or slide-over (< 1200px) Ask Veraxi sidecar
 /// anchored to the selected CVE/symbol row in Code mode.
@@ -57,184 +24,83 @@ class AskVeraxiSidecar extends ConsumerStatefulWidget {
 
 class _AskVeraxiSidecarState extends ConsumerState<AskVeraxiSidecar> {
   final TextEditingController _promptController = TextEditingController();
-  final Map<String, List<SidecarQaTurn>> _turnsByCve = {};
-  final Map<String, String> _threadIdsByCve = {};
-  StreamSubscription<Map<String, dynamic>>? _activeSubscription;
-  bool _isStreaming = false;
 
   @override
   void dispose() {
-    _activeSubscription?.cancel();
     _promptController.dispose();
     super.dispose();
   }
 
   void _stopStreaming() {
-    _activeSubscription?.cancel();
-    _activeSubscription = null;
-    if (!mounted) return;
-    setState(() {
-      _isStreaming = false;
-      for (final list in _turnsByCve.values) {
-        for (int i = 0; i < list.length; i++) {
-          if (list[i].isStreaming) {
-            list[i] = list[i].copyWith(isStreaming: false);
-          }
-        }
-      }
-    });
+    ref.read(sidecarQaProvider.notifier).stopStreaming();
   }
 
   void _submitQuestion([String? overridePrompt]) {
-    if (_isStreaming) return;
     final q = (overridePrompt ?? _promptController.text).trim();
     if (q.isEmpty) return;
-
-    final finding = widget.finding;
-    final key = finding?.cveId ?? '_workspace';
-    final defaultCitation = finding == null
-        ? null
-        : (finding.reachableInCode.isNotEmpty
-            ? (finding.reachableInCode.first.path ??
-                finding.reachableInCode.first.qualifiedName)
-            : (finding.sourceFile ?? finding.package));
-
-    final turns = _turnsByCve.putIfAbsent(key, () => []);
-    final turnIndex = turns.length;
-    setState(() {
-      turns.add(
-        SidecarQaTurn(
-          question: q,
-          answer: '',
-          citation: defaultCitation,
-          isStreaming: true,
-        ),
-      );
-      _isStreaming = true;
-    });
     if (overridePrompt == null) {
       _promptController.clear();
     }
-
-    final repoKey = ref.read(selectedIndexedRepoProvider);
-    final threadId = _threadIdsByCve.putIfAbsent(
-      key,
-      () => 'sidecar-$key-${DateTime.now().millisecondsSinceEpoch}',
-    );
-    final buffer = StringBuffer();
-    String? streamedCitation = defaultCitation;
-    String? activityLabel;
-
-    final stream =
-        ref.read(codeIntelViewModelProvider.notifier).streamSidecarAsk(
-              question: q,
-              finding: finding,
-              repoKey: repoKey,
-              threadId: threadId,
-            );
-
-    _activeSubscription = stream.listen(
-      (event) {
-        if (!mounted) return;
-        final type = event['type'] as String? ?? '';
-        if (type == 'token' && event['content'] != null) {
-          buffer.write(event['content'].toString());
-        } else if (type == 'answer' && event['answer'] != null) {
-          buffer
-            ..clear()
-            ..write(event['answer'].toString());
-        } else if (event['token'] != null) {
-          buffer.write(event['token'].toString());
-        } else if (event['delta'] != null) {
-          buffer.write(event['delta'].toString());
-        } else if (type == 'activity' && event['label'] != null) {
-          activityLabel = event['label'].toString();
-        } else if (type == 'sources' && event['sources'] is List) {
-          final sources = event['sources'] as List;
-          if (sources.isNotEmpty && sources.first is Map) {
-            final first = sources.first as Map;
-            final path =
-                first['path']?.toString() ?? first['source']?.toString();
-            if (path != null && path.isNotEmpty) {
-              streamedCitation = path;
-            }
-          }
-        }
-        setState(() {
-          turns[turnIndex] = turns[turnIndex].copyWith(
-            answer: buffer.toString(),
-            citation: streamedCitation,
-            activityLabel: activityLabel,
-          );
-        });
-      },
-      onError: (_) {
-        if (!mounted) return;
-        final fallback = _buildScopedAnswer(q, finding);
-        setState(() {
-          turns[turnIndex] = turns[turnIndex].copyWith(
-            answer: buffer.isNotEmpty ? buffer.toString() : fallback,
-            citation: streamedCitation,
-            isStreaming: false,
-          );
-          _isStreaming = false;
-        });
-      },
-      onDone: () {
-        if (!mounted) return;
-        final finalAnswer = buffer.isNotEmpty
-            ? buffer.toString()
-            : _buildScopedAnswer(q, finding);
-        setState(() {
-          turns[turnIndex] = turns[turnIndex].copyWith(
-            answer: finalAnswer,
-            citation: streamedCitation,
-            isStreaming: false,
-          );
-          _isStreaming = false;
-        });
-      },
-      cancelOnError: true,
-    );
+    ref.read(sidecarQaProvider.notifier).submitQuestion(
+          question: q,
+          finding: widget.finding,
+        );
   }
 
-  String _buildScopedAnswer(String question, VulnFinding? finding) {
-    if (finding == null) {
-      return 'Run a vulnerability scan or select a finding row to scope answers to a specific dependency and AST path.';
+  ({String path, int? startLine, int? endLine}) _parseCitationTarget(
+    String raw,
+  ) {
+    final hashMatch = RegExp(r'^(.+?)#L(\d+)(?:-L?(\d+))?$').firstMatch(raw);
+    if (hashMatch != null) {
+      final start = int.tryParse(hashMatch.group(2)!);
+      final end = hashMatch.group(3) != null
+          ? int.tryParse(hashMatch.group(3)!)
+          : start;
+      return (path: hashMatch.group(1)!, startLine: start, endLine: end);
     }
-    final kevNote = finding.kev
-        ? 'This CVE is on the CISA KEV catalog (active exploitation).'
-        : 'Not currently listed on CISA KEV.';
-    final epssNote = finding.epssScore != null
-        ? ' EPSS ${(finding.epssScore! * 100).toStringAsFixed(1)}%.'
-        : '';
-    if (finding.reachableInCode.isNotEmpty) {
-      final top = finding.reachableInCode.first;
-      return '${finding.cveId} affects ${finding.package} (${finding.matchStatus}). '
-          '$kevNote$epssNote Static AST analysis links ${top.qualifiedName} '
-          '(${top.path ?? 'repo'}) via ${top.viaEdge ?? 'CALLS'}. Verify runtime exposure before patching.';
+
+    final colonMatch = RegExp(r'^(.+?):(\d+)(?:-(\d+))?$').firstMatch(raw);
+    if (colonMatch != null) {
+      final start = int.tryParse(colonMatch.group(2)!);
+      final end = colonMatch.group(3) != null
+          ? int.tryParse(colonMatch.group(3)!)
+          : start;
+      return (path: colonMatch.group(1)!, startLine: start, endLine: end);
     }
-    return '${finding.cveId} affects ${finding.package} (${finding.matchStatus}). '
-        '$kevNote$epssNote No static AST call path was found in the current code graph; verify runtime usage.';
+
+    return (path: raw, startLine: null, endLine: null);
   }
 
-  Future<void> _openCodeCitation(String citationPath) async {
+  Future<void> _openCodeCitation(String citationRaw) async {
+    final parsed = _parseCitationTarget(citationRaw);
     final viewModel = ref.read(codeIntelViewModelProvider.notifier);
-    final fileData = await viewModel.fetchIndexedFile(citationPath);
+    final fileData = await viewModel.fetchIndexedFile(parsed.path);
     if (!mounted) return;
 
     final content = fileData?['content'] as String?;
     final language = fileData?['language'] as String? ?? 'source';
+    final startLine = (fileData?['start_line'] as num?)?.toInt() ?? 1;
+    final source = fileData?['source'] as String? ?? 'file';
+    final isExcerpt = source == 'excerpt';
+    final lines = content?.split('\n') ?? const <String>[];
+    final lineCount =
+        (fileData?['line_count'] as num?)?.toInt() ?? lines.length;
+    final rangeCaption = parsed.startLine != null
+        ? (parsed.endLine != null && parsed.endLine != parsed.startLine
+            ? 'Cited lines ${parsed.startLine}–${parsed.endLine} · '
+            : 'Cited line ${parsed.startLine} · ')
+        : '';
+
     await showDialog<void>(
       context: context,
       builder: (context) => Dialog(
-        backgroundColor: const Color(0xFF171717),
+        backgroundColor: const Color(0xFF131315),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
-          side: const BorderSide(color: Color(0xFF2B2B2E)),
+          side: const BorderSide(color: Color(0xFF2E2E34)),
         ),
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 680, maxHeight: 520),
+          constraints: const BoxConstraints(maxWidth: 720, maxHeight: 540),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -243,19 +109,20 @@ class _AskVeraxiSidecarState extends ConsumerState<AskVeraxiSidecar> {
                     const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 decoration: const BoxDecoration(
                   border: Border(
-                    bottom: BorderSide(color: Color(0xFF2B2B2E)),
+                    bottom: BorderSide(color: Color(0xFF2E2E34)),
                   ),
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.code, size: 16, color: Color(0xFF34D399)),
+                    const Icon(Icons.code, size: 16, color: Color(0xFF4F8EF7)),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        '$citationPath ($language)',
+                        parsed.path,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
-                          color: Colors.white,
+                          color: Color(0xFFECECEC),
+                          fontFamily: 'monospace',
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
                         ),
@@ -263,31 +130,56 @@ class _AskVeraxiSidecarState extends ConsumerState<AskVeraxiSidecar> {
                     ),
                     IconButton(
                       icon: const Icon(Icons.close,
-                          size: 18, color: Color(0xFF9CA3AF)),
+                          size: 18, color: Color(0xFFB4B4B4)),
                       onPressed: () => Navigator.of(context).pop(),
                     ),
                   ],
                 ),
               ),
+              if (content != null)
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: const BoxDecoration(
+                    border: Border(
+                      bottom: BorderSide(color: Color(0xFF232328)),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      CodeSourceBadge(isExcerpt: isExcerpt),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          '$rangeCaption$lineCount lines · $language',
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Color(0xFFA1A1AA),
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               Expanded(
                 child: content != null
-                    ? SingleChildScrollView(
-                        padding: const EdgeInsets.all(16),
-                        child: SelectableText(
-                          content,
-                          style: const TextStyle(
-                            color: Color(0xFFE4E4E7),
-                            fontFamily: 'monospace',
-                            fontSize: 12,
-                            height: 1.5,
-                          ),
+                    ? Container(
+                        color: const Color(0xFF171719),
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        child: CodeLinesView(
+                          lines: lines,
+                          startLine: startLine,
+                          highlightStartLine: parsed.startLine,
+                          highlightEndLine: parsed.endLine ?? parsed.startLine,
+                          codeTextColor: const Color(0xFFD4D4D8),
                         ),
                       )
                     : Center(
                         child: Padding(
                           padding: const EdgeInsets.all(24),
                           child: Text(
-                            'File preview unavailable for $citationPath on this server.',
+                            'File preview unavailable for ${parsed.path} on this server.',
                             style: const TextStyle(
                                 color: Color(0xFFA1A1AA), fontSize: 12.5),
                           ),
@@ -304,7 +196,8 @@ class _AskVeraxiSidecarState extends ConsumerState<AskVeraxiSidecar> {
   @override
   Widget build(BuildContext context) {
     final finding = widget.finding;
-    final turns = _turnsByCve[finding?.cveId ?? '_workspace'] ?? const [];
+    final qaState = ref.watch(sidecarQaProvider);
+    final turns = qaState.turnsForKey(finding?.cveId ?? '_workspace');
 
     return Container(
       width: 380,
@@ -369,7 +262,7 @@ class _AskVeraxiSidecarState extends ConsumerState<AskVeraxiSidecar> {
               ],
             ),
           ),
-          _buildComposer(finding),
+          _buildComposer(finding, isStreaming: qaState.isStreaming),
         ],
       ),
     );
@@ -602,6 +495,25 @@ class _AskVeraxiSidecarState extends ConsumerState<AskVeraxiSidecar> {
                 height: 1.45,
               ),
             ),
+          if (turn.isFallback && !turn.isStreaming) ...[
+            const SizedBox(height: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: const Color(0xFF272017),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: const Color(0xFF78350F), width: 0.7),
+              ),
+              child: const Text(
+                'Offline AST summary — configure an LLM key for live answers',
+                style: TextStyle(
+                  color: Color(0xFFFBBF24),
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ],
           if (turn.citation != null && !turn.isStreaming) ...[
             const SizedBox(height: 8),
             InkWell(
@@ -641,7 +553,7 @@ class _AskVeraxiSidecarState extends ConsumerState<AskVeraxiSidecar> {
     );
   }
 
-  Widget _buildComposer(VulnFinding? finding) {
+  Widget _buildComposer(VulnFinding? finding, {required bool isStreaming}) {
     final anchorLabel = finding?.sourceFile ?? finding?.package ?? 'workspace';
     return Padding(
       padding: const EdgeInsets.all(16),
@@ -695,21 +607,21 @@ class _AskVeraxiSidecarState extends ConsumerState<AskVeraxiSidecar> {
                 const SizedBox(width: 8),
                 InkWell(
                   onTap:
-                      _isStreaming ? _stopStreaming : () => _submitQuestion(),
+                      isStreaming ? _stopStreaming : () => _submitQuestion(),
                   borderRadius: BorderRadius.circular(14),
                   child: Container(
                     width: 28,
                     height: 28,
                     decoration: BoxDecoration(
-                      color: _isStreaming
+                      color: isStreaming
                           ? const Color(0xFF3B1D1E)
                           : const Color(0xFFECECEC),
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
-                      _isStreaming ? Icons.stop : Icons.arrow_upward,
+                      isStreaming ? Icons.stop : Icons.arrow_upward,
                       size: 16,
-                      color: _isStreaming
+                      color: isStreaming
                           ? const Color(0xFFFCA5A5)
                           : const Color(0xFF171717),
                     ),

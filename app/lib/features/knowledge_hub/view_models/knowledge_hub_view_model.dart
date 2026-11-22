@@ -6,39 +6,6 @@ import '../data/knowledge_hub_repository.dart';
 export '../data/knowledge_hub_repository.dart'
     show BackendStats, IndexedSourceItem, IngestionJobItem, SourcesSnapshot;
 
-const List<IndexedSourceItem> defaultFallbackSources = [
-  IndexedSourceItem(
-    id: 'veraxi/backend',
-    name: 'veraxi/backend',
-    subtitle: 'backend',
-    type: 'Code AST',
-    category: 'repo',
-    counts: '142 files · 812 nodes',
-    lastSynced: '12m ago',
-    isStale: false,
-  ),
-  IndexedSourceItem(
-    id: 'architecture_v2_draft.pdf',
-    name: 'architecture_v2_draft.pdf',
-    subtitle: 'Uploaded · 4.2 MB',
-    type: 'PDF',
-    category: 'doc',
-    counts: '64 chunks · 91 nodes',
-    lastSynced: '18d ago',
-    isStale: true,
-  ),
-  IndexedSourceItem(
-    id: 'nvd_kev_catalog',
-    name: 'NVD + CISA KEV Catalog',
-    subtitle: 'Public Vulnerability Feed',
-    type: 'Vuln Graph',
-    category: 'feed',
-    counts: '1,140 CVE · KEV',
-    lastSynced: '1h ago',
-    isStale: false,
-  ),
-];
-
 class KnowledgeHubState {
   final bool isIngesting;
   final String? error;
@@ -47,6 +14,7 @@ class KnowledgeHubState {
   final Map<String, dynamic>? schema;
   final bool requiresPayment;
   final List<IndexedSourceItem> sources;
+  final bool sourcesLoaded;
   final List<IngestionJobItem> queue;
   final String? busySourceId;
 
@@ -57,7 +25,8 @@ class KnowledgeHubState {
     this.stats,
     this.schema,
     this.requiresPayment = false,
-    this.sources = defaultFallbackSources,
+    this.sources = const [],
+    this.sourcesLoaded = false,
     this.queue = const [],
     this.busySourceId,
   });
@@ -72,6 +41,7 @@ class KnowledgeHubState {
     Map<String, dynamic>? schema,
     bool? requiresPayment,
     List<IndexedSourceItem>? sources,
+    bool? sourcesLoaded,
     List<IngestionJobItem>? queue,
     String? busySourceId,
     bool clearBusySource = false,
@@ -85,6 +55,7 @@ class KnowledgeHubState {
       schema: schema ?? this.schema,
       requiresPayment: requiresPayment ?? this.requiresPayment,
       sources: sources ?? this.sources,
+      sourcesLoaded: sourcesLoaded ?? this.sourcesLoaded,
       queue: queue ?? this.queue,
       busySourceId:
           clearBusySource ? null : (busySourceId ?? this.busySourceId),
@@ -127,11 +98,13 @@ class KnowledgeHubViewModel extends StateNotifier<KnowledgeHubState> {
       final snapshot = await repository.fetchSources();
       state = state.copyWith(
         sources: snapshot.sources,
+        sourcesLoaded: true,
         queue: snapshot.queue,
       );
     } on PaymentRequiredException catch (_) {
-      state = state.copyWith(requiresPayment: true);
+      state = state.copyWith(requiresPayment: true, sourcesLoaded: true);
     } catch (e, st) {
+      state = state.copyWith(sourcesLoaded: true);
       await Sentry.captureException(e, stackTrace: st);
     }
   }

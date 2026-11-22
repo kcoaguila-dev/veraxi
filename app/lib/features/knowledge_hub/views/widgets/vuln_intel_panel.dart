@@ -52,17 +52,9 @@ class VulnIntelPanel extends ConsumerWidget {
     final viewModel = ref.read(codeIntelViewModelProvider.notifier);
     final report = state.vulnReport;
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: ext.surfaceHighlight,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: ext.borderColorStrong),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+    final content = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
           const Text('Vulnerability Intel',
               style: TextStyle(
                   color: Colors.white,
@@ -118,17 +110,18 @@ class VulnIntelPanel extends ConsumerWidget {
                 icon: const Icon(Icons.upload_file_outlined, size: 16),
                 label: const Text('Upload SBOM (CycloneDX/SPDX)'),
               ),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Switch(
-                    value: state.includeReachability,
-                    onChanged: viewModel.setIncludeReachability,
-                  ),
-                  const Text('Include reachability',
-                      style: TextStyle(color: Colors.white, fontSize: 13)),
-                ],
-              ),
+              if (!workbenchMode || report == null)
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Switch(
+                      value: state.includeReachability,
+                      onChanged: viewModel.setIncludeReachability,
+                    ),
+                    const Text('Include reachability',
+                        style: TextStyle(color: Colors.white, fontSize: 13)),
+                  ],
+                ),
               if (state.sbomFileName != null)
                 Chip(
                   label: Text('SBOM: ${state.sbomFileName}'),
@@ -159,30 +152,377 @@ class VulnIntelPanel extends ConsumerWidget {
             else
               _buildLegacyFilterPills(state, viewModel),
             const SizedBox(height: 12),
-            if (workbenchMode) _buildTableColumnHeader(),
-            Builder(builder: (context) {
+            LayoutBuilder(builder: (context, constraints) {
               final findings = _effectiveFindings(state);
+              final useDesktopTable =
+                  workbenchMode && constraints.maxWidth >= 640;
               return AnimatedSwitcher(
                 duration: const Duration(milliseconds: 260),
-                child: Column(
-                  key: ValueKey(
-                    '${state.severityFilter}-${state.vulnQuickFilter}-${state.matchedOnly}-${findings.length}-$workbenchMode',
-                  ),
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (findings.isEmpty)
-                      Text('No findings match the current filters.',
-                          style: TextStyle(color: ext.iconColor, fontSize: 12))
-                    else
-                      ...findings
-                          .map((finding) => _findingTile(context, finding)),
-                  ],
-                ),
+                child: useDesktopTable
+                    ? _buildWorkbenchTable(context, findings, ext, state)
+                    : Column(
+                        key: ValueKey(
+                          '${state.severityFilter}-${state.vulnQuickFilter}-${state.matchedOnly}-${findings.length}-$workbenchMode-stacked',
+                        ),
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (findings.isEmpty)
+                            Text('No findings match the current filters.',
+                                style: TextStyle(
+                                    color: ext.iconColor, fontSize: 12))
+                          else
+                            ...findings.map(
+                                (finding) => _findingTile(context, finding)),
+                        ],
+                      ),
               );
             }),
           ],
         ],
+      );
+
+    if (workbenchMode) {
+      return SizedBox(
+        width: double.infinity,
+        child: content,
+      );
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: ext.surfaceHighlight,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: ext.borderColorStrong),
       ),
+      child: content,
+    );
+  }
+
+  Widget _buildWorkbenchTable(
+    BuildContext context,
+    List<VulnFinding> findings,
+    AppThemeExtension ext,
+    CodeIntelState state,
+  ) {
+    return Container(
+      key: ValueKey(
+        '${state.severityFilter}-${state.vulnQuickFilter}-${state.matchedOnly}-${findings.length}-table',
+      ),
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: const Color(0xFF1A1A1D),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFF2D2D32)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _buildTableColumnHeader(),
+          if (findings.isEmpty)
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: Text(
+                'No findings match the current filters.',
+                style: TextStyle(color: ext.iconColor, fontSize: 12),
+              ),
+            )
+          else
+            for (int i = 0; i < findings.length; i++) ...[
+              if (i > 0) const Divider(color: Color(0xFF242428), height: 1),
+              _buildWorkbenchTableRow(
+                context,
+                findings[i],
+                ext,
+                isSelected:
+                    selectedCveId != null && selectedCveId == findings[i].cveId,
+              ),
+            ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildWorkbenchTableRow(
+    BuildContext context,
+    VulnFinding finding,
+    AppThemeExtension ext, {
+    required bool isSelected,
+  }) {
+    final color = severityColor(finding.severity);
+    final matched = finding.isMatched;
+    return InkWell(
+      onTap: onAskFinding == null ? null : () => onAskFinding!(finding),
+      child: Container(
+        color: isSelected ? const Color(0xFF23252B) : Colors.transparent,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(
+              flex: 3,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      if (color != null && finding.severity != null) ...[
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 7, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: color,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            finding.severity!.toUpperCase(),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                      ],
+                      Flexible(
+                        child: Text(
+                          finding.cveId,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${finding.package}${finding.version != null ? ' ${finding.version}' : ''}',
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Color(0xFFA1A1AA),
+                      fontSize: 11.5,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              flex: 2,
+              child: Wrap(
+                spacing: 6,
+                runSpacing: 4,
+                children: [
+                  if (finding.kev)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 7, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF8B7CF6),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Text(
+                        'KEV',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  if (finding.epssScore != null)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 7, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF6D28D9),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        'EPSS ${(finding.epssScore! * 100).toStringAsFixed(1)}%',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          fontFeatures: [FontFeature.tabularFigures()],
+                        ),
+                      ),
+                    ),
+                  if (!finding.kev && finding.epssScore == null)
+                    const Text(
+                      '—',
+                      style: TextStyle(color: Color(0xFF71717A), fontSize: 12),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              flex: 3,
+              child: _buildReachabilityColumn(finding),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              flex: 2,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (finding.cweIds.isNotEmpty)
+                    Wrap(
+                      spacing: 4,
+                      runSpacing: 4,
+                      children: finding.cweIds
+                          .take(2)
+                          .map((cwe) => Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: ext.borderColorStrong,
+                                  borderRadius: BorderRadius.circular(5),
+                                ),
+                                child: Text(
+                                  cwe,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                  ),
+                                ),
+                              ))
+                          .toList(),
+                    ),
+                  const SizedBox(height: 3),
+                  Text(
+                    matched ? 'Matched' : 'Unknown',
+                    style: TextStyle(
+                      color: matched
+                          ? const Color(0xFF22C55E)
+                          : const Color(0xFFF59E0B),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            SizedBox(
+              width: 120,
+              child: Wrap(
+                alignment: WrapAlignment.end,
+                spacing: 6,
+                runSpacing: 4,
+                children: [
+                  if (onAskFinding != null)
+                    InkWell(
+                      borderRadius: BorderRadius.circular(6),
+                      onTap: () => onAskFinding!(finding),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? const Color(0xFF10B981)
+                              : const Color(0xFF27272A),
+                          borderRadius: BorderRadius.circular(6),
+                          border: isSelected
+                              ? null
+                              : Border.all(
+                                  color: const Color(0xFF3F3F46), width: 0.8),
+                        ),
+                        child: Text(
+                          'Ask',
+                          style: TextStyle(
+                            color: isSelected
+                                ? const Color(0xFF0B0F0E)
+                                : const Color(0xFFD4D4D8),
+                            fontSize: 11.5,
+                            fontWeight:
+                                isSelected ? FontWeight.w600 : FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ),
+                  if (onInspectPath != null &&
+                      (finding.isReachable ||
+                          finding.reachableInCode.isNotEmpty))
+                    InkWell(
+                      borderRadius: BorderRadius.circular(6),
+                      onTap: () => onInspectPath!(finding),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF2A2A2E),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(
+                              color: const Color(0xFF3F3F46), width: 0.8),
+                        ),
+                        child: const Text(
+                          'Path',
+                          style: TextStyle(
+                            color: Color(0xFFD4D4D8),
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildReachabilityColumn(VulnFinding finding) {
+    if (!finding.isReachable && finding.reachableInCode.isEmpty) {
+      return const Text(
+        'Not reachable',
+        style: TextStyle(color: Color(0xFF71717A), fontSize: 11.5),
+      );
+    }
+
+    final hops = finding.reachableInCode.isNotEmpty
+        ? finding.reachableInCode.length
+        : finding.reachableFileCount;
+    final topHop = finding.reachableInCode.isNotEmpty
+        ? '${finding.package} → ${finding.reachableInCode.first.qualifiedName}'
+        : null;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          decoration: BoxDecoration(
+            color: const Color(0xFF064E3B),
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Text(
+            'Static Path ($hops ${hops == 1 ? 'hop' : 'hops'})',
+            style: const TextStyle(
+              color: Color(0xFF34D399),
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        if (topHop != null) ...[
+          const SizedBox(height: 3),
+          Text(
+            topHop,
+            overflow: TextOverflow.ellipsis,
+            maxLines: 1,
+            style: const TextStyle(color: Color(0xFFA1A1AA), fontSize: 11),
+          ),
+        ],
+      ],
     );
   }
 
@@ -213,7 +553,7 @@ class VulnIntelPanel extends ConsumerWidget {
               Expanded(flex: 3, child: Text('REACHABILITY', style: style)),
               Expanded(flex: 2, child: Text('WEAKNESS', style: style)),
               SizedBox(
-                width: 96,
+                width: 120,
                 child: Text('ACTIONS', style: style, textAlign: TextAlign.end),
               ),
             ],

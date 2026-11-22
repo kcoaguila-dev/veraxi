@@ -896,14 +896,14 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
       );
     }
 
-    Widget repoItem(String name, String subtitle) {
-      final selected = selectedRepo == name;
+    Widget repoItem(IndexedRepoItem repo) {
+      final selected = selectedRepo == repo.repoKey;
       return Material(
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(7),
           onTap: () {
-            ref.read(selectedIndexedRepoProvider.notifier).state = name;
+            ref.read(selectedIndexedRepoProvider.notifier).state = repo.repoKey;
           },
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -929,7 +929,7 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        name,
+                        repo.displayName,
                         style: TextStyle(
                           color: selected
                               ? const Color(0xFFE4E4E7)
@@ -939,7 +939,7 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
                         ),
                       ),
                       Text(
-                        subtitle,
+                        repo.subtitle,
                         style: TextStyle(
                           color: selected
                               ? const Color(0xFF71717A)
@@ -1042,17 +1042,38 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
           ),
         ),
         if (indexedRepos.isEmpty)
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            child: Text(
-              'No repos indexed yet',
-              style: TextStyle(color: Color(0xFF71717A), fontSize: 12),
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(7),
+              onTap: () {
+                ref.read(codeSubViewProvider.notifier).state =
+                    CodeSubView.repoXray;
+              },
+              child: const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'No repos indexed yet',
+                      style: TextStyle(color: Color(0xFF71717A), fontSize: 12),
+                    ),
+                    SizedBox(height: 2),
+                    Text(
+                      'Index a repo in Repo X-Ray →',
+                      style:
+                          TextStyle(color: Color(0xFF34D399), fontSize: 11),
+                    ),
+                  ],
+                ),
+              ),
             ),
           )
         else
           for (int i = 0; i < indexedRepos.length; i++) ...[
             if (i > 0) const SizedBox(height: 4),
-            repoItem(indexedRepos[i].displayName, indexedRepos[i].subtitle),
+            repoItem(indexedRepos[i]),
           ],
       ],
     );

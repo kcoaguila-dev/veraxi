@@ -2,7 +2,9 @@ import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
+import 'package:veraxi_app/core/api_key_storage.dart';
 import 'package:veraxi_app/core/network/api_client.dart';
+import 'package:veraxi_app/core/network/llm_request_options.dart';
 import 'package:veraxi_app/core/network/sse_parser.dart';
 
 /// Index freshness stamp attached to code-graph responses
@@ -456,13 +458,18 @@ class VulnReport {
 
 final codeIntelRepositoryProvider = Provider<CodeIntelRepository>((ref) {
   final client = ref.watch(apiClientProvider);
-  return CodeIntelRepository(apiClient: client);
+  final apiKeyStorage = ref.watch(apiKeyStorageProvider);
+  return CodeIntelRepository(apiClient: client, apiKeyStorage: apiKeyStorage);
 });
 
 class CodeIntelRepository {
   final ApiClient apiClient;
+  final ApiKeyStorage apiKeyStorage;
 
-  CodeIntelRepository({required this.apiClient});
+  CodeIntelRepository({
+    required this.apiClient,
+    ApiKeyStorage? apiKeyStorage,
+  }) : apiKeyStorage = apiKeyStorage ?? ApiKeyStorage();
 
   Future<Map<String, dynamic>> ingestRepo(String repoPath) async {
     final data = await apiClient.post(
@@ -585,6 +592,7 @@ class CodeIntelRepository {
     VulnFinding? finding,
     String? repoKey,
     String? threadId,
+    String? model,
   }) async* {
     final uri = Uri.parse('${apiClient.baseUrl}/chat');
     final headers = await apiClient.getDefaultHeaders()
@@ -593,6 +601,7 @@ class CodeIntelRepository {
 
     final request = http.Request('POST', uri)..headers.addAll(headers);
     final systemPrompt = _buildSidecarSystemPrompt(finding, repoKey);
+    final llmOptions = await resolveLlmRequestOptions(apiKeyStorage, model);
     request.body = jsonEncode({
       'question': question,
       if (threadId != null) 'thread_id': threadId,
@@ -600,6 +609,7 @@ class CodeIntelRepository {
       'is_temporary': true,
       'calculate_grounding': false,
       'custom_system_prompt': systemPrompt,
+      ...llmOptions,
     });
 
     final response = await apiClient.client.send(request);

@@ -8,9 +8,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:veraxi_app/core/network/api_client.dart';
+import 'package:veraxi_app/core/network/llm_request_options.dart';
 import 'package:veraxi_app/core/network/sse_parser.dart';
 import 'package:veraxi_app/core/api_key_storage.dart';
-import 'package:veraxi_app/core/models/model_provider_mapper.dart';
 
 import 'package:veraxi_app/features/chat/data/local_chat_repository.dart';
 import 'package:veraxi_app/features/chat/data/local_chat_data_source.dart'
@@ -141,19 +141,7 @@ class CloudChatRepository implements IChatRepository {
       final request = http.Request('POST', uri);
       request.headers.addAll(headers);
 
-      final provider = ModelProviderMapper.resolve(model);
-      final apiKey = await apiKeyStorage.getKey(provider);
-      String? baseUrl;
-
-      if (provider == 'local') {
-        final customBaseUrl = await apiKeyStorage.getValue('local_base_url');
-        final customModelName =
-            await apiKeyStorage.getValue('local_model_name');
-        if (customBaseUrl != null && customBaseUrl.isNotEmpty)
-          baseUrl = customBaseUrl;
-        if (customModelName != null && customModelName.isNotEmpty)
-          model = customModelName;
-      }
+      final llmOptions = await resolveLlmRequestOptions(apiKeyStorage, model);
 
       request.body = jsonEncode({
         'question': question,
@@ -161,13 +149,7 @@ class CloudChatRepository implements IChatRepository {
         'stream': true,
         'is_temporary': isTemporary,
         'calculate_grounding': calculateGrounding,
-        if (apiKey != null && apiKey.isNotEmpty) 'api_key': apiKey,
-        if (baseUrl != null) 'base_url': baseUrl,
-        if (model != null &&
-            model.isNotEmpty &&
-            model != 'Select a model' &&
-            model != 'local-model')
-          'model': model,
+        ...llmOptions,
         if (toolSettings != null) 'tool_settings': toolSettings,
       });
 
@@ -260,24 +242,10 @@ class CloudChatRepository implements IChatRepository {
   @override
   Future<Map<String, dynamic>> previewCompaction(String threadId,
       {String? model, int keepRecentTurns = 4, String? focus}) async {
-    // Same BYOK resolution as streamChat: the summarizer runs on the
-    // user's own key for the currently selected model.
-    final provider = ModelProviderMapper.resolve(model);
-    final apiKey = await apiKeyStorage.getKey(provider);
-    String? baseUrl;
-    if (provider == 'local') {
-      baseUrl = await apiKeyStorage.getValue('local_base_url');
-      final customModelName = await apiKeyStorage.getValue('local_model_name');
-      if (customModelName != null && customModelName.isNotEmpty) {
-        model = customModelName;
-      }
-    }
+    final llmOptions = await resolveLlmRequestOptions(apiKeyStorage, model);
     return _postCompaction('/chat/threads/$threadId/compact/preview', {
       'keep_recent_turns': keepRecentTurns,
-      if (model != null && model.isNotEmpty && model != 'Select a model')
-        'model': model,
-      if (apiKey != null && apiKey.isNotEmpty) 'api_key': apiKey,
-      if (baseUrl != null) 'base_url': baseUrl,
+      ...llmOptions,
       if (focus != null && focus.isNotEmpty) 'focus': focus,
     });
   }

@@ -540,12 +540,12 @@ class CodeIntelViewModel extends StateNotifier<CodeIntelState> {
     }
   }
 
-  Future<List<Map<String, dynamic>>> fetchIndexedRepos() async {
+  Future<List<Map<String, dynamic>>?> fetchIndexedRepos() async {
     try {
       return await _repository.fetchIndexedRepos();
     } catch (e, st) {
       await Sentry.captureException(e, stackTrace: st);
-      return const [];
+      return null;
     }
   }
 
@@ -563,12 +563,14 @@ class CodeIntelViewModel extends StateNotifier<CodeIntelState> {
     VulnFinding? finding,
     String? repoKey,
     String? threadId,
+    String? model,
   }) {
     return _repository.streamSidecarAsk(
       question: question,
       finding: finding,
       repoKey: repoKey,
       threadId: threadId,
+      model: model,
     );
   }
 }
