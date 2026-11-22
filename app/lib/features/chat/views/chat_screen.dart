@@ -1,4 +1,5 @@
 import 'package:material_ui/material_ui.dart';
+import 'package:cupertino_ui/cupertino_ui.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:veraxi_app/core/sidebar_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -791,35 +792,46 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                   ),
                                 ),
                               ),
-                              // Compact Metrics toggle — flush next to the model pill
+                              // Metrics toggle — flush next to the model pill
                               Tooltip(
                                 message: state.showTelemetry
                                     ? 'Metrics (On)'
                                     : 'Show Metrics',
                                 child: InkWell(
-                                  borderRadius: BorderRadius.circular(8),
+                                  borderRadius: BorderRadius.circular(6),
                                   onTap: () => viewModel.toggleTelemetry(),
-                                  child: Container(
-                                    padding: const EdgeInsets.all(7),
-                                    decoration: BoxDecoration(
-                                      color: state.showTelemetry
-                                          ? ext.primaryGradientStart
-                                              .withValues(alpha: 0.14)
-                                          : const Color(0xFF1E1E1E),
-                                      borderRadius: BorderRadius.circular(8),
-                                      border: Border.all(
-                                        color: state.showTelemetry
-                                            ? ext.primaryGradientStart
-                                                .withValues(alpha: 0.5)
-                                            : const Color(0xFF2A2A2A),
-                                      ),
-                                    ),
-                                    child: Icon(
-                                      Icons.analytics_outlined,
-                                      size: 17,
-                                      color: state.showTelemetry
-                                          ? ext.primaryGradientStart
-                                          : const Color(0xFF878787),
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 8, vertical: 4),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                          'Metrics',
+                                          style: TextStyle(
+                                            color: const Color(0xFF878787),
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        SizedBox(
+                                          height: 20,
+                                          width: 34,
+                                          child: Transform.scale(
+                                            scale: 0.7,
+                                            child: CupertinoSwitch(
+                                              value: state.showTelemetry,
+                                              onChanged: (val) =>
+                                                  viewModel.toggleTelemetry(),
+                                              activeTrackColor:
+                                                  ext.primaryGradientStart,
+                                              inactiveTrackColor:
+                                                  const Color(0xFF3A3A3A),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
                                 ),
@@ -942,7 +954,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       // Floating scroll to bottom button
                       if (_isScrolledUp && state.messages.isNotEmpty)
                         Positioned(
-                          bottom: 160,
+                          bottom: 180,
                           left: 0,
                           right: 0,
                           child: Center(
@@ -977,7 +989,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       // Floating Input Area at Bottom (only if messages exist)
                       if (state.messages.isNotEmpty)
                         Positioned(
-                          bottom: 20,
+                          bottom: 40,
                           left: 0,
                           right: 0,
                           child: Center(
@@ -1048,6 +1060,22 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                   ],
                                 ),
                               ),
+                            ),
+                          ),
+                        ),
+
+                      // Footer Legal Text
+                      if (MediaQuery.of(context).size.width > 600)
+                        Positioned(
+                          bottom: 16,
+                          left: 16,
+                          right: 16,
+                          child: Center(
+                            child: Text(
+                              'Veraxi v0.1.0 - Sovereign Intelligence. Privacy policy | Terms of service',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                  color: const Color(0xFF878787), fontSize: 12),
                             ),
                           ),
                         ),

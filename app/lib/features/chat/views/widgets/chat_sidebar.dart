@@ -488,41 +488,15 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
         (threadId.length > 8 ? '${threadId.substring(0, 8)}...' : threadId);
   }
 
-  static List<Map<String, dynamic>> _orderTimelineChats(
-      List<Map<String, dynamic>> threads) {
-    final active = threads.where((t) => t['is_archived'] != true).toList();
-    final pinned = active.where((t) => t['is_pinned'] == true);
-    final unpinned = active.where((t) => t['is_pinned'] != true);
-    return [...pinned, ...unpinned];
-  }
-
-  static List<int?> _computeDuplicateTitleOrdinals(
-      List<Map<String, dynamic>> threads) {
-    final counts = <String, int>{};
-    final titles = [for (final t in threads) _resolveThreadTitle(t)];
-    for (final title in titles) {
-      counts[title] = (counts[title] ?? 0) + 1;
-    }
-    final seen = <String, int>{};
-    return [
-      for (final title in titles)
-        (counts[title] ?? 0) > 1
-            ? (seen[title] = (seen[title] ?? 0) + 1)
-            : null,
-    ];
-  }
-
   Widget _buildThreadRow({
     required BuildContext context,
     required ChatViewModel viewModel,
     required Map<String, dynamic> threadData,
     required bool isSelected,
-    int? duplicateOrdinal,
   }) {
     final ext = Theme.of(context).extension<AppThemeExtension>()!;
     final threadId = threadData['thread_id'] as String? ?? '';
     final title = _resolveThreadTitle(threadData);
-    final isPinned = threadData['is_pinned'] == true;
     bool isHovered = false;
 
     return StatefulBuilder(
@@ -550,14 +524,6 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
                   const EdgeInsets.symmetric(vertical: 4.0, horizontal: 8.0),
               child: Row(
                 children: [
-                  if (isPinned) ...[
-                    Icon(
-                      Icons.push_pin_outlined,
-                      size: 12,
-                      color: isSelected ? Colors.white70 : ext.textTertiary,
-                    ),
-                    const SizedBox(width: 6),
-                  ],
                   Expanded(
                     child: Text(
                       title,
@@ -570,17 +536,6 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  if (duplicateOrdinal != null) ...[
-                    const SizedBox(width: 6),
-                    Text(
-                      '#$duplicateOrdinal',
-                      style: TextStyle(
-                        color: ext.textTertiary,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
                   Visibility(
                     visible: !widget.isMobile && (isHovered || isSelected),
                     maintainSize: true,
@@ -879,14 +834,12 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
                                       );
                                     }
 
-                                    final timelineChats =
-                                        _orderTimelineChats(state.pastThreads);
+                                    final timelineChats = state.pastThreads
+                                        .where((t) => t['is_archived'] != true)
+                                        .toList();
                                     if (timelineChats.isEmpty) {
                                       return SizedBox.shrink();
                                     }
-                                    final ordinals =
-                                        _computeDuplicateTitleOrdinals(
-                                            timelineChats);
 
                                     return ListView.builder(
                                       itemCount: timelineChats.length,
@@ -901,7 +854,6 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
                                           threadData: threadData,
                                           isSelected:
                                               state.threadId == threadId,
-                                          duplicateOrdinal: ordinals[index],
                                         );
                                       },
                                     );
