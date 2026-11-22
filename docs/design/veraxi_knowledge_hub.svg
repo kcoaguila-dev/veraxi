@@ -1,0 +1,233 @@
+<svg width="1440" height="900" viewBox="0 0 1440 900" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Visual contract: Veraxi Knowledge Hub (Admin: Ingestion, Sources, Schema & Infra)
+       Replaces the 5-screen vertical scroll by moving operational analysis
+       (Vuln Intel, Repo X-Ray, Security Feed, Corpus Briefing, dbt Lineage)
+       to the [Code] tab and organizing Knowledge Hub into 3 focused tabs:
+       1. [Sources & Ingestion] (active): Corpus health strip, Drag-and-Drop /
+          URL ingestion bar, Extraction Model + Fast Mode pill, and an Onyx/
+          RAGFlow-style Indexed Sources & Freshness table (chunk/node counts,
+          sync status, Re-index / Delete actions to prevent stale-doc RAG).
+       2. [Schema & Extraction]: Information Extraction Rules & Auto-Generate.
+       3. [Infra & Monitors]: Qdrant + Neo4j dashboards & link-integrity stats. -->
+  <defs>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap');
+      .font-inter { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }
+      .font-mono { font-family: 'JetBrains Mono', monospace; }
+    </style>
+  </defs>
+
+  <!-- Main Workspace Canvas -->
+  <rect width="1440" height="900" fill="#212121"/>
+
+  <!-- ================================================== -->
+  <!-- LEFT RAIL (260px, #171717)                         -->
+  <!-- ================================================== -->
+  <rect x="0" y="0" width="260" height="900" fill="#171717"/>
+  <line x1="260" y1="0" x2="260" y2="900" stroke="#2B2B2E" stroke-width="1"/>
+
+  <!-- Brand Header + Collapse Toggle -->
+  <text x="20" y="38" fill="#FFFFFF" font-size="18" font-weight="600" class="font-inter">Veraxi</text>
+  <g transform="translate(220, 22)" stroke="#9CA3AF" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="1.5" y="2.5" width="17" height="14" rx="3"/>
+    <line x1="7.5" y1="2.5" x2="7.5" y2="16.5"/>
+  </g>
+
+  <!-- Segmented Mode Switcher: [ Chat | Code ] -->
+  <g transform="translate(14, 56)" class="font-inter" font-size="12.5">
+    <rect x="0" y="0" width="232" height="34" rx="9" fill="#111113" stroke="#2B2B2E" stroke-width="1"/>
+    <path d="M31 12 H42 V19.5 H35 L31 22.5 V12 Z" stroke="#9CA3AF" stroke-width="1.3" fill="none" stroke-linejoin="round"/>
+    <text x="50" y="21.5" fill="#A1A1AA" font-weight="500">Chat</text>
+
+    <path d="M148 13 L143 17 L148 21 M156 13 L161 17 L156 21" stroke="#9CA3AF" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <text x="169" y="21.5" fill="#A1A1AA" font-weight="500">Code</text>
+    <circle cx="218" cy="17" r="3" fill="#EF4444"/>
+  </g>
+
+  <!-- Shared Global Links (Fixed position across Chat, Code, Knowledge Hub) -->
+  <g class="font-inter" font-size="13.5" font-weight="500">
+    <!-- Projects -->
+    <g transform="translate(14, 104)">
+      <rect x="0" y="0" width="232" height="34" rx="8" fill="transparent"/>
+      <path d="M9 12 C9 10.9 9.9 10 11 10 H14.5 L16.5 12 H22 C23.1 12 24 12.9 24 14 V22 C24 23.1 23.1 24 22 24 H11 C9.9 24 9 23.1 9 22 V12 Z" stroke="#9CA3AF" stroke-width="1.4" fill="none"/>
+      <text x="34" y="21.5" fill="#D4D4D8">Projects</text>
+    </g>
+
+    <!-- Knowledge Hub (Active) -->
+    <g transform="translate(14, 140)">
+      <rect x="0" y="0" width="232" height="34" rx="8" fill="#26262A"/>
+      <rect x="12" y="10" width="12" height="13" rx="2" stroke="#FFFFFF" stroke-width="1.4" fill="none"/>
+      <path d="M9 13 V24 C9 25.1 9.9 26 11 26 H21" stroke="#FFFFFF" stroke-width="1.4" fill="none" stroke-linecap="round"/>
+      <text x="34" y="21.5" fill="#FFFFFF" font-weight="600">Knowledge Hub</text>
+    </g>
+  </g>
+
+  <line x1="20" y1="186" x2="240" y2="186" stroke="#262629" stroke-width="1"/>
+
+  <!-- Live Pipeline Queue (Visible indexing progress) -->
+  <text x="20" y="210" fill="#8E8E93" font-size="11" font-weight="600" letter-spacing="0.6" class="font-inter">INGESTION QUEUE</text>
+  <g transform="translate(14, 224)" class="font-inter">
+    <rect x="0" y="0" width="232" height="58" rx="8" fill="#1F1F23" stroke="#2E2E34" stroke-width="1"/>
+    <text x="12" y="20" fill="#F4F4F5" font-size="12" font-weight="500">architecture_v3.pdf</text>
+    <text x="12" y="36" fill="#34D399" font-size="10.5">Chunking + Dual-Write · 78%</text>
+    <rect x="12" y="44" width="208" height="4" rx="2" fill="#2A2A2F"/>
+    <rect x="12" y="44" width="162" height="4" rx="2" fill="#10B981"/>
+  </g>
+
+  <line x1="20" y1="298" x2="240" y2="298" stroke="#262629" stroke-width="1"/>
+
+  <!-- Recent Chats remain accessible -->
+  <text x="20" y="322" fill="#8E8E93" font-size="11.5" font-weight="600" class="font-inter">Chats</text>
+  <g class="font-inter" font-size="12.5" fill="#A1A1AA">
+    <text x="22" y="348">FastAPI KEV Reachability</text>
+    <text x="22" y="376">NVIDIA CEO Update</text>
+    <text x="22" y="404">Reranker Latency Audit</text>
+  </g>
+
+  <!-- User Profile Footer -->
+  <line x1="0" y1="846" x2="260" y2="846" stroke="#262629" stroke-width="1"/>
+  <circle cx="32" cy="873" r="13" fill="#2E2E34"/>
+  <text x="32" y="877" fill="#E4E4E7" font-size="12" font-weight="600" text-anchor="middle" class="font-inter">K</text>
+  <text x="54" y="877" fill="#D4D4D8" font-size="13" font-weight="500" class="font-inter">Kazuo Coaguilla</text>
+
+  <!-- ================================================== -->
+  <!-- MAIN WORKSPACE: Focused Sources & Ingestion (1180) -->
+  <!-- ================================================== -->
+  <!-- Header + Top Sub-Tabs -->
+  <rect x="261" y="0" width="1179" height="100" fill="#212121"/>
+  <line x1="261" y1="100" x2="1440" y2="100" stroke="#2B2B2E" stroke-width="1"/>
+  <text x="300" y="34" fill="#FFFFFF" font-size="18" font-weight="600" class="font-inter">Knowledge Hub</text>
+
+  <!-- 3 Focused Admin Tabs (No more 5-screen scroll) -->
+  <g transform="translate(300, 56)" class="font-inter" font-size="12.5" font-weight="500">
+    <rect x="0" y="0" width="154" height="32" rx="8" fill="#27272B" stroke="#3A3A40" stroke-width="0.8"/>
+    <text x="77" y="20" fill="#FFFFFF" font-weight="600" text-anchor="middle">Sources &amp; Ingestion</text>
+
+    <text x="234" y="20" fill="#A1A1AA" text-anchor="middle">Schema &amp; Extraction</text>
+    <text x="382" y="20" fill="#A1A1AA" text-anchor="middle">Infra &amp; Monitors</text>
+    <circle cx="442" cy="16" r="3" fill="#10B981"/>
+  </g>
+
+  <!-- Right-aligned Corpus Health Pill -->
+  <g transform="translate(970, 17)" class="font-inter" font-size="11.5">
+    <rect x="0" y="0" width="430" height="30" rx="8" fill="#18181B" stroke="#2D2D32" stroke-width="1"/>
+    <text x="16" y="19" fill="#D4D4D8"><tspan fill="#34D399" font-weight="600">142</tspan> sources</text>
+    <text x="112" y="19" fill="#D4D4D8"><tspan fill="#93C5FD" font-weight="600">1,840</tspan> Qdrant pts</text>
+    <text x="242" y="19" fill="#D4D4D8"><tspan fill="#C4B5FD" font-weight="600">3,210</tspan> Neo4j nodes</text>
+    <circle cx="372" cy="15" r="3.5" fill="#10B981"/>
+    <text x="382" y="19" fill="#34D399" font-weight="500">Synced</text>
+  </g>
+
+  <!-- COMPACT INGESTION BAR (Upload + URL + Extraction Settings in 1 card) -->
+  <g transform="translate(300, 118)" class="font-inter">
+    <rect x="0" y="0" width="1100" height="148" rx="12" fill="#1A1A1D" stroke="#2D2D32" stroke-width="1"/>
+
+    <!-- Dropzone (Left half) -->
+    <rect x="16" y="16" width="520" height="116" rx="10" fill="#151518" stroke="#3A3A40" stroke-width="1" stroke-dasharray="5 5"/>
+    <path d="M276 46 V64 M269 53 L276 46 L283 53" stroke="#9CA3AF" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <text x="276" y="84" fill="#E4E4E7" font-size="13" font-weight="500" text-anchor="middle">Drop files to ingest (PDF, MD, TXT, CSV, DOCX, Images)</text>
+    <text x="276" y="104" fill="#71717A" font-size="11" text-anchor="middle">Dual-writes to Qdrant (dense + SPLADE) &amp; Neo4j with linked IDs</text>
+
+    <!-- URL Ingest + Model + Fast Mode (Right half) -->
+    <text x="556" y="30" fill="#A1A1AA" font-size="11.5" font-weight="500">Ingest URL or Git Repo</text>
+    <rect x="556" y="40" width="430" height="36" rx="8" fill="#151518" stroke="#2E2E34" stroke-width="1"/>
+    <text x="570" y="62" fill="#71717A" font-size="12.5">https://example.com/docs or /path/to/repo</text>
+    <rect x="996" y="40" width="88" height="36" rx="8" fill="#2563EB"/>
+    <text x="1040" y="62" fill="#FFFFFF" font-size="12.5" font-weight="600" text-anchor="middle">Ingest</text>
+
+    <!-- Compact Extraction Model + Fast Mode Row -->
+    <text x="556" y="100" fill="#A1A1AA" font-size="11" font-weight="500">Extraction Model</text>
+    <rect x="556" y="108" width="240" height="26" rx="6" fill="#232327" stroke="#323238" stroke-width="1"/>
+    <text x="568" y="125" fill="#E4E4E7" font-size="12">gemini-1.5-pro-002</text>
+
+    <text x="820" y="100" fill="#A1A1AA" font-size="11" font-weight="500">Fast Extraction (90% NLP)</text>
+    <rect x="820" y="110" width="36" height="19" rx="9.5" fill="#10B981"/>
+    <circle cx="846" cy="119.5" r="7" fill="#0B0F0E"/>
+  </g>
+
+  <!-- INDEXED SOURCES & FRESHNESS TABLE (Onyx / RAGFlow / Reddit-essential) -->
+  <g transform="translate(300, 252)" class="font-inter">
+    <rect x="0" y="0" width="1100" height="614" rx="12" fill="#1A1A1D" stroke="#2D2D32" stroke-width="1"/>
+
+    <!-- Toolbar -->
+    <text x="18" y="32" fill="#F4F4F5" font-size="14" font-weight="600">Indexed Sources</text>
+    <rect x="150" y="14" width="280" height="28" rx="7" fill="#151518" stroke="#2E2E34" stroke-width="1"/>
+    <text x="164" y="32" fill="#71717A" font-size="12">Filter sources by name, type, or status...</text>
+
+    <!-- Filter Chips -->
+    <g transform="translate(450, 14)" font-size="11.5" font-weight="500">
+      <rect x="0" y="0" width="66" height="28" rx="14" fill="#2A2A2F" stroke="#52525B" stroke-width="1"/>
+      <text x="33" y="18" fill="#FFFFFF" text-anchor="middle">All (142)</text>
+
+      <rect x="74" y="0" width="76" height="28" rx="14" fill="#18181B" stroke="#2F2F35" stroke-width="1"/>
+      <text x="112" y="18" fill="#A1A1AA" text-anchor="middle">Repos (2)</text>
+
+      <rect x="158" y="0" width="84" height="28" rx="14" fill="#18181B" stroke="#2F2F35" stroke-width="1"/>
+      <text x="200" y="18" fill="#A1A1AA" text-anchor="middle">Docs (138)</text>
+
+      <rect x="250" y="0" width="82" height="28" rx="14" fill="#272017" stroke="#92400E" stroke-width="0.8"/>
+      <text x="291" y="18" fill="#FBBF24" text-anchor="middle">Stale (1)</text>
+    </g>
+
+    <line x1="0" y1="54" x2="1100" y2="54" stroke="#2B2B30" stroke-width="1"/>
+
+    <!-- Table Headers -->
+    <g font-size="11" font-weight="600" fill="#71717A">
+      <text x="18" y="78">SOURCE</text>
+      <text x="380" y="78">TYPE</text>
+      <text x="500" y="78">CHUNKS / NODES</text>
+      <text x="680" y="78">LAST SYNCED</text>
+      <text x="830" y="78">STATUS</text>
+      <text x="960" y="78">ACTIONS</text>
+    </g>
+    <line x1="0" y1="90" x2="1100" y2="90" stroke="#26262A" stroke-width="1"/>
+
+    <!-- Row 1: Repo -->
+    <g transform="translate(0, 96)">
+      <text x="18" y="28" fill="#F4F4F5" font-size="13" font-weight="500">veraxi/backend</text>
+      <text x="18" y="45" fill="#71717A" font-size="11" class="font-mono">/home/ubuntu/src/ai/veraxi/backend</text>
+      <rect x="380" y="18" width="76" height="20" rx="6" fill="#1E293B"/>
+      <text x="418" y="32" fill="#93C5FD" font-size="11" text-anchor="middle">Code AST</text>
+      <text x="500" y="32" fill="#D4D4D8" font-size="12.5">142 files · 812 nodes</text>
+      <text x="680" y="32" fill="#A1A1AA" font-size="12">12m ago</text>
+      <rect x="830" y="18" width="66" height="20" rx="6" fill="#064E3B"/>
+      <text x="863" y="32" fill="#34D399" font-size="11" font-weight="600" text-anchor="middle">Indexed</text>
+      <rect x="960" y="16" width="66" height="24" rx="6" fill="#27272A" stroke="#3F3F46" stroke-width="0.8"/>
+      <text x="993" y="32" fill="#D4D4D8" font-size="11.5" text-anchor="middle">Re-index</text>
+      <rect x="1034" y="16" width="48" height="24" rx="6" fill="#27272A" stroke="#3F3F46" stroke-width="0.8"/>
+      <text x="1058" y="32" fill="#FCA5A5" font-size="11.5" text-anchor="middle">Del</text>
+    </g>
+    <line x1="18" y1="158" x2="1082" y2="158" stroke="#242428" stroke-width="1"/>
+
+    <!-- Row 2: Docs (Stale warning — prevents 2024 vs 2026 contract bug!) -->
+    <g transform="translate(0, 164)">
+      <text x="18" y="28" fill="#F4F4F5" font-size="13" font-weight="500">architecture_v2_draft.pdf</text>
+      <text x="18" y="45" fill="#71717A" font-size="11">Uploaded · 4.2 MB</text>
+      <rect x="380" y="18" width="76" height="20" rx="6" fill="#27272A"/>
+      <text x="418" y="32" fill="#D4D4D8" font-size="11" text-anchor="middle">PDF</text>
+      <text x="500" y="32" fill="#D4D4D8" font-size="12.5">64 chunks · 91 nodes</text>
+      <text x="680" y="32" fill="#FBBF24" font-size="12">18d ago</text>
+      <rect x="830" y="18" width="66" height="20" rx="6" fill="#272017" stroke="#92400E" stroke-width="0.8"/>
+      <text x="863" y="32" fill="#FBBF24" font-size="11" font-weight="600" text-anchor="middle">Stale</text>
+      <rect x="960" y="16" width="66" height="24" rx="6" fill="#27272A" stroke="#3F3F46" stroke-width="0.8"/>
+      <text x="993" y="32" fill="#D4D4D8" font-size="11.5" text-anchor="middle">Re-index</text>
+      <rect x="1034" y="16" width="48" height="24" rx="6" fill="#27272A" stroke="#3F3F46" stroke-width="0.8"/>
+      <text x="1058" y="32" fill="#FCA5A5" font-size="11.5" text-anchor="middle">Del</text>
+    </g>
+    <line x1="18" y1="226" x2="1082" y2="226" stroke="#242428" stroke-width="1"/>
+
+    <!-- Row 3: NVD / KEV Feed -->
+    <g transform="translate(0, 232)">
+      <text x="18" y="28" fill="#F4F4F5" font-size="13" font-weight="500">NVD + CISA KEV Catalog</text>
+      <text x="18" y="45" fill="#71717A" font-size="11">Public Vulnerability Feed</text>
+      <rect x="380" y="18" width="76" height="20" rx="6" fill="#3B1D1E"/>
+      <text x="418" y="32" fill="#FCA5A5" font-size="11" text-anchor="middle">Vuln Graph</text>
+      <text x="500" y="32" fill="#D4D4D8" font-size="12.5">1,140 CVE · 3 KEV</text>
+      <text x="680" y="32" fill="#A1A1AA" font-size="12">1h ago</text>
+      <rect x="830" y="18" width="66" height="20" rx="6" fill="#064E3B"/>
+      <text x="863" y="32" fill="#34D399" font-size="11" font-weight="600" text-anchor="middle">Indexed</text>
+      <rect x="960" y="16" width="66" height="24" rx="6" fill="#27272A" stroke="#3F3F46" stroke-width="0.8"/>
+      <text x="993" y="32" fill="#D4D4D8" font-size="11.5" text-anchor="middle">Sync</text>
+    </g>
+  </g>
+</svg>

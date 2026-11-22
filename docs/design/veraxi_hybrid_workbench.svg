@@ -1,0 +1,293 @@
+<svg width="1440" height="900" viewBox="0 0 1440 900" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Visual contract: Veraxi Chat UI (Adjusted to Shared Shell + Provenance)
+       Preserves the natural, calm current Chat UI:
+       1. Left Rail (260px, #171717): Veraxi header + [ Chat | Code ] segmented
+          toggle (Chat active, KEV indicator on Code), fixed Projects &
+          Knowledge Hub, New chat, and Chats history.
+       2. Center (820px, #212121): Model selector + Metrics toggle, user bubble,
+          Veraxi's native vertical collapsible activity disclosure
+          (Thought process -> Retrieved evidence card -> Drafted grounded
+          answer), clean markdown answer + citation/sources pill, and native
+          composer with 2.5k token ring.
+       3. Right Drawer (360px, #171717): On-demand Sources drawer (closed by
+          default until clicking a citation or Sources pill), showing multi-leg
+          provenance (Vector / Sparse / Graph), calibrated Match Tier, and
+          indented graph path trace when GraphRAG contributes. -->
+  <defs>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap');
+      .font-inter { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }
+      .font-mono { font-family: 'JetBrains Mono', monospace; }
+    </style>
+  </defs>
+
+  <!-- Main Workspace Canvas -->
+  <rect width="1440" height="900" fill="#212121"/>
+
+  <!-- ================================================== -->
+  <!-- LEFT RAIL: Shared Shell (Chat Active, 260px)       -->
+  <!-- ================================================== -->
+  <rect x="0" y="0" width="260" height="900" fill="#171717"/>
+  <line x1="260" y1="0" x2="260" y2="900" stroke="#2B2B2E" stroke-width="1"/>
+
+  <!-- Brand Header + Collapse Toggle -->
+  <text x="20" y="38" fill="#FFFFFF" font-size="18" font-weight="600" class="font-inter">Veraxi</text>
+  <g transform="translate(220, 22)" stroke="#9CA3AF" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="1.5" y="2.5" width="17" height="14" rx="3"/>
+    <line x1="7.5" y1="2.5" x2="7.5" y2="16.5"/>
+  </g>
+
+  <!-- Segmented Mode Switcher right below Veraxi: [ Chat | Code ] -->
+  <g transform="translate(14, 56)" class="font-inter" font-size="12.5">
+    <rect x="0" y="0" width="232" height="34" rx="9" fill="#111113" stroke="#2B2B2E" stroke-width="1"/>
+    <!-- Active: Chat -->
+    <rect x="3" y="3" width="112" height="28" rx="7" fill="#27272B" stroke="#3A3A40" stroke-width="0.8"/>
+    <path d="M29 12 H40 V19.5 H33 L29 22.5 V12 Z" stroke="#FFFFFF" stroke-width="1.3" fill="none" stroke-linejoin="round"/>
+    <text x="48" y="21.5" fill="#FFFFFF" font-weight="600">Chat</text>
+
+    <!-- Inactive: Code -->
+    <path d="M150 13 L145 17 L150 21 M158 13 L163 17 L158 21" stroke="#9CA3AF" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <text x="171" y="21.5" fill="#A1A1AA" font-weight="500">Code</text>
+    <circle cx="218" cy="17" r="3" fill="#EF4444"/>
+  </g>
+
+  <!-- Shared Global Links + New chat (Exact button order from current UI) -->
+  <g class="font-inter" font-size="13.5" font-weight="500">
+    <!-- Projects -->
+    <g transform="translate(14, 104)">
+      <rect x="0" y="0" width="232" height="34" rx="8" fill="transparent"/>
+      <path d="M9 12 C9 10.9 9.9 10 11 10 H14.5 L16.5 12 H22 C23.1 12 24 12.9 24 14 V22 C24 23.1 23.1 24 22 24 H11 C9.9 24 9 23.1 9 22 V12 Z" stroke="#B4B4B4" stroke-width="1.4" fill="none"/>
+      <text x="34" y="21.5" fill="#E0E0E0">Projects</text>
+    </g>
+
+    <!-- New chat (Between Projects and Knowledge Hub, matching current UI) -->
+    <g transform="translate(14, 140)">
+      <rect x="0" y="0" width="232" height="34" rx="8" fill="transparent"/>
+      <path d="M18 11 H11 C9.9 11 9 11.9 9 13 V23 C9 24.1 9.9 25 11 25 H21 C22.1 25 23 24.1 23 23 V16" stroke="#B4B4B4" stroke-width="1.4" fill="none" stroke-linecap="round"/>
+      <path d="M21.5 10.5 L23.5 12.5 L16.5 19.5 L14 20 L14.5 17.5 L21.5 10.5 Z" stroke="#B4B4B4" stroke-width="1.4" fill="none" stroke-linejoin="round"/>
+      <text x="34" y="21.5" fill="#E0E0E0">New chat</text>
+    </g>
+
+    <!-- Knowledge Hub -->
+    <g transform="translate(14, 176)">
+      <rect x="0" y="0" width="232" height="34" rx="8" fill="transparent"/>
+      <rect x="12" y="10" width="12" height="13" rx="2" stroke="#B4B4B4" stroke-width="1.4" fill="none"/>
+      <path d="M9 13 V24 C9 25.1 9.9 26 11 26 H21" stroke="#B4B4B4" stroke-width="1.4" fill="none" stroke-linecap="round"/>
+      <text x="34" y="21.5" fill="#E0E0E0">Knowledge Hub</text>
+    </g>
+  </g>
+
+  <!-- Chats Section Header + Active Thread with x3 pill -->
+  <text x="20" y="234" fill="#878787" font-size="12" font-weight="600" class="font-inter">Chats</text>
+  <path d="M60 228 L64 232 L68 228" stroke="#878787" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+
+  <g class="font-inter" font-size="12.5" fill="#B4B4B4">
+    <text x="22" y="262">Jensen Situation Update</text>
+    <rect x="12" y="274" width="236" height="30" rx="6" fill="#2A2A2D"/>
+    <text x="22" y="293" fill="#FFFFFF" font-weight="500">NVIDIA CEO Update</text>
+    <rect x="196" y="281" width="22" height="16" rx="8" fill="#3A3A40"/>
+    <text x="207" y="292.5" fill="#D4D4D8" font-size="10" text-anchor="middle">×3</text>
+    <text x="232" y="293" fill="#D4D4D8" font-size="12" text-anchor="middle">···</text>
+    <text x="22" y="322">Stock Market Today</text>
+    <text x="22" y="350">Jensen Huang News ...</text>
+    <text x="22" y="378">Hello World Slide</text>
+  </g>
+
+  <!-- User Profile Footer -->
+  <line x1="0" y1="846" x2="260" y2="846" stroke="#262629" stroke-width="1"/>
+  <circle cx="32" cy="873" r="13" fill="#2E2E34"/>
+  <text x="32" y="877" fill="#E4E4E7" font-size="12" font-weight="600" text-anchor="middle" class="font-inter">K</text>
+  <text x="54" y="877" fill="#D4D4D8" font-size="13" font-weight="500" class="font-inter">Kazuo Coaguilla</text>
+
+  <!-- ================================================== -->
+  <!-- CENTER: Natural Current Chat UI (820px, #212121)   -->
+  <!-- ================================================== -->
+  <!-- Top Bar (Model selector + Metrics toggle) -->
+  <rect x="261" y="0" width="818" height="54" fill="#212121"/>
+  <rect x="280" y="13" width="166" height="28" rx="8" fill="#2A2A2D" stroke="#3A3A3E" stroke-width="1"/>
+  <circle cx="295" cy="27" r="4" fill="#EF4444"/>
+  <text x="307" y="31" fill="#ECECEC" font-size="12.5" font-weight="500" class="font-inter">openai/gpt-oss-20b</text>
+  <path d="M430 25 L434 29 L438 25" stroke="#9CA3AF" stroke-width="1.4" fill="none"/>
+
+  <text x="466" y="31" fill="#8E8E93" font-size="12" class="font-inter">Metrics</text>
+  <rect x="516" y="19" width="30" height="16" rx="8" fill="#323236"/>
+  <circle cx="524" cy="27" r="5.5" fill="#9CA3AF"/>
+  <!-- Top-bar Context Ring + Top-right New Chat Compose Icon -->
+  <circle cx="566" cy="27" r="6" stroke="#9CA3AF" stroke-width="1.5" fill="none"/>
+  <g transform="translate(1042, 19)" stroke="#9CA3AF" stroke-width="1.4" fill="none" stroke-linecap="round">
+    <path d="M10 3 H3 C1.9 3 1 3.9 1 5 V15 C1 16.1 1.9 17 3 17 H13 C14.1 17 15 16.1 15 15 V8"/>
+    <path d="M13.5 2.5 L15.5 4.5 L8.5 11.5 L6 12 L6.5 9.5 L13.5 2.5 Z"/>
+  </g>
+
+  <!-- User Bubble (Non-code retrieval reference) + Copy button below -->
+  <rect x="698" y="80" width="312" height="44" rx="14" fill="#2B2B2F"/>
+  <text x="716" y="106" fill="#F4F4F5" font-size="13.5" class="font-inter">whos the ceo of nvidia now?</text>
+  <g transform="translate(992, 134)" stroke="#9CA3AF" stroke-width="1.3" fill="none">
+    <rect x="0" y="2" width="8" height="9" rx="1.5"/>
+    <path d="M3 2 V0.5 H10 V8 H8.5"/>
+  </g>
+
+  <!-- Assistant Header -->
+  <circle cx="332" cy="164" r="9" fill="#EF4444"/>
+  <circle cx="332" cy="164" r="3" fill="#212121"/>
+  <text x="352" y="168" fill="#F4F4F5" font-size="13.5" font-weight="600" class="font-inter">openai/gpt-oss-20b</text>
+
+  <!-- NATIVE VERTICAL ACTIVITY DISCLOSURE (Kept from current UI) -->
+  <g transform="translate(352, 186)" class="font-inter">
+    <text x="0" y="12" fill="#9CA3AF" font-size="12">⌄  Thought for 0.7s · Searched the web</text>
+
+    <!-- Vertical Stepper Card -->
+    <rect x="0" y="24" width="658" height="214" rx="10" fill="#1B1B1E" stroke="#2D2D32" stroke-width="1"/>
+
+    <!-- Step 1: Thought process -->
+    <circle cx="20" cy="44" r="6" fill="#6B21A8"/>
+    <text x="36" y="48" fill="#E4E4E7" font-size="12" font-weight="600">Thought process · 0.7s</text>
+    <text x="36" y="66" fill="#8E8E93" font-size="11.5">Checking latest retrieved context and dates to verify current CEO</text>
+    <text x="36" y="82" fill="#8E8E93" font-size="11.5">leadership transition and cite authoritative sources...</text>
+
+    <!-- Step 2: Retrieved evidence -->
+    <circle cx="20" cy="106" r="6" fill="#064E3B"/>
+    <path d="M17 106 L19 108 L23 104" stroke="#34D399" stroke-width="1.3" fill="none"/>
+    <text x="36" y="110" fill="#E4E4E7" font-size="12" font-weight="600">Retrieved evidence</text>
+    <text x="36" y="126" fill="#71717A" font-size="11">Checked Web</text>
+
+    <!-- Tool Execution Sub-Card -->
+    <rect x="36" y="136" width="602" height="44" rx="8" fill="#232327" stroke="#323238" stroke-width="1"/>
+    <circle cx="54" cy="158" r="6" fill="#064E3B"/>
+    <text x="68" y="154" fill="#F4F4F5" font-size="11.5" font-weight="600">Web Search</text>
+    <text x="68" y="170" fill="#8E8E93" font-size="11">"current CEO of Nvidia" · 10 results · Vector</text>
+    <rect x="506" y="148" width="48" height="20" rx="6" fill="#1E293B" stroke="#3B82F6" stroke-width="0.6"/>
+    <text x="530" y="162" fill="#93C5FD" font-size="10.5" text-anchor="middle">Vector</text>
+    <rect x="560" y="148" width="44" height="20" rx="6" fill="#2A2A2F"/>
+    <text x="582" y="162" fill="#D4D4D8" font-size="10.5" text-anchor="middle">1.0s</text>
+
+    <!-- Step 3: Drafted grounded answer -->
+    <circle cx="20" cy="204" r="6" fill="#064E3B"/>
+    <path d="M17 204 L19 206 L23 202" stroke="#34D399" stroke-width="1.3" fill="none"/>
+    <text x="36" y="208" fill="#E4E4E7" font-size="12" font-weight="600">Drafted grounded answer</text>
+    <text x="36" y="224" fill="#71717A" font-size="11">Grounded in retrieved sources</text>
+  </g>
+
+  <!-- Assistant Prose Answer + Citation Hover Popover -->
+  <g transform="translate(352, 446)" class="font-inter" font-size="14" fill="#E4E4E7">
+    <text x="0" y="14">The current chief executive officer of NVIDIA is <tspan font-weight="600">Colette Marie Kress</tspan> (interim CEO). She</text>
+    <text x="0" y="36">took over after Jensen Huang resigned in November 2026 amid a scandal.</text>
+
+    <!-- Cited Excerpt Quote -->
+    <line x1="2" y1="54" x2="2" y2="92" stroke="#3F3F46" stroke-width="2"/>
+    <text x="14" y="68" fill="#D4D4D8" font-size="13">Colette Kress has been serving as interim CEO since November 12, 2026</text>
+    <rect x="14" y="76" width="166" height="20" rx="10" fill="#27272B" stroke="#3A3A40" stroke-width="0.8"/>
+    <text x="97" y="90" fill="#A1A1AA" font-size="11" text-anchor="middle">Colette Kress - Wikipedia</text>
+
+    <!-- Action Bar + Sources Pill (Clean vector stroke icons matching current UI) -->
+    <g transform="translate(0, 118)" stroke="#9CA3AF" stroke-width="1.3" fill="none" stroke-linecap="round" stroke-linejoin="round">
+      <!-- Speaker -->
+      <path d="M2 6 H5 L9 3 V13 L5 10 H2 Z"/>
+      <path d="M12 5.5 C13 6.5 13 9.5 12 10.5"/>
+      <!-- Copy -->
+      <rect x="26" y="4" width="8" height="9" rx="1.5"/>
+      <path d="M29 4 V2.5 H36 V10 H34.5"/>
+      <!-- Edit -->
+      <path d="M50 12 L57 5 L59 7 L52 14 H50 Z"/>
+      <!-- Thumbs up -->
+      <path d="M71 8 V13 H73 V8 Z M73 8 L75.5 3.5 C76 2.8 77 3.1 77 4 V6.5 H80 C80.7 6.5 81.2 7.1 81 7.8 L80 12 C79.8 12.6 79.3 13 78.6 13 H73"/>
+      <!-- Thumbs down -->
+      <path d="M91 8 V3 H93 V8 Z M93 8 L95.5 12.5 C96 13.2 97 12.9 97 12 V9.5 H100 C100.7 9.5 101.2 8.9 101 8.2 L100 4 C99.8 3.4 99.3 3 98.6 3 H93"/>
+      <!-- Regenerate -->
+      <path d="M120 5 A4.5 4.5 0 1 1 116 9.5"/>
+      <path d="M120 2.5 V5.5 H117"/>
+      <!-- Brain (Memory) before 2d ago -->
+      <g transform="translate(132, 0)">
+        <path d="M7 2.5 C4.8 2.5 3.5 3.8 3.5 5.6 C2.6 6 2.2 6.9 2.2 8 C2.2 9.2 3.1 10.2 4.2 10.5 C4.4 11.5 5.4 12.2 6.5 12.2 H7 V2.5 Z"/>
+        <path d="M7 2.5 C9.2 2.5 10.5 3.8 10.5 5.6 C11.4 6 11.8 6.9 11.8 8 C11.8 9.2 10.9 10.2 9.8 10.5 C9.6 11.5 8.6 12.2 7.5 12.2 H7 V2.5 Z"/>
+      </g>
+      <!-- 2d ago -->
+      <text x="156" y="12" stroke="none" fill="#8E8E93" font-size="11.5" class="font-inter">2d ago</text>
+      <!-- 1 source pill -->
+      <rect x="208" y="-3" width="88" height="24" rx="12" fill="#2A2A2F" stroke="#3F3F46" stroke-width="0.8"/>
+      <circle cx="222" cy="9" r="5" stroke="#9CA3AF" stroke-width="1.1"/>
+      <text x="258" y="13" stroke="none" fill="#E4E4E7" font-size="11.5" text-anchor="middle" class="font-inter">1 source</text>
+    </g>
+  </g>
+
+  <!-- Citation Hover Popover (Matching native hover card) -->
+  <g transform="translate(460, 356)" class="font-inter">
+    <rect x="0" y="0" width="268" height="148" rx="10" fill="#1F1F23" stroke="#3A3A40" stroke-width="1"/>
+    <text x="14" y="22" fill="#A1A1AA" font-size="11">wikipedia</text>
+    <rect x="188" y="9" width="66" height="18" rx="9" fill="#3B2E14" stroke="#92400E" stroke-width="0.7"/>
+    <text x="221" y="21.5" fill="#FBBF24" font-size="10" font-weight="600" text-anchor="middle">Low match</text>
+    <text x="14" y="44" fill="#F4F4F5" font-size="12.5" font-weight="600">Colette Kress - Wikipedia</text>
+    <line x1="16" y1="56" x2="16" y2="106" stroke="#3B82F6" stroke-width="2"/>
+    <text x="24" y="68" fill="#D4D4D8" font-size="10.5">She has been the interim chief executive officer</text>
+    <text x="24" y="83" fill="#D4D4D8" font-size="10.5">of Nvidia since November 12, 2026, following</text>
+    <text x="24" y="98" fill="#D4D4D8" font-size="10.5">the resignation of former NVIDIA CEO...</text>
+    <line x1="0" y1="118" x2="268" y2="118" stroke="#2D2D32" stroke-width="1"/>
+    <text x="14" y="136" fill="#71717A" font-size="10">Provenance &amp; context</text>
+    <text x="254" y="136" fill="#60A5FA" font-size="10.5" font-weight="500" text-anchor="end">View in Sources →</text>
+  </g>
+
+  <!-- Native Composer with Vector Stroke Icons + 2.5k Token Ring -->
+  <g transform="translate(320, 776)">
+    <rect x="0" y="0" width="700" height="86" rx="18" fill="#2B2B2F" stroke="#3A3A40" stroke-width="1"/>
+    <text x="22" y="30" fill="#8E8E93" font-size="14" class="font-inter">Message Veraxi...</text>
+
+    <!-- Bottom Left: Paperclip + Tune/Tools Icon -->
+    <g transform="translate(22, 52)" stroke="#9CA3AF" stroke-width="1.4" fill="none" stroke-linecap="round">
+      <path d="M6 12 V5 A3 3 0 0 1 12 5 V13 A4.5 4.5 0 0 1 3 13 V6"/>
+      <line x1="24" y1="5" x2="36" y2="5"/>
+      <circle cx="28" cy="5" r="1.8" fill="#2B2B2F"/>
+      <line x1="24" y1="11" x2="36" y2="11"/>
+      <circle cx="33" cy="11" r="1.8" fill="#2B2B2F"/>
+    </g>
+
+    <!-- Bottom Right: 2.5k Token Ring + Mic + Send -->
+    <circle cx="586" cy="60" r="13" stroke="#3F3F46" stroke-width="2" fill="none"/>
+    <path d="M586 47 A13 13 0 0 1 598 55" stroke="#10B981" stroke-width="2" fill="none"/>
+    <text x="586" y="64" fill="#D4D4D8" font-size="9.5" text-anchor="middle" class="font-inter">2.5k</text>
+
+    <g transform="translate(616, 51)" stroke="#9CA3AF" stroke-width="1.4" fill="none" stroke-linecap="round">
+      <rect x="4" y="1" width="5" height="9" rx="2.5"/>
+      <path d="M1.5 8 A5 5 0 0 0 11.5 8"/>
+      <line x1="6.5" y1="13" x2="6.5" y2="16"/>
+    </g>
+
+    <circle cx="668" cy="60" r="15" fill="#52525B"/>
+    <path d="M668 66 V54 M663 59 L668 54 L673 59" stroke="#171717" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  </g>
+
+  <!-- Bottom Legal/Version Footer -->
+  <text x="670" y="886" fill="#71717A" font-size="10.5" text-anchor="middle" class="font-inter">Veraxi v0.1.0 · Sovereign Intelligence · Privacy policy | Terms of service</text>
+
+  <!-- ================================================== -->
+  <!-- RIGHT DRAWER: On-Demand Sources (360px, #171717)   -->
+  <!-- ================================================== -->
+  <rect x="1080" y="0" width="360" height="900" fill="#171717"/>
+  <line x1="1080" y1="0" x2="1080" y2="900" stroke="#2B2B2E" stroke-width="1"/>
+
+  <text x="1128" y="34" fill="#FFFFFF" font-size="15" font-weight="600" class="font-inter">Sources</text>
+  <rect x="1100" y="21" width="16" height="16" rx="3" stroke="#9CA3AF" stroke-width="1.4" fill="none"/>
+  <path d="M1410 22 L1422 34 M1422 22 L1410 34" stroke="#9CA3AF" stroke-width="1.5" stroke-linecap="round"/>
+
+  <!-- Source Card 1 (Non-code retrieval reference, matches native Sources drawer) -->
+  <g transform="translate(1098, 66)">
+    <rect x="0" y="0" width="324" height="196" rx="12" fill="#1F1F23" stroke="#2E2E34" stroke-width="1"/>
+    <rect x="14" y="14" width="20" height="20" rx="5" fill="#2A2A2F"/>
+    <text x="24" y="28" fill="#D4D4D8" font-size="11" text-anchor="middle" class="font-inter">1</text>
+    <text x="42" y="28" fill="#9CA3AF" font-size="11.5" class="font-inter">en.wikipedia.org</text>
+
+    <text x="14" y="54" fill="#F4F4F5" font-size="13" font-weight="600" class="font-inter">Colette Kress - Wikipedia</text>
+    <text x="14" y="74" fill="#A1A1AA" font-size="11.5" class="font-inter">Colette Marie Kress is an American business</text>
+    <text x="14" y="90" fill="#A1A1AA" font-size="11.5" class="font-inter">executive. She has been the interim chief</text>
+    <text x="14" y="106" fill="#A1A1AA" font-size="11.5" class="font-inter">executive officer of Nvidia since Nov 12, 2026.</text>
+
+    <!-- PROVENANCE -->
+    <text x="14" y="136" fill="#71717A" font-size="10" font-weight="600" letter-spacing="0.6" class="font-inter">PROVENANCE</text>
+    <g transform="translate(14, 148)" class="font-inter" font-size="10.5" font-weight="600">
+      <rect x="0" y="0" width="48" height="22" rx="11" fill="#1E293B" stroke="#3B82F6" stroke-width="0.7"/>
+      <text x="24" y="14.5" fill="#93C5FD" text-anchor="middle">Vector</text>
+
+      <rect x="54" y="0" width="76" height="22" rx="11" fill="#3B2E14" stroke="#92400E" stroke-width="0.7"/>
+      <text x="92" y="14.5" fill="#FBBF24" text-anchor="middle">Low match</text>
+    </g>
+  </g>
+</svg>
