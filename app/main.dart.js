@@ -183749,13 +183749,12 @@ B.c.C(o,A.b([h,A.B("Context "+A.u(r)+" of "+g+" tokens ("+B.j.aD(r/g*100)+"%)",l
 if(h!=null)B.c.C(o,A.b([A.V(l,4,l),A.B("Est. cost $"+B.j.aA(h,4),l,l,l,l,l,A.P(l,l,A.av(k),l,l,l,l,l,l,l,l,11,l,l,l,l,l,!0,l,l,l,l,l,l,l,l),l,l)],n))
 return A.ap(l,A.as(o,B.H,l,B.n,B.a1),B.w,l,l,new A.ar(B.BK,l,i,j,l,l,B.E),l,l,l,new A.U(12,12,12,12),l,l,1/0)}}
 A.al8.prototype={
-G(a){var s,r,q=this,p=null,o=A.a6(12),n=A.bm(t.e.a(A.w(a).c.h(0,A.G(t.v))).r,B.x,1),m=A.b([A.B(q.c.toUpperCase(),p,p,p,p,p,A.P(p,p,A.av(4287269514),p,p,p,p,p,p,p,p,10,p,p,B.U,p,p,!0,p,0.6,p,p,p,p,p,p),p,p),A.V(p,10,p)],t.p)
-if(!q.f){s=A.a6(999)
-r=q.e
-m.push(A.V(A.U2(s,A.aOq(B.e_,p,r,4,q.d,new A.WQ(r,t.ZU)),B.bh),p,1/0))}else m.push(A.V(p,4,p))
-m.push(A.V(p,8,p))
-m.push(A.B(q.aXZ(),p,p,p,p,p,A.P(p,p,B.l,p,p,p,p,p,p,p,p,13,p,p,B.U,p,p,!0,p,p,p,p,p,p,p,p),p,p))
-return A.ap(p,A.as(m,B.H,p,B.n,B.a1),B.w,p,p,new A.ar(B.BK,p,n,o,p,p,B.E),p,p,p,new A.U(12,12,12,12),p,p,170)},
+G(a){var s,r=this,q=null,p=A.a6(12),o=A.bm(t.e.a(A.w(a).c.h(0,A.G(t.v))).r,B.x,1),n=A.b([A.B(r.c.toUpperCase(),q,q,q,q,q,A.P(q,q,A.av(4287269514),q,q,q,q,q,q,q,q,10,q,q,B.U,q,q,!0,q,0.6,q,q,q,q,q,q),q,q),A.V(q,10,q)],t.p)
+if(!r.f){s=r.e
+n.push(A.V(A.U2(A.a6(999),A.aOq(B.e_,q,s,4,r.d,new A.WQ(s,t.ZU)),B.bh),q,1/0))}else n.push(A.V(q,4,q))
+n.push(A.V(q,8,q))
+n.push(A.B(r.aXZ(),q,q,q,q,q,A.P(q,q,B.l,q,q,q,q,q,q,q,q,13,q,q,B.U,q,q,!0,q,q,q,q,q,q,q,q),q,q))
+return A.ap(q,A.as(n,B.H,q,B.n,B.a1),B.w,q,q,new A.ar(B.BK,q,o,p,q,q,B.E),q,q,q,new A.U(12,12,12,12),q,q,170)},
 aXZ(){if(this.f)return B.j.aA(this.d,2)+"s"
 return""+B.j.aD(this.d*100)+"%"}}
 A.a8e.prototype={
