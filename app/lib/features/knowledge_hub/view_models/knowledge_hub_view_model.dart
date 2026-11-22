@@ -1,7 +1,43 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../data/knowledge_hub_repository.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import '../../../core/network/api_client.dart';
+import '../data/knowledge_hub_repository.dart';
+
+export '../data/knowledge_hub_repository.dart'
+    show BackendStats, IndexedSourceItem, IngestionJobItem, SourcesSnapshot;
+
+const List<IndexedSourceItem> defaultFallbackSources = [
+  IndexedSourceItem(
+    id: 'veraxi/backend',
+    name: 'veraxi/backend',
+    subtitle: 'backend',
+    type: 'Code AST',
+    category: 'repo',
+    counts: '142 files · 812 nodes',
+    lastSynced: '12m ago',
+    isStale: false,
+  ),
+  IndexedSourceItem(
+    id: 'architecture_v2_draft.pdf',
+    name: 'architecture_v2_draft.pdf',
+    subtitle: 'Uploaded · 4.2 MB',
+    type: 'PDF',
+    category: 'doc',
+    counts: '64 chunks · 91 nodes',
+    lastSynced: '18d ago',
+    isStale: true,
+  ),
+  IndexedSourceItem(
+    id: 'nvd_kev_catalog',
+    name: 'NVD + CISA KEV Catalog',
+    subtitle: 'Public Vulnerability Feed',
+    type: 'Vuln Graph',
+    category: 'feed',
+    counts: '1,140 CVE · KEV',
+    lastSynced: '1h ago',
+    isStale: false,
+  ),
+];
 
 class KnowledgeHubState {
   final bool isIngesting;
@@ -10,6 +46,9 @@ class KnowledgeHubState {
   final BackendStats? stats;
   final Map<String, dynamic>? schema;
   final bool requiresPayment;
+  final List<IndexedSourceItem> sources;
+  final List<IngestionJobItem> queue;
+  final String? busySourceId;
 
   const KnowledgeHubState({
     this.isIngesting = false,
@@ -18,7 +57,39 @@ class KnowledgeHubState {
     this.stats,
     this.schema,
     this.requiresPayment = false,
+    this.sources = defaultFallbackSources,
+    this.queue = const [],
+    this.busySourceId,
   });
+
+  KnowledgeHubState copyWith({
+    bool? isIngesting,
+    String? error,
+    bool clearError = false,
+    String? successMessage,
+    bool clearSuccess = false,
+    BackendStats? stats,
+    Map<String, dynamic>? schema,
+    bool? requiresPayment,
+    List<IndexedSourceItem>? sources,
+    List<IngestionJobItem>? queue,
+    String? busySourceId,
+    bool clearBusySource = false,
+  }) {
+    return KnowledgeHubState(
+      isIngesting: isIngesting ?? this.isIngesting,
+      error: clearError ? null : (error ?? this.error),
+      successMessage:
+          clearSuccess ? null : (successMessage ?? this.successMessage),
+      stats: stats ?? this.stats,
+      schema: schema ?? this.schema,
+      requiresPayment: requiresPayment ?? this.requiresPayment,
+      sources: sources ?? this.sources,
+      queue: queue ?? this.queue,
+      busySourceId:
+          clearBusySource ? null : (busySourceId ?? this.busySourceId),
+    );
+  }
 }
 
 final knowledgeHubViewModelProvider =
@@ -33,118 +104,144 @@ class KnowledgeHubViewModel extends StateNotifier<KnowledgeHubState> {
   KnowledgeHubViewModel(this.repository) : super(const KnowledgeHubState()) {
     fetchStats();
     fetchSchema();
+    fetchSources();
   }
 
   Future<void> fetchSchema() async {
     try {
       final schema = await repository.getSchema();
-      state = KnowledgeHubState(
-        isIngesting: state.isIngesting,
-        stats: state.stats,
+      state = state.copyWith(
         schema: schema,
-        error: null,
-        successMessage: null,
-        requiresPayment: state.requiresPayment,
+        clearError: true,
+        clearSuccess: true,
       );
     } on PaymentRequiredException catch (_) {
-      state = KnowledgeHubState(
-        isIngesting: state.isIngesting,
-        stats: state.stats,
-        schema: state.schema,
-        requiresPayment: true,
+      state = state.copyWith(requiresPayment: true);
+    } catch (_) {
+      // Ignore if no schema found yet; user can define or auto-generate one.
+    }
+  }
+
+  Future<void> fetchSources() async {
+    try {
+      final snapshot = await repository.fetchSources();
+      state = state.copyWith(
+        sources: snapshot.sources,
+        queue: snapshot.queue,
       );
-    } catch (e) {
-      // Ignore if no schema found or error, it will just remain null
+    } on PaymentRequiredException catch (_) {
+      state = state.copyWith(requiresPayment: true);
+    } catch (e, st) {
+      await Sentry.captureException(e, stackTrace: st);
     }
   }
 
   Future<void> saveSchema(Map<String, dynamic> newSchema) async {
     try {
       await repository.setSchema(newSchema);
-      state = KnowledgeHubState(
-        isIngesting: state.isIngesting,
-        stats: state.stats,
+      state = state.copyWith(
         schema: newSchema,
-        error: null,
+        clearError: true,
         successMessage: 'Schema saved successfully.',
-        requiresPayment: state.requiresPayment,
       );
     } on PaymentRequiredException catch (_) {
-      state = KnowledgeHubState(
-        isIngesting: state.isIngesting,
-        stats: state.stats,
-        schema: state.schema,
-        requiresPayment: true,
-      );
+      state = state.copyWith(requiresPayment: true);
     } catch (e, st) {
       Sentry.captureException(e, stackTrace: st);
-      state = KnowledgeHubState(
-        isIngesting: state.isIngesting,
-        stats: state.stats,
-        schema: state.schema,
-        error: e.toString(),
-        successMessage: state.successMessage,
-      );
+      state = state.copyWith(error: e.toString());
     }
   }
 
   Future<void> autoGenerateSchema(String text) async {
-    state = KnowledgeHubState(
-      isIngesting: true, // Reuse for spinner
-      stats: state.stats,
-      schema: state.schema,
-      error: null,
-      successMessage: null,
-      requiresPayment: state.requiresPayment,
+    state = state.copyWith(
+      isIngesting: true,
+      clearError: true,
+      clearSuccess: true,
     );
     try {
       final schema = await repository.autoGenerateSchema(text);
       await saveSchema(schema);
+      state = state.copyWith(isIngesting: false);
     } on PaymentRequiredException catch (_) {
-      state = KnowledgeHubState(
-        isIngesting: false,
-        stats: state.stats,
-        schema: state.schema,
-        requiresPayment: true,
-      );
+      state = state.copyWith(isIngesting: false, requiresPayment: true);
     } catch (e, st) {
       Sentry.captureException(e, stackTrace: st);
-      state = KnowledgeHubState(
-        isIngesting: false,
-        stats: state.stats,
-        schema: state.schema,
-        error: e.toString(),
-        successMessage: state.successMessage,
-      );
+      state = state.copyWith(isIngesting: false, error: e.toString());
     }
   }
 
   Future<void> fetchStats() async {
     try {
       final stats = await repository.fetchStats();
-      state = KnowledgeHubState(
-        isIngesting: state.isIngesting,
+      state = state.copyWith(
         stats: stats,
-        schema: state.schema,
-        error: null,
-        successMessage: null,
-        requiresPayment: state.requiresPayment,
+        clearError: true,
+        clearSuccess: true,
       );
     } on PaymentRequiredException catch (_) {
-      state = KnowledgeHubState(
-        isIngesting: state.isIngesting,
-        stats: state.stats,
-        schema: state.schema,
-        requiresPayment: true,
-      );
+      state = state.copyWith(requiresPayment: true);
     } catch (e, st) {
       Sentry.captureException(e, stackTrace: st);
-      state = KnowledgeHubState(
-        isIngesting: state.isIngesting,
-        stats: state.stats,
-        schema: state.schema,
-        error: e.toString(),
-        successMessage: state.successMessage,
+      state = state.copyWith(error: e.toString());
+    }
+  }
+
+  Future<void> deleteSource(IndexedSourceItem item) async {
+    state = state.copyWith(
+      busySourceId: item.id,
+      clearError: true,
+      clearSuccess: true,
+    );
+    try {
+      await repository.deleteSource(
+        sourceId: item.id,
+        category: item.category,
+      );
+      final updated =
+          state.sources.where((s) => s.id != item.id).toList(growable: false);
+      state = state.copyWith(
+        sources: updated,
+        clearBusySource: true,
+        successMessage: 'Deleted ${item.name} from graph and vector store.',
+      );
+      await fetchStats();
+    } catch (e, st) {
+      await Sentry.captureException(e, stackTrace: st);
+      state = state.copyWith(
+        clearBusySource: true,
+        error: 'Failed to delete ${item.name}: $e',
+      );
+    }
+  }
+
+  Future<void> reindexSource(IndexedSourceItem item) async {
+    state = state.copyWith(
+      busySourceId: item.id,
+      clearError: true,
+      clearSuccess: true,
+    );
+    try {
+      await repository.reindexSource(
+        sourceId: item.id,
+        category: item.category,
+      );
+      final updated = state.sources
+          .map((s) => s.id == item.id
+              ? s.copyWith(lastSynced: 'Just now', isStale: false)
+              : s)
+          .toList(growable: false);
+      state = state.copyWith(
+        sources: updated,
+        clearBusySource: true,
+        successMessage: 'Re-indexed ${item.name}.',
+      );
+      await fetchStats();
+      await fetchSources();
+    } catch (e, st) {
+      await Sentry.captureException(e, stackTrace: st);
+      state = state.copyWith(
+        clearBusySource: true,
+        error: 'Failed to re-index ${item.name}: $e',
       );
     }
   }
@@ -160,16 +257,14 @@ class KnowledgeHubViewModel extends StateNotifier<KnowledgeHubState> {
           final res = statusResult['result'] ?? {};
           final nodes = res['nodes_inserted'] ?? 0;
           final vectors = res['vectors_inserted'] ?? 0;
-          state = KnowledgeHubState(
+          state = state.copyWith(
             isIngesting: false,
-            stats: state.stats,
-            schema: state.schema,
-            error: null,
+            clearError: true,
             successMessage:
                 'Ingestion complete: $nodes nodes and $vectors vectors inserted.',
-            requiresPayment: state.requiresPayment,
           );
           await fetchStats();
+          await fetchSources();
           return;
         } else if (status == 'error' || status == 'not_found') {
           throw Exception(statusResult['error'] ?? 'Job failed');
@@ -177,28 +272,23 @@ class KnowledgeHubViewModel extends StateNotifier<KnowledgeHubState> {
       }
     } else {
       await fetchStats();
+      await fetchSources();
       final nodes = result['nodes_inserted'] ?? 0;
       final vectors = result['vectors_inserted'] ?? 0;
-      state = KnowledgeHubState(
+      state = state.copyWith(
         isIngesting: false,
-        stats: state.stats,
-        schema: state.schema,
-        error: null,
+        clearError: true,
         successMessage:
             'Ingestion complete: $nodes nodes and $vectors vectors inserted.',
-        requiresPayment: state.requiresPayment,
       );
     }
   }
 
   Future<void> triggerIngestion(String text) async {
-    state = KnowledgeHubState(
+    state = state.copyWith(
       isIngesting: true,
-      stats: state.stats,
-      schema: state.schema,
-      error: null,
-      successMessage: null,
-      requiresPayment: state.requiresPayment,
+      clearError: true,
+      clearSuccess: true,
     );
 
     try {
@@ -206,13 +296,7 @@ class KnowledgeHubViewModel extends StateNotifier<KnowledgeHubState> {
       await _handleJobResult(result);
     } catch (e, st) {
       Sentry.captureException(e, stackTrace: st);
-      state = KnowledgeHubState(
-        isIngesting: false,
-        stats: state.stats,
-        schema: state.schema,
-        error: e.toString(),
-        successMessage: state.successMessage,
-      );
+      state = state.copyWith(isIngesting: false, error: e.toString());
     }
   }
 
@@ -224,13 +308,10 @@ class KnowledgeHubViewModel extends StateNotifier<KnowledgeHubState> {
     String customStopWords = '',
     String model = 'gemini-2.5-flash-lite',
   }) async {
-    state = KnowledgeHubState(
+    state = state.copyWith(
       isIngesting: true,
-      stats: state.stats,
-      schema: state.schema,
-      error: null,
-      successMessage: null,
-      requiresPayment: state.requiresPayment,
+      clearError: true,
+      clearSuccess: true,
     );
 
     try {
@@ -245,13 +326,7 @@ class KnowledgeHubViewModel extends StateNotifier<KnowledgeHubState> {
       await _handleJobResult(result);
     } catch (e, st) {
       Sentry.captureException(e, stackTrace: st);
-      state = KnowledgeHubState(
-        isIngesting: false,
-        stats: state.stats,
-        schema: state.schema,
-        error: e.toString(),
-        successMessage: state.successMessage,
-      );
+      state = state.copyWith(isIngesting: false, error: e.toString());
       rethrow;
     }
   }
@@ -263,13 +338,10 @@ class KnowledgeHubViewModel extends StateNotifier<KnowledgeHubState> {
     String customStopWords = '',
     String model = 'gemini-2.5-flash-lite',
   }) async {
-    state = KnowledgeHubState(
+    state = state.copyWith(
       isIngesting: true,
-      stats: state.stats,
-      schema: state.schema,
-      error: null,
-      successMessage: null,
-      requiresPayment: state.requiresPayment,
+      clearError: true,
+      clearSuccess: true,
     );
 
     try {
@@ -283,13 +355,7 @@ class KnowledgeHubViewModel extends StateNotifier<KnowledgeHubState> {
       await _handleJobResult(result);
     } catch (e, st) {
       Sentry.captureException(e, stackTrace: st);
-      state = KnowledgeHubState(
-        isIngesting: false,
-        stats: state.stats,
-        schema: state.schema,
-        error: e.toString(),
-        successMessage: state.successMessage,
-      );
+      state = state.copyWith(isIngesting: false, error: e.toString());
       rethrow;
     }
   }

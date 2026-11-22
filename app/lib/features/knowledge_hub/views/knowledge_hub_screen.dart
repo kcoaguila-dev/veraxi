@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:veraxi_app/core/providers/workspace_mode_provider.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
 import 'package:veraxi_app/features/knowledge_hub/view_models/knowledge_hub_view_model.dart';
 
@@ -9,38 +10,6 @@ import 'widgets/database_monitor_card.dart';
 import 'widgets/schema_visual_builder.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:veraxi_app/core/widgets/model_selector_popup.dart';
-
-class _IndexedSourceRow {
-  final String name;
-  final String subtitle;
-  final String type;
-  final String category; // 'repo' | 'doc' | 'feed'
-  final String counts;
-  final String lastSynced;
-  final bool isStale;
-
-  const _IndexedSourceRow({
-    required this.name,
-    required this.subtitle,
-    required this.type,
-    required this.category,
-    required this.counts,
-    required this.lastSynced,
-    this.isStale = false,
-  });
-
-  _IndexedSourceRow copyWith({String? lastSynced, bool? isStale}) {
-    return _IndexedSourceRow(
-      name: name,
-      subtitle: subtitle,
-      type: type,
-      category: category,
-      counts: counts,
-      lastSynced: lastSynced ?? this.lastSynced,
-      isStale: isStale ?? this.isStale,
-    );
-  }
-}
 
 class KnowledgeHubScreen extends ConsumerStatefulWidget {
   const KnowledgeHubScreen({super.key});
@@ -64,35 +33,24 @@ class _KnowledgeHubScreenState extends ConsumerState<KnowledgeHubScreen> {
   String _sourceCategoryFilter = 'ALL';
   String? _activeQueueItem;
 
-  final List<_IndexedSourceRow> _sources = [
-    const _IndexedSourceRow(
-      name: 'veraxi/backend',
-      subtitle: 'backend',
-      type: 'Code AST',
-      category: 'repo',
-      counts: '142 files · 812 nodes',
-      lastSynced: '12m ago',
-      isStale: false,
-    ),
-    const _IndexedSourceRow(
-      name: 'architecture_v2_draft.pdf',
-      subtitle: 'Uploaded · 4.2 MB',
-      type: 'PDF',
-      category: 'doc',
-      counts: '64 chunks · 91 nodes',
-      lastSynced: '18d ago',
-      isStale: true,
-    ),
-    const _IndexedSourceRow(
-      name: 'NVD + CISA KEV Catalog',
-      subtitle: 'Public Vulnerability Feed',
-      type: 'Vuln Graph',
-      category: 'feed',
-      counts: '1,140 CVE · KEV',
-      lastSynced: '1h ago',
-      isStale: false,
-    ),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final q = ref.read(knowledgeHubViewModelProvider).queue;
+      if (q.isNotEmpty) {
+        ref.read(ingestionQueueProvider.notifier).state = q
+            .map((j) => IngestionQueueItem(
+                  jobId: j.jobId,
+                  source: j.source,
+                  stage: j.stage,
+                  progress: j.progress,
+                ))
+            .toList();
+      }
+    });
+  }
 
   void _submitUrl() {
     final url = _urlController.text.trim();
@@ -244,7 +202,9 @@ class _KnowledgeHubScreenState extends ConsumerState<KnowledgeHubScreen> {
     final stats = state.stats;
     final vectorCount = stats?.vectorCount ?? 0;
     final nodeCount = stats?.nodeCount ?? 0;
-    final sourceCount = _sources.length;
+    final sourceCount = (stats != null && stats.sourceCount > 0)
+        ? stats.sourceCount
+        : state.sources.length;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
       decoration: BoxDecoration(
@@ -425,12 +385,12 @@ class _KnowledgeHubScreenState extends ConsumerState<KnowledgeHubScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildCompactIngestionBar(theme, state),
-        if (state.isIngesting) ...[
+        if (state.isIngesting || state.queue.isNotEmpty) ...[
           const SizedBox(height: 16),
-          _buildLiveIngestionQueueCard(),
+          _buildLiveIngestionQueueCard(state),
         ],
         const SizedBox(height: 20),
-        _buildIndexedSourcesTable(),
+        _buildIndexedSourcesTable(state),
       ],
     );
   }
@@ -708,7 +668,16 @@ class _KnowledgeHubScreenState extends ConsumerState<KnowledgeHubScreen> {
     }
   }
 
-  Widget _buildLiveIngestionQueueCard() {
+  Widget _buildLiveIngestionQueueCard(KnowledgeHubState state) {
+    final activeTitle = state.queue.isNotEmpty
+        ? state.queue.first.source
+        : (_activeQueueItem ?? 'Ingesting document...');
+    final activeStage = state.queue.isNotEmpty
+        ? state.queue.first.stage
+        : 'Chunking + Dual-Write';
+    final progress = state.queue.isNotEmpty && state.queue.first.progress > 0
+        ? state.queue.first.progress
+        : null;
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -731,28 +700,33 @@ class _KnowledgeHubScreenState extends ConsumerState<KnowledgeHubScreen> {
                 ),
               ),
               const Spacer(),
-              Text(
-                _activeQueueItem ?? 'Ingesting document...',
-                style: const TextStyle(
-                  color: Color(0xFFF4F4F5),
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
+              Flexible(
+                child: Text(
+                  activeTitle,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Color(0xFFF4F4F5),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ),
               const SizedBox(width: 10),
-              const Text(
-                'Chunking + Dual-Write',
-                style: TextStyle(color: Color(0xFF34D399), fontSize: 11),
+              Text(
+                activeStage,
+                style: const TextStyle(color: Color(0xFF34D399), fontSize: 11),
               ),
             ],
           ),
           const SizedBox(height: 8),
           ClipRRect(
             borderRadius: BorderRadius.circular(2),
-            child: const LinearProgressIndicator(
+            child: LinearProgressIndicator(
+              value: progress,
               minHeight: 4,
-              backgroundColor: Color(0xFF2A2A2F),
-              valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF10B981)),
+              backgroundColor: const Color(0xFF2A2A2F),
+              valueColor:
+                  const AlwaysStoppedAnimation<Color>(Color(0xFF10B981)),
             ),
           ),
         ],
@@ -760,9 +734,10 @@ class _KnowledgeHubScreenState extends ConsumerState<KnowledgeHubScreen> {
     );
   }
 
-  Widget _buildIndexedSourcesTable() {
+  Widget _buildIndexedSourcesTable(KnowledgeHubState hubState) {
+    final sources = hubState.sources;
     final query = _sourceSearchController.text.trim().toLowerCase();
-    final filtered = _sources.where((s) {
+    final filtered = sources.where((s) {
       if (_sourceCategoryFilter == 'REPOS' && s.category != 'repo') {
         return false;
       }
@@ -780,9 +755,9 @@ class _KnowledgeHubScreenState extends ConsumerState<KnowledgeHubScreen> {
       return true;
     }).toList();
 
-    final repoCount = _sources.where((s) => s.category == 'repo').length;
-    final docCount = _sources.where((s) => s.category == 'doc').length;
-    final staleCount = _sources.where((s) => s.isStale).length;
+    final repoCount = sources.where((s) => s.category == 'repo').length;
+    final docCount = sources.where((s) => s.category == 'doc').length;
+    final staleCount = sources.where((s) => s.isStale).length;
 
     Widget chip(String key, String label, {bool isWarning = false}) {
       final selected = _sourceCategoryFilter == key;
@@ -871,7 +846,7 @@ class _KnowledgeHubScreenState extends ConsumerState<KnowledgeHubScreen> {
                     ),
                   ),
                 ),
-                chip('ALL', 'All (${_sources.length})'),
+                chip('ALL', 'All (${sources.length})'),
                 chip('REPOS', 'Repos ($repoCount)'),
                 chip('DOCS', 'Docs ($docCount)'),
                 chip('STALE', 'Stale ($staleCount)', isWarning: true),
@@ -880,21 +855,28 @@ class _KnowledgeHubScreenState extends ConsumerState<KnowledgeHubScreen> {
           ),
           const Divider(color: Color(0xFF2B2B30), height: 1),
           if (filtered.isEmpty)
-            const Padding(
-              padding: EdgeInsets.all(24),
+            Padding(
+              padding: const EdgeInsets.all(24),
               child: Text(
-                'No sources match the current filter.',
-                style: TextStyle(color: Color(0xFF71717A), fontSize: 12.5),
+                sources.isEmpty
+                    ? 'No indexed sources yet. Upload a document or ingest a URL above.'
+                    : 'No sources match the current filter.',
+                style:
+                    const TextStyle(color: Color(0xFF71717A), fontSize: 12.5),
               ),
             )
           else
-            for (final row in filtered) _buildSourceRow(row),
+            for (final row in filtered)
+              _buildSourceRow(
+                row,
+                isBusy: hubState.busySourceId == row.id,
+              ),
         ],
       ),
     );
   }
 
-  Widget _buildSourceRow(_IndexedSourceRow row) {
+  Widget _buildSourceRow(IndexedSourceItem row, {required bool isBusy}) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
       decoration: const BoxDecoration(
@@ -984,16 +966,11 @@ class _KnowledgeHubScreenState extends ConsumerState<KnowledgeHubScreen> {
             children: [
               InkWell(
                 borderRadius: BorderRadius.circular(6),
-                onTap: () {
-                  setState(() {
-                    final idx = _sources.indexOf(row);
-                    if (idx != -1) {
-                      _sources[idx] =
-                          row.copyWith(lastSynced: 'Just now', isStale: false);
-                    }
-                  });
-                  ref.read(knowledgeHubViewModelProvider.notifier).fetchStats();
-                },
+                onTap: isBusy
+                    ? null
+                    : () => ref
+                        .read(knowledgeHubViewModelProvider.notifier)
+                        .reindexSource(row),
                 child: Container(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
@@ -1003,20 +980,21 @@ class _KnowledgeHubScreenState extends ConsumerState<KnowledgeHubScreen> {
                     border:
                         Border.all(color: const Color(0xFF3F3F46), width: 0.8),
                   ),
-                  child: const Text(
-                    'Re-index',
-                    style: TextStyle(color: Color(0xFFD4D4D8), fontSize: 11.5),
+                  child: Text(
+                    isBusy ? 'Working…' : 'Re-index',
+                    style: const TextStyle(
+                        color: Color(0xFFD4D4D8), fontSize: 11.5),
                   ),
                 ),
               ),
               const SizedBox(width: 8),
               InkWell(
                 borderRadius: BorderRadius.circular(6),
-                onTap: () {
-                  setState(() {
-                    _sources.remove(row);
-                  });
-                },
+                onTap: isBusy
+                    ? null
+                    : () => ref
+                        .read(knowledgeHubViewModelProvider.notifier)
+                        .deleteSource(row),
                 child: Container(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
@@ -1106,6 +1084,26 @@ class _KnowledgeHubScreenState extends ConsumerState<KnowledgeHubScreen> {
 
     ref.listen<KnowledgeHubState>(knowledgeHubViewModelProvider,
         (previous, next) {
+      if (previous?.queue != next.queue ||
+          previous?.isIngesting != next.isIngesting) {
+        final mapped = next.queue
+            .map((j) => IngestionQueueItem(
+                  jobId: j.jobId,
+                  source: j.source,
+                  stage: j.stage,
+                  progress: j.progress,
+                ))
+            .toList();
+        if (mapped.isEmpty && next.isIngesting) {
+          mapped.add(IngestionQueueItem(
+            jobId: 'active',
+            source: _activeQueueItem ?? 'Ingesting document...',
+            stage: 'Chunking + Dual-Write',
+            progress: 0.5,
+          ));
+        }
+        ref.read(ingestionQueueProvider.notifier).state = mapped;
+      }
       if (previous?.successMessage != next.successMessage &&
           next.successMessage != null) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(

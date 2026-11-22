@@ -159,6 +159,7 @@ class VulnIntelPanel extends ConsumerWidget {
             else
               _buildLegacyFilterPills(state, viewModel),
             const SizedBox(height: 12),
+            if (workbenchMode) _buildTableColumnHeader(),
             Builder(builder: (context) {
               final findings = _effectiveFindings(state);
               return AnimatedSwitcher(
@@ -182,6 +183,43 @@ class VulnIntelPanel extends ConsumerWidget {
           ],
         ],
       ),
+    );
+  }
+
+  Widget _buildTableColumnHeader() {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < 640) {
+          return const SizedBox.shrink();
+        }
+        const style = TextStyle(
+          color: Color(0xFF71717A),
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0.4,
+        );
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          margin: const EdgeInsets.only(bottom: 8),
+          decoration: const BoxDecoration(
+            border: Border(
+              bottom: BorderSide(color: Color(0xFF2B2B30), width: 1),
+            ),
+          ),
+          child: const Row(
+            children: [
+              Expanded(flex: 3, child: Text('CVE / PACKAGE', style: style)),
+              Expanded(flex: 2, child: Text('KEV / EPSS', style: style)),
+              Expanded(flex: 3, child: Text('REACHABILITY', style: style)),
+              Expanded(flex: 2, child: Text('WEAKNESS', style: style)),
+              SizedBox(
+                width: 96,
+                child: Text('ACTIONS', style: style, textAlign: TextAlign.end),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -466,9 +504,11 @@ class VulnIntelPanel extends ConsumerWidget {
                   child: Text(
                     'EPSS ${(finding.epssScore! * 100).toStringAsFixed(1)}%',
                     style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700),
+                      color: Colors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      fontFeatures: [FontFeature.tabularFigures()],
+                    ),
                   ),
                 ),
               if (finding.isReachable)

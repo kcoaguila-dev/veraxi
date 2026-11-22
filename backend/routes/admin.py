@@ -15,6 +15,7 @@ from backend.config import get_config
 from backend.models_config import DEFAULT_PROVIDER_MODELS
 from backend.storage.neo4j_client import Neo4jStorageClient
 from backend.storage.qdrant_client import QdrantStorageClient
+from backend.storage.source_registry import list_tenant_sources
 
 logger = logging.getLogger(__name__)
 
@@ -98,11 +99,22 @@ def register_admin_routes(
                 sentry_sdk.capture_exception(e)
                 logger.warning(f"Failed to get neo4j stats: {e}")
                 node_count = 0
+            try:
+                source_count = len(
+                    list_tenant_sources(
+                        tenant_id, neo4j, qdrant, config.qdrant_collection_name
+                    )
+                )
+            except Exception as e:
+                sentry_sdk.capture_exception(e)
+                logger.warning(f"Failed to count tenant sources: {e}")
+                source_count = 0
             finally:
                 neo4j.close()
             return {
                 "node_count": node_count,
                 "vector_count": vector_count,
+                "source_count": source_count,
                 "tenant_id": tenant_id,
             }
         except Exception as e:

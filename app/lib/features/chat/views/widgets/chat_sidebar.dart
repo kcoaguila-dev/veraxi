@@ -846,6 +846,7 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
   Widget _buildCodeSidebarSection(BuildContext context, int kevCount) {
     final activeSubView = ref.watch(codeSubViewProvider);
     final selectedRepo = ref.watch(selectedIndexedRepoProvider);
+    final indexedRepos = ref.watch(indexedReposProvider);
 
     Widget navItem({
       required CodeSubView subView,
@@ -1040,9 +1041,84 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
             ),
           ),
         ),
-        repoItem('veraxi/backend', '142 files · 812 symbols'),
-        const SizedBox(height: 4),
-        repoItem('veraxi/app', '96 files · Dart AST'),
+        if (indexedRepos.isEmpty)
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            child: Text(
+              'No repos indexed yet',
+              style: TextStyle(color: Color(0xFF71717A), fontSize: 12),
+            ),
+          )
+        else
+          for (int i = 0; i < indexedRepos.length; i++) ...[
+            if (i > 0) const SizedBox(height: 4),
+            repoItem(indexedRepos[i].displayName, indexedRepos[i].subtitle),
+          ],
+      ],
+    );
+  }
+
+  Widget _buildIngestionQueueSidebarSection(List<IngestionQueueItem> queue) {
+    final item = queue.first;
+    final pct = (item.progress * 100).clamp(0, 100).round();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Text(
+          'INGESTION QUEUE',
+          style: TextStyle(
+            color: Color(0xFF8E8E93),
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.6,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: const Color(0xFF1F1F23),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: const Color(0xFF2E2E34)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                item.source,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Color(0xFFF4F4F5),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                pct > 0 ? '${item.stage} · $pct%' : item.stage,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Color(0xFF34D399),
+                  fontSize: 10.5,
+                ),
+              ),
+              const SizedBox(height: 6),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(2),
+                child: LinearProgressIndicator(
+                  value: item.progress > 0 ? item.progress : null,
+                  minHeight: 4,
+                  backgroundColor: const Color(0xFF2A2A2F),
+                  valueColor:
+                      const AlwaysStoppedAnimation<Color>(Color(0xFF10B981)),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        const Divider(color: Color(0xFF262629), height: 1),
+        const SizedBox(height: 12),
       ],
     );
   }
@@ -1053,6 +1129,7 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
     final modelSelection = ref.watch(modelSelectionProvider);
     final workspaceMode = ref.watch(workspaceModeProvider);
     final kevCount = ref.watch(activeKevCountProvider);
+    final ingestionQueue = ref.watch(ingestionQueueProvider);
     final isSidebarOpen = widget.isSidebarOpen;
     return AnimatedContainer(
       duration: const Duration(milliseconds: 250),
@@ -1295,6 +1372,9 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
                             child: _buildCodeSidebarSection(context, kevCount),
                           ),
                         ] else ...[
+                          if (widget.isKnowledgeHubRoute &&
+                              ingestionQueue.isNotEmpty)
+                            _buildIngestionQueueSidebarSection(ingestionQueue),
                           InkWell(
                             onTap: () => setState(
                                 () => _chatsExpanded = !_chatsExpanded),

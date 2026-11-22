@@ -60,9 +60,7 @@ class TestPathValidation:
         assert resp.status_code == 404
 
     def test_encoded_traversal_rejected(self, client):
-        resp = client.post(
-            "/api/v1/code/ingest", json={"repo_path": "%2f..%2fetc"}
-        )
+        resp = client.post("/api/v1/code/ingest", json={"repo_path": "%2f..%2fetc"})
         assert resp.status_code == 403
 
     def test_symlink_escaping_root_rejected(
@@ -102,9 +100,7 @@ class TestCodeRoutes:
             return {"nodes_written": 5, "edges_written": 4}
 
         monkeypatch.setattr(routes, "write_repo_code_graph", fake_write)
-        resp = client.post(
-            "/api/v1/code/ingest", json={"repo_path": str(repo)}
-        )
+        resp = client.post("/api/v1/code/ingest", json={"repo_path": str(repo)})
         assert resp.status_code == 200, resp.text
         assert resp.json()["nodes_written"] == 5
         assert seen["tenant"] == "tenant-1"
@@ -125,6 +121,27 @@ class TestCodeRoutes:
         resp = client.get("/api/v1/code/overview")
         assert resp.status_code == 200
         assert resp.json()["total_nodes"] == 3
+
+    def test_indexed_repos(self, client, monkeypatch):
+        monkeypatch.setattr(
+            routes,
+            "list_indexed_repos",
+            lambda tenant_id: [
+                {
+                    "repo_key": "veraxi/backend",
+                    "display_name": "veraxi/backend",
+                    "file_count": 142,
+                    "symbol_count": 812,
+                    "is_stale": False,
+                }
+            ],
+        )
+        resp = client.get("/api/v1/code/repos")
+        assert resp.status_code == 200
+        repos = resp.json()["repos"]
+        assert len(repos) == 1
+        assert repos[0]["repo_key"] == "veraxi/backend"
+        assert repos[0]["file_count"] == 142
 
     def test_symbol(self, client, monkeypatch):
         monkeypatch.setattr(
@@ -149,7 +166,9 @@ class TestCodeRoutes:
                 "found": True,
                 "roots": [],
                 "max_depth": max_depth,
-                "impacted": [{"qualified_name": "a.b", "depth": 1, "via_edge": "CALLS"}],
+                "impacted": [
+                    {"qualified_name": "a.b", "depth": 1, "via_edge": "CALLS"}
+                ],
             },
         )
         resp = client.get(
@@ -185,9 +204,7 @@ class TestVulnRoutes:
                 "tenant_id": tenant_id,
             },
         )
-        resp = client.post(
-            "/api/v1/vuln/report", json={"repo_path": str(repo)}
-        )
+        resp = client.post("/api/v1/vuln/report", json={"repo_path": str(repo)})
         assert resp.status_code == 200, resp.text
         # The real extractor must have found requests in pyproject.toml.
         assert resp.json()["dependencies_checked"] >= 1
@@ -229,9 +246,7 @@ class TestVulnRoutes:
         assert resp.status_code == 400
 
     def test_report_traversal_rejected(self, client):
-        resp = client.post(
-            "/api/v1/vuln/report", json={"repo_path": "/tmp/../etc"}
-        )
+        resp = client.post("/api/v1/vuln/report", json={"repo_path": "/tmp/../etc"})
         assert resp.status_code in (400, 403)
 
     def test_ingest_offloads_to_worker_thread(self, client, monkeypatch, repo):
@@ -245,9 +260,7 @@ class TestVulnRoutes:
             return {"nodes_written": 1, "edges_written": 0}
 
         monkeypatch.setattr(routes, "write_repo_code_graph", fake_write)
-        resp = client.post(
-            "/api/v1/code/ingest", json={"repo_path": str(repo)}
-        )
+        resp = client.post("/api/v1/code/ingest", json={"repo_path": str(repo)})
         assert resp.status_code == 200
         assert seen["worker_thread"] != caller_thread
 
@@ -283,9 +296,7 @@ class TestVulnLiveOsvFallback:
                 )
             ],
         )
-        monkeypatch.setattr(
-            routes, "fetch_osv_for_packages", lambda deps: [record]
-        )
+        monkeypatch.setattr(routes, "fetch_osv_for_packages", lambda deps: [record])
         monkeypatch.setattr(
             routes,
             "fetch_kev_records",
@@ -341,7 +352,10 @@ class TestIngestGraphRoute:
             seen["repo"] = payload.repo_name
             seen["tenant"] = tenant_id
             seen["nodes"] = len(payload.nodes)
-            return {"nodes_written": len(payload.nodes), "edges_written": len(payload.edges)}
+            return {
+                "nodes_written": len(payload.nodes),
+                "edges_written": len(payload.edges),
+            }
 
         monkeypatch.setattr(routes, "_write_parsed_graph", fake_write)
         resp = client.post(
@@ -349,10 +363,15 @@ class TestIngestGraphRoute:
             json={
                 "repo_name": "demo",
                 "nodes": [
-                    {"label": "Function", "name": "main",
-                     "qualified_name": "veraxi.cli.main.main",
-                     "path": "packages/veraxi-cli/src/veraxi/cli/main.py",
-                     "line": 10, "language": "python", "resolved": True}
+                    {
+                        "label": "Function",
+                        "name": "main",
+                        "qualified_name": "veraxi.cli.main.main",
+                        "path": "packages/veraxi-cli/src/veraxi/cli/main.py",
+                        "line": 10,
+                        "language": "python",
+                        "resolved": True,
+                    }
                 ],
                 "edges": [],
             },
@@ -365,7 +384,11 @@ class TestIngestGraphRoute:
         monkeypatch.setattr(routes, "MAX_INGEST_NODES", 1)
         resp = client.post(
             "/api/v1/code/ingest-graph",
-            json={"repo_name": "demo", "nodes": [{"label": "Function"}, {"label": "Class"}], "edges": []},
+            json={
+                "repo_name": "demo",
+                "nodes": [{"label": "Function"}, {"label": "Class"}],
+                "edges": [],
+            },
         )
         assert resp.status_code == 413
 
@@ -482,7 +505,11 @@ class TestSarifAndSbomRoutes:
                 "sbom_json": {
                     "bomFormat": "CycloneDX",
                     "components": [
-                        {"name": "gin", "version": "1.9.1", "purl": "pkg:golang/github.com/gin-gonic/gin@1.9.1"}
+                        {
+                            "name": "gin",
+                            "version": "1.9.1",
+                            "purl": "pkg:golang/github.com/gin-gonic/gin@1.9.1",
+                        }
                     ],
                 }
             },
@@ -522,7 +549,9 @@ class TestSarifAndSbomRoutes:
                                     "locations": [
                                         {
                                             "physicalLocation": {
-                                                "artifactLocation": {"uri": "server.go"},
+                                                "artifactLocation": {
+                                                    "uri": "server.go"
+                                                },
                                                 "region": {"startLine": 12},
                                             }
                                         }
@@ -648,7 +677,9 @@ class TestSarifAndSbomRoutes:
         assert body["technique_links"] == 1
 
 
-WIDGET_CONTENT = "def widget():\n    return 42\n\n\ndef gadget():\n    return 'gadget'\n"
+WIDGET_CONTENT = (
+    "def widget():\n    return 42\n\n\ndef gadget():\n    return 'gadget'\n"
+)
 
 
 @pytest.fixture()
@@ -693,9 +724,7 @@ def file_client(monkeypatch, code_file_repo):
 
 class TestCodeFileEndpoint:
     def test_serves_indexed_file_with_exact_content(self, file_client):
-        resp = file_client.get(
-            "/api/v1/code/file", params={"path": "pkg/widget.py"}
-        )
+        resp = file_client.get("/api/v1/code/file", params={"path": "pkg/widget.py"})
         assert resp.status_code == 200, resp.text
         body = resp.json()
         assert body["path"] == "pkg/widget.py"
@@ -729,9 +758,7 @@ class TestCodeFileEndpoint:
         assert resp.status_code == 404
 
     def test_indexed_but_missing_on_disk_is_404(self, file_client):
-        resp = file_client.get(
-            "/api/v1/code/file", params={"path": "pkg/ghost.py"}
-        )
+        resp = file_client.get("/api/v1/code/file", params={"path": "pkg/ghost.py"})
         assert resp.status_code == 404
 
     def test_cross_tenant_path_is_404(self, monkeypatch, code_file_repo):

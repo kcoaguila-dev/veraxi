@@ -4,15 +4,109 @@ import 'package:veraxi_app/core/network/api_client.dart';
 class BackendStats {
   final int nodeCount;
   final int vectorCount;
+  final int sourceCount;
 
-  BackendStats({required this.nodeCount, required this.vectorCount});
+  BackendStats({
+    required this.nodeCount,
+    required this.vectorCount,
+    this.sourceCount = 0,
+  });
 
   factory BackendStats.fromJson(Map<String, dynamic> json) {
     return BackendStats(
-      nodeCount: json['nodeCount'] ?? 0,
-      vectorCount: json['vectorCount'] ?? 0,
+      nodeCount:
+          ((json['node_count'] ?? json['nodeCount']) as num?)?.toInt() ?? 0,
+      vectorCount:
+          ((json['vector_count'] ?? json['vectorCount']) as num?)?.toInt() ?? 0,
+      sourceCount:
+          ((json['source_count'] ?? json['sourceCount']) as num?)?.toInt() ?? 0,
     );
   }
+}
+
+class IndexedSourceItem {
+  final String id;
+  final String name;
+  final String subtitle;
+  final String type;
+  final String category; // 'repo' | 'doc' | 'feed'
+  final String counts;
+  final String lastSynced;
+  final bool isStale;
+
+  const IndexedSourceItem({
+    required this.id,
+    required this.name,
+    required this.subtitle,
+    required this.type,
+    required this.category,
+    required this.counts,
+    required this.lastSynced,
+    this.isStale = false,
+  });
+
+  factory IndexedSourceItem.fromJson(Map<String, dynamic> json) {
+    final name = json['name'] as String? ?? 'unknown';
+    return IndexedSourceItem(
+      id: json['id'] as String? ?? name,
+      name: name,
+      subtitle: json['subtitle'] as String? ?? '',
+      type: json['type'] as String? ?? 'Document',
+      category: json['category'] as String? ?? 'doc',
+      counts: json['counts'] as String? ?? '',
+      lastSynced: json['last_synced'] as String? ?? 'Indexed',
+      isStale: json['is_stale'] as bool? ?? false,
+    );
+  }
+
+  IndexedSourceItem copyWith({
+    String? lastSynced,
+    bool? isStale,
+  }) {
+    return IndexedSourceItem(
+      id: id,
+      name: name,
+      subtitle: subtitle,
+      type: type,
+      category: category,
+      counts: counts,
+      lastSynced: lastSynced ?? this.lastSynced,
+      isStale: isStale ?? this.isStale,
+    );
+  }
+}
+
+class IngestionJobItem {
+  final String jobId;
+  final String source;
+  final String stage;
+  final double progress;
+
+  const IngestionJobItem({
+    required this.jobId,
+    required this.source,
+    required this.stage,
+    this.progress = 0.0,
+  });
+
+  factory IngestionJobItem.fromJson(Map<String, dynamic> json) {
+    return IngestionJobItem(
+      jobId: json['job_id'] as String? ?? '',
+      source: json['source'] as String? ?? 'Document',
+      stage: json['stage'] as String? ?? 'Processing',
+      progress: (json['progress'] as num?)?.toDouble() ?? 0.0,
+    );
+  }
+}
+
+class SourcesSnapshot {
+  final List<IndexedSourceItem> sources;
+  final List<IngestionJobItem> queue;
+
+  const SourcesSnapshot({
+    this.sources = const [],
+    this.queue = const [],
+  });
 }
 
 final knowledgeHubRepositoryProvider = Provider<KnowledgeHubRepository>((ref) {
@@ -112,5 +206,45 @@ class KnowledgeHubRepository {
       'text': text,
     });
     return data as Map<String, dynamic>;
+  }
+
+  Future<SourcesSnapshot> fetchSources() async {
+    final data = await apiClient.get('/admin/sources') as Map<String, dynamic>;
+    final rawSources = data['sources'] as List<dynamic>? ?? const [];
+    final rawQueue = data['queue'] as List<dynamic>? ?? const [];
+    return SourcesSnapshot(
+      sources: rawSources
+          .map((e) => IndexedSourceItem.fromJson(Map<String, dynamic>.from(e)))
+          .toList(),
+      queue: rawQueue
+          .map((e) => IngestionJobItem.fromJson(Map<String, dynamic>.from(e)))
+          .toList(),
+    );
+  }
+
+  Future<Map<String, dynamic>> deleteSource({
+    required String sourceId,
+    required String category,
+  }) async {
+    final encodedId = Uri.encodeQueryComponent(sourceId);
+    final encodedCategory = Uri.encodeQueryComponent(category);
+    final data = await apiClient.delete(
+      '/admin/sources?source_id=$encodedId&category=$encodedCategory',
+    );
+    return Map<String, dynamic>.from(data as Map);
+  }
+
+  Future<Map<String, dynamic>> reindexSource({
+    required String sourceId,
+    required String category,
+  }) async {
+    final data = await apiClient.post(
+      '/admin/sources/reindex',
+      body: {
+        'source_id': sourceId,
+        'category': category,
+      },
+    );
+    return Map<String, dynamic>.from(data as Map);
   }
 }

@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:veraxi_app/core/network/api_client.dart';
+import 'package:veraxi_app/core/network/sse_parser.dart';
 import 'package:veraxi_app/core/api_key_storage.dart';
 import 'package:veraxi_app/core/models/model_provider_mapper.dart';
 
@@ -177,24 +178,8 @@ class CloudChatRepository implements IChatRepository {
         throw Exception('Stream error: ${response.statusCode} - $errorBody');
       }
 
-      await for (final chunk in response.stream
-          .transform(utf8.decoder)
-          .transform(const LineSplitter())) {
-        if (chunk.isEmpty) continue;
-
-        if (chunk.startsWith('data: ')) {
-          final data = chunk.substring(6);
-          if (data == '[DONE]') {
-            break;
-          }
-          try {
-            final parsed = jsonDecode(data);
-            yield parsed;
-          } catch (e) {
-            // Ignore parse errors for malformed chunks
-            continue;
-          }
-        }
+      await for (final parsed in parseSseJsonStream(response.stream)) {
+        yield parsed;
       }
     } catch (e, stackTrace) {
       await Sentry.captureException(e, stackTrace: stackTrace);

@@ -25,9 +25,7 @@ IMPACT_EDGE_TYPES = ("CALLS", "IMPORTS")
 MAX_IMPACT_DEPTH = 10
 
 
-def code_source_url(
-    path: Any, line: Any = None, end_line: Any = None
-) -> str | None:
+def code_source_url(path: Any, line: Any = None, end_line: Any = None) -> str | None:
     """Build the citable ``file://`` URL for one code hit.
 
     This is the single place code-hit citation URLs are formatted, so
@@ -81,9 +79,7 @@ class CodeGraphClient(Protocol):
         """Return code nodes matching a qualified name or a simple name."""
         ...
 
-    def find_file(
-        self, tenant_id: str, path: str
-    ) -> dict[str, Any] | None:
+    def find_file(self, tenant_id: str, path: str) -> dict[str, Any] | None:
         """Return the CodeFile row for ``path`` under ``tenant_id``.
 
         The row carries ``path`` and ``language``. ``None`` means the
@@ -208,9 +204,7 @@ class Neo4jCodeGraphClient:
         """
         return self._read(query, params)
 
-    def find_file(
-        self, tenant_id: str, path: str
-    ) -> dict[str, Any] | None:
+    def find_file(self, tenant_id: str, path: str) -> dict[str, Any] | None:
         query = """
         MATCH (n:CodeFile)
         WHERE n.tenant_id = $tenant_id AND n.path = $path
@@ -298,9 +292,7 @@ class Neo4jCodeGraphClient:
             },
         )
         return {
-            row["edge_type"]: int(row["count"])
-            for row in rows
-            if row.get("edge_type")
+            row["edge_type"]: int(row["count"]) for row in rows if row.get("edge_type")
         }
 
     def top_connected(
@@ -413,7 +405,9 @@ def _freshness_block(
     try:
         meta = meta_fn(tenant_id, repo_key)
     except Exception:
-        logger.warning("index_meta lookup failed for tenant %s", tenant_id, exc_info=True)
+        logger.warning(
+            "index_meta lookup failed for tenant %s", tenant_id, exc_info=True
+        )
         return block
     if not meta:
         return block
@@ -472,10 +466,13 @@ def symbol_lookup(
     freshness = _freshness_block(graph_client, tenant_id, repo_key=repo)
     query = (name or "").strip()
     if not query:
-        return {"query": query, "match_type": None, "matches": [], "freshness": freshness}
-    matches = graph_client.find_symbols(
-        tenant_id, qualified_name=query, repo_key=repo
-    )
+        return {
+            "query": query,
+            "match_type": None,
+            "matches": [],
+            "freshness": freshness,
+        }
+    matches = graph_client.find_symbols(tenant_id, qualified_name=query, repo_key=repo)
     if matches:
         return {
             "query": query,
@@ -537,9 +534,7 @@ def impact_analysis(
     graph_client = _default_client(client)
     freshness = _freshness_block(graph_client, tenant_id, repo_key=repo)
     depth_limit = min(max(1, int(max_depth)), MAX_IMPACT_DEPTH)
-    lookup = symbol_lookup(
-        symbol, tenant_id=tenant_id, client=graph_client, repo=repo
-    )
+    lookup = symbol_lookup(symbol, tenant_id=tenant_id, client=graph_client, repo=repo)
     roots = lookup["matches"]
     if not roots:
         return {
@@ -680,6 +675,48 @@ def repo_overview(
     return result
 
 
+def list_indexed_repos(
+    tenant_id: str = "default",
+    client: CodeGraphClient | None = None,
+) -> list[dict[str, Any]]:
+    """List every indexed repository for ``tenant_id`` with file/symbol counts and freshness."""
+    graph_client = _default_client(client)
+    metas_fn = getattr(graph_client, "index_metas", None)
+    metas = metas_fn(tenant_id) if callable(metas_fn) else []
+    meta_by_key = {
+        str(meta["repo_key"]): meta for meta in (metas or []) if meta.get("repo_key")
+    }
+    if not meta_by_key:
+        top_rows = graph_client.top_connected(tenant_id, None, limit=50)
+        for rk in _tenant_repo_keys(graph_client, tenant_id, top_rows):
+            meta_by_key.setdefault(rk, {"repo_key": rk})
+
+    repos: list[dict[str, Any]] = []
+    for rk, meta in meta_by_key.items():
+        node_counts = graph_client.node_counts(tenant_id, None, repo_key=rk)
+        file_count = int(node_counts.get("CodeFile", 0) or node_counts.get("File", 0))
+        symbol_count = sum(
+            int(v)
+            for k, v in node_counts.items()
+            if k not in ("CodeFile", "File", "CodeIndexMeta")
+        )
+        freshness = _freshness_block(graph_client, tenant_id, repo_key=rk)
+        repos.append(
+            {
+                "repo_key": rk,
+                "display_name": rk,
+                "root_path": meta.get("repo_root"),
+                "file_count": file_count,
+                "symbol_count": symbol_count,
+                "indexed_commit": freshness.get("indexed_commit"),
+                "current_commit": freshness.get("current_commit"),
+                "indexed_at": freshness.get("indexed_at"),
+                "is_stale": bool(freshness.get("stale", False)),
+            }
+        )
+    return repos
+
+
 __all__ = [
     "CODE_NODE_LABELS",
     "IMPACT_EDGE_TYPES",
@@ -688,6 +725,7 @@ __all__ = [
     "Neo4jCodeGraphClient",
     "code_source_url",
     "impact_analysis",
+    "list_indexed_repos",
     "repo_overview",
     "symbol_lookup",
 ]

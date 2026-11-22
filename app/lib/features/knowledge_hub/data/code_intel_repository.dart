@@ -1,5 +1,9 @@
+import 'dart:convert';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:http/http.dart' as http;
 import 'package:veraxi_app/core/network/api_client.dart';
+import 'package:veraxi_app/core/network/sse_parser.dart';
 
 /// Index freshness stamp attached to code-graph responses
 /// (`GET /api/v1/code/overview`, `symbol`, `impact`).
@@ -558,5 +562,80 @@ class CodeIntelRepository {
       body: {'alerts': alerts},
     );
     return AlertIngestResult.fromJson(Map<String, dynamic>.from(data as Map));
+  }
+
+  /// List indexed repositories for the tenant (GET /api/v1/code/repos).
+  Future<List<Map<String, dynamic>>> fetchIndexedRepos() async {
+    final data = await apiClient.get('/v1/code/repos');
+    final repos = (data as Map)['repos'] as List<dynamic>? ?? const [];
+    return repos.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+  }
+
+  /// Fetch an indexed source file for line-anchored code citation viewing.
+  Future<Map<String, dynamic>> fetchIndexedFile(String path) async {
+    final encoded = Uri.encodeQueryComponent(path);
+    final data = await apiClient.get('/v1/code/file?path=$encoded');
+    return Map<String, dynamic>.from(data as Map);
+  }
+
+  /// Stream a scoped follow-up question in the Ask Veraxi sidecar against
+  /// `/api/chat` (`stream: true`, `is_temporary: true`).
+  Stream<Map<String, dynamic>> streamSidecarAsk({
+    required String question,
+    VulnFinding? finding,
+    String? repoKey,
+    String? threadId,
+  }) async* {
+    final uri = Uri.parse('${apiClient.baseUrl}/chat');
+    final headers = await apiClient.getDefaultHeaders()
+      ..['Content-Type'] = 'application/json'
+      ..['Accept'] = 'text/event-stream';
+
+    final request = http.Request('POST', uri)..headers.addAll(headers);
+    final systemPrompt = _buildSidecarSystemPrompt(finding, repoKey);
+    request.body = jsonEncode({
+      'question': question,
+      if (threadId != null) 'thread_id': threadId,
+      'stream': true,
+      'is_temporary': true,
+      'calculate_grounding': false,
+      'custom_system_prompt': systemPrompt,
+    });
+
+    final response = await apiClient.client.send(request);
+    if (response.statusCode != 200) {
+      final errorBody = await response.stream.bytesToString();
+      throw Exception(
+          'Sidecar stream error: ${response.statusCode} - $errorBody');
+    }
+
+    yield* parseSseJsonStream(response.stream);
+  }
+
+  String _buildSidecarSystemPrompt(VulnFinding? finding, String? repoKey) {
+    final buf = StringBuffer(
+      'You are Veraxi Code Intelligence Sidecar. Answer concisely and ground claims in indexed repository code and vulnerability graph evidence with exact file paths and line numbers. ',
+    );
+    if (repoKey != null && repoKey.isNotEmpty) {
+      buf.write('Active repository scope: $repoKey. ');
+    }
+    if (finding != null) {
+      buf.write(
+        'Selected finding: ${finding.cveId} affecting ${finding.package}'
+        '${finding.version != null ? ' ${finding.version}' : ''} '
+        '(status=${finding.matchStatus}, kev=${finding.kev}'
+        '${finding.epssScore != null ? ', epss=${finding.epssScore!.toStringAsFixed(3)}' : ''}'
+        '${finding.cweIds.isNotEmpty ? ', cwes=${finding.cweIds.join(",")}' : ''}). ',
+      );
+      if (finding.reachableInCode.isNotEmpty) {
+        final hops = finding.reachableInCode
+            .take(5)
+            .map((h) =>
+                '${h.qualifiedName} (${h.path ?? 'repo'}) via ${h.viaEdge ?? 'CALLS'}')
+            .join(' -> ');
+        buf.write('Static AST reachability hops: $hops. ');
+      }
+    }
+    return buf.toString();
   }
 }

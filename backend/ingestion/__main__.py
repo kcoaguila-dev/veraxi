@@ -1,4 +1,5 @@
 from concurrent.futures import ThreadPoolExecutor
+from datetime import UTC, datetime
 import hashlib
 import logging
 import threading
@@ -110,6 +111,7 @@ def run_ingestion(
         text, chunk_size=chunk_size, chunk_overlap=chunk_overlap
     )
 
+    ingested_at_iso = datetime.now(UTC).isoformat()
     vectors = []
     sparse_vectors = []
     payloads = []
@@ -133,6 +135,7 @@ def run_ingestion(
             "source_type": source_type,
             "file_hash": file_hash,
             "chunk_index": idx,
+            "ingested_at": ingested_at_iso,
         }
         if current_page is not None:
             payload["page_number"] = current_page

@@ -6,6 +6,7 @@ import logging
 import os
 import tempfile
 import uuid
+from typing import Any
 
 import magic
 import sentry_sdk
@@ -16,7 +17,13 @@ from backend.config import get_config
 from backend.ingestion.document_parser import (
     convert_document_to_markdown as _convert_document_to_markdown,
 )
+from backend.storage.neo4j_client import Neo4jStorageClient
+from backend.storage.qdrant_client import QdrantStorageClient
 from backend.storage.quota import check_tenant_hard_cap
+from backend.storage.source_registry import (
+    delete_tenant_source,
+    list_tenant_sources,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +64,11 @@ class AutoGenerateSchemaRequest(BaseModel):
     temperature: float = 0.3
     max_entities: int = 6
     max_relations: int = 10
+
+
+class SourceReindexRequest(BaseModel):
+    source_id: str
+    category: str = "doc"
 
 
 async def _ensure_schema_exists(redis, tenant_id: str, sample_text: str):
@@ -115,15 +127,84 @@ _ALLOWED_MIMES = [
 _INLINE_INGESTION_SEMAPHORE = asyncio.Semaphore(2)
 
 
+async def _track_active_job(
+    redis: Any,
+    tenant_id: str,
+    job_id: str,
+    source: str,
+    stage: str = "Queued",
+    progress: float = 0.15,
+) -> None:
+    """Persist active ingestion job metadata in Redis for Knowledge Hub queue UI."""
+    hset = getattr(redis, "hset", None)
+    if not callable(hset):
+        return
+    try:
+        await hset(
+            f"tenant:{tenant_id}:active_jobs",
+            job_id,
+            json.dumps(
+                {
+                    "job_id": job_id,
+                    "source": source,
+                    "stage": stage,
+                    "progress": progress,
+                }
+            ),
+        )
+    except Exception:
+        logger.debug("Unable to track active job %s in Redis", job_id, exc_info=True)
+
+
+async def _clear_active_job(redis: Any, tenant_id: str, job_id: str) -> None:
+    """Remove completed/failed ingestion job metadata from the active queue."""
+    hdel = getattr(redis, "hdel", None)
+    if not callable(hdel):
+        return
+    try:
+        await hdel(f"tenant:{tenant_id}:active_jobs", job_id)
+    except Exception:
+        logger.debug("Unable to clear active job %s in Redis", job_id, exc_info=True)
+
+
+async def _list_active_jobs(redis: Any, tenant_id: str) -> list[dict]:
+    """Return all currently tracked active ingestion jobs for one tenant."""
+    hgetall = getattr(redis, "hgetall", None)
+    if not callable(hgetall):
+        return []
+    try:
+        raw_map = await hgetall(f"tenant:{tenant_id}:active_jobs")
+        if not isinstance(raw_map, dict):
+            return []
+        jobs = []
+        for raw in raw_map.values():
+            decoded = raw.decode("utf-8") if isinstance(raw, bytes) else raw
+            jobs.append(json.loads(decoded))
+        return jobs
+    except Exception:
+        logger.debug("Unable to list active jobs for %s", tenant_id, exc_info=True)
+        return []
+
+
 async def _run_inline_ingestion_task(redis, job_id: str, *args) -> None:
     """Execute ingestion in-process and persist job status to Redis for status polling."""
     from backend.worker import process_ingestion_task
 
     key = f"inline_job:{job_id}"
+    tenant_id = str(args[1]) if len(args) > 1 else "default"
+    source_name = str(args[8]) if len(args) > 8 and args[8] else "Text Ingestion"
     try:
         async with _INLINE_INGESTION_SEMAPHORE:
             await redis.setex(
                 key, 3600, json.dumps({"status": "in_progress", "result": None})
+            )
+            await _track_active_job(
+                redis,
+                tenant_id,
+                job_id,
+                source_name,
+                stage="Chunking + Dual-Write",
+                progress=0.6,
             )
             result = await process_ingestion_task({"redis": redis}, *args)
         if isinstance(result, dict) and result.get("status") == "error":
@@ -137,22 +218,32 @@ async def _run_inline_ingestion_task(redis, job_id: str, *args) -> None:
     except Exception as err:
         logger.error(f"Inline ingestion job {job_id} failed: {err}")
         await redis.setex(key, 3600, json.dumps({"status": "error", "error": str(err)}))
+    finally:
+        await _clear_active_job(redis, tenant_id, job_id)
 
 
 async def _dispatch_ingestion_job(request: Request, config, *args) -> dict:
     """Dispatch ingestion task either via in-process background task (inline) or ARQ Redis queue."""
+    tenant_id = str(args[1]) if len(args) > 1 else "default"
+    source_name = str(args[8]) if len(args) > 8 and args[8] else "Text Ingestion"
+    redis = request.app.state.redis
     if config.worker_mode == "inline":
         job_id = str(uuid.uuid4())
-        redis = request.app.state.redis
         await redis.setex(
             f"inline_job:{job_id}",
             3600,
             json.dumps({"status": "queued", "result": None}),
         )
+        await _track_active_job(
+            redis, tenant_id, job_id, source_name, stage="Queued", progress=0.15
+        )
         asyncio.create_task(_run_inline_ingestion_task(redis, job_id, *args))
         return {"status": "queued", "job_id": job_id}
 
-    job = await request.app.state.redis.enqueue_job("process_ingestion_task", *args)
+    job = await redis.enqueue_job("process_ingestion_task", *args)
+    await _track_active_job(
+        redis, tenant_id, job.job_id, source_name, stage="Queued", progress=0.15
+    )
     return {"status": "queued", "job_id": job.job_id}
 
 
@@ -355,6 +446,7 @@ def register_ingestion_routes(
             raise HTTPException(status_code=404, detail="Job not found")
         result_data = None
         if status == JobStatus.complete:
+            await _clear_active_job(redis, tenant_id, job_id)
             info = await job.result_info()
             if info and not info.success:
                 return {"status": "error", "error": str(info.result)}
@@ -420,3 +512,131 @@ def register_ingestion_routes(
             raise HTTPException(
                 status_code=500, detail=f"Failed to generate valid schema: {e!s}"
             )
+
+    @app_router.get("/api/admin/sources")
+    async def list_sources(
+        request: Request,
+        tenant_id: str = Depends(verify_infrastructure_access),
+    ):
+        """Return unified indexed sources inventory and active ingestion queue."""
+        cfg = get_config()
+        neo4j = Neo4jStorageClient.from_config(cfg)
+        qdrant = QdrantStorageClient.from_config(cfg)
+        try:
+            sources = await asyncio.to_thread(
+                list_tenant_sources,
+                tenant_id,
+                neo4j,
+                qdrant,
+                cfg.qdrant_collection_name,
+            )
+            queue = await _list_active_jobs(request.app.state.redis, tenant_id)
+            return {"sources": sources, "queue": queue}
+        except Exception as exc:
+            sentry_sdk.capture_exception(exc)
+            logger.error("Failed to list sources: %s", exc)
+            raise HTTPException(status_code=500, detail=str(exc)) from exc
+        finally:
+            neo4j.close()
+
+    @app_router.delete("/api/admin/sources")
+    async def delete_source(
+        source_id: str,
+        category: str = "doc",
+        tenant_id: str = Depends(verify_infrastructure_access),
+    ):
+        """Delete a source from both Neo4j and Qdrant for the current tenant."""
+        if not source_id:
+            raise HTTPException(status_code=400, detail="source_id required")
+        cfg = get_config()
+        neo4j = Neo4jStorageClient.from_config(cfg)
+        qdrant = QdrantStorageClient.from_config(cfg)
+        try:
+            counts = await asyncio.to_thread(
+                delete_tenant_source,
+                tenant_id,
+                source_id,
+                category,
+                neo4j,
+                qdrant,
+                cfg.qdrant_collection_name,
+            )
+            return {"status": "deleted", "source_id": source_id, **counts}
+        except Exception as exc:
+            sentry_sdk.capture_exception(exc)
+            logger.error("Failed to delete source %s: %s", source_id, exc)
+            raise HTTPException(status_code=500, detail=str(exc)) from exc
+        finally:
+            neo4j.close()
+
+    @app_router.post("/api/admin/sources/reindex")
+    async def reindex_source(
+        request: Request,
+        body: SourceReindexRequest,
+        tenant_id: str = Depends(verify_infrastructure_access),
+    ):
+        """Trigger a refresh/re-index for a repo, URL, or vulnerability feed."""
+        if body.category == "feed":
+            from backend.ingestion.vuln_intel import fetch_and_write_vuln_intel
+
+            summary = await asyncio.to_thread(
+                fetch_and_write_vuln_intel, tenant_id=tenant_id
+            )
+            return {"status": "ok", "source_id": body.source_id, **summary}
+
+        if body.category == "repo":
+            from backend.ingestion.code_graph import update_repo_code_graph
+            from backend.routes.code_intel import _validate_repo_path
+
+            cfg = get_config()
+            neo4j = Neo4jStorageClient.from_config(cfg)
+            try:
+                rows = neo4j.execute_read(
+                    """
+                    MATCH (m:CodeIndexMeta {tenant_id: $tenant_id, repo_key: $repo_key})
+                    RETURN m.repo_root AS repo_root
+                    LIMIT 1
+                    """,
+                    {"tenant_id": tenant_id, "repo_key": body.source_id},
+                )
+            finally:
+                neo4j.close()
+            raw_root = (
+                rows[0].get("repo_root")
+                if rows and rows[0].get("repo_root")
+                else body.source_id
+            )
+            resolved = _validate_repo_path(str(raw_root))
+            counts = await asyncio.to_thread(
+                update_repo_code_graph, resolved, tenant_id=tenant_id
+            )
+            return {"status": "ok", "source_id": body.source_id, **counts}
+
+        if body.source_id.startswith(("http://", "https://")):
+            markdown_text = await asyncio.to_thread(
+                _convert_document_to_markdown,
+                body.source_id,
+                parser=config.document_parser,
+            )
+            await _ensure_schema_exists(
+                request.app.state.redis, tenant_id, markdown_text
+            )
+            return await _dispatch_ingestion_job(
+                request,
+                config,
+                markdown_text,
+                tenant_id,
+                False,
+                "en",
+                [],
+                "gemini-2.5-flash-lite",
+                800,
+                150,
+                body.source_id,
+            )
+
+        return {
+            "status": "ok",
+            "source_id": body.source_id,
+            "message": "Re-upload the local document to re-index its contents.",
+        }

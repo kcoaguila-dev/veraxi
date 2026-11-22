@@ -33,6 +33,24 @@ class _CodeWorkbenchViewState extends ConsumerState<CodeWorkbenchView> {
   bool _narrowSidecarOpen = false;
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _refreshIndexedRepos();
+      }
+    });
+  }
+
+  Future<void> _refreshIndexedRepos() async {
+    final raw =
+        await ref.read(codeIntelViewModelProvider.notifier).fetchIndexedRepos();
+    if (!mounted || raw.isEmpty) return;
+    ref.read(indexedReposProvider.notifier).state =
+        raw.map(IndexedRepoItem.fromJson).toList();
+  }
+
+  @override
   void dispose() {
     _repoPathController.dispose();
     super.dispose();
@@ -74,6 +92,9 @@ class _CodeWorkbenchViewState extends ConsumerState<CodeWorkbenchView> {
       final nextKev = next.vulnReport?.kevCount ?? 0;
       if (prevKev != nextKev) {
         ref.read(activeKevCountProvider.notifier).state = nextKev;
+      }
+      if (prev?.indexing == true && !next.indexing && next.indexError == null) {
+        _refreshIndexedRepos();
       }
     });
 

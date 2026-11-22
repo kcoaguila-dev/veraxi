@@ -539,4 +539,36 @@ class CodeIntelViewModel extends StateNotifier<CodeIntelState> {
       );
     }
   }
+
+  Future<List<Map<String, dynamic>>> fetchIndexedRepos() async {
+    try {
+      return await _repository.fetchIndexedRepos();
+    } catch (e, st) {
+      await Sentry.captureException(e, stackTrace: st);
+      return const [];
+    }
+  }
+
+  Future<Map<String, dynamic>?> fetchIndexedFile(String path) async {
+    try {
+      return await _repository.fetchIndexedFile(path);
+    } catch (e, st) {
+      await Sentry.captureException(e, stackTrace: st);
+      return null;
+    }
+  }
+
+  Stream<Map<String, dynamic>> streamSidecarAsk({
+    required String question,
+    VulnFinding? finding,
+    String? repoKey,
+    String? threadId,
+  }) {
+    return _repository.streamSidecarAsk(
+      question: question,
+      finding: finding,
+      repoKey: repoKey,
+      threadId: threadId,
+    );
+  }
 }

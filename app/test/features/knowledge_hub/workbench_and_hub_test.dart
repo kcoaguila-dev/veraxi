@@ -44,6 +44,9 @@ class _StubChatViewModel extends ChatViewModel {
 }
 
 class _FakeKnowledgeHubRepository extends KnowledgeHubRepository {
+  final List<String> deletedIds = [];
+  final List<String> reindexedIds = [];
+
   _FakeKnowledgeHubRepository()
       : super(
           apiClient: ApiClient(
@@ -54,13 +57,65 @@ class _FakeKnowledgeHubRepository extends KnowledgeHubRepository {
 
   @override
   Future<BackendStats> fetchStats() async =>
-      BackendStats(nodeCount: 3210, vectorCount: 1840);
+      BackendStats(nodeCount: 3210, vectorCount: 1840, sourceCount: 3);
 
   @override
   Future<Map<String, dynamic>?> getSchema() async => {
         'entities': ['Service', 'Vulnerability'],
         'relationships': ['CALLS', 'AFFECTS'],
       };
+
+  @override
+  Future<SourcesSnapshot> fetchSources() async => SourcesSnapshot(
+        sources: const [
+          IndexedSourceItem(
+            id: 'veraxi/backend',
+            name: 'veraxi/backend',
+            subtitle: '/repo/backend',
+            type: 'Code AST',
+            category: 'repo',
+            counts: '142 files · 812 nodes',
+            lastSynced: '12m ago',
+            isStale: false,
+          ),
+          IndexedSourceItem(
+            id: 'architecture_v2_draft.pdf',
+            name: 'architecture_v2_draft.pdf',
+            subtitle: 'Uploaded · 4.2 MB',
+            type: 'PDF',
+            category: 'doc',
+            counts: '64 chunks · 91 nodes',
+            lastSynced: '18d ago',
+            isStale: true,
+          ),
+        ],
+        queue: const [
+          IngestionJobItem(
+            jobId: 'job-1',
+            source: 'architecture_v3.pdf',
+            stage: 'Chunking + Dual-Write',
+            progress: 0.78,
+          ),
+        ],
+      );
+
+  @override
+  Future<Map<String, dynamic>> reindexSource({
+    required String sourceId,
+    required String category,
+  }) async {
+    reindexedIds.add(sourceId);
+    return {'status': 'ok', 'source_id': sourceId};
+  }
+
+  @override
+  Future<Map<String, dynamic>> deleteSource({
+    required String sourceId,
+    required String category,
+  }) async {
+    deletedIds.add(sourceId);
+    return {'status': 'deleted', 'deleted_nodes': 91, 'deleted_vectors': 64};
+  }
 }
 
 class _FakeCodeIntelRepository extends CodeIntelRepository {
@@ -71,6 +126,42 @@ class _FakeCodeIntelRepository extends CodeIntelRepository {
             tenantId: 'test-token',
           ),
         );
+
+  @override
+  Future<List<Map<String, dynamic>>> fetchIndexedRepos() async => [
+        {
+          'repo_key': 'veraxi/custom-service',
+          'display_name': 'veraxi/custom-service',
+          'file_count': 48,
+          'symbol_count': 310,
+          'is_stale': false,
+        },
+      ];
+
+  @override
+  Future<Map<String, dynamic>> fetchIndexedFile(String path) async => {
+        'path': path,
+        'language': 'python',
+        'content': 'def ingest_route(upload):\n    return parse_tar(upload)\n',
+      };
+
+  @override
+  Stream<Map<String, dynamic>> streamSidecarAsk({
+    required String question,
+    VulnFinding? finding,
+    String? repoKey,
+    String? threadId,
+  }) async* {
+    yield {'type': 'activity', 'label': 'Checked Code Graph · routes.py'};
+    yield {'type': 'token', 'content': 'Streamed answer: '};
+    yield {'type': 'token', 'content': 'parse_tar reads uploaded bytes.'};
+    yield {
+      'type': 'sources',
+      'sources': [
+        {'path': 'routes.py'}
+      ],
+    };
+  }
 
   @override
   Future<VulnReport> runVulnReport({
@@ -132,7 +223,7 @@ void main() {
   });
 
   testWidgets(
-      'ChatScreen switches [ Chat | Code ] via sidebar and Cmd/Ctrl+2, and navigates Code sub-views',
+      'ChatScreen switches [ Chat | Code ] via sidebar and Cmd/Ctrl+2, streams Ask Veraxi sidecar, and opens code citation',
       (WidgetTester tester) async {
     tester.view.physicalSize = const Size(1440, 900);
     tester.view.devicePixelRatio = 1.0;
@@ -167,7 +258,7 @@ void main() {
     await tester.tap(find.text('Code'));
     await tester.pumpAndSettle();
 
-    // Sidebar swaps to Code surfaces and Docked Ask Veraxi sidecar appears.
+    // Sidebar swaps to Code surfaces and loads live INDEXED REPOS.
     expect(find.text('INTEL & ANALYSIS'), findsOneWidget);
     expect(find.text('Vuln Intel'), findsOneWidget);
     expect(find.text('Repo X-Ray'), findsOneWidget);
@@ -175,22 +266,45 @@ void main() {
     expect(find.text('Corpus Briefing'), findsOneWidget);
     expect(find.text('dbt Lineage'), findsOneWidget);
     expect(find.text('INDEXED REPOS'), findsOneWidget);
+    expect(find.text('veraxi/custom-service'), findsOneWidget);
+    expect(find.text('48 files · 310 symbols'), findsOneWidget);
     expect(find.text('Ask Veraxi'), findsOneWidget);
     expect(
       find.text('Static AST path inferred — verify runtime exposure'),
       findsOneWidget,
     );
 
-    // Run Vuln Scan -> verifies Triage Funnel + per-row Ask/Path actions.
+    // Run Vuln Scan -> verifies Triage Funnel + column header + Ask/Path actions.
     await tester.tap(find.text('Run Vulnerability Scan'));
     await tester.pumpAndSettle();
     expect(find.text('TRIAGE FUNNEL'), findsOneWidget);
+    expect(find.text('CVE / PACKAGE'), findsOneWidget);
     expect(find.text('All Findings (2)'), findsOneWidget);
     expect(find.text('CISA KEV (1)'), findsOneWidget);
     expect(find.text('Reachable (1)'), findsOneWidget);
     expect(find.text('EPSS ≥ 0.7 (1)'), findsOneWidget);
     expect(find.text('Ask'), findsNWidgets(2));
     expect(find.text('Path'), findsOneWidget);
+
+    // Submit a scoped follow-up via quick chip -> verifies streaming + clickable citation.
+    await tester.tap(find.text('What input reaches this symbol?'));
+    await tester.pumpAndSettle();
+    expect(find.text('Checked Code Graph · routes.py'), findsOneWidget);
+    expect(
+      find.text('Streamed answer: parse_tar reads uploaded bytes.'),
+      findsOneWidget,
+    );
+    expect(find.text('routes.py'), findsWidgets);
+
+    await tester.tap(find.text('routes.py').last);
+    await tester.pumpAndSettle();
+    expect(find.text('routes.py (python)'), findsOneWidget);
+    expect(
+      find.text('def ingest_route(upload):\n    return parse_tar(upload)\n'),
+      findsOneWidget,
+    );
+    await tester.tap(find.byIcon(Icons.close).last);
+    await tester.pumpAndSettle();
 
     // Navigate to Repo X-Ray and Security Feed sub-views.
     await tester.tap(find.text('Repo X-Ray'));
@@ -245,7 +359,8 @@ void main() {
     expect(find.text('REACHABILITY PATH · SELECTED ROW'), findsOneWidget);
   });
 
-  testWidgets('KnowledgeHubScreen renders 3 tabs and Indexed Sources table',
+  testWidgets(
+      'KnowledgeHubScreen renders 3 tabs, live Indexed Sources, Re-index/Del, and sidebar INGESTION QUEUE',
       (WidgetTester tester) async {
     tester.view.physicalSize = const Size(1440, 900);
     tester.view.devicePixelRatio = 1.0;
@@ -271,13 +386,25 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    // Tab 1: Sources & Ingestion is active by default.
+    // Tab 1: Sources & Ingestion + left rail live queue.
     expect(find.text('Sources & Ingestion'), findsOneWidget);
     expect(find.text('Schema & Extraction'), findsOneWidget);
     expect(find.text('Infra & Monitors'), findsOneWidget);
     expect(find.text('Indexed Sources'), findsOneWidget);
     expect(find.text('architecture_v2_draft.pdf'), findsOneWidget);
+    expect(find.text('architecture_v3.pdf'), findsWidgets);
+    expect(find.text('INGESTION QUEUE'), findsWidgets);
     expect(find.text('Stale'), findsOneWidget);
+
+    // Re-index and Delete call repository methods.
+    await tester.tap(find.text('Re-index').last);
+    await tester.pumpAndSettle();
+    expect(hubRepo.reindexedIds, ['architecture_v2_draft.pdf']);
+
+    await tester.tap(find.text('Del').last);
+    await tester.pumpAndSettle();
+    expect(hubRepo.deletedIds, ['architecture_v2_draft.pdf']);
+    expect(find.text('architecture_v2_draft.pdf'), findsNothing);
 
     // Tab 2: Schema & Extraction.
     await tester.tap(find.text('Schema & Extraction'));

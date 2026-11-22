@@ -1,4 +1,8 @@
+import 'dart:async';
+
 import 'package:material_ui/material_ui.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:veraxi_app/core/providers/workspace_mode_provider.dart';
 import 'package:veraxi_app/features/knowledge_hub/view_models/code_intel_view_model.dart';
 
 /// A single scoped Q&A turn in the Ask Veraxi sidecar.
@@ -6,19 +10,38 @@ class SidecarQaTurn {
   final String question;
   final String answer;
   final String? citation;
+  final String? activityLabel;
+  final bool isStreaming;
 
   const SidecarQaTurn({
     required this.question,
     required this.answer,
     this.citation,
+    this.activityLabel,
+    this.isStreaming = false,
   });
+
+  SidecarQaTurn copyWith({
+    String? answer,
+    String? citation,
+    String? activityLabel,
+    bool? isStreaming,
+  }) {
+    return SidecarQaTurn(
+      question: question,
+      answer: answer ?? this.answer,
+      citation: citation ?? this.citation,
+      activityLabel: activityLabel ?? this.activityLabel,
+      isStreaming: isStreaming ?? this.isStreaming,
+    );
+  }
 }
 
 /// Docked (380px on >= 1200px) or slide-over (< 1200px) Ask Veraxi sidecar
 /// anchored to the selected CVE/symbol row in Code mode.
 ///
 /// Design contract: docs/design/veraxi_code_workbench.svg.
-class AskVeraxiSidecar extends StatefulWidget {
+class AskVeraxiSidecar extends ConsumerStatefulWidget {
   final VulnFinding? finding;
   final VoidCallback? onClose;
 
@@ -29,37 +52,150 @@ class AskVeraxiSidecar extends StatefulWidget {
   });
 
   @override
-  State<AskVeraxiSidecar> createState() => _AskVeraxiSidecarState();
+  ConsumerState<AskVeraxiSidecar> createState() => _AskVeraxiSidecarState();
 }
 
-class _AskVeraxiSidecarState extends State<AskVeraxiSidecar> {
+class _AskVeraxiSidecarState extends ConsumerState<AskVeraxiSidecar> {
   final TextEditingController _promptController = TextEditingController();
   final Map<String, List<SidecarQaTurn>> _turnsByCve = {};
+  final Map<String, String> _threadIdsByCve = {};
+  StreamSubscription<Map<String, dynamic>>? _activeSubscription;
+  bool _isStreaming = false;
 
   @override
   void dispose() {
+    _activeSubscription?.cancel();
     _promptController.dispose();
     super.dispose();
   }
 
-  void _submitQuestion() {
-    final q = _promptController.text.trim();
+  void _stopStreaming() {
+    _activeSubscription?.cancel();
+    _activeSubscription = null;
+    if (!mounted) return;
+    setState(() {
+      _isStreaming = false;
+      for (final list in _turnsByCve.values) {
+        for (int i = 0; i < list.length; i++) {
+          if (list[i].isStreaming) {
+            list[i] = list[i].copyWith(isStreaming: false);
+          }
+        }
+      }
+    });
+  }
+
+  void _submitQuestion([String? overridePrompt]) {
+    if (_isStreaming) return;
+    final q = (overridePrompt ?? _promptController.text).trim();
     if (q.isEmpty) return;
+
     final finding = widget.finding;
     final key = finding?.cveId ?? '_workspace';
-    final answer = _buildScopedAnswer(q, finding);
-    final citation = finding == null
+    final defaultCitation = finding == null
         ? null
         : (finding.reachableInCode.isNotEmpty
             ? (finding.reachableInCode.first.path ??
                 finding.reachableInCode.first.qualifiedName)
             : (finding.sourceFile ?? finding.package));
+
+    final turns = _turnsByCve.putIfAbsent(key, () => []);
+    final turnIndex = turns.length;
     setState(() {
-      _turnsByCve.putIfAbsent(key, () => []).add(
-            SidecarQaTurn(question: q, answer: answer, citation: citation),
-          );
+      turns.add(
+        SidecarQaTurn(
+          question: q,
+          answer: '',
+          citation: defaultCitation,
+          isStreaming: true,
+        ),
+      );
+      _isStreaming = true;
     });
-    _promptController.clear();
+    if (overridePrompt == null) {
+      _promptController.clear();
+    }
+
+    final repoKey = ref.read(selectedIndexedRepoProvider);
+    final threadId = _threadIdsByCve.putIfAbsent(
+      key,
+      () => 'sidecar-$key-${DateTime.now().millisecondsSinceEpoch}',
+    );
+    final buffer = StringBuffer();
+    String? streamedCitation = defaultCitation;
+    String? activityLabel;
+
+    final stream =
+        ref.read(codeIntelViewModelProvider.notifier).streamSidecarAsk(
+              question: q,
+              finding: finding,
+              repoKey: repoKey,
+              threadId: threadId,
+            );
+
+    _activeSubscription = stream.listen(
+      (event) {
+        if (!mounted) return;
+        final type = event['type'] as String? ?? '';
+        if (type == 'token' && event['content'] != null) {
+          buffer.write(event['content'].toString());
+        } else if (type == 'answer' && event['answer'] != null) {
+          buffer
+            ..clear()
+            ..write(event['answer'].toString());
+        } else if (event['token'] != null) {
+          buffer.write(event['token'].toString());
+        } else if (event['delta'] != null) {
+          buffer.write(event['delta'].toString());
+        } else if (type == 'activity' && event['label'] != null) {
+          activityLabel = event['label'].toString();
+        } else if (type == 'sources' && event['sources'] is List) {
+          final sources = event['sources'] as List;
+          if (sources.isNotEmpty && sources.first is Map) {
+            final first = sources.first as Map;
+            final path =
+                first['path']?.toString() ?? first['source']?.toString();
+            if (path != null && path.isNotEmpty) {
+              streamedCitation = path;
+            }
+          }
+        }
+        setState(() {
+          turns[turnIndex] = turns[turnIndex].copyWith(
+            answer: buffer.toString(),
+            citation: streamedCitation,
+            activityLabel: activityLabel,
+          );
+        });
+      },
+      onError: (_) {
+        if (!mounted) return;
+        final fallback = _buildScopedAnswer(q, finding);
+        setState(() {
+          turns[turnIndex] = turns[turnIndex].copyWith(
+            answer: buffer.isNotEmpty ? buffer.toString() : fallback,
+            citation: streamedCitation,
+            isStreaming: false,
+          );
+          _isStreaming = false;
+        });
+      },
+      onDone: () {
+        if (!mounted) return;
+        final finalAnswer = buffer.isNotEmpty
+            ? buffer.toString()
+            : _buildScopedAnswer(q, finding);
+        setState(() {
+          turns[turnIndex] = turns[turnIndex].copyWith(
+            answer: finalAnswer,
+            citation: streamedCitation,
+            isStreaming: false,
+          );
+          _isStreaming = false;
+        });
+      },
+      cancelOnError: true,
+    );
   }
 
   String _buildScopedAnswer(String question, VulnFinding? finding) {
@@ -80,6 +216,89 @@ class _AskVeraxiSidecarState extends State<AskVeraxiSidecar> {
     }
     return '${finding.cveId} affects ${finding.package} (${finding.matchStatus}). '
         '$kevNote$epssNote No static AST call path was found in the current code graph; verify runtime usage.';
+  }
+
+  Future<void> _openCodeCitation(String citationPath) async {
+    final viewModel = ref.read(codeIntelViewModelProvider.notifier);
+    final fileData = await viewModel.fetchIndexedFile(citationPath);
+    if (!mounted) return;
+
+    final content = fileData?['content'] as String?;
+    final language = fileData?['language'] as String? ?? 'source';
+    await showDialog<void>(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: const Color(0xFF171717),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: const BorderSide(color: Color(0xFF2B2B2E)),
+        ),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 680, maxHeight: 520),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: const BoxDecoration(
+                  border: Border(
+                    bottom: BorderSide(color: Color(0xFF2B2B2E)),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.code, size: 16, color: Color(0xFF34D399)),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        '$citationPath ($language)',
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close,
+                          size: 18, color: Color(0xFF9CA3AF)),
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: content != null
+                    ? SingleChildScrollView(
+                        padding: const EdgeInsets.all(16),
+                        child: SelectableText(
+                          content,
+                          style: const TextStyle(
+                            color: Color(0xFFE4E4E7),
+                            fontFamily: 'monospace',
+                            fontSize: 12,
+                            height: 1.5,
+                          ),
+                        ),
+                      )
+                    : Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(24),
+                          child: Text(
+                            'File preview unavailable for $citationPath on this server.',
+                            style: const TextStyle(
+                                color: Color(0xFFA1A1AA), fontSize: 12.5),
+                          ),
+                        ),
+                      ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -104,7 +323,7 @@ class _AskVeraxiSidecarState extends State<AskVeraxiSidecar> {
               children: [
                 _buildPathCard(finding),
                 const SizedBox(height: 16),
-                if (turns.isEmpty && finding != null)
+                if (turns.isEmpty && finding != null) ...[
                   Text(
                     'Ask a scoped follow-up about ${finding.cveId} or its AST reachability.',
                     style: const TextStyle(
@@ -112,6 +331,40 @@ class _AskVeraxiSidecarState extends State<AskVeraxiSidecar> {
                       fontSize: 12.5,
                     ),
                   ),
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: [
+                      for (final prompt in const [
+                        'What input reaches this symbol?',
+                        'Suggest minimal safe patch',
+                        'Verify runtime exposure',
+                      ])
+                        InkWell(
+                          borderRadius: BorderRadius.circular(12),
+                          onTap: () => _submitQuestion(prompt),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 5),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF1F1F23),
+                              borderRadius: BorderRadius.circular(12),
+                              border:
+                                  Border.all(color: const Color(0xFF2E2E34)),
+                            ),
+                            child: Text(
+                              prompt,
+                              style: const TextStyle(
+                                color: Color(0xFFD4D4D8),
+                                fontSize: 11,
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ],
                 for (final turn in turns) _buildTurn(turn),
               ],
             ),
@@ -326,29 +579,59 @@ class _AskVeraxiSidecarState extends State<AskVeraxiSidecar> {
               ),
             ),
           ),
-          const SizedBox(height: 10),
-          Text(
-            turn.answer,
-            style: const TextStyle(
-              color: Color(0xFFE4E4E7),
-              fontSize: 12.5,
-              height: 1.45,
-            ),
-          ),
-          if (turn.citation != null) ...[
+          if (turn.activityLabel != null) ...[
             const SizedBox(height: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: const Color(0xFF27272B),
-                borderRadius: BorderRadius.circular(11),
-                border: Border.all(color: const Color(0xFF3F3F46), width: 0.8),
+            Text(
+              turn.activityLabel!,
+              style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 11),
+            ),
+          ],
+          const SizedBox(height: 10),
+          if (turn.answer.isEmpty && turn.isStreaming)
+            const SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          else
+            Text(
+              turn.answer,
+              style: const TextStyle(
+                color: Color(0xFFE4E4E7),
+                fontSize: 12.5,
+                height: 1.45,
               ),
-              child: Text(
-                turn.citation!,
-                style: const TextStyle(
-                  color: Color(0xFF34D399),
-                  fontSize: 11,
+            ),
+          if (turn.citation != null && !turn.isStreaming) ...[
+            const SizedBox(height: 8),
+            InkWell(
+              borderRadius: BorderRadius.circular(11),
+              onTap: () => _openCodeCitation(turn.citation!),
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF27272B),
+                  borderRadius: BorderRadius.circular(11),
+                  border:
+                      Border.all(color: const Color(0xFF3F3F46), width: 0.8),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.code, size: 12, color: Color(0xFF34D399)),
+                    const SizedBox(width: 5),
+                    Flexible(
+                      child: Text(
+                        turn.citation!,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Color(0xFF34D399),
+                          fontSize: 11,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -411,19 +694,24 @@ class _AskVeraxiSidecarState extends State<AskVeraxiSidecar> {
                 ),
                 const SizedBox(width: 8),
                 InkWell(
-                  onTap: _submitQuestion,
+                  onTap:
+                      _isStreaming ? _stopStreaming : () => _submitQuestion(),
                   borderRadius: BorderRadius.circular(14),
                   child: Container(
                     width: 28,
                     height: 28,
-                    decoration: const BoxDecoration(
-                      color: Color(0xFFECECEC),
+                    decoration: BoxDecoration(
+                      color: _isStreaming
+                          ? const Color(0xFF3B1D1E)
+                          : const Color(0xFFECECEC),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(
-                      Icons.arrow_upward,
+                    child: Icon(
+                      _isStreaming ? Icons.stop : Icons.arrow_upward,
                       size: 16,
-                      color: Color(0xFF171717),
+                      color: _isStreaming
+                          ? const Color(0xFFFCA5A5)
+                          : const Color(0xFF171717),
                     ),
                   ),
                 ),

@@ -53,6 +53,7 @@ from backend.ingestion.vuln_intel import (
 from backend.retrieval.code_queries import (
     impact_analysis,
     indexed_file,
+    list_indexed_repos,
     repo_overview,
     symbol_lookup,
 )
@@ -433,9 +434,7 @@ def _write_scip(payload: ScipIngestRequest, tenant_id: str) -> dict:
     """Parse a SCIP payload and write it through the ingestion writer."""
     from backend.ingestion.scip_ingest import write_scip_graph
 
-    return write_scip_graph(
-        _default_neo4j_client(), payload.scip, tenant_id=tenant_id
-    )
+    return write_scip_graph(_default_neo4j_client(), payload.scip, tenant_id=tenant_id)
 
 
 def _resolve_webhook_checkout(full_name: str) -> str | None:
@@ -482,7 +481,9 @@ def _sync_vuln_intel(tenant_id: str) -> dict:
 
         qdrant_client = QdrantStorageClient.from_config(get_config())
     except Exception as exc:
-        logger.warning("Qdrant unavailable during vuln sync; skipping vector indexing: %s", exc)
+        logger.warning(
+            "Qdrant unavailable during vuln sync; skipping vector indexing: %s", exc
+        )
     return fetch_and_write_vuln_intel(
         _default_neo4j_client(), tenant_id=tenant_id, qdrant_client=qdrant_client
     )
@@ -593,7 +594,9 @@ def register_code_intel_routes(
         repository = payload.get("repository") or {}
         full_name = repository.get("full_name")
         if not full_name:
-            raise HTTPException(status_code=400, detail="Payload has no repository.full_name")
+            raise HTTPException(
+                status_code=400, detail="Payload has no repository.full_name"
+            )
         checkout = _resolve_webhook_checkout(str(full_name))
         if checkout is None:
             return JSONResponse(
@@ -675,14 +678,13 @@ def register_code_intel_routes(
         write is parameterized and tenant-scoped, exactly like the
         server-side ingest path.
         """
-        if len(payload.nodes) > MAX_INGEST_NODES or len(payload.edges) > MAX_INGEST_EDGES:
-            raise HTTPException(
-                status_code=413, detail="Code graph payload too large"
-            )
+        if (
+            len(payload.nodes) > MAX_INGEST_NODES
+            or len(payload.edges) > MAX_INGEST_EDGES
+        ):
+            raise HTTPException(status_code=413, detail="Code graph payload too large")
         try:
-            counts = await asyncio.to_thread(
-                _write_parsed_graph, payload, tenant_id
-            )
+            counts = await asyncio.to_thread(_write_parsed_graph, payload, tenant_id)
         except Exception as e:
             sentry_sdk.capture_exception(e)
             raise HTTPException(
@@ -719,15 +721,25 @@ def register_code_intel_routes(
         try:
             counts = await asyncio.to_thread(_write_scip, payload, tenant_id)
         except ValueError as e:
-            raise HTTPException(
-                status_code=413, detail="SCIP payload too large"
-            ) from e
+            raise HTTPException(status_code=413, detail="SCIP payload too large") from e
         except Exception as e:
             sentry_sdk.capture_exception(e)
             raise HTTPException(
                 status_code=500, detail="Failed to ingest SCIP index"
             ) from e
         return {"status": "ok", **counts}
+
+    @app_router.get("/api/v1/code/repos")
+    async def get_indexed_repos(tenant_id: str = Depends(get_tenant_id)):
+        """List all indexed repositories for this tenant with counts and freshness."""
+        try:
+            repos = await asyncio.to_thread(list_indexed_repos, tenant_id=tenant_id)
+            return {"repos": repos}
+        except Exception as e:
+            sentry_sdk.capture_exception(e)
+            raise HTTPException(
+                status_code=500, detail="Failed to list indexed repos"
+            ) from e
 
     @app_router.get("/api/v1/code/overview")
     async def get_code_overview(
@@ -788,9 +800,7 @@ def register_code_intel_routes(
             ) from e
 
     @app_router.get("/api/v1/code/file")
-    async def get_code_file(
-        path: str = "", tenant_id: str = Depends(get_tenant_id)
-    ):
+    async def get_code_file(path: str = "", tenant_id: str = Depends(get_tenant_id)):
         """Serve one indexed code file's content for citation viewing.
 
         ``path`` is the repo-relative path carried by line-anchored
@@ -808,13 +818,9 @@ def register_code_intel_routes(
         if not path or "\x00" in path:
             raise HTTPException(status_code=400, detail="path required")
         if _is_code_file_traversal(path):
-            raise HTTPException(
-                status_code=403, detail="Path traversal is forbidden"
-            )
+            raise HTTPException(status_code=403, detail="Path traversal is forbidden")
         try:
-            indexed = await asyncio.to_thread(
-                indexed_file, path, tenant_id=tenant_id
-            )
+            indexed = await asyncio.to_thread(indexed_file, path, tenant_id=tenant_id)
         except Exception as e:
             sentry_sdk.capture_exception(e)
             raise HTTPException(
@@ -824,9 +830,7 @@ def register_code_intel_routes(
             raise HTTPException(status_code=404, detail="Code file not indexed")
         resolved = await asyncio.to_thread(_resolve_code_file_on_disk, path)
         if resolved is None:
-            raise HTTPException(
-                status_code=404, detail="Code file not found on server"
-            )
+            raise HTTPException(status_code=404, detail="Code file not found on server")
         content = await asyncio.to_thread(_read_code_file_text, resolved)
         lines = content.splitlines()
         return {

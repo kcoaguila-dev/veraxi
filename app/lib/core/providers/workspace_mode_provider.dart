@@ -12,6 +12,66 @@ enum CodeSubView {
   dbtLineage,
 }
 
+/// Summary of an indexed repository rendered in the Code sidebar.
+class IndexedRepoItem {
+  final String repoKey;
+  final String displayName;
+  final int fileCount;
+  final int symbolCount;
+  final bool isStale;
+
+  const IndexedRepoItem({
+    required this.repoKey,
+    required this.displayName,
+    required this.fileCount,
+    required this.symbolCount,
+    this.isStale = false,
+  });
+
+  String get subtitle => '$fileCount files · $symbolCount symbols';
+
+  factory IndexedRepoItem.fromJson(Map<String, dynamic> json) {
+    final key = json['repo_key'] as String? ?? '';
+    return IndexedRepoItem(
+      repoKey: key,
+      displayName: json['display_name'] as String? ?? key,
+      fileCount: (json['file_count'] as num?)?.toInt() ?? 0,
+      symbolCount: (json['symbol_count'] as num?)?.toInt() ?? 0,
+      isStale: json['is_stale'] as bool? ?? false,
+    );
+  }
+}
+
+/// Active ingestion job shown in the Knowledge Hub left rail queue.
+class IngestionQueueItem {
+  final String jobId;
+  final String source;
+  final String stage;
+  final double progress;
+
+  const IngestionQueueItem({
+    required this.jobId,
+    required this.source,
+    required this.stage,
+    this.progress = 0.0,
+  });
+}
+
+const List<IndexedRepoItem> defaultIndexedRepos = [
+  IndexedRepoItem(
+    repoKey: 'veraxi/backend',
+    displayName: 'veraxi/backend',
+    fileCount: 142,
+    symbolCount: 812,
+  ),
+  IndexedRepoItem(
+    repoKey: 'veraxi/app',
+    displayName: 'veraxi/app',
+    fileCount: 96,
+    symbolCount: 410,
+  ),
+];
+
 /// Active workspace mode (`Chat` vs `Code`), preserved across tab switches.
 final workspaceModeProvider =
     StateProvider<WorkspaceMode>((ref) => WorkspaceMode.chat);
@@ -26,3 +86,12 @@ final activeKevCountProvider = StateProvider<int>((ref) => 0);
 /// Currently scoped indexed repository label in the Code sidebar.
 final selectedIndexedRepoProvider =
     StateProvider<String>((ref) => 'veraxi/backend');
+
+/// Live indexed repositories for the Code sidebar, initialized with defaults
+/// until `/api/v1/code/repos` responds.
+final indexedReposProvider =
+    StateProvider<List<IndexedRepoItem>>((ref) => defaultIndexedRepos);
+
+/// Live ingestion queue items shared with the Knowledge Hub left rail.
+final ingestionQueueProvider =
+    StateProvider<List<IngestionQueueItem>>((ref) => const []);
