@@ -482,106 +482,6 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
     );
   }
 
-  static String _resolveThreadTitle(Map<String, dynamic> threadData) {
-    final threadId = threadData['thread_id'] as String? ?? '';
-    return threadData['title'] as String? ??
-        (threadId.length > 8 ? '${threadId.substring(0, 8)}...' : threadId);
-  }
-
-  Widget _buildThreadRow({
-    required BuildContext context,
-    required ChatViewModel viewModel,
-    required Map<String, dynamic> threadData,
-    required bool isSelected,
-  }) {
-    final ext = Theme.of(context).extension<AppThemeExtension>()!;
-    final threadId = threadData['thread_id'] as String? ?? '';
-    final title = _resolveThreadTitle(threadData);
-    bool isHovered = false;
-
-    return StatefulBuilder(
-      builder: (context, setState) {
-        return MouseRegion(
-          onEnter: (_) => setState(() => isHovered = true),
-          onExit: (_) => setState(() => isHovered = false),
-          child: InkWell(
-            onTap: () {
-              viewModel.selectThread(threadId);
-              context.go('/chat');
-              if (widget.isMobile && context.mounted) {
-                Navigator.of(context).pop();
-              }
-            },
-            onLongPress: widget.isMobile
-                ? () => _showThreadMenu(context, threadData, threadId, title)
-                : null,
-            child: Container(
-              decoration: BoxDecoration(
-                color: isSelected ? ext.borderColor : Colors.transparent,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              padding:
-                  const EdgeInsets.symmetric(vertical: 4.0, horizontal: 8.0),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      title,
-                      style: TextStyle(
-                        color: isSelected ? Colors.white : ext.iconColor,
-                        fontSize: 13,
-                        fontWeight:
-                            isSelected ? FontWeight.w500 : FontWeight.normal,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  Visibility(
-                    visible: !widget.isMobile && (isHovered || isSelected),
-                    maintainSize: true,
-                    maintainAnimation: true,
-                    maintainState: true,
-                    child: Theme(
-                      data: Theme.of(context).copyWith(
-                        hoverColor: Colors.transparent,
-                        splashColor: Colors.transparent,
-                        highlightColor: Colors.transparent,
-                      ),
-                      child: SizedBox(
-                        width: 24,
-                        height: 24,
-                        child: PopupMenuButton<String>(
-                          icon: Icon(
-                            Icons.more_horiz,
-                            color: isSelected ? Colors.white : ext.iconColor,
-                            size: 16,
-                          ),
-                          color: ext.borderColor,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          padding: EdgeInsets.zero,
-                          itemBuilder: (_) => _threadMenuItems(threadData),
-                          onSelected: (value) => _handleThreadMenuSelection(
-                            context,
-                            value,
-                            threadId,
-                            title,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  @override
   Widget build(BuildContext context) {
     // We override references to variables that used to be class members
 
@@ -848,13 +748,144 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
                                         final threadId = threadData['thread_id']
                                                 as String? ??
                                             '';
-                                        return _buildThreadRow(
-                                          context: context,
-                                          viewModel: viewModel,
-                                          threadData: threadData,
-                                          isSelected:
-                                              state.threadId == threadId,
-                                        );
+                                        final title =
+                                            threadData['title'] as String? ??
+                                                (threadId.length > 8
+                                                    ? threadId.substring(0, 8) +
+                                                        '...'
+                                                    : threadId);
+                                        final isSelected =
+                                            state.threadId == threadId;
+                                        bool isHovered = false;
+
+                                        return StatefulBuilder(
+                                            builder: (context, setState) {
+                                          return MouseRegion(
+                                            onEnter: (_) => setState(
+                                                () => isHovered = true),
+                                            onExit: (_) => setState(
+                                                () => isHovered = false),
+                                            child: InkWell(
+                                              onTap: () {
+                                                viewModel
+                                                    .selectThread(threadId);
+                                                context.go('/chat');
+                                                if (widget.isMobile &&
+                                                    context.mounted) {
+                                                  Navigator.of(context).pop();
+                                                }
+                                              },
+                                              onLongPress: widget.isMobile
+                                                  ? () => _showThreadMenu(
+                                                      context,
+                                                      threadData,
+                                                      threadId,
+                                                      title)
+                                                  : null,
+                                              child: Container(
+                                                decoration: BoxDecoration(
+                                                  color: isSelected
+                                                      ? Theme.of(context)
+                                                          .extension<
+                                                              AppThemeExtension>()!
+                                                          .borderColor
+                                                      : Colors.transparent,
+                                                  borderRadius:
+                                                      BorderRadius.circular(8),
+                                                ),
+                                                padding: EdgeInsets.symmetric(
+                                                    vertical: 4.0,
+                                                    horizontal: 8.0),
+                                                child: Row(
+                                                  children: [
+                                                    Expanded(
+                                                      child: Text(
+                                                        title,
+                                                        style: TextStyle(
+                                                          color: isSelected
+                                                              ? Colors.white
+                                                              : Theme.of(
+                                                                      context)
+                                                                  .extension<
+                                                                      AppThemeExtension>()!
+                                                                  .iconColor,
+                                                          fontSize: 13,
+                                                          fontWeight: isSelected
+                                                              ? FontWeight.w500
+                                                              : FontWeight
+                                                                  .normal,
+                                                        ),
+                                                        overflow: TextOverflow
+                                                            .ellipsis,
+                                                      ),
+                                                    ),
+                                                    Visibility(
+                                                      visible:
+                                                          !widget.isMobile &&
+                                                              (isHovered ||
+                                                                  isSelected),
+                                                      maintainSize: true,
+                                                      maintainAnimation: true,
+                                                      maintainState: true,
+                                                      child: Theme(
+                                                        data: Theme.of(context)
+                                                            .copyWith(
+                                                          hoverColor: Colors
+                                                              .transparent,
+                                                          splashColor: Colors
+                                                              .transparent,
+                                                          highlightColor: Colors
+                                                              .transparent,
+                                                        ),
+                                                        child: SizedBox(
+                                                          width: 24,
+                                                          height: 24,
+                                                          child:
+                                                              PopupMenuButton<
+                                                                  String>(
+                                                            icon: Icon(
+                                                                Icons
+                                                                    .more_horiz,
+                                                                color: isSelected
+                                                                    ? Colors
+                                                                        .white
+                                                                    : Theme.of(
+                                                                            context)
+                                                                        .extension<
+                                                                            AppThemeExtension>()!
+                                                                        .iconColor,
+                                                                size: 16),
+                                                            color: Theme.of(
+                                                                    context)
+                                                                .extension<
+                                                                    AppThemeExtension>()!
+                                                                .borderColor,
+                                                            shape: RoundedRectangleBorder(
+                                                                borderRadius:
+                                                                    BorderRadius
+                                                                        .circular(
+                                                                            8)),
+                                                            padding:
+                                                                EdgeInsets.zero,
+                                                            itemBuilder: (_) =>
+                                                                _threadMenuItems(
+                                                                    threadData),
+                                                            onSelected: (value) =>
+                                                                _handleThreadMenuSelection(
+                                                                    context,
+                                                                    value,
+                                                                    threadId,
+                                                                    title),
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ),
+                                          );
+                                        });
                                       },
                                     );
                                   },

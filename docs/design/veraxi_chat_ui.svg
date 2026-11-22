@@ -1,116 +1,251 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="900" viewBox="0 0 1440 900">
-  <!-- Visual contract: Live Veraxi Chat UI (dark theme, 260px sidebar + main chat canvas)
-       - Left sidebar (ChatSidebar, 260px, #171717): Veraxi brand + collapse toggle,
-         Projects / New chat / Knowledge Hub navigation, Chats list, user profile footer.
-       - Top bar (ChatScreen): ModelSelectorMenu pill, Metrics switch, TokenUsage style icon,
-         and top-right New chat / Temporary chat action.
-       - Conversation column (max-width 800 centered, #212121):
-         Right-aligned user message bubble, assistant message with plain-language
-         ChatActivityDisclosure, grounded prose with named CitationChip pills, action bar
-         with SourcesButton ("3 sources"), and floating ChatInput composer with
-         attachments, tools menu, Web Search pill, TokenUsageRing, mic, and send button. -->
+<svg width="1440" height="900" viewBox="0 0 1440 900" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;display=swap');
+      .font-inter { font-family: 'Inter', sans-serif; }
+    </style>
+  </defs>
+
+  <!-- Main Workspace Canvas -->
   <rect width="1440" height="900" fill="#212121"/>
 
-  <!-- Left Sidebar (260px, #171717) -->
+  <!-- ========================================== -->
+  <!-- LEFT SIDEBAR (260px, #171717)              -->
+  <!-- ========================================== -->
   <rect x="0" y="0" width="260" height="900" fill="#171717"/>
-  <text x="20" y="38" font-family="Inter, sans-serif" font-size="18" font-weight="600" fill="#FFFFFF">Veraxi</text>
-  <rect x="220" y="22" width="18" height="18" rx="4" fill="none" stroke="#B4B4B4" stroke-width="1.5"/>
-  <line x1="227" y1="22" x2="227" y2="40" stroke="#B4B4B4" stroke-width="1.5"/>
 
-  <!-- Sidebar Navigation -->
-  <g font-family="Inter, sans-serif" font-size="14" font-weight="500" fill="#E0E0E0">
-    <rect x="20" y="68" width="16" height="13" rx="2" fill="none" stroke="#B4B4B4" stroke-width="1.5"/>
-    <text x="48" y="80">Projects</text>
-
-    <rect x="20" y="102" width="15" height="15" rx="2" fill="none" stroke="#B4B4B4" stroke-width="1.5"/>
-    <line x1="27" y1="102" x2="35" y2="110" stroke="#B4B4B4" stroke-width="1.5"/>
-    <text x="48" y="114">New chat</text>
-
-    <rect x="20" y="136" width="15" height="15" rx="2" fill="none" stroke="#B4B4B4" stroke-width="1.5"/>
-    <line x1="24" y1="141" x2="31" y2="141" stroke="#B4B4B4" stroke-width="1.5"/>
-    <text x="48" y="148">Knowledge Hub</text>
+  <!-- Brand Header + Sidebar Toggle Icon -->
+  <text x="20" y="39" fill="#FFFFFF" font-size="18" font-weight="600" class="font-inter">Veraxi</text>
+  <g transform="translate(218, 23)" stroke="#B4B4B4" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="1.5" y="2.5" width="17" height="14" rx="3"/>
+    <line x1="8" y1="2.5" x2="8" y2="16.5"/>
+    <line x1="4.5" y1="6.5" x2="6" y2="6.5"/>
+    <line x1="4.5" y1="9.5" x2="6" y2="9.5"/>
   </g>
 
-  <!-- Chats Section -->
-  <text x="20" y="188" font-family="Inter, sans-serif" font-size="12" font-weight="600" fill="#878787">Chats ⌄</text>
-  <g font-family="Inter, sans-serif" font-size="13">
-    <text x="28" y="220" fill="#B4B4B4">Jensen Situation Update</text>
-    <rect x="16" y="236" width="228" height="30" rx="8" fill="#2E2E2E"/>
-    <text x="28" y="255" font-weight="500" fill="#FFFFFF">NVIDIA CEO Update</text>
-    <text x="220" y="255" fill="#FFFFFF">•••</text>
-    <text x="28" y="288" fill="#B4B4B4">Stock Market Today</text>
-    <text x="28" y="318" fill="#B4B4B4">Hello World Slide</text>
-    <text x="28" y="348" fill="#B4B4B4">GitHub Access Inquiry</text>
+  <!-- Sidebar Navigation Items (Projects, New chat, Knowledge Hub) -->
+  <!-- Projects (folder_outlined) -->
+  <g transform="translate(20, 68)" stroke="#B4B4B4" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M 2 4 C 2 2.9 2.9 2 4 2 H 7.5 L 9.5 4 H 16 C 17.1 4 18 4.9 18 6 V 14 C 18 15.1 17.1 16 16 16 H 4 C 2.9 16 2 15.1 2 14 V 4 Z"/>
+  </g>
+  <text x="50" y="81" fill="#E0E0E0" font-size="14" font-weight="500" class="font-inter">Projects</text>
+
+  <!-- New chat (edit_square) -->
+  <g transform="translate(20, 104)" stroke="#B4B4B4" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M 11 3 H 4 C 2.9 3 2 3.9 2 5 V 15 C 2 16.1 2.9 17 4 17 H 14 C 15.1 17 16 16.1 16 15 V 8"/>
+    <path d="M 14.5 2.5 C 15.1 1.9 16 1.9 16.6 2.5 C 17.2 3.1 17.2 4 16.6 4.6 L 9.5 11.7 L 7 12.2 L 7.5 9.7 L 14.5 2.5 Z"/>
+  </g>
+  <text x="50" y="118" fill="#E0E0E0" font-size="14" font-weight="500" class="font-inter">New chat</text>
+
+  <!-- Knowledge Hub (library_books_outlined) -->
+  <g transform="translate(20, 140)" stroke="#B4B4B4" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="5" y="2" width="12" height="13" rx="2"/>
+    <path d="M 2 5 V 16 C 2 17.1 2.9 18 4 18 H 14"/>
+    <line x1="8" y1="6" x2="14" y2="6"/>
+    <line x1="8" y1="9" x2="14" y2="9"/>
+    <line x1="8" y1="12" x2="12" y2="12"/>
+  </g>
+  <text x="50" y="155" fill="#E0E0E0" font-size="14" font-weight="500" class="font-inter">Knowledge Hub</text>
+
+  <!-- Chats Section Header -->
+  <text x="20" y="192" fill="#878787" font-size="12" font-weight="600" class="font-inter">Chats</text>
+  <path d="M 60 186 L 64 190 L 68 186" stroke="#878787" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+
+  <!-- Chat History List -->
+  <g font-size="13" class="font-inter">
+    <text x="28" y="224" fill="#B4B4B4">Jensen Situation Update</text>
+    <text x="28" y="254" fill="#B4B4B4">NVIDIA CEO Update</text>
+    <text x="28" y="284" fill="#B4B4B4">NVIDIA CEO Update</text>
+
+    <!-- Selected Row -->
+    <rect x="20" y="298" width="220" height="28" rx="8" fill="#2E2E2E"/>
+    <text x="28" y="317" fill="#FFFFFF" font-weight="500">NVIDIA CEO Update</text>
+    <circle cx="222" cy="312" r="1.3" fill="#FFFFFF"/>
+    <circle cx="227" cy="312" r="1.3" fill="#FFFFFF"/>
+    <circle cx="232" cy="312" r="1.3" fill="#FFFFFF"/>
+
+    <text x="28" y="348" fill="#B4B4B4">Stock Market Today</text>
+    <text x="28" y="378" fill="#B4B4B4">Stock Market Today</text>
+    <text x="28" y="408" fill="#B4B4B4">Jenson Huang News Today</text>
+    <text x="28" y="438" fill="#B4B4B4">Hello World Slide</text>
+    <text x="28" y="468" fill="#B4B4B4">GitHub Access Inquiry</text>
+    <text x="28" y="498" fill="#B4B4B4">Greeting Exchange</text>
   </g>
 
-  <!-- Sidebar Footer Profile -->
-  <circle cx="32" cy="866" r="14" fill="#2F2F2F"/>
-  <text x="32" y="871" font-family="Inter, sans-serif" font-size="13" font-weight="600" fill="#FFFFFF" text-anchor="middle">K</text>
-  <text x="58" y="871" font-family="Inter, sans-serif" font-size="14" font-weight="500" fill="#FFFFFF">Kazuo Coaguila</text>
+  <!-- Sidebar User Profile Footer -->
+  <circle cx="34" cy="864" r="14" fill="#2F2F2F"/>
+  <text x="34" y="869" fill="#FFFFFF" font-size="13" font-weight="600" text-anchor="middle" class="font-inter">K</text>
+  <text x="58" y="869" fill="#FFFFFF" font-size="14" font-weight="500" class="font-inter">Kazuo Coaguila</text>
 
-  <!-- Top Bar -->
-  <rect x="280" y="14" width="198" height="34" rx="8" fill="#1E1E1E" stroke="#2A2A2A"/>
-  <circle cx="298" cy="31" r="7" fill="#E6522C"/>
-  <text x="314" y="36" font-family="Inter, sans-serif" font-size="14" font-weight="500" fill="#FFFFFF">openai/gpt-oss-20b</text>
-  <text x="458" y="36" font-family="Inter, sans-serif" font-size="12" fill="#FFFFFF">⌄</text>
-
-  <text x="494" y="36" font-family="Inter, sans-serif" font-size="13" font-weight="500" fill="#878787">Metrics</text>
-  <rect x="546" y="22" width="32" height="18" rx="9" fill="#3A3A3A"/>
-  <circle cx="555" cy="31" r="7" fill="#FFFFFF"/>
-
-  <circle cx="602" cy="31" r="8" fill="none" stroke="#878787" stroke-width="1.5"/>
-  <rect x="1392" y="22" width="16" height="16" rx="3" fill="none" stroke="#878787" stroke-width="1.5"/>
-
-  <!-- Centered Chat Thread Column (maxWidth 800, x=450..1250) -->
-  <!-- User Bubble -->
-  <rect x="970" y="110" width="240" height="44" rx="18" fill="#2A2A2A" stroke="#333333"/>
-  <text x="990" y="137" font-family="Inter, sans-serif" font-size="14" fill="#ECECEC">whos the ceo of nvidia now?</text>
-
-  <!-- Assistant Message -->
-  <circle cx="514" cy="212" r="8" fill="#E6522C"/>
-  <text x="538" y="217" font-family="Inter, sans-serif" font-size="14" font-weight="600" fill="#FFFFFF">openai/gpt-oss-20b</text>
-
-  <!-- Plain-language Activity Disclosure -->
-  <text x="538" y="246" font-family="Inter, sans-serif" font-size="12" fill="#9E9E9E">›  Searched the web · Checked your corpus</text>
-
-  <!-- Grounded Response Prose & Named Citation Pill -->
-  <text x="538" y="280" font-family="Inter, sans-serif" font-size="14" fill="#ECECEC">The current chief executive officer of NVIDIA is Colette Marie Kress, who has been</text>
-  <text x="538" y="302" font-family="Inter, sans-serif" font-size="14" fill="#ECECEC">serving as the interim CEO since Jensen Huang's resignation in November 2026.</text>
-
-  <rect x="538" y="314" width="180" height="22" rx="11" fill="#272727" stroke="#3D3D3D"/>
-  <circle cx="550" cy="325" r="5" fill="#4F8EF7"/>
-  <text x="562" y="329" font-family="Inter, sans-serif" font-size="11" font-weight="500" fill="#CCCCCC">Colette Kress - Wikipedia</text>
-  <text x="698" y="329" font-family="Inter, sans-serif" font-size="11" font-weight="600" fill="#8C8C8C">+1</text>
-
-  <text x="538" y="362" font-family="Inter, sans-serif" font-size="14" fill="#ECECEC">Would you like more details about her background or NVIDIA's recent leadership</text>
-  <text x="538" y="384" font-family="Inter, sans-serif" font-size="14" fill="#ECECEC">changes?</text>
-
-  <!-- Action Bar & SourcesButton -->
-  <g fill="#878787" font-family="Inter, sans-serif" font-size="12">
-    <text x="538" y="420">🔊  ❐  ✎  👍  👎  ↻  🔖   2d ago</text>
+  <!-- ========================================== -->
+  <!-- TOP BAR (Model Selector, Metrics, Usage)   -->
+  <!-- ========================================== -->
+  <!-- Model Selector Pill -->
+  <g transform="translate(276, 14)">
+    <rect width="194" height="34" rx="8" fill="#1E1E1E" stroke="#2A2A2A"/>
+    <circle cx="18" cy="17" r="7" fill="#E6522C"/>
+    <circle cx="18" cy="17" r="3" fill="#1E1E1E"/>
+    <text x="34" y="22" fill="#FFFFFF" font-size="14" font-weight="500" class="font-inter">openai/gpt-oss-20b</text>
+    <path d="M 172 15 L 176 19 L 180 15" stroke="#FFFFFF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
   </g>
-  <rect x="748" y="402" width="110" height="26" rx="13" fill="#222226" stroke="#2E2E34"/>
-  <circle cx="764" cy="415" r="6" fill="#4F8EF7" stroke="#222226" stroke-width="1.5"/>
-  <circle cx="774" cy="415" r="6" fill="#3FB68B" stroke="#222226" stroke-width="1.5"/>
-  <circle cx="784" cy="415" r="6" fill="#D98A2B" stroke="#222226" stroke-width="1.5"/>
-  <text x="796" y="419" font-family="Inter, sans-serif" font-size="12" font-weight="500" fill="#E0E0E0">3 sources</text>
 
-  <!-- Floating ChatInput Composer -->
-  <rect x="450" y="746" width="800" height="104" rx="24" fill="#2A2A2A" stroke="#363636"/>
-  <text x="474" y="780" font-family="Inter, sans-serif" font-size="14" fill="#878787">Message Veraxi...</text>
+  <!-- Metrics Label + CupertinoSwitch -->
+  <text x="486" y="36" fill="#878787" font-size="13" font-weight="500" class="font-inter">Metrics</text>
+  <rect x="540" y="22" width="32" height="18" rx="9" fill="#3A3A3A"/>
+  <circle cx="549" cy="31" r="7" fill="#FFFFFF"/>
 
-  <!-- Composer Toolbar -->
-  <text x="474" y="828" font-family="Inter, sans-serif" font-size="15" fill="#B4B4B4">📎   sliders</text>
-  <rect x="540" y="808" width="102" height="28" rx="14" fill="#1F2937" stroke="#3B82F6"/>
-  <text x="556" y="827" font-family="Inter, sans-serif" font-size="12" font-weight="500" fill="#93C5FD">🌐 Web Search</text>
+  <!-- Token Usage Indicator Style Icon (data_usage_outlined) -->
+  <circle cx="596" cy="31" r="7.5" stroke="#878787" stroke-width="1.5" stroke-dasharray="9 3" fill="none"/>
 
-  <!-- TokenUsageRing + Mic + Send -->
-  <circle cx="1130" cy="822" r="14" fill="none" stroke="#878787" stroke-width="1.5" stroke-dasharray="3 2"/>
-  <text x="1130" y="826" font-family="Inter, sans-serif" font-size="9" font-weight="600" fill="#E0E0E0" text-anchor="middle">2.4k</text>
-  <text x="1168" y="827" font-family="Inter, sans-serif" font-size="15" fill="#B4B4B4">🎤</text>
-  <circle cx="1216" cy="822" r="16" fill="#424242"/>
-  <path d="M 1216 828 L 1216 816 M 1210 822 L 1216 816 L 1222 822" stroke="#212121" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <!-- Top-Right New Chat Action (edit_square) -->
+  <g transform="translate(1396, 22)" stroke="#878787" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M 10 2.5 H 3.5 C 2.4 2.5 1.5 3.4 1.5 4.5 V 13.5 C 1.5 14.6 2.4 15.5 3.5 15.5 H 12.5 C 13.6 15.5 14.5 14.6 14.5 13.5 V 7"/>
+    <path d="M 13 2 L 15 4 L 8.5 10.5 L 6.5 10.5 L 6.5 8.5 L 13 2 Z"/>
+  </g>
+
+  <!-- ========================================== -->
+  <!-- MAIN CONVERSATION AREA (Centered 800px)    -->
+  <!-- ========================================== -->
+  <!-- User Message Bubble -->
+  <g transform="translate(970, 128)">
+    <rect width="224" height="44" rx="18" fill="#2A2A2A" stroke="#363636"/>
+    <text x="18" y="27" fill="#ECECEC" font-size="14" class="font-inter">whos the ceo of nvidia now?</text>
+    <!-- Copy icon below bubble -->
+    <g transform="translate(204, 52)" stroke="#878787" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="4" y="4" width="10" height="12" rx="2"/>
+      <path d="M 2 12 V 3 C 2 2.4 2.4 2 3 2 H 10"/>
+    </g>
+  </g>
+
+  <!-- Assistant Message Block -->
+  <g transform="translate(500, 228)">
+    <!-- Provider Avatar + Model Name -->
+    <circle cx="14" cy="10" r="7" fill="#E6522C"/>
+    <circle cx="14" cy="10" r="3" fill="#212121"/>
+    <text x="38" y="15" fill="#FFFFFF" font-size="14" font-weight="600" class="font-inter">openai/gpt-oss-20b</text>
+
+    <!-- Collapsible Plain-Language Activity Disclosure -->
+    <path d="M 41 36 L 45 40 L 41 44" stroke="#878787" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <text x="52" y="44" fill="#9E9E9E" font-size="12" class="font-inter">Searched the web · Checked your corpus</text>
+
+    <!-- Assistant Response Text -->
+    <text x="38" y="78" fill="#ECECEC" font-size="14" class="font-inter">The current chief executive officer of NVIDIA is <tspan font-weight="600" fill="#FFFFFF">Colette Marie Kress</tspan>, who has been</text>
+    <text x="38" y="100" fill="#ECECEC" font-size="14" class="font-inter">serving as the interim CEO since Jensen Huang's resignation in November 2026</text>
+
+    <!-- Named Inline CitationChip Pill -->
+    <g transform="translate(38, 110)">
+      <rect width="176" height="22" rx="11" fill="#272727" stroke="#3D3D3D"/>
+      <circle cx="12" cy="11" r="5.5" fill="#9E9E9E"/>
+      <text x="12" y="14.5" fill="#171717" font-size="8" font-weight="700" text-anchor="middle" class="font-inter">W</text>
+      <text x="24" y="15" fill="#CCCCCC" font-size="11" font-weight="500" class="font-inter">Colette Kress - Wikipedia</text>
+      <text x="156" y="15" fill="#8C8C8C" font-size="11" font-weight="600" class="font-inter">+1</text>
+    </g>
+
+    <text x="38" y="160" fill="#ECECEC" font-size="14" class="font-inter">Would you like more details about her background or NVIDIA's recent leadership</text>
+    <text x="38" y="182" fill="#ECECEC" font-size="14" class="font-inter">changes?</text>
+
+    <!-- Message Action Row (Vector Stroke Icons + Timestamp + 3 sources pill) -->
+    <g transform="translate(38, 204)">
+      <g stroke="#878787" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round">
+        <!-- Speaker (volume_up) -->
+        <path d="M 2 6 H 5 L 9 3 V 13 L 5 10 H 2 Z"/>
+        <path d="M 12 5.5 C 13 6.5 13 9.5 12 10.5"/>
+        <!-- Copy -->
+        <g transform="translate(26, 0)">
+          <rect x="4" y="4" width="9" height="10" rx="1.5"/>
+          <path d="M 2 11 V 3 C 2 2.4 2.4 2 3 2 H 9"/>
+        </g>
+        <!-- Edit (pencil) -->
+        <g transform="translate(52, 0)">
+          <path d="M 10.5 2.5 L 13.5 5.5 L 5.5 13.5 H 2.5 V 10.5 L 10.5 2.5 Z"/>
+        </g>
+        <!-- Thumb Up -->
+        <g transform="translate(78, 0)">
+          <path d="M 5 7 V 13 H 2 V 7 H 5 Z M 5 7 L 8 2 C 9 2 9.5 2.8 9.2 4 L 8.5 6.5 H 12.5 C 13.3 6.5 13.8 7.2 13.5 8 L 12 12.2 C 11.8 12.7 11.3 13 10.7 13 H 5"/>
+        </g>
+        <!-- Thumb Down -->
+        <g transform="translate(104, 0)">
+          <path d="M 5 9 V 3 H 2 V 9 H 5 Z M 5 9 L 8 14 C 9 14 9.5 13.2 9.2 12 L 8.5 9.5 H 12.5 C 13.3 9.5 13.8 8.8 13.5 8 L 12 3.8 C 11.8 3.3 11.3 3 10.7 3 H 5"/>
+        </g>
+        <!-- Regenerate (refresh) -->
+        <g transform="translate(130, 0)">
+          <path d="M 13 8 A 5 5 0 1 1 11.5 4.5"/>
+          <path d="M 13 2.5 V 5.5 H 10"/>
+        </g>
+        <!-- Bookmark -->
+        <g transform="translate(156, 0)">
+          <path d="M 4 2.5 H 12 V 13.5 L 8 11 L 4 13.5 Z"/>
+        </g>
+      </g>
+
+      <text x="184" y="12" fill="#878787" font-size="11" class="font-inter">2d ago</text>
+
+      <!-- SourcesButton ("3 sources" pill with overlapping favicons) -->
+      <g transform="translate(232, -5)">
+        <rect width="102" height="24" rx="12" fill="#1F1F23" stroke="#2E2E34"/>
+        <circle cx="14" cy="12" r="5.5" fill="#FFFFFF" stroke="#1F1F23" stroke-width="1.5"/>
+        <circle cx="23" cy="12" r="5.5" fill="#3FB68B" stroke="#1F1F23" stroke-width="1.5"/>
+        <circle cx="32" cy="12" r="5.5" fill="#4F8EF7" stroke="#1F1F23" stroke-width="1.5"/>
+        <text x="44" y="16" fill="#E0E0E0" font-size="11.5" font-weight="500" class="font-inter">3 sources</text>
+      </g>
+    </g>
+  </g>
+
+  <!-- ========================================== -->
+  <!-- FLOATING COMPOSER (ChatInput)              -->
+  <!-- ========================================== -->
+  <g transform="translate(460, 748)">
+    <rect width="780" height="96" rx="24" fill="#2A2A2A" stroke="#363636"/>
+    <text x="20" y="30" fill="#878787" font-size="14" font-weight="400" class="font-inter">Message Veraxi...</text>
+
+    <!-- Bottom-Left Composer Controls: Paperclip, Sliders, Web Search Pill -->
+    <g transform="translate(20, 56)">
+      <!-- Original Paperclip Vector Path -->
+      <path d="M 6 12 L 6 4 C 6 2.3 7.3 1 9 1 C 10.7 1 12 2.3 12 4 L 12 14 C 12 16.8 9.8 19 7 19 C 4.2 19 2 16.8 2 14 L 2 4" stroke="#B4B4B4" stroke-width="1.8" stroke-linecap="round" fill="none"/>
+
+      <!-- Original Sliders Vector Path -->
+      <g transform="translate(28, 0)" stroke="#B4B4B4" stroke-width="1.8" stroke-linecap="round">
+        <line x1="2" y1="5" x2="16" y2="5"/>
+        <circle cx="5" cy="5" r="2" fill="#2A2A2A"/>
+        <line x1="2" y1="13" x2="16" y2="13"/>
+        <circle cx="13" cy="13" r="2" fill="#2A2A2A"/>
+      </g>
+
+      <!-- Active Web Search Chip (globe vector icon + label) -->
+      <g transform="translate(60, -3)">
+        <rect width="98" height="24" rx="12" fill="#242B35" stroke="#3A4A5E"/>
+        <g transform="translate(10, 5)" stroke="#93C5FD" stroke-width="1.3" fill="none">
+          <circle cx="7" cy="7" r="6"/>
+          <ellipse cx="7" cy="7" rx="2.8" ry="6"/>
+          <line x1="1.2" y1="7" x2="12.8" y2="7"/>
+        </g>
+        <text x="28" y="16" fill="#E0E0E0" font-size="11" font-weight="500" class="font-inter">Web Search</text>
+      </g>
+    </g>
+
+    <!-- Bottom-Right Composer Controls: TokenUsageRing (2.4k), Original Microphone Vector Path, Send Button -->
+    <g transform="translate(652, 52)">
+      <!-- Dashed TokenUsageRing (2.4k) -->
+      <g transform="translate(0, 2)">
+        <circle cx="14" cy="14" r="14" stroke="#878787" stroke-width="1.5" stroke-dasharray="3 2.5" fill="none"/>
+        <text x="14" y="17.5" fill="#E0E0E0" font-size="9" font-weight="600" text-anchor="middle" class="font-inter">2.4k</text>
+      </g>
+
+      <!-- Original Microphone Vector Path -->
+      <g transform="translate(42, 4)">
+        <path d="M 12 2 C 10.9 2 10 2.9 10 4 L 10 10 C 10 11.1 10.9 12 12 12 C 13.1 12 14 11.1 14 10 L 14 4 C 14 2.9 13.1 2 12 2 Z M 6 10 C 6 13.3 8.7 16 12 16 C 15.3 16 18 13.3 18 10 M 12 16 L 12 20 M 9 20 L 15 20" stroke="#B4B4B4" stroke-width="1.8" stroke-linecap="round" fill="none"/>
+      </g>
+
+      <!-- Original Send Button Vector Path -->
+      <g transform="translate(78, 0)">
+        <circle cx="16" cy="16" r="16" fill="#424242"/>
+        <path d="M 16 22 L 16 10 M 10 16 L 16 10 L 22 16" stroke="#B4B4B4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+      </g>
+    </g>
+  </g>
 
   <!-- Footer Legal Text -->
-  <text x="850" y="878" font-family="Inter, sans-serif" font-size="12" fill="#878787" text-anchor="middle">Veraxi v0.1.0 - Sovereign Intelligence. Privacy policy | Terms of service</text>
+  <text x="850" y="878" fill="#878787" font-size="12" font-weight="400" text-anchor="middle" class="font-inter">
+    Veraxi v0.1.0 - Sovereign Intelligence. Privacy policy | Terms of service
+  </text>
 </svg>
