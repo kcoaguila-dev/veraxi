@@ -683,6 +683,7 @@ class _ChatInputState extends State<ChatInput> {
                     menuChildren: [
                       _buildToolItem('file_search', 'File Search',
                           Icons.grid_view_outlined,
+                          subtitle: 'Vector + Graph',
                           isActive: _fileSearchActive,
                           isPinned: _fileSearchPinned),
                       _buildWebSearchItem(
@@ -710,7 +711,8 @@ class _ChatInputState extends State<ChatInput> {
                             _buildActiveToolChip(
                                 'File Search',
                                 Icons.grid_view_outlined,
-                                () => _toggleActive('file_search', true)),
+                                () => _toggleActive('file_search', true),
+                                badge: 'Vector + Graph'),
                           if (_webSearchActive)
                             _buildActiveToolChip('Web Search', Icons.language,
                                 () => _toggleActive('web_search', true)),
@@ -801,15 +803,15 @@ class _ChatInputState extends State<ChatInput> {
   }
 
   Widget _buildToolItem(String value, String text, IconData icon,
-      {bool isActive = false, bool isPinned = false}) {
+      {bool isActive = false, bool isPinned = false, String? subtitle}) {
     return MenuItemButton(
       style: const ButtonStyle(
           padding:
               WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 10))),
       onPressed: () => _toggleActive(value, isActive),
       child: Container(
-        width: 155,
-        height: 38,
+        width: 185,
+        height: subtitle != null ? 44 : 38,
         padding: EdgeInsets.zero,
         child: Row(
           children: [
@@ -822,12 +824,31 @@ class _ChatInputState extends State<ChatInput> {
                 size: 14),
             SizedBox(width: 8),
             Expanded(
-              child: Text(text,
-                  style: TextStyle(
-                      color: Color(0xFFE0E0E0),
-                      fontSize: 13,
-                      fontWeight: FontWeight.w400),
-                  overflow: TextOverflow.ellipsis),
+              child: subtitle == null
+                  ? Text(text,
+                      style: TextStyle(
+                          color: Color(0xFFE0E0E0),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w400),
+                      overflow: TextOverflow.ellipsis)
+                  : Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(text,
+                            style: TextStyle(
+                                color: Color(0xFFE0E0E0),
+                                fontSize: 13,
+                                fontWeight: FontWeight.w400),
+                            overflow: TextOverflow.ellipsis),
+                        Text(subtitle,
+                            style: const TextStyle(
+                                color: Color(0xFF8C8C8C),
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.w400),
+                            overflow: TextOverflow.ellipsis),
+                      ],
+                    ),
             ),
             GestureDetector(
               onTap: () => _togglePin(value, isPinned),
@@ -1019,7 +1040,7 @@ class _ChatInputState extends State<ChatInput> {
   }
 
   Widget _buildActiveToolChip(String label, IconData icon, VoidCallback onTap,
-      {bool isActive = true, bool isToggle = false}) {
+      {bool isActive = true, bool isToggle = false, String? badge}) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -1056,6 +1077,24 @@ class _ChatInputState extends State<ChatInput> {
                         : const Color(0xFFE0E0E0),
                     fontSize: 11,
                     fontWeight: FontWeight.w500)),
+            if (badge != null) ...[
+              const SizedBox(width: 5),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF2B2B2F),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  badge,
+                  style: const TextStyle(
+                    color: Color(0xFFA1A1AA),
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
       ),

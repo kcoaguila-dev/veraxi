@@ -192,4 +192,122 @@ void main() {
       );
     });
   });
+
+  group('retrieval coverage banners', () {
+    testWidgets('shows no-solid-evidence banner when retrieval returns 0 hits',
+        (tester) async {
+      final theme = AppTheme.darkTheme;
+      final ext = theme.extension<AppThemeExtension>()!;
+      final msg = ChatMessage(
+        role: 'assistant',
+        content: 'I could not find indexed documents matching your query.',
+        toolEvents: [
+          ToolEvent(
+            id: 't1',
+            name: 'search_vectors',
+            isComplete: true,
+            result: const [],
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(
+        wrap(
+          ChatMessageListItem(
+            msg: msg,
+            theme: theme,
+            ext: ext,
+            showTelemetry: false,
+          ),
+        ),
+      );
+
+      expect(
+        find.byKey(const Key('no-solid-evidence-banner')),
+        findsOneWidget,
+      );
+      expect(
+        find.text('No solid evidence found in indexed sources'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets(
+        'shows low-evidence banner when all hits score below 0.015 threshold',
+        (tester) async {
+      final theme = AppTheme.darkTheme;
+      final ext = theme.extension<AppThemeExtension>()!;
+      final msg = ChatMessage(
+        role: 'assistant',
+        content: 'Here is a tentative match.',
+        toolEvents: [
+          ToolEvent(
+            id: 't1',
+            name: 'merge_rank',
+            isComplete: true,
+            result: const [
+              {
+                'title': 'Weak note',
+                'provenance': {'legs': ['vector'], 'fused_score': 0.011},
+              },
+            ],
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(
+        wrap(
+          ChatMessageListItem(
+            msg: msg,
+            theme: theme,
+            ext: ext,
+            showTelemetry: false,
+          ),
+        ),
+      );
+
+      expect(find.byKey(const Key('low-evidence-banner')), findsOneWidget);
+      expect(
+        find.text('Low-confidence retrieval match — verify cited lines'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('hides coverage banners when high or medium hits exist',
+        (tester) async {
+      final theme = AppTheme.darkTheme;
+      final ext = theme.extension<AppThemeExtension>()!;
+      final msg = ChatMessage(
+        role: 'assistant',
+        content: 'Here is a well-grounded answer.',
+        toolEvents: [
+          ToolEvent(
+            id: 't1',
+            name: 'merge_rank',
+            isComplete: true,
+            result: const [
+              {
+                'title': 'Strong source',
+                'provenance': {'legs': ['vector', 'graph'], 'fused_score': 0.032},
+              },
+            ],
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(
+        wrap(
+          ChatMessageListItem(
+            msg: msg,
+            theme: theme,
+            ext: ext,
+            showTelemetry: false,
+          ),
+        ),
+      );
+
+      expect(find.byKey(const Key('no-solid-evidence-banner')), findsNothing);
+      expect(find.byKey(const Key('low-evidence-banner')), findsNothing);
+    });
+  });
 }

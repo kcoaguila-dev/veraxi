@@ -11,6 +11,7 @@ import 'package:veraxi_app/features/chat/view_models/token_usage.dart';
 import 'package:veraxi_app/features/chat/views/widgets/token_usage_ring.dart';
 import 'package:veraxi_app/features/chat/views/widgets/compaction_sheet.dart';
 import 'package:veraxi_app/features/chat/views/widgets/chat_input.dart';
+import 'package:veraxi_app/features/chat/views/widgets/chat_empty_state.dart';
 import 'package:veraxi_app/features/chat/views/widgets/chat_sidebar.dart';
 import 'package:veraxi_app/features/chat/views/widgets/chat_message_list_item.dart';
 import 'package:veraxi_app/features/chat/views/widgets/project_dashboard_view.dart';
@@ -1162,6 +1163,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   .animate()
                   .fade(duration: 800.ms, delay: 100.ms)
                   .slideY(begin: 0.1, end: 0),
+              const SizedBox(height: 16),
+              HybridStarterChipsRow(
+                isLoading: state.isLoading,
+                onSelectPrompt: (prompt) => viewModel.sendMessage(
+                  prompt,
+                  model: _selectedModel == 'Select a model'
+                      ? null
+                      : _selectedModel,
+                ),
+              ),
               if (sandboxEnabled) ...[
                 const SizedBox(height: 16),
                 const SandboxDrawer(),

@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:convert';
 
+import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:veraxi_app/features/chat/view_models/audio_player_service.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -137,6 +139,7 @@ class ChatMessageListItem extends ConsumerWidget {
     // instead of interrupting the text where the block was written.
     final artifacts = extractCodeArtifacts(msg.content);
     final openArtifact = ref.watch(openCodeArtifactProvider);
+    final coverageNotice = evaluateRetrievalCoverage(msg);
 
     return Center(
         child: ConstrainedBox(
@@ -260,6 +263,10 @@ class ChatMessageListItem extends ConsumerWidget {
                                         .toList(),
                                   ),
                                 ),
+
+                              if (coverageNotice != null)
+                                _RetrievalCoverageBanner(
+                                    notice: coverageNotice),
 
                               if (msg.content.isNotEmpty)
                                 MarkdownBody(
@@ -802,6 +809,212 @@ class _CopyMessageButtonState extends State<_CopyMessageButton> {
                   color: widget.color,
                 ),
         ),
+      ),
+    );
+  }
+}
+
+/// Classification for retrieval coverage notices rendered above an assistant response.
+enum RetrievalCoverageKind { noSolidEvidence, lowConfidence }
+
+/// User-facing notice shown when retrieval returns empty or low-confidence hits.
+class RetrievalCoverageNotice {
+  final RetrievalCoverageKind kind;
+  final String keyName;
+  final String title;
+  final String subtitle;
+
+  const RetrievalCoverageNotice({
+    required this.kind,
+    required this.keyName,
+    required this.title,
+    required this.subtitle,
+  });
+
+  static const noSolidEvidence = RetrievalCoverageNotice(
+    kind: RetrievalCoverageKind.noSolidEvidence,
+    keyName: 'no-solid-evidence-banner',
+    title: 'No solid evidence found in indexed sources',
+    subtitle:
+        'Retrieval returned 0 matching chunks — answer relies on model knowledge.',
+  );
+
+  static const lowConfidence = RetrievalCoverageNotice(
+    kind: RetrievalCoverageKind.lowConfidence,
+    keyName: 'low-evidence-banner',
+    title: 'Low-confidence retrieval match — verify cited lines',
+    subtitle:
+        'All retrieved passages scored below the medium-match RRF threshold.',
+  );
+}
+
+const Set<String> _retrievalToolNames = {
+  'search_vectors',
+  'query_graph',
+  'merge_rank',
+  'build_lazy_dossier',
+  'web_search',
+  'ephemeral_web_rag',
+  'code_symbol',
+  'code_impact',
+  'code_overview',
+};
+
+List<ToolEvent> _collectMessageToolEvents(ChatMessage msg) {
+  if (msg.toolEvents.isNotEmpty) return msg.toolEvents;
+  return [
+    for (final step in msg.activity) ...step.toolEvents,
+  ];
+}
+
+bool _isRetrievalToolName(String rawName) {
+  final normalized =
+      rawName.startsWith('mcp_') ? rawName.substring(4) : rawName;
+  return _retrievalToolNames.contains(normalized);
+}
+
+bool _isCompletedRetrievalEvent(ToolEvent event) {
+  if (!event.isComplete || event.result == null) return false;
+  if (!_isRetrievalToolName(event.name)) return false;
+  final raw = event.result;
+  if (raw is String) {
+    final trimmed = raw.trimLeft();
+    if (trimmed.isEmpty || trimmed.startsWith('Error:')) return false;
+    return trimmed.startsWith('[') || trimmed.startsWith('{');
+  }
+  return raw is List || raw is Map;
+}
+
+dynamic _decodeResultPayload(dynamic rawResult) {
+  if (rawResult is! String) return rawResult;
+  try {
+    return jsonDecode(rawResult.trimLeft());
+  } on FormatException catch (e, st) {
+    Sentry.captureException(e, stackTrace: st);
+    return null;
+  }
+}
+
+List<Map<String, dynamic>> _extractHitMapsFromPayload(dynamic payload) {
+  if (payload is List) {
+    return [
+      for (final item in payload)
+        if (item is Map) Map<String, dynamic>.from(item),
+    ];
+  }
+  if (payload is! Map) return const <Map<String, dynamic>>[];
+  const listKeys = ['chunks', 'matches', 'impacted', 'results', 'items'];
+  for (final key in listKeys) {
+    final value = payload[key];
+    if (value is List) {
+      return [
+        for (final item in value)
+          if (item is Map) Map<String, dynamic>.from(item),
+      ];
+    }
+  }
+  final totalNodes = payload['total_nodes'];
+  if (totalNodes is num && totalNodes > 0) {
+    return [Map<String, dynamic>.from(payload)];
+  }
+  return const <Map<String, dynamic>>[];
+}
+
+List<double> _extractFusedScores(List<Map<String, dynamic>> hits) {
+  final scores = <double>[];
+  for (final hit in hits) {
+    final prov = hit['provenance'];
+    if (prov is Map && prov['fused_score'] is num) {
+      scores.add((prov['fused_score'] as num).toDouble());
+    }
+  }
+  return scores;
+}
+
+/// Evaluates completed retrieval tool results on [msg] to surface empty or
+/// low-confidence retrieval coverage notices.
+RetrievalCoverageNotice? evaluateRetrievalCoverage(ChatMessage msg) {
+  if (msg.role == 'user' ||
+      msg.isStreaming ||
+      msg.isError ||
+      msg.content.isEmpty) {
+    return null;
+  }
+  final events =
+      _collectMessageToolEvents(msg).where(_isCompletedRetrievalEvent).toList();
+  if (events.isEmpty) return null;
+
+  var validEventsCount = 0;
+  final hits = <Map<String, dynamic>>[];
+  for (final event in events) {
+    final payload = _decodeResultPayload(event.result);
+    if (payload == null) continue;
+    validEventsCount++;
+    hits.addAll(_extractHitMapsFromPayload(payload));
+  }
+  if (validEventsCount == 0) return null;
+  if (hits.isEmpty) return RetrievalCoverageNotice.noSolidEvidence;
+
+  final scores = _extractFusedScores(hits);
+  if (scores.length == hits.length && scores.every((s) => s < 0.015)) {
+    return RetrievalCoverageNotice.lowConfidence;
+  }
+  return null;
+}
+
+class _RetrievalCoverageBanner extends StatelessWidget {
+  final RetrievalCoverageNotice notice;
+
+  const _RetrievalCoverageBanner({required this.notice});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: Key(notice.keyName),
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF59E0B).withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(8),
+        border:
+            Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.30)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.only(top: 1),
+            child: Icon(
+              Icons.info_outline,
+              size: 15,
+              color: Color(0xFFFBBF24),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  notice.title,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFFFDE68A),
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  notice.subtitle,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: Color(0xFFD4D4D8),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

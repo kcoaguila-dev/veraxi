@@ -4,11 +4,12 @@
        POST /api/v1/code/ingest, GET /api/v1/code/overview,
        GET /api/v1/code/symbol, GET /api/v1/code/impact).
        Rules: repo path is a text field + Index button; summary pills
-       show total nodes/edges from the overview; top-connected symbols
-       list name + degree; symbol search shows matches; the impact
-       result is an expandable list grouped by depth with CALLS /
-       IMPORTS badges. Errors from the backend render inline, never
-       as a crash. Colors: surface #1F1F23, border #2E2E34,
+       show total nodes/edges and index freshness from the overview
+       (green fresh commit stamp or amber stale warning with Re-index);
+       top-connected symbols list name + degree; symbol search shows
+       matches; the impact result is an expandable list grouped by depth
+       with CALLS / IMPORTS badges. Errors from the backend render
+       inline, never as a crash. Colors: surface #1F1F23, border #2E2E34,
        card #222226, text #ECECEC / #A1A1AA. -->
   <rect width="1440" height="900" fill="#0E0E10"/>
   <rect x="0" y="0" width="1440" height="900" fill="#171719"/>
@@ -22,6 +23,12 @@
   <text x="88" y="190" font-family="Inter, sans-serif" font-size="12" fill="#ECECEC">1,204 nodes</text>
   <rect x="234" y="170" width="150" height="30" rx="15" fill="#1F1F23" stroke="#2E2E34"/>
   <text x="250" y="190" font-family="Inter, sans-serif" font-size="12" fill="#ECECEC">2,860 edges</text>
+  <rect x="396" y="170" width="210" height="30" rx="15" fill="#14261C" stroke="#22C55E" stroke-opacity="0.45"/>
+  <circle cx="412" cy="185" r="3.5" fill="#22C55E"/>
+  <text x="424" y="190" font-family="Inter, sans-serif" font-size="12" fill="#86EFAC">Index fresh · commit 7a8b9c0</text>
+  <rect x="618" y="170" width="278" height="30" rx="15" fill="#2A1F0E" stroke="#F59E0B" stroke-opacity="0.45"/>
+  <text x="634" y="190" font-family="Inter, sans-serif" font-size="12" fill="#FDE68A">Index stale · 7a8b9c0 → f4e5d6c</text>
+  <text x="838" y="190" font-family="Inter, sans-serif" font-size="12" fill="#F59E0B" font-weight="600" text-decoration="underline">Re-index</text>
   <text x="72" y="232" font-family="Inter, sans-serif" font-size="13" fill="#ECECEC" font-weight="600">Top-connected symbols</text>
   <text x="72" y="258" font-family="Inter, sans-serif" font-size="12" fill="#A1A1AA">app.main — degree 31 · Function · app.py</text>
   <rect x="72" y="282" width="420" height="38" rx="8" fill="#1F1F23" stroke="#2E2E34"/>

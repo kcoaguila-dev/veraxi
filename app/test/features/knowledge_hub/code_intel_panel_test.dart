@@ -8,7 +8,10 @@ import 'package:veraxi_app/features/knowledge_hub/view_models/code_intel_view_mo
 import 'package:veraxi_app/features/knowledge_hub/views/widgets/code_intel_section.dart';
 
 class FakeCodeIntelRepository extends CodeIntelRepository {
-  FakeCodeIntelRepository()
+  Map<String, dynamic>? freshnessJson;
+  int ingestCallCount = 0;
+
+  FakeCodeIntelRepository({this.freshnessJson})
       : super(
           apiClient: ApiClient(
             baseUrl: 'https://api.test/api',
@@ -18,6 +21,7 @@ class FakeCodeIntelRepository extends CodeIntelRepository {
 
   @override
   Future<Map<String, dynamic>> ingestRepo(String repoPath) async {
+    ingestCallCount++;
     return {'status': 'ok', 'nodes_written': 7, 'edges_written': 9};
   }
 
@@ -28,6 +32,7 @@ class FakeCodeIntelRepository extends CodeIntelRepository {
       'edge_counts': {'CALLS': 3},
       'total_nodes': 7,
       'total_edges': 9,
+      if (freshnessJson != null) 'freshness': freshnessJson,
       'top_connected': [
         {
           'name': 'main',
@@ -355,5 +360,74 @@ void main() {
     expect(ids(VulnQuickFilter.kevOnly), ['CVE-KEV']);
     expect(ids(VulnQuickFilter.highEpss), ['CVE-EPSS']);
     expect(ids(VulnQuickFilter.reachable), ['CVE-REACH']);
+  });
+
+  test('CodeOverview.fromJson parses freshness stamp', () {
+    final overview = CodeOverview.fromJson({
+      'total_nodes': 12,
+      'total_edges': 24,
+      'freshness': {
+        'indexed_commit': '7a8b9c0123456789',
+        'indexed_at': '2026-11-22T08:00:00Z',
+        'repo_key': 'veraxi',
+        'current_commit': 'f4e5d6c987654321',
+        'stale': true,
+      },
+    });
+    expect(overview.freshness, isNotNull);
+    expect(overview.freshness!.shortIndexedCommit, '7a8b9c0');
+    expect(overview.freshness!.shortCurrentCommit, 'f4e5d6c');
+    expect(overview.freshness!.isStale, isTrue);
+  });
+
+  testWidgets(
+      'RepoXrayPanel renders fresh and stale commit stamps with Re-index action',
+      (tester) async {
+    tester.view.physicalSize = const Size(1200, 4400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    final fake = FakeCodeIntelRepository(
+      freshnessJson: {
+        'indexed_commit': '7a8b9c0abcdef',
+        'stale': false,
+      },
+    );
+    await tester.pumpWidget(ProviderScope(
+      overrides: [
+        codeIntelRepositoryProvider.overrideWithValue(fake),
+      ],
+      child: MaterialApp(
+        theme: testTheme(),
+        home: const Scaffold(
+          body: SingleChildScrollView(child: CodeIntelSection()),
+        ),
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField).first, '/repos/demo');
+    await tester.tap(find.text('Index Code Graph'));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('code-index-freshness-fresh')), findsOneWidget);
+    expect(find.text('Index fresh · commit 7a8b9c0'), findsOneWidget);
+    expect(find.byKey(const Key('code-index-freshness-stale')), findsNothing);
+
+    // Switch overview to stale and refresh.
+    fake.freshnessJson = {
+      'indexed_commit': '7a8b9c0abcdef',
+      'current_commit': 'f4e5d6c123456',
+      'stale': true,
+    };
+    await tester.tap(find.byTooltip('Refresh overview'));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('code-index-freshness-stale')), findsOneWidget);
+    expect(find.text('Index stale · 7a8b9c0 → f4e5d6c'), findsOneWidget);
+    final callsBeforeReindex = fake.ingestCallCount;
+    await tester.tap(find.byKey(const Key('code-index-reindex-action')));
+    await tester.pumpAndSettle();
+    expect(fake.ingestCallCount, callsBeforeReindex + 1);
   });
 }

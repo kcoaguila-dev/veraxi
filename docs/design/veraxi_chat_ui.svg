@@ -1,4 +1,16 @@
 <svg width="1440" height="900" viewBox="0 0 1440 900" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Visual contract: Veraxi Chat UI (chat_screen.dart, chat_empty_state.dart,
+       chat_sidebar.dart).
+       1. Empty-state capability onboarding chips (HybridStarterChipsRow in
+          chat_empty_state.dart / chat_screen.dart): 3 clickable starter chips
+          below ChatInput when messages is empty ('Trace multi-hop connections
+          in Knowledge Graph', 'Analyze symbol blast radius with Code X-Ray',
+          'Search live web & corpus with inline citations').
+       2. Sidebar consecutive duplicate collapsing (ChatSidebar in
+          chat_sidebar.dart): consecutive threads sharing the same resolved
+          title collapse into a primary row with an expandable ×N count pill
+          (Key('duplicate-group-toggle-<groupKey>')), and pinned threads
+          (is_pinned == true) display a subtle 12px push_pin indicator. -->
   <defs>
     <style>
       @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;display=swap');

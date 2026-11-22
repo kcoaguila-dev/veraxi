@@ -43,15 +43,15 @@ class ChatInputToolsMenu extends StatelessWidget {
 
   Widget _buildToolItem(
       BuildContext context, String value, String text, IconData icon,
-      {bool isActive = false, bool isPinned = false}) {
+      {bool isActive = false, bool isPinned = false, String? subtitle}) {
     return MenuItemButton(
       style: const ButtonStyle(
           padding:
               WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 10))),
       onPressed: () => onToggleActive(value, isActive),
       child: Container(
-        width: 155,
-        height: 38,
+        width: 185,
+        height: subtitle != null ? 44 : 38,
         padding: EdgeInsets.zero,
         child: Row(
           children: [
@@ -64,12 +64,31 @@ class ChatInputToolsMenu extends StatelessWidget {
                 size: 14),
             const SizedBox(width: 8),
             Expanded(
-              child: Text(text,
-                  style: const TextStyle(
-                      color: Color(0xFFE0E0E0),
-                      fontSize: 13,
-                      fontWeight: FontWeight.w400),
-                  overflow: TextOverflow.ellipsis),
+              child: subtitle == null
+                  ? Text(text,
+                      style: const TextStyle(
+                          color: Color(0xFFE0E0E0),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w400),
+                      overflow: TextOverflow.ellipsis)
+                  : Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(text,
+                            style: const TextStyle(
+                                color: Color(0xFFE0E0E0),
+                                fontSize: 13,
+                                fontWeight: FontWeight.w400),
+                            overflow: TextOverflow.ellipsis),
+                        Text(subtitle,
+                            style: const TextStyle(
+                                color: Color(0xFF8C8C8C),
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.w400),
+                            overflow: TextOverflow.ellipsis),
+                      ],
+                    ),
             ),
             GestureDetector(
               onTap: () => onTogglePin(value, isPinned),
@@ -299,7 +318,9 @@ class ChatInputToolsMenu extends StatelessWidget {
       menuChildren: [
         _buildToolItem(
             context, 'file_search', 'File Search', Icons.grid_view_outlined,
-            isActive: fileSearchActive, isPinned: fileSearchPinned),
+            subtitle: 'Vector + Graph',
+            isActive: fileSearchActive,
+            isPinned: fileSearchPinned),
         _buildWebSearchItem(context,
             isActive: webSearchActive, isPinned: webSearchPinned),
         _buildSkillsItem(context,

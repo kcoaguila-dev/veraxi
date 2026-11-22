@@ -134,6 +134,69 @@ void main() {
     expect(controller.position.maxScrollExtent, greaterThan(250.0));
     expect(controller.position.pixels, closeTo(250.0, 0.5));
   });
+
+  testWidgets('ChatScreen shows capability starter chips only in empty state',
+      (WidgetTester tester) async {
+    final viewModel = await pumpChatScreen(
+      tester,
+      ChatState(messages: [], isLoadingHistory: false),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('starter-chip-graph')), findsOneWidget);
+    expect(find.byKey(const Key('starter-chip-code')), findsOneWidget);
+    expect(find.byKey(const Key('starter-chip-hybrid')), findsOneWidget);
+    expect(
+      find.text('Trace multi-hop connections in Knowledge Graph'),
+      findsOneWidget,
+    );
+    expect(
+      find.text('Analyze symbol blast radius with Code X-Ray'),
+      findsOneWidget,
+    );
+    expect(
+      find.text('Search live web & corpus with inline citations'),
+      findsOneWidget,
+    );
+
+    viewModel.setStateForTesting(
+      ChatState(
+        threadId: 'thread-1',
+        isLoadingHistory: false,
+        messages: [ChatMessage(role: 'user', content: 'Hi')],
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('starter-chip-graph')), findsNothing);
+  });
+
+  testWidgets(
+      'ChatSidebar collapses consecutive duplicate titles and expands on tap',
+      (WidgetTester tester) async {
+    await pumpChatScreen(
+      tester,
+      ChatState(
+        pastThreads: [
+          {'thread_id': 't1', 'title': 'Greeting Exchange'},
+          {'thread_id': 't2', 'title': 'Greeting Exchange'},
+          {'thread_id': 't3', 'title': 'Greeting Exchange'},
+          {'thread_id': 't4', 'title': 'Other Thread'},
+        ],
+        messages: [],
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Greeting Exchange'), findsOneWidget);
+    expect(find.text('×3'), findsOneWidget);
+    expect(find.text('Other Thread'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('duplicate-group-toggle-t1')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Greeting Exchange'), findsNWidgets(3));
+  });
 }
 
 class MockChatRepository extends Mock implements IChatRepository {

@@ -20,7 +20,13 @@
           by default, and gate the raw "Fused score" row behind Metrics
           (showTelemetry); graph path renders only when a graph traversal
           contributed a captured path, as indented node —relation→ node steps.
-          Sources without provenance render exactly as before (no empty section). -->
+          Sources without provenance render exactly as before (no empty section).
+       3. Low / No Solid Evidence disclosure banner
+          (implemented by chat_message_list_item.dart evaluateRetrievalCoverage):
+          when completed retrieval tools return 0 hits on an assistant turn,
+          render "No solid evidence found in indexed sources" above the prose;
+          when all hits carry fused_score < 0.015 (Low match), render
+          "Low-confidence retrieval match — verify cited lines". -->
   <rect width="1440" height="900" fill="#0E0E10"/>
 
   <!-- Left chat column -->

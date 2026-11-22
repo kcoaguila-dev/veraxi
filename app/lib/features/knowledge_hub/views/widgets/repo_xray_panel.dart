@@ -106,6 +106,9 @@ class _RepoXrayPanelState extends ConsumerState<RepoXrayPanel> {
               children: [
                 _pill('${overview.totalNodes} nodes'),
                 _pill('${overview.totalEdges} edges'),
+                if (overview.freshness != null &&
+                    overview.freshness!.hasIndexedCommit)
+                  _buildFreshnessPill(overview.freshness!, state, viewModel),
                 ...overview.nodeCounts.entries
                     .map((e) => _pill('${e.key}: ${e.value}')),
               ],
@@ -237,6 +240,97 @@ class _RepoXrayPanelState extends ConsumerState<RepoXrayPanel> {
                     ),
             ),
           ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFreshnessPill(
+    CodeIndexFreshness freshness,
+    CodeIntelState state,
+    CodeIntelViewModel viewModel,
+  ) {
+    if (freshness.isStale) {
+      final current = freshness.shortCurrentCommit;
+      final label = current != null
+          ? 'Index stale · ${freshness.shortIndexedCommit} → $current'
+          : 'Index stale · commit ${freshness.shortIndexedCommit}';
+      return Container(
+        key: const Key('code-index-freshness-stale'),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF59E0B).withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(15),
+          border:
+              Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.45)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.warning_amber_rounded,
+              size: 14,
+              color: Color(0xFFFBBF24),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: const TextStyle(
+                color: Color(0xFFFDE68A),
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(width: 8),
+            InkWell(
+              key: const Key('code-index-reindex-action'),
+              onTap: state.indexing
+                  ? null
+                  : () => viewModel.indexRepo(widget.repoPathController.text),
+              child: const Text(
+                'Re-index',
+                style: TextStyle(
+                  color: Color(0xFFF59E0B),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  decoration: TextDecoration.underline,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Container(
+      key: const Key('code-index-freshness-fresh'),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: const Color(0xFF22C55E).withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(15),
+        border:
+            Border.all(color: const Color(0xFF22C55E).withValues(alpha: 0.40)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 6,
+            height: 6,
+            decoration: const BoxDecoration(
+              color: Color(0xFF22C55E),
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            'Index fresh · commit ${freshness.shortIndexedCommit}',
+            style: const TextStyle(
+              color: Color(0xFF86EFAC),
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
         ],
       ),
     );

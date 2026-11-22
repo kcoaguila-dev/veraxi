@@ -229,6 +229,28 @@ void main() {
         final afterRaw = prefs.getString('tool_settings') ?? '{}';
         expect((jsonDecode(afterRaw) as Map)['file_search_enabled'], isFalse);
       });
+
+      testWidgets(
+          'Tools menu shows Vector + Graph subtitle and active chip displays badge',
+          (tester) async {
+        await tester.pumpWidget(wrap(ChatInput(
+          isLoading: false,
+          onSend: (text, {attachments}) {},
+        )));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byIcon(Icons.tune));
+        await tester.pumpAndSettle();
+
+        expect(find.text('File Search'), findsWidgets);
+        expect(find.text('Vector + Graph'), findsOneWidget);
+
+        await tester.tap(find.text('File Search'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('File Search'), findsWidgets);
+        expect(find.text('Vector + Graph'), findsOneWidget);
+      });
     });
   });
 }

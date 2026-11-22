@@ -1,6 +1,52 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:veraxi_app/core/network/api_client.dart';
 
+/// Index freshness stamp attached to code-graph responses
+/// (`GET /api/v1/code/overview`, `symbol`, `impact`).
+class CodeIndexFreshness {
+  final String? indexedCommit;
+  final String? indexedAt;
+  final String? repoKey;
+  final String? currentCommit;
+  final bool? stale;
+
+  const CodeIndexFreshness({
+    this.indexedCommit,
+    this.indexedAt,
+    this.repoKey,
+    this.currentCommit,
+    this.stale,
+  });
+
+  bool get hasIndexedCommit =>
+      indexedCommit != null && indexedCommit!.trim().isNotEmpty;
+
+  bool get isStale => stale == true;
+
+  String get shortIndexedCommit => _shortSha(indexedCommit);
+
+  String? get shortCurrentCommit {
+    if (currentCommit == null || currentCommit!.trim().isEmpty) return null;
+    return _shortSha(currentCommit);
+  }
+
+  static String _shortSha(String? sha) {
+    final trimmed = (sha ?? '').trim();
+    if (trimmed.length <= 7) return trimmed;
+    return trimmed.substring(0, 7);
+  }
+
+  factory CodeIndexFreshness.fromJson(Map<String, dynamic> json) {
+    return CodeIndexFreshness(
+      indexedCommit: json['indexed_commit'] as String?,
+      indexedAt: json['indexed_at'] as String?,
+      repoKey: json['repo_key'] as String?,
+      currentCommit: json['current_commit'] as String?,
+      stale: json['stale'] as bool?,
+    );
+  }
+}
+
 /// Code-graph overview from GET /api/v1/code/overview.
 class CodeOverview {
   final Map<String, int> nodeCounts;
@@ -8,6 +54,7 @@ class CodeOverview {
   final int totalNodes;
   final int totalEdges;
   final List<TopConnectedSymbol> topConnected;
+  final CodeIndexFreshness? freshness;
 
   const CodeOverview({
     this.nodeCounts = const {},
@@ -15,6 +62,7 @@ class CodeOverview {
     this.totalNodes = 0,
     this.totalEdges = 0,
     this.topConnected = const [],
+    this.freshness,
   });
 
   factory CodeOverview.fromJson(Map<String, dynamic> json) {
@@ -26,6 +74,12 @@ class CodeOverview {
     }
 
     final top = json['top_connected'] as List<dynamic>? ?? const [];
+    final rawFreshness = json['freshness'];
+    final freshness = rawFreshness is Map
+        ? CodeIndexFreshness.fromJson(
+            Map<String, dynamic>.from(rawFreshness),
+          )
+        : null;
     return CodeOverview(
       nodeCounts: intMap(json['node_counts']),
       edgeCounts: intMap(json['edge_counts']),
@@ -35,6 +89,7 @@ class CodeOverview {
           .map((e) =>
               TopConnectedSymbol.fromJson(Map<String, dynamic>.from(e as Map)))
           .toList(),
+      freshness: freshness,
     );
   }
 }

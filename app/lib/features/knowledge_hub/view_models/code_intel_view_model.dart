@@ -10,6 +10,7 @@ export 'package:veraxi_app/features/knowledge_hub/data/code_intel_repository.dar
     show
         AlertIngestResult,
         AttackSyncResult,
+        CodeIndexFreshness,
         CodeOverview,
         CodeSymbolMatch,
         ImpactedSymbol,
