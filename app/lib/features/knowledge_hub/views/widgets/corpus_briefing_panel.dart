@@ -7,6 +7,8 @@ import 'package:veraxi_app/core/theme_extension.dart';
 import 'package:veraxi_app/features/chat/views/widgets/artifact_download.dart';
 import 'package:veraxi_app/features/knowledge_hub/view_models/corpus_insights_view_model.dart';
 
+enum CorpusBriefingSectionFilter { all, briefingOnly, dbtLineageOnly }
+
 /// Corpus Briefing & dbt Lineage panel (Knowledge Hub).
 ///
 /// Design contract: docs/design/corpus_briefing_panel.svg.
@@ -15,7 +17,12 @@ import 'package:veraxi_app/features/knowledge_hub/view_models/corpus_insights_vi
 /// Download Markdown, plus a dbt manifest.json upload card and
 /// dataset/column search with one-hop lineage.
 class CorpusBriefingPanel extends ConsumerStatefulWidget {
-  const CorpusBriefingPanel({super.key});
+  final CorpusBriefingSectionFilter sectionFilter;
+
+  const CorpusBriefingPanel({
+    super.key,
+    this.sectionFilter = CorpusBriefingSectionFilter.all,
+  });
 
   @override
   ConsumerState<CorpusBriefingPanel> createState() =>
@@ -64,178 +71,189 @@ class _CorpusBriefingPanelState extends ConsumerState<CorpusBriefingPanel> {
     final state = ref.watch(corpusInsightsViewModelProvider);
     final viewModel = ref.read(corpusInsightsViewModelProvider.notifier);
 
+    final showBriefing =
+        widget.sectionFilter != CorpusBriefingSectionFilter.dbtLineageOnly;
+    final showDbt =
+        widget.sectionFilter != CorpusBriefingSectionFilter.briefingOnly;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Corpus Insights',
-            style: theme.textTheme.headlineMedium?.copyWith(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 20)),
-        const SizedBox(height: 8),
-        Text(
-          'A deterministic briefing of your knowledge graph, and dbt lineage for your data pipeline.',
-          style: TextStyle(color: ext.iconColor, fontSize: 14),
-        ),
-        const SizedBox(height: 16),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            color: ext.surfaceHighlight,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: ext.borderColorStrong),
+        if (widget.sectionFilter == CorpusBriefingSectionFilter.all) ...[
+          Text('Corpus Insights',
+              style: theme.textTheme.headlineMedium?.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 20)),
+          const SizedBox(height: 8),
+          Text(
+            'A deterministic briefing of your knowledge graph, and dbt lineage for your data pipeline.',
+            style: TextStyle(color: ext.iconColor, fontSize: 14),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  const Icon(Icons.menu_book_outlined,
-                      size: 20, color: Colors.white),
-                  const SizedBox(width: 10),
-                  const Text('Corpus Briefing',
-                      style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600)),
-                  const Spacer(),
-                  if (state.briefing != null) ...[
-                    TextButton.icon(
-                      onPressed: () => _copyMarkdown(state.briefing!.markdown),
-                      icon: Icon(_copied ? Icons.check : Icons.copy_outlined,
-                          size: 16),
-                      label: Text(_copied ? 'Copied' : 'Copy MD'),
-                    ),
-                    const SizedBox(width: 8),
-                    TextButton.icon(
-                      onPressed: () => downloadArtifactFile(
-                        fileName: 'corpus_briefing.md',
-                        content: state.briefing!.markdown,
+          const SizedBox(height: 16),
+        ],
+        if (showBriefing)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: ext.surfaceHighlight,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: ext.borderColorStrong),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.menu_book_outlined,
+                        size: 20, color: Colors.white),
+                    const SizedBox(width: 10),
+                    const Text('Corpus Briefing',
+                        style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600)),
+                    const Spacer(),
+                    if (state.briefing != null) ...[
+                      TextButton.icon(
+                        onPressed: () =>
+                            _copyMarkdown(state.briefing!.markdown),
+                        icon: Icon(_copied ? Icons.check : Icons.copy_outlined,
+                            size: 16),
+                        label: Text(_copied ? 'Copied' : 'Copy MD'),
                       ),
-                      icon: const Icon(Icons.download_outlined, size: 16),
-                      label: const Text('Download'),
+                      const SizedBox(width: 8),
+                      TextButton.icon(
+                        onPressed: () => downloadArtifactFile(
+                          fileName: 'corpus_briefing.md',
+                          content: state.briefing!.markdown,
+                        ),
+                        icon: const Icon(Icons.download_outlined, size: 16),
+                        label: const Text('Download'),
+                      ),
+                    ],
+                    IconButton(
+                      tooltip: 'Refresh briefing',
+                      onPressed:
+                          state.loadingBriefing ? null : viewModel.loadBriefing,
+                      icon: const Icon(Icons.refresh, size: 18),
                     ),
                   ],
-                  IconButton(
-                    tooltip: 'Refresh briefing',
-                    onPressed:
-                        state.loadingBriefing ? null : viewModel.loadBriefing,
-                    icon: const Icon(Icons.refresh, size: 18),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              AnimatedSwitcher(
-                duration: const Duration(milliseconds: 260),
-                child: _briefingBody(state),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 24),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            color: ext.surfaceHighlight,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: ext.borderColorStrong),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('dbt Lineage',
-                  style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600)),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 12,
-                runSpacing: 8,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  ElevatedButton.icon(
-                    onPressed: state.ingestingManifest ? null : _pickManifest,
-                    icon: const Icon(Icons.upload_file_outlined, size: 16),
-                    label: Text(state.ingestingManifest
-                        ? 'Ingesting…'
-                        : 'Upload manifest.json'),
-                  ),
-                  if (state.manifestStatus != null)
-                    Text(state.manifestStatus!,
-                        style: const TextStyle(
-                            color: Color(0xFF22C55E), fontSize: 13)),
-                  if (state.manifestError != null)
-                    Text(state.manifestError!,
-                        style: const TextStyle(
-                            color: Color(0xFFF59E0B), fontSize: 13)),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _datasetController,
-                      style: const TextStyle(color: Colors.white, fontSize: 14),
-                      decoration: InputDecoration(
-                        hintText: 'Search datasets or columns…',
-                        hintStyle: TextStyle(color: ext.textTertiary),
-                        filled: true,
-                        fillColor: ext.cardBackground,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: BorderSide.none,
-                        ),
-                      ),
-                      onSubmitted: viewModel.searchDatasets,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  ElevatedButton(
-                    onPressed: state.searchingDatasets
-                        ? null
-                        : () =>
-                            viewModel.searchDatasets(_datasetController.text),
-                    child: const Text('Search'),
-                  ),
-                ],
-              ),
-              if (state.datasetError != null) ...[
-                const SizedBox(height: 8),
-                Text(state.datasetError!,
-                    style: const TextStyle(
-                        color: Color(0xFFF59E0B), fontSize: 13)),
+                ),
+                const SizedBox(height: 12),
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 260),
+                  child: _briefingBody(state),
+                ),
               ],
-              const SizedBox(height: 12),
-              ...state.datasetMatches.map((match) => Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '${match.name} (${match.label} · matched by ${match.matchedBy.join(', ')})',
-                          style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600),
-                        ),
-                        if (match.upstream.isNotEmpty)
-                          Text('Upstream: ${match.upstream.join(', ')}',
-                              style: TextStyle(
-                                  color: ext.iconColor, fontSize: 12)),
-                        if (match.downstream.isNotEmpty)
-                          Text('Downstream: ${match.downstream.join(', ')}',
-                              style: TextStyle(
-                                  color: ext.iconColor, fontSize: 12)),
-                      ],
-                    ),
-                  )),
-            ],
+            ),
           ),
-        ),
+        if (showBriefing && showDbt) const SizedBox(height: 24),
+        if (showDbt)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: ext.surfaceHighlight,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: ext.borderColorStrong),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('dbt Lineage',
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600)),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 8,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    ElevatedButton.icon(
+                      onPressed: state.ingestingManifest ? null : _pickManifest,
+                      icon: const Icon(Icons.upload_file_outlined, size: 16),
+                      label: Text(state.ingestingManifest
+                          ? 'Ingesting…'
+                          : 'Upload manifest.json'),
+                    ),
+                    if (state.manifestStatus != null)
+                      Text(state.manifestStatus!,
+                          style: const TextStyle(
+                              color: Color(0xFF22C55E), fontSize: 13)),
+                    if (state.manifestError != null)
+                      Text(state.manifestError!,
+                          style: const TextStyle(
+                              color: Color(0xFFF59E0B), fontSize: 13)),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _datasetController,
+                        style:
+                            const TextStyle(color: Colors.white, fontSize: 14),
+                        decoration: InputDecoration(
+                          hintText: 'Search datasets or columns…',
+                          hintStyle: TextStyle(color: ext.textTertiary),
+                          filled: true,
+                          fillColor: ext.cardBackground,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide.none,
+                          ),
+                        ),
+                        onSubmitted: viewModel.searchDatasets,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    ElevatedButton(
+                      onPressed: state.searchingDatasets
+                          ? null
+                          : () =>
+                              viewModel.searchDatasets(_datasetController.text),
+                      child: const Text('Search'),
+                    ),
+                  ],
+                ),
+                if (state.datasetError != null) ...[
+                  const SizedBox(height: 8),
+                  Text(state.datasetError!,
+                      style: const TextStyle(
+                          color: Color(0xFFF59E0B), fontSize: 13)),
+                ],
+                const SizedBox(height: 12),
+                ...state.datasetMatches.map((match) => Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '${match.name} (${match.label} · matched by ${match.matchedBy.join(', ')})',
+                            style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600),
+                          ),
+                          if (match.upstream.isNotEmpty)
+                            Text('Upstream: ${match.upstream.join(', ')}',
+                                style: TextStyle(
+                                    color: ext.iconColor, fontSize: 12)),
+                          if (match.downstream.isNotEmpty)
+                            Text('Downstream: ${match.downstream.join(', ')}',
+                                style: TextStyle(
+                                    color: ext.iconColor, fontSize: 12)),
+                        ],
+                      ),
+                    )),
+              ],
+            ),
+          ),
       ],
     );
   }

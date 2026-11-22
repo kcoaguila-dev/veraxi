@@ -5,12 +5,42 @@ import 'package:veraxi_app/features/knowledge_hub/view_models/knowledge_hub_view
 
 import 'package:veraxi_app/features/chat/views/widgets/chat_sidebar.dart';
 import 'package:veraxi_app/core/sidebar_provider.dart';
+import 'widgets/database_monitor_card.dart';
 import 'widgets/schema_visual_builder.dart';
-import 'widgets/corpus_briefing_panel.dart';
-import 'widgets/code_intel_section.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:veraxi_app/core/widgets/model_selector_popup.dart';
+
+class _IndexedSourceRow {
+  final String name;
+  final String subtitle;
+  final String type;
+  final String category; // 'repo' | 'doc' | 'feed'
+  final String counts;
+  final String lastSynced;
+  final bool isStale;
+
+  const _IndexedSourceRow({
+    required this.name,
+    required this.subtitle,
+    required this.type,
+    required this.category,
+    required this.counts,
+    required this.lastSynced,
+    this.isStale = false,
+  });
+
+  _IndexedSourceRow copyWith({String? lastSynced, bool? isStale}) {
+    return _IndexedSourceRow(
+      name: name,
+      subtitle: subtitle,
+      type: type,
+      category: category,
+      counts: counts,
+      lastSynced: lastSynced ?? this.lastSynced,
+      isStale: isStale ?? this.isStale,
+    );
+  }
+}
 
 class KnowledgeHubScreen extends ConsumerStatefulWidget {
   const KnowledgeHubScreen({super.key});
@@ -26,17 +56,58 @@ class _KnowledgeHubScreenState extends ConsumerState<KnowledgeHubScreen> {
   final TextEditingController _schemaSampleTextController =
       TextEditingController();
   final TextEditingController _urlController = TextEditingController();
+  final TextEditingController _sourceSearchController = TextEditingController();
   bool _fastExtractionEnabled = false;
-  String _selectedLanguage = 'English';
+  final String _selectedLanguage = 'English';
   String _selectedModel = 'gemini-1.5-pro-002';
+  int _activeTab = 0;
+  String _sourceCategoryFilter = 'ALL';
+  String? _activeQueueItem;
+
+  final List<_IndexedSourceRow> _sources = [
+    const _IndexedSourceRow(
+      name: 'veraxi/backend',
+      subtitle: 'backend',
+      type: 'Code AST',
+      category: 'repo',
+      counts: '142 files · 812 nodes',
+      lastSynced: '12m ago',
+      isStale: false,
+    ),
+    const _IndexedSourceRow(
+      name: 'architecture_v2_draft.pdf',
+      subtitle: 'Uploaded · 4.2 MB',
+      type: 'PDF',
+      category: 'doc',
+      counts: '64 chunks · 91 nodes',
+      lastSynced: '18d ago',
+      isStale: true,
+    ),
+    const _IndexedSourceRow(
+      name: 'NVD + CISA KEV Catalog',
+      subtitle: 'Public Vulnerability Feed',
+      type: 'Vuln Graph',
+      category: 'feed',
+      counts: '1,140 CVE · KEV',
+      lastSynced: '1h ago',
+      isStale: false,
+    ),
+  ];
 
   void _submitUrl() {
-    if (_urlController.text.isNotEmpty) {
-      ref
-          .read(knowledgeHubViewModelProvider.notifier)
-          .autoGenerateSchema(_urlController.text);
-      _urlController.clear();
-    }
+    final url = _urlController.text.trim();
+    if (url.isEmpty) return;
+    setState(() {
+      _activeQueueItem = url;
+    });
+    ref.read(knowledgeHubViewModelProvider.notifier).ingestUrl(
+          url,
+          fastExtraction: _fastExtractionEnabled,
+          language: _selectedLanguage,
+          model: _selectedModel,
+          customStopWords: _customStopWordsController.text.trim(),
+        );
+    _urlController.clear();
   }
 
   @override
@@ -45,6 +116,7 @@ class _KnowledgeHubScreenState extends ConsumerState<KnowledgeHubScreen> {
     _customStopWordsController.dispose();
     _schemaSampleTextController.dispose();
     _urlController.dispose();
+    _sourceSearchController.dispose();
     super.dispose();
   }
 
@@ -82,7 +154,7 @@ class _KnowledgeHubScreenState extends ConsumerState<KnowledgeHubScreen> {
           SizedBox(height: 16),
           LayoutBuilder(
             builder: (context, constraints) {
-              final isMobile = constraints.maxWidth < 600;
+              final isMobile = constraints.maxWidth < 1150;
               final autoGenerateSection = Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -168,589 +240,859 @@ class _KnowledgeHubScreenState extends ConsumerState<KnowledgeHubScreen> {
     );
   }
 
-  Widget _buildIngestionCard(ThemeData theme) {
+  Widget _buildCorpusHealthPill(KnowledgeHubState state) {
+    final stats = state.stats;
+    final vectorCount = stats?.vectorCount ?? 0;
+    final nodeCount = stats?.nodeCount ?? 0;
+    final sourceCount = _sources.length;
     return Container(
-      padding: EdgeInsets.all(24),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
       decoration: BoxDecoration(
-        color:
-            Theme.of(context).extension<AppThemeExtension>()!.surfaceHighlight,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-            color: Theme.of(context)
-                .extension<AppThemeExtension>()!
-                .borderColorStrong),
+        color: const Color(0xFF18181B),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFF2D2D32)),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Wrap(
+        spacing: 14,
+        runSpacing: 4,
+        crossAxisAlignment: WrapCrossAlignment.center,
         children: [
-          Text('Global Ingestion',
-              style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 18)),
-          SizedBox(height: 4),
-          Text(
-              'Upload documents or provide a URL. This data will be available to all AI agents.',
-              style: TextStyle(
-                  color: Theme.of(context)
-                      .extension<AppThemeExtension>()!
-                      .iconColor,
-                  fontSize: 14)),
-          SizedBox(height: 24),
-          Text('Upload Files',
-              style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w500,
-                  fontSize: 14)),
-          SizedBox(height: 8),
-          InkWell(
-            onTap: () async {
-              try {
-                final result = await FilePicker.pickFiles(
-                  type: FileType.custom,
-                  allowedExtensions: [
-                    'pdf',
-                    'txt',
-                    'md',
-                    'csv',
-                    'html',
-                    'doc',
-                    'docx',
-                    'ppt',
-                    'pptx',
-                    'xls',
-                    'xlsx',
-                    'png',
-                    'jpg',
-                    'jpeg',
-                    'tiff',
-                    'bmp',
-                  ],
-                );
-                if (result.isNotEmpty && mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Uploading file...')));
-                  final viewModel =
-                      ref.read(knowledgeHubViewModelProvider.notifier);
-                  final fileBytes = await result.first.readAsBytes();
-                  final fileName = result.first.name;
-                  if (fileBytes.isNotEmpty) {
-                    await viewModel.ingestUpload(
-                      fileBytes,
-                      fileName,
-                      fastExtraction: _fastExtractionEnabled,
-                      language: _selectedLanguage,
-                      model: _selectedModel,
-                      customStopWords: _customStopWordsController.text.trim(),
-                    );
-                    if (mounted)
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                          content: Text('File queued for ingestion!')));
-                  }
-                }
-              } catch (e) {
-                if (mounted)
-                  ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Upload failed: $e')));
-              }
-            },
-            child: Container(
-              width: double.infinity,
-              padding: EdgeInsets.symmetric(vertical: 32),
-              decoration: BoxDecoration(
-                border: Border.all(
-                    color: Theme.of(context)
-                        .extension<AppThemeExtension>()!
-                        .borderColorStrong,
-                    style: BorderStyle.solid),
-                borderRadius: BorderRadius.circular(8),
-                color: Theme.of(context)
-                    .extension<AppThemeExtension>()!
-                    .sidebarBackground
-                    .withValues(alpha: 0.5),
-              ),
-              child: Column(
-                children: [
-                  Icon(Icons.cloud_upload_outlined,
-                      color: Theme.of(context)
-                          .extension<AppThemeExtension>()!
-                          .textTertiary,
-                      size: 32),
-                  SizedBox(height: 12),
-                  Text('Click to select a file',
-                      style: TextStyle(
-                          color: Theme.of(context)
-                              .extension<AppThemeExtension>()!
-                              .iconColor,
-                          fontSize: 14)),
-                  SizedBox(height: 4),
-                  Text('PDF, TXT, MD, CSV, DOCX, Images (PNG/JPG) (Max 50MB)',
-                      style: TextStyle(
-                          color: Theme.of(context)
-                              .extension<AppThemeExtension>()!
-                              .textTertiary,
-                          fontSize: 12)),
-                ],
-              ),
-            ),
-          ),
-          SizedBox(height: 24),
-          Text('Or ingest a URL',
-              style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w500,
-                  fontSize: 14)),
-          SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _urlController,
-                  style: TextStyle(color: Colors.white),
-                  cursorColor: Colors.white,
-                  decoration: InputDecoration(
-                    hintText: 'https://example.com/article',
-                    hintStyle: TextStyle(
-                        color: Theme.of(context)
-                            .extension<AppThemeExtension>()!
-                            .textTertiary),
-                    filled: true,
-                    fillColor: Theme.of(context)
-                        .extension<AppThemeExtension>()!
-                        .sidebarBackground,
-                    contentPadding:
-                        EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                    border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: BorderSide.none),
-                    focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: BorderSide.none),
-                    enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: BorderSide.none),
-                  ),
-                  onSubmitted: (val) => _submitUrl(),
-                ),
-              ),
-              SizedBox(width: 12),
-              ElevatedButton(
-                onPressed: _submitUrl,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Theme.of(context).colorScheme.primary,
-                  foregroundColor: Colors.white,
-                  padding: EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8)),
-                ),
-                child: Text('Ingest'),
-              ),
-            ],
-          ),
-          SizedBox(height: 32),
-          // AI Model Selection
-          Container(
-            padding: EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Theme.of(context)
-                  .extension<AppThemeExtension>()!
-                  .sidebarBackground,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                  color: Theme.of(context)
-                      .extension<AppThemeExtension>()!
-                      .borderColorStrong),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          RichText(
+            text: TextSpan(
+              style: const TextStyle(color: Color(0xFFD4D4D8), fontSize: 11.5),
               children: [
-                Text('Extraction Model',
-                    style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600)),
-                SizedBox(height: 4),
-                Text('Select the AI model used for knowledge graph extraction.',
-                    style: TextStyle(
-                        color: Theme.of(context)
-                            .extension<AppThemeExtension>()!
-                            .iconColor,
-                        fontSize: 12)),
-                SizedBox(height: 16),
-                InkWell(
-                  onTap: () {
-                    showDialog(
-                      context: context,
-                      builder: (context) => ModelSelectorPopup(
-                        selectedModel: _selectedModel,
-                        onModelSelected: (model) {
-                          setState(() => _selectedModel = model);
-                        },
-                        onClose: () => Navigator.of(context).pop(),
-                      ),
-                    );
-                  },
-                  child: Container(
-                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    decoration: BoxDecoration(
-                      color: Theme.of(context)
-                          .extension<AppThemeExtension>()!
-                          .cardBackground,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                          color: Theme.of(context)
-                              .extension<AppThemeExtension>()!
-                              .borderColorStrong),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(_selectedModel,
-                            style: TextStyle(color: Colors.white)),
-                        Icon(Icons.arrow_drop_down, color: Colors.white54),
-                      ],
-                    ),
-                  ),
+                TextSpan(
+                  text: '$sourceCount',
+                  style: const TextStyle(
+                      color: Color(0xFF34D399), fontWeight: FontWeight.w600),
                 ),
+                const TextSpan(text: ' sources'),
               ],
             ),
           ),
-          SizedBox(height: 16),
-          Container(
-            padding: EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Theme.of(context)
-                  .extension<AppThemeExtension>()!
-                  .sidebarBackground,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                  color: Theme.of(context)
-                      .extension<AppThemeExtension>()!
-                      .borderColorStrong),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          RichText(
+            text: TextSpan(
+              style: const TextStyle(color: Color(0xFFD4D4D8), fontSize: 11.5),
               children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Fast Extraction Mode',
-                          style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600)),
-                      SizedBox(height: 4),
-                      Text(
-                          'Uses a hybrid 90% fast NLP and 10% AI approach. Highly recommended for large datasets.',
-                          style: TextStyle(
-                              color: Theme.of(context)
-                                  .extension<AppThemeExtension>()!
-                                  .iconColor,
-                              fontSize: 12)),
-                    ],
-                  ),
+                TextSpan(
+                  text: '$vectorCount',
+                  style: const TextStyle(
+                      color: Color(0xFF93C5FD), fontWeight: FontWeight.w600),
                 ),
-                Switch(
-                  value: _fastExtractionEnabled,
-                  onChanged: (val) {
-                    setState(() {
-                      _fastExtractionEnabled = val;
-                    });
-                  },
-                  activeTrackColor: Theme.of(context).colorScheme.primary,
-                  inactiveThumbColor: Theme.of(context)
-                      .extension<AppThemeExtension>()!
-                      .iconColor,
-                  inactiveTrackColor: const Color(0xFF424242),
-                ),
+                const TextSpan(text: ' Qdrant pts'),
               ],
             ),
           ),
-          if (_fastExtractionEnabled) ...[
-            SizedBox(height: 16),
-            Theme(
-              data:
-                  Theme.of(context).copyWith(dividerColor: Colors.transparent),
-              child: ExpansionTile(
-                title: Text('Advanced Settings',
-                    style: TextStyle(color: Colors.white, fontSize: 14)),
-                iconColor: Theme.of(context)
-                    .extension<AppThemeExtension>()!
-                    .textTertiary,
-                collapsedIconColor: Theme.of(context)
-                    .extension<AppThemeExtension>()!
-                    .textTertiary,
-                tilePadding: EdgeInsets.symmetric(horizontal: 16),
-                childrenPadding: EdgeInsets.all(16),
-                backgroundColor: Theme.of(context)
-                    .extension<AppThemeExtension>()!
-                    .cardBackground,
-                collapsedBackgroundColor: Theme.of(context)
-                    .extension<AppThemeExtension>()!
-                    .cardBackground,
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    side: BorderSide(
-                        color: Theme.of(context)
-                            .extension<AppThemeExtension>()!
-                            .borderColorStrong)),
-                collapsedShape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    side: BorderSide(
-                        color: Theme.of(context)
-                            .extension<AppThemeExtension>()!
-                            .borderColorStrong)),
-                children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('Language',
-                                style: TextStyle(
-                                    color: Theme.of(context)
-                                        .extension<AppThemeExtension>()!
-                                        .iconColor,
-                                    fontSize: 12)),
-                            SizedBox(height: 8),
-                            Container(
-                              padding: EdgeInsets.symmetric(horizontal: 12),
-                              decoration: BoxDecoration(
-                                color: Theme.of(context)
-                                    .extension<AppThemeExtension>()!
-                                    .sidebarBackground,
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(
-                                    color: Theme.of(context)
-                                        .extension<AppThemeExtension>()!
-                                        .borderColorStrong),
-                              ),
-                              child: DropdownButtonHideUnderline(
-                                child: DropdownButton<String>(
-                                  value: _selectedLanguage,
-                                  isExpanded: true,
-                                  dropdownColor: Theme.of(context)
-                                      .extension<AppThemeExtension>()!
-                                      .cardBackground,
-                                  style: TextStyle(color: Colors.white),
-                                  items: [
-                                    DropdownMenuItem(
-                                        value: 'en', child: Text('English')),
-                                    DropdownMenuItem(
-                                        value: 'es', child: Text('Spanish')),
-                                    DropdownMenuItem(
-                                        value: 'fr', child: Text('French')),
-                                    DropdownMenuItem(
-                                        value: 'de', child: Text('German')),
-                                  ],
-                                  onChanged: (val) {
-                                    if ((val ?? '').isNotEmpty) {
-                                      setState(() => _selectedLanguage = val!);
-                                    }
-                                  },
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      SizedBox(width: 16),
-                      Expanded(
-                        flex: 2,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('Custom Stop Words (comma separated)',
-                                style: TextStyle(
-                                    color: Theme.of(context)
-                                        .extension<AppThemeExtension>()!
-                                        .iconColor,
-                                    fontSize: 12)),
-                            SizedBox(height: 8),
-                            TextField(
-                              controller: _customStopWordsController,
-                              style: TextStyle(color: Colors.white),
-                              cursorColor: Colors.white,
-                              decoration: InputDecoration(
-                                hintText: 'e.g. client, company, confidential',
-                                hintStyle: TextStyle(
-                                    color: Theme.of(context)
-                                        .extension<AppThemeExtension>()!
-                                        .textTertiary),
-                                filled: true,
-                                fillColor: Theme.of(context)
-                                    .extension<AppThemeExtension>()!
-                                    .sidebarBackground,
-                                contentPadding: EdgeInsets.symmetric(
-                                    horizontal: 12, vertical: 14),
-                                border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                    borderSide: BorderSide(
-                                        color: Theme.of(context)
-                                            .extension<AppThemeExtension>()!
-                                            .borderColorStrong)),
-                                enabledBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                    borderSide: BorderSide(
-                                        color: Theme.of(context)
-                                            .extension<AppThemeExtension>()!
-                                            .borderColorStrong)),
-                                focusedBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                    borderSide: BorderSide(
-                                        color: Theme.of(context)
-                                            .extension<AppThemeExtension>()!
-                                            .borderColorStrong)),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
+          RichText(
+            text: TextSpan(
+              style: const TextStyle(color: Color(0xFFD4D4D8), fontSize: 11.5),
+              children: [
+                TextSpan(
+                  text: '$nodeCount',
+                  style: const TextStyle(
+                      color: Color(0xFFC4B5FD), fontWeight: FontWeight.w600),
+                ),
+                const TextSpan(text: ' Neo4j nodes'),
+              ],
             ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDatabaseMonitorCard(ThemeData theme, String title,
-      String subtitle, String url, IconData icon) {
-    return Container(
-      padding: EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color:
-            Theme.of(context).extension<AppThemeExtension>()!.surfaceHighlight,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-            color: Theme.of(context)
-                .extension<AppThemeExtension>()!
-                .borderColorStrong),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+          ),
           Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon,
-                  color: Theme.of(context).colorScheme.primary, size: 24),
-              SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title,
-                      style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 16)),
-                  Text(subtitle,
-                      style: TextStyle(
-                          color: Theme.of(context)
-                              .extension<AppThemeExtension>()!
-                              .textTertiary,
-                          fontSize: 12)),
-                ],
+              Container(
+                width: 7,
+                height: 7,
+                decoration: BoxDecoration(
+                  color: state.isIngesting
+                      ? const Color(0xFFFBBF24)
+                      : const Color(0xFF10B981),
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                state.isIngesting ? 'Syncing' : 'Synced',
+                style: TextStyle(
+                  color: state.isIngesting
+                      ? const Color(0xFFFBBF24)
+                      : const Color(0xFF34D399),
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
             ],
-          ),
-          SizedBox(height: 16),
-          ElevatedButton.icon(
-            onPressed: () async {
-              final uri = Uri.parse(url);
-              if (await canLaunchUrl(uri)) {
-                await launchUrl(uri);
-              } else {
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                      content: Text('Could not launch dashboard')));
-                }
-              }
-            },
-            icon: Icon(Icons.open_in_new, size: 16, color: Colors.white),
-            label:
-                Text('Open Dashboard', style: TextStyle(color: Colors.white)),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.primary,
-              foregroundColor: Colors.white,
-              elevation: 0,
-              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8)),
-            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildDataPipeline(ThemeData theme) {
+  Widget _buildAdminHeader(KnowledgeHubState state, bool isMobile) {
+    Widget tabButton(int index, String label, {bool showDot = false}) {
+      final selected = _activeTab == index;
+      return InkWell(
+        borderRadius: BorderRadius.circular(8),
+        onTap: () => setState(() => _activeTab = index),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+          decoration: BoxDecoration(
+            color: selected ? const Color(0xFF27272B) : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+            border: selected
+                ? Border.all(color: const Color(0xFF3A3A40), width: 0.8)
+                : null,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  color: selected ? Colors.white : const Color(0xFFA1A1AA),
+                  fontSize: 12.5,
+                  fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                ),
+              ),
+              if (showDot) ...[
+                const SizedBox(width: 8),
+                Container(
+                  width: 6,
+                  height: 6,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF10B981),
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      padding: EdgeInsets.fromLTRB(
+        isMobile ? 16 : 36,
+        isMobile ? 10 : 18,
+        isMobile ? 16 : 36,
+        14,
+      ),
+      decoration: const BoxDecoration(
+        color: Color(0xFF212121),
+        border: Border(
+          bottom: BorderSide(color: Color(0xFF2B2B2E), width: 1),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Wrap(
+            spacing: 16,
+            runSpacing: 10,
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              if (!isMobile)
+                const Text(
+                  'Knowledge Hub',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              _buildCorpusHealthPill(state),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              tabButton(0, 'Sources & Ingestion'),
+              tabButton(1, 'Schema & Extraction'),
+              tabButton(2, 'Infra & Monitors', showDot: true),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSourcesAndIngestionTab(
+      ThemeData theme, KnowledgeHubState state) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Knowledge Hub',
-            style: theme.textTheme.headlineMedium
-                ?.copyWith(color: Colors.white, fontWeight: FontWeight.bold)),
-        SizedBox(height: 8),
-        Text(
-          'Manage your custom library and reference materials.',
-          style: TextStyle(
-              color:
-                  Theme.of(context).extension<AppThemeExtension>()!.iconColor,
-              fontSize: 14),
-        ),
-        SizedBox(height: 32),
-        _buildSchemaCard(theme),
-        SizedBox(height: 32),
-        _buildIngestionCard(theme),
-        SizedBox(height: 48),
-        const CorpusBriefingPanel(),
-        SizedBox(height: 48),
-        const CodeIntelSection(),
-        SizedBox(height: 48),
-        Text('Database Monitors',
-            style: theme.textTheme.headlineMedium?.copyWith(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 20)),
-        SizedBox(height: 8),
-        Text(
-          'Launch web dashboards to inspect the raw databases.',
-          style: TextStyle(
-              color:
-                  Theme.of(context).extension<AppThemeExtension>()!.iconColor,
-              fontSize: 14),
-        ),
-        SizedBox(height: 16),
-        Row(
-          children: [
-            Expanded(
-              child: _buildDatabaseMonitorCard(
-                theme,
-                'Qdrant',
-                'Vector Database',
-                const String.fromEnvironment('QDRANT_DASHBOARD_URL',
-                    defaultValue: 'http://localhost:6333/dashboard'),
-                Icons.data_array,
+        _buildCompactIngestionBar(theme, state),
+        if (state.isIngesting) ...[
+          const SizedBox(height: 16),
+          _buildLiveIngestionQueueCard(),
+        ],
+        const SizedBox(height: 20),
+        _buildIndexedSourcesTable(),
+      ],
+    );
+  }
+
+  Widget _buildCompactIngestionBar(ThemeData theme, KnowledgeHubState state) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1A1A1D),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFF2D2D32)),
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final isNarrow = constraints.maxWidth < 820;
+          final dropzone = InkWell(
+            borderRadius: BorderRadius.circular(10),
+            onTap: _pickAndUploadFile,
+            child: Container(
+              height: 116,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              decoration: BoxDecoration(
+                color: const Color(0xFF151518),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFF3A3A40)),
+              ),
+              child: const Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.upload_rounded,
+                      color: Color(0xFF9CA3AF), size: 24),
+                  SizedBox(height: 8),
+                  Text(
+                    'Drop files to ingest (PDF, MD, TXT, CSV, DOCX, Images)',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Color(0xFFE4E4E7),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  SizedBox(height: 4),
+                  Text(
+                    'Dual-writes to Qdrant (dense + SPLADE) & Neo4j with linked IDs',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Color(0xFF71717A), fontSize: 11),
+                  ),
+                ],
               ),
             ),
-            SizedBox(width: 16),
-            Expanded(
-              child: _buildDatabaseMonitorCard(
-                theme,
-                'Neo4j',
-                'Knowledge Graph',
-                const String.fromEnvironment('NEO4J_DASHBOARD_URL',
-                    defaultValue: 'http://localhost:7474'),
-                Icons.hub,
+          );
+
+          final urlAndModelControls = Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Ingest URL or Git Repo',
+                style: TextStyle(
+                  color: Color(0xFFA1A1AA),
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  Expanded(
+                    child: SizedBox(
+                      height: 36,
+                      child: TextField(
+                        controller: _urlController,
+                        style: const TextStyle(
+                            color: Colors.white, fontSize: 12.5),
+                        decoration: InputDecoration(
+                          isDense: true,
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 9),
+                          hintText: 'https://example.com/docs or /path/to/repo',
+                          hintStyle: const TextStyle(
+                              color: Color(0xFF71717A), fontSize: 12.5),
+                          filled: true,
+                          fillColor: const Color(0xFF151518),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide:
+                                const BorderSide(color: Color(0xFF2E2E34)),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide:
+                                const BorderSide(color: Color(0xFF2E2E34)),
+                          ),
+                        ),
+                        onSubmitted: (_) => _submitUrl(),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  SizedBox(
+                    height: 36,
+                    child: ElevatedButton(
+                      onPressed: state.isIngesting ? null : _submitUrl,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF2563EB),
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        padding: const EdgeInsets.symmetric(horizontal: 18),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8)),
+                      ),
+                      child: const Text(
+                        'Ingest',
+                        style: TextStyle(
+                            fontSize: 12.5, fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 20,
+                runSpacing: 8,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Extraction Model',
+                        style: TextStyle(
+                          color: Color(0xFFA1A1AA),
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      InkWell(
+                        borderRadius: BorderRadius.circular(6),
+                        onTap: () {
+                          showDialog(
+                            context: context,
+                            builder: (context) => ModelSelectorPopup(
+                              selectedModel: _selectedModel,
+                              onModelSelected: (model) {
+                                setState(() => _selectedModel = model);
+                                Navigator.of(context).pop();
+                              },
+                            ),
+                          );
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF232327),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: const Color(0xFF323238)),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                _selectedModel,
+                                style: const TextStyle(
+                                    color: Color(0xFFE4E4E7), fontSize: 12),
+                              ),
+                              const SizedBox(width: 8),
+                              const Icon(Icons.keyboard_arrow_down,
+                                  size: 15, color: Color(0xFF9CA3AF)),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text(
+                        'Fast Extraction (90% NLP)',
+                        style: TextStyle(
+                          color: Color(0xFFA1A1AA),
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Switch(
+                        value: _fastExtractionEnabled,
+                        onChanged: (v) =>
+                            setState(() => _fastExtractionEnabled = v),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ],
+          );
+
+          if (isNarrow) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                dropzone,
+                const SizedBox(height: 16),
+                urlAndModelControls,
+              ],
+            );
+          }
+
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(child: dropzone),
+              const SizedBox(width: 20),
+              Expanded(child: urlAndModelControls),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Future<void> _pickAndUploadFile() async {
+    try {
+      final result = await FilePicker.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: [
+          'pdf',
+          'txt',
+          'md',
+          'csv',
+          'html',
+          'doc',
+          'docx',
+          'ppt',
+          'pptx',
+          'xls',
+          'xlsx',
+          'png',
+          'jpg',
+          'jpeg',
+          'tiff',
+          'bmp',
+        ],
+      );
+      if (result.isNotEmpty && mounted) {
+        final fileName = result.first.name;
+        setState(() => _activeQueueItem = fileName);
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('Uploading file...')));
+        final viewModel = ref.read(knowledgeHubViewModelProvider.notifier);
+        final fileBytes = await result.first.readAsBytes();
+        if (fileBytes.isNotEmpty) {
+          await viewModel.ingestUpload(
+            fileBytes,
+            fileName,
+            fastExtraction: _fastExtractionEnabled,
+            language: _selectedLanguage,
+            model: _selectedModel,
+            customStopWords: _customStopWordsController.text.trim(),
+          );
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('File queued for ingestion!')));
+          }
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Upload failed: $e')));
+      }
+    }
+  }
+
+  Widget _buildLiveIngestionQueueCard() {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1F1F23),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFF2E2E34)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Text(
+                'INGESTION QUEUE',
+                style: TextStyle(
+                  color: Color(0xFF8E8E93),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.6,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                _activeQueueItem ?? 'Ingesting document...',
+                style: const TextStyle(
+                  color: Color(0xFFF4F4F5),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(width: 10),
+              const Text(
+                'Chunking + Dual-Write',
+                style: TextStyle(color: Color(0xFF34D399), fontSize: 11),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(2),
+            child: const LinearProgressIndicator(
+              minHeight: 4,
+              backgroundColor: Color(0xFF2A2A2F),
+              valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF10B981)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildIndexedSourcesTable() {
+    final query = _sourceSearchController.text.trim().toLowerCase();
+    final filtered = _sources.where((s) {
+      if (_sourceCategoryFilter == 'REPOS' && s.category != 'repo') {
+        return false;
+      }
+      if (_sourceCategoryFilter == 'DOCS' && s.category != 'doc') {
+        return false;
+      }
+      if (_sourceCategoryFilter == 'STALE' && !s.isStale) {
+        return false;
+      }
+      if (query.isNotEmpty) {
+        final hay = '${s.name} ${s.type} ${s.isStale ? 'stale' : 'indexed'}'
+            .toLowerCase();
+        if (!hay.contains(query)) return false;
+      }
+      return true;
+    }).toList();
+
+    final repoCount = _sources.where((s) => s.category == 'repo').length;
+    final docCount = _sources.where((s) => s.category == 'doc').length;
+    final staleCount = _sources.where((s) => s.isStale).length;
+
+    Widget chip(String key, String label, {bool isWarning = false}) {
+      final selected = _sourceCategoryFilter == key;
+      return InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: () => setState(() => _sourceCategoryFilter = key),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: isWarning
+                ? const Color(0xFF272017)
+                : (selected
+                    ? const Color(0xFF2A2A2F)
+                    : const Color(0xFF18181B)),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: isWarning
+                  ? const Color(0xFF92400E)
+                  : (selected
+                      ? const Color(0xFF52525B)
+                      : const Color(0xFF2F2F35)),
+            ),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              color: isWarning
+                  ? const Color(0xFFFBBF24)
+                  : (selected ? Colors.white : const Color(0xFFA1A1AA)),
+              fontSize: 11.5,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFF1A1A1D),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFF2D2D32)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(14),
+            child: Wrap(
+              spacing: 12,
+              runSpacing: 10,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                const Text(
+                  'Indexed Sources',
+                  style: TextStyle(
+                    color: Color(0xFFF4F4F5),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                SizedBox(
+                  width: 260,
+                  height: 30,
+                  child: TextField(
+                    controller: _sourceSearchController,
+                    onChanged: (_) => setState(() {}),
+                    style: const TextStyle(color: Colors.white, fontSize: 12),
+                    decoration: InputDecoration(
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 7),
+                      hintText: 'Filter sources by name, type, or status...',
+                      hintStyle: const TextStyle(
+                          color: Color(0xFF71717A), fontSize: 12),
+                      filled: true,
+                      fillColor: const Color(0xFF151518),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(7),
+                        borderSide: const BorderSide(color: Color(0xFF2E2E34)),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(7),
+                        borderSide: const BorderSide(color: Color(0xFF2E2E34)),
+                      ),
+                    ),
+                  ),
+                ),
+                chip('ALL', 'All (${_sources.length})'),
+                chip('REPOS', 'Repos ($repoCount)'),
+                chip('DOCS', 'Docs ($docCount)'),
+                chip('STALE', 'Stale ($staleCount)', isWarning: true),
+              ],
+            ),
+          ),
+          const Divider(color: Color(0xFF2B2B30), height: 1),
+          if (filtered.isEmpty)
+            const Padding(
+              padding: EdgeInsets.all(24),
+              child: Text(
+                'No sources match the current filter.',
+                style: TextStyle(color: Color(0xFF71717A), fontSize: 12.5),
+              ),
+            )
+          else
+            for (final row in filtered) _buildSourceRow(row),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSourceRow(_IndexedSourceRow row) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+      decoration: const BoxDecoration(
+        border: Border(
+          bottom: BorderSide(color: Color(0xFF242428), width: 1),
+        ),
+      ),
+      child: Wrap(
+        spacing: 16,
+        runSpacing: 10,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        alignment: WrapAlignment.spaceBetween,
+        children: [
+          SizedBox(
+            width: 240,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  row.name,
+                  style: const TextStyle(
+                    color: Color(0xFFF4F4F5),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  row.subtitle,
+                  style: const TextStyle(
+                    color: Color(0xFF71717A),
+                    fontSize: 11,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+            decoration: BoxDecoration(
+              color: const Color(0xFF27272A),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Text(
+              row.type,
+              style: const TextStyle(color: Color(0xFFD4D4D8), fontSize: 11),
+            ),
+          ),
+          Text(
+            row.counts,
+            style: const TextStyle(color: Color(0xFFD4D4D8), fontSize: 12.5),
+          ),
+          Text(
+            row.lastSynced,
+            style: TextStyle(
+              color: row.isStale
+                  ? const Color(0xFFFBBF24)
+                  : const Color(0xFFA1A1AA),
+              fontSize: 12,
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+            decoration: BoxDecoration(
+              color: row.isStale
+                  ? const Color(0xFF272017)
+                  : const Color(0xFF064E3B),
+              borderRadius: BorderRadius.circular(6),
+              border: row.isStale
+                  ? Border.all(color: const Color(0xFF92400E), width: 0.8)
+                  : null,
+            ),
+            child: Text(
+              row.isStale ? 'Stale' : 'Indexed',
+              style: TextStyle(
+                color: row.isStale
+                    ? const Color(0xFFFBBF24)
+                    : const Color(0xFF34D399),
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
               ),
             ),
-          ],
+          ),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              InkWell(
+                borderRadius: BorderRadius.circular(6),
+                onTap: () {
+                  setState(() {
+                    final idx = _sources.indexOf(row);
+                    if (idx != -1) {
+                      _sources[idx] =
+                          row.copyWith(lastSynced: 'Just now', isStale: false);
+                    }
+                  });
+                  ref.read(knowledgeHubViewModelProvider.notifier).fetchStats();
+                },
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF27272A),
+                    borderRadius: BorderRadius.circular(6),
+                    border:
+                        Border.all(color: const Color(0xFF3F3F46), width: 0.8),
+                  ),
+                  child: const Text(
+                    'Re-index',
+                    style: TextStyle(color: Color(0xFFD4D4D8), fontSize: 11.5),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              InkWell(
+                borderRadius: BorderRadius.circular(6),
+                onTap: () {
+                  setState(() {
+                    _sources.remove(row);
+                  });
+                },
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF27272A),
+                    borderRadius: BorderRadius.circular(6),
+                    border:
+                        Border.all(color: const Color(0xFF3F3F46), width: 0.8),
+                  ),
+                  child: const Text(
+                    'Del',
+                    style: TextStyle(color: Color(0xFFFCA5A5), fontSize: 11.5),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfraMonitorsTab(ThemeData theme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Database Monitors',
+          style: theme.textTheme.headlineMedium?.copyWith(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 20,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Launch web dashboards to inspect the raw Qdrant and Neo4j databases.',
+          style: TextStyle(
+            color: Theme.of(context).extension<AppThemeExtension>()!.iconColor,
+            fontSize: 14,
+          ),
+        ),
+        const SizedBox(height: 16),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final qdrantCard = const DatabaseMonitorCard(
+              title: 'Qdrant',
+              subtitle: 'Vector Database',
+              url: String.fromEnvironment('QDRANT_DASHBOARD_URL',
+                  defaultValue: 'http://localhost:6333/dashboard'),
+              icon: Icons.data_array,
+            );
+            final neo4jCard = const DatabaseMonitorCard(
+              title: 'Neo4j',
+              subtitle: 'Knowledge Graph',
+              url: String.fromEnvironment('NEO4J_DASHBOARD_URL',
+                  defaultValue: 'http://localhost:7474'),
+              icon: Icons.hub,
+            );
+            if (constraints.maxWidth < 600) {
+              return Column(
+                children: [
+                  qdrantCard,
+                  const SizedBox(height: 16),
+                  neo4jCard,
+                ],
+              );
+            }
+            return Row(
+              children: [
+                Expanded(child: qdrantCard),
+                const SizedBox(width: 16),
+                Expanded(child: neo4jCard),
+              ],
+            );
+          },
         ),
       ],
     );
@@ -760,6 +1102,7 @@ class _KnowledgeHubScreenState extends ConsumerState<KnowledgeHubScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isSidebarOpen = ref.watch(sidebarStateProvider);
+    final hubState = ref.watch(knowledgeHubViewModelProvider);
 
     ref.listen<KnowledgeHubState>(knowledgeHubViewModelProvider,
         (previous, next) {
@@ -785,7 +1128,11 @@ class _KnowledgeHubScreenState extends ConsumerState<KnowledgeHubScreen> {
             backgroundColor: const Color(0xFF171717),
             shape:
                 const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
-            child: const ChatSidebar(isSidebarOpen: true, isMobile: true),
+            child: const ChatSidebar(
+              isSidebarOpen: true,
+              isMobile: true,
+              isKnowledgeHubRoute: true,
+            ),
           ),
         );
       }),
@@ -795,7 +1142,11 @@ class _KnowledgeHubScreenState extends ConsumerState<KnowledgeHubScreen> {
           return Row(
             children: [
               if (!isMobile)
-                ChatSidebar(isSidebarOpen: isSidebarOpen, isMobile: false),
+                ChatSidebar(
+                  isSidebarOpen: isSidebarOpen,
+                  isMobile: false,
+                  isKnowledgeHubRoute: true,
+                ),
               Expanded(
                 child: SafeArea(
                   child: Column(
@@ -821,10 +1172,25 @@ class _KnowledgeHubScreenState extends ConsumerState<KnowledgeHubScreen> {
                             ],
                           ),
                         ),
+                      _buildAdminHeader(hubState, isMobile),
                       Expanded(
-                        child: SingleChildScrollView(
-                          padding: EdgeInsets.all(isMobile ? 16.0 : 48.0),
-                          child: _buildDataPipeline(theme),
+                        child: IndexedStack(
+                          index: _activeTab,
+                          children: [
+                            SingleChildScrollView(
+                              padding: EdgeInsets.all(isMobile ? 16.0 : 36.0),
+                              child:
+                                  _buildSourcesAndIngestionTab(theme, hubState),
+                            ),
+                            SingleChildScrollView(
+                              padding: EdgeInsets.all(isMobile ? 16.0 : 36.0),
+                              child: _buildSchemaCard(theme),
+                            ),
+                            SingleChildScrollView(
+                              padding: EdgeInsets.all(isMobile ? 16.0 : 36.0),
+                              child: _buildInfraMonitorsTab(theme),
+                            ),
+                          ],
                         ),
                       ),
                     ],

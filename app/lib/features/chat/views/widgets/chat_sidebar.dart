@@ -10,6 +10,7 @@ import 'package:veraxi_app/core/theme_extension.dart';
 import 'package:veraxi_app/features/chat/view_models/chat_view_model.dart';
 import 'package:veraxi_app/core/providers/model_selection_provider.dart';
 import 'package:veraxi_app/core/providers/project_view_model.dart';
+import 'package:veraxi_app/core/providers/workspace_mode_provider.dart';
 import 'package:veraxi_app/features/chat/views/widgets/pinned_models_widget.dart';
 
 import 'package:veraxi_app/core/widgets/profile_menu_button.dart';
@@ -65,11 +66,13 @@ List<SidebarThreadGroup> groupConsecutiveSidebarThreads(
 class ChatSidebar extends ConsumerStatefulWidget {
   final bool isSidebarOpen;
   final bool isMobile;
+  final bool isKnowledgeHubRoute;
 
   const ChatSidebar({
     super.key,
     required this.isSidebarOpen,
     required this.isMobile,
+    this.isKnowledgeHubRoute = false,
   });
 
   @override
@@ -717,10 +720,339 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
     return _buildSidebarContentActual(context);
   }
 
+  void _goSafe(BuildContext context, String location) {
+    final router = GoRouter.maybeOf(context);
+    if (router != null) {
+      router.go(location);
+    }
+  }
+
+  Widget _buildModeSwitcher(
+    BuildContext context,
+    WorkspaceMode mode,
+    int kevCount,
+  ) {
+    final isChat = mode == WorkspaceMode.chat && !widget.isKnowledgeHubRoute;
+    final isCode = mode == WorkspaceMode.code && !widget.isKnowledgeHubRoute;
+
+    return Container(
+      height: 34,
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: const Color(0xFF111113),
+        borderRadius: BorderRadius.circular(9),
+        border: Border.all(color: const Color(0xFF2B2B2E)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: _modeSegment(
+              label: 'Chat',
+              icon: Icons.chat_bubble_outline,
+              active: isChat,
+              showDot: false,
+              onTap: () {
+                ref.read(workspaceModeProvider.notifier).state =
+                    WorkspaceMode.chat;
+                if (widget.isKnowledgeHubRoute) {
+                  _goSafe(context, '/chat');
+                }
+              },
+            ),
+          ),
+          Expanded(
+            child: _modeSegment(
+              label: 'Code',
+              icon: Icons.code,
+              active: isCode,
+              showDot: kevCount > 0 && !isCode,
+              onTap: () {
+                ref.read(workspaceModeProvider.notifier).state =
+                    WorkspaceMode.code;
+                if (widget.isKnowledgeHubRoute) {
+                  _goSafe(context, '/chat');
+                }
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _modeSegment({
+    required String label,
+    required IconData icon,
+    required bool active,
+    required bool showDot,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(7),
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          curve: Curves.easeOut,
+          decoration: BoxDecoration(
+            color: active ? const Color(0xFF27272B) : Colors.transparent,
+            borderRadius: BorderRadius.circular(7),
+            border: active
+                ? Border.all(color: const Color(0xFF3A3A40), width: 0.8)
+                : null,
+          ),
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    icon,
+                    size: 14,
+                    color: active ? Colors.white : const Color(0xFF9CA3AF),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    label,
+                    style: TextStyle(
+                      color: active ? Colors.white : const Color(0xFFA1A1AA),
+                      fontSize: 12.5,
+                      fontWeight: active ? FontWeight.w600 : FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+              if (showDot)
+                Positioned(
+                  right: 10,
+                  child: Container(
+                    width: 6,
+                    height: 6,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFEF4444),
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCodeSidebarSection(BuildContext context, int kevCount) {
+    final activeSubView = ref.watch(codeSubViewProvider);
+    final selectedRepo = ref.watch(selectedIndexedRepoProvider);
+
+    Widget navItem({
+      required CodeSubView subView,
+      required String label,
+      required IconData icon,
+      Widget? trailing,
+    }) {
+      final selected = activeSubView == subView;
+      return Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: () {
+            ref.read(codeSubViewProvider.notifier).state = subView;
+          },
+          child: Container(
+            height: 34,
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            decoration: BoxDecoration(
+              color: selected ? const Color(0xFF26262A) : Colors.transparent,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  icon,
+                  size: 16,
+                  color: selected ? Colors.white : const Color(0xFF9CA3AF),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    label,
+                    style: TextStyle(
+                      color: selected ? Colors.white : const Color(0xFFD4D4D8),
+                      fontSize: 13,
+                      fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                if (trailing != null) trailing,
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    Widget repoItem(String name, String subtitle) {
+      final selected = selectedRepo == name;
+      return Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(7),
+          onTap: () {
+            ref.read(selectedIndexedRepoProvider.notifier).state = name;
+          },
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: selected ? const Color(0xFF1F1F22) : Colors.transparent,
+              borderRadius: BorderRadius.circular(7),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: selected
+                        ? const Color(0xFF10B981)
+                        : const Color(0xFF52525B),
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        name,
+                        style: TextStyle(
+                          color: selected
+                              ? const Color(0xFFE4E4E7)
+                              : const Color(0xFFA1A1AA),
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      Text(
+                        subtitle,
+                        style: TextStyle(
+                          color: selected
+                              ? const Color(0xFF71717A)
+                              : const Color(0xFF52525B),
+                          fontSize: 10.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    return ListView(
+      padding: EdgeInsets.zero,
+      children: [
+        const Padding(
+          padding: EdgeInsets.only(left: 4, bottom: 8),
+          child: Text(
+            'INTEL & ANALYSIS',
+            style: TextStyle(
+              color: Color(0xFF8E8E93),
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.6,
+            ),
+          ),
+        ),
+        navItem(
+          subView: CodeSubView.vulnIntel,
+          label: 'Vuln Intel',
+          icon: Icons.shield_outlined,
+          trailing: kevCount > 0
+              ? Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF3B1D1E),
+                    borderRadius: BorderRadius.circular(9),
+                    border:
+                        Border.all(color: const Color(0xFF7F1D1D), width: 0.8),
+                  ),
+                  child: Text(
+                    '$kevCount KEV',
+                    style: const TextStyle(
+                      color: Color(0xFFFCA5A5),
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                )
+              : null,
+        ),
+        const SizedBox(height: 2),
+        navItem(
+          subView: CodeSubView.repoXray,
+          label: 'Repo X-Ray',
+          icon: Icons.hub_outlined,
+        ),
+        const SizedBox(height: 2),
+        navItem(
+          subView: CodeSubView.securityFeed,
+          label: 'Security Feed',
+          icon: Icons.monitor_heart_outlined,
+          trailing: const Text(
+            'SARIF',
+            style: TextStyle(color: Color(0xFF71717A), fontSize: 11),
+          ),
+        ),
+        const SizedBox(height: 2),
+        navItem(
+          subView: CodeSubView.corpusBriefing,
+          label: 'Corpus Briefing',
+          icon: Icons.article_outlined,
+        ),
+        const SizedBox(height: 2),
+        navItem(
+          subView: CodeSubView.dbtLineage,
+          label: 'dbt Lineage',
+          icon: Icons.account_tree_outlined,
+        ),
+        const Padding(
+          padding: EdgeInsets.symmetric(vertical: 12),
+          child: Divider(color: Color(0xFF262629), height: 1),
+        ),
+        const Padding(
+          padding: EdgeInsets.only(left: 4, bottom: 8),
+          child: Text(
+            'INDEXED REPOS',
+            style: TextStyle(
+              color: Color(0xFF8E8E93),
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.6,
+            ),
+          ),
+        ),
+        repoItem('veraxi/backend', '142 files · 812 symbols'),
+        const SizedBox(height: 4),
+        repoItem('veraxi/app', '96 files · Dart AST'),
+      ],
+    );
+  }
+
   Widget _buildSidebarContentActual(BuildContext context) {
     final state = ref.watch(chatViewModelProvider);
     final viewModel = ref.read(chatViewModelProvider.notifier);
     final modelSelection = ref.watch(modelSelectionProvider);
+    final workspaceMode = ref.watch(workspaceModeProvider);
+    final kevCount = ref.watch(activeKevCountProvider);
     final isSidebarOpen = widget.isSidebarOpen;
     return AnimatedContainer(
       duration: const Duration(milliseconds: 250),
@@ -812,31 +1144,38 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
                             ],
                           ),
                         ),
-                        SizedBox(height: 18),
-                        PinnedModelsWidget(
-                          pinnedModels: modelSelection.pinnedModels.toList(),
-                          selectedModel: modelSelection.selectedModel,
-                          onModelSelected: (model, provider) {
-                            ref
-                                .read(modelSelectionProvider.notifier)
-                                .selectModel(model, provider: provider);
-                          },
-                          onModelUnpinned: (model) {
-                            ref
-                                .read(modelSelectionProvider.notifier)
-                                .unpinModel(model);
-                          },
-                        ),
+                        const SizedBox(height: 14),
+                        _buildModeSwitcher(context, workspaceMode, kevCount),
+                        const SizedBox(height: 14),
+                        if (workspaceMode == WorkspaceMode.chat &&
+                            !widget.isKnowledgeHubRoute)
+                          PinnedModelsWidget(
+                            pinnedModels: modelSelection.pinnedModels.toList(),
+                            selectedModel: modelSelection.selectedModel,
+                            onModelSelected: (model, provider) {
+                              ref
+                                  .read(modelSelectionProvider.notifier)
+                                  .selectModel(model, provider: provider);
+                            },
+                            onModelUnpinned: (model) {
+                              ref
+                                  .read(modelSelectionProvider.notifier)
+                                  .unpinModel(model);
+                            },
+                          ),
                         Material(
                           color: Colors.transparent,
                           child: InkWell(
-                            borderRadius: BorderRadius.circular(6),
+                            borderRadius: BorderRadius.circular(8),
                             onTap: () {
+                              ref.read(workspaceModeProvider.notifier).state =
+                                  WorkspaceMode.chat;
                               viewModel.openAllProjectsDashboard();
-                              context.go('/chat');
+                              _goSafe(context, '/chat');
                             },
                             child: Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 8),
                               child: Row(
                                 children: [
                                   Icon(Icons.folder_outlined,
@@ -845,12 +1184,15 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
                                           .iconColor,
                                       size: 18),
                                   const SizedBox(width: 12),
-                                  const Text(
-                                    'Projects',
-                                    style: TextStyle(
-                                      color: Color(0xFFE0E0E0),
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w500,
+                                  const Expanded(
+                                    child: Text(
+                                      'Projects',
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        color: Color(0xFFE0E0E0),
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w500,
+                                      ),
                                     ),
                                   ),
                                 ],
@@ -858,62 +1200,85 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
                             ),
                           ),
                         ),
-                        SizedBox(height: 4),
-                        Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(6),
-                            onTap: () {
-                              viewModel.startNewChat();
-                              context.go('/chat');
-                            },
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 8),
-                              child: Row(
-                                children: [
-                                  Icon(Icons.edit_square,
-                                      color: Theme.of(context)
-                                          .extension<AppThemeExtension>()!
-                                          .iconColor,
-                                      size: 18),
-                                  const SizedBox(width: 12),
-                                  const Text(
-                                    'New chat',
-                                    style: TextStyle(
-                                      color: Color(0xFFE0E0E0),
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w500,
+                        if (workspaceMode == WorkspaceMode.chat &&
+                            !widget.isKnowledgeHubRoute) ...[
+                          const SizedBox(height: 4),
+                          Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(8),
+                              onTap: () {
+                                viewModel.startNewChat();
+                                _goSafe(context, '/chat');
+                              },
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 8),
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.edit_square,
+                                        color: Theme.of(context)
+                                            .extension<AppThemeExtension>()!
+                                            .iconColor,
+                                        size: 18),
+                                    const SizedBox(width: 12),
+                                    const Expanded(
+                                      child: Text(
+                                        'New chat',
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          color: Color(0xFFE0E0E0),
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                        SizedBox(height: 4),
+                        ],
+                        const SizedBox(height: 4),
                         Material(
                           color: Colors.transparent,
                           child: InkWell(
-                            borderRadius: BorderRadius.circular(6),
+                            borderRadius: BorderRadius.circular(8),
                             onTap: () {
-                              context.go('/knowledge-hub');
+                              _goSafe(context, '/knowledge-hub');
                             },
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 8),
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: widget.isKnowledgeHubRoute
+                                    ? const Color(0xFF26262A)
+                                    : Colors.transparent,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 8),
                               child: Row(
                                 children: [
                                   Icon(Icons.library_books_outlined,
-                                      color: Theme.of(context)
-                                          .extension<AppThemeExtension>()!
-                                          .iconColor,
+                                      color: widget.isKnowledgeHubRoute
+                                          ? Colors.white
+                                          : Theme.of(context)
+                                              .extension<AppThemeExtension>()!
+                                              .iconColor,
                                       size: 18),
                                   const SizedBox(width: 12),
-                                  const Text(
-                                    'Knowledge Hub',
-                                    style: TextStyle(
-                                      color: Color(0xFFE0E0E0),
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w500,
+                                  Expanded(
+                                    child: Text(
+                                      'Knowledge Hub',
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        color: widget.isKnowledgeHubRoute
+                                            ? Colors.white
+                                            : const Color(0xFFE0E0E0),
+                                        fontSize: 14,
+                                        fontWeight: widget.isKnowledgeHubRoute
+                                            ? FontWeight.w600
+                                            : FontWeight.w500,
+                                      ),
                                     ),
                                   ),
                                 ],
@@ -921,72 +1286,82 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
                             ),
                           ),
                         ),
-                        SizedBox(height: 12),
-                        InkWell(
-                          onTap: () =>
-                              setState(() => _chatsExpanded = !_chatsExpanded),
-                          child: Row(
-                            children: [
-                              Text('Chats',
-                                  style: TextStyle(
-                                      color: Theme.of(context)
-                                          .extension<AppThemeExtension>()!
-                                          .textTertiary,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600)),
-                              SizedBox(width: 4),
-                              Icon(
-                                  _chatsExpanded
-                                      ? Icons.keyboard_arrow_down
-                                      : Icons.keyboard_arrow_right,
-                                  color: Theme.of(context)
-                                      .extension<AppThemeExtension>()!
-                                      .textTertiary,
-                                  size: 16),
-                            ],
+                        const SizedBox(height: 12),
+                        if (workspaceMode == WorkspaceMode.code &&
+                            !widget.isKnowledgeHubRoute) ...[
+                          const Divider(color: Color(0xFF262629), height: 1),
+                          const SizedBox(height: 12),
+                          Expanded(
+                            child: _buildCodeSidebarSection(context, kevCount),
                           ),
-                        ),
-                        SizedBox(height: 12),
-                        Expanded(
-                          child: !_chatsExpanded
-                              ? SizedBox.shrink()
-                              : Builder(
-                                  builder: (context) {
-                                    if (state.isLoadingThreads) {
-                                      return Center(
-                                        child: Padding(
-                                          padding: EdgeInsets.only(top: 24.0),
-                                          child: CupertinoActivityIndicator(
-                                              radius: 10),
+                        ] else ...[
+                          InkWell(
+                            onTap: () => setState(
+                                () => _chatsExpanded = !_chatsExpanded),
+                            child: Row(
+                              children: [
+                                Text('Chats',
+                                    style: TextStyle(
+                                        color: Theme.of(context)
+                                            .extension<AppThemeExtension>()!
+                                            .textTertiary,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600)),
+                                const SizedBox(width: 4),
+                                Icon(
+                                    _chatsExpanded
+                                        ? Icons.keyboard_arrow_down
+                                        : Icons.keyboard_arrow_right,
+                                    color: Theme.of(context)
+                                        .extension<AppThemeExtension>()!
+                                        .textTertiary,
+                                    size: 16),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Expanded(
+                            child: !_chatsExpanded
+                                ? const SizedBox.shrink()
+                                : Builder(
+                                    builder: (context) {
+                                      if (state.isLoadingThreads) {
+                                        return Center(
+                                          child: Padding(
+                                            padding: EdgeInsets.only(top: 24.0),
+                                            child: CupertinoActivityIndicator(
+                                                radius: 10),
+                                          ),
+                                        );
+                                      }
+
+                                      final timelineChats = state.pastThreads
+                                          .where(
+                                              (t) => t['is_archived'] != true)
+                                          .toList();
+                                      if (timelineChats.isEmpty) {
+                                        return SizedBox.shrink();
+                                      }
+
+                                      final groups =
+                                          groupConsecutiveSidebarThreads(
+                                        timelineChats,
+                                      );
+                                      return ListView.builder(
+                                        itemCount: groups.length,
+                                        itemBuilder: (context, index) =>
+                                            _buildThreadGroup(
+                                          context,
+                                          groups[index],
+                                          state,
+                                          viewModel,
                                         ),
                                       );
-                                    }
-
-                                    final timelineChats = state.pastThreads
-                                        .where((t) => t['is_archived'] != true)
-                                        .toList();
-                                    if (timelineChats.isEmpty) {
-                                      return SizedBox.shrink();
-                                    }
-
-                                    final groups =
-                                        groupConsecutiveSidebarThreads(
-                                      timelineChats,
-                                    );
-                                    return ListView.builder(
-                                      itemCount: groups.length,
-                                      itemBuilder: (context, index) =>
-                                          _buildThreadGroup(
-                                        context,
-                                        groups[index],
-                                        state,
-                                        viewModel,
-                                      ),
-                                    );
-                                  },
-                                ),
-                        ),
-                        SizedBox(height: 16),
+                                    },
+                                  ),
+                          ),
+                        ],
+                        const SizedBox(height: 16),
                         Row(
                           children: [
                             ProfileMenuButton(

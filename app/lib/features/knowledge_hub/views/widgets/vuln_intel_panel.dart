@@ -31,8 +31,19 @@ Color? severityColor(String? severity) {
 /// outlined amber and never presented as confirmed vulnerable.
 class VulnIntelPanel extends ConsumerWidget {
   final TextEditingController repoPathController;
+  final bool workbenchMode;
+  final String? selectedCveId;
+  final ValueChanged<VulnFinding>? onAskFinding;
+  final ValueChanged<VulnFinding>? onInspectPath;
 
-  const VulnIntelPanel({super.key, required this.repoPathController});
+  const VulnIntelPanel({
+    super.key,
+    required this.repoPathController,
+    this.workbenchMode = false,
+    this.selectedCveId,
+    this.onAskFinding,
+    this.onInspectPath,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -133,71 +144,258 @@ class VulnIntelPanel extends ConsumerWidget {
           ],
           if (report != null) ...[
             const SizedBox(height: 16),
-            Text(
-              '${report.dependenciesChecked} dependencies checked · '
-              '${report.matchedCount} matched · ${report.unknownCount} unknown · '
-              '${report.kevCount} in CISA KEV',
-              style: TextStyle(color: ext.iconColor, fontSize: 13),
-            ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                const Text('Filter:',
-                    style: TextStyle(color: Colors.white, fontSize: 12)),
-                for (final quick in const [
-                  (VulnQuickFilter.all, 'All'),
-                  (VulnQuickFilter.kevOnly, 'KEV Only'),
-                  (VulnQuickFilter.highEpss, 'High EPSS ≥ 0.5'),
-                  (VulnQuickFilter.reachable, 'Reachable in Code'),
-                ])
-                  ChoiceChip(
-                    label: Text(quick.$2),
-                    selected: state.vulnQuickFilter == quick.$1,
-                    onSelected: (_) => viewModel.setVulnQuickFilter(quick.$1),
-                  ),
-                for (final severity in const [
-                  'ALL',
-                  'CRITICAL',
-                  'HIGH',
-                  'MEDIUM',
-                  'LOW',
-                ])
-                  ChoiceChip(
-                    label: Text(severity),
-                    selected: state.severityFilter == severity,
-                    onSelected: (_) => viewModel.setSeverityFilter(severity),
-                  ),
-                FilterChip(
-                  label: const Text('Matched only'),
-                  selected: state.matchedOnly,
-                  onSelected: viewModel.setMatchedOnly,
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 260),
-              child: Column(
-                key: ValueKey(
-                  '${state.severityFilter}-${state.vulnQuickFilter}-${state.matchedOnly}-${state.filteredFindings.length}',
-                ),
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (state.filteredFindings.isEmpty)
-                    Text('No findings match the current filters.',
-                        style: TextStyle(color: ext.iconColor, fontSize: 12))
-                  else
-                    ...state.filteredFindings
-                        .map((finding) => _findingTile(context, finding)),
-                ],
+            if (workbenchMode)
+              _buildTriageFunnelStrip(report, state, viewModel)
+            else
+              Text(
+                '${report.dependenciesChecked} dependencies checked · '
+                '${report.matchedCount} matched · ${report.unknownCount} unknown · '
+                '${report.kevCount} in CISA KEV',
+                style: TextStyle(color: ext.iconColor, fontSize: 13),
               ),
-            ),
+            const SizedBox(height: 12),
+            if (workbenchMode)
+              _buildWorkbenchFilterPills(report, state, viewModel)
+            else
+              _buildLegacyFilterPills(state, viewModel),
+            const SizedBox(height: 12),
+            Builder(builder: (context) {
+              final findings = _effectiveFindings(state);
+              return AnimatedSwitcher(
+                duration: const Duration(milliseconds: 260),
+                child: Column(
+                  key: ValueKey(
+                    '${state.severityFilter}-${state.vulnQuickFilter}-${state.matchedOnly}-${findings.length}-$workbenchMode',
+                  ),
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (findings.isEmpty)
+                      Text('No findings match the current filters.',
+                          style: TextStyle(color: ext.iconColor, fontSize: 12))
+                    else
+                      ...findings
+                          .map((finding) => _findingTile(context, finding)),
+                  ],
+                ),
+              );
+            }),
           ],
         ],
       ),
+    );
+  }
+
+  List<VulnFinding> _effectiveFindings(CodeIntelState state) {
+    if (!workbenchMode || state.vulnQuickFilter != VulnQuickFilter.highEpss) {
+      return state.filteredFindings;
+    }
+    final report = state.vulnReport;
+    if (report == null) return const [];
+    return report.findings.where((f) {
+      if (state.severityFilter != 'ALL' &&
+          (f.severity ?? '').toUpperCase() != state.severityFilter) {
+        return false;
+      }
+      if (state.kevOnly && !f.kev) return false;
+      if (state.matchedOnly && !f.isMatched) return false;
+      return (f.epssScore ?? 0) >= 0.7;
+    }).toList();
+  }
+
+  Widget _buildTriageFunnelStrip(
+    VulnReport report,
+    CodeIntelState state,
+    CodeIntelViewModel viewModel,
+  ) {
+    final reachableCount = report.findings.where((f) => f.isReachable).length;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1A1A1D),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFF2D2D32)),
+      ),
+      child: Wrap(
+        spacing: 16,
+        runSpacing: 8,
+        alignment: WrapAlignment.spaceBetween,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'TRIAGE FUNNEL',
+                style: TextStyle(
+                  color: Color(0xFFA1A1AA),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                  letterSpacing: 0.4,
+                ),
+              ),
+              const SizedBox(height: 4),
+              RichText(
+                text: TextSpan(
+                  style: const TextStyle(
+                    color: Color(0xFFF4F4F5),
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  children: [
+                    TextSpan(
+                        text:
+                            '${report.dependenciesChecked} dependencies  →  ${report.findings.length} known CVEs  →  ${report.kevCount} CISA KEV  →  '),
+                    TextSpan(
+                      text: '$reachableCount statically reachable',
+                      style: const TextStyle(color: Color(0xFFFCA5A5)),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                '${report.matchedCount} matched · ${report.unknownCount} unknown',
+                style:
+                    const TextStyle(color: Color(0xFF71717A), fontSize: 11.5),
+              ),
+            ],
+          ),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'Include reachability',
+                style: TextStyle(
+                  color: Color(0xFFD4D4D8),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(width: 6),
+              Switch(
+                value: state.includeReachability,
+                onChanged: viewModel.setIncludeReachability,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildWorkbenchFilterPills(
+    VulnReport report,
+    CodeIntelState state,
+    CodeIntelViewModel viewModel,
+  ) {
+    final reachableCount = report.findings.where((f) => f.isReachable).length;
+    final highEpssCount =
+        report.findings.where((f) => (f.epssScore ?? 0) >= 0.7).length;
+
+    Widget pill({
+      required String label,
+      required String value,
+      bool isKevPill = false,
+    }) {
+      final selected = state.vulnQuickFilter == value;
+      final bg = isKevPill
+          ? (selected ? const Color(0xFF522325) : const Color(0xFF3B1D1E))
+          : (selected ? const Color(0xFF2A2A2F) : const Color(0xFF18181B));
+      final border = isKevPill
+          ? const Color(0xFF7F1D1D)
+          : (selected ? const Color(0xFF52525B) : const Color(0xFF2F2F35));
+      final textColor = isKevPill
+          ? const Color(0xFFFCA5A5)
+          : (selected ? Colors.white : const Color(0xFFA1A1AA));
+
+      return InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: () => viewModel.setVulnQuickFilter(value),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: bg,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: border),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              color: textColor,
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        pill(
+          label: 'All Findings (${report.findings.length})',
+          value: VulnQuickFilter.all,
+        ),
+        pill(
+          label: 'CISA KEV (${report.kevCount})',
+          value: VulnQuickFilter.kevOnly,
+          isKevPill: true,
+        ),
+        pill(
+          label: 'Reachable ($reachableCount)',
+          value: VulnQuickFilter.reachable,
+        ),
+        pill(
+          label: 'EPSS ≥ 0.7 ($highEpssCount)',
+          value: VulnQuickFilter.highEpss,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildLegacyFilterPills(
+    CodeIntelState state,
+    CodeIntelViewModel viewModel,
+  ) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        const Text('Filter:',
+            style: TextStyle(color: Colors.white, fontSize: 12)),
+        for (final quick in const [
+          (VulnQuickFilter.all, 'All'),
+          (VulnQuickFilter.kevOnly, 'KEV Only'),
+          (VulnQuickFilter.highEpss, 'High EPSS ≥ 0.5'),
+          (VulnQuickFilter.reachable, 'Reachable in Code'),
+        ])
+          ChoiceChip(
+            label: Text(quick.$2),
+            selected: state.vulnQuickFilter == quick.$1,
+            onSelected: (_) => viewModel.setVulnQuickFilter(quick.$1),
+          ),
+        for (final severity in const [
+          'ALL',
+          'CRITICAL',
+          'HIGH',
+          'MEDIUM',
+          'LOW',
+        ])
+          ChoiceChip(
+            label: Text(severity),
+            selected: state.severityFilter == severity,
+            onSelected: (_) => viewModel.setSeverityFilter(severity),
+          ),
+        FilterChip(
+          label: const Text('Matched only'),
+          selected: state.matchedOnly,
+          onSelected: viewModel.setMatchedOnly,
+        ),
+      ],
     );
   }
 
@@ -205,15 +403,18 @@ class VulnIntelPanel extends ConsumerWidget {
     final ext = Theme.of(context).extension<AppThemeExtension>()!;
     final color = severityColor(finding.severity);
     final matched = finding.isMatched;
+    final isSelected = selectedCveId != null && selectedCveId == finding.cveId;
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: ext.cardBackground,
+        color: isSelected ? const Color(0xFF23252B) : ext.cardBackground,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: matched ? ext.borderColor : const Color(0xFFF59E0B),
+          color: isSelected
+              ? const Color(0xFF3F3F46)
+              : (matched ? ext.borderColor : const Color(0xFFF59E0B)),
         ),
       ),
       child: Column(
@@ -304,6 +505,63 @@ class VulnIntelPanel extends ConsumerWidget {
                   fontWeight: FontWeight.w600,
                 ),
               ),
+              if (onAskFinding != null || onInspectPath != null) ...[
+                const SizedBox(width: 8),
+                if (onAskFinding != null)
+                  InkWell(
+                    borderRadius: BorderRadius.circular(6),
+                    onTap: () => onAskFinding!(finding),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? const Color(0xFF10B981)
+                            : const Color(0xFF27272A),
+                        borderRadius: BorderRadius.circular(6),
+                        border: isSelected
+                            ? null
+                            : Border.all(
+                                color: const Color(0xFF3F3F46), width: 0.8),
+                      ),
+                      child: Text(
+                        'Ask',
+                        style: TextStyle(
+                          color: isSelected
+                              ? const Color(0xFF0B0F0E)
+                              : const Color(0xFFD4D4D8),
+                          fontSize: 11.5,
+                          fontWeight:
+                              isSelected ? FontWeight.w600 : FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ),
+                if (onInspectPath != null &&
+                    (finding.isReachable || finding.reachableInCode.isNotEmpty))
+                  InkWell(
+                    borderRadius: BorderRadius.circular(6),
+                    onTap: () => onInspectPath!(finding),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF2A2A2E),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
+                            color: const Color(0xFF3F3F46), width: 0.8),
+                      ),
+                      child: const Text(
+                        'Path',
+                        style: TextStyle(
+                          color: Color(0xFFD4D4D8),
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
             ],
           ),
           if (finding.cweIds.isNotEmpty) ...[
