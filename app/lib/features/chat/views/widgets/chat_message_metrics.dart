@@ -237,7 +237,7 @@ class _UsageTile extends StatelessWidget {
 
 class _MetricTile extends StatelessWidget {
   final String label;
-  final double? value;
+  final double value;
   final Color accentColor;
   final bool isDuration;
 
@@ -281,7 +281,7 @@ class _MetricTile extends StatelessWidget {
                 borderRadius: BorderRadius.circular(999),
                 child: LinearProgressIndicator(
                   minHeight: 4,
-                  value: value ?? 0.0,
+                  value: value,
                   backgroundColor: const Color(0xFF2E2E2E),
                   valueColor: AlwaysStoppedAnimation<Color>(accentColor),
                   color: accentColor,
@@ -305,12 +305,9 @@ class _MetricTile extends StatelessWidget {
   }
 
   String _formatValue() {
-    if (value == null) {
-      return '--';
-    }
     if (isDuration) {
-      return '${value!.toStringAsFixed(2)}s';
+      return '${value.toStringAsFixed(2)}s';
     }
-    return '${(value! * 100).round()}%';
+    return '${(value * 100).round()}%';
   }
 }
