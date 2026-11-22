@@ -10,7 +10,11 @@ import 'package:veraxi_app/features/chat/views/widgets/citation_chip.dart';
 import 'package:veraxi_app/features/chat/views/widgets/markdown_citation_builder.dart';
 import 'package:veraxi_app/features/chat/views/widgets/sources_button.dart';
 
-Widget _wrapMarkdown(String data, ChatMessage message) {
+Widget _wrapMarkdown(
+  String data,
+  ChatMessage message, {
+  VoidCallback? onInspectSources,
+}) {
   return MaterialApp(
     theme: AppTheme.darkTheme,
     home: Scaffold(
@@ -27,8 +31,14 @@ Widget _wrapMarkdown(String data, ChatMessage message) {
               ],
             ),
             builders: {
-              'a': CitationElementBuilder(message: message),
-              'cite': CitationElementBuilder(message: message),
+              'a': CitationElementBuilder(
+                message: message,
+                onInspectSources: onInspectSources,
+              ),
+              'cite': CitationElementBuilder(
+                message: message,
+                onInspectSources: onInspectSources,
+              ),
             },
           ),
         ),
@@ -607,6 +617,68 @@ void main() {
         ),
         findsNothing,
       );
+    });
+  });
+
+  group('Provenance match tier & View in Sources action', () {
+    testWidgets(
+        'hovering a source with provenance shows High match, Graph badge, and View in Sources action',
+        (tester) async {
+      var inspected = 0;
+      final msg = ChatMessage(
+        role: 'assistant',
+        content: 'Acme supplies Gamma Inc [Acme Filing].',
+        toolEvents: [
+          ToolEvent(
+            id: 't-prov-1',
+            name: 'merge_rank',
+            isComplete: true,
+            result: [
+              {
+                'id': 'doc-1',
+                'payload': {
+                  'title': 'Acme Filing',
+                  'url': 'https://sec.gov/acme-filing',
+                  'text': 'Acme supplies Gamma Inc under a multi-year contract.',
+                },
+                'provenance': {
+                  'legs': ['vector', 'graph'],
+                  'fused_score': 0.032,
+                  'graph_path': [
+                    {'node': 'Acme', 'relation': 'SUPPLIES'},
+                    {'node': 'Gamma Inc', 'relation': null},
+                  ],
+                },
+              },
+            ],
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(
+        _wrapMarkdown(
+          msg.content,
+          msg,
+          onInspectSources: () => inspected++,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final gesture = await _hoverOver(tester, find.byType(CitationChip));
+
+      expect(find.text('High match'), findsOneWidget);
+      expect(find.text('Graph'), findsOneWidget);
+      expect(find.text('Graph path available'), findsOneWidget);
+      expect(find.text('View in Sources →'), findsOneWidget);
+
+      final actionFinder = find.byKey(const Key('view-in-sources-button'));
+      await gesture.moveTo(tester.getCenter(actionFinder));
+      await tester.pump();
+      await tester.tap(actionFinder);
+      await tester.pumpAndSettle();
+
+      expect(inspected, 1);
+      expect(find.text('View in Sources →'), findsNothing);
     });
   });
 }

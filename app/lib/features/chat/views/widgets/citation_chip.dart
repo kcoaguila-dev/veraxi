@@ -9,6 +9,7 @@ import 'package:veraxi_app/core/theme_extension.dart';
 import 'package:veraxi_app/features/chat/view_models/chat_view_model.dart';
 import 'package:veraxi_app/features/chat/view_models/code_file_view_model.dart';
 import 'package:veraxi_app/features/chat/views/widgets/code_citation_viewer.dart';
+import 'package:veraxi_app/features/chat/views/widgets/sources_sidebar.dart';
 
 const Set<String> _citationNoiseTokens = {
   'http',
@@ -447,6 +448,7 @@ class CitationChip extends StatefulWidget {
   final List<CitationEntry>? citations;
   final String claimText;
   final ChatMessage message;
+  final VoidCallback? onInspectSources;
 
   const CitationChip({
     super.key,
@@ -455,6 +457,7 @@ class CitationChip extends StatefulWidget {
     this.citations,
     this.claimText = '',
     required this.message,
+    this.onInspectSources,
   });
 
   @override
@@ -1199,6 +1202,50 @@ class _CitationChipState extends State<CitationChip> {
     );
   }
 
+  double? _extractFusedScore(_ResolvedSource source) {
+    final data = source.sourceData;
+    if (data == null) return null;
+    final provenance = data['provenance'];
+    final raw =
+        provenance is Map ? provenance['fused_score'] : data['fused_score'];
+    return raw is num ? raw.toDouble() : null;
+  }
+
+  List<String> _extractProvenanceLegs(_ResolvedSource source) {
+    final provenance = source.sourceData?['provenance'];
+    if (provenance is! Map || provenance['legs'] is! List) return const [];
+    return [
+      for (final leg in provenance['legs'] as List)
+        if (leg is String) leg,
+    ];
+  }
+
+  bool _hasGraphPath(_ResolvedSource source) {
+    final provenance = source.sourceData?['provenance'];
+    return provenance is Map &&
+        provenance['graph_path'] is List &&
+        (provenance['graph_path'] as List).length >= 2;
+  }
+
+  Widget _buildCompactBadge(String label, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 10,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+    );
+  }
+
   Widget _buildActiveSourceBody(_ResolvedSource source) {
     final title = _resolveTitleFor(source);
     final snippet = _resolveSnippetFor(source);
@@ -1206,105 +1253,176 @@ class _CitationChipState extends State<CitationChip> {
     final faviconUrl = _faviconUrlFor(source);
     final isInternalKb =
         source.sourceData != null && source.effectiveUrl.isEmpty;
+    final fusedScore = _extractFusedScore(source);
+    final legs = _extractProvenanceLegs(source);
+    final hasProvenance = fusedScore != null || legs.isNotEmpty;
+    final showFooter =
+        source.sourceData != null || widget.onInspectSources != null;
 
-    return InkWell(
-      onTap: () => _openUrl(source.effectiveUrl),
-      borderRadius: _sources.length > 1
-          ? const BorderRadius.vertical(bottom: Radius.circular(12))
-          : BorderRadius.circular(12),
-      child: Padding(
-        padding: const EdgeInsets.all(12.0),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        InkWell(
+          onTap: () => _openUrl(source.effectiveUrl),
+          borderRadius: showFooter
+              ? (_sources.length > 1
+                  ? BorderRadius.zero
+                  : const BorderRadius.vertical(top: Radius.circular(12)))
+              : (_sources.length > 1
+                  ? const BorderRadius.vertical(bottom: Radius.circular(12))
+                  : BorderRadius.circular(12)),
+          child: Padding(
+            padding: const EdgeInsets.all(12.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (faviconUrl.isNotEmpty) ...[
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(2),
-                    child: Image.network(
-                      faviconUrl,
-                      width: 14,
-                      height: 14,
-                      errorBuilder: (_, __, ___) => const Icon(
+                Row(
+                  children: [
+                    if (faviconUrl.isNotEmpty) ...[
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(2),
+                        child: Image.network(
+                          faviconUrl,
+                          width: 14,
+                          height: 14,
+                          errorBuilder: (_, __, ___) => const Icon(
+                            Icons.language,
+                            size: 14,
+                            color: Colors.white54,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                    ] else if (isInternalKb) ...[
+                      Icon(
+                        Icons.auto_stories_outlined,
+                        size: 14,
+                        color: Colors.blueAccent.shade100,
+                      ),
+                      const SizedBox(width: 6),
+                    ] else ...[
+                      const Icon(
                         Icons.language,
                         size: 14,
                         color: Colors.white54,
                       ),
+                      const SizedBox(width: 6),
+                    ],
+                    Expanded(
+                      child: Text(
+                        domain.isNotEmpty ? domain : _displayTextFor(source),
+                        style: const TextStyle(
+                          color: Color(0xFFA0A0A0),
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 6),
-                ] else if (isInternalKb) ...[
-                  Icon(
-                    Icons.auto_stories_outlined,
-                    size: 14,
-                    color: Colors.blueAccent.shade100,
-                  ),
-                  const SizedBox(width: 6),
-                ] else ...[
-                  const Icon(
-                    Icons.language,
-                    size: 14,
-                    color: Colors.white54,
-                  ),
-                  const SizedBox(width: 6),
-                ],
-                Expanded(
-                  child: Text(
-                    domain.isNotEmpty ? domain : _displayTextFor(source),
+                    if (legs.contains('graph')) ...[
+                      const SizedBox(width: 6),
+                      _buildCompactBadge('Graph', const Color(0xFFD98A2B)),
+                    ],
+                    if (fusedScore != null) ...[
+                      const SizedBox(width: 6),
+                      _buildCompactBadge(
+                        matchTierForScore(fusedScore),
+                        matchTierColor(fusedScore),
+                      ),
+                    ],
+                  ],
+                ),
+                if (title.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    title,
                     style: const TextStyle(
-                      color: Color(0xFFA0A0A0),
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500,
+                      color: Color(0xFFE8E8E8),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      height: 1.3,
                     ),
-                    maxLines: 1,
+                    maxLines: 2,
                     overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+                if (snippet.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.only(left: 8),
+                    decoration: const BoxDecoration(
+                      border: Border(
+                        left: BorderSide(
+                          color: Color(0xFF4F8EF7),
+                          width: 2,
+                        ),
+                      ),
+                    ),
+                    child: Text(
+                      snippet,
+                      style: const TextStyle(
+                        color: Color(0xFFB8B8B8),
+                        fontSize: 12,
+                        height: 1.4,
+                      ),
+                      maxLines: 4,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+        if (showFooter) ...[
+          const Divider(height: 1, color: Color(0xFF2E2E2E)),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: Row(
+              children: [
+                if (hasProvenance)
+                  Expanded(
+                    child: Text(
+                      _hasGraphPath(source)
+                          ? 'Graph path available'
+                          : 'Provenance & context',
+                      style: const TextStyle(
+                        color: Color(0xFF878787),
+                        fontSize: 11,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  )
+                else
+                  const Spacer(),
+                InkWell(
+                  key: const Key('view-in-sources-button'),
+                  borderRadius: BorderRadius.circular(6),
+                  onTap: () {
+                    _overlayController.hide();
+                    widget.onInspectSources?.call();
+                  },
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                    child: Text(
+                      'View in Sources →',
+                      style: TextStyle(
+                        color: Color(0xFF4F8EF7),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ),
                 ),
               ],
             ),
-            if (title.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Text(
-                title,
-                style: const TextStyle(
-                  color: Color(0xFFE8E8E8),
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  height: 1.3,
-                ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
-            if (snippet.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.only(left: 8),
-                decoration: const BoxDecoration(
-                  border: Border(
-                    left: BorderSide(
-                      color: Color(0xFF4F8EF7),
-                      width: 2,
-                    ),
-                  ),
-                ),
-                child: Text(
-                  snippet,
-                  style: const TextStyle(
-                    color: Color(0xFFB8B8B8),
-                    fontSize: 12,
-                    height: 1.4,
-                  ),
-                  maxLines: 4,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
+          ),
+        ],
+      ],
     );
   }
 }

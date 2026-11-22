@@ -5,8 +5,10 @@
           consecutive citations combine into a single pill showing the first
           source and "+N" (e.g., "+1" for 2 sources, "+2" for 3 sources), and
           hovering displays "< 1/N >" navigation + overlapping favicons +
-          "N sources" plus the active source's domain, title, and a left
-          accent-bordered verbatim excerpt matched to the cited claim sentence
+          "N sources" plus the active source's domain, calibrated Match Tier
+          pill (when fused_score is present), title, a left accent-bordered
+          verbatim excerpt matched to the cited claim sentence, and a
+          "View in Sources →" action footer that opens the Sources drawer
           (never falling back to "Knowledge Base" for unmatched web citations).
        2. "Show me the path" provenance in the chat Sources drawer
           (implemented by sources_sidebar.dart + sources_button.dart), which
@@ -40,7 +42,7 @@
   <text x="510" y="348" font-family="Inter, sans-serif" font-size="11" fill="#8C8C8C" font-weight="600">+1</text>
 
   <!-- Multi-source hover card -->
-  <rect x="380" y="366" width="320" height="172" rx="12" fill="#1B1B1E" stroke="#2E2E2E"/>
+  <rect x="380" y="366" width="320" height="202" rx="12" fill="#1B1B1E" stroke="#2E2E2E"/>
   <text x="394" y="388" font-family="Inter, sans-serif" font-size="12" fill="#A0A0A0">&lt;  1/2  &gt;</text>
   <circle cx="610" cy="384" r="6" fill="#4F8EF7" stroke="#1B1B1E"/>
   <circle cx="620" cy="384" r="6" fill="#7E57C2" stroke="#1B1B1E"/>
@@ -48,10 +50,15 @@
   <rect x="380" y="400" width="320" height="1" fill="#2E2E2E"/>
   <circle cx="400" cy="420" r="7" fill="#4F8EF7"/>
   <text x="414" y="424" font-family="Inter, sans-serif" font-size="11" fill="#A0A0A0" font-weight="500">wikipedia</text>
+  <rect x="614" y="410" width="72" height="20" rx="10" fill="#172B1F" stroke="#22C55E"/>
+  <text x="625" y="423" font-family="Inter, sans-serif" font-size="10" fill="#A7F3D0" font-weight="500">High match</text>
   <text x="394" y="450" font-family="Inter, sans-serif" font-size="13" fill="#E8E8E8" font-weight="600">Colette Kress - Wikipedia</text>
   <rect x="394" y="462" width="2" height="36" rx="1" fill="#4F8EF7"/>
   <text x="404" y="474" font-family="Inter, sans-serif" font-size="12" fill="#B8B8B8">Colette Marie Kress is an American business</text>
   <text x="404" y="492" font-family="Inter, sans-serif" font-size="12" fill="#B8B8B8">executive serving as interim CEO...</text>
+  <rect x="380" y="524" width="320" height="1" fill="#2E2E2E"/>
+  <text x="394" y="548" font-family="Inter, sans-serif" font-size="11" fill="#878787">Provenance &amp; context</text>
+  <text x="596" y="548" font-family="Inter, sans-serif" font-size="11" fill="#4F8EF7" font-weight="600">View in Sources →</text>
 
   <rect x="48" y="812" width="994" height="52" rx="26" fill="#1F1F23" stroke="#2E2E34"/>
   <text x="72" y="844" font-family="Inter, sans-serif" font-size="13" fill="#71717A">Reply</text>

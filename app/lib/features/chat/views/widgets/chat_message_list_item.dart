@@ -284,9 +284,30 @@ class ChatMessageListItem extends ConsumerWidget {
                                   ),
                                   builders: {
                                     'code': CodeElementBuilder(context),
-                                    'a': CitationElementBuilder(message: msg),
-                                    'cite':
-                                        CitationElementBuilder(message: msg),
+                                    'a': CitationElementBuilder(
+                                      message: msg,
+                                      onInspectSources: () {
+                                        ref
+                                                .read(activeSourcesProvider
+                                                    .notifier)
+                                                .state =
+                                            SourcesButton.extractSources(msg);
+                                        Scaffold.maybeOf(context)
+                                            ?.openEndDrawer();
+                                      },
+                                    ),
+                                    'cite': CitationElementBuilder(
+                                      message: msg,
+                                      onInspectSources: () {
+                                        ref
+                                                .read(activeSourcesProvider
+                                                    .notifier)
+                                                .state =
+                                            SourcesButton.extractSources(msg);
+                                        Scaffold.maybeOf(context)
+                                            ?.openEndDrawer();
+                                      },
+                                    ),
                                   },
                                   styleSheet: MarkdownStyleSheet(
                                     p: theme.textTheme.bodyLarge

@@ -10,8 +10,9 @@ import 'package:veraxi_app/features/chat/views/widgets/citation_chip.dart';
 /// Builds inline [CitationChip] widgets for markdown `<cite>` and `<a>` nodes.
 class CitationElementBuilder extends MarkdownElementBuilder {
   final ChatMessage message;
+  final VoidCallback? onInspectSources;
 
-  CitationElementBuilder({required this.message});
+  CitationElementBuilder({required this.message, this.onInspectSources});
 
   @override
   Widget? visitElementAfter(md.Element element, TextStyle? preferredStyle) {
@@ -24,6 +25,7 @@ class CitationElementBuilder extends MarkdownElementBuilder {
         url: href ?? '',
         claimText: claimText,
         message: message,
+        onInspectSources: onInspectSources,
       );
     } else if (element.tag == 'cite') {
       final citations = _decodeCitations(element.attributes['citations']);
@@ -39,6 +41,7 @@ class CitationElementBuilder extends MarkdownElementBuilder {
         citations: citations,
         claimText: claimText,
         message: message,
+        onInspectSources: onInspectSources,
       );
     }
     return null;
