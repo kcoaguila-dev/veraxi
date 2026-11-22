@@ -192,4 +192,55 @@ void main() {
     final imageFinder = find.byType(Image);
     expect(imageFinder, findsNothing);
   });
+
+  testWidgets(
+      'SourcesSidebar renders High, Medium, and Low match tiers and hides raw fused score when showTelemetry is false',
+      (WidgetTester tester) async {
+    final List<Map<String, dynamic>> testSources = [
+      {
+        'url': '',
+        'title': 'Multi-leg high hit',
+        'provenance': {
+          'legs': ['vector', 'graph'],
+          'fused_score': 0.032,
+          'graph_path': null,
+        },
+      },
+      {
+        'url': '',
+        'title': 'Top single-leg medium hit',
+        'provenance': {
+          'legs': ['vector'],
+          'fused_score': 0.016,
+          'graph_path': null,
+        },
+      },
+      {
+        'url': '',
+        'title': 'Tail low hit',
+        'provenance': {
+          'legs': ['vector'],
+          'fused_score': 0.010,
+          'graph_path': null,
+        },
+      },
+    ];
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.lightTheme,
+        home: Scaffold(
+          body: SourcesSidebar(sources: testSources, showTelemetry: false),
+        ),
+      ),
+    );
+
+    expect(find.text('High match'), findsOneWidget);
+    expect(find.text('Medium match'), findsOneWidget);
+    expect(find.text('Low match'), findsOneWidget);
+    expect(find.text('Fused score'), findsNothing);
+    expect(find.text('0.032'), findsNothing);
+    expect(find.text('0.016'), findsNothing);
+    expect(find.text('0.010'), findsNothing);
+  });
 }

@@ -100,6 +100,60 @@ class _ChatActivityDisclosureState extends State<ChatActivityDisclosure> {
     );
   }
 
+  static bool _isInternalStageName(String name) =>
+      name == 'Planning & Discovery' || name == 'Answer Synthesis';
+
+  static String _humanizeToolName(String toolName) {
+    final lower = toolName.toLowerCase();
+    if (lower.contains('web_search')) return 'Searched the web';
+    if (lower.contains('search_vectors') ||
+        lower.contains('merge_rank') ||
+        lower.contains('build_lazy_dossier')) {
+      return 'Checked your corpus';
+    }
+    if (lower.contains('query_graph')) return 'Traversed knowledge graph';
+    if (lower.contains('code_symbol') ||
+        lower.contains('code_impact') ||
+        lower.contains('code_overview')) {
+      return 'Inspected code graph';
+    }
+    return 'Used ${toolName.replaceAll('_', ' ')}';
+  }
+
+  static String _humanizeStageName(String name) {
+    if (name == 'Planning & Discovery') return 'Analyzed question';
+    if (name == 'Answer Synthesis') return 'Drafted grounded answer';
+    return name;
+  }
+
+  List<String> _collectUniqueToolLabels() {
+    final labels = <String>[];
+    for (final step in widget.activity) {
+      for (final event in step.toolEvents) {
+        final label = _humanizeToolName(event.name);
+        if (!labels.contains(label)) labels.add(label);
+      }
+    }
+    return labels;
+  }
+
+  String _collectPlainLanguageSummary(List<String> toolLabels) {
+    final parts = <String>[];
+    if (widget.reasoningDurationSeconds != null) {
+      parts.add(
+          'Thought for ${widget.reasoningDurationSeconds!.toStringAsFixed(1)}s');
+    }
+    if (toolLabels.isNotEmpty) {
+      parts.addAll(toolLabels);
+      return parts.join(' · ');
+    }
+    for (final step in widget.activity) {
+      final label = _humanizeStageName(step.name);
+      if (!parts.contains(label)) parts.add(label);
+    }
+    return parts.join(' · ');
+  }
+
   String _summary({
     required bool hasError,
     required bool isRunning,
@@ -108,7 +162,16 @@ class _ChatActivityDisclosureState extends State<ChatActivityDisclosure> {
     if (isRunning && widget.isStreaming) return 'Working...';
     if (hasError) return 'Activity completed with an issue';
     if (widget.activity.isNotEmpty) {
-      return widget.activity.map((step) => step.name).join(', ');
+      final toolLabels = _collectUniqueToolLabels();
+      final hasInternalStage =
+          widget.activity.any((step) => _isInternalStageName(step.name));
+      if (!hasInternalStage && toolLabels.isEmpty) {
+        return widget.activity.map((step) => step.name).join(', ');
+      }
+      return _collectPlainLanguageSummary(toolLabels);
+    }
+    if (hasReasoning && widget.reasoningDurationSeconds != null) {
+      return 'Thought for ${widget.reasoningDurationSeconds!.toStringAsFixed(1)}s';
     }
     return hasReasoning ? 'Thought process' : 'Activity';
   }

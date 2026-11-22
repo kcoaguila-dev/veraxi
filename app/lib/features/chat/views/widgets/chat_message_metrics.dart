@@ -42,6 +42,28 @@ class _ChatMessageMetricsState extends State<ChatMessageMetrics> {
     final hasUsage =
         promptTokens != null || completionTokens != null || totalTokens != null;
 
+    final metricTiles = <Widget>[
+      if (contextAdherence != null)
+        _MetricTile(
+          label: 'Context adherence',
+          value: contextAdherence,
+          accentColor: const Color(0xFF22C55E),
+        ),
+      if (confidence != null)
+        _MetricTile(
+          label: 'Confidence',
+          value: confidence,
+          accentColor: const Color(0xFFF59E0B),
+        ),
+      if (generationSeconds != null)
+        _MetricTile(
+          label: 'Generation',
+          value: generationSeconds,
+          accentColor: ext?.primaryGradientStart ?? const Color(0xFF22C55E),
+          isDuration: true,
+        ),
+    ];
+
     return AnimatedSize(
       duration: const Duration(milliseconds: 260),
       curve: Curves.easeInOut,
@@ -71,30 +93,14 @@ class _ChatMessageMetricsState extends State<ChatMessageMetrics> {
                 ),
               ],
             ),
-            SizedBox(height: 12),
-            Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              children: [
-                _MetricTile(
-                  label: 'Context adherence',
-                  value: contextAdherence,
-                  accentColor: const Color(0xFF22C55E),
-                ),
-                _MetricTile(
-                  label: 'Confidence',
-                  value: confidence,
-                  accentColor: const Color(0xFFF59E0B),
-                ),
-                _MetricTile(
-                  label: 'Generation',
-                  value: generationSeconds,
-                  accentColor:
-                      ext?.primaryGradientStart ?? const Color(0xFF22C55E),
-                  isDuration: true,
-                ),
-              ],
-            ),
+            if (metricTiles.isNotEmpty) ...[
+              SizedBox(height: 12),
+              Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: metricTiles,
+              ),
+            ],
             if (hasUsage) ...[
               SizedBox(height: 12),
               _UsageTile(
@@ -105,7 +111,7 @@ class _ChatMessageMetricsState extends State<ChatMessageMetrics> {
                 estimatedCostUsd: estimatedCostUsd,
               ),
             ],
-            if ((contextAdherence ?? 1.0) == 0.0 || (confidence ?? 1.0) == 0.0)
+            if (contextAdherence == 0.0 || confidence == 0.0)
               Padding(
                 padding: EdgeInsets.only(top: 12.0),
                 child: Row(

@@ -53,18 +53,24 @@
     <text x="0" y="44" fill="#878787" font-size="12" font-weight="600" class="font-inter">Chats</text>
     <path d="M 40 40 L 44 44 L 40 48" stroke="#878787" stroke-width="1.5" fill="none" />
     <path d="M 175 36 l 5 5 l -10 10 h -5 v -5 z M 172 49 l 6 6" stroke="#B4B4B4" stroke-width="1.5" fill="none" />
+    <!-- Pinned & disambiguated duplicate thread rows -->
+    <text x="0" y="76" fill="#FFFFFF" font-size="13" font-weight="500" class="font-inter">NVIDIA CEO Update</text>
+    <text x="166" y="76" fill="#878787" font-size="11" font-weight="500" class="font-inter">#1</text>
+    <text x="0" y="102" fill="#B4B4B4" font-size="13" font-weight="400" class="font-inter">NVIDIA CEO Update</text>
+    <text x="166" y="102" fill="#878787" font-size="11" font-weight="500" class="font-inter">#2</text>
   </g>
 
   <!-- ========================================== -->
-  <!-- TOP MODEL SELECTOR BUTTONS                 -->
+  <!-- TOP MODEL SELECTOR & COMPACT TELEMETRY     -->
   <!-- ========================================== -->
   <g transform="translate(300, 24)">
     <path d="M 10 16 C 6.7 16 4 13.3 4 10 C 4 6.7 6.7 4 10 4 C 11.5 4 12.8 4.5 13.8 5.4 L 12.3 6.9 C 11.7 6.4 10.9 6.1 10 6.1 C 7.8 6.1 6.1 7.8 6.1 10 C 6.1 12.2 7.8 13.9 10 13.9 C 12.2 13.9 13.1 12.4 13.4 11.4 L 10 11.4 L 10 9.4 L 15.6 9.4 C 15.6 9.7 15.7 10 15.7 10.4 C 15.7 13.6 13.5 16 10 16 Z" fill="#FFFFFF" />
     <text x="24" y="15" fill="#FFFFFF" font-size="15" font-weight="600" class="font-inter">gemini-2.5-flash-lite</text>
 
-    <g transform="translate(180, 0)">
-      <rect x="2" y="2" width="12" height="12" rx="2" stroke="#9E9E9E" stroke-width="1.5" fill="none" />
-      <rect x="6" y="6" width="12" height="12" rx="2" stroke="#9E9E9E" stroke-width="1.5" fill="#212121" />
+    <!-- Compact Metrics icon pill (replaces wide switch) -->
+    <g transform="translate(180, -2)">
+      <rect x="0" y="0" width="28" height="24" rx="6" stroke="#2A2A2A" fill="#1E1E1E" />
+      <path d="M 8 16 V 12 M 14 16 V 8 M 20 16 V 10" stroke="#878787" stroke-width="1.5" stroke-linecap="round" />
     </g>
 
     <g transform="translate(220, 0)">
@@ -186,9 +192,4 @@
 
     </g>
   </g>
-
-  <!-- Footer Legal Text -->
-  <text x="850" y="980" fill="#878787" font-size="12" font-weight="400" text-anchor="middle" class="font-inter">
-    Veraxi v0.1.0 - Sovereign Intelligence. Privacy policy | Terms of service
-  </text>
 </svg>

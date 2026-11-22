@@ -2,10 +2,30 @@ import 'package:material_ui/material_ui.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
 
+/// Maps a fused retrieval score (RRF k=60 with optional cross-encoder boost,
+/// or cosine similarity) into a human-readable match tier.
+String matchTierForScore(double score) {
+  if (score >= 0.025) return 'High match';
+  if (score >= 0.015) return 'Medium match';
+  return 'Low match';
+}
+
+/// Returns the semantic badge color for [score]'s match tier.
+Color matchTierColor(double score) {
+  if (score >= 0.025) return const Color(0xFF22C55E);
+  if (score >= 0.015) return const Color(0xFF4F8EF7);
+  return const Color(0xFFF59E0B);
+}
+
 class SourcesSidebar extends StatelessWidget {
   final List<Map<String, dynamic>> sources;
+  final bool showTelemetry;
 
-  const SourcesSidebar({super.key, required this.sources});
+  const SourcesSidebar({
+    super.key,
+    required this.sources,
+    this.showTelemetry = true,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -181,6 +201,7 @@ class SourcesSidebar extends StatelessWidget {
                             _ProvenanceSection(
                               provenance: Map<String, dynamic>.from(
                                   source['provenance'] as Map),
+                              showTelemetry: showTelemetry,
                             ),
                           ],
                         ],
@@ -205,8 +226,12 @@ class SourcesSidebar extends StatelessWidget {
 /// renders only when a captured traversal path was sent.
 class _ProvenanceSection extends StatelessWidget {
   final Map<String, dynamic> provenance;
+  final bool showTelemetry;
 
-  const _ProvenanceSection({required this.provenance});
+  const _ProvenanceSection({
+    required this.provenance,
+    this.showTelemetry = true,
+  });
 
   static const _legLabels = {
     'vector': 'Vector',
@@ -247,35 +272,26 @@ class _ProvenanceSection extends StatelessWidget {
             letterSpacing: 1,
           ),
         ),
-        if (legs.isNotEmpty) ...[
+        if (legs.isNotEmpty || fusedScore != null) ...[
           SizedBox(height: 8),
           Wrap(
             spacing: 8,
             runSpacing: 6,
             children: [
               for (final leg in legs)
-                Container(
-                  padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: (_legColors[leg] ?? theme.borderColor)
-                        .withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(11),
-                    border:
-                        Border.all(color: _legColors[leg] ?? theme.borderColor),
-                  ),
-                  child: Text(
-                    _legLabels[leg] ?? leg,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
+                _ProvenanceBadge(
+                  label: _legLabels[leg] ?? leg,
+                  color: _legColors[leg] ?? theme.borderColor,
+                ),
+              if (fusedScore != null)
+                _ProvenanceBadge(
+                  label: matchTierForScore(fusedScore),
+                  color: matchTierColor(fusedScore),
                 ),
             ],
           ),
         ],
-        if (fusedScore != null) ...[
+        if (showTelemetry && fusedScore != null) ...[
           SizedBox(height: 8),
           Row(
             children: [
@@ -324,6 +340,33 @@ class _ProvenanceSection extends StatelessWidget {
           ],
         ],
       ],
+    );
+  }
+}
+
+class _ProvenanceBadge extends StatelessWidget {
+  final String label;
+  final Color color;
+
+  const _ProvenanceBadge({required this.label, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(11),
+        border: Border.all(color: color),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: 11,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
     );
   }
 }

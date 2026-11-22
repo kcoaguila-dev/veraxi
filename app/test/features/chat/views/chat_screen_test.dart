@@ -134,6 +134,29 @@ void main() {
     expect(controller.position.maxScrollExtent, greaterThan(250.0));
     expect(controller.position.pixels, closeTo(250.0, 0.5));
   });
+
+  testWidgets(
+      'ChatScreen disambiguates duplicate thread titles and omits legal footer',
+      (WidgetTester tester) async {
+    final mockState = ChatState(
+      pastThreads: [
+        {'thread_id': 'thread-1', 'title': 'NVIDIA CEO Update'},
+        {'thread_id': 'thread-2', 'title': 'NVIDIA CEO Update'},
+        {'thread_id': 'thread-3', 'title': 'Unique Topic'},
+      ],
+      messages: [],
+    );
+
+    await pumpChatScreen(tester, mockState);
+    await tester.pumpAndSettle();
+
+    expect(find.text('NVIDIA CEO Update'), findsNWidgets(2));
+    expect(find.text('#1'), findsOneWidget);
+    expect(find.text('#2'), findsOneWidget);
+    expect(find.text('Unique Topic'), findsOneWidget);
+    expect(find.text('#3'), findsNothing);
+    expect(find.textContaining('Sovereign Intelligence'), findsNothing);
+  });
 }
 
 class MockChatRepository extends Mock implements IChatRepository {

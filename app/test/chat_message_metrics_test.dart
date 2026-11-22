@@ -95,5 +95,27 @@ void main() {
       expect(find.text('TOKEN USAGE'), findsNothing);
       expect(find.text('CONTEXT ADHERENCE'), findsOneWidget);
     });
+
+    testWidgets(
+        'omits adherence and confidence tiles instead of showing dead dashes when null',
+        (tester) async {
+      await tester.pumpWidget(wrapMetrics({
+        'context_adherence': null,
+        'confidence': null,
+        'generation_seconds': 0.92,
+        'prompt_tokens': 2441,
+        'completion_tokens': 302,
+        'total_tokens': 2743,
+      }));
+      await tester.pumpAndSettle();
+
+      expect(find.text('CONTEXT ADHERENCE'), findsNothing);
+      expect(find.text('CONFIDENCE'), findsNothing);
+      expect(find.text('--'), findsNothing);
+      expect(find.text('GENERATION'), findsOneWidget);
+      expect(find.text('0.92s'), findsOneWidget);
+      expect(find.text('TOKEN USAGE'), findsOneWidget);
+      expect(find.text('2743 tokens'), findsOneWidget);
+    });
   });
 }

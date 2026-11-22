@@ -13,10 +13,12 @@
           parses the backend `provenance` object ({legs, fused_score,
           graph_path}) attached to merged retrieval results. Rules: leg badges
           render ONLY for legs actually present (Vector / Sparse / Graph);
-          fused score shows the RRF/rerank score; graph path renders only
-          when a graph traversal contributed a captured path, as indented
-          node —relation→ node steps. Sources without provenance render
-          exactly as before (no empty section). -->
+          when fused_score is present, render a calibrated Match Tier pill
+          ("High match" >= 0.025, "Medium match" >= 0.015, "Low match" < 0.015)
+          by default, and gate the raw "Fused score" row behind Metrics
+          (showTelemetry); graph path renders only when a graph traversal
+          contributed a captured path, as indented node —relation→ node steps.
+          Sources without provenance render exactly as before (no empty section). -->
   <rect width="1440" height="900" fill="#0E0E10"/>
 
   <!-- Left chat column -->
@@ -68,15 +70,17 @@
   <text x="1126" y="152" font-family="Inter, sans-serif" font-size="14" fill="#FFFFFF" font-weight="500">Acme Corp — Beta LLC acquisition filing</text>
   <text x="1126" y="176" font-family="Inter, sans-serif" font-size="13" fill="#A1A1AA">…Acme Corp completed the acquisition of Beta LLC…</text>
 
-  <!-- Provenance section: divider, badges, fused score, graph path -->
+  <!-- Provenance section: divider, badges, match tier, optional fused score (Metrics mode), graph path -->
   <rect x="1126" y="196" width="278" height="1" fill="#2E2E34"/>
   <text x="1126" y="218" font-family="Inter, sans-serif" font-size="11" fill="#878787" letter-spacing="1">PROVENANCE</text>
   <rect x="1126" y="230" width="62" height="22" rx="11" fill="#233148" stroke="#4F8EF7"/>
   <text x="1140" y="245" font-family="Inter, sans-serif" font-size="11" fill="#BFD7FB">Vector</text>
   <rect x="1196" y="230" width="58" height="22" rx="11" fill="#2E2417" stroke="#D98A2B"/>
   <text x="1210" y="245" font-family="Inter, sans-serif" font-size="11" fill="#F3D3A7">Graph</text>
-  <text x="1126" y="276" font-family="Inter, sans-serif" font-size="12" fill="#A1A1AA">Fused score</text>
-  <text x="1210" y="276" font-family="Inter, sans-serif" font-size="12" fill="#ECECEC" font-weight="600">0.032</text>
+  <rect x="1262" y="230" width="84" height="22" rx="11" fill="#172B1F" stroke="#22C55E"/>
+  <text x="1275" y="245" font-family="Inter, sans-serif" font-size="11" fill="#A7F3D0" font-weight="500">High match</text>
+  <text x="1126" y="276" font-family="Inter, sans-serif" font-size="12" fill="#A1A1AA">Fused score (Metrics on)</text>
+  <text x="1276" y="276" font-family="Inter, sans-serif" font-size="12" fill="#ECECEC" font-weight="600">0.032</text>
   <!-- Graph path: indented steps, node —relation→ node -->
   <text x="1126" y="304" font-family="Inter, sans-serif" font-size="12" fill="#ECECEC">Acme Corp</text>
   <text x="1142" y="326" font-family="Inter, sans-serif" font-size="12" fill="#878787">— ACQUIRED →</text>
@@ -94,8 +98,10 @@
   <text x="1126" y="556" font-family="Inter, sans-serif" font-size="11" fill="#878787" letter-spacing="1">PROVENANCE</text>
   <rect x="1126" y="568" width="62" height="22" rx="11" fill="#233148" stroke="#4F8EF7"/>
   <text x="1140" y="583" font-family="Inter, sans-serif" font-size="11" fill="#BFD7FB">Vector</text>
-  <text x="1126" y="614" font-family="Inter, sans-serif" font-size="12" fill="#A1A1AA">Fused score</text>
-  <text x="1210" y="614" font-family="Inter, sans-serif" font-size="12" fill="#ECECEC" font-weight="600">0.016</text>
+  <rect x="1196" y="568" width="98" height="22" rx="11" fill="#233148" stroke="#4F8EF7"/>
+  <text x="1209" y="583" font-family="Inter, sans-serif" font-size="11" fill="#BFD7FB" font-weight="500">Medium match</text>
+  <text x="1126" y="614" font-family="Inter, sans-serif" font-size="12" fill="#A1A1AA">Fused score (Metrics on)</text>
+  <text x="1276" y="614" font-family="Inter, sans-serif" font-size="12" fill="#ECECEC" font-weight="600">0.016</text>
 
   <!-- Source card 3: legacy source without provenance — unchanged UI -->
   <rect x="1110" y="662" width="310" height="120" rx="12" fill="#222226" stroke="#2E2E34"/>

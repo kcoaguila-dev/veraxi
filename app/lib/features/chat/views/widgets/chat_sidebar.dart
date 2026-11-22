@@ -482,6 +482,151 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
     );
   }
 
+  static String _resolveThreadTitle(Map<String, dynamic> threadData) {
+    final threadId = threadData['thread_id'] as String? ?? '';
+    return threadData['title'] as String? ??
+        (threadId.length > 8 ? '${threadId.substring(0, 8)}...' : threadId);
+  }
+
+  static List<Map<String, dynamic>> _orderTimelineChats(
+      List<Map<String, dynamic>> threads) {
+    final active = threads.where((t) => t['is_archived'] != true).toList();
+    final pinned = active.where((t) => t['is_pinned'] == true);
+    final unpinned = active.where((t) => t['is_pinned'] != true);
+    return [...pinned, ...unpinned];
+  }
+
+  static List<int?> _computeDuplicateTitleOrdinals(
+      List<Map<String, dynamic>> threads) {
+    final counts = <String, int>{};
+    final titles = [for (final t in threads) _resolveThreadTitle(t)];
+    for (final title in titles) {
+      counts[title] = (counts[title] ?? 0) + 1;
+    }
+    final seen = <String, int>{};
+    return [
+      for (final title in titles)
+        (counts[title] ?? 0) > 1
+            ? (seen[title] = (seen[title] ?? 0) + 1)
+            : null,
+    ];
+  }
+
+  Widget _buildThreadRow({
+    required BuildContext context,
+    required ChatViewModel viewModel,
+    required Map<String, dynamic> threadData,
+    required bool isSelected,
+    int? duplicateOrdinal,
+  }) {
+    final ext = Theme.of(context).extension<AppThemeExtension>()!;
+    final threadId = threadData['thread_id'] as String? ?? '';
+    final title = _resolveThreadTitle(threadData);
+    final isPinned = threadData['is_pinned'] == true;
+    bool isHovered = false;
+
+    return StatefulBuilder(
+      builder: (context, setState) {
+        return MouseRegion(
+          onEnter: (_) => setState(() => isHovered = true),
+          onExit: (_) => setState(() => isHovered = false),
+          child: InkWell(
+            onTap: () {
+              viewModel.selectThread(threadId);
+              context.go('/chat');
+              if (widget.isMobile && context.mounted) {
+                Navigator.of(context).pop();
+              }
+            },
+            onLongPress: widget.isMobile
+                ? () => _showThreadMenu(context, threadData, threadId, title)
+                : null,
+            child: Container(
+              decoration: BoxDecoration(
+                color: isSelected ? ext.borderColor : Colors.transparent,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              padding:
+                  const EdgeInsets.symmetric(vertical: 4.0, horizontal: 8.0),
+              child: Row(
+                children: [
+                  if (isPinned) ...[
+                    Icon(
+                      Icons.push_pin_outlined,
+                      size: 12,
+                      color: isSelected ? Colors.white70 : ext.textTertiary,
+                    ),
+                    const SizedBox(width: 6),
+                  ],
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: TextStyle(
+                        color: isSelected ? Colors.white : ext.iconColor,
+                        fontSize: 13,
+                        fontWeight:
+                            isSelected ? FontWeight.w500 : FontWeight.normal,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  if (duplicateOrdinal != null) ...[
+                    const SizedBox(width: 6),
+                    Text(
+                      '#$duplicateOrdinal',
+                      style: TextStyle(
+                        color: ext.textTertiary,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                  Visibility(
+                    visible: !widget.isMobile && (isHovered || isSelected),
+                    maintainSize: true,
+                    maintainAnimation: true,
+                    maintainState: true,
+                    child: Theme(
+                      data: Theme.of(context).copyWith(
+                        hoverColor: Colors.transparent,
+                        splashColor: Colors.transparent,
+                        highlightColor: Colors.transparent,
+                      ),
+                      child: SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: PopupMenuButton<String>(
+                          icon: Icon(
+                            Icons.more_horiz,
+                            color: isSelected ? Colors.white : ext.iconColor,
+                            size: 16,
+                          ),
+                          color: ext.borderColor,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          padding: EdgeInsets.zero,
+                          itemBuilder: (_) => _threadMenuItems(threadData),
+                          onSelected: (value) => _handleThreadMenuSelection(
+                            context,
+                            value,
+                            threadId,
+                            title,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
     // We override references to variables that used to be class members
 
@@ -734,12 +879,14 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
                                       );
                                     }
 
-                                    final timelineChats = state.pastThreads
-                                        .where((t) => t['is_archived'] != true)
-                                        .toList();
+                                    final timelineChats =
+                                        _orderTimelineChats(state.pastThreads);
                                     if (timelineChats.isEmpty) {
                                       return SizedBox.shrink();
                                     }
+                                    final ordinals =
+                                        _computeDuplicateTitleOrdinals(
+                                            timelineChats);
 
                                     return ListView.builder(
                                       itemCount: timelineChats.length,
@@ -748,144 +895,14 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
                                         final threadId = threadData['thread_id']
                                                 as String? ??
                                             '';
-                                        final title =
-                                            threadData['title'] as String? ??
-                                                (threadId.length > 8
-                                                    ? threadId.substring(0, 8) +
-                                                        '...'
-                                                    : threadId);
-                                        final isSelected =
-                                            state.threadId == threadId;
-                                        bool isHovered = false;
-
-                                        return StatefulBuilder(
-                                            builder: (context, setState) {
-                                          return MouseRegion(
-                                            onEnter: (_) => setState(
-                                                () => isHovered = true),
-                                            onExit: (_) => setState(
-                                                () => isHovered = false),
-                                            child: InkWell(
-                                              onTap: () {
-                                                viewModel
-                                                    .selectThread(threadId);
-                                                context.go('/chat');
-                                                if (widget.isMobile &&
-                                                    context.mounted) {
-                                                  Navigator.of(context).pop();
-                                                }
-                                              },
-                                              onLongPress: widget.isMobile
-                                                  ? () => _showThreadMenu(
-                                                      context,
-                                                      threadData,
-                                                      threadId,
-                                                      title)
-                                                  : null,
-                                              child: Container(
-                                                decoration: BoxDecoration(
-                                                  color: isSelected
-                                                      ? Theme.of(context)
-                                                          .extension<
-                                                              AppThemeExtension>()!
-                                                          .borderColor
-                                                      : Colors.transparent,
-                                                  borderRadius:
-                                                      BorderRadius.circular(8),
-                                                ),
-                                                padding: EdgeInsets.symmetric(
-                                                    vertical: 4.0,
-                                                    horizontal: 8.0),
-                                                child: Row(
-                                                  children: [
-                                                    Expanded(
-                                                      child: Text(
-                                                        title,
-                                                        style: TextStyle(
-                                                          color: isSelected
-                                                              ? Colors.white
-                                                              : Theme.of(
-                                                                      context)
-                                                                  .extension<
-                                                                      AppThemeExtension>()!
-                                                                  .iconColor,
-                                                          fontSize: 13,
-                                                          fontWeight: isSelected
-                                                              ? FontWeight.w500
-                                                              : FontWeight
-                                                                  .normal,
-                                                        ),
-                                                        overflow: TextOverflow
-                                                            .ellipsis,
-                                                      ),
-                                                    ),
-                                                    Visibility(
-                                                      visible:
-                                                          !widget.isMobile &&
-                                                              (isHovered ||
-                                                                  isSelected),
-                                                      maintainSize: true,
-                                                      maintainAnimation: true,
-                                                      maintainState: true,
-                                                      child: Theme(
-                                                        data: Theme.of(context)
-                                                            .copyWith(
-                                                          hoverColor: Colors
-                                                              .transparent,
-                                                          splashColor: Colors
-                                                              .transparent,
-                                                          highlightColor: Colors
-                                                              .transparent,
-                                                        ),
-                                                        child: SizedBox(
-                                                          width: 24,
-                                                          height: 24,
-                                                          child:
-                                                              PopupMenuButton<
-                                                                  String>(
-                                                            icon: Icon(
-                                                                Icons
-                                                                    .more_horiz,
-                                                                color: isSelected
-                                                                    ? Colors
-                                                                        .white
-                                                                    : Theme.of(
-                                                                            context)
-                                                                        .extension<
-                                                                            AppThemeExtension>()!
-                                                                        .iconColor,
-                                                                size: 16),
-                                                            color: Theme.of(
-                                                                    context)
-                                                                .extension<
-                                                                    AppThemeExtension>()!
-                                                                .borderColor,
-                                                            shape: RoundedRectangleBorder(
-                                                                borderRadius:
-                                                                    BorderRadius
-                                                                        .circular(
-                                                                            8)),
-                                                            padding:
-                                                                EdgeInsets.zero,
-                                                            itemBuilder: (_) =>
-                                                                _threadMenuItems(
-                                                                    threadData),
-                                                            onSelected: (value) =>
-                                                                _handleThreadMenuSelection(
-                                                                    context,
-                                                                    value,
-                                                                    threadId,
-                                                                    title),
-                                                          ),
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-                                            ),
-                                          );
-                                        });
+                                        return _buildThreadRow(
+                                          context: context,
+                                          viewModel: viewModel,
+                                          threadData: threadData,
+                                          isSelected:
+                                              state.threadId == threadId,
+                                          duplicateOrdinal: ordinals[index],
+                                        );
                                       },
                                     );
                                   },
