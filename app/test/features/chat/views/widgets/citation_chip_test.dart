@@ -639,7 +639,8 @@ void main() {
                 'payload': {
                   'title': 'Acme Filing',
                   'url': 'https://sec.gov/acme-filing',
-                  'text': 'Acme supplies Gamma Inc under a multi-year contract.',
+                  'text':
+                      'Acme supplies Gamma Inc under a multi-year contract.',
                 },
                 'provenance': {
                   'legs': ['vector', 'graph'],

@@ -248,7 +248,10 @@ void main() {
             result: const [
               {
                 'title': 'Weak note',
-                'provenance': {'legs': ['vector'], 'fused_score': 0.011},
+                'provenance': {
+                  'legs': ['vector'],
+                  'fused_score': 0.011
+                },
               },
             ],
           ),
@@ -288,7 +291,10 @@ void main() {
             result: const [
               {
                 'title': 'Strong source',
-                'provenance': {'legs': ['vector', 'graph'], 'fused_score': 0.032},
+                'provenance': {
+                  'legs': ['vector', 'graph'],
+                  'fused_score': 0.032
+                },
               },
             ],
           ),

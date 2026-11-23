@@ -239,10 +239,9 @@ class _ChatInputState extends State<ChatInput> {
     final webStored = webMap is Map && webMap['enabled'] is bool
         ? webMap['enabled'] as bool
         : false;
-    final highAccuracyEnabled =
-        webMap is Map && webMap['high_accuracy'] is bool
-            ? webMap['high_accuracy'] as bool
-            : false;
+    final highAccuracyEnabled = webMap is Map && webMap['high_accuracy'] is bool
+        ? webMap['high_accuracy'] as bool
+        : false;
     final skillsStored = settings['skills_enabled'] as bool? ?? false;
     final runCodeStored = settings['run_code_enabled'] as bool? ?? false;
     final artifactsStored = settings['artifacts_enabled'] as bool? ?? false;
@@ -377,8 +376,9 @@ class _ChatInputState extends State<ChatInput> {
   void _handleSend() {
     final text = _controller.text;
     if (text.trim().isNotEmpty && !widget.isLoading) {
-      final attachments =
-          _attachedFiles.isNotEmpty ? List<PlatformFile>.from(_attachedFiles) : null;
+      final attachments = _attachedFiles.isNotEmpty
+          ? List<PlatformFile>.from(_attachedFiles)
+          : null;
       final sendFuture = Future<void>.sync(
         () => widget.onSend(text, attachments: attachments),
       );

@@ -1062,8 +1062,7 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
                     SizedBox(height: 2),
                     Text(
                       'Index a repo in Repo X-Ray →',
-                      style:
-                          TextStyle(color: Color(0xFF34D399), fontSize: 11),
+                      style: TextStyle(color: Color(0xFF34D399), fontSize: 11),
                     ),
                   ],
                 ),

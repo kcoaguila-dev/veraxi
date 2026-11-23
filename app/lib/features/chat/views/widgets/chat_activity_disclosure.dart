@@ -302,7 +302,8 @@ class _ActivityStepView extends StatelessWidget {
         return 'Checked ${channels.join(', ')}';
       }
       if (step.description.isEmpty ||
-          step.description == 'Analyzing intent and selecting domain tools...') {
+          step.description ==
+              'Analyzing intent and selecting domain tools...') {
         return 'Selected retrieval channels';
       }
     }

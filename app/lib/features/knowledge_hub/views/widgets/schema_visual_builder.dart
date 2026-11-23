@@ -341,11 +341,12 @@ class _SchemaVisualBuilderState extends State<SchemaVisualBuilder> {
                 height: 32,
                 child: TextField(
                   controller: _newEntityController,
-                  style: const TextStyle(color: Color(0xFFF4F4F5), fontSize: 12.5),
+                  style:
+                      const TextStyle(color: Color(0xFFF4F4F5), fontSize: 12.5),
                   decoration: InputDecoration(
                     hintText: 'Add entity...',
-                    hintStyle:
-                        const TextStyle(color: Color(0xFF71717A), fontSize: 12.5),
+                    hintStyle: const TextStyle(
+                        color: Color(0xFF71717A), fontSize: 12.5),
                     filled: true,
                     fillColor: const Color(0xFF232328),
                     contentPadding:

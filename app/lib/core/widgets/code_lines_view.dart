@@ -20,7 +20,8 @@ class CodeSourceBadge extends StatelessWidget {
       decoration: BoxDecoration(
         color: isExcerpt ? const Color(0xFF2E2417) : const Color(0xFF233148),
         border: Border.all(
-          color: isExcerpt ? const Color(0xFFD98A2B) : CodeLinesView.accentColor,
+          color:
+              isExcerpt ? const Color(0xFFD98A2B) : CodeLinesView.accentColor,
         ),
         borderRadius: BorderRadius.circular(12),
       ),
@@ -141,12 +142,13 @@ class _CodeLinesViewState extends State<CodeLinesView> {
     final gutterWidth = _gutterWidthFor(lastLine);
     final longestLine =
         widget.lines.fold<int>(0, (m, l) => l.length > m ? l.length : m);
-    final muted = Theme.of(context).textTheme.bodySmall?.color ??
-        const Color(0xFF8C8C8C);
+    final muted =
+        Theme.of(context).textTheme.bodySmall?.color ?? const Color(0xFF8C8C8C);
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final textWidth = gutterWidth + 14 + longestLine * CodeLinesView._charWidth + 16;
+        final textWidth =
+            gutterWidth + 14 + longestLine * CodeLinesView._charWidth + 16;
         final width = math.max(constraints.maxWidth, textWidth);
         return SingleChildScrollView(
           scrollDirection: Axis.horizontal,
@@ -176,8 +178,7 @@ class _CodeLinesViewState extends State<CodeLinesView> {
     final lineNumber = widget.startLine + index;
     final cited = widget.highlightStartLine != null &&
         lineNumber >= widget.highlightStartLine! &&
-        lineNumber <=
-            (widget.highlightEndLine ?? widget.highlightStartLine!);
+        lineNumber <= (widget.highlightEndLine ?? widget.highlightStartLine!);
     return Container(
       color: cited ? CodeLinesView.citedBandColor : null,
       child: Row(

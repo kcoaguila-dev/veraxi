@@ -892,9 +892,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                                       VeraxiSwitch(
                                                         value:
                                                             state.showTelemetry,
-                                                        onChanged: (_) =>
-                                                            viewModel
-                                                                .toggleTelemetry(),
+                                                        onChanged: (_) => viewModel
+                                                            .toggleTelemetry(),
                                                         semanticLabel:
                                                             'Metrics',
                                                       ),

@@ -232,121 +232,124 @@ class VulnIntelPanel extends ConsumerWidget {
     final viewModel = ref.read(codeIntelViewModelProvider.notifier);
     final report = state.vulnReport;
 
-    final showToolbarRow =
-        !hideToolbarActions || state.syncStatus != null || state.sbomFileName != null || !workbenchMode || report == null;
+    final showToolbarRow = !hideToolbarActions ||
+        state.syncStatus != null ||
+        state.sbomFileName != null ||
+        !workbenchMode ||
+        report == null;
 
     final content = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-          if (!workbenchMode) ...[
-            const Text('Vulnerability Intel',
-                style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600)),
-            const SizedBox(height: 12),
-          ],
-          if (showToolbarRow)
-            ValueListenableBuilder<TextEditingValue>(
-              valueListenable: repoPathController,
-              builder: (context, repoValue, _) {
-                final hasScanTarget =
-                    repoValue.text.trim().isNotEmpty || state.sbomJson != null;
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Wrap(
-                      spacing: 12,
-                      runSpacing: 8,
-                      crossAxisAlignment: WrapCrossAlignment.center,
+        if (!workbenchMode) ...[
+          const Text('Vulnerability Intel',
+              style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600)),
+          const SizedBox(height: 12),
+        ],
+        if (showToolbarRow)
+          ValueListenableBuilder<TextEditingValue>(
+            valueListenable: repoPathController,
+            builder: (context, repoValue, _) {
+              final hasScanTarget =
+                  repoValue.text.trim().isNotEmpty || state.sbomJson != null;
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 8,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      if (!hideToolbarActions)
+                        VulnIntelToolbarActions(
+                          repoPathController: repoPathController,
+                          workbenchMode: workbenchMode,
+                          compact: workbenchMode,
+                        ),
+                      if (!workbenchMode || report == null)
+                        _buildReachabilityToggle(state, viewModel),
+                      if (state.syncStatus != null)
+                        Text(
+                          state.syncStatus!,
+                          style: TextStyle(color: ext.iconColor, fontSize: 13),
+                        ),
+                      if (state.sbomFileName != null)
+                        Chip(
+                          label: Text('SBOM: ${state.sbomFileName}'),
+                          deleteIcon: const Icon(Icons.close, size: 14),
+                          onDeleted: viewModel.clearSbom,
+                        ),
+                    ],
+                  ),
+                  if (workbenchMode && !hasScanTarget && report == null) ...[
+                    const SizedBox(height: 8),
+                    _buildEmptyScanHint(ext),
+                  ],
+                ],
+              );
+            },
+          ),
+        if (state.vulnError != null) ...[
+          const SizedBox(height: 8),
+          Text(state.vulnError!,
+              style: const TextStyle(color: Color(0xFFF59E0B), fontSize: 13)),
+        ],
+        if (report != null) ...[
+          const SizedBox(height: 16),
+          if (workbenchMode)
+            _buildTriageFunnelStrip(report, state, viewModel)
+          else
+            Text(
+              '${report.dependenciesChecked} dependencies checked · '
+              '${report.matchedCount} matched · ${report.unknownCount} unknown · '
+              '${report.kevCount} in CISA KEV',
+              style: TextStyle(color: ext.iconColor, fontSize: 13),
+            ),
+          const SizedBox(height: 12),
+          if (workbenchMode)
+            _buildWorkbenchFilterPills(report, state, viewModel)
+          else
+            _buildLegacyFilterPills(state, viewModel),
+          const SizedBox(height: 12),
+          LayoutBuilder(builder: (context, constraints) {
+            final findings = _effectiveFindings(state);
+            final useDesktopTable =
+                workbenchMode && constraints.maxWidth >= 640;
+            return AnimatedSwitcher(
+              duration: const Duration(milliseconds: 260),
+              child: useDesktopTable
+                  ? VulnWorkbenchTable(
+                      key: ValueKey(
+                        '${state.severityFilter}-${state.vulnQuickFilter}-${state.matchedOnly}-${findings.length}-table',
+                      ),
+                      findings: findings,
+                      selectedCveId: selectedCveId,
+                      onAskFinding: onAskFinding,
+                      onInspectPath: onInspectPath,
+                    )
+                  : Column(
+                      key: ValueKey(
+                        '${state.severityFilter}-${state.vulnQuickFilter}-${state.matchedOnly}-${findings.length}-$workbenchMode-stacked',
+                      ),
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        if (!hideToolbarActions)
-                          VulnIntelToolbarActions(
-                            repoPathController: repoPathController,
-                            workbenchMode: workbenchMode,
-                            compact: workbenchMode,
-                          ),
-                        if (!workbenchMode || report == null)
-                          _buildReachabilityToggle(state, viewModel),
-                        if (state.syncStatus != null)
-                          Text(
-                            state.syncStatus!,
-                            style: TextStyle(color: ext.iconColor, fontSize: 13),
-                          ),
-                        if (state.sbomFileName != null)
-                          Chip(
-                            label: Text('SBOM: ${state.sbomFileName}'),
-                            deleteIcon: const Icon(Icons.close, size: 14),
-                            onDeleted: viewModel.clearSbom,
-                          ),
+                        if (findings.isEmpty)
+                          Text('No findings match the current filters.',
+                              style:
+                                  TextStyle(color: ext.iconColor, fontSize: 12))
+                        else
+                          ...findings
+                              .map((finding) => _findingTile(context, finding)),
                       ],
                     ),
-                    if (workbenchMode && !hasScanTarget && report == null) ...[
-                      const SizedBox(height: 8),
-                      _buildEmptyScanHint(ext),
-                    ],
-                  ],
-                );
-              },
-            ),
-          if (state.vulnError != null) ...[
-            const SizedBox(height: 8),
-            Text(state.vulnError!,
-                style: const TextStyle(color: Color(0xFFF59E0B), fontSize: 13)),
-          ],
-          if (report != null) ...[
-            const SizedBox(height: 16),
-            if (workbenchMode)
-              _buildTriageFunnelStrip(report, state, viewModel)
-            else
-              Text(
-                '${report.dependenciesChecked} dependencies checked · '
-                '${report.matchedCount} matched · ${report.unknownCount} unknown · '
-                '${report.kevCount} in CISA KEV',
-                style: TextStyle(color: ext.iconColor, fontSize: 13),
-              ),
-            const SizedBox(height: 12),
-            if (workbenchMode)
-              _buildWorkbenchFilterPills(report, state, viewModel)
-            else
-              _buildLegacyFilterPills(state, viewModel),
-            const SizedBox(height: 12),
-            LayoutBuilder(builder: (context, constraints) {
-              final findings = _effectiveFindings(state);
-              final useDesktopTable =
-                  workbenchMode && constraints.maxWidth >= 640;
-              return AnimatedSwitcher(
-                duration: const Duration(milliseconds: 260),
-                child: useDesktopTable
-                    ? VulnWorkbenchTable(
-                        key: ValueKey(
-                          '${state.severityFilter}-${state.vulnQuickFilter}-${state.matchedOnly}-${findings.length}-table',
-                        ),
-                        findings: findings,
-                        selectedCveId: selectedCveId,
-                        onAskFinding: onAskFinding,
-                        onInspectPath: onInspectPath,
-                      )
-                    : Column(
-                        key: ValueKey(
-                          '${state.severityFilter}-${state.vulnQuickFilter}-${state.matchedOnly}-${findings.length}-$workbenchMode-stacked',
-                        ),
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          if (findings.isEmpty)
-                            Text('No findings match the current filters.',
-                                style: TextStyle(
-                                    color: ext.iconColor, fontSize: 12))
-                          else
-                            ...findings.map(
-                                (finding) => _findingTile(context, finding)),
-                        ],
-                      ),
-              );
-            }),
-          ],
+            );
+          }),
         ],
-      );
+      ],
+    );
 
     if (workbenchMode) {
       return SizedBox(

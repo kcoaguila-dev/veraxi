@@ -340,9 +340,8 @@ class _ChannelBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = leg == 'Graph'
-        ? const Color(0xFFD98A2B)
-        : const Color(0xFF4F8EF7);
+    final color =
+        leg == 'Graph' ? const Color(0xFFD98A2B) : const Color(0xFF4F8EF7);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(

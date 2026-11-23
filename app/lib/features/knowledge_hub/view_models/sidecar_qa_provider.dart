@@ -54,8 +54,7 @@ class SidecarQaState {
     this.isStreaming = false,
   });
 
-  List<SidecarQaTurn> turnsForKey(String key) =>
-      turnsByKey[key] ?? const [];
+  List<SidecarQaTurn> turnsForKey(String key) => turnsByKey[key] ?? const [];
 
   SidecarQaState copyWith({
     Map<String, List<SidecarQaTurn>>? turnsByKey,

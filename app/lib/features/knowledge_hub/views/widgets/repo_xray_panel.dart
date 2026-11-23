@@ -261,8 +261,8 @@ class _RepoXrayPanelState extends ConsumerState<RepoXrayPanel> {
         decoration: BoxDecoration(
           color: const Color(0xFFF59E0B).withValues(alpha: 0.12),
           borderRadius: BorderRadius.circular(15),
-          border:
-              Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.45)),
+          border: Border.all(
+              color: const Color(0xFFF59E0B).withValues(alpha: 0.45)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
