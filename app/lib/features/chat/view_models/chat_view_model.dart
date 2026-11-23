@@ -430,7 +430,9 @@ class ChatViewModel extends StateNotifier<ChatState> {
   }
 
   Future<void> sendMessage(String text,
-      {String? model, List<dynamic>? attachments}) async {
+      {String? model,
+      List<dynamic>? attachments,
+      Map<String, dynamic>? codeScope}) async {
     if (text.trim().isEmpty && (attachments == null || attachments.isEmpty))
       return;
 
@@ -536,14 +538,27 @@ class ChatViewModel extends StateNotifier<ChatState> {
 
     while (!success && retries <= maxRetries) {
       try {
-        await for (final event in _repository.streamChat(
-          currentQuery,
-          threadId: state.threadId,
-          isTemporary: state.isTemporary,
-          model: model,
-          calculateGrounding: state.showTelemetry,
-          toolSettings: toolSettings,
-        )) {
+        // Code Mode sends carry the Phase 1 scope; plain chat keeps
+        // the exact legacy invocation shape.
+        final stream = codeScope == null
+            ? _repository.streamChat(
+                currentQuery,
+                threadId: state.threadId,
+                isTemporary: state.isTemporary,
+                model: model,
+                calculateGrounding: state.showTelemetry,
+                toolSettings: toolSettings,
+              )
+            : _repository.streamChat(
+                currentQuery,
+                threadId: state.threadId,
+                isTemporary: state.isTemporary,
+                model: model,
+                calculateGrounding: state.showTelemetry,
+                toolSettings: toolSettings,
+                codeScope: codeScope,
+              );
+        await for (final event in stream) {
           _handleStreamEvent(event);
         }
         final responseMetrics = state.messages.isNotEmpty

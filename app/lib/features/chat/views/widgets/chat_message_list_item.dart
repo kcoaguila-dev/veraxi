@@ -8,6 +8,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:veraxi_app/core/models/model_provider_mapper.dart';
+import 'package:veraxi_app/core/theme/obsidian_tokens.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
 import 'package:veraxi_app/features/chat/view_models/chat_view_model.dart';
 import 'package:veraxi_app/features/chat/views/widgets/chat_message_metrics.dart';
@@ -368,9 +369,14 @@ class ChatMessageListItem extends ConsumerWidget {
                                         ),
                                       ),
                                     ),
+                                    // Inline code spans: borderless,
+                                    // subtle Obsidian chip (Code Mode
+                                    // tokens, shared with chat mode —
+                                    // a quiet neutral chip on both).
                                     code: GoogleFonts.firaCode(
-                                        backgroundColor: Colors.transparent,
-                                        color: ext.primaryGradientStart),
+                                        backgroundColor:
+                                            ObsidianTokens.codeSpanBg,
+                                        color: ObsidianTokens.codeSpanText),
                                     codeblockPadding: EdgeInsets.zero,
                                     codeblockDecoration:
                                         BoxDecoration(), // Handled by builder

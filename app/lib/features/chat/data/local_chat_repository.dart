@@ -43,6 +43,12 @@ class LocalChatRepository implements IChatRepository {
               'is_pinned': t.isPinned,
               'is_archived': t.isArchived,
               'project_id': t.projectId,
+              'workspace_mode': t.workspaceMode,
+              'repo_key': t.repoKey,
+              'branch': t.branch,
+              'selected_sources': t.selectedSources != null
+                  ? jsonDecode(t.selectedSources!)
+                  : null,
             })
         .toList();
   }
@@ -85,8 +91,22 @@ class LocalChatRepository implements IChatRepository {
       bool isTemporary = false,
       String? model,
       bool calculateGrounding = true,
-      Map<String, dynamic>? toolSettings}) async* {
+      Map<String, dynamic>? toolSettings,
+      Map<String, dynamic>? codeScope}) async* {
     final effectiveThreadId = threadId ?? _uuid.v4();
+
+    // Code Mode scope stamped onto the local thread row (Phase 1
+    // Drift columns), mirroring the server thread_code_meta write.
+    final scopeCompanion = codeScope == null
+        ? const LocalThreadsCompanion()
+        : LocalThreadsCompanion(
+            workspaceMode: Value(codeScope['workspace_mode'] as String? ?? 'chat'),
+            repoKey: Value(codeScope['repo_key'] as String?),
+            branch: Value(codeScope['branch'] as String?),
+            selectedSources: Value(codeScope['source_scope'] != null
+                ? jsonEncode(codeScope['source_scope'])
+                : null),
+          );
 
     if (!isTemporary) {
       // Create thread if it doesn't exist
@@ -100,11 +120,21 @@ class LocalChatRepository implements IChatRepository {
               threadId: effectiveThreadId,
               title: title,
               timestamp: Value(DateTime.now()),
+              workspaceMode: scopeCompanion.workspaceMode,
+              repoKey: scopeCompanion.repoKey,
+              branch: scopeCompanion.branch,
+              selectedSources: scopeCompanion.selectedSources,
             ));
       } else {
         await (db.update(db.localThreads)
               ..where((t) => t.threadId.equals(effectiveThreadId)))
-            .write(LocalThreadsCompanion(timestamp: Value(DateTime.now())));
+            .write(LocalThreadsCompanion(
+              timestamp: Value(DateTime.now()),
+              workspaceMode: scopeCompanion.workspaceMode,
+              repoKey: scopeCompanion.repoKey,
+              branch: scopeCompanion.branch,
+              selectedSources: scopeCompanion.selectedSources,
+            ));
       }
 
       // Save User Message
@@ -131,6 +161,7 @@ class LocalChatRepository implements IChatRepository {
         model: model,
         calculateGrounding: calculateGrounding,
         toolSettings: toolSettings,
+        codeScope: codeScope,
       );
     }
 

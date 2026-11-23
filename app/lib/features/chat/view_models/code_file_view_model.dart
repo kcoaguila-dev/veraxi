@@ -4,7 +4,7 @@ import 'package:veraxi_app/features/chat/data/code_file_repository.dart';
 // Re-export the model so views can import it from the ViewModel layer
 // without violating the views → view_models → data dependency contract.
 export 'package:veraxi_app/features/chat/data/code_file_repository.dart'
-    show CodeFileContent;
+    show CodeFileContent, CodeFileListEntry;
 
 /// A line-anchored code citation target, parsed from a `file://`
 /// citation URL of the form `file://<path>#L<start>` or
@@ -68,4 +68,14 @@ final codeFileProvider = FutureProvider.autoDispose
     .family<CodeFileContent, CodeCitationTarget>((ref, target) {
   final repository = ref.watch(codeFileRepositoryProvider);
   return repository.fetchFile(target.path);
+});
+
+/// Indexed-file search for the Code composer's `@` picker, backed by
+/// GET /api/v1/code/files. The family key is a record so each
+/// (repo, query) pair caches independently while typing.
+final codeFileSearchProvider = FutureProvider.autoDispose
+    .family<List<CodeFileListEntry>, ({String? repoKey, String query})>(
+        (ref, args) {
+  final repository = ref.watch(codeFileRepositoryProvider);
+  return repository.searchFiles(repoKey: args.repoKey, query: args.query);
 });

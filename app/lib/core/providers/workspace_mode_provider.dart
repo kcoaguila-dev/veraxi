@@ -233,6 +233,12 @@ final codeAutonomyModeProvider =
 final codeSelectedSourcesProvider =
     StateProvider<CodeSelectedSources>((ref) => const CodeSelectedSources());
 
+/// Branch the Code composer is scoped to. No branch-list endpoint
+/// exists yet, so this holds the welded tray's selection (`main`
+/// until a repo reports known branches) and is stamped onto Code
+/// thread sends as the request `branch`.
+final codeBranchProvider = StateProvider<String>((ref) => 'main');
+
 /// Active Code review session focus, or null when no review is open.
 final activeReviewSessionProvider =
     StateProvider<CodeReviewState?>((ref) => null);

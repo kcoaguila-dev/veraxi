@@ -3,9 +3,13 @@ import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:material_ui/material_ui.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:url_launcher/url_launcher_string.dart';
+import 'package:veraxi_app/core/providers/workspace_mode_provider.dart';
+import 'package:veraxi_app/core/theme/obsidian_tokens.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
+import 'package:veraxi_app/core/widgets/language_file_icon.dart';
 import 'package:veraxi_app/features/chat/view_models/chat_view_model.dart';
 import 'package:veraxi_app/features/chat/view_models/code_file_view_model.dart';
 import 'package:veraxi_app/features/chat/views/widgets/code_citation_viewer.dart';
@@ -474,6 +478,7 @@ class _CitationChipState extends State<CitationChip> {
   bool _isHoveringChip = false;
   bool _isHoveringCard = false;
   Timer? _hideTimer;
+  Timer? _showTimer;
 
   @override
   void initState() {
@@ -496,7 +501,41 @@ class _CitationChipState extends State<CitationChip> {
   @override
   void dispose() {
     _cancelHideTimer();
+    _showTimer?.cancel();
     super.dispose();
+  }
+
+  /// The line-anchored code target a resolved source points at, or
+  /// null for ordinary web/document citations.
+  CodeCitationTarget? _codeTargetFor(_ResolvedSource source) =>
+      CodeCitationTarget.tryParse(source.effectiveUrl);
+
+  CodeCitationTarget? get _primaryCodeTarget =>
+      _sources.isEmpty ? null : _codeTargetFor(_sources.first);
+
+  /// Opens a code citation. In Code Mode the citation focuses the
+  /// review session (Phase 5 review pane consumes
+  /// [activeReviewSessionProvider]); in Chat Mode it keeps the
+  /// Phase 1 (#195) in-app citation viewer.
+  void _openCodeTarget(CodeCitationTarget target) {
+    final container = ProviderScope.containerOf(context);
+    if (container.read(workspaceModeProvider) == WorkspaceMode.code) {
+      container.read(activeReviewSessionProvider.notifier).state =
+          CodeReviewState(
+        sessionId: widget.message.id ?? '',
+        turnId: widget.message.id ?? '',
+        focusedPath: target.path,
+        focusedStartLine: target.startLine,
+        focusedEndLine: target.effectiveEndLine,
+      );
+      _overlayController.hide();
+      return;
+    }
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => CodeCitationViewer(target: target),
+      ),
+    );
   }
 
   bool _sameCitations(List<CitationEntry>? a, List<CitationEntry>? b) {
@@ -526,16 +565,12 @@ class _CitationChipState extends State<CitationChip> {
     if (url.isEmpty) return;
     if (url.startsWith('file://')) {
       // Line-anchored code citations open in the in-app viewer at
-      // the cited lines; every other file citation (documents with
-      // #page= anchors, plain file:// paths) keeps the historical
-      // external launch.
+      // the cited lines (or focus the review session in Code Mode);
+      // every other file citation (documents with #page= anchors,
+      // plain file:// paths) keeps the historical external launch.
       final target = CodeCitationTarget.tryParse(url);
       if (target != null) {
-        Navigator.of(context).push(
-          MaterialPageRoute<void>(
-            builder: (_) => CodeCitationViewer(target: target),
-          ),
-        );
+        _openCodeTarget(target);
         return;
       }
       launchUrlString(fileCitationLaunchUrl(url));
@@ -950,6 +985,7 @@ class _CitationChipState extends State<CitationChip> {
     final primarySource = _sources.first;
     final extraCount = _sources.length - 1;
     final faviconUrl = _faviconUrlFor(primarySource);
+    final codeTarget = _primaryCodeTarget;
 
     return CompositedTransformTarget(
       link: _link,
@@ -957,9 +993,23 @@ class _CitationChipState extends State<CitationChip> {
         onEnter: (_) {
           _cancelHideTimer();
           _isHoveringChip = true;
-          _overlayController.show();
+          if (_primaryCodeTarget != null) {
+            // Code citations use a 200ms hover-intent delay so
+            // sweeping the pointer across a pill does not flash the
+            // snippet card; the card itself keeps the overlay alive
+            // via _isHoveringCard (see _checkHide).
+            _showTimer?.cancel();
+            _showTimer = Timer(const Duration(milliseconds: 200), () {
+              if (mounted && _isHoveringChip) {
+                _overlayController.show();
+              }
+            });
+          } else {
+            _overlayController.show();
+          }
         },
         onExit: (_) {
+          _showTimer?.cancel();
           _isHoveringChip = false;
           _checkHide();
         },
@@ -1001,7 +1051,13 @@ class _CitationChipState extends State<CitationChip> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  if (faviconUrl.isNotEmpty) ...[
+                  if (codeTarget != null) ...[
+                    LanguageFileIcon(
+                      fileName: codeTarget.path,
+                      size: 12,
+                    ),
+                    const SizedBox(width: 4),
+                  ] else if (faviconUrl.isNotEmpty) ...[
                     ClipOval(
                       child: Image.network(
                         faviconUrl,
@@ -1019,7 +1075,11 @@ class _CitationChipState extends State<CitationChip> {
                   ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 220),
                     child: Text(
-                      _displayTextFor(primarySource),
+                      // Compact code pill: just the file name (the
+                      // +N suffix below still counts extra sources).
+                      codeTarget != null
+                          ? codeTarget.path.split('/').last
+                          : _displayTextFor(primarySource),
                       style: const TextStyle(
                         fontSize: 11,
                         color: Color(0xFFCCCCCC),
@@ -1053,6 +1113,21 @@ class _CitationChipState extends State<CitationChip> {
     final ext = Theme.of(context).extension<AppThemeExtension>();
     final cardBg = ext?.cardBackground ?? const Color(0xFF1F1F1F);
     final activeSource = _sources[_currentIndex];
+    final codeTarget = _codeTargetFor(activeSource);
+    if (codeTarget != null) {
+      return _CodeCitationHoverCard(
+        target: codeTarget,
+        index: _currentIndex,
+        total: _sources.length,
+        onPrev: _currentIndex > 0
+            ? () => setState(() => _currentIndex--)
+            : null,
+        onNext: _currentIndex < _sources.length - 1
+            ? () => setState(() => _currentIndex++)
+            : null,
+        onOpenReview: () => _openCodeTarget(codeTarget),
+      );
+    }
 
     return Material(
       color: Colors.transparent,
@@ -1423,6 +1498,252 @@ class _CitationChipState extends State<CitationChip> {
           ),
         ],
       ],
+    );
+  }
+}
+
+/// Hover card for a line-anchored code citation: pager header,
+/// file identity, a line-numbered snippet of the cited range
+/// (fetched/cached through [codeFileProvider], i.e.
+/// GET /api/v1/code/file), and the review footer.
+class _CodeCitationHoverCard extends ConsumerWidget {
+  final CodeCitationTarget target;
+  final int index;
+  final int total;
+  final VoidCallback? onPrev;
+  final VoidCallback? onNext;
+  final VoidCallback onOpenReview;
+
+  const _CodeCitationHoverCard({
+    required this.target,
+    required this.index,
+    required this.total,
+    required this.onPrev,
+    required this.onNext,
+    required this.onOpenReview,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final asyncContent = ref.watch(codeFileProvider(target));
+    final rangeLabel = target.endLine != null
+        ? 'L${target.startLine}-L${target.endLine}'
+        : 'L${target.startLine}';
+    return Material(
+      color: Colors.transparent,
+      elevation: 12,
+      child: Container(
+        width: 320,
+        decoration: BoxDecoration(
+          color: ObsidianTokens.card,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: ObsidianTokens.borderStrong),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.6),
+              blurRadius: 20,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _buildHeader(),
+            const Divider(height: 1, color: ObsidianTokens.hairline),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 4),
+              child: Row(
+                children: [
+                  LanguageFileIcon(fileName: target.path, size: 16),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '${target.path} · $rangeLabel',
+                      style: const TextStyle(
+                        color: Color(0xFFA1A1AA),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            asyncContent.when(
+              data: (content) => _buildSnippet(content),
+              loading: () => const Padding(
+                padding: EdgeInsets.symmetric(vertical: 16),
+                child: Center(
+                  child: SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                ),
+              ),
+              error: (_, __) => const Padding(
+                padding: EdgeInsets.fromLTRB(12, 6, 12, 10),
+                child: Text(
+                  "This file isn't available on the server.",
+                  style: TextStyle(color: Color(0xFFA1A1AA), fontSize: 11.5),
+                ),
+              ),
+            ),
+            const Divider(height: 1, color: ObsidianTokens.hairline),
+            InkWell(
+              onTap: onOpenReview,
+              borderRadius: const BorderRadius.vertical(
+                bottom: Radius.circular(12),
+              ),
+              child: const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                child: Text(
+                  'Neo4j AST · Click to open in Review',
+                  style: TextStyle(
+                    color: Color(0xFF4F8EF7),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeader() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      child: Row(
+        children: [
+          InkWell(
+            onTap: onPrev,
+            borderRadius: BorderRadius.circular(4),
+            child: Padding(
+              padding: const EdgeInsets.all(2),
+              child: Icon(
+                Icons.chevron_left,
+                size: 16,
+                color: onPrev != null
+                    ? const Color(0xFFCCCCCC)
+                    : const Color(0xFF555555),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: Text(
+              '${index + 1}/$total',
+              style: const TextStyle(
+                color: Color(0xFFA0A0A0),
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          InkWell(
+            onTap: onNext,
+            borderRadius: BorderRadius.circular(4),
+            child: Padding(
+              padding: const EdgeInsets.all(2),
+              child: Icon(
+                Icons.chevron_right,
+                size: 16,
+                color: onNext != null
+                    ? const Color(0xFFCCCCCC)
+                    : const Color(0xFF555555),
+              ),
+            ),
+          ),
+          const Spacer(),
+          Text(
+            total == 1 ? '1 source' : '$total sources',
+            style: const TextStyle(
+              color: Color(0xFFCCCCCC),
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// The cited lines of [content], numbered with their real file
+  /// line numbers, capped at 8 rows so the card stays a popover.
+  Widget _buildSnippet(CodeFileContent content) {
+    final rows = <(int, String)>[];
+    for (var i = 0; i < content.lines.length && rows.length < 8; i++) {
+      final lineNo = content.startLine + i;
+      if (lineNo < target.startLine) continue;
+      if (lineNo > target.effectiveEndLine) break;
+      rows.add((lineNo, content.lines[i]));
+    }
+    if (rows.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.fromLTRB(12, 6, 12, 10),
+        child: Text(
+          'Cited lines are outside the served file.',
+          style: TextStyle(color: Color(0xFFA1A1AA), fontSize: 11.5),
+        ),
+      );
+    }
+    final truncated = target.effectiveEndLine - target.startLine + 1 > rows.length;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 4, 12, 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (final (lineNo, text) in rows)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 1),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(
+                    width: 30,
+                    child: Text(
+                      '$lineNo',
+                      textAlign: TextAlign.right,
+                      style: const TextStyle(
+                        color: Color(0xFF6E6E6E),
+                        fontSize: 11,
+                        fontFamily: 'monospace',
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      text.isEmpty ? ' ' : text,
+                      style: const TextStyle(
+                        color: ObsidianTokens.codeSpanText,
+                        fontSize: 11.5,
+                        fontFamily: 'monospace',
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          if (truncated)
+            const Padding(
+              padding: EdgeInsets.only(left: 40, top: 2),
+              child: Text(
+                '…',
+                style: TextStyle(color: Color(0xFF6E6E6E), fontSize: 11),
+              ),
+            ),
+        ],
+      ),
     );
   }
 }

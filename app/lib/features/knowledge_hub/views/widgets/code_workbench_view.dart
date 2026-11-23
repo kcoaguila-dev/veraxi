@@ -2,6 +2,7 @@ import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:veraxi_app/core/providers/workspace_mode_provider.dart';
+import 'package:veraxi_app/features/chat/views/widgets/code_chat_pane.dart';
 import 'package:veraxi_app/features/knowledge_hub/view_models/code_intel_view_model.dart';
 import 'package:veraxi_app/features/knowledge_hub/views/widgets/ask_veraxi_sidecar.dart';
 import 'package:veraxi_app/features/knowledge_hub/views/widgets/corpus_briefing_panel.dart';
@@ -108,6 +109,8 @@ class _CodeWorkbenchViewState extends ConsumerState<CodeWorkbenchView> {
         return 'Corpus Briefing';
       case CodeSubView.dbtLineage:
         return 'dbt Lineage';
+      case CodeSubView.codeChat:
+        return 'Code Chat';
     }
   }
 
@@ -251,6 +254,10 @@ class _CodeWorkbenchViewState extends ConsumerState<CodeWorkbenchView> {
                                 CorpusBriefingSectionFilter.dbtLineageOnly,
                           ),
                         ),
+                        // CodeSubView.codeChat (index 5, the default
+                        // sub-view since Phase 3): the Code Chat pane
+                        // from the chat feature.
+                        const CodeChatPane(),
                       ],
                     ),
                   ),
