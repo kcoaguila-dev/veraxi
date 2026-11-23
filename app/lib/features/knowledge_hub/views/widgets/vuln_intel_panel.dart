@@ -82,18 +82,24 @@ class VulnIntelPanel extends ConsumerWidget {
                     crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
                       ElevatedButton.icon(
+                        style: workbenchMode
+                            ? _workbenchSecondaryButtonStyle()
+                            : null,
                         onPressed:
                             state.syncingVuln ? null : viewModel.syncVulnIntel,
-                        icon: const Icon(Icons.sync, size: 16),
+                        icon: const Icon(Icons.sync, size: 15),
                         label: Text(
                             state.syncingVuln ? 'Syncing…' : 'Sync NVD & KEV'),
                       ),
                       ElevatedButton.icon(
+                        style: workbenchMode
+                            ? _workbenchPrimaryButtonStyle()
+                            : null,
                         onPressed: scanDisabled
                             ? null
                             : () =>
                                 viewModel.runVulnScan(repoPathController.text),
-                        icon: const Icon(Icons.shield_outlined, size: 16),
+                        icon: const Icon(Icons.shield_outlined, size: 15),
                         label: Text(state.scanningVuln
                             ? 'Scanning…'
                             : 'Run Vulnerability Scan'),
@@ -119,6 +125,7 @@ class VulnIntelPanel extends ConsumerWidget {
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               ElevatedButton.icon(
+                style: workbenchMode ? _workbenchSecondaryButtonStyle() : null,
                 onPressed: state.scanningVuln
                     ? null
                     : () async {
@@ -134,21 +141,11 @@ class VulnIntelPanel extends ConsumerWidget {
                           fileName: file.name,
                         );
                       },
-                icon: const Icon(Icons.upload_file_outlined, size: 16),
+                icon: const Icon(Icons.upload_file_outlined, size: 15),
                 label: const Text('Upload SBOM (CycloneDX/SPDX)'),
               ),
               if (!workbenchMode || report == null)
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Switch(
-                      value: state.includeReachability,
-                      onChanged: viewModel.setIncludeReachability,
-                    ),
-                    const Text('Include reachability',
-                        style: TextStyle(color: Colors.white, fontSize: 13)),
-                  ],
-                ),
+                _buildReachabilityToggle(state, viewModel),
               if (state.sbomFileName != null)
                 Chip(
                   label: Text('SBOM: ${state.sbomFileName}'),
@@ -339,26 +336,125 @@ class VulnIntelPanel extends ConsumerWidget {
               ),
             ],
           ),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                'Include reachability',
-                style: TextStyle(
-                  color: Color(0xFFD4D4D8),
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              const SizedBox(width: 6),
-              Switch(
-                value: state.includeReachability,
-                onChanged: viewModel.setIncludeReachability,
-              ),
-            ],
-          ),
+          _buildReachabilityToggle(state, viewModel),
         ],
       ),
+    );
+  }
+
+  ButtonStyle _workbenchSecondaryButtonStyle() {
+    return ElevatedButton.styleFrom(
+      backgroundColor: const Color(0xFF27272B),
+      foregroundColor: const Color(0xFFE4E4E7),
+      disabledBackgroundColor: const Color(0xFF1E1E22),
+      disabledForegroundColor: const Color(0xFF71717A),
+      elevation: 0,
+      shadowColor: Colors.transparent,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      minimumSize: const Size(0, 30),
+      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(7),
+        side: const BorderSide(color: Color(0xFF3A3A40), width: 0.8),
+      ),
+    ).copyWith(
+      overlayColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.hovered)) {
+          return const Color(0x14FFFFFF);
+        }
+        if (states.contains(WidgetState.pressed)) {
+          return const Color(0x20FFFFFF);
+        }
+        return null;
+      }),
+    );
+  }
+
+  ButtonStyle _workbenchPrimaryButtonStyle() {
+    return ElevatedButton.styleFrom(
+      backgroundColor: const Color(0xFF1D4ED8),
+      foregroundColor: Colors.white,
+      disabledBackgroundColor: const Color(0xFF202229),
+      disabledForegroundColor: const Color(0xFF71717A),
+      elevation: 0,
+      shadowColor: Colors.transparent,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      minimumSize: const Size(0, 30),
+      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(7),
+      ),
+    ).copyWith(
+      side: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.disabled)) {
+          return const BorderSide(color: Color(0xFF2E2F36), width: 0.8);
+        }
+        return BorderSide.none;
+      }),
+      overlayColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.hovered)) {
+          return const Color(0x1AFFFFFF);
+        }
+        if (states.contains(WidgetState.pressed)) {
+          return const Color(0x28FFFFFF);
+        }
+        return null;
+      }),
+    );
+  }
+
+  Widget _buildReachabilityToggle(
+    CodeIntelState state,
+    CodeIntelViewModel viewModel,
+  ) {
+    if (!workbenchMode) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Switch(
+            value: state.includeReachability,
+            onChanged: viewModel.setIncludeReachability,
+          ),
+          const Text('Include reachability',
+              style: TextStyle(color: Colors.white, fontSize: 13)),
+        ],
+      );
+    }
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Text(
+          'Include reachability',
+          style: TextStyle(
+            color: Color(0xFFD4D4D8),
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(width: 4),
+        Transform.scale(
+          scale: 0.78,
+          child: Switch(
+            value: state.includeReachability,
+            onChanged: viewModel.setIncludeReachability,
+            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            thumbColor: WidgetStateProperty.resolveWith((states) =>
+                states.contains(WidgetState.selected)
+                    ? const Color(0xFF0B0F0E)
+                    : const Color(0xFFA1A1AA)),
+            trackColor: WidgetStateProperty.resolveWith((states) =>
+                states.contains(WidgetState.selected)
+                    ? const Color(0xFF10B981)
+                    : const Color(0xFF27272B)),
+            trackOutlineColor: WidgetStateProperty.resolveWith((states) =>
+                states.contains(WidgetState.selected)
+                    ? Colors.transparent
+                    : const Color(0xFF3A3A40)),
+          ),
+        ),
+      ],
     );
   }
 

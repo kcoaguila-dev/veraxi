@@ -1,5 +1,10 @@
+import 'dart:async';
+
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:veraxi_app/features/auth/view_models/auth_view_model.dart';
 import 'package:veraxi_app/features/chat/view_models/chat_view_model.dart';
 import 'package:veraxi_app/features/chat/data/chat_repository.dart';
 import 'package:veraxi_app/core/repositories/memory_repository.dart';
@@ -143,6 +148,27 @@ void main() {
       expect(viewModel.state.messages.first.reasoningDurationSeconds, 4.2);
       expect(viewModel.state.messages.last.reasoning, isNull);
       expect(viewModel.state.messages.last.reasoningDurationSeconds, isNull);
+    });
+
+    test(
+        'chatRepositoryProvider does not rebuild on null-session AuthState transitions',
+        () async {
+      final controller = StreamController<AuthState>.broadcast();
+      addTearDown(controller.close);
+
+      final container = ProviderContainer(
+        overrides: [
+          authStateProvider.overrideWith((ref) => controller.stream),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      final initialRepo = container.read(chatRepositoryProvider);
+      controller.add(AuthState(AuthChangeEvent.initialSession, null));
+      await Future<void>.delayed(Duration.zero);
+
+      final afterInitialSessionRepo = container.read(chatRepositoryProvider);
+      expect(identical(initialRepo, afterInitialSessionRepo), isTrue);
     });
   });
 }

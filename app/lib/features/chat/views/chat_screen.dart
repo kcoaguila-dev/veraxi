@@ -491,13 +491,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       },
     );
 
-    ref.listen<bool>(
-      chatViewModelProvider.select((s) => s.isLoadingHistory),
+    ref.listen<(bool, bool)>(
+      chatViewModelProvider
+          .select((s) => (s.isLoadingHistory, s.messages.isEmpty)),
       (previous, next) {
-        if (next) {
+        final (isLoadingHistory, isEmpty) = next;
+        if (isLoadingHistory) {
           _pendingHistoryScrollRestore = true;
           _historyScrollRestoreScheduled = false;
-        } else if (ref.read(chatViewModelProvider).messages.isEmpty) {
+        } else if (isEmpty) {
           _pendingHistoryScrollRestore = false;
           _historyScrollRestoreScheduled = false;
         }

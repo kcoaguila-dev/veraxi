@@ -18,6 +18,7 @@ import 'package:veraxi_app/features/chat/views/chat_screen.dart';
 import 'package:veraxi_app/features/knowledge_hub/data/code_intel_repository.dart';
 import 'package:veraxi_app/features/knowledge_hub/data/knowledge_hub_repository.dart';
 import 'package:veraxi_app/features/knowledge_hub/views/knowledge_hub_screen.dart';
+import 'package:veraxi_app/features/knowledge_hub/views/widgets/ask_veraxi_sidecar.dart';
 import 'package:veraxi_app/features/knowledge_hub/views/widgets/vuln_workbench_table.dart';
 
 class _MockChatRepository extends Mock implements IChatRepository {
@@ -810,5 +811,23 @@ void main() {
     );
     expect(listView.controller, isNotNull);
     expect(listView.controller!.offset, greaterThan(0.0));
+    await tester.tap(find.descendant(
+      of: find.byType(Dialog),
+      matching: find.byIcon(Icons.close),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.byType(Dialog), findsNothing);
+
+    // 4. Tapping Ask on a finding row focuses the AskVeraxiSidecar composer TextField.
+    final askButton = find.text('Ask').first;
+    await tester.tap(askButton);
+    await tester.pumpAndSettle();
+    final composerField = tester.widget<TextField>(
+      find.descendant(
+        of: find.byType(AskVeraxiSidecar),
+        matching: find.byType(TextField),
+      ),
+    );
+    expect(composerField.focusNode?.hasFocus, isTrue);
   });
 }
