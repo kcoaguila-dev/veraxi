@@ -1,329 +1,302 @@
 <svg width="1440" height="900" viewBox="0 0 1440 900" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <!-- Visual contract: Veraxi Hybrid Workbench — CODE TAB ACTIVE
-       Demonstrates:
-       1. Left Rail (260px, #171717): [ Chat | Code ] segmented toggle with
-          Code active. Left rail swaps to structured engineering/security
-          surfaces (Vuln Intel, Repo X-Ray, Security Feed, Corpus Briefing,
-          dbt Lineage) + Indexed Repos list + Knowledge Hub (Ingestion/Schema)
-          link at bottom. Eliminates the 5-screen vertical scroll in Knowledge Hub.
-       2. Center Workspace (800px, #212121): Active surface (Vuln Intel) with
-          controls (Sync NVD & KEV, Run Scan, Upload SBOM, Include reachability
-          toggle) and a ranked, filterable triage table (KEV / EPSS / Reachable)
-          with inline [Ask] and [Path] deictic buttons per row.
-       3. Right Rail (380px, #171717): Docked "Ask Veraxi" Sidecar + Evidence
-          inspector pre-anchored to the selected CVE/symbol row (CVE-2024-3094),
-          showing the ranked AST call path + static-reachability caveat +
-          scoped follow-up composer ("Context: CVE-2024-3094"). -->
+  <!-- Visual Contract: Veraxi Code Mode — Clean 2-Column Default + On-Demand Review Split
+       Matches Antigravity / T3 Code + Veraxi Chat UI:
+       1. LEFT RAIL (268px, #0D0E11):
+          - [ Chat | <> Code ] mode switch
+          - New Code Thread, Knowledge Hub, Security (all security lives here)
+          - Projects: repo-grouped Code Chat History (slim single-line active thread)
+       2. FULL-WIDTH CENTER STAGE (1172px, #0A0B0D) — NO permanent right security rail:
+          - Top bar: Repo/thread breadcrumb (veraxi/backend / Hybrid retrieval merge_rank flow)
+          - Veraxi Chat UI response stream (User bubble, Veraxi Code avatar, activity
+            disclosure, prose + inline citation pill, action row + 2 sources pill)
+          - Compact "Files changed" bar docked right above the floating ChatInput composer
+            (e.g. "2 files changed +14 -3" with [Review] button that opens the right
+            split-pane Code/Diff Review drawer on demand)
+          - Veraxi ChatInput floating composer (rx="24") -->
   <defs>
     <style>
-      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap');
-      .font-inter { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }
-      .font-mono { font-family: 'JetBrains Mono', monospace; }
+      .sans { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }
+      .mono { font-family: 'JetBrains Mono', monospace; }
     </style>
   </defs>
 
-  <!-- Main Workspace Canvas -->
-  <rect width="1440" height="900" fill="#212121"/>
+  <!-- Canvas Shell -->
+  <rect width="1440" height="900" fill="#0D0E11"/>
 
-  <!-- ================================================== -->
-  <!-- LEFT RAIL: [ Chat | Code ] with CODE ACTIVE        -->
-  <!-- ================================================== -->
-  <rect x="0" y="0" width="260" height="900" fill="#171717"/>
-  <line x1="260" y1="0" x2="260" y2="900" stroke="#2B2B2E" stroke-width="1"/>
+  <!-- ============================================================ -->
+  <!-- 1. LEFT RAIL: Code Chat History + Unified Security (268px)   -->
+  <!-- ============================================================ -->
+  <rect x="0" y="0" width="268" height="900" fill="#0D0E11"/>
+  <line x1="268" y1="0" x2="268" y2="900" stroke="#1E2026" stroke-width="1"/>
 
-  <!-- Brand Header + Collapse Toggle -->
-  <text x="20" y="38" fill="#FFFFFF" font-size="18" font-weight="600" class="font-inter">Veraxi</text>
-  <g transform="translate(220, 22)" stroke="#9CA3AF" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
-    <rect x="1.5" y="2.5" width="17" height="14" rx="3"/>
-    <line x1="7.5" y1="2.5" x2="7.5" y2="16.5"/>
+  <!-- Brand + Compact Sidebar Toggle (16x14 matching Chat UI) -->
+  <text x="18" y="32" fill="#F4F4F5" font-size="15" font-weight="600" class="sans">Veraxi</text>
+  <rect x="234" y="20" width="16" height="13" rx="3" stroke="#71717A" stroke-width="1.2"/>
+  <line x1="240" y1="20" x2="240" y2="33" stroke="#71717A" stroke-width="1.2"/>
+
+  <!-- [ Chat | <> Code ] Slim Segmented Switch (matching Veraxi Chat UI) -->
+  <rect x="16" y="48" width="236" height="26" rx="8" fill="#13151A" stroke="#1E2026"/>
+  <text x="62" y="65" fill="#71717A" font-size="11.5" font-weight="500" class="sans">Chat</text>
+  <rect x="136" y="50" width="114" height="22" rx="6" fill="#23252C" stroke="#2F323C" stroke-width="0.8"/>
+  <text x="168" y="65" fill="#F4F4F5" font-size="11.5" font-weight="600" class="sans">&lt;&gt; Code</text>
+
+  <!-- Top Actions: Knowledge Hub + Security (no redundant New Code Thread row) -->
+  <!-- Knowledge Hub -->
+  <rect x="20" y="95" width="12" height="12" rx="2" stroke="#A1A1AA" stroke-width="1.3" fill="none"/>
+  <line x1="23" y1="99" x2="29" y2="99" stroke="#A1A1AA" stroke-width="1.2"/>
+  <line x1="23" y1="103" x2="27" y2="103" stroke="#A1A1AA" stroke-width="1.2"/>
+  <text x="40" y="106" fill="#A1A1AA" font-size="13" class="sans">Knowledge Hub</text>
+
+  <!-- Security -->
+  <path d="M26 124l5 2v4.5c0 3-2.1 5.5-5 6.5-2.9-1-5-3.5-5-6.5V126l5-2z" stroke="#A1A1AA" stroke-width="1.3" fill="none"/>
+  <text x="40" y="135" fill="#A1A1AA" font-size="13" class="sans">Security</text>
+
+  <line x1="16" y1="156" x2="252" y2="156" stroke="#1E2026" stroke-width="1"/>
+
+  <!-- PROJECTS: Repo-grouped Code Chat History (Antigravity style) -->
+  <text x="18" y="180" fill="#71717A" font-size="11" font-weight="600" class="sans">Projects</text>
+  <g stroke="#71717A" stroke-width="1.2" stroke-linecap="round" fill="none">
+    <line x1="217" y1="173" x2="227" y2="173"/>
+    <line x1="219" y1="176.5" x2="225" y2="176.5"/>
+    <line x1="221" y1="180" x2="223" y2="180"/>
+    <path d="M234 172h4.5l1.2 1.5h5.3v6.5H234v-8z"/>
   </g>
 
-  <!-- Segmented Mode Switcher: [ Chat | Code ] (Code Active) -->
-  <g transform="translate(14, 56)" class="font-inter" font-size="12.5">
-    <rect x="0" y="0" width="232" height="34" rx="9" fill="#111113" stroke="#2B2B2E" stroke-width="1"/>
-    <!-- Inactive: Chat -->
-    <path d="M31 12 H42 V19.5 H35 L31 22.5 V12 Z" stroke="#9CA3AF" stroke-width="1.3" fill="none" stroke-linejoin="round"/>
-    <text x="50" y="21.5" fill="#A1A1AA" font-weight="500">Chat</text>
+  <!-- Repo Group 1: veraxi/backend (hovered state reveals "⋮" and "+") -->
+  <rect x="10" y="190" width="248" height="24" rx="6" fill="#16181D"/>
+  <path d="M18 197h5l1.5 2h5.5v8H18v-10z" stroke="#E4E4E7" stroke-width="1.2" fill="none"/>
+  <text x="36" y="206" fill="#E4E4E7" font-size="12" font-weight="500" class="sans">veraxi/backend</text>
+  <circle cx="222" cy="198.5" r="1" fill="#A1A1AA"/>
+  <circle cx="222" cy="202" r="1" fill="#A1A1AA"/>
+  <circle cx="222" cy="205.5" r="1" fill="#A1A1AA"/>
+  <path d="M236 202h8M240 198v8" stroke="#E4E4E7" stroke-width="1.3" stroke-linecap="round"/>
 
-    <!-- Active: Code -->
-    <rect x="117" y="3" width="112" height="28" rx="7" fill="#27272B" stroke="#3A3A40" stroke-width="0.8"/>
-    <path d="M148 13 L143 17 L148 21 M156 13 L161 17 L156 21" stroke="#FFFFFF" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-    <text x="169" y="21.5" fill="#FFFFFF" font-weight="600">Code</text>
-  </g>
+  <!-- Active Thread -->
+  <rect x="10" y="218" width="248" height="30" rx="6" fill="#1C1F26"/>
+  <text x="22" y="237" fill="#F4F4F5" font-size="12.5" font-weight="500" class="sans">Hybrid retrieval merge_rank flow</text>
+  <text x="234" y="237" fill="#71717A" font-size="10.5" class="sans">2m</text>
 
-  <!-- Shared Global Links (Fixed position across Chat, Code, Knowledge Hub) -->
-  <g class="font-inter" font-size="13.5" font-weight="500">
-    <!-- Projects -->
-    <g transform="translate(14, 104)">
-      <rect x="0" y="0" width="232" height="34" rx="8" fill="transparent"/>
-      <path d="M9 12 C9 10.9 9.9 10 11 10 H14.5 L16.5 12 H22 C23.1 12 24 12.9 24 14 V22 C24 23.1 23.1 24 22 24 H11 C9.9 24 9 23.1 9 22 V12 Z" stroke="#9CA3AF" stroke-width="1.4" fill="none"/>
-      <text x="34" y="21.5" fill="#D4D4D8">Projects</text>
+  <text x="22" y="266" fill="#D4D4D8" font-size="12.5" class="sans">Add streaming retry backoff</text>
+  <text x="232" y="266" fill="#71717A" font-size="10.5" class="sans">1d</text>
+
+  <text x="22" y="292" fill="#D4D4D8" font-size="12.5" class="sans">Neo4j Cypher parameterization</text>
+  <text x="232" y="292" fill="#71717A" font-size="10.5" class="sans">3d</text>
+
+  <text x="22" y="318" fill="#71717A" font-size="11.5" class="sans">See all (6)</text>
+
+  <!-- Repo Group 2: veraxi/app -->
+  <path d="M18 345h5l1.5 2h5.5v8H18v-10z" stroke="#A1A1AA" stroke-width="1.2" fill="none"/>
+  <text x="36" y="354" fill="#A1A1AA" font-size="12" font-weight="500" class="sans">veraxi/app</text>
+  <text x="22" y="378" fill="#D4D4D8" font-size="12.5" class="sans">Audit Riverpod state leaks</text>
+  <text x="232" y="378" fill="#71717A" font-size="10.5" class="sans">1h</text>
+  <text x="22" y="404" fill="#D4D4D8" font-size="12.5" class="sans">Code Mode 3-column layout</text>
+  <text x="232" y="404" fill="#71717A" font-size="10.5" class="sans">4d</text>
+
+  <!-- Bottom User Footer -->
+  <line x1="16" y1="846" x2="252" y2="846" stroke="#1E2026" stroke-width="1"/>
+  <circle cx="28" cy="872" r="12" fill="#1C1F26"/>
+  <text x="24" y="876" fill="#E4E4E7" font-size="11" font-weight="600" class="sans">K</text>
+  <text x="48" y="876" fill="#D4D4D8" font-size="12.5" class="sans">Kazuo Coaguila</text>
+
+  <!-- ============================================================ -->
+  <!-- 2. FULL-WIDTH CENTER STAGE: Recessed Obsidian Card (1156px)  -->
+  <!-- ============================================================ -->
+  <rect x="274" y="8" width="1158" height="884" rx="14" fill="#060709" stroke="#1C1E24" stroke-width="1"/>
+  <line x1="274" y1="54" x2="1432" y2="54" stroke="#181A20" stroke-width="1"/>
+
+  <!-- Thread / Repo Breadcrumb (inside recessed card) -->
+  <rect x="294" y="21" width="18" height="18" rx="4" fill="#1E3A8A"/>
+  <text x="298" y="33" fill="#93C5FD" font-size="8.5" font-weight="700" class="mono">VX</text>
+  <text x="320" y="35" fill="#A1A1AA" font-size="13" class="sans">veraxi/backend</text>
+  <text x="418" y="35" fill="#52525B" font-size="13" class="sans">/</text>
+  <text x="430" y="35" fill="#F4F4F5" font-size="13.5" font-weight="600" class="sans">Hybrid retrieval merge_rank flow</text>
+
+  <!-- User Message Bubble (centered 780px column: x=464..1244) -->
+  <rect x="794" y="88" width="450" height="44" rx="18" fill="#181A20" stroke="#282B36"/>
+  <text x="814" y="115" fill="#ECECEC" font-size="13.5" class="sans">How does hybrid retrieval merge Neo4j and Qdrant results?</text>
+  <rect x="1220" y="140" width="10" height="12" rx="2" stroke="#71717A" stroke-width="1.3" fill="none"/>
+  <path d="M1218 148v-9c0-.6.4-1 1-1h7" stroke="#71717A" stroke-width="1.3" fill="none"/>
+
+  <!-- Assistant Message Block (exact Veraxi Chat UI style: Provider Avatar + Model Name + Activity + Prose + Inline Code Block + CitationChip) -->
+  <circle cx="478" cy="184" r="7" fill="#E6522C"/>
+  <circle cx="478" cy="184" r="3" fill="#0A0B0D"/>
+  <text x="498" y="189" fill="#FFFFFF" font-size="14" font-weight="600" class="sans">Gemini 4 Hydrogen</text>
+
+  <!-- Collapsible Plain-Language Activity Disclosure -->
+  <path d="M500 208l4 4-4 4" stroke="#71717A" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <text x="512" y="216" fill="#9E9E9E" font-size="12" class="sans">Worked 4.2s · Traversed Neo4j AST · Queried Qdrant code chunks</text>
+
+  <!-- Assistant Response: Clean markdown inline code (borderless) + unified Perplexity-style citation pills -->
+  <text x="498" y="246" fill="#F4F4F5" font-size="14" font-weight="600" class="sans">1. Graph &amp; vector fusion</text>
+  <text x="514" y="268" fill="#D4D4D8" font-size="13.5" class="sans">• Near-duplicates are filtered via Jaccard overlap in</text>
+  <rect x="832" y="253" width="144" height="20" rx="4" fill="#16181D"/>
+  <text x="839" y="267" fill="#E4E4E7" font-size="11.5" class="mono">_is_near_duplicate()</text>
+  <rect x="984" y="253" width="118" height="20" rx="10" fill="#1F242D" stroke="#34D399" stroke-width="0.8"/>
+  <text x="995" y="267" fill="#F4F4F5" font-size="10.5" class="mono">merge_rank.py</text>
+  <text x="1080" y="267" fill="#8C8C8C" font-size="10.5" font-weight="600" class="sans">+1</text>
+
+  <text x="498" y="298" fill="#F4F4F5" font-size="14" font-weight="600" class="sans">2. Cross-encoder rerank</text>
+  <text x="514" y="320" fill="#D4D4D8" font-size="13.5" class="sans">• Graph hits are enriched with entity metadata in</text>
+  <rect x="822" y="305" width="184" height="20" rx="4" fill="#16181D"/>
+  <text x="829" y="319" fill="#E4E4E7" font-size="11.5" class="mono">_format_reranker_document()</text>
+  <rect x="1014" y="305" width="100" height="20" rx="10" fill="#181A20" stroke="#2E323D"/>
+  <text x="1024" y="319" fill="#A1A1AA" font-size="10.5" class="mono">merge_rank.py</text>
+
+  <text x="498" y="350" fill="#F4F4F5" font-size="14" font-weight="600" class="sans">3. Single merge boundary</text>
+  <text x="514" y="372" fill="#D4D4D8" font-size="13.5" class="sans">• Both</text>
+  <rect x="556" y="357" width="122" height="20" rx="4" fill="#16181D"/>
+  <text x="563" y="371" fill="#E4E4E7" font-size="11.5" class="mono">graph_search.py</text>
+  <text x="684" y="372" fill="#D4D4D8" font-size="13.5" class="sans">and</text>
+  <rect x="712" y="357" width="126" height="20" rx="4" fill="#16181D"/>
+  <text x="719" y="371" fill="#E4E4E7" font-size="11.5" class="mono">vector_search.py</text>
+  <text x="844" y="372" fill="#D4D4D8" font-size="13.5" class="sans">route through RRF.</text>
+  <rect x="970" y="357" width="114" height="20" rx="10" fill="#181A20" stroke="#2E323D"/>
+  <text x="980" y="371" fill="#A1A1AA" font-size="10.5" class="mono">graph_search.py</text>
+
+  <!-- Files Changed / Review Card INSIDE the assistant turn (slim height="32", collapsed with ">") -->
+  <rect x="498" y="412" width="746" height="32" rx="8" fill="#111317" stroke="#1E2026"/>
+  <text x="512" y="432" fill="#E4E4E7" font-size="12" font-weight="500" class="sans">6 files changed</text>
+  <text x="604" y="432" fill="#34D399" font-size="12" class="mono">+166</text>
+  <text x="642" y="432" fill="#F87171" font-size="12" class="mono">-74</text>
+  <path d="M672 425l3.5 3.5-3.5 3.5" stroke="#71717A" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <rect x="1164" y="417" width="68" height="22" rx="6" fill="#181A20" stroke="#282B36"/>
+  <text x="1180" y="432" fill="#E4E4E7" font-size="11.5" font-weight="500" class="sans">Review</text>
+
+  <!-- Message Action Row (below slim Files Changed card) -->
+  <g transform="translate(498, 460)">
+    <g stroke="#71717A" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M2 6h3l4-3v10l-4-3H2z"/>
+      <path d="M12 5.5c1 1 1 4 0 5"/>
+      <g transform="translate(26, 0)">
+        <rect x="4" y="4" width="9" height="10" rx="1.5"/>
+        <path d="M2 11V3c0-.6.4-1 1-1h6"/>
+      </g>
+      <g transform="translate(52, 0)">
+        <path d="M10.5 2.5l3 3-8 8H2.5v-3l8-8z"/>
+      </g>
+      <g transform="translate(78, 0)">
+        <path d="M5 7v6H2V7h3zm0 0l3-5c1 0 1.5.8 1.2 2L8.5 6.5h4c.8 0 1.3.7 1 1.5l-1.5 4.2c-.2.5-.7.8-1.3.8H5"/>
+      </g>
+      <g transform="translate(104, 0)">
+        <path d="M5 9V3H2v6h3zm0 0l3 5c1 0 1.5-.8 1.2-2L8.5 9.5h4c.8 0 1.3-.7 1-1.5L12 3.8c-.2-.5-.7-.8-1.3-.8H5"/>
+      </g>
+      <g transform="translate(130, 0)">
+        <path d="M13 8a5 5 0 1 1-1.5-3.5"/>
+        <path d="M13 2.5v3h-3"/>
+      </g>
+      <g transform="translate(156, 0)">
+        <path d="M4.5 14v-2.8C3.3 10.2 2.5 8.7 2.5 7c0-2.8 2.3-5 5.3-5 2.8 0 4.8 1.7 5.3 4.2l1.2 2c.2.4-.1.9-.6.9h-.9v2.1c0 .9-.7 1.6-1.6 1.6H9.5V14"/>
+        <circle cx="8" cy="6.8" r="2"/>
+      </g>
     </g>
-
-    <!-- Knowledge Hub -->
-    <g transform="translate(14, 140)">
-      <rect x="0" y="0" width="232" height="34" rx="8" fill="transparent"/>
-      <rect x="12" y="10" width="12" height="13" rx="2" stroke="#9CA3AF" stroke-width="1.4" fill="none"/>
-      <path d="M9 13 V24 C9 25.1 9.9 26 11 26 H21" stroke="#9CA3AF" stroke-width="1.4" fill="none" stroke-linecap="round"/>
-      <text x="34" y="21.5" fill="#D4D4D8">Knowledge Hub</text>
-    </g>
-  </g>
-
-  <line x1="20" y1="186" x2="240" y2="186" stroke="#262629" stroke-width="1"/>
-
-  <!-- Code & Security Surfaces (Previously buried in Knowledge Hub scroll) -->
-  <text x="20" y="210" fill="#8E8E93" font-size="11" font-weight="600" letter-spacing="0.6" class="font-inter">INTEL &amp; ANALYSIS</text>
-
-  <g class="font-inter" font-size="13" font-weight="500">
-    <!-- Vuln Intel (Active) -->
-    <g transform="translate(14, 222)">
-      <rect x="0" y="0" width="232" height="34" rx="8" fill="#26262A"/>
-      <path d="M17 8 L23 11 V16 C23 19.5 20.4 22.3 17 23.2 C13.6 22.3 11 19.5 11 16 V11 L17 8 Z" stroke="#FFFFFF" stroke-width="1.4" fill="none"/>
-      <text x="34" y="21" fill="#FFFFFF" font-weight="600">Vuln Intel</text>
-      <rect x="178" y="8" width="44" height="18" rx="9" fill="#3B1D1E" stroke="#7F1D1D" stroke-width="0.8"/>
-      <text x="200" y="20" fill="#FCA5A5" font-size="10.5" font-weight="600" text-anchor="middle">3 KEV</text>
-    </g>
-
-    <!-- Repo X-Ray -->
-    <g transform="translate(14, 260)">
-      <rect x="0" y="0" width="232" height="34" rx="8" fill="transparent"/>
-      <circle cx="13" cy="12" r="2.2" stroke="#9CA3AF" stroke-width="1.4" fill="none"/>
-      <circle cx="21" cy="12" r="2.2" stroke="#9CA3AF" stroke-width="1.4" fill="none"/>
-      <circle cx="17" cy="21" r="2.2" stroke="#9CA3AF" stroke-width="1.4" fill="none"/>
-      <line x1="14.5" y1="14" x2="16" y2="19" stroke="#9CA3AF" stroke-width="1.3"/>
-      <line x1="19.5" y1="14" x2="18" y2="19" stroke="#9CA3AF" stroke-width="1.3"/>
-      <text x="34" y="21" fill="#D4D4D8">Repo X-Ray</text>
-    </g>
-
-    <!-- Security Feed -->
-    <g transform="translate(14, 298)">
-      <rect x="0" y="0" width="232" height="34" rx="8" fill="transparent"/>
-      <path d="M10 17 H14 L16 12 L19 22 L21 17 H24" stroke="#9CA3AF" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-      <text x="34" y="21" fill="#D4D4D8">Security Feed</text>
-      <text x="218" y="21" fill="#71717A" font-size="11" text-anchor="end">SARIF</text>
-    </g>
-
-    <!-- Corpus Briefing -->
-    <g transform="translate(14, 336)">
-      <rect x="0" y="0" width="232" height="34" rx="8" fill="transparent"/>
-      <rect x="10" y="9" width="14" height="14" rx="3" stroke="#9CA3AF" stroke-width="1.4" fill="none"/>
-      <line x1="13" y1="14" x2="21" y2="14" stroke="#9CA3AF" stroke-width="1.4"/>
-      <line x1="13" y1="18" x2="18" y2="18" stroke="#9CA3AF" stroke-width="1.4"/>
-      <text x="34" y="21" fill="#D4D4D8">Corpus Briefing</text>
-    </g>
-
-    <!-- dbt Lineage -->
-    <g transform="translate(14, 374)">
-      <rect x="0" y="0" width="232" height="34" rx="8" fill="transparent"/>
-      <rect x="10" y="10" width="5" height="5" rx="1" stroke="#9CA3AF" stroke-width="1.3" fill="none"/>
-      <rect x="19" y="10" width="5" height="5" rx="1" stroke="#9CA3AF" stroke-width="1.3" fill="none"/>
-      <rect x="15" y="19" width="5" height="5" rx="1" stroke="#9CA3AF" stroke-width="1.3" fill="none"/>
-      <text x="34" y="21" fill="#D4D4D8">dbt Lineage</text>
-    </g>
-  </g>
-
-  <line x1="20" y1="424" x2="240" y2="424" stroke="#262629" stroke-width="1"/>
-
-  <!-- Indexed Repos Scope -->
-  <text x="20" y="448" fill="#8E8E93" font-size="11" font-weight="600" letter-spacing="0.6" class="font-inter">INDEXED REPOS</text>
-  <g class="font-inter" font-size="12.5">
-    <g transform="translate(14, 462)">
-      <rect x="0" y="0" width="232" height="36" rx="7" fill="#1F1F22"/>
-      <circle cx="16" cy="18" r="4" fill="#10B981"/>
-      <text x="30" y="16" fill="#E4E4E7" font-weight="500">veraxi/backend</text>
-      <text x="30" y="29" fill="#71717A" font-size="10.5">142 files · 812 symbols</text>
-    </g>
-    <g transform="translate(14, 504)">
-      <rect x="0" y="0" width="232" height="36" rx="7" fill="transparent"/>
-      <circle cx="16" cy="18" r="4" fill="#52525B"/>
-      <text x="30" y="16" fill="#A1A1AA" font-weight="500">veraxi/app</text>
-      <text x="30" y="29" fill="#52525B" font-size="10.5">96 files · Dart AST</text>
-    </g>
-  </g>
-
-  <!-- User Profile Footer -->
-  <line x1="0" y1="846" x2="260" y2="846" stroke="#262629" stroke-width="1"/>
-  <circle cx="32" cy="873" r="13" fill="#2E2E34"/>
-  <text x="32" y="877" fill="#E4E4E7" font-size="12" font-weight="600" text-anchor="middle" class="font-inter">K</text>
-  <text x="54" y="877" fill="#D4D4D8" font-size="13" font-weight="500" class="font-inter">Kazuo Coaguilla</text>
-
-  <!-- ================================================== -->
-  <!-- CENTER WORKSPACE: Vuln Intel Triage Table (800px)  -->
-  <!-- ================================================== -->
-  <!-- Header Bar -->
-  <rect x="261" y="0" width="798" height="54" fill="#212121"/>
-  <line x1="261" y1="54" x2="1059" y2="54" stroke="#2B2B2E" stroke-width="1"/>
-
-  <text x="284" y="32" fill="#FFFFFF" font-size="15" font-weight="600" class="font-inter">Vulnerability Intel</text>
-  <rect x="424" y="17" width="110" height="22" rx="11" fill="#27272B" stroke="#3A3A40" stroke-width="0.8"/>
-  <text x="479" y="32" fill="#A1A1AA" font-size="11.5" text-anchor="middle" class="font-inter">veraxi/backend</text>
-
-  <!-- Action Buttons on Top Right of Center -->
-  <g transform="translate(650, 13)" class="font-inter" font-size="12" font-weight="500">
-    <rect x="0" y="0" width="122" height="28" rx="7" fill="#27272B" stroke="#3A3A40" stroke-width="0.8"/>
-    <text x="61" y="18.5" fill="#E4E4E7" text-anchor="middle">Sync NVD &amp; KEV</text>
-
-    <rect x="130" y="0" width="104" height="28" rx="7" fill="#27272B" stroke="#3A3A40" stroke-width="0.8"/>
-    <text x="182" y="18.5" fill="#E4E4E7" text-anchor="middle">Upload SBOM</text>
-
-    <rect x="242" y="0" width="144" height="28" rx="7" fill="#1D4ED8"/>
-    <text x="314" y="18.5" fill="#FFFFFF" font-weight="600" text-anchor="middle">Run Vuln Scan</text>
-  </g>
-
-  <!-- Reduction Summary Strip (26,000 -> 12 style funnel) -->
-  <g transform="translate(284, 72)" class="font-inter">
-    <rect x="0" y="0" width="752" height="58" rx="10" fill="#1A1A1D" stroke="#2D2D32" stroke-width="1"/>
-    <text x="16" y="23" fill="#A1A1AA" font-size="11.5" font-weight="500">TRIAGE FUNNEL</text>
-    <text x="16" y="44" fill="#F4F4F5" font-size="13.5" font-weight="600">
-      42 dependencies  →  11 known CVEs  →  3 CISA KEV  →  <tspan fill="#FCA5A5">1 statically reachable</tspan>
-    </text>
-
-    <!-- Reachability Toggle -->
-    <text x="580" y="34" fill="#D4D4D8" font-size="12" font-weight="500">Include reachability</text>
-    <rect x="698" y="21" width="36" height="19" rx="9.5" fill="#10B981"/>
-    <circle cx="724" cy="30.5" r="7" fill="#0B0F0E"/>
-  </g>
-
-  <!-- Filter Pills -->
-  <g transform="translate(284, 146)" class="font-inter" font-size="12" font-weight="500">
-    <rect x="0" y="0" width="108" height="28" rx="14" fill="#2A2A2F" stroke="#52525B" stroke-width="1"/>
-    <text x="54" y="18" fill="#FFFFFF" text-anchor="middle">All Findings (11)</text>
-
-    <rect x="116" y="0" width="94" height="28" rx="14" fill="#3B1D1E" stroke="#7F1D1D" stroke-width="0.8"/>
-    <text x="163" y="18" fill="#FCA5A5" text-anchor="middle">CISA KEV (3)</text>
-
-    <rect x="218" y="0" width="104" height="28" rx="14" fill="#18181B" stroke="#2F2F35" stroke-width="1"/>
-    <text x="270" y="18" fill="#A1A1AA" text-anchor="middle">Reachable (1)</text>
-
-    <rect x="330" y="0" width="112" height="28" rx="14" fill="#18181B" stroke="#2F2F35" stroke-width="1"/>
-    <text x="386" y="18" fill="#A1A1AA" text-anchor="middle">EPSS ≥ 0.7 (2)</text>
-  </g>
-
-  <!-- Ranked Vulnerability Table -->
-  <g transform="translate(284, 190)">
-    <rect x="0" y="0" width="752" height="676" rx="12" fill="#1A1A1D" stroke="#2D2D32" stroke-width="1"/>
-    <!-- Table Column Headers -->
-    <g class="font-inter" font-size="11" font-weight="600" fill="#71717A">
-      <text x="16" y="28">CVE / PACKAGE</text>
-      <text x="200" y="28">KEV / EPSS</text>
-      <text x="330" y="28">REACHABILITY</text>
-      <text x="540" y="28">WEAKNESS</text>
-      <text x="650" y="28">ACTIONS</text>
-    </g>
-    <line x1="0" y1="40" x2="752" y2="40" stroke="#2B2B30" stroke-width="1"/>
-
-    <!-- Row 1 (Selected Row — drives Right Rail Ask Sidecar) -->
-    <rect x="4" y="44" width="744" height="64" rx="8" fill="#23252B" stroke="#3F3F46" stroke-width="1"/>
-    <g class="font-inter">
-      <text x="16" y="70" fill="#FFFFFF" font-size="13" font-weight="600">CVE-2024-3094</text>
-      <text x="16" y="88" fill="#A1A1AA" font-size="11.5" class="font-mono">archive-utils &lt; 5.6.2</text>
-
-      <rect x="200" y="58" width="44" height="20" rx="6" fill="#3B1D1E" stroke="#7F1D1D" stroke-width="0.8"/>
-      <text x="222" y="72" fill="#FCA5A5" font-size="10.5" font-weight="600" text-anchor="middle">KEV</text>
-      <text x="252" y="72" fill="#D4D4D8" font-size="12">0.94</text>
-
-      <rect x="330" y="58" width="120" height="20" rx="6" fill="#064E3B"/>
-      <text x="390" y="72" fill="#34D399" font-size="11" font-weight="600" text-anchor="middle">Static Path (3 hops)</text>
-      <text x="330" y="90" fill="#71717A" font-size="11" class="font-mono">ingest_route → parse_tar</text>
-
-      <text x="540" y="72" fill="#D4D4D8" font-size="12">CWE-502</text>
-      <text x="540" y="88" fill="#71717A" font-size="10.5">Deserialization</text>
-
-      <rect x="650" y="62" width="42" height="24" rx="6" fill="#10B981"/>
-      <text x="671" y="78" fill="#0B0F0E" font-size="11.5" font-weight="600" text-anchor="middle">Ask</text>
-      <rect x="698" y="62" width="42" height="24" rx="6" fill="#2A2A2E" stroke="#3F3F46" stroke-width="0.8"/>
-      <text x="719" y="78" fill="#D4D4D8" font-size="11.5" text-anchor="middle">Path</text>
-    </g>
-
-    <!-- Row 2 -->
-    <g transform="translate(0, 68)" class="font-inter">
-      <text x="16" y="70" fill="#E4E4E7" font-size="13" font-weight="500">CVE-2023-49083</text>
-      <text x="16" y="88" fill="#71717A" font-size="11.5" class="font-mono">cryptography == 41.0.5</text>
-
-      <rect x="200" y="58" width="44" height="20" rx="6" fill="#3B1D1E"/>
-      <text x="222" y="72" fill="#FCA5A5" font-size="10.5" font-weight="600" text-anchor="middle">KEV</text>
-      <text x="252" y="72" fill="#A1A1AA" font-size="12">0.78</text>
-
-      <rect x="330" y="58" width="132" height="20" rx="6" fill="#27272A"/>
-      <text x="396" y="72" fill="#A1A1AA" font-size="11" text-anchor="middle">No static route found</text>
-      <text x="330" y="90" fill="#52525B" font-size="10.5">Verify runtime usage</text>
-
-      <text x="540" y="72" fill="#A1A1AA" font-size="12">CWE-476</text>
-
-      <rect x="650" y="62" width="42" height="24" rx="6" fill="#27272A" stroke="#3F3F46" stroke-width="0.8"/>
-      <text x="671" y="78" fill="#D4D4D8" font-size="11.5" text-anchor="middle">Ask</text>
-    </g>
-    <line x1="16" y1="176" x2="736" y2="176" stroke="#242428" stroke-width="1"/>
-
-    <!-- Row 3 -->
-    <g transform="translate(0, 136)" class="font-inter">
-      <text x="16" y="70" fill="#E4E4E7" font-size="13" font-weight="500">CVE-2024-21503</text>
-      <text x="16" y="88" fill="#71717A" font-size="11.5" class="font-mono">black == 23.12.1</text>
-
-      <rect x="200" y="58" width="48" height="20" rx="6" fill="#27272A"/>
-      <text x="224" y="72" fill="#A1A1AA" font-size="10.5" text-anchor="middle">EPSS</text>
-      <text x="254" y="72" fill="#A1A1AA" font-size="12">0.12</text>
-
-      <rect x="330" y="58" width="132" height="20" rx="6" fill="#27272A"/>
-      <text x="396" y="72" fill="#71717A" font-size="11" text-anchor="middle">Dev-only dependency</text>
-
-      <text x="540" y="72" fill="#A1A1AA" font-size="12">CWE-1333</text>
-
-      <rect x="650" y="62" width="42" height="24" rx="6" fill="#27272A" stroke="#3F3F46" stroke-width="0.8"/>
-      <text x="671" y="78" fill="#D4D4D8" font-size="11.5" text-anchor="middle">Ask</text>
+    <text x="184" y="12" fill="#71717A" font-size="11" class="sans">just now</text>
+    <g transform="translate(242, -5)">
+      <rect width="102" height="24" rx="12" fill="#181A20" stroke="#282B36"/>
+      <circle cx="14" cy="12" r="5.5" fill="#10B981" stroke="#181A20" stroke-width="1.5"/>
+      <circle cx="23" cy="12" r="5.5" fill="#4F8EF7" stroke="#181A20" stroke-width="1.5"/>
+      <text x="38" y="16" fill="#D4D4D8" font-size="11.5" font-weight="500" class="sans">2 sources</text>
     </g>
   </g>
 
-  <!-- ================================================== -->
-  <!-- RIGHT RAIL: Docked "Ask Veraxi" Sidecar (380px)    -->
-  <!-- ================================================== -->
-  <rect x="1060" y="0" width="380" height="900" fill="#171717"/>
-  <line x1="1060" y1="0" x2="1060" y2="900" stroke="#2B2B2E" stroke-width="1"/>
+  <!-- Floating Composer inside active thread (repo/branch tray only shows on New Chat empty state) -->
+  <rect x="464" y="736" width="780" height="88" rx="24" fill="#13151A" stroke="#252833"/>
+  <text x="486" y="766" fill="#71717A" font-size="14" class="sans">Ask anything. @ files, $ skills, / commands</text>
 
-  <!-- Sidecar Header -->
-  <rect x="1060" y="0" width="380" height="54" fill="#171717"/>
-  <line x1="1060" y1="54" x2="1440" y2="54" stroke="#2B2B2E" stroke-width="1"/>
-  <text x="1080" y="32" fill="#FFFFFF" font-size="14" font-weight="600" class="font-inter">Ask Veraxi</text>
-  <rect x="1166" y="17" width="126" height="22" rx="11" fill="#1F2D29" stroke="#10B981" stroke-width="0.8"/>
-  <text x="1229" y="32" fill="#34D399" font-size="11" font-weight="500" text-anchor="middle" class="font-inter">CVE-2024-3094</text>
+  <!-- Bottom-left ChatInput controls: Paperclip + Sliders -->
+  <path d="M490 802v-8c0-1.7 1.3-3 3-3s3 1.3 3 3v10c0 2.8-2.2 5-5 5s-5-2.2-5-5v-10" stroke="#A1A1AA" stroke-width="1.6" stroke-linecap="round" fill="none"/>
+  <line x1="514" y1="795" x2="528" y2="795" stroke="#A1A1AA" stroke-width="1.6" stroke-linecap="round"/>
+  <circle cx="517" cy="795" r="2" fill="#13151A" stroke="#A1A1AA" stroke-width="1.4"/>
+  <line x1="514" y1="803" x2="528" y2="803" stroke="#A1A1AA" stroke-width="1.6" stroke-linecap="round"/>
+  <circle cx="525" cy="803" r="2" fill="#13151A" stroke="#A1A1AA" stroke-width="1.4"/>
 
-  <!-- Selected Finding Path Card (Pinned at top of Sidecar) -->
-  <g transform="translate(1078, 70)">
-    <rect x="0" y="0" width="344" height="148" rx="10" fill="#1F1F23" stroke="#2E2E34" stroke-width="1"/>
-    <text x="14" y="22" fill="#8E8E93" font-size="10.5" font-weight="600" letter-spacing="0.5" class="font-inter">REACHABILITY PATH · SELECTED ROW</text>
+  <!-- Bottom-right ChatInput controls: Sources (N) selector pill (NotebookLM-style popover), TokenUsageRing, Microphone, Send -->
+  <rect x="1028" y="787" width="84" height="24" rx="12" fill="#181A20" stroke="#282B36"/>
+  <text x="1070" y="803" fill="#D4D4D8" font-size="11" font-weight="500" text-anchor="middle" class="sans">3 sources</text>
+  <circle cx="1132" cy="799" r="13" stroke="#71717A" stroke-width="1.4" stroke-dasharray="3 2.5" fill="none"/>
+  <text x="1132" y="802.5" fill="#D4D4D8" font-size="8.5" font-weight="600" text-anchor="middle" class="sans">2.5k</text>
+  <path d="M1168 789c-1.1 0-2 .9-2 2v6c0 1.1.9 2 2 2s2-.9 2-2v-6c0-1.1-.9-2-2-2zm-6 8c0 3.3 2.7 6 6 6s6-2.7 6-6m-6 6v4m-3 0h6" stroke="#A1A1AA" stroke-width="1.6" stroke-linecap="round" fill="none"/>
+  <circle cx="1212" cy="799" r="16" fill="#1F222A" stroke="#2E323D"/>
+  <path d="M1212 805v-12m-5 5l5-5 5 5" stroke="#E4E4E7" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
 
-    <g class="font-mono" font-size="11.5" fill="#E4E4E7">
-      <text x="14" y="46">fastapi_app</text>
-      <text x="24" y="64" fill="#71717A" font-size="10.5">—[DEFINES]→ <tspan fill="#E4E4E7" font-size="11.5">ingest_route</tspan></text>
-      <text x="34" y="82" fill="#71717A" font-size="10.5">—[CALLS]→ <tspan fill="#E4E4E7" font-size="11.5">parse_tar</tspan></text>
-      <text x="44" y="100" fill="#71717A" font-size="10.5">—[AFFECTS]→ <tspan fill="#FCA5A5" font-size="11.5">CVE-2024-3094</tspan></text>
+  <!-- Model, Thinking Level, and Execution Permission Bar BELOW the entire ChatInput bar (T3 Code + Antigravity style) -->
+  <circle cx="484" cy="842" r="5.5" fill="#E6522C"/>
+  <circle cx="484" cy="842" r="2.2" fill="#0A0B0D"/>
+  <text x="496" y="846" fill="#D4D4D8" font-size="12" font-weight="500" class="sans">openai/gpt-oss-20b</text>
+  <path d="M618 840l3.5 3.5 3.5-3.5" stroke="#878787" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+
+  <!-- Thinking Level Selector right next to AI Model Picker (T3 Code style) -->
+  <circle cx="648" cy="842" r="5.5" stroke="#878787" stroke-width="1.2" fill="none"/>
+  <path d="M645.5 842h5M648 839.5v5" stroke="#878787" stroke-width="1.1" stroke-linecap="round"/>
+  <text x="660" y="846" fill="#D4D4D8" font-size="12" font-weight="500" class="sans">High</text>
+  <path d="M692 840l3.5 3.5 3.5-3.5" stroke="#878787" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+
+  <!-- Explicit [ Plan | Act ] Segmented Toggle (Cline / Senior Dev standard) -->
+  <rect x="714" y="831" width="94" height="22" rx="6" fill="#13151A" stroke="#252833"/>
+  <text x="726" y="846" fill="#71717A" font-size="11" font-weight="500" class="sans">Plan</text>
+  <rect x="760" y="833" width="46" height="18" rx="4" fill="#1C1F26" stroke="#2E323D" stroke-width="0.8"/>
+  <text x="774" y="846" fill="#F4F4F5" font-size="11" font-weight="600" class="sans">Act</text>
+  <!-- Local Permissions pill (shown when sandbox / command execution is enabled) -->
+  <path d="M1152 837l4 1.5v3.5c0 2.3-1.7 4.2-4 5-2.3-.8-4-2.7-4-5v-3.5l4-1.5z" stroke="#878787" stroke-width="1.2" fill="none"/>
+  <text x="1162" y="846" fill="#A1A1AA" font-size="12" class="sans">Default</text>
+  <path d="M1210 840l3.5 3.5 3.5-3.5" stroke="#878787" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+
+  <!-- Footer Legal Text (matching Chat UI) -->
+  <text x="854" y="878" fill="#878787" font-size="11.5" text-anchor="middle" class="sans">Veraxi v0.1.0 - Sovereign Intelligence. Privacy policy | Terms of service</text>
+
+  <!-- NotebookLM-style Sources Checkbox Popover (opens above "3 sources" pill when clicked) -->
+  <g transform="translate(868, 520)">
+    <rect x="2" y="4" width="320" height="254" rx="12" fill="#050608" fill-opacity="0.75"/>
+    <rect width="320" height="254" rx="12" fill="#16181D" stroke="#2E323D"/>
+    <text x="16" y="26" fill="#F4F4F5" font-size="13" font-weight="600" class="sans">Sources</text>
+    <text x="234" y="26" fill="#A1A1AA" font-size="11.5" class="sans">Select all</text>
+    <rect x="290" y="15" width="14" height="14" rx="3" fill="#10B981"/>
+    <path d="M293.5 22l2.5 2.5 4.5-5" stroke="#052E16" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+
+    <rect x="14" y="38" width="292" height="28" rx="7" fill="#0D0E11" stroke="#23262F"/>
+    <text x="24" y="56" fill="#71717A" font-size="11.5" class="sans">Filter repos &amp; docs...</text>
+
+    <!-- Row 1: checked repo -->
+    <text x="16" y="88" fill="#E4E4E7" font-size="12" class="mono">veraxi/backend</text>
+    <text x="16" y="102" fill="#71717A" font-size="10.5" class="sans">Code Repo · 482 files</text>
+    <rect x="290" y="80" width="14" height="14" rx="3" fill="#10B981"/>
+    <path d="M293.5 87l2.5 2.5 4.5-5" stroke="#052E16" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+
+    <!-- Row 2: checked repo -->
+    <text x="16" y="128" fill="#E4E4E7" font-size="12" class="mono">veraxi/app</text>
+    <text x="16" y="142" fill="#71717A" font-size="10.5" class="sans">Code Repo · 214 files</text>
+    <rect x="290" y="120" width="14" height="14" rx="3" fill="#10B981"/>
+    <path d="M293.5 127l2.5 2.5 4.5-5" stroke="#052E16" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+
+    <!-- Row 3: checked Knowledge Hub doc -->
+    <text x="16" y="168" fill="#E4E4E7" font-size="12" class="mono">docs/architecture.md</text>
+    <text x="16" y="182" fill="#71717A" font-size="10.5" class="sans">Knowledge Hub</text>
+    <rect x="290" y="160" width="14" height="14" rx="3" fill="#10B981"/>
+    <path d="M293.5 167l2.5 2.5 4.5-5" stroke="#052E16" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+
+    <!-- Row 4: unchecked Knowledge Hub doc -->
+    <text x="16" y="208" fill="#A1A1AA" font-size="12" class="mono">nist_nvd_kev.json</text>
+    <text x="16" y="222" fill="#52525B" font-size="10.5" class="sans">Knowledge Hub</text>
+    <rect x="290" y="200" width="14" height="14" rx="3" fill="none" stroke="#52525B" stroke-width="1.2"/>
+
+    <line x1="0" y1="232" x2="320" y2="232" stroke="#23262F"/>
+    <text x="16" y="247" fill="#34D399" font-size="11.5" font-weight="500" class="sans">+ Add sources in Knowledge Hub →</text>
+  </g>
+
+  <!-- Perplexity-style Code Citation Hover Popover (rendered last so it floats cleanly above prose) -->
+  <g transform="translate(886, 278)">
+    <rect x="2" y="4" width="440" height="126" rx="10" fill="#050608" fill-opacity="0.75"/>
+    <rect width="440" height="126" rx="10" fill="#181A20" stroke="#2E323D"/>
+    <text x="14" y="21" fill="#A1A1AA" font-size="11" class="sans">&lt;  1/2  &gt;</text>
+    <text x="372" y="21" fill="#A1A1AA" font-size="11" class="sans">2 sources</text>
+    <line x1="0" y1="30" x2="440" y2="30" stroke="#23262F"/>
+    <!-- Python logo + file path -->
+    <g transform="translate(14, 39) scale(0.9)">
+      <path d="M6.8 0C3.4 0 3.6 1.5 3.6 1.5v1.5h3.3v.5H2.3S0 3.2 0 6.8s2 3.5 2 3.5h1.2V8.6s-.1-2 2-2h3.3s1.9 0 1.9-1.8V1.8S10.7 0 6.8 0zm-1.8 1a.6.6 0 1 1 0 1.2.6.6 0 0 1 0-1.2z" fill="#3776AB"/>
+      <path d="M7.2 14c3.4 0 3.2-1.5 3.2-1.5V11H7.1v-.5h4.6s2.3.3 2.3-3.3-2-3.5-2-3.5h-1.2v1.7s.1 2-2 2H5.5s-1.9 0-1.9 1.8v3S3.3 14 7.2 14zm1.8-1a.6.6 0 1 1 0-1.2.6.6 0 0 1 0 1.2z" fill="#FFD43B"/>
     </g>
-
-    <rect x="12" y="114" width="320" height="22" rx="6" fill="#272017"/>
-    <text x="22" y="129" fill="#FBBF24" font-size="10.5" font-weight="500" class="font-inter">Static AST path inferred — verify runtime exposure</text>
-  </g>
-
-  <!-- Contextual Q&A Thread inside Sidecar -->
-  <g transform="translate(1078, 236)" class="font-inter">
-    <rect x="74" y="0" width="270" height="36" rx="12" fill="#2B2B2F"/>
-    <text x="90" y="22" fill="#F4F4F5" font-size="12.5">What input reaches parse_tar here?</text>
-
-    <text x="0" y="62" fill="#E4E4E7" font-size="12.5">Uploaded archive streams from</text>
-    <text x="0" y="80" fill="#E4E4E7" font-size="12.5">POST /ingest/archive pass directly</text>
-    <text x="0" y="98" fill="#E4E4E7" font-size="12.5">into parse_tar() without size or</text>
-    <text x="0" y="116" fill="#E4E4E7" font-size="12.5">member-type validation.</text>
-
-    <rect x="0" y="130" width="128" height="22" rx="11" fill="#27272B" stroke="#3F3F46" stroke-width="0.8"/>
-    <text x="64" y="145" fill="#34D399" font-size="11" text-anchor="middle">routes.py L42–68</text>
-  </g>
-
-  <!-- Sidecar Prompt Input -->
-  <g transform="translate(1078, 788)">
-    <rect x="0" y="0" width="344" height="84" rx="14" fill="#2B2B2F" stroke="#3A3A40" stroke-width="1"/>
-    <text x="16" y="28" fill="#8E8E93" font-size="13" class="font-inter">Ask about CVE-2024-3094...</text>
-    <rect x="14" y="48" width="144" height="24" rx="12" fill="#1F2D29" stroke="#10B981" stroke-width="0.8"/>
-    <text x="86" y="64" fill="#34D399" font-size="11" text-anchor="middle" class="font-inter">Anchored: routes.py</text>
-    <circle cx="318" cy="60" r="14" fill="#ECECEC"/>
-    <path d="M318 66 V54 M313 59 L318 54 L323 59" stroke="#171717" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <text x="34" y="50" fill="#F4F4F5" font-size="11.5" font-weight="600" class="mono">backend/retrieval/merge_rank.py · L78–L80</text>
+    <text x="14" y="72" fill="#93C5FD" font-size="11" class="mono">78  def _is_near_duplicate(text_a: str, text_b: str) -&gt; bool:</text>
+    <text x="14" y="90" fill="#D4D4D8" font-size="11" class="mono">79      words_a = set(text_a.lower().split())</text>
+    <text x="14" y="112" fill="#34D399" font-size="10.5" class="sans">Neo4j AST · Click to open in Review</text>
   </g>
 </svg>

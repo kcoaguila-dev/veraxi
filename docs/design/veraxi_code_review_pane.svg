@@ -1,0 +1,172 @@
+<svg width="1440" height="900" viewBox="0 0 1440 900" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Visual Contract: Veraxi Code Mode — Review Split-Pane Active
+       Matches Antigravity Image 2:
+       1. LEFT RAIL (240px, #0D0E11): [ Chat | <> Code ], New Code Thread,
+          Knowledge Hub, Security, Projects (repo-grouped threads).
+       2. CENTER CHAT COLUMN (420px, #0A0B0D): Compacted conversation column
+          with prose, "2 files changed +14 -3 [Review]" card above Copy/Thumbs,
+          and Veraxi ChatInput composer at bottom.
+       3. RIGHT REVIEW SPLIT-PANE (780px, #0D0E11):
+          - Top tab bar: [ Review ] +
+          - Turn filter bar: [For Turn] prompt summary
+          - Code / Diff Viewer (600px): file header (merge_rank.py +14 -3),
+            line-numbered diff with green (#0F291A) / red (#2A1215) highlights
+          - Agent Edits rail (180px): clickable list of changed/cited files -->
+  <defs>
+    <style>
+      .sans { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }
+      .mono { font-family: 'JetBrains Mono', monospace; }
+    </style>
+  </defs>
+
+  <rect width="1440" height="900" fill="#0A0B0D"/>
+
+  <!-- 1. LEFT RAIL (240px) -->
+  <rect x="0" y="0" width="240" height="900" fill="#0D0E11"/>
+  <line x1="240" y1="0" x2="240" y2="900" stroke="#1E2026" stroke-width="1"/>
+  <text x="16" y="32" fill="#F4F4F5" font-size="15" font-weight="600" class="sans">Veraxi</text>
+
+  <rect x="14" y="48" width="212" height="26" rx="8" fill="#13151A" stroke="#1E2026"/>
+  <text x="54" y="65" fill="#71717A" font-size="11.5" class="sans">Chat</text>
+  <rect x="122" y="50" width="102" height="22" rx="6" fill="#23252C" stroke="#2F323C" stroke-width="0.8"/>
+  <text x="148" y="65" fill="#F4F4F5" font-size="11.5" font-weight="600" class="sans">&lt;&gt; Code</text>
+
+  <text x="38" y="106" fill="#A1A1AA" font-size="12.5" class="sans">Knowledge Hub</text>
+  <text x="38" y="134" fill="#A1A1AA" font-size="12.5" class="sans">Security</text>
+  <line x1="14" y1="154" x2="226" y2="154" stroke="#1E2026" stroke-width="1"/>
+
+  <text x="16" y="176" fill="#71717A" font-size="11" font-weight="600" class="sans">Projects</text>
+  <text x="16" y="202" fill="#A1A1AA" font-size="12" font-weight="500" class="sans">veraxi/backend</text>
+  <rect x="8" y="212" width="224" height="28" rx="6" fill="#1C1F26"/>
+  <text x="18" y="230" fill="#F4F4F5" font-size="12" font-weight="500" class="sans">Hybrid retrieval merge_rank</text>
+  <text x="18" y="256" fill="#D4D4D8" font-size="12" class="sans">Add streaming retry backoff</text>
+  <text x="18" y="280" fill="#D4D4D8" font-size="12" class="sans">Neo4j Cypher parameterization</text>
+
+  <!-- 2. CENTER CHAT COLUMN (420px: x=240..660) -->
+  <rect x="240" y="0" width="420" height="50" fill="#0D0E11"/>
+  <line x1="240" y1="50" x2="660" y2="50" stroke="#1E2026" stroke-width="1"/>
+  <line x1="660" y1="0" x2="660" y2="900" stroke="#1E2026" stroke-width="1"/>
+  <text x="258" y="30" fill="#A1A1AA" font-size="12.5" class="sans">veraxi/backend / Hybrid retrieval...</text>
+
+  <!-- Compact Assistant Turn (no redundant "Veraxi Code" label) -->
+  <text x="260" y="88" fill="#9E9E9E" font-size="11.5" class="sans">&gt; Traversed Neo4j AST · Queried Qdrant</text>
+  <text x="260" y="146" fill="#ECECEC" font-size="13" class="sans">Added exact-symbol boost in</text>
+  <text x="260" y="166" fill="#34D399" font-size="12.5" class="mono">reciprocal_rank_fusion()</text>
+  <text x="260" y="186" fill="#ECECEC" font-size="13" class="sans">and updated unit tests.</text>
+
+  <!-- Files Changed Card ABOVE Action Row (6 files listed) -->
+  <rect x="256" y="210" width="388" height="170" rx="10" fill="#111317" stroke="#1E2026"/>
+  <text x="270" y="232" fill="#E4E4E7" font-size="12" font-weight="500" class="sans">6 files changed</text>
+  <text x="360" y="232" fill="#34D399" font-size="11.5" class="mono">+166 -74</text>
+  <path d="M416 226l3.5 3.5 3.5-3.5" stroke="#71717A" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <rect x="568" y="217" width="64" height="22" rx="6" fill="#1C1F26" stroke="#2E323D"/>
+  <text x="582" y="232" fill="#F4F4F5" font-size="11" font-weight="500" class="sans">Review</text>
+  <line x1="256" y1="244" x2="644" y2="244" stroke="#1E2026"/>
+  <text x="270" y="264" fill="#D4D4D8" font-size="11.5" class="mono">merge_rank.py</text>
+  <text x="590" y="264" fill="#34D399" font-size="11" class="mono">+48 -12</text>
+  <text x="270" y="284" fill="#D4D4D8" font-size="11.5" class="mono">graph_search.py</text>
+  <text x="590" y="284" fill="#34D399" font-size="11" class="mono">+26 -10</text>
+  <text x="270" y="304" fill="#D4D4D8" font-size="11.5" class="mono">vector_search.py</text>
+  <text x="590" y="304" fill="#34D399" font-size="11" class="mono">+19 -14</text>
+  <text x="270" y="324" fill="#D4D4D8" font-size="11.5" class="mono">code_queries.py</text>
+  <text x="590" y="324" fill="#34D399" font-size="11" class="mono">+31 -18</text>
+  <text x="270" y="344" fill="#D4D4D8" font-size="11.5" class="mono">test_merge_rank.py</text>
+  <text x="590" y="344" fill="#34D399" font-size="11" class="mono">+38 -20</text>
+  <text x="270" y="364" fill="#D4D4D8" font-size="11.5" class="mono">pyproject.toml</text>
+  <text x="596" y="364" fill="#34D399" font-size="11" class="mono">+4 -0</text>
+
+  <!-- Action Row below Files Changed -->
+  <text x="260" y="402" fill="#71717A" font-size="11" class="sans">Copy · Like · Dislike · just now · 2 sources</text>
+
+  <!-- ChatInput Floating Composer (compacted to 388px) -->
+  <rect x="256" y="772" width="388" height="92" rx="22" fill="#16181D" stroke="#282B36"/>
+  <text x="274" y="800" fill="#71717A" font-size="13" class="sans">Ask about veraxi/backend...</text>
+  <circle cx="614" cy="836" r="14" fill="#F4F4F5"/>
+  <path d="M614 841v-10m-4 4l4-4 4 4" stroke="#0A0B0D" stroke-width="1.6" stroke-linecap="round" fill="none"/>
+
+  <!-- 3. RIGHT REVIEW SPLIT-PANE (780px: x=660..1440) -->
+  <rect x="660" y="0" width="780" height="900" fill="#0D0E11"/>
+
+  <!-- Top Tab Bar: Review + | Search + Close -->
+  <rect x="660" y="0" width="780" height="50" fill="#0D0E11"/>
+  <line x1="660" y1="50" x2="1440" y2="50" stroke="#1E2026" stroke-width="1"/>
+  <rect x="674" y="10" width="96" height="30" rx="7" fill="#16181D" stroke="#252833"/>
+  <text x="698" y="29" fill="#F4F4F5" font-size="12.5" font-weight="500" class="sans">Review</text>
+  <text x="784" y="29" fill="#71717A" font-size="15" class="sans">+</text>
+  <!-- Close & maximize icons top-right -->
+  <path d="M1408 20l8 8m0-8l-8 8" stroke="#71717A" stroke-width="1.4" stroke-linecap="round"/>
+
+  <!-- For Turn Filter Bar + Commit v Action (Antigravity + T3 Code) -->
+  <rect x="676" y="62" width="60" height="24" rx="5" fill="#181A20" stroke="#282B36"/>
+  <text x="684" y="78" fill="#D4D4D8" font-size="11" class="sans">For Turn</text>
+  <text x="746" y="78" fill="#A1A1AA" font-size="11.5" class="sans">How does hybrid retrieval merge Neo4j and Qdrant?</text>
+  <rect x="1338" y="60" width="88" height="26" rx="7" fill="#1D4ED8"/>
+  <text x="1352" y="77" fill="#FFFFFF" font-size="11.5" font-weight="600" class="sans">Commit</text>
+  <path d="M1408 71l3.5 3.5 3.5-3.5" stroke="#FFFFFF" stroke-width="1.3" stroke-linecap="round" fill="none"/>
+
+  <!-- Diff / Code Viewer (600px: x=660..1260) -->
+  <rect x="674" y="102" width="572" height="32" rx="6" fill="#13151A" stroke="#1E2026"/>
+  <text x="688" y="122" fill="#E4E4E7" font-size="12" font-weight="500" class="mono">merge_rank.py</text>
+  <text x="794" y="122" fill="#71717A" font-size="11" class="mono">backend/retrieval/merge_rank.py</text>
+  <text x="1084" y="122" fill="#34D399" font-size="11" class="mono">+48 -12</text>
+  <text x="1146" y="122" fill="#A1A1AA" font-size="11" class="sans">Revert</text>
+  <text x="1194" y="122" fill="#34D399" font-size="11" font-weight="500" class="sans">Accept</text>
+
+  <!-- Code Lines with Red/Green Diff Highlights (real merge_rank.py lines) -->
+  <rect x="674" y="138" width="572" height="22" fill="#0A0B0D"/>
+  <text x="684" y="153" fill="#52525B" font-size="11.5" class="mono">78  def _is_near_duplicate(text_a: str, text_b: str, threshold: float = 0.75):</text>
+  <rect x="674" y="160" width="572" height="22" fill="#2A1215"/>
+  <text x="684" y="175" fill="#FCA5A5" font-size="11.5" class="mono">82 -    if len(words_a) &lt; 6 or len(words_b) &lt; 6:</text>
+  <rect x="674" y="182" width="572" height="22" fill="#0F291A"/>
+  <text x="684" y="197" fill="#86EFAC" font-size="11.5" class="mono">82 +    if len(words_a) &lt; 4 or len(words_b) &lt; 4:</text>
+  <rect x="674" y="204" width="572" height="22" fill="#0A0B0D"/>
+  <text x="684" y="219" fill="#A1A1AA" font-size="11.5" class="mono">83          return False</text>
+  <rect x="674" y="226" width="572" height="22" fill="#0A0B0D"/>
+  <text x="684" y="241" fill="#A1A1AA" font-size="11.5" class="mono">84      intersection = len(words_a &amp; words_b)</text>
+
+  <!-- Second File Diff Card stacked below (Antigravity style) -->
+  <rect x="674" y="264" width="572" height="32" rx="6" fill="#13151A" stroke="#1E2026"/>
+  <text x="688" y="284" fill="#E4E4E7" font-size="12" font-weight="500" class="mono">graph_search.py</text>
+  <text x="806" y="284" fill="#71717A" font-size="11" class="mono">backend/retrieval/graph_search.py</text>
+  <text x="1186" y="284" fill="#34D399" font-size="11" class="mono">+26 -10</text>
+  <rect x="674" y="300" width="572" height="22" fill="#0F291A"/>
+  <text x="684" y="315" fill="#86EFAC" font-size="11.5" class="mono">31 +    return merge_and_rerank(graph_hits, vector_hits)</text>
+
+  <!-- Far-Right Agent Edits List (180px: x=1260..1440) with real language logos -->
+  <line x1="1260" y1="50" x2="1260" y2="900" stroke="#1E2026" stroke-width="1"/>
+  <text x="1276" y="114" fill="#71717A" font-size="11.5" font-weight="600" class="sans">Agent Edits</text>
+  <rect x="1268" y="128" width="164" height="28" rx="6" fill="#181A20"/>
+  <g transform="translate(1274, 135) scale(0.85)">
+    <path d="M6.8 0C3.4 0 3.6 1.5 3.6 1.5v1.5h3.3v.5H2.3S0 3.2 0 6.8s2 3.5 2 3.5h1.2V8.6s-.1-2 2-2h3.3s1.9 0 1.9-1.8V1.8S10.7 0 6.8 0zm-1.8 1a.6.6 0 1 1 0 1.2.6.6 0 0 1 0-1.2z" fill="#3776AB"/>
+    <path d="M7.2 14c3.4 0 3.2-1.5 3.2-1.5V11H7.1v-.5h4.6s2.3.3 2.3-3.3-2-3.5-2-3.5h-1.2v1.7s.1 2-2 2H5.5s-1.9 0-1.9 1.8v3S3.3 14 7.2 14zm1.8-1a.6.6 0 1 1 0-1.2.6.6 0 0 1 0 1.2z" fill="#FFD43B"/>
+  </g>
+  <text x="1293" y="146" fill="#F4F4F5" font-size="11.5" class="mono">merge_rank.py</text>
+
+  <g transform="translate(1274, 165) scale(0.85)">
+    <path d="M6.8 0C3.4 0 3.6 1.5 3.6 1.5v1.5h3.3v.5H2.3S0 3.2 0 6.8s2 3.5 2 3.5h1.2V8.6s-.1-2 2-2h3.3s1.9 0 1.9-1.8V1.8S10.7 0 6.8 0zm-1.8 1a.6.6 0 1 1 0 1.2.6.6 0 0 1 0-1.2z" fill="#3776AB"/>
+    <path d="M7.2 14c3.4 0 3.2-1.5 3.2-1.5V11H7.1v-.5h4.6s2.3.3 2.3-3.3-2-3.5-2-3.5h-1.2v1.7s.1 2-2 2H5.5s-1.9 0-1.9 1.8v3S3.3 14 7.2 14zm1.8-1a.6.6 0 1 1 0-1.2.6.6 0 0 1 0 1.2z" fill="#FFD43B"/>
+  </g>
+  <text x="1293" y="176" fill="#A1A1AA" font-size="11.5" class="mono">graph_search.py</text>
+
+  <g transform="translate(1274, 191) scale(0.85)">
+    <path d="M6.8 0C3.4 0 3.6 1.5 3.6 1.5v1.5h3.3v.5H2.3S0 3.2 0 6.8s2 3.5 2 3.5h1.2V8.6s-.1-2 2-2h3.3s1.9 0 1.9-1.8V1.8S10.7 0 6.8 0zm-1.8 1a.6.6 0 1 1 0 1.2.6.6 0 0 1 0-1.2z" fill="#3776AB"/>
+    <path d="M7.2 14c3.4 0 3.2-1.5 3.2-1.5V11H7.1v-.5h4.6s2.3.3 2.3-3.3-2-3.5-2-3.5h-1.2v1.7s.1 2-2 2H5.5s-1.9 0-1.9 1.8v3S3.3 14 7.2 14zm1.8-1a.6.6 0 1 1 0-1.2.6.6 0 0 1 0 1.2z" fill="#FFD43B"/>
+  </g>
+  <text x="1293" y="202" fill="#A1A1AA" font-size="11.5" class="mono">vector_search.py</text>
+
+  <g transform="translate(1274, 217) scale(0.85)">
+    <path d="M6.8 0C3.4 0 3.6 1.5 3.6 1.5v1.5h3.3v.5H2.3S0 3.2 0 6.8s2 3.5 2 3.5h1.2V8.6s-.1-2 2-2h3.3s1.9 0 1.9-1.8V1.8S10.7 0 6.8 0zm-1.8 1a.6.6 0 1 1 0 1.2.6.6 0 0 1 0-1.2z" fill="#3776AB"/>
+    <path d="M7.2 14c3.4 0 3.2-1.5 3.2-1.5V11H7.1v-.5h4.6s2.3.3 2.3-3.3-2-3.5-2-3.5h-1.2v1.7s.1 2-2 2H5.5s-1.9 0-1.9 1.8v3S3.3 14 7.2 14zm1.8-1a.6.6 0 1 1 0-1.2.6.6 0 0 1 0 1.2z" fill="#FFD43B"/>
+  </g>
+  <text x="1293" y="228" fill="#A1A1AA" font-size="11.5" class="mono">code_queries.py</text>
+
+  <g transform="translate(1274, 243) scale(0.85)">
+    <path d="M6.8 0C3.4 0 3.6 1.5 3.6 1.5v1.5h3.3v.5H2.3S0 3.2 0 6.8s2 3.5 2 3.5h1.2V8.6s-.1-2 2-2h3.3s1.9 0 1.9-1.8V1.8S10.7 0 6.8 0zm-1.8 1a.6.6 0 1 1 0 1.2.6.6 0 0 1 0-1.2z" fill="#3776AB"/>
+    <path d="M7.2 14c3.4 0 3.2-1.5 3.2-1.5V11H7.1v-.5h4.6s2.3.3 2.3-3.3-2-3.5-2-3.5h-1.2v1.7s.1 2-2 2H5.5s-1.9 0-1.9 1.8v3S3.3 14 7.2 14zm1.8-1a.6.6 0 1 1 0-1.2.6.6 0 0 1 0 1.2z" fill="#FFD43B"/>
+  </g>
+  <text x="1293" y="254" fill="#A1A1AA" font-size="11.5" class="mono">test_merge_rank.py</text>
+
+  <circle cx="1280.5" cy="275.5" r="4.5" stroke="#9CA3AF" stroke-width="1.2" stroke-dasharray="2 1.5" fill="none"/>
+  <circle cx="1280.5" cy="275.5" r="1.5" fill="#9CA3AF"/>
+  <text x="1293" y="280" fill="#A1A1AA" font-size="11.5" class="mono">pyproject.toml</text>
+</svg>
