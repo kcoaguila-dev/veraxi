@@ -873,7 +873,8 @@ void main() {
         'language': 'python',
         'start_line': 1,
         'line_count': 4,
-        'content': 'def one():\n    return ingest_route()\ndef three():\n    return 3',
+        'content':
+            'def one():\n    return ingest_route()\ndef three():\n    return 3',
       },
     );
 
@@ -906,7 +907,8 @@ void main() {
     expect(
       find.descendant(
         of: find.byType(AskVeraxiSidecar),
-        matching: find.textContaining('Call flows via ingest_route into parse_tar.',
+        matching: find.textContaining(
+            'Call flows via ingest_route into parse_tar.',
             findRichText: true),
       ),
       findsOneWidget,

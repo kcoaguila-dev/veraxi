@@ -194,8 +194,7 @@ class _AskVeraxiSidecarState extends ConsumerState<AskVeraxiSidecar> {
                           final s = parsed.startLine;
                           final e = parsed.endLine ?? s;
                           if (s != null && s > 0 && e != null && e >= s) {
-                            final sIdx =
-                                (s - startLine).clamp(0, lines.length);
+                            final sIdx = (s - startLine).clamp(0, lines.length);
                             final eIdx =
                                 (e - startLine + 1).clamp(sIdx, lines.length);
                             if (eIdx > sIdx) {
@@ -749,8 +748,7 @@ class _AskVeraxiSidecarState extends ConsumerState<AskVeraxiSidecar> {
                 ),
                 const SizedBox(width: 8),
                 InkWell(
-                  onTap:
-                      isStreaming ? _stopStreaming : () => _submitQuestion(),
+                  onTap: isStreaming ? _stopStreaming : () => _submitQuestion(),
                   borderRadius: BorderRadius.circular(14),
                   child: Container(
                     width: 28,
