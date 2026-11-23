@@ -18,6 +18,7 @@ import 'package:veraxi_app/features/chat/views/widgets/chat_activity_disclosure.
 import 'package:veraxi_app/features/chat/views/widgets/markdown_citation_builder.dart';
 import 'package:veraxi_app/features/chat/views/widgets/markdown_code_builder.dart';
 import 'package:veraxi_app/features/chat/views/widgets/code_artifact_card.dart';
+import 'package:veraxi_app/features/chat/views/widgets/files_changed_card.dart';
 import 'package:veraxi_app/features/chat/view_models/tool_confirmation_view_model.dart';
 import 'package:veraxi_app/features/chat/views/widgets/tool_confirmation_card.dart';
 import 'package:veraxi_app/features/chat/view_models/code_artifact_provider.dart';
@@ -424,6 +425,14 @@ class ChatMessageListItem extends ConsumerWidget {
                                     );
                                   },
                                 ),
+                              // Phase 5: FilesChangedCard sits
+                              // directly above the action row for
+                              // turns carrying a files_changed
+                              // summary (Code Mode sandbox turns).
+                              if (!msg.isError &&
+                                  msg.filesChanged != null &&
+                                  !msg.filesChanged!.isEmpty)
+                                FilesChangedCard(summary: msg.filesChanged!),
                               if (!msg.isStreaming &&
                                   !msg.isError &&
                                   msg.content.isNotEmpty)

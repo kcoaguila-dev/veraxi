@@ -325,6 +325,10 @@ class ChatViewModel extends StateNotifier<ChatState> {
         metrics: m['metrics'] is Map
             ? Map<String, dynamic>.from(m['metrics'] as Map)
             : null,
+        filesChanged: m['files_changed'] is Map
+            ? FilesChangedSummary.fromJson(
+                Map<String, dynamic>.from(m['files_changed'] as Map))
+            : null,
       );
     }).toList();
   }
@@ -669,6 +673,16 @@ class ChatViewModel extends StateNotifier<ChatState> {
   }
 
   void _handleStreamEvent(Map<String, dynamic> event) {
+    // Code Mode Phase 2/5: the per-turn files_changed summary arrives
+    // as its own SSE frame (`{'type': 'files_changed', ...diff}`),
+    // after the chain ends and before [DONE]. Attach it to the
+    // streaming assistant message so its FilesChangedCard renders.
+    if (event['type'] == 'files_changed') {
+      _updateLastMessage(
+        filesChanged: FilesChangedSummary.fromJson(event),
+      );
+      return;
+    }
     if (event.containsKey('error')) {
       final rawError = event['error'].toString();
       String uiError = rawError;
@@ -972,7 +986,8 @@ class ChatViewModel extends StateNotifier<ChatState> {
       List<ToolEvent>? toolEvents,
       List<ActivityStep>? activity,
       bool? isError,
-      Map<String, dynamic>? metrics}) {
+      Map<String, dynamic>? metrics,
+      FilesChangedSummary? filesChanged}) {
     if (state.messages.isEmpty) return;
     final msgs = List<ChatMessage>.of(state.messages, growable: false);
     final last = msgs.last;
@@ -992,6 +1007,7 @@ class ChatViewModel extends StateNotifier<ChatState> {
       feedback: last.feedback,
       modelName: last.modelName,
       metrics: metrics ?? last.metrics,
+      filesChanged: filesChanged ?? last.filesChanged,
     );
     state = state.copyWith(messages: msgs);
   }

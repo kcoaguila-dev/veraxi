@@ -3,6 +3,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:veraxi_app/core/providers/workspace_mode_provider.dart';
 import 'package:veraxi_app/features/chat/views/widgets/code_chat_pane.dart';
+import 'package:veraxi_app/features/chat/views/widgets/code_review_drawer.dart';
 import 'package:veraxi_app/features/knowledge_hub/view_models/code_intel_view_model.dart';
 import 'package:veraxi_app/features/knowledge_hub/views/widgets/ask_veraxi_sidecar.dart';
 import 'package:veraxi_app/features/knowledge_hub/views/widgets/corpus_briefing_panel.dart';
@@ -195,6 +196,15 @@ class _CodeWorkbenchViewState extends ConsumerState<CodeWorkbenchView> {
     final screenWidth = MediaQuery.sizeOf(context).width;
     final isWideDesktop = screenWidth >= 1200;
 
+    // Phase 5 review pane host: an active review session splits in
+    // on the right (~55%) on desktop and overlays as a modal sheet
+    // below 1200px. Gated to Code Mode — Chat Mode's host lives in
+    // ChatScreen — so the drawer never mounts twice.
+    final workspaceMode = ref.watch(workspaceModeProvider);
+    final activeReview = ref.watch(activeReviewSessionProvider);
+    final showReview =
+        activeReview != null && workspaceMode == WorkspaceMode.code;
+
     return Stack(
       children: [
         Row(
@@ -272,8 +282,39 @@ class _CodeWorkbenchViewState extends ConsumerState<CodeWorkbenchView> {
                 citationOpenNonce: _citationOpenNonce,
                 pathHighlightNonce: _pathHighlightNonce,
               ),
+            if (showReview && isWideDesktop)
+              SizedBox(
+                width: (screenWidth * 0.55).clamp(480.0, 1100.0),
+                child: CodeReviewDrawer(
+                  key: ValueKey(
+                      'review-${activeReview!.sessionId}-${activeReview.turnId}'),
+                  review: activeReview!,
+                ),
+              ),
           ],
         ),
+        if (showReview && !isWideDesktop)
+          Positioned.fill(
+            child: GestureDetector(
+              onTap: () =>
+                  ref.read(activeReviewSessionProvider.notifier).state = null,
+              child: Container(
+                color: Colors.black54,
+                alignment: Alignment.centerRight,
+                child: GestureDetector(
+                  onTap: () {},
+                  child: SizedBox(
+                    width: (screenWidth * 0.92).clamp(320.0, 640.0),
+                    child: CodeReviewDrawer(
+                      key: ValueKey(
+                          'review-sheet-${activeReview!.sessionId}-${activeReview.turnId}'),
+                      review: activeReview!,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
         if (!isWideDesktop && _narrowSidecarOpen)
           Positioned.fill(
             child: GestureDetector(

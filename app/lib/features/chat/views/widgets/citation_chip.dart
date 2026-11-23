@@ -522,7 +522,10 @@ class _CitationChipState extends State<CitationChip> {
     if (container.read(workspaceModeProvider) == WorkspaceMode.code) {
       container.read(activeReviewSessionProvider.notifier).state =
           CodeReviewState(
-        sessionId: widget.message.id ?? '',
+        // A citation carries no live sandbox session: the empty
+        // session id is what makes the Phase 5 review pane render
+        // read-only (no accept/revert/commit) for this open.
+        sessionId: '',
         turnId: widget.message.id ?? '',
         focusedPath: target.path,
         focusedStartLine: target.startLine,

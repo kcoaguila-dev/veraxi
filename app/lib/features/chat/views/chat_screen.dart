@@ -33,6 +33,7 @@ import 'package:veraxi_app/features/chat/view_models/sandbox_drawer_view_model.d
 import 'package:veraxi_app/features/chat/view_models/sandbox_toggle_view_model.dart';
 import 'package:veraxi_app/core/providers/active_sources_provider.dart';
 import 'package:veraxi_app/features/chat/views/widgets/sandbox_drawer.dart';
+import 'package:veraxi_app/features/chat/views/widgets/code_review_drawer.dart';
 
 class ChatScreen extends ConsumerStatefulWidget {
   const ChatScreen({super.key});
@@ -600,6 +601,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     });
 
     final workspaceMode = ref.watch(workspaceModeProvider);
+    final activeReview = ref.watch(activeReviewSessionProvider);
 
     return CallbackShortcuts(
       bindings: <ShortcutActivator, VoidCallback>{
@@ -1231,6 +1233,23 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       ],
                     ),
                   ),
+                  // Phase 5 review pane host (Chat Mode, wide
+                  // layouts): a ~55% right split beside the chat /
+                  // code IndexedStack. Code Mode hosts the drawer
+                  // itself (split + narrow overlay) inside
+                  // CodeWorkbenchView, so this host is gated to
+                  // Chat Mode to avoid mounting it twice.
+                  if (workspaceMode == WorkspaceMode.chat &&
+                      activeReview != null &&
+                      constraints.maxWidth >= 1200)
+                    SizedBox(
+                      width: (constraints.maxWidth * 0.55).clamp(520.0, 900.0),
+                      child: CodeReviewDrawer(
+                        key: ValueKey(
+                            'review-${activeReview.sessionId}-${activeReview.turnId}'),
+                        review: activeReview,
+                      ),
+                    ),
                 ],
               );
             },

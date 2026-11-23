@@ -97,6 +97,11 @@ class CodeReviewState {
   final int? focusedEndLine;
   final List<CodeReviewFileSummary> files;
 
+  /// Prompt of the turn under review, when the opener knows it (the
+  /// Phase 5 review pane's "For Turn" bar shows it; otherwise it
+  /// falls back to the turn id).
+  final String? turnPrompt;
+
   const CodeReviewState({
     required this.sessionId,
     required this.turnId,
@@ -104,7 +109,15 @@ class CodeReviewState {
     this.focusedStartLine,
     this.focusedEndLine,
     this.files = const [],
+    this.turnPrompt,
   });
+
+  /// True when [sessionId] names a live sandbox session whose diff /
+  /// accept / revert / commit endpoints can be called. A review
+  /// opened from a citation carries an empty session id and is
+  /// read-only (Phase 5 decision b): the pane must hide every git
+  /// action rather than render dead buttons.
+  bool get hasLiveSandbox => sessionId.isNotEmpty;
 
   CodeReviewState copyWith({
     String? sessionId,
@@ -114,6 +127,7 @@ class CodeReviewState {
     int? focusedStartLine,
     int? focusedEndLine,
     List<CodeReviewFileSummary>? files,
+    String? turnPrompt,
   }) {
     return CodeReviewState(
       sessionId: sessionId ?? this.sessionId,
@@ -124,6 +138,7 @@ class CodeReviewState {
       focusedEndLine:
           clearFocus ? null : (focusedEndLine ?? this.focusedEndLine),
       files: files ?? this.files,
+      turnPrompt: turnPrompt ?? this.turnPrompt,
     );
   }
 }
