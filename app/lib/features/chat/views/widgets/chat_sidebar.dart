@@ -11,6 +11,8 @@ import 'package:veraxi_app/features/chat/view_models/chat_view_model.dart';
 import 'package:veraxi_app/core/providers/model_selection_provider.dart';
 import 'package:veraxi_app/core/providers/project_view_model.dart';
 import 'package:veraxi_app/core/providers/workspace_mode_provider.dart';
+import 'package:veraxi_app/core/theme/obsidian_tokens.dart';
+import 'package:veraxi_app/features/chat/views/widgets/chat_message_list_item.dart';
 import 'package:veraxi_app/features/chat/views/widgets/pinned_models_widget.dart';
 
 import 'package:veraxi_app/core/widgets/profile_menu_button.dart';
@@ -81,6 +83,7 @@ class ChatSidebar extends ConsumerStatefulWidget {
 
 class _ChatSidebarState extends ConsumerState<ChatSidebar> {
   bool _chatsExpanded = true;
+  bool _codeProjectsFilterActive = false;
   final Set<String> _expandedDuplicateGroups = {};
 
   static const String _sidebarToggleSvg = '''
@@ -734,10 +737,13 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
   ) {
     final isChat = mode == WorkspaceMode.chat && !widget.isKnowledgeHubRoute;
     final isCode = mode == WorkspaceMode.code && !widget.isKnowledgeHubRoute;
+    // Code Mode rail (§3.2) uses the slim 26px switcher with a 22px
+    // active pill; Chat Mode keeps its existing 34px switcher.
+    final slim = isCode;
 
     return Container(
-      height: 34,
-      padding: const EdgeInsets.all(3),
+      height: slim ? 26 : 34,
+      padding: EdgeInsets.all(slim ? 2 : 3),
       decoration: BoxDecoration(
         color: const Color(0xFF111113),
         borderRadius: BorderRadius.circular(9),
@@ -750,6 +756,7 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
               label: 'Chat',
               icon: Icons.chat_bubble_outline,
               active: isChat,
+              slim: slim,
               showDot: false,
               onTap: () {
                 ref.read(workspaceModeProvider.notifier).state =
@@ -765,6 +772,7 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
               label: 'Code',
               icon: Icons.code,
               active: isCode,
+              slim: slim,
               showDot: kevCount > 0 && !isCode,
               onTap: () {
                 ref.read(workspaceModeProvider.notifier).state =
@@ -786,6 +794,7 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
     required bool active,
     required bool showDot,
     required VoidCallback onTap,
+    bool slim = false,
   }) {
     return Material(
       color: Colors.transparent,
@@ -795,6 +804,7 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 160),
           curve: Curves.easeOut,
+          height: slim ? 22 : null,
           decoration: BoxDecoration(
             color: active ? const Color(0xFF27272B) : Colors.transparent,
             borderRadius: BorderRadius.circular(7),
@@ -818,7 +828,7 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
                     label,
                     style: TextStyle(
                       color: active ? Colors.white : const Color(0xFFA1A1AA),
-                      fontSize: 12.5,
+                      fontSize: slim ? 11.5 : 12.5,
                       fontWeight: active ? FontWeight.w600 : FontWeight.w500,
                     ),
                   ),
@@ -843,237 +853,261 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
     );
   }
 
-  Widget _buildCodeSidebarSection(BuildContext context, int kevCount) {
-    final activeSubView = ref.watch(codeSubViewProvider);
-    final selectedRepo = ref.watch(selectedIndexedRepoProvider);
+  /// 16x13 collapse glyph used by the Code Mode rail (§3.2): a small
+  /// rounded panel outline with a left rail divider, matching the SVG
+  /// contract instead of the 18px Chat toggle.
+  Widget _buildCodeCollapseIcon() {
+    return SizedBox(
+      width: 16,
+      height: 13,
+      child: Stack(
+        children: [
+          Container(
+            decoration: BoxDecoration(
+              border: Border.all(color: const Color(0xFF71717A), width: 1.2),
+              borderRadius: BorderRadius.circular(3),
+            ),
+          ),
+          const Positioned(
+            left: 5,
+            top: 0,
+            bottom: 0,
+            child: SizedBox(
+              width: 1.2,
+              child: ColoredBox(color: Color(0xFF71717A)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Flat icon+text nav row used by the Code Mode rail — no bordered
+  /// box, no badge.
+  Widget _buildCodeNavRow({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+    bool selected = false,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(6),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 7),
+          child: Row(
+            children: [
+              Icon(
+                icon,
+                size: 15,
+                color: selected ? Colors.white : const Color(0xFFA1A1AA),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  label,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color:
+                        selected ? Colors.white : const Color(0xFFA1A1AA),
+                    fontSize: 13,
+                    fontWeight:
+                        selected ? FontWeight.w600 : FontWeight.w400,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Code threads (from the shared thread list) scoped to [repoKey].
+  List<Map<String, dynamic>> _codeThreadsForRepo(
+    ChatState state,
+    String repoKey,
+  ) {
+    return state.pastThreads
+        .where((t) =>
+            t['workspace_mode'] == 'code' &&
+            t['repo_key'] == repoKey &&
+            t['is_archived'] != true)
+        .toList();
+  }
+
+  void _startCodeThreadForRepo(IndexedRepoItem repo) {
+    final viewModel = ref.read(chatViewModelProvider.notifier);
+    ref.read(selectedIndexedRepoProvider.notifier).state = repo.repoKey;
+    ref.read(codeSelectedSourcesProvider.notifier).state =
+        CodeSelectedSources(repoKeys: {repo.repoKey});
+    ref.read(workspaceModeProvider.notifier).state = WorkspaceMode.code;
+    ref.read(codeSubViewProvider.notifier).state = CodeSubView.codeChat;
+    viewModel.startNewChat();
+    _goSafe(context, '/chat');
+  }
+
+  void _handleRepoMenuAction(String action, IndexedRepoItem repo) {
+    if (action == 'Re-index') {
+      // No repo-level re-index action is reachable from the chat
+      // feature (import_lint forbids the knowledge_hub view model);
+      // Repo X-Ray owns the live Re-index button, so route there with
+      // this repo selected.
+      ref.read(selectedIndexedRepoProvider.notifier).state = repo.repoKey;
+      ref.read(codeSubViewProvider.notifier).state = CodeSubView.repoXray;
+      _goSafe(context, '/chat');
+    } else if (action == 'Open in Knowledge Hub') {
+      ref.read(selectedIndexedRepoProvider.notifier).state = repo.repoKey;
+      _goSafe(context, '/knowledge-hub');
+    } else if (action == 'Remove') {
+      // Local removal from the sidebar list only — there is no
+      // un-index endpoint wired into this surface yet.
+      ref.read(indexedReposProvider.notifier).state = ref
+          .read(indexedReposProvider)
+          .where((r) => r.repoKey != repo.repoKey)
+          .toList();
+      if (ref.read(selectedIndexedRepoProvider) == repo.repoKey) {
+        ref.read(selectedIndexedRepoProvider.notifier).state = null;
+      }
+    }
+  }
+
+  Widget _buildCodeSidebarSection(
+    BuildContext context,
+    ChatState state,
+    ChatViewModel viewModel,
+  ) {
     final indexedRepos = ref.watch(indexedReposProvider);
+    final selectedRepo = ref.watch(selectedIndexedRepoProvider);
 
-    Widget navItem({
-      required CodeSubView subView,
-      required String label,
-      required IconData icon,
-      Widget? trailing,
-    }) {
-      final selected = activeSubView == subView;
-      return Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(8),
-          onTap: () {
-            ref.read(codeSubViewProvider.notifier).state = subView;
-          },
-          child: Container(
-            height: 34,
-            padding: const EdgeInsets.symmetric(horizontal: 10),
-            decoration: BoxDecoration(
-              color: selected ? const Color(0xFF26262A) : Colors.transparent,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  icon,
-                  size: 16,
-                  color: selected ? Colors.white : const Color(0xFF9CA3AF),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    label,
-                    style: TextStyle(
-                      color: selected ? Colors.white : const Color(0xFFD4D4D8),
-                      fontSize: 13,
-                      fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                if (trailing != null) trailing,
-              ],
-            ),
-          ),
-        ),
-      );
-    }
+    final visibleRepos = _codeProjectsFilterActive
+        ? indexedRepos
+            .where((r) => _codeThreadsForRepo(state, r.repoKey).isNotEmpty)
+            .toList()
+        : indexedRepos;
 
-    Widget repoItem(IndexedRepoItem repo) {
-      final selected = selectedRepo == repo.repoKey;
-      return Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(7),
-          onTap: () {
-            ref.read(selectedIndexedRepoProvider.notifier).state = repo.repoKey;
-          },
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: selected ? const Color(0xFF1F1F22) : Colors.transparent,
-              borderRadius: BorderRadius.circular(7),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 8,
-                  height: 8,
-                  decoration: BoxDecoration(
-                    color: selected
-                        ? const Color(0xFF10B981)
-                        : const Color(0xFF52525B),
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        repo.displayName,
-                        style: TextStyle(
-                          color: selected
-                              ? const Color(0xFFE4E4E7)
-                              : const Color(0xFFA1A1AA),
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      Text(
-                        repo.subtitle,
-                        style: TextStyle(
-                          color: selected
-                              ? const Color(0xFF71717A)
-                              : const Color(0xFF52525B),
-                          fontSize: 10.5,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-    }
-
-    return ListView(
-      padding: EdgeInsets.zero,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Padding(
-          padding: EdgeInsets.only(left: 4, bottom: 8),
-          child: Text(
-            'INTEL & ANALYSIS',
-            style: TextStyle(
-              color: Color(0xFF8E8E93),
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0.6,
+        Row(
+          children: [
+            const Text(
+              'Projects',
+              style: TextStyle(
+                color: Color(0xFF71717A),
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.4,
+              ),
             ),
-          ),
-        ),
-        navItem(
-          subView: CodeSubView.vulnIntel,
-          label: 'Vuln Intel',
-          icon: Icons.shield_outlined,
-          trailing: kevCount > 0
-              ? Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF3B1D1E),
-                    borderRadius: BorderRadius.circular(9),
-                    border:
-                        Border.all(color: const Color(0xFF7F1D1D), width: 0.8),
+            const Spacer(),
+            Tooltip(
+              message: _codeProjectsFilterActive
+                  ? 'Show all repos'
+                  : 'Show only repos with Code threads',
+              child: InkWell(
+                borderRadius: BorderRadius.circular(5),
+                onTap: () => setState(
+                    () => _codeProjectsFilterActive = !_codeProjectsFilterActive),
+                child: Padding(
+                  padding: const EdgeInsets.all(3),
+                  child: Icon(
+                    Icons.filter_list,
+                    size: 14,
+                    color: _codeProjectsFilterActive
+                        ? Colors.white
+                        : const Color(0xFF71717A),
                   ),
-                  child: Text(
-                    '$kevCount KEV',
-                    style: const TextStyle(
-                      color: Color(0xFFFCA5A5),
-                      fontSize: 10.5,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                )
-              : null,
-        ),
-        const SizedBox(height: 2),
-        navItem(
-          subView: CodeSubView.repoXray,
-          label: 'Repo X-Ray',
-          icon: Icons.hub_outlined,
-        ),
-        const SizedBox(height: 2),
-        navItem(
-          subView: CodeSubView.securityFeed,
-          label: 'Security Feed',
-          icon: Icons.monitor_heart_outlined,
-          trailing: const Text(
-            'SARIF',
-            style: TextStyle(color: Color(0xFF71717A), fontSize: 11),
-          ),
-        ),
-        const SizedBox(height: 2),
-        navItem(
-          subView: CodeSubView.corpusBriefing,
-          label: 'Corpus Briefing',
-          icon: Icons.article_outlined,
-        ),
-        const SizedBox(height: 2),
-        navItem(
-          subView: CodeSubView.dbtLineage,
-          label: 'dbt Lineage',
-          icon: Icons.account_tree_outlined,
-        ),
-        const Padding(
-          padding: EdgeInsets.symmetric(vertical: 12),
-          child: Divider(color: Color(0xFF262629), height: 1),
-        ),
-        const Padding(
-          padding: EdgeInsets.only(left: 4, bottom: 8),
-          child: Text(
-            'INDEXED REPOS',
-            style: TextStyle(
-              color: Color(0xFF8E8E93),
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0.6,
-            ),
-          ),
-        ),
-        if (indexedRepos.isEmpty)
-          Material(
-            color: Colors.transparent,
-            child: InkWell(
-              borderRadius: BorderRadius.circular(7),
-              onTap: () {
-                ref.read(codeSubViewProvider.notifier).state =
-                    CodeSubView.repoXray;
-              },
-              child: const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'No repos indexed yet',
-                      style: TextStyle(color: Color(0xFF71717A), fontSize: 12),
-                    ),
-                    SizedBox(height: 2),
-                    Text(
-                      'Index a repo in Repo X-Ray →',
-                      style: TextStyle(color: Color(0xFF34D399), fontSize: 11),
-                    ),
-                  ],
                 ),
               ),
             ),
-          )
-        else
-          for (int i = 0; i < indexedRepos.length; i++) ...[
-            if (i > 0) const SizedBox(height: 4),
-            repoItem(indexedRepos[i]),
+            const SizedBox(width: 4),
+            Tooltip(
+              message: 'Add Repo',
+              child: InkWell(
+                borderRadius: BorderRadius.circular(5),
+                onTap: () {
+                  ref.read(codeSubViewProvider.notifier).state =
+                      CodeSubView.repoXray;
+                  _goSafe(context, '/chat');
+                },
+                child: const Padding(
+                  padding: EdgeInsets.all(3),
+                  child: Icon(
+                    Icons.create_new_folder_outlined,
+                    size: 14,
+                    color: Color(0xFF71717A),
+                  ),
+                ),
+              ),
+            ),
           ],
+        ),
+        const SizedBox(height: 8),
+        Expanded(
+          child: indexedRepos.isEmpty
+              ? Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(7),
+                    onTap: () {
+                      ref.read(codeSubViewProvider.notifier).state =
+                          CodeSubView.repoXray;
+                    },
+                    child: const Padding(
+                      padding:
+                          EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'No repos indexed yet',
+                            style: TextStyle(
+                                color: Color(0xFF71717A), fontSize: 12),
+                          ),
+                          SizedBox(height: 2),
+                          Text(
+                            'Index a repo in Repo X-Ray →',
+                            style: TextStyle(
+                                color: Color(0xFF34D399), fontSize: 11),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                )
+              : ListView(
+                  padding: EdgeInsets.zero,
+                  children: [
+                    for (final repo in visibleRepos) ...[
+                      _RepoGroupRow(
+                        repo: repo,
+                        threads: _codeThreadsForRepo(state, repo.repoKey),
+                        selected: selectedRepo == repo.repoKey,
+                        selectedThreadId: state.threadId,
+                        onSelectRepo: () {
+                          ref
+                              .read(selectedIndexedRepoProvider.notifier)
+                              .state = repo.repoKey;
+                        },
+                        onNewThread: () => _startCodeThreadForRepo(repo),
+                        onMenuAction: (action) =>
+                            _handleRepoMenuAction(action, repo),
+                        onSelectThread: (threadId) {
+                          viewModel.selectThread(threadId);
+                          _goSafe(context, '/chat');
+                          if (widget.isMobile) {
+                            Navigator.of(context).pop();
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 6),
+                    ],
+                  ],
+                ),
+        ),
       ],
     );
   }
@@ -1151,6 +1185,8 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
     final kevCount = ref.watch(activeKevCountProvider);
     final ingestionQueue = ref.watch(ingestionQueueProvider);
     final isSidebarOpen = widget.isSidebarOpen;
+    final isCodeRail =
+        workspaceMode == WorkspaceMode.code && !widget.isKnowledgeHubRoute;
     return AnimatedContainer(
       duration: const Duration(milliseconds: 250),
       curve: Curves.easeInOut,
@@ -1233,7 +1269,9 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
                                               ? const Icon(Icons.close,
                                                   color: Color(0xFFB4B4B4),
                                                   size: 20)
-                                              : _buildSidebarToggleIcon()),
+                                              : isCodeRail
+                                                  ? _buildCodeCollapseIcon()
+                                                  : _buildSidebarToggleIcon()),
                                     ),
                                   ),
                                 ),
@@ -1244,6 +1282,28 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
                         const SizedBox(height: 14),
                         _buildModeSwitcher(context, workspaceMode, kevCount),
                         const SizedBox(height: 14),
+                        if (isCodeRail) ...[
+                          _buildCodeNavRow(
+                            icon: Icons.library_books_outlined,
+                            label: 'Knowledge Hub',
+                            onTap: () => _goSafe(context, '/knowledge-hub'),
+                          ),
+                          _buildCodeNavRow(
+                            icon: Icons.shield_outlined,
+                            label: 'Security',
+                            selected: ref.watch(codeSubViewProvider) ==
+                                CodeSubView.vulnIntel,
+                            onTap: () {
+                              ref.read(codeSubViewProvider.notifier).state =
+                                  CodeSubView.vulnIntel;
+                              _goSafe(context, '/chat');
+                            },
+                          ),
+                          const SizedBox(height: 10),
+                          const Divider(
+                              color: ObsidianTokens.hairline, height: 1),
+                          const SizedBox(height: 12),
+                        ],
                         if (workspaceMode == WorkspaceMode.chat &&
                             !widget.isKnowledgeHubRoute)
                           PinnedModelsWidget(
@@ -1260,6 +1320,7 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
                                   .unpinModel(model);
                             },
                           ),
+                        if (!isCodeRail)
                         Material(
                           color: Colors.transparent,
                           child: InkWell(
@@ -1337,6 +1398,7 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
                           ),
                         ],
                         const SizedBox(height: 4),
+                        if (!isCodeRail)
                         Material(
                           color: Colors.transparent,
                           child: InkWell(
@@ -1384,12 +1446,10 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
                           ),
                         ),
                         const SizedBox(height: 12),
-                        if (workspaceMode == WorkspaceMode.code &&
-                            !widget.isKnowledgeHubRoute) ...[
-                          const Divider(color: Color(0xFF262629), height: 1),
-                          const SizedBox(height: 12),
+                        if (isCodeRail) ...[
                           Expanded(
-                            child: _buildCodeSidebarSection(context, kevCount),
+                            child: _buildCodeSidebarSection(
+                                context, state, viewModel),
                           ),
                         ] else ...[
                           if (widget.isKnowledgeHubRoute &&
@@ -1504,6 +1564,250 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Parses a Code thread's activity time from the thread list entry.
+/// The list payload has carried several key spellings over time
+/// (`updated_at`, `timestamp`, `created_at`), as ISO strings or epoch
+/// numbers; anything unrecognised yields null and the row simply
+/// shows no time label rather than a fabricated one.
+DateTime? parseCodeThreadTime(Map<String, dynamic> thread) {
+  for (final key in ['updated_at', 'timestamp', 'created_at', '_timestamp']) {
+    final raw = thread[key];
+    if (raw is num && raw > 0) {
+      final ms = raw > 1e12 ? raw.toInt() : (raw * 1000).toInt();
+      return DateTime.fromMillisecondsSinceEpoch(ms);
+    }
+    if (raw is String && raw.isNotEmpty) {
+      final epoch = num.tryParse(raw);
+      if (epoch != null && epoch > 0) {
+        final ms = epoch > 1e12 ? epoch.toInt() : (epoch * 1000).toInt();
+        return DateTime.fromMillisecondsSinceEpoch(ms);
+      }
+      final parsed = DateTime.tryParse(raw);
+      if (parsed != null) return parsed;
+    }
+  }
+  return null;
+}
+
+/// Compact relative label (`2m`, `1h`, `1d`) for a Code thread row,
+/// reusing [formatRelativeTimestamp] without its ` ago` suffix.
+String codeThreadTimeLabel(Map<String, dynamic> thread) {
+  final time = parseCodeThreadTime(thread);
+  if (time == null) return '';
+  return formatRelativeTimestamp(time).replaceAll(' ago', '');
+}
+
+/// Collapsible repo group in the Code Mode rail (§3.2): a folder row
+/// for one [IndexedRepoItem] with hover-revealed `⋮` / `+` actions,
+/// and its slim single-line Code threads underneath.
+class _RepoGroupRow extends StatefulWidget {
+  final IndexedRepoItem repo;
+  final List<Map<String, dynamic>> threads;
+  final bool selected;
+  final String? selectedThreadId;
+  final VoidCallback onSelectRepo;
+  final VoidCallback onNewThread;
+  final ValueChanged<String> onMenuAction;
+  final ValueChanged<String> onSelectThread;
+
+  const _RepoGroupRow({
+    required this.repo,
+    required this.threads,
+    required this.selected,
+    required this.selectedThreadId,
+    required this.onSelectRepo,
+    required this.onNewThread,
+    required this.onMenuAction,
+    required this.onSelectThread,
+  });
+
+  @override
+  State<_RepoGroupRow> createState() => _RepoGroupRowState();
+}
+
+class _RepoGroupRowState extends State<_RepoGroupRow> {
+  bool _expanded = true;
+  bool _showAll = false;
+  bool _hovered = false;
+
+  Widget _buildThreadRow(Map<String, dynamic> thread) {
+    final threadId = thread['thread_id'] as String? ?? '';
+    final isSelected = widget.selectedThreadId == threadId;
+    final timeLabel = codeThreadTimeLabel(thread);
+    return InkWell(
+      borderRadius: BorderRadius.circular(6),
+      onTap: () => widget.onSelectThread(threadId),
+      child: Container(
+        height: 30,
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFF1C1F26) : Colors.transparent,
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                resolveSidebarThreadTitle(thread),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color:
+                      isSelected ? const Color(0xFFF4F4F5) : const Color(0xFFD4D4D8),
+                  fontSize: 12.5,
+                  fontWeight: isSelected ? FontWeight.w500 : FontWeight.w400,
+                ),
+              ),
+            ),
+            if (timeLabel.isNotEmpty) ...[
+              const SizedBox(width: 8),
+              Text(
+                timeLabel,
+                style:
+                    const TextStyle(color: Color(0xFF71717A), fontSize: 10.5),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final visibleThreads =
+        _showAll ? widget.threads : widget.threads.take(5).toList();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        MouseRegion(
+          onEnter: (_) => setState(() => _hovered = true),
+          onExit: (_) => setState(() => _hovered = false),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(6),
+            onTap: () {
+              widget.onSelectRepo();
+              setState(() => _expanded = !_expanded);
+            },
+            child: Container(
+              height: 24,
+              padding: const EdgeInsets.symmetric(horizontal: 6),
+              decoration: BoxDecoration(
+                color: _hovered || widget.selected
+                    ? const Color(0xFF16181D)
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.folder_outlined,
+                    size: 13,
+                    color: widget.selected
+                        ? const Color(0xFFE4E4E7)
+                        : const Color(0xFFA1A1AA),
+                  ),
+                  const SizedBox(width: 7),
+                  Expanded(
+                    child: Text(
+                      widget.repo.displayName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: widget.selected
+                            ? const Color(0xFFE4E4E7)
+                            : const Color(0xFFA1A1AA),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                  if (_hovered) ...[
+                    SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: PopupMenuButton<String>(
+                        icon: const Icon(
+                          Icons.more_vert,
+                          size: 14,
+                          color: Color(0xFFA1A1AA),
+                        ),
+                        color: ObsidianTokens.card,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        padding: EdgeInsets.zero,
+                        itemBuilder: (_) => const [
+                          PopupMenuItem<String>(
+                            value: 'Re-index',
+                            child: Text('Re-index',
+                                style: TextStyle(
+                                    color: Color(0xFFE4E4E7), fontSize: 13)),
+                          ),
+                          PopupMenuItem<String>(
+                            value: 'Open in Knowledge Hub',
+                            child: Text('Open in Knowledge Hub',
+                                style: TextStyle(
+                                    color: Color(0xFFE4E4E7), fontSize: 13)),
+                          ),
+                          PopupMenuItem<String>(
+                            value: 'Remove',
+                            child: Text('Remove',
+                                style: TextStyle(
+                                    color: Colors.red, fontSize: 13)),
+                          ),
+                        ],
+                        onSelected: widget.onMenuAction,
+                      ),
+                    ),
+                    Tooltip(
+                      message: 'New Code thread in this repo',
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(4),
+                        onTap: widget.onNewThread,
+                        child: const Padding(
+                          padding: EdgeInsets.all(2),
+                          child: Icon(
+                            Icons.add,
+                            size: 14,
+                            color: Color(0xFFE4E4E7),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ),
+        if (_expanded) ...[
+          for (final thread in visibleThreads)
+            Padding(
+              padding: const EdgeInsets.only(left: 6),
+              child: _buildThreadRow(thread),
+            ),
+          if (widget.threads.length > 5 && !_showAll)
+            InkWell(
+              borderRadius: BorderRadius.circular(6),
+              onTap: () => setState(() => _showAll = true),
+              child: Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                child: Text(
+                  'See all (${widget.threads.length})',
+                  style: const TextStyle(
+                      color: Color(0xFF71717A), fontSize: 11.5),
+                ),
+              ),
+            ),
+        ],
+      ],
     );
   }
 }
