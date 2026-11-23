@@ -1,7 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:veraxi_app/core/providers/workspace_mode_provider.dart';
-import 'package:veraxi_app/core/theme_extension.dart';
 import 'package:veraxi_app/features/knowledge_hub/view_models/knowledge_hub_view_model.dart';
 
 import 'package:veraxi_app/features/chat/views/widgets/chat_sidebar.dart';
@@ -10,6 +9,7 @@ import 'widgets/database_monitor_card.dart';
 import 'widgets/schema_visual_builder.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:veraxi_app/core/widgets/model_selector_popup.dart';
+import 'package:veraxi_app/core/widgets/veraxi_switch.dart';
 
 class KnowledgeHubScreen extends ConsumerStatefulWidget {
   const KnowledgeHubScreen({super.key});
@@ -83,62 +83,73 @@ class _KnowledgeHubScreenState extends ConsumerState<KnowledgeHubScreen> {
     final viewModel = ref.read(knowledgeHubViewModelProvider.notifier);
 
     return Container(
-      padding: EdgeInsets.all(24),
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color:
-            Theme.of(context).extension<AppThemeExtension>()!.surfaceHighlight,
+        color: const Color(0xFF1A1A1D),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-            color: Theme.of(context)
-                .extension<AppThemeExtension>()!
-                .borderColorStrong),
+        border: Border.all(color: const Color(0xFF2D2D32)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Information Extraction Rules',
-              style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 18)),
-          SizedBox(height: 4),
-          Text(
-              'Define the entities and relationships that the AI should extract during ingestion.',
-              style: TextStyle(
-                  color: Theme.of(context)
-                      .extension<AppThemeExtension>()!
-                      .iconColor,
-                  fontSize: 14)),
-          SizedBox(height: 16),
+          const Text(
+            'Information Extraction Rules',
+            style: TextStyle(
+              color: Color(0xFFF4F4F5),
+              fontWeight: FontWeight.w600,
+              fontSize: 16,
+            ),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Define the entities and relationships that the AI should extract during ingestion.',
+            style: TextStyle(
+              color: Color(0xFFA1A1AA),
+              fontSize: 13,
+            ),
+          ),
+          const SizedBox(height: 20),
           LayoutBuilder(
             builder: (context, constraints) {
               final isMobile = constraints.maxWidth < 1150;
               final autoGenerateSection = Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Auto-Generate from Sample',
-                      style: TextStyle(
-                          color: Colors.white, fontWeight: FontWeight.w500)),
-                  SizedBox(height: 8),
+                  const Text(
+                    'Auto-Generate from Sample',
+                    style: TextStyle(
+                      color: Color(0xFFE4E4E7),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
                   TextField(
                     controller: _schemaSampleTextController,
                     maxLines: 7,
-                    style: TextStyle(color: Colors.white, fontSize: 14),
+                    style:
+                        const TextStyle(color: Color(0xFFF4F4F5), fontSize: 13),
                     decoration: InputDecoration(
                       hintText:
                           'Paste a sample of your text here (e.g., an abstract or executive summary). The AI will auto-generate an appropriate schema.',
-                      hintStyle: TextStyle(color: Colors.white38),
+                      hintStyle: const TextStyle(
+                        color: Color(0xFF71717A),
+                        fontSize: 12.5,
+                      ),
                       filled: true,
-                      fillColor: Theme.of(context)
-                          .extension<AppThemeExtension>()!
-                          .cardBackground,
-                      border: OutlineInputBorder(
+                      fillColor: const Color(0xFF141416),
+                      contentPadding: const EdgeInsets.all(14),
+                      enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
-                        borderSide: BorderSide.none,
+                        borderSide: const BorderSide(color: Color(0xFF2D2D32)),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Color(0xFF3F3F46)),
                       ),
                     ),
                   ),
-                  SizedBox(height: 12),
+                  const SizedBox(height: 12),
                   ElevatedButton.icon(
                     onPressed: state.isIngesting
                         ? null
@@ -151,15 +162,41 @@ class _KnowledgeHubScreenState extends ConsumerState<KnowledgeHubScreen> {
                             }
                           },
                     icon: state.isIngesting
-                        ? SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2))
-                        : Icon(Icons.auto_awesome, size: 18),
-                    label: Text('Auto-Generate'),
+                        ? const SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(
+                            Icons.auto_awesome,
+                            size: 15,
+                            color: Color(0xFFA78BFA),
+                          ),
+                    label: const Text('Auto-Generate'),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.purple.shade600,
-                      foregroundColor: Colors.white,
+                      backgroundColor: const Color(0xFF27272B),
+                      foregroundColor: const Color(0xFFE4E4E7),
+                      disabledBackgroundColor: const Color(0xFF1F1F23),
+                      disabledForegroundColor: const Color(0xFF71717A),
+                      elevation: 0,
+                      shadowColor: Colors.transparent,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 9,
+                      ),
+                      minimumSize: const Size(0, 32),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      textStyle: const TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(7),
+                        side: const BorderSide(
+                          color: Color(0xFF3A3A40),
+                          width: 0.8,
+                        ),
+                      ),
                     ),
                   ),
                 ],
@@ -578,11 +615,12 @@ class _KnowledgeHubScreenState extends ConsumerState<KnowledgeHubScreen> {
                           fontWeight: FontWeight.w500,
                         ),
                       ),
-                      const SizedBox(width: 6),
-                      Switch(
+                      const SizedBox(width: 8),
+                      VeraxiSwitch(
                         value: _fastExtractionEnabled,
                         onChanged: (v) =>
                             setState(() => _fastExtractionEnabled = v),
+                        semanticLabel: 'Fast Extraction (90% NLP)',
                       ),
                     ],
                   ),
@@ -1107,41 +1145,50 @@ class _KnowledgeHubScreenState extends ConsumerState<KnowledgeHubScreen> {
   }
 
   Widget _buildInfraMonitorsTab(ThemeData theme) {
+    final stats = ref.watch(knowledgeHubViewModelProvider).stats;
+    final qdrantTelemetry = stats != null
+        ? '${stats.vectorCount} vectors · ${stats.sourceCount} indexed sources'
+        : null;
+    final neo4jTelemetry =
+        stats != null ? '${stats.nodeCount} graph nodes' : null;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
+        const Text(
           'Database Monitors',
-          style: theme.textTheme.headlineMedium?.copyWith(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-            fontSize: 20,
+          style: TextStyle(
+            color: Color(0xFFF4F4F5),
+            fontWeight: FontWeight.w600,
+            fontSize: 16,
           ),
         ),
-        const SizedBox(height: 8),
-        Text(
+        const SizedBox(height: 4),
+        const Text(
           'Launch web dashboards to inspect the raw Qdrant and Neo4j databases.',
           style: TextStyle(
-            color: Theme.of(context).extension<AppThemeExtension>()!.iconColor,
-            fontSize: 14,
+            color: Color(0xFFA1A1AA),
+            fontSize: 13,
           ),
         ),
         const SizedBox(height: 16),
         LayoutBuilder(
           builder: (context, constraints) {
-            final qdrantCard = const DatabaseMonitorCard(
+            final qdrantCard = DatabaseMonitorCard(
               title: 'Qdrant',
               subtitle: 'Vector Database',
-              url: String.fromEnvironment('QDRANT_DASHBOARD_URL',
+              url: const String.fromEnvironment('QDRANT_DASHBOARD_URL',
                   defaultValue: 'http://localhost:6333/dashboard'),
               icon: Icons.data_array,
+              telemetry: qdrantTelemetry,
             );
-            final neo4jCard = const DatabaseMonitorCard(
+            final neo4jCard = DatabaseMonitorCard(
               title: 'Neo4j',
               subtitle: 'Knowledge Graph',
-              url: String.fromEnvironment('NEO4J_DASHBOARD_URL',
+              url: const String.fromEnvironment('NEO4J_DASHBOARD_URL',
                   defaultValue: 'http://localhost:7474'),
               icon: Icons.hub,
+              telemetry: neo4jTelemetry,
             );
             if (constraints.maxWidth < 600) {
               return Column(

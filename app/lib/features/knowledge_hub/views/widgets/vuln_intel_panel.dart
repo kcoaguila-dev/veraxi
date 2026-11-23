@@ -4,6 +4,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
+import 'package:veraxi_app/core/widgets/veraxi_switch.dart';
 import 'package:veraxi_app/features/knowledge_hub/view_models/code_intel_view_model.dart';
 import 'package:veraxi_app/features/knowledge_hub/views/widgets/vuln_workbench_table.dart';
 
@@ -23,6 +24,180 @@ Color? severityColor(String? severity) {
   }
 }
 
+/// Calibrated EPSS risk tier badge colors (`>= 0.70` high, `0.30–0.69`
+/// moderate, `< 0.30` low).
+({Color bg, Color text, Color border}) epssBadgeColors(double score) {
+  if (score >= 0.70) {
+    return (
+      bg: const Color(0xFF4C1D95),
+      text: const Color(0xFFEDE9FE),
+      border: const Color(0xFF7C3AED),
+    );
+  }
+  if (score >= 0.30) {
+    return (
+      bg: const Color(0xFF27273A),
+      text: const Color(0xFFC4B5FD),
+      border: const Color(0xFF3F3F5C),
+    );
+  }
+  return (
+    bg: const Color(0xFF232328),
+    text: const Color(0xFFA1A1AA),
+    border: const Color(0xFF32323A),
+  );
+}
+
+ButtonStyle workbenchSecondaryButtonStyle() {
+  return ElevatedButton.styleFrom(
+    backgroundColor: const Color(0xFF27272B),
+    foregroundColor: const Color(0xFFE4E4E7),
+    disabledBackgroundColor: const Color(0xFF1F1F23),
+    disabledForegroundColor: const Color(0xFF71717A),
+    elevation: 0,
+    shadowColor: Colors.transparent,
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+    minimumSize: const Size(0, 30),
+    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(7),
+      side: const BorderSide(color: Color(0xFF3A3A40), width: 0.8),
+    ),
+  ).copyWith(
+    overlayColor: WidgetStateProperty.resolveWith((states) {
+      if (states.contains(WidgetState.hovered)) {
+        return const Color(0x14FFFFFF);
+      }
+      if (states.contains(WidgetState.pressed)) {
+        return const Color(0x20FFFFFF);
+      }
+      return null;
+    }),
+  );
+}
+
+ButtonStyle workbenchPrimaryButtonStyle() {
+  return ElevatedButton.styleFrom(
+    backgroundColor: const Color(0xFF1D4ED8),
+    foregroundColor: Colors.white,
+    disabledBackgroundColor: const Color(0xFF202229),
+    disabledForegroundColor: const Color(0xFF71717A),
+    elevation: 0,
+    shadowColor: Colors.transparent,
+    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+    minimumSize: const Size(0, 30),
+    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(7),
+    ),
+  ).copyWith(
+    side: WidgetStateProperty.resolveWith((states) {
+      if (states.contains(WidgetState.disabled)) {
+        return const BorderSide(color: Color(0xFF2E2F36), width: 0.8);
+      }
+      return BorderSide.none;
+    }),
+    overlayColor: WidgetStateProperty.resolveWith((states) {
+      if (states.contains(WidgetState.hovered)) {
+        return const Color(0x1AFFFFFF);
+      }
+      if (states.contains(WidgetState.pressed)) {
+        return const Color(0x28FFFFFF);
+      }
+      return null;
+    }),
+  );
+}
+
+/// Shared action toolbar (`Sync NVD & KEV`, `Upload SBOM`, `Run Vulnerability
+/// Scan`) used in the Code Mode header bar on wide desktop and inline inside
+/// [VulnIntelPanel] on narrower viewports.
+class VulnIntelToolbarActions extends ConsumerWidget {
+  final TextEditingController repoPathController;
+  final bool workbenchMode;
+  final bool compact;
+
+  const VulnIntelToolbarActions({
+    super.key,
+    required this.repoPathController,
+    this.workbenchMode = true,
+    this.compact = true,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(codeIntelViewModelProvider);
+    final viewModel = ref.read(codeIntelViewModelProvider.notifier);
+    final report = state.vulnReport;
+
+    return ValueListenableBuilder<TextEditingValue>(
+      valueListenable: repoPathController,
+      builder: (context, repoValue, _) {
+        final hasScanTarget =
+            repoValue.text.trim().isNotEmpty || state.sbomJson != null;
+        final scanDisabled = state.scanningVuln ||
+            (workbenchMode && !hasScanTarget && report == null);
+
+        final uploadButton = ElevatedButton.icon(
+          style: workbenchMode ? workbenchSecondaryButtonStyle() : null,
+          onPressed: state.scanningVuln
+              ? null
+              : () async {
+                  final picked = await FilePicker.pickFiles(
+                    type: FileType.custom,
+                    allowedExtensions: ['json'],
+                  );
+                  if (picked.isEmpty) return;
+                  final file = picked.first;
+                  final bytes = await file.readAsBytes();
+                  viewModel.setSbomFromText(
+                    utf8.decode(bytes, allowMalformed: true),
+                    fileName: file.name,
+                  );
+                },
+          icon: const Icon(Icons.upload_file_outlined, size: 15),
+          label: Text(
+            compact ? 'Upload SBOM' : 'Upload SBOM (CycloneDX/SPDX)',
+          ),
+        );
+
+        return Wrap(
+          spacing: compact ? 8 : 12,
+          runSpacing: 8,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            ElevatedButton.icon(
+              style: workbenchMode ? workbenchSecondaryButtonStyle() : null,
+              onPressed: state.syncingVuln ? null : viewModel.syncVulnIntel,
+              icon: const Icon(Icons.sync, size: 15),
+              label: Text(state.syncingVuln ? 'Syncing…' : 'Sync NVD & KEV'),
+            ),
+            if (compact)
+              Tooltip(
+                message: 'Upload SBOM (CycloneDX/SPDX)',
+                child: uploadButton,
+              )
+            else
+              uploadButton,
+            ElevatedButton.icon(
+              style: workbenchMode ? workbenchPrimaryButtonStyle() : null,
+              onPressed: scanDisabled
+                  ? null
+                  : () => viewModel.runVulnScan(repoPathController.text),
+              icon: const Icon(Icons.shield_outlined, size: 15),
+              label: Text(
+                state.scanningVuln ? 'Scanning…' : 'Run Vulnerability Scan',
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
 /// Vuln Intel panel: sync NVD & CISA KEV, scan a repo's dependencies,
 /// and filter findings by severity / KEV / match status.
 ///
@@ -33,6 +208,7 @@ Color? severityColor(String? severity) {
 class VulnIntelPanel extends ConsumerWidget {
   final TextEditingController repoPathController;
   final bool workbenchMode;
+  final bool hideToolbarActions;
   final String? selectedCveId;
   final ValueChanged<VulnFinding>? onAskFinding;
   final ValueChanged<VulnFinding>? onInspectPath;
@@ -42,6 +218,7 @@ class VulnIntelPanel extends ConsumerWidget {
     super.key,
     required this.repoPathController,
     this.workbenchMode = false,
+    this.hideToolbarActions = false,
     this.selectedCveId,
     this.onAskFinding,
     this.onInspectPath,
@@ -55,6 +232,9 @@ class VulnIntelPanel extends ConsumerWidget {
     final viewModel = ref.read(codeIntelViewModelProvider.notifier);
     final report = state.vulnReport;
 
+    final showToolbarRow =
+        !hideToolbarActions || state.syncStatus != null || state.sbomFileName != null || !workbenchMode || report == null;
+
     final content = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -66,94 +246,49 @@ class VulnIntelPanel extends ConsumerWidget {
                     fontWeight: FontWeight.w600)),
             const SizedBox(height: 12),
           ],
-          ValueListenableBuilder<TextEditingValue>(
-            valueListenable: repoPathController,
-            builder: (context, repoValue, _) {
-              final hasScanTarget =
-                  repoValue.text.trim().isNotEmpty || state.sbomJson != null;
-              final scanDisabled = state.scanningVuln ||
-                  (workbenchMode && !hasScanTarget && report == null);
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Wrap(
-                    spacing: 12,
-                    runSpacing: 8,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: [
-                      ElevatedButton.icon(
-                        style: workbenchMode
-                            ? _workbenchSecondaryButtonStyle()
-                            : null,
-                        onPressed:
-                            state.syncingVuln ? null : viewModel.syncVulnIntel,
-                        icon: const Icon(Icons.sync, size: 15),
-                        label: Text(
-                            state.syncingVuln ? 'Syncing…' : 'Sync NVD & KEV'),
-                      ),
-                      ElevatedButton.icon(
-                        style: workbenchMode
-                            ? _workbenchPrimaryButtonStyle()
-                            : null,
-                        onPressed: scanDisabled
-                            ? null
-                            : () =>
-                                viewModel.runVulnScan(repoPathController.text),
-                        icon: const Icon(Icons.shield_outlined, size: 15),
-                        label: Text(state.scanningVuln
-                            ? 'Scanning…'
-                            : 'Run Vulnerability Scan'),
-                      ),
-                      if (state.syncStatus != null)
-                        Text(state.syncStatus!,
-                            style:
-                                TextStyle(color: ext.iconColor, fontSize: 13)),
+          if (showToolbarRow)
+            ValueListenableBuilder<TextEditingValue>(
+              valueListenable: repoPathController,
+              builder: (context, repoValue, _) {
+                final hasScanTarget =
+                    repoValue.text.trim().isNotEmpty || state.sbomJson != null;
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Wrap(
+                      spacing: 12,
+                      runSpacing: 8,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        if (!hideToolbarActions)
+                          VulnIntelToolbarActions(
+                            repoPathController: repoPathController,
+                            workbenchMode: workbenchMode,
+                            compact: workbenchMode,
+                          ),
+                        if (!workbenchMode || report == null)
+                          _buildReachabilityToggle(state, viewModel),
+                        if (state.syncStatus != null)
+                          Text(
+                            state.syncStatus!,
+                            style: TextStyle(color: ext.iconColor, fontSize: 13),
+                          ),
+                        if (state.sbomFileName != null)
+                          Chip(
+                            label: Text('SBOM: ${state.sbomFileName}'),
+                            deleteIcon: const Icon(Icons.close, size: 14),
+                            onDeleted: viewModel.clearSbom,
+                          ),
+                      ],
+                    ),
+                    if (workbenchMode && !hasScanTarget && report == null) ...[
+                      const SizedBox(height: 8),
+                      _buildEmptyScanHint(ext),
                     ],
-                  ),
-                  if (workbenchMode && !hasScanTarget && report == null) ...[
-                    const SizedBox(height: 8),
-                    _buildEmptyScanHint(ext),
                   ],
-                ],
-              );
-            },
-          ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 12,
-            runSpacing: 8,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              ElevatedButton.icon(
-                style: workbenchMode ? _workbenchSecondaryButtonStyle() : null,
-                onPressed: state.scanningVuln
-                    ? null
-                    : () async {
-                        final picked = await FilePicker.pickFiles(
-                          type: FileType.custom,
-                          allowedExtensions: ['json'],
-                        );
-                        if (picked.isEmpty) return;
-                        final file = picked.first;
-                        final bytes = await file.readAsBytes();
-                        viewModel.setSbomFromText(
-                          utf8.decode(bytes, allowMalformed: true),
-                          fileName: file.name,
-                        );
-                      },
-                icon: const Icon(Icons.upload_file_outlined, size: 15),
-                label: const Text('Upload SBOM (CycloneDX/SPDX)'),
-              ),
-              if (!workbenchMode || report == null)
-                _buildReachabilityToggle(state, viewModel),
-              if (state.sbomFileName != null)
-                Chip(
-                  label: Text('SBOM: ${state.sbomFileName}'),
-                  deleteIcon: const Icon(Icons.close, size: 14),
-                  onDeleted: viewModel.clearSbom,
-                ),
-            ],
-          ),
+                );
+              },
+            ),
           if (state.vulnError != null) ...[
             const SizedBox(height: 8),
             Text(state.vulnError!,
@@ -342,69 +477,6 @@ class VulnIntelPanel extends ConsumerWidget {
     );
   }
 
-  ButtonStyle _workbenchSecondaryButtonStyle() {
-    return ElevatedButton.styleFrom(
-      backgroundColor: const Color(0xFF27272B),
-      foregroundColor: const Color(0xFFE4E4E7),
-      disabledBackgroundColor: const Color(0xFF1E1E22),
-      disabledForegroundColor: const Color(0xFF71717A),
-      elevation: 0,
-      shadowColor: Colors.transparent,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      minimumSize: const Size(0, 30),
-      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(7),
-        side: const BorderSide(color: Color(0xFF3A3A40), width: 0.8),
-      ),
-    ).copyWith(
-      overlayColor: WidgetStateProperty.resolveWith((states) {
-        if (states.contains(WidgetState.hovered)) {
-          return const Color(0x14FFFFFF);
-        }
-        if (states.contains(WidgetState.pressed)) {
-          return const Color(0x20FFFFFF);
-        }
-        return null;
-      }),
-    );
-  }
-
-  ButtonStyle _workbenchPrimaryButtonStyle() {
-    return ElevatedButton.styleFrom(
-      backgroundColor: const Color(0xFF1D4ED8),
-      foregroundColor: Colors.white,
-      disabledBackgroundColor: const Color(0xFF202229),
-      disabledForegroundColor: const Color(0xFF71717A),
-      elevation: 0,
-      shadowColor: Colors.transparent,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-      minimumSize: const Size(0, 30),
-      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(7),
-      ),
-    ).copyWith(
-      side: WidgetStateProperty.resolveWith((states) {
-        if (states.contains(WidgetState.disabled)) {
-          return const BorderSide(color: Color(0xFF2E2F36), width: 0.8);
-        }
-        return BorderSide.none;
-      }),
-      overlayColor: WidgetStateProperty.resolveWith((states) {
-        if (states.contains(WidgetState.hovered)) {
-          return const Color(0x1AFFFFFF);
-        }
-        if (states.contains(WidgetState.pressed)) {
-          return const Color(0x28FFFFFF);
-        }
-        return null;
-      }),
-    );
-  }
-
   Widget _buildReachabilityToggle(
     CodeIntelState state,
     CodeIntelViewModel viewModel,
@@ -433,26 +505,11 @@ class VulnIntelPanel extends ConsumerWidget {
             fontWeight: FontWeight.w500,
           ),
         ),
-        const SizedBox(width: 4),
-        Transform.scale(
-          scale: 0.78,
-          child: Switch(
-            value: state.includeReachability,
-            onChanged: viewModel.setIncludeReachability,
-            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            thumbColor: WidgetStateProperty.resolveWith((states) =>
-                states.contains(WidgetState.selected)
-                    ? const Color(0xFF0B0F0E)
-                    : const Color(0xFFA1A1AA)),
-            trackColor: WidgetStateProperty.resolveWith((states) =>
-                states.contains(WidgetState.selected)
-                    ? const Color(0xFF10B981)
-                    : const Color(0xFF27272B)),
-            trackOutlineColor: WidgetStateProperty.resolveWith((states) =>
-                states.contains(WidgetState.selected)
-                    ? Colors.transparent
-                    : const Color(0xFF3A3A40)),
-          ),
+        const SizedBox(width: 8),
+        VeraxiSwitch(
+          value: state.includeReachability,
+          onChanged: viewModel.setIncludeReachability,
+          semanticLabel: 'Include reachability',
         ),
       ],
     );
@@ -629,24 +686,29 @@ class VulnIntelPanel extends ConsumerWidget {
                           fontSize: 11,
                           fontWeight: FontWeight.w700)),
                 ),
-              if (finding.epssScore != null)
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF6D28D9),
-                    borderRadius: BorderRadius.circular(11),
-                  ),
-                  child: Text(
-                    'EPSS ${(finding.epssScore! * 100).toStringAsFixed(1)}%',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      fontFeatures: [FontFeature.tabularFigures()],
+              if (finding.epssScore != null) ...[
+                Builder(builder: (context) {
+                  final epss = epssBadgeColors(finding.epssScore!);
+                  return Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: epss.bg,
+                      borderRadius: BorderRadius.circular(11),
+                      border: Border.all(color: epss.border, width: 0.8),
                     ),
-                  ),
-                ),
+                    child: Text(
+                      'EPSS ${(finding.epssScore! * 100).toStringAsFixed(1)}%',
+                      style: TextStyle(
+                        color: epss.text,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
+                    ),
+                  );
+                }),
+              ],
               if (finding.isReachable)
                 Container(
                   padding:

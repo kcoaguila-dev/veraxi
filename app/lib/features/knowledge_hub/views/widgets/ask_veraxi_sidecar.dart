@@ -1,3 +1,7 @@
+import 'dart:async';
+
+import 'package:flutter/services.dart';
+import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:veraxi_app/core/widgets/code_lines_view.dart';
@@ -184,6 +188,23 @@ class _AskVeraxiSidecarState extends ConsumerState<AskVeraxiSidecar> {
                         ),
                       ),
                     ),
+                    if (content != null)
+                      _DialogCopyButton(
+                        onCopy: () {
+                          final s = parsed.startLine;
+                          final e = parsed.endLine ?? s;
+                          if (s != null && s > 0 && e != null && e >= s) {
+                            final sIdx =
+                                (s - startLine).clamp(0, lines.length);
+                            final eIdx =
+                                (e - startLine + 1).clamp(sIdx, lines.length);
+                            if (eIdx > sIdx) {
+                              return lines.sublist(sIdx, eIdx).join('\n');
+                            }
+                          }
+                          return content;
+                        },
+                      ),
                     IconButton(
                       icon: const Icon(Icons.close,
                           size: 18, color: Color(0xFFB4B4B4)),
@@ -581,12 +602,39 @@ class _AskVeraxiSidecarState extends ConsumerState<AskVeraxiSidecar> {
               child: CircularProgressIndicator(strokeWidth: 2),
             )
           else
-            Text(
-              turn.answer,
-              style: const TextStyle(
-                color: Color(0xFFE4E4E7),
-                fontSize: 12.5,
-                height: 1.45,
+            MarkdownBody(
+              data: turn.answer,
+              selectable: true,
+              shrinkWrap: true,
+              styleSheet: MarkdownStyleSheet(
+                p: const TextStyle(
+                  color: Color(0xFFE4E4E7),
+                  fontSize: 12.5,
+                  height: 1.45,
+                ),
+                strong: const TextStyle(
+                  color: Color(0xFFF4F4F5),
+                  fontWeight: FontWeight.w600,
+                ),
+                code: const TextStyle(
+                  color: Color(0xFFE4E4E7),
+                  backgroundColor: Color(0xFF27272B),
+                  fontFamily: 'monospace',
+                  fontSize: 12,
+                ),
+                codeblockDecoration: BoxDecoration(
+                  color: const Color(0xFF1F1F23),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: const Color(0xFF3A3A40),
+                    width: 0.8,
+                  ),
+                ),
+                codeblockPadding: const EdgeInsets.all(10),
+                listBullet: const TextStyle(
+                  color: Color(0xFFA1A1AA),
+                  fontSize: 12.5,
+                ),
               ),
             ),
           if (turn.isFallback && !turn.isStreaming) ...[
@@ -725,6 +773,52 @@ class _AskVeraxiSidecarState extends ConsumerState<AskVeraxiSidecar> {
               ],
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DialogCopyButton extends StatefulWidget {
+  final String Function() onCopy;
+  const _DialogCopyButton({required this.onCopy});
+
+  @override
+  State<_DialogCopyButton> createState() => _DialogCopyButtonState();
+}
+
+class _DialogCopyButtonState extends State<_DialogCopyButton> {
+  bool _copied = false;
+  Timer? _resetTimer;
+
+  @override
+  void dispose() {
+    _resetTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return TextButton.icon(
+      onPressed: () async {
+        await Clipboard.setData(ClipboardData(text: widget.onCopy()));
+        if (!mounted) return;
+        _resetTimer?.cancel();
+        setState(() => _copied = true);
+        _resetTimer = Timer(const Duration(seconds: 2), () {
+          if (mounted) setState(() => _copied = false);
+        });
+      },
+      icon: Icon(
+        _copied ? Icons.check : Icons.copy_outlined,
+        size: 14,
+        color: _copied ? const Color(0xFF34D399) : const Color(0xFFA1A1AA),
+      ),
+      label: Text(
+        _copied ? 'Copied' : 'Copy',
+        style: TextStyle(
+          fontSize: 12,
+          color: _copied ? const Color(0xFF34D399) : const Color(0xFFD4D4D8),
         ),
       ),
     );

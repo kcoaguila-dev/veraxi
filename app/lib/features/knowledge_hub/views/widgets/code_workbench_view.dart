@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:veraxi_app/core/providers/workspace_mode_provider.dart';
@@ -38,11 +39,27 @@ class _CodeWorkbenchViewState extends ConsumerState<CodeWorkbenchView> {
   @override
   void initState() {
     super.initState();
+    HardwareKeyboard.instance.addHandler(_handleHardwareKey);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         _refreshIndexedRepos();
       }
     });
+  }
+
+  bool _handleHardwareKey(KeyEvent event) {
+    if (event is KeyDownEvent &&
+        event.logicalKey == LogicalKeyboardKey.escape &&
+        _narrowSidecarOpen &&
+        mounted &&
+        MediaQuery.sizeOf(context).width < 1200) {
+      final route = ModalRoute.of(context);
+      if (route == null || route.isCurrent) {
+        setState(() => _narrowSidecarOpen = false);
+        return true;
+      }
+    }
+    return false;
   }
 
   Future<void> _refreshIndexedRepos() async {
@@ -73,6 +90,7 @@ class _CodeWorkbenchViewState extends ConsumerState<CodeWorkbenchView> {
 
   @override
   void dispose() {
+    HardwareKeyboard.instance.removeHandler(_handleHardwareKey);
     _repoPathController.dispose();
     _sidecarComposerFocusNode.dispose();
     super.dispose();
@@ -174,39 +192,47 @@ class _CodeWorkbenchViewState extends ConsumerState<CodeWorkbenchView> {
     final screenWidth = MediaQuery.sizeOf(context).width;
     final isWideDesktop = screenWidth >= 1200;
 
-    return Stack(
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: Column(
-                children: [
-                  _buildHeaderBar(
-                    context: context,
-                    title: _subViewTitle(activeSubView),
-                    repoLabel: selectedRepo,
-                    isWideDesktop: isWideDesktop,
-                    activeFinding: activeFinding,
-                  ),
-                  Expanded(
-                    child: IndexedStack(
-                      index: activeSubView.index,
-                      children: [
-                        SingleChildScrollView(
-                          padding: const EdgeInsets.all(24),
-                          child: VulnIntelPanel(
-                            repoPathController: _repoPathController,
-                            workbenchMode: true,
-                            selectedCveId: activeFinding?.cveId,
-                            onAskFinding: (f) =>
-                                _askFinding(f, isNarrow: !isWideDesktop),
-                            onInspectPath: (f) =>
-                                _inspectPath(f, isNarrow: !isWideDesktop),
-                            onOpenRepoXray: () => ref
-                                .read(codeSubViewProvider.notifier)
-                                .state = CodeSubView.repoXray,
+    return CallbackShortcuts(
+      bindings: <ShortcutActivator, VoidCallback>{
+        if (!isWideDesktop && _narrowSidecarOpen)
+          const SingleActivator(LogicalKeyboardKey.escape): () =>
+              setState(() => _narrowSidecarOpen = false),
+      },
+      child: Stack(
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  children: [
+                    _buildHeaderBar(
+                      context: context,
+                      title: _subViewTitle(activeSubView),
+                      repoLabel: selectedRepo,
+                      isWideDesktop: isWideDesktop,
+                      activeSubView: activeSubView,
+                      activeFinding: activeFinding,
+                    ),
+                    Expanded(
+                      child: IndexedStack(
+                        index: activeSubView.index,
+                        children: [
+                          SingleChildScrollView(
+                            padding: const EdgeInsets.all(24),
+                            child: VulnIntelPanel(
+                              repoPathController: _repoPathController,
+                              workbenchMode: true,
+                              hideToolbarActions: isWideDesktop,
+                              selectedCveId: activeFinding?.cveId,
+                              onAskFinding: (f) =>
+                                  _askFinding(f, isNarrow: !isWideDesktop),
+                              onInspectPath: (f) =>
+                                  _inspectPath(f, isNarrow: !isWideDesktop),
+                              onOpenRepoXray: () => ref
+                                  .read(codeSubViewProvider.notifier)
+                                  .state = CodeSubView.repoXray,
+                            ),
                           ),
-                        ),
                         SingleChildScrollView(
                           padding: const EdgeInsets.all(24),
                           child: RepoXrayPanel(
@@ -249,26 +275,30 @@ class _CodeWorkbenchViewState extends ConsumerState<CodeWorkbenchView> {
         ),
         if (!isWideDesktop && _narrowSidecarOpen)
           Positioned.fill(
-            child: GestureDetector(
-              onTap: () => setState(() => _narrowSidecarOpen = false),
-              child: Container(
-                color: Colors.black54,
-                alignment: Alignment.centerRight,
-                child: GestureDetector(
-                  onTap: () {},
-                  child: AskVeraxiSidecar(
-                    finding: activeFinding,
-                    composerFocusNode: _sidecarComposerFocusNode,
-                    citationToOpen: _citationToOpen,
-                    citationOpenNonce: _citationOpenNonce,
-                    pathHighlightNonce: _pathHighlightNonce,
-                    onClose: () => setState(() => _narrowSidecarOpen = false),
+            child: Focus(
+              autofocus: true,
+              child: GestureDetector(
+                onTap: () => setState(() => _narrowSidecarOpen = false),
+                child: Container(
+                  color: Colors.black54,
+                  alignment: Alignment.centerRight,
+                  child: GestureDetector(
+                    onTap: () {},
+                    child: AskVeraxiSidecar(
+                      finding: activeFinding,
+                      composerFocusNode: _sidecarComposerFocusNode,
+                      citationToOpen: _citationToOpen,
+                      citationOpenNonce: _citationOpenNonce,
+                      pathHighlightNonce: _pathHighlightNonce,
+                      onClose: () => setState(() => _narrowSidecarOpen = false),
+                    ),
                   ),
                 ),
               ),
             ),
           ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -277,6 +307,7 @@ class _CodeWorkbenchViewState extends ConsumerState<CodeWorkbenchView> {
     required String title,
     required String? repoLabel,
     required bool isWideDesktop,
+    required CodeSubView activeSubView,
     required VulnFinding? activeFinding,
   }) {
     return Container(
@@ -349,7 +380,14 @@ class _CodeWorkbenchViewState extends ConsumerState<CodeWorkbenchView> {
                   ],
                 ),
               ),
-              if (!isWideDesktop) ...[
+              if (isWideDesktop && activeSubView == CodeSubView.vulnIntel) ...[
+                const SizedBox(width: 12),
+                VulnIntelToolbarActions(
+                  repoPathController: _repoPathController,
+                  workbenchMode: true,
+                  compact: true,
+                ),
+              ] else if (!isWideDesktop) ...[
                 const SizedBox(width: 8),
                 InkWell(
                   borderRadius: BorderRadius.circular(8),

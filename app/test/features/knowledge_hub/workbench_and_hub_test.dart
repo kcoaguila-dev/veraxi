@@ -19,6 +19,7 @@ import 'package:veraxi_app/features/knowledge_hub/data/code_intel_repository.dar
 import 'package:veraxi_app/features/knowledge_hub/data/knowledge_hub_repository.dart';
 import 'package:veraxi_app/features/knowledge_hub/views/knowledge_hub_screen.dart';
 import 'package:veraxi_app/features/knowledge_hub/views/widgets/ask_veraxi_sidecar.dart';
+import 'package:veraxi_app/features/knowledge_hub/views/widgets/vuln_intel_panel.dart';
 import 'package:veraxi_app/features/knowledge_hub/views/widgets/vuln_workbench_table.dart';
 
 class _MockChatRepository extends Mock implements IChatRepository {
@@ -127,6 +128,7 @@ class _FakeKnowledgeHubRepository extends KnowledgeHubRepository {
 class _FakeCodeIntelRepository extends CodeIntelRepository {
   final List<Map<String, dynamic>> reposToReturn;
   final String streamedSourcePath;
+  final String? streamedToken;
   final Map<String, dynamic> Function(String path)? fileResponseBuilder;
   String? lastSidecarModel;
   String? lastScanRepoPath;
@@ -143,6 +145,7 @@ class _FakeCodeIntelRepository extends CodeIntelRepository {
       },
     ],
     this.streamedSourcePath = 'routes.py',
+    this.streamedToken,
     this.fileResponseBuilder,
   }) : super(
           apiClient: ApiClient(
@@ -179,8 +182,12 @@ class _FakeCodeIntelRepository extends CodeIntelRepository {
   }) async* {
     lastSidecarModel = model;
     yield {'type': 'activity', 'label': 'Checked Code Graph · routes.py'};
-    yield {'type': 'token', 'content': 'Streamed answer: '};
-    yield {'type': 'token', 'content': 'parse_tar reads uploaded bytes.'};
+    if (streamedToken != null) {
+      yield {'type': 'token', 'content': streamedToken!};
+    } else {
+      yield {'type': 'token', 'content': 'Streamed answer: '};
+      yield {'type': 'token', 'content': 'parse_tar reads uploaded bytes.'};
+    }
     yield {
       'type': 'sources',
       'sources': [
@@ -829,5 +836,114 @@ void main() {
       ),
     );
     expect(composerField.focusNode?.hasFocus, isTrue);
+  });
+
+  testWidgets(
+      'Esc dismisses narrow Ask Veraxi drawer, sidecar renders inline code without raw backticks, and Citation Viewer Copy copies cited lines',
+      (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    tester.view.physicalSize = const Size(1000, 800);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    String? copiedText;
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (call) async {
+        if (call.method == 'Clipboard.setData') {
+          final args = call.arguments as Map<dynamic, dynamic>?;
+          copiedText = args?['text'] as String?;
+        }
+        return null;
+      },
+    );
+    addTearDown(() => tester.binding.defaultBinaryMessenger
+        .setMockMethodCallHandler(SystemChannels.platform, null));
+
+    final chatVm = _StubChatViewModel(ChatState(messages: []));
+    final codeRepo = _FakeCodeIntelRepository(
+      streamedToken: 'Call flows via `ingest_route` into `parse_tar`.',
+      streamedSourcePath: 'routes.py#L2-L3',
+      fileResponseBuilder: (path) => {
+        'path': path,
+        'source': 'file',
+        'language': 'python',
+        'start_line': 1,
+        'line_count': 4,
+        'content': 'def one():\n    return ingest_route()\ndef three():\n    return 3',
+      },
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          chatViewModelProvider.overrideWith((ref) => chatVm),
+          codeIntelRepositoryProvider.overrideWithValue(codeRepo),
+          workspaceModeProvider.overrideWith((ref) => WorkspaceMode.code),
+        ],
+        child: MaterialApp(
+          theme: AppTheme.darkTheme,
+          home: const ChatScreen(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Run scan so a finding is active, then open narrow slide-over Ask Veraxi drawer.
+    await tester.tap(find.text('Run Vulnerability Scan'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.textContaining('Ask Veraxi'));
+    await tester.pumpAndSettle();
+    expect(find.byType(AskVeraxiSidecar), findsOneWidget);
+
+    // Stream an answer containing inline backtick code spans.
+    await tester.tap(find.text('What input reaches this symbol?'));
+    await tester.pumpAndSettle();
+    expect(
+      find.descendant(
+        of: find.byType(AskVeraxiSidecar),
+        matching: find.textContaining('Call flows via ingest_route into parse_tar.',
+            findRichText: true),
+      ),
+      findsOneWidget,
+    );
+    expect(find.textContaining('`', findRichText: true), findsNothing);
+
+    // Open citation viewer and tap Copy to copy highlighted lines 2-3.
+    await tester.tap(find.text('routes.py#L2-L3'));
+    await tester.pumpAndSettle();
+    expect(find.byType(Dialog), findsOneWidget);
+    await tester.tap(find.text('Copy'));
+    await tester.pumpAndSettle();
+    expect(copiedText, '    return ingest_route()\ndef three():');
+    expect(find.text('Copied'), findsOneWidget);
+
+    // Close citation dialog, then verify Esc dismisses the narrow drawer.
+    await tester.tap(find.descendant(
+      of: find.byType(Dialog),
+      matching: find.byIcon(Icons.close),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.byType(Dialog), findsNothing);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(find.byType(AskVeraxiSidecar), findsNothing);
+  });
+
+  test('epssBadgeColors differentiates high, moderate, and low EPSS risk tiers',
+      () {
+    final high = epssBadgeColors(0.94);
+    final moderate = epssBadgeColors(0.45);
+    final low = epssBadgeColors(0.12);
+
+    expect(high.bg, isNot(equals(moderate.bg)));
+    expect(high.bg, isNot(equals(low.bg)));
+    expect(moderate.bg, isNot(equals(low.bg)));
+    expect(high.text, isNot(equals(low.text)));
   });
 }

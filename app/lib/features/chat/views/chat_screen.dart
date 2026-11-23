@@ -1,6 +1,5 @@
 import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:cupertino_ui/cupertino_ui.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:veraxi_app/core/providers/workspace_mode_provider.dart';
 import 'package:veraxi_app/core/sidebar_provider.dart';
@@ -25,6 +24,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:veraxi_app/features/chat/view_models/audio_player_service.dart';
 
 import 'package:veraxi_app/core/theme_extension.dart';
+import 'package:veraxi_app/core/widgets/veraxi_switch.dart';
 import 'package:veraxi_app/features/chat/views/widgets/sources_sidebar.dart';
 import 'package:veraxi_app/core/widgets/profile_menu_button.dart';
 import 'package:veraxi_app/features/chat/view_models/code_artifact_provider.dart';
@@ -889,25 +889,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                                         ),
                                                       ),
                                                       const SizedBox(width: 8),
-                                                      SizedBox(
-                                                        height: 20,
-                                                        width: 34,
-                                                        child: Transform.scale(
-                                                          scale: 0.7,
-                                                          child:
-                                                              CupertinoSwitch(
-                                                            value: state
-                                                                .showTelemetry,
-                                                            onChanged: (val) =>
-                                                                viewModel
-                                                                    .toggleTelemetry(),
-                                                            activeTrackColor: ext
-                                                                .primaryGradientStart,
-                                                            inactiveTrackColor:
-                                                                const Color(
-                                                                    0xFF3A3A3A),
-                                                          ),
-                                                        ),
+                                                      VeraxiSwitch(
+                                                        value:
+                                                            state.showTelemetry,
+                                                        onChanged: (_) =>
+                                                            viewModel
+                                                                .toggleTelemetry(),
+                                                        semanticLabel:
+                                                            'Metrics',
                                                       ),
                                                     ],
                                                   ),

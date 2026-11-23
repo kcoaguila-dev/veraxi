@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:veraxi_app/core/widgets/code_lines_view.dart';
@@ -43,6 +46,8 @@ class CodeCitationViewer extends ConsumerStatefulWidget {
 class _CodeCitationViewerState extends ConsumerState<CodeCitationViewer> {
   late final ScrollController _scrollController;
   bool _ownsScrollController = false;
+  bool _copied = false;
+  Timer? _copiedTimer;
 
   @override
   void initState() {
@@ -58,15 +63,44 @@ class _CodeCitationViewerState extends ConsumerState<CodeCitationViewer> {
 
   @override
   void dispose() {
+    _copiedTimer?.cancel();
     if (_ownsScrollController) {
       _scrollController.dispose();
     }
     super.dispose();
   }
 
+  String _extractTextToCopy(CodeFileContent content) {
+    final start = widget.target.startLine;
+    final end = widget.target.effectiveEndLine;
+    if (start > 0 && end >= start) {
+      final startIdx =
+          (start - content.startLine).clamp(0, content.lines.length);
+      final endIdx =
+          (end - content.startLine + 1).clamp(startIdx, content.lines.length);
+      if (endIdx > startIdx) {
+        return content.lines.sublist(startIdx, endIdx).join('\n');
+      }
+    }
+    return content.lines.join('\n');
+  }
+
+  Future<void> _copyCitedLines(CodeFileContent content) async {
+    await Clipboard.setData(ClipboardData(text: _extractTextToCopy(content)));
+    if (!mounted) return;
+    _copiedTimer?.cancel();
+    setState(() => _copied = true);
+    _copiedTimer = Timer(const Duration(seconds: 2), () {
+      if (mounted) {
+        setState(() => _copied = false);
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final asyncContent = ref.watch(codeFileProvider(widget.target));
+    final loadedContent = asyncContent.valueOrNull;
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
@@ -79,6 +113,31 @@ class _CodeCitationViewerState extends ConsumerState<CodeCitationViewer> {
           style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
           overflow: TextOverflow.ellipsis,
         ),
+        actions: [
+          if (loadedContent != null)
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: TextButton.icon(
+                onPressed: () => _copyCitedLines(loadedContent),
+                icon: Icon(
+                  _copied ? Icons.check : Icons.copy_outlined,
+                  size: 15,
+                  color: _copied
+                      ? const Color(0xFF34D399)
+                      : const Color(0xFFA1A1AA),
+                ),
+                label: Text(
+                  _copied ? 'Copied' : 'Copy',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: _copied
+                        ? const Color(0xFF34D399)
+                        : const Color(0xFFD4D4D8),
+                  ),
+                ),
+              ),
+            ),
+        ],
       ),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,

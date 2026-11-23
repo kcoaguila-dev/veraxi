@@ -78,7 +78,7 @@ class VulnWorkbenchTable extends StatelessWidget {
           ),
           child: const Row(
             children: [
-              Expanded(flex: 3, child: Text('CVE / PACKAGE', style: style)),
+              Expanded(flex: 4, child: Text('CVE / PACKAGE', style: style)),
               SizedBox(width: 8),
               Expanded(flex: 2, child: Text('KEV / EPSS', style: style)),
               SizedBox(width: 8),
@@ -86,7 +86,7 @@ class VulnWorkbenchTable extends StatelessWidget {
               SizedBox(width: 8),
               Expanded(flex: 2, child: Text('WEAKNESS', style: style)),
               SizedBox(
-                width: 120,
+                width: 104,
                 child: Text('ACTIONS', style: style, textAlign: TextAlign.end),
               ),
             ],
@@ -109,7 +109,7 @@ class VulnWorkbenchTable extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Expanded(flex: 3, child: _buildCvePackageColumn(finding)),
+            Expanded(flex: 4, child: _buildCvePackageColumn(finding)),
             const SizedBox(width: 8),
             Expanded(flex: 2, child: _buildKevEpssColumn(finding)),
             const SizedBox(width: 8),
@@ -117,7 +117,7 @@ class VulnWorkbenchTable extends StatelessWidget {
             const SizedBox(width: 8),
             Expanded(flex: 2, child: _buildWeaknessColumn(finding, ext)),
             SizedBox(
-              width: 120,
+              width: 104,
               child: _buildActionsColumn(finding, isSelected: isSelected),
             ),
           ],
@@ -198,23 +198,28 @@ class VulnWorkbenchTable extends StatelessWidget {
               ),
             ),
           ),
-        if (finding.epssScore != null)
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-            decoration: BoxDecoration(
-              color: const Color(0xFF6D28D9),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Text(
-              'EPSS ${(finding.epssScore! * 100).toStringAsFixed(1)}%',
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 10,
-                fontWeight: FontWeight.w700,
-                fontFeatures: [FontFeature.tabularFigures()],
+        if (finding.epssScore != null) ...[
+          Builder(builder: (context) {
+            final epss = epssBadgeColors(finding.epssScore!);
+            return Container(
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+              decoration: BoxDecoration(
+                color: epss.bg,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: epss.border, width: 0.8),
               ),
-            ),
-          ),
+              child: Text(
+                'EPSS ${(finding.epssScore! * 100).toStringAsFixed(1)}%',
+                style: TextStyle(
+                  color: epss.text,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
+            );
+          }),
+        ],
         if (!finding.kev && finding.epssScore == null)
           const Text(
             '—',

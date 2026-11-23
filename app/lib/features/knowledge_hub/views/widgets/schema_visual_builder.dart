@@ -187,9 +187,14 @@ class _SchemaVisualBuilderState extends State<SchemaVisualBuilder> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text('Schema Configuration',
-                style: TextStyle(
-                    color: Colors.white, fontWeight: FontWeight.w500)),
+            const Text(
+              'Schema Configuration',
+              style: TextStyle(
+                color: Color(0xFFE4E4E7),
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
             TextButton.icon(
               onPressed: () {
                 setState(() {
@@ -205,28 +210,42 @@ class _SchemaVisualBuilderState extends State<SchemaVisualBuilder> {
               },
               icon: Icon(
                 _advancedMode ? Icons.view_quilt : Icons.code,
-                size: 16,
-                color: Colors.blueAccent,
+                size: 14,
+                color: const Color(0xFFA1A1AA),
               ),
               label: Text(
                 _advancedMode ? 'Visual Mode' : 'Advanced (JSON)',
-                style: TextStyle(color: Colors.blueAccent),
+                style: const TextStyle(
+                  color: Color(0xFFD4D4D8),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              style: TextButton.styleFrom(
+                backgroundColor: const Color(0xFF27272B),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                minimumSize: const Size(0, 28),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(7),
+                  side: const BorderSide(color: Color(0xFF3A3A40), width: 0.8),
+                ),
               ),
             ),
           ],
         ),
-        SizedBox(height: 8),
+        const SizedBox(height: 8),
         Container(
           decoration: BoxDecoration(
-            color: Theme.of(context)
-                .extension<AppThemeExtension>()!
-                .cardBackground,
-            borderRadius: BorderRadius.circular(8),
+            color: const Color(0xFF141416),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: const Color(0xFF2D2D32)),
           ),
           constraints: const BoxConstraints(minHeight: 250, maxHeight: 500),
           child: _advancedMode ? _buildJsonEditor() : _buildVisualEditor(),
         ),
-        SizedBox(height: 12),
+        const SizedBox(height: 12),
         ElevatedButton.icon(
           onPressed: widget.isSaving
               ? null
@@ -244,11 +263,23 @@ class _SchemaVisualBuilderState extends State<SchemaVisualBuilder> {
                     widget.onSave(_buildSchemaFromVisual());
                   }
                 },
-          icon: Icon(Icons.save, size: 18),
-          label: Text('Save Schema'),
+          icon: const Icon(Icons.save_outlined, size: 15),
+          label: const Text('Save Schema'),
           style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.blue.shade600,
+            backgroundColor: const Color(0xFF1D4ED8),
             foregroundColor: Colors.white,
+            disabledBackgroundColor: const Color(0xFF202229),
+            disabledForegroundColor: const Color(0xFF71717A),
+            elevation: 0,
+            shadowColor: Colors.transparent,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+            minimumSize: const Size(0, 32),
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            textStyle:
+                const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(7),
+            ),
           ),
         ),
       ],
@@ -286,34 +317,47 @@ class _SchemaVisualBuilderState extends State<SchemaVisualBuilder> {
             runSpacing: 8,
             children: [
               ..._entities.map((e) => Chip(
-                    label: Text(e, style: TextStyle(fontSize: 12)),
-                    backgroundColor: Theme.of(context)
-                        .extension<AppThemeExtension>()!
-                        .borderColorStrong,
-                    deleteIcon: Icon(Icons.close, size: 14),
+                    label: Text(
+                      e,
+                      style: const TextStyle(
+                        color: Color(0xFFE4E4E7),
+                        fontSize: 12,
+                      ),
+                    ),
+                    backgroundColor: const Color(0xFF232328),
+                    deleteIcon: const Icon(
+                      Icons.close,
+                      size: 14,
+                      color: Color(0xFFA1A1AA),
+                    ),
                     onDeleted: () => _removeEntity(e),
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16)),
-                    side: BorderSide.none,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    side: const BorderSide(color: Color(0xFF32323A)),
                   )),
               SizedBox(
                 width: 150,
                 height: 32,
                 child: TextField(
                   controller: _newEntityController,
-                  style: TextStyle(color: Colors.white, fontSize: 13),
+                  style: const TextStyle(color: Color(0xFFF4F4F5), fontSize: 12.5),
                   decoration: InputDecoration(
                     hintText: 'Add entity...',
-                    hintStyle: TextStyle(color: Colors.white38, fontSize: 13),
+                    hintStyle:
+                        const TextStyle(color: Color(0xFF71717A), fontSize: 12.5),
                     filled: true,
-                    fillColor: Theme.of(context)
-                        .extension<AppThemeExtension>()!
-                        .borderColor,
+                    fillColor: const Color(0xFF232328),
                     contentPadding:
-                        EdgeInsets.symmetric(horizontal: 12, vertical: 0),
-                    border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(16),
-                        borderSide: BorderSide.none),
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: const BorderSide(color: Color(0xFF32323A)),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: const BorderSide(color: Color(0xFF52525B)),
+                    ),
                   ),
                   onSubmitted: (_) => _addEntity(),
                 ),
@@ -386,10 +430,24 @@ class _SchemaVisualBuilderState extends State<SchemaVisualBuilder> {
           SizedBox(height: 8),
           TextButton.icon(
             onPressed: _entities.isEmpty ? null : _addRelation,
-            icon: Icon(Icons.add, size: 16),
-            label: Text('Add Relationship'),
+            icon: const Icon(Icons.add, size: 14, color: Color(0xFF34D399)),
+            label: const Text(
+              'Add Relationship',
+              style: TextStyle(
+                color: Color(0xFFD4D4D8),
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
             style: TextButton.styleFrom(
-              foregroundColor: Colors.blueAccent,
+              backgroundColor: const Color(0xFF27272B),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              minimumSize: const Size(0, 28),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(7),
+                side: const BorderSide(color: Color(0xFF3A3A40), width: 0.8),
+              ),
             ),
           ),
         ],
