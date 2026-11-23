@@ -116,6 +116,23 @@ class _CodeWorkbenchViewState extends ConsumerState<CodeWorkbenchView> {
   }
 
   void _askFinding(VulnFinding finding, {required bool isNarrow}) {
+    // Phase 6 Ask Veraxi routing decision: keep the slide-over /
+    // docked sidecar instead of routing into a Code Chat thread.
+    // A CVE-scoped Code Chat thread is not cheap with the existing
+    // flow: Code Chat sends go through the chat feature's view model
+    // (which knowledge_hub views must not import — see the repo-menu
+    // note in chat_sidebar.dart), and CodeScope carries repo /
+    // sources / branch only, with no CVE anchor, so a new thread
+    // would silently lose the finding this follow-up is about. The
+    // sidecar's Q&A provider is keyed by CVE id and preserves that
+    // anchor. What we do seed here is the Code Chat source scope, so
+    // if the user later opens Code Chat it is already scoped to the
+    // selected repo.
+    final selectedRepo = ref.read(selectedIndexedRepoProvider);
+    if (selectedRepo != null) {
+      ref.read(codeSelectedSourcesProvider.notifier).state =
+          CodeSelectedSources(repoKeys: {selectedRepo});
+    }
     setState(() {
       _selectedFinding = finding;
       if (isNarrow) {

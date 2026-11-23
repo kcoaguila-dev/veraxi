@@ -5,7 +5,9 @@ import 'package:veraxi_app/features/knowledge_hub/view_models/knowledge_hub_view
 
 import 'package:veraxi_app/features/chat/views/widgets/chat_sidebar.dart';
 import 'package:veraxi_app/core/sidebar_provider.dart';
+import 'widgets/corpus_briefing_panel.dart';
 import 'widgets/database_monitor_card.dart';
+import 'widgets/repo_xray_panel.dart';
 import 'widgets/schema_visual_builder.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:veraxi_app/core/widgets/model_selector_popup.dart';
@@ -26,6 +28,10 @@ class _KnowledgeHubScreenState extends ConsumerState<KnowledgeHubScreen> {
       TextEditingController();
   final TextEditingController _urlController = TextEditingController();
   final TextEditingController _sourceSearchController = TextEditingController();
+
+  /// Repo path shared with the embedded Repo X-Ray tab (Phase 6).
+  final TextEditingController _hubRepoPathController =
+      TextEditingController();
   bool _fastExtractionEnabled = false;
   final String _selectedLanguage = 'English';
   String _selectedModel = 'gemini-1.5-pro-002';
@@ -75,6 +81,7 @@ class _KnowledgeHubScreenState extends ConsumerState<KnowledgeHubScreen> {
     _schemaSampleTextController.dispose();
     _urlController.dispose();
     _sourceSearchController.dispose();
+    _hubRepoPathController.dispose();
     super.dispose();
   }
 
@@ -407,8 +414,10 @@ class _KnowledgeHubScreenState extends ConsumerState<KnowledgeHubScreen> {
             runSpacing: 8,
             children: [
               tabButton(0, 'Sources & Ingestion'),
-              tabButton(1, 'Schema & Extraction'),
-              tabButton(2, 'Infra & Monitors', showDot: true),
+              tabButton(1, 'Repo X-Ray'),
+              tabButton(2, 'Corpus & Lineage'),
+              tabButton(3, 'Schema & Extraction'),
+              tabButton(4, 'Infra & Monitors', showDot: true),
             ],
           ),
         ],
@@ -1315,6 +1324,16 @@ class _KnowledgeHubScreenState extends ConsumerState<KnowledgeHubScreen> {
                               padding: EdgeInsets.all(isMobile ? 16.0 : 36.0),
                               child:
                                   _buildSourcesAndIngestionTab(theme, hubState),
+                            ),
+                            SingleChildScrollView(
+                              padding: EdgeInsets.all(isMobile ? 16.0 : 36.0),
+                              child: RepoXrayPanel(
+                                repoPathController: _hubRepoPathController,
+                              ),
+                            ),
+                            SingleChildScrollView(
+                              padding: EdgeInsets.all(isMobile ? 16.0 : 36.0),
+                              child: const CorpusBriefingPanel(),
                             ),
                             SingleChildScrollView(
                               padding: EdgeInsets.all(isMobile ? 16.0 : 36.0),

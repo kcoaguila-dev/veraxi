@@ -16,14 +16,36 @@ import 'package:veraxi_app/features/knowledge_hub/view_models/code_intel_view_mo
 /// SAST tab also renders taint breadcrumbs (source → sink) extracted
 /// from the uploaded SARIF codeFlows.
 class SecurityFeedPanel extends ConsumerStatefulWidget {
-  const SecurityFeedPanel({super.key});
+  /// When true, renders without the outer card chrome or the
+  /// 'Security Feed' title — used inside the unified Security
+  /// workspace (Phase 6), where the section tabs own the header.
+  final bool embedded;
+
+  /// Tab shown first (0=SAST, 1=Recon, 2=ATT&CK, 3=SOC). In embedded
+  /// mode a changed value re-selects the tab, so the unified
+  /// workspace can drive the panel from its section tabs.
+  final int initialTab;
+
+  const SecurityFeedPanel({
+    super.key,
+    this.embedded = false,
+    this.initialTab = 0,
+  });
 
   @override
   ConsumerState<SecurityFeedPanel> createState() => _SecurityFeedPanelState();
 }
 
 class _SecurityFeedPanelState extends ConsumerState<SecurityFeedPanel> {
-  int _tab = 0;
+  late int _tab = widget.initialTab.clamp(0, 3);
+
+  @override
+  void didUpdateWidget(covariant SecurityFeedPanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initialTab != oldWidget.initialTab) {
+      _tab = widget.initialTab.clamp(0, 3);
+    }
+  }
 
   static const _tabs = ['SAST', 'Recon', 'ATT&CK', 'SOC'];
 
@@ -43,23 +65,17 @@ class _SecurityFeedPanelState extends ConsumerState<SecurityFeedPanel> {
     final state = ref.watch(codeIntelViewModelProvider);
     final viewModel = ref.read(codeIntelViewModelProvider.notifier);
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: ext.surfaceHighlight,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: ext.borderColorStrong),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+    final body = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (!widget.embedded) ...[
           const Text('Security Feed',
               style: TextStyle(
                   color: Colors.white,
                   fontSize: 16,
                   fontWeight: FontWeight.w600)),
           const SizedBox(height: 12),
+        ],
           Wrap(
             spacing: 8,
             runSpacing: 8,
@@ -85,8 +101,20 @@ class _SecurityFeedPanelState extends ConsumerState<SecurityFeedPanel> {
               },
             ),
           ),
-        ],
+      ],
+    );
+
+    if (widget.embedded) return SizedBox(width: double.infinity, child: body);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: ext.surfaceHighlight,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: ext.borderColorStrong),
       ),
+      child: body,
     );
   }
 
