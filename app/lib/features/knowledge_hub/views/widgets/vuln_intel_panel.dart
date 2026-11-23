@@ -5,6 +5,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
 import 'package:veraxi_app/features/knowledge_hub/view_models/code_intel_view_model.dart';
+import 'package:veraxi_app/features/knowledge_hub/views/widgets/vuln_workbench_table.dart';
 
 /// Severity badge colors. Unknown/absent severity renders no badge.
 Color? severityColor(String? severity) {
@@ -35,6 +36,7 @@ class VulnIntelPanel extends ConsumerWidget {
   final String? selectedCveId;
   final ValueChanged<VulnFinding>? onAskFinding;
   final ValueChanged<VulnFinding>? onInspectPath;
+  final VoidCallback? onOpenRepoXray;
 
   const VulnIntelPanel({
     super.key,
@@ -43,6 +45,7 @@ class VulnIntelPanel extends ConsumerWidget {
     this.selectedCveId,
     this.onAskFinding,
     this.onInspectPath,
+    this.onOpenRepoXray,
   });
 
   @override
@@ -55,35 +58,59 @@ class VulnIntelPanel extends ConsumerWidget {
     final content = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-          const Text('Vulnerability Intel',
-              style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600)),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 12,
-            runSpacing: 8,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              ElevatedButton.icon(
-                onPressed: state.syncingVuln ? null : viewModel.syncVulnIntel,
-                icon: const Icon(Icons.sync, size: 16),
-                label: Text(state.syncingVuln ? 'Syncing…' : 'Sync NVD & KEV'),
-              ),
-              ElevatedButton.icon(
-                onPressed: state.scanningVuln
-                    ? null
-                    : () => viewModel.runVulnScan(repoPathController.text),
-                icon: const Icon(Icons.shield_outlined, size: 16),
-                label: Text(state.scanningVuln
-                    ? 'Scanning…'
-                    : 'Run Vulnerability Scan'),
-              ),
-              if (state.syncStatus != null)
-                Text(state.syncStatus!,
-                    style: TextStyle(color: ext.iconColor, fontSize: 13)),
-            ],
+          if (!workbenchMode) ...[
+            const Text('Vulnerability Intel',
+                style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600)),
+            const SizedBox(height: 12),
+          ],
+          ValueListenableBuilder<TextEditingValue>(
+            valueListenable: repoPathController,
+            builder: (context, repoValue, _) {
+              final hasScanTarget =
+                  repoValue.text.trim().isNotEmpty || state.sbomJson != null;
+              final scanDisabled = state.scanningVuln ||
+                  (workbenchMode && !hasScanTarget && report == null);
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 8,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      ElevatedButton.icon(
+                        onPressed:
+                            state.syncingVuln ? null : viewModel.syncVulnIntel,
+                        icon: const Icon(Icons.sync, size: 16),
+                        label: Text(
+                            state.syncingVuln ? 'Syncing…' : 'Sync NVD & KEV'),
+                      ),
+                      ElevatedButton.icon(
+                        onPressed: scanDisabled
+                            ? null
+                            : () =>
+                                viewModel.runVulnScan(repoPathController.text),
+                        icon: const Icon(Icons.shield_outlined, size: 16),
+                        label: Text(state.scanningVuln
+                            ? 'Scanning…'
+                            : 'Run Vulnerability Scan'),
+                      ),
+                      if (state.syncStatus != null)
+                        Text(state.syncStatus!,
+                            style:
+                                TextStyle(color: ext.iconColor, fontSize: 13)),
+                    ],
+                  ),
+                  if (workbenchMode && !hasScanTarget && report == null) ...[
+                    const SizedBox(height: 8),
+                    _buildEmptyScanHint(ext),
+                  ],
+                ],
+              );
+            },
           ),
           const SizedBox(height: 12),
           Wrap(
@@ -159,7 +186,15 @@ class VulnIntelPanel extends ConsumerWidget {
               return AnimatedSwitcher(
                 duration: const Duration(milliseconds: 260),
                 child: useDesktopTable
-                    ? _buildWorkbenchTable(context, findings, ext, state)
+                    ? VulnWorkbenchTable(
+                        key: ValueKey(
+                          '${state.severityFilter}-${state.vulnQuickFilter}-${state.matchedOnly}-${findings.length}-table',
+                        ),
+                        findings: findings,
+                        selectedCveId: selectedCveId,
+                        onAskFinding: onAskFinding,
+                        onInspectPath: onInspectPath,
+                      )
                     : Column(
                         key: ValueKey(
                           '${state.severityFilter}-${state.vulnQuickFilter}-${state.matchedOnly}-${findings.length}-$workbenchMode-stacked',
@@ -200,366 +235,31 @@ class VulnIntelPanel extends ConsumerWidget {
     );
   }
 
-  Widget _buildWorkbenchTable(
-    BuildContext context,
-    List<VulnFinding> findings,
-    AppThemeExtension ext,
-    CodeIntelState state,
-  ) {
-    return Container(
-      key: ValueKey(
-        '${state.severityFilter}-${state.vulnQuickFilter}-${state.matchedOnly}-${findings.length}-table',
-      ),
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: const Color(0xFF1A1A1D),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFF2D2D32)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _buildTableColumnHeader(),
-          if (findings.isEmpty)
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: Text(
-                'No findings match the current filters.',
-                style: TextStyle(color: ext.iconColor, fontSize: 12),
-              ),
-            )
-          else
-            for (int i = 0; i < findings.length; i++) ...[
-              if (i > 0) const Divider(color: Color(0xFF242428), height: 1),
-              _buildWorkbenchTableRow(
-                context,
-                findings[i],
-                ext,
-                isSelected:
-                    selectedCveId != null && selectedCveId == findings[i].cveId,
-              ),
-            ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildWorkbenchTableRow(
-    BuildContext context,
-    VulnFinding finding,
-    AppThemeExtension ext, {
-    required bool isSelected,
-  }) {
-    final color = severityColor(finding.severity);
-    final matched = finding.isMatched;
-    return InkWell(
-      onTap: onAskFinding == null ? null : () => onAskFinding!(finding),
-      child: Container(
-        color: isSelected ? const Color(0xFF23252B) : Colors.transparent,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Expanded(
-              flex: 3,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      if (color != null && finding.severity != null) ...[
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 7, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: color,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Text(
-                            finding.severity!.toUpperCase(),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                      ],
-                      Flexible(
-                        child: Text(
-                          finding.cveId,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '${finding.package}${finding.version != null ? ' ${finding.version}' : ''}',
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Color(0xFFA1A1AA),
-                      fontSize: 11.5,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              flex: 2,
-              child: Wrap(
-                spacing: 6,
-                runSpacing: 4,
-                children: [
-                  if (finding.kev)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 7, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF8B7CF6),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Text(
-                        'KEV',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                  if (finding.epssScore != null)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 7, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF6D28D9),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Text(
-                        'EPSS ${(finding.epssScore! * 100).toStringAsFixed(1)}%',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
-                          fontFeatures: [FontFeature.tabularFigures()],
-                        ),
-                      ),
-                    ),
-                  if (!finding.kev && finding.epssScore == null)
-                    const Text(
-                      '—',
-                      style: TextStyle(color: Color(0xFF71717A), fontSize: 12),
-                    ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              flex: 3,
-              child: _buildReachabilityColumn(finding),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              flex: 2,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (finding.cweIds.isNotEmpty)
-                    Wrap(
-                      spacing: 4,
-                      runSpacing: 4,
-                      children: finding.cweIds
-                          .take(2)
-                          .map((cwe) => Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 6, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: ext.borderColorStrong,
-                                  borderRadius: BorderRadius.circular(5),
-                                ),
-                                child: Text(
-                                  cwe,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 10,
-                                  ),
-                                ),
-                              ))
-                          .toList(),
-                    ),
-                  const SizedBox(height: 3),
-                  Text(
-                    matched ? 'Matched' : 'Unknown',
-                    style: TextStyle(
-                      color: matched
-                          ? const Color(0xFF22C55E)
-                          : const Color(0xFFF59E0B),
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            SizedBox(
-              width: 120,
-              child: Wrap(
-                alignment: WrapAlignment.end,
-                spacing: 6,
-                runSpacing: 4,
-                children: [
-                  if (onAskFinding != null)
-                    InkWell(
-                      borderRadius: BorderRadius.circular(6),
-                      onTap: () => onAskFinding!(finding),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: isSelected
-                              ? const Color(0xFF10B981)
-                              : const Color(0xFF27272A),
-                          borderRadius: BorderRadius.circular(6),
-                          border: isSelected
-                              ? null
-                              : Border.all(
-                                  color: const Color(0xFF3F3F46), width: 0.8),
-                        ),
-                        child: Text(
-                          'Ask',
-                          style: TextStyle(
-                            color: isSelected
-                                ? const Color(0xFF0B0F0E)
-                                : const Color(0xFFD4D4D8),
-                            fontSize: 11.5,
-                            fontWeight:
-                                isSelected ? FontWeight.w600 : FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                    ),
-                  if (onInspectPath != null &&
-                      (finding.isReachable ||
-                          finding.reachableInCode.isNotEmpty))
-                    InkWell(
-                      borderRadius: BorderRadius.circular(6),
-                      onTap: () => onInspectPath!(finding),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF2A2A2E),
-                          borderRadius: BorderRadius.circular(6),
-                          border: Border.all(
-                              color: const Color(0xFF3F3F46), width: 0.8),
-                        ),
-                        child: const Text(
-                          'Path',
-                          style: TextStyle(
-                            color: Color(0xFFD4D4D8),
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildReachabilityColumn(VulnFinding finding) {
-    if (!finding.isReachable && finding.reachableInCode.isEmpty) {
-      return const Text(
-        'Not reachable',
-        style: TextStyle(color: Color(0xFF71717A), fontSize: 11.5),
-      );
-    }
-
-    final hops = finding.reachableInCode.isNotEmpty
-        ? finding.reachableInCode.length
-        : finding.reachableFileCount;
-    final topHop = finding.reachableInCode.isNotEmpty
-        ? '${finding.package} → ${finding.reachableInCode.first.qualifiedName}'
-        : null;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _buildEmptyScanHint(AppThemeExtension ext) {
+    return Wrap(
+      spacing: 6,
+      runSpacing: 4,
+      crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-          decoration: BoxDecoration(
-            color: const Color(0xFF064E3B),
-            borderRadius: BorderRadius.circular(6),
-          ),
-          child: Text(
-            'Static Path ($hops ${hops == 1 ? 'hop' : 'hops'})',
-            style: const TextStyle(
-              color: Color(0xFF34D399),
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
+        Icon(Icons.info_outline, size: 14, color: ext.iconColor),
+        Text(
+          'Select an indexed repo or upload an SBOM to scan',
+          style: TextStyle(color: ext.iconColor, fontSize: 12),
         ),
-        if (topHop != null) ...[
-          const SizedBox(height: 3),
-          Text(
-            topHop,
-            overflow: TextOverflow.ellipsis,
-            maxLines: 1,
-            style: const TextStyle(color: Color(0xFFA1A1AA), fontSize: 11),
-          ),
-        ],
-      ],
-    );
-  }
-
-  Widget _buildTableColumnHeader() {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        if (constraints.maxWidth < 640) {
-          return const SizedBox.shrink();
-        }
-        const style = TextStyle(
-          color: Color(0xFF71717A),
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
-          letterSpacing: 0.4,
-        );
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-          margin: const EdgeInsets.only(bottom: 8),
-          decoration: const BoxDecoration(
-            border: Border(
-              bottom: BorderSide(color: Color(0xFF2B2B30), width: 1),
+        if (onOpenRepoXray != null)
+          TextButton(
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            onPressed: onOpenRepoXray,
+            child: const Text(
+              'Open Repo X-Ray',
+              style: TextStyle(fontSize: 12, color: Color(0xFF34D399)),
             ),
           ),
-          child: const Row(
-            children: [
-              Expanded(flex: 3, child: Text('CVE / PACKAGE', style: style)),
-              Expanded(flex: 2, child: Text('KEV / EPSS', style: style)),
-              Expanded(flex: 3, child: Text('REACHABILITY', style: style)),
-              Expanded(flex: 2, child: Text('WEAKNESS', style: style)),
-              SizedBox(
-                width: 120,
-                child: Text('ACTIONS', style: style, textAlign: TextAlign.end),
-              ),
-            ],
-          ),
-        );
-      },
+      ],
     );
   }
 

@@ -28,8 +28,12 @@ class CodeWorkbenchView extends ConsumerStatefulWidget {
 
 class _CodeWorkbenchViewState extends ConsumerState<CodeWorkbenchView> {
   final TextEditingController _repoPathController = TextEditingController();
+  final FocusNode _sidecarComposerFocusNode = FocusNode();
   VulnFinding? _selectedFinding;
   bool _narrowSidecarOpen = false;
+  String? _citationToOpen;
+  int _citationOpenNonce = 0;
+  int _pathHighlightNonce = 0;
 
   @override
   void initState() {
@@ -70,6 +74,7 @@ class _CodeWorkbenchViewState extends ConsumerState<CodeWorkbenchView> {
   @override
   void dispose() {
     _repoPathController.dispose();
+    _sidecarComposerFocusNode.dispose();
     super.dispose();
   }
 
@@ -88,11 +93,34 @@ class _CodeWorkbenchViewState extends ConsumerState<CodeWorkbenchView> {
     }
   }
 
-  void _selectFinding(VulnFinding finding, {required bool isNarrow}) {
+  void _askFinding(VulnFinding finding, {required bool isNarrow}) {
     setState(() {
       _selectedFinding = finding;
       if (isNarrow) {
         _narrowSidecarOpen = true;
+      }
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _sidecarComposerFocusNode.requestFocus();
+      }
+    });
+  }
+
+  void _inspectPath(VulnFinding finding, {required bool isNarrow}) {
+    final topPath = finding.reachableInCode.isNotEmpty
+        ? finding.reachableInCode.first.path
+        : null;
+    setState(() {
+      _selectedFinding = finding;
+      if (isNarrow) {
+        _narrowSidecarOpen = true;
+      }
+      if (topPath != null && topPath.isNotEmpty) {
+        _citationToOpen = topPath;
+        _citationOpenNonce++;
+      } else {
+        _pathHighlightNonce++;
       }
     });
   }
@@ -171,9 +199,12 @@ class _CodeWorkbenchViewState extends ConsumerState<CodeWorkbenchView> {
                             workbenchMode: true,
                             selectedCveId: activeFinding?.cveId,
                             onAskFinding: (f) =>
-                                _selectFinding(f, isNarrow: !isWideDesktop),
+                                _askFinding(f, isNarrow: !isWideDesktop),
                             onInspectPath: (f) =>
-                                _selectFinding(f, isNarrow: !isWideDesktop),
+                                _inspectPath(f, isNarrow: !isWideDesktop),
+                            onOpenRepoXray: () => ref
+                                .read(codeSubViewProvider.notifier)
+                                .state = CodeSubView.repoXray,
                           ),
                         ),
                         SingleChildScrollView(
@@ -206,7 +237,14 @@ class _CodeWorkbenchViewState extends ConsumerState<CodeWorkbenchView> {
                 ],
               ),
             ),
-            if (isWideDesktop) AskVeraxiSidecar(finding: activeFinding),
+            if (isWideDesktop)
+              AskVeraxiSidecar(
+                finding: activeFinding,
+                composerFocusNode: _sidecarComposerFocusNode,
+                citationToOpen: _citationToOpen,
+                citationOpenNonce: _citationOpenNonce,
+                pathHighlightNonce: _pathHighlightNonce,
+              ),
           ],
         ),
         if (!isWideDesktop && _narrowSidecarOpen)
@@ -220,6 +258,10 @@ class _CodeWorkbenchViewState extends ConsumerState<CodeWorkbenchView> {
                   onTap: () {},
                   child: AskVeraxiSidecar(
                     finding: activeFinding,
+                    composerFocusNode: _sidecarComposerFocusNode,
+                    citationToOpen: _citationToOpen,
+                    citationOpenNonce: _citationOpenNonce,
+                    pathHighlightNonce: _pathHighlightNonce,
                     onClose: () => setState(() => _narrowSidecarOpen = false),
                   ),
                 ),

@@ -43,7 +43,6 @@ class CodeCitationViewer extends ConsumerStatefulWidget {
 class _CodeCitationViewerState extends ConsumerState<CodeCitationViewer> {
   late final ScrollController _scrollController;
   bool _ownsScrollController = false;
-  bool _didScrollToCitedLine = false;
 
   @override
   void initState() {
@@ -63,22 +62,6 @@ class _CodeCitationViewerState extends ConsumerState<CodeCitationViewer> {
       _scrollController.dispose();
     }
     super.dispose();
-  }
-
-  /// Scroll once, after the first frame with content, so the first
-  /// cited line sits near the top with two context lines above it
-  /// when they exist.
-  void _scheduleScrollToCitedLine(CodeFileContent content) {
-    if (_didScrollToCitedLine) return;
-    _didScrollToCitedLine = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || !_scrollController.hasClients) return;
-      final citedIndex = widget.target.startLine - content.startLine;
-      if (citedIndex <= 0) return;
-      final desired = (citedIndex - 2) * CodeCitationViewer.lineHeight;
-      final maxExtent = _scrollController.position.maxScrollExtent;
-      _scrollController.jumpTo(desired.clamp(0.0, maxExtent));
-    });
   }
 
   @override
@@ -105,13 +88,13 @@ class _CodeCitationViewerState extends ConsumerState<CodeCitationViewer> {
           Expanded(
             child: asyncContent.when(
               data: (content) {
-                _scheduleScrollToCitedLine(content);
                 return CodeLinesView(
                   lines: content.lines,
                   startLine: content.startLine,
                   highlightStartLine: widget.target.startLine,
                   highlightEndLine: widget.target.effectiveEndLine,
                   scrollController: _scrollController,
+                  autoScrollToHighlight: true,
                 );
               },
               loading: () => const Center(child: CircularProgressIndicator()),

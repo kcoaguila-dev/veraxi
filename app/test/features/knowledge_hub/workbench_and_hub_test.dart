@@ -18,6 +18,7 @@ import 'package:veraxi_app/features/chat/views/chat_screen.dart';
 import 'package:veraxi_app/features/knowledge_hub/data/code_intel_repository.dart';
 import 'package:veraxi_app/features/knowledge_hub/data/knowledge_hub_repository.dart';
 import 'package:veraxi_app/features/knowledge_hub/views/knowledge_hub_screen.dart';
+import 'package:veraxi_app/features/knowledge_hub/views/widgets/vuln_workbench_table.dart';
 
 class _MockChatRepository extends Mock implements IChatRepository {
   @override
@@ -125,6 +126,7 @@ class _FakeKnowledgeHubRepository extends KnowledgeHubRepository {
 class _FakeCodeIntelRepository extends CodeIntelRepository {
   final List<Map<String, dynamic>> reposToReturn;
   final String streamedSourcePath;
+  final Map<String, dynamic> Function(String path)? fileResponseBuilder;
   String? lastSidecarModel;
   String? lastScanRepoPath;
 
@@ -140,6 +142,7 @@ class _FakeCodeIntelRepository extends CodeIntelRepository {
       },
     ],
     this.streamedSourcePath = 'routes.py',
+    this.fileResponseBuilder,
   }) : super(
           apiClient: ApiClient(
             baseUrl: 'https://api.test/api',
@@ -151,14 +154,19 @@ class _FakeCodeIntelRepository extends CodeIntelRepository {
   Future<List<Map<String, dynamic>>> fetchIndexedRepos() async => reposToReturn;
 
   @override
-  Future<Map<String, dynamic>> fetchIndexedFile(String path) async => {
-        'path': path,
-        'source': 'file',
-        'language': 'python',
-        'start_line': 1,
-        'line_count': 2,
-        'content': 'def ingest_route(upload):\n    return parse_tar(upload)',
-      };
+  Future<Map<String, dynamic>> fetchIndexedFile(String path) async {
+    if (fileResponseBuilder != null) {
+      return fileResponseBuilder!(path);
+    }
+    return {
+      'path': path,
+      'source': 'file',
+      'language': 'python',
+      'start_line': 1,
+      'line_count': 2,
+      'content': 'def ingest_route(upload):\n    return parse_tar(upload)',
+    };
+  }
 
   @override
   Stream<Map<String, dynamic>> streamSidecarAsk({
@@ -618,5 +626,189 @@ void main() {
       ),
     );
     expect(highlightedContainers.length, 2);
+  });
+
+  testWidgets(
+      'Code Mode shows single Vulnerability Intel heading, aligned VulnWorkbenchTable without dead header margin, and empty-tenant scan guard',
+      (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(1440, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    final chatVm = _StubChatViewModel(ChatState(messages: []));
+    final emptyCodeRepo = _FakeCodeIntelRepository(reposToReturn: const []);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          chatViewModelProvider.overrideWith((ref) => chatVm),
+          codeIntelRepositoryProvider.overrideWithValue(emptyCodeRepo),
+          workspaceModeProvider.overrideWith((ref) => WorkspaceMode.code),
+        ],
+        child: MaterialApp(
+          theme: AppTheme.darkTheme,
+          home: const ChatScreen(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Single heading in Code Mode (header bar only, not duplicated in VulnIntelPanel).
+    expect(find.text('Vulnerability Intel'), findsOneWidget);
+
+    // Empty-tenant scan guard: guidance hint renders and Run Vulnerability Scan is disabled.
+    expect(
+      find.text('Select an indexed repo or upload an SBOM to scan'),
+      findsOneWidget,
+    );
+    final scanFinder = find.widgetWithText(
+      ElevatedButton,
+      'Run Vulnerability Scan',
+    );
+    final scanButton = tester.widget<ElevatedButton>(scanFinder);
+    expect(scanButton.onPressed, isNull);
+    await tester.tap(scanFinder);
+    await tester.pumpAndSettle();
+    expect(emptyCodeRepo.lastScanRepoPath, isNull);
+
+    // Now test with an indexed repo: scan enabled + table column header alignment.
+    final codeRepo = _FakeCodeIntelRepository();
+    final chatVm2 = _StubChatViewModel(ChatState(messages: []));
+    await tester.pumpWidget(
+      ProviderScope(
+        key: UniqueKey(),
+        overrides: [
+          chatViewModelProvider.overrideWith((ref) => chatVm2),
+          codeIntelRepositoryProvider.overrideWithValue(codeRepo),
+          workspaceModeProvider.overrideWith((ref) => WorkspaceMode.code),
+        ],
+        child: MaterialApp(
+          theme: AppTheme.darkTheme,
+          home: const ChatScreen(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Run Vulnerability Scan'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(VulnWorkbenchTable), findsOneWidget);
+    final headerTextFinder = find.text('CVE / PACKAGE');
+    expect(headerTextFinder, findsOneWidget);
+    final headerContainer = tester.widget<Container>(
+      find
+          .ancestor(
+            of: headerTextFinder,
+            matching: find.byWidgetPredicate(
+              (w) =>
+                  w is Container &&
+                  w.decoration is BoxDecoration &&
+                  (w.decoration as BoxDecoration).border != null,
+            ),
+          )
+          .first,
+    );
+    expect(headerContainer.margin, isNull);
+
+    final headerRow = tester.widget<Row>(
+      find.ancestor(of: headerTextFinder, matching: find.byType(Row)).first,
+    );
+    final spacerCount = headerRow.children
+        .whereType<SizedBox>()
+        .where((b) => b.width == 8)
+        .length;
+    expect(spacerCount, 3);
+  });
+
+  testWidgets(
+      'Sidecar auto-scrolls to cited line #L45-L48, Path opens citation directly, and AST hops are clickable',
+      (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(1440, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    final sixtyLines = List.generate(
+      60,
+      (i) => 'def line_${i + 1}(payload): return payload',
+    ).join('\n');
+
+    final chatVm = _StubChatViewModel(ChatState(messages: []));
+    final codeRepo = _FakeCodeIntelRepository(
+      streamedSourcePath: 'routes.py#L45-L48',
+      fileResponseBuilder: (path) => {
+        'path': path,
+        'source': 'file',
+        'language': 'python',
+        'start_line': 1,
+        'line_count': 60,
+        'content': sixtyLines,
+      },
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          chatViewModelProvider.overrideWith((ref) => chatVm),
+          codeIntelRepositoryProvider.overrideWithValue(codeRepo),
+          workspaceModeProvider.overrideWith((ref) => WorkspaceMode.code),
+        ],
+        child: MaterialApp(
+          theme: AppTheme.darkTheme,
+          home: const ChatScreen(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Run Vulnerability Scan'));
+    await tester.pumpAndSettle();
+
+    // 1. Tapping Path on a reachable row opens the code citation dialog for routes.py directly.
+    await tester.tap(find.text('Path').first);
+    await tester.pumpAndSettle();
+    expect(find.byType(Dialog), findsOneWidget);
+    expect(find.text('routes.py'), findsOneWidget);
+    await tester.tap(find.descendant(
+      of: find.byType(Dialog),
+      matching: find.byIcon(Icons.close),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.byType(Dialog), findsNothing);
+
+    // 2. Tapping an AST hop inside _buildPathCard opens the code citation dialog for that hop's path.
+    await tester.tap(
+      find.textContaining('fastapi_app.ingest_route', findRichText: true).last,
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(Dialog), findsOneWidget);
+    expect(find.text('routes.py'), findsOneWidget);
+    await tester.tap(find.descendant(
+      of: find.byType(Dialog),
+      matching: find.byIcon(Icons.close),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.byType(Dialog), findsNothing);
+
+    // 3. Auto-scroll to cited line #L45-L48 in AskVeraxiSidecar.
+    await tester.tap(find.text('What input reaches this symbol?'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('routes.py#L45-L48'));
+    await tester.pumpAndSettle();
+
+    final listView = tester.widget<ListView>(
+      find.descendant(
+        of: find.byType(CodeLinesView),
+        matching: find.byType(ListView),
+      ),
+    );
+    expect(listView.controller, isNotNull);
+    expect(listView.controller!.offset, greaterThan(0.0));
   });
 }

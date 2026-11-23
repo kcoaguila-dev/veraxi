@@ -11,11 +11,19 @@ import 'package:veraxi_app/features/knowledge_hub/view_models/sidecar_qa_provide
 class AskVeraxiSidecar extends ConsumerStatefulWidget {
   final VulnFinding? finding;
   final VoidCallback? onClose;
+  final FocusNode? composerFocusNode;
+  final String? citationToOpen;
+  final int citationOpenNonce;
+  final int pathHighlightNonce;
 
   const AskVeraxiSidecar({
     super.key,
     required this.finding,
     this.onClose,
+    this.composerFocusNode,
+    this.citationToOpen,
+    this.citationOpenNonce = 0,
+    this.pathHighlightNonce = 0,
   });
 
   @override
@@ -24,10 +32,58 @@ class AskVeraxiSidecar extends ConsumerStatefulWidget {
 
 class _AskVeraxiSidecarState extends ConsumerState<AskVeraxiSidecar> {
   final TextEditingController _promptController = TextEditingController();
+  final ScrollController _listScrollController = ScrollController();
+  bool _pathHighlighted = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.citationOpenNonce > 0 && widget.citationToOpen != null) {
+      final path = widget.citationToOpen!;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _openCodeCitation(path);
+      });
+    } else if (widget.pathHighlightNonce > 0) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _triggerPathHighlight();
+      });
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant AskVeraxiSidecar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.citationOpenNonce != oldWidget.citationOpenNonce &&
+        widget.citationToOpen != null) {
+      final path = widget.citationToOpen!;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _openCodeCitation(path);
+      });
+    } else if (widget.pathHighlightNonce != oldWidget.pathHighlightNonce) {
+      _triggerPathHighlight();
+    }
+  }
+
+  void _triggerPathHighlight() {
+    if (_listScrollController.hasClients) {
+      _listScrollController.animateTo(
+        0,
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOut,
+      );
+    }
+    setState(() => _pathHighlighted = true);
+    Future<void>.delayed(const Duration(milliseconds: 900), () {
+      if (mounted) {
+        setState(() => _pathHighlighted = false);
+      }
+    });
+  }
 
   @override
   void dispose() {
     _promptController.dispose();
+    _listScrollController.dispose();
     super.dispose();
   }
 
@@ -173,6 +229,7 @@ class _AskVeraxiSidecarState extends ConsumerState<AskVeraxiSidecar> {
                           highlightStartLine: parsed.startLine,
                           highlightEndLine: parsed.endLine ?? parsed.startLine,
                           codeTextColor: const Color(0xFFD4D4D8),
+                          autoScrollToHighlight: true,
                         ),
                       )
                     : Center(
@@ -212,6 +269,7 @@ class _AskVeraxiSidecarState extends ConsumerState<AskVeraxiSidecar> {
           _buildHeader(finding),
           Expanded(
             child: ListView(
+              controller: _listScrollController,
               padding: const EdgeInsets.all(16),
               children: [
                 _buildPathCard(finding),
@@ -321,14 +379,71 @@ class _AskVeraxiSidecarState extends ConsumerState<AskVeraxiSidecar> {
     );
   }
 
+  Widget _buildReachableHopRow(ImpactedSymbol hit, int depth) {
+    final hasPath = hit.path != null && hit.path!.isNotEmpty;
+    final row = Padding(
+      padding: EdgeInsets.only(left: (depth + 1) * 10.0, top: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Expanded(
+            child: RichText(
+              text: TextSpan(
+                style: const TextStyle(
+                  fontFamily: 'monospace',
+                  fontSize: 11,
+                  color: Color(0xFF71717A),
+                ),
+                children: [
+                  TextSpan(text: '—[${hit.viaEdge ?? 'CALLS'}]→ '),
+                  TextSpan(
+                    text: hit.qualifiedName,
+                    style: TextStyle(
+                      color: hasPath
+                          ? const Color(0xFFBFD7FB)
+                          : const Color(0xFFE4E4E7),
+                      decoration: hasPath
+                          ? TextDecoration.underline
+                          : TextDecoration.none,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (hasPath) ...[
+            const SizedBox(width: 6),
+            const Icon(
+              Icons.code,
+              size: 12,
+              color: Color(0xFF4F8EF7),
+            ),
+          ],
+        ],
+      ),
+    );
+    if (!hasPath) return row;
+    return InkWell(
+      borderRadius: BorderRadius.circular(4),
+      onTap: () => _openCodeCitation(hit.path!),
+      child: row,
+    );
+  }
+
   Widget _buildPathCard(VulnFinding? finding) {
-    return Container(
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
       width: double.infinity,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: const Color(0xFF1F1F23),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFF2E2E34)),
+        border: Border.all(
+          color: _pathHighlighted
+              ? const Color(0xFF34D399)
+              : const Color(0xFF2E2E34),
+          width: _pathHighlighted ? 1.4 : 1,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -363,28 +478,7 @@ class _AskVeraxiSidecarState extends ConsumerState<AskVeraxiSidecar> {
                 for (int i = 0;
                     i < finding.reachableInCode.length && i < 3;
                     i++)
-                  Padding(
-                    padding: EdgeInsets.only(left: (i + 1) * 10.0, top: 4),
-                    child: RichText(
-                      text: TextSpan(
-                        style: const TextStyle(
-                          fontFamily: 'monospace',
-                          fontSize: 11,
-                          color: Color(0xFF71717A),
-                        ),
-                        children: [
-                          TextSpan(
-                            text:
-                                '—[${finding.reachableInCode[i].viaEdge ?? 'CALLS'}]→ ',
-                          ),
-                          TextSpan(
-                            text: finding.reachableInCode[i].qualifiedName,
-                            style: const TextStyle(color: Color(0xFFE4E4E7)),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
+                  _buildReachableHopRow(finding.reachableInCode[i], i),
                 Padding(
                   padding: const EdgeInsets.only(left: 24, top: 4),
                   child: RichText(
@@ -570,6 +664,7 @@ class _AskVeraxiSidecarState extends ConsumerState<AskVeraxiSidecar> {
           children: [
             TextField(
               controller: _promptController,
+              focusNode: widget.composerFocusNode,
               style: const TextStyle(color: Color(0xFFF4F4F5), fontSize: 13),
               decoration: InputDecoration(
                 isDense: true,

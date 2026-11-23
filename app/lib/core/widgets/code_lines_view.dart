@@ -39,13 +39,14 @@ class CodeSourceBadge extends StatelessWidget {
 /// Pure presentational renderer for plain-text monospace code lines with
 /// fixed-height rows, tabular right-aligned gutter numbers, horizontal scroll,
 /// and an optional highlighted line range band.
-class CodeLinesView extends StatelessWidget {
+class CodeLinesView extends StatefulWidget {
   final List<String> lines;
   final int startLine;
   final int? highlightStartLine;
   final int? highlightEndLine;
   final ScrollController? scrollController;
   final Color? codeTextColor;
+  final bool autoScrollToHighlight;
 
   /// Accent used for the cited-range band and cited gutter numbers.
   static const Color accentColor = Color(0xFF4F8EF7);
@@ -66,7 +67,66 @@ class CodeLinesView extends StatelessWidget {
     this.highlightEndLine,
     this.scrollController,
     this.codeTextColor,
+    this.autoScrollToHighlight = false,
   });
+
+  @override
+  State<CodeLinesView> createState() => _CodeLinesViewState();
+}
+
+class _CodeLinesViewState extends State<CodeLinesView> {
+  ScrollController? _ownedController;
+  String? _lastScrolledKey;
+
+  ScrollController get _effectiveController =>
+      widget.scrollController ?? (_ownedController ??= ScrollController());
+
+  @override
+  void initState() {
+    super.initState();
+    _scheduleScrollToHighlight();
+  }
+
+  @override
+  void didUpdateWidget(covariant CodeLinesView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.scrollController == null && widget.scrollController != null) {
+      _ownedController?.dispose();
+      _ownedController = null;
+    }
+    if (oldWidget.autoScrollToHighlight != widget.autoScrollToHighlight ||
+        oldWidget.highlightStartLine != widget.highlightStartLine ||
+        oldWidget.startLine != widget.startLine ||
+        oldWidget.lines.length != widget.lines.length) {
+      _scheduleScrollToHighlight();
+    }
+  }
+
+  @override
+  void dispose() {
+    _ownedController?.dispose();
+    super.dispose();
+  }
+
+  void _scheduleScrollToHighlight() {
+    if (!widget.autoScrollToHighlight || widget.highlightStartLine == null) {
+      return;
+    }
+    final key =
+        '${widget.startLine}:${widget.highlightStartLine}:${widget.lines.length}';
+    if (_lastScrolledKey == key) return;
+    _lastScrolledKey = key;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_effectiveController.hasClients) return;
+      final citedIndex = widget.highlightStartLine! - widget.startLine;
+      if (citedIndex > 0) {
+        final desired = math.max(0, citedIndex - 2) * CodeLinesView.lineHeight;
+        _effectiveController.jumpTo(
+          desired.clamp(0.0, _effectiveController.position.maxScrollExtent),
+        );
+      }
+    });
+  }
 
   double _gutterWidthFor(int lastLine) {
     final digits = '$lastLine'.length;
@@ -75,25 +135,27 @@ class CodeLinesView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final lastLine = lines.isEmpty ? startLine : startLine + lines.length - 1;
+    final lastLine = widget.lines.isEmpty
+        ? widget.startLine
+        : widget.startLine + widget.lines.length - 1;
     final gutterWidth = _gutterWidthFor(lastLine);
     final longestLine =
-        lines.fold<int>(0, (m, l) => l.length > m ? l.length : m);
+        widget.lines.fold<int>(0, (m, l) => l.length > m ? l.length : m);
     final muted = Theme.of(context).textTheme.bodySmall?.color ??
         const Color(0xFF8C8C8C);
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final textWidth = gutterWidth + 14 + longestLine * _charWidth + 16;
+        final textWidth = gutterWidth + 14 + longestLine * CodeLinesView._charWidth + 16;
         final width = math.max(constraints.maxWidth, textWidth);
         return SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: SizedBox(
             width: width,
             child: ListView.builder(
-              controller: scrollController,
-              itemExtent: lineHeight,
-              itemCount: lines.length,
+              controller: _effectiveController,
+              itemExtent: CodeLinesView.lineHeight,
+              itemCount: widget.lines.length,
               itemBuilder: (context, index) => _buildLineRow(
                 index: index,
                 gutterWidth: gutterWidth,
@@ -111,18 +173,19 @@ class CodeLinesView extends StatelessWidget {
     required double gutterWidth,
     required Color muted,
   }) {
-    final lineNumber = startLine + index;
-    final cited = highlightStartLine != null &&
-        lineNumber >= highlightStartLine! &&
-        lineNumber <= (highlightEndLine ?? highlightStartLine!);
+    final lineNumber = widget.startLine + index;
+    final cited = widget.highlightStartLine != null &&
+        lineNumber >= widget.highlightStartLine! &&
+        lineNumber <=
+            (widget.highlightEndLine ?? widget.highlightStartLine!);
     return Container(
-      color: cited ? citedBandColor : null,
+      color: cited ? CodeLinesView.citedBandColor : null,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Container(
             width: 2,
-            color: cited ? accentColor : Colors.transparent,
+            color: cited ? CodeLinesView.accentColor : Colors.transparent,
           ),
           SizedBox(
             width: gutterWidth,
@@ -133,19 +196,19 @@ class CodeLinesView extends StatelessWidget {
                 fontFamily: 'monospace',
                 fontSize: 12,
                 fontWeight: cited ? FontWeight.w600 : FontWeight.normal,
-                color: cited ? accentColor : muted,
+                color: cited ? CodeLinesView.accentColor : muted,
                 fontFeatures: const [FontFeature.tabularFigures()],
               ),
             ),
           ),
           const SizedBox(width: 12),
           Text(
-            lines[index],
+            widget.lines[index],
             softWrap: false,
             style: TextStyle(
               fontFamily: 'monospace',
               fontSize: 12.5,
-              color: codeTextColor,
+              color: widget.codeTextColor,
             ),
           ),
         ],
