@@ -20,6 +20,37 @@ _CLIENT_CACHE: dict[tuple[str, str | None], Any] = {}
 _INITIALIZED_COLLECTIONS: set[tuple[str, str, int]] = set()
 
 
+def scope_filter_values(
+    source_scope: dict | None,
+) -> tuple[list[str], list[str]]:
+    """Extract (repo_keys, source_ids) from a Code Mode source_scope.
+
+    Accepts ``repo_key`` (str) / ``repo_keys`` (list) and
+    ``source_id`` (str) / ``source_ids`` (list); a ``selected_sources``
+    sub-dict in the same shapes is merged in. Anything else is ignored.
+    """
+    repo_keys: list[str] = []
+    source_ids: list[str] = []
+
+    def _collect(scope: dict | None) -> None:
+        if not isinstance(scope, dict):
+            return
+        for key, bucket in (("repo_key", repo_keys), ("source_id", source_ids)):
+            value = scope.get(key)
+            if isinstance(value, str) and value and value not in bucket:
+                bucket.append(value)
+            plural = scope.get(f"{key}s")
+            if isinstance(plural, (list, tuple)):
+                for item in plural:
+                    if isinstance(item, str) and item and item not in bucket:
+                        bucket.append(item)
+
+    if isinstance(source_scope, dict):
+        _collect(source_scope)
+        _collect(source_scope.get("selected_sources"))
+    return repo_keys, source_ids
+
+
 def close_all_qdrant_clients():
     """Explicitly close all cached Qdrant clients (e.g. during app shutdown)."""
     for client in list(_CLIENT_CACHE.values()):
@@ -321,6 +352,7 @@ class QdrantStorageClient:
         sparse_query_vector: dict,
         limit: int = 10,
         tenant_id: str = "default",
+        source_scope: dict | None = None,
     ) -> list[dict[str, Any]]:
         """Search for similar vectors using Hybrid Search (Dense + Sparse with RRF)."""
         from qdrant_client.http import models
@@ -343,6 +375,35 @@ class QdrantStorageClient:
                 ),
             ]
         )
+
+        # Code Mode source scoping: when the caller scopes the search
+        # to repo(s)/source(s), the tenant filter is kept AND narrowed
+        # with a MatchAny payload filter on repo_key / source_id.
+        # Public shared intel is not repo-scoped, so a scoped search
+        # deliberately searches only the tenant's own scoped points.
+        repo_keys, source_ids = scope_filter_values(source_scope)
+        if repo_keys or source_ids:
+            scope_conditions = []
+            if repo_keys:
+                scope_conditions.append(
+                    models.FieldCondition(
+                        key="repo_key", match=models.MatchAny(any=repo_keys)
+                    )
+                )
+            if source_ids:
+                scope_conditions.append(
+                    models.FieldCondition(
+                        key="source_id", match=models.MatchAny(any=source_ids)
+                    )
+                )
+            query_filter = models.Filter(
+                must=[
+                    models.FieldCondition(
+                        key="tenant_id", match=models.MatchValue(value=tenant_id)
+                    ),
+                    models.Filter(should=scope_conditions),
+                ]
+            )
 
         from qdrant_client.http.exceptions import UnexpectedResponse
 

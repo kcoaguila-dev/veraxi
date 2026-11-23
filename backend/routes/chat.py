@@ -58,6 +58,23 @@ class ChatRequest(BaseModel):
     tool_settings: dict | None = None
     custom_system_prompt: str | None = None
     mode: str = "fast"
+    # Code Mode (Phase 1) — all optional / defaulted so existing chat
+    # clients keep working unchanged.
+    workspace_mode: Literal["chat", "code"] = "chat"
+    repo_key: str | None = None
+    branch: str | None = None
+    thinking_level: Literal["low", "medium", "high"] | None = None
+    execution_mode: Literal["plan", "act"] = "act"
+    autonomy_mode: (
+        Literal[
+            "ask_all",
+            "auto_read_test",
+            "auto_workspace_writes",
+            "autonomous",
+        ]
+        | None
+    ) = None
+    source_scope: dict | None = None
 
 
 class ChatResponse(BaseModel):
@@ -755,7 +772,103 @@ def _prepare_duplicated_messages(raw_messages: list[Any]) -> list[Any]:
     return copied_messages
 
 
-def _build_thread_list(threads, titles, pinned, archived, projects, timestamps):
+def _default_code_meta() -> dict[str, Any]:
+    """Code Mode metadata for a plain chat thread."""
+    return {
+        "workspace_mode": "chat",
+        "repo_key": None,
+        "branch": None,
+        "selected_sources": {},
+    }
+
+
+def _parse_code_meta(raw: Any) -> dict[str, Any]:
+    """Parse one ``thread_code_meta`` hash value (JSON) fail-soft.
+
+    Anything missing or malformed degrades to the chat defaults —
+    a thread predating Code Mode is a chat thread, never an error.
+    """
+    meta = _default_code_meta()
+    if raw is None:
+        return meta
+    if isinstance(raw, bytes):
+        raw = raw.decode("utf-8", errors="replace")
+    try:
+        parsed = json.loads(raw) if isinstance(raw, str) else raw
+    except (ValueError, TypeError):
+        return meta
+    if not isinstance(parsed, dict):
+        return meta
+    if parsed.get("workspace_mode") in ("chat", "code"):
+        meta["workspace_mode"] = parsed["workspace_mode"]
+    if isinstance(parsed.get("repo_key"), str) and parsed["repo_key"]:
+        meta["repo_key"] = parsed["repo_key"]
+    if isinstance(parsed.get("branch"), str) and parsed["branch"]:
+        meta["branch"] = parsed["branch"]
+    if isinstance(parsed.get("selected_sources"), dict):
+        meta["selected_sources"] = parsed["selected_sources"]
+    return meta
+
+
+def _code_meta_from_request(chat_request: ChatRequest) -> dict[str, Any]:
+    """Code Mode metadata carried by one chat request.
+
+    ``source_scope`` doubles as the thread's ``selected_sources``:
+    it is the client-visible selection of repos/sources the thread
+    is scoped to.
+    """
+    return {
+        "workspace_mode": getattr(chat_request, "workspace_mode", None) or "chat",
+        "repo_key": getattr(chat_request, "repo_key", None),
+        "branch": getattr(chat_request, "branch", None),
+        "selected_sources": getattr(chat_request, "source_scope", None) or {},
+    }
+
+
+async def _save_thread_code_meta(redis, tenant_id: str, thread_id: str, meta: dict) -> None:
+    """Persist code meta in the ``thread_code_meta`` Redis hash.
+
+    Written from the same code path that writes ``thread_projects`` /
+    ``thread_timestamps`` on thread create/update, so the hash always
+    reflects the latest request for the thread. The durable mirror is
+    the Supabase ``thread_metadata`` table (migration 008).
+    """
+    await redis.hset(
+        f"tenant:{tenant_id}:thread_code_meta", thread_id, json.dumps(meta)
+    )
+
+
+def _effective_tool_settings(chat_request: ChatRequest) -> dict:
+    """tool_settings plus the Code Mode fields the orchestrator reads.
+
+    The orchestrator / tool dispatch receive everything through
+    ``tool_settings`` (AgentState), so the Phase 1 fields are merged
+    in here — explicitly-set request fields win over anything the
+    client put in the raw tool_settings dict.
+    """
+    ts = dict(chat_request.tool_settings or {})
+    # getattr throughout: lightweight request doubles (SimpleNamespace
+    # in tests) may not carry the Code Mode fields at all.
+    ts["workspace_mode"] = getattr(chat_request, "workspace_mode", None) or "chat"
+    ts["execution_mode"] = getattr(chat_request, "execution_mode", None) or "act"
+    if getattr(chat_request, "repo_key", None) is not None:
+        ts["repo_key"] = chat_request.repo_key
+    if getattr(chat_request, "branch", None) is not None:
+        ts["branch"] = chat_request.branch
+    if getattr(chat_request, "thinking_level", None) is not None:
+        ts["thinking_level"] = chat_request.thinking_level
+    if getattr(chat_request, "autonomy_mode", None) is not None:
+        ts["sandbox_autonomy_mode"] = chat_request.autonomy_mode
+    if getattr(chat_request, "source_scope", None) is not None:
+        ts["source_scope"] = chat_request.source_scope
+    if getattr(chat_request, "custom_system_prompt", None):
+        ts["custom_system_prompt"] = chat_request.custom_system_prompt
+    return ts
+
+
+def _build_thread_list(
+    threads, titles, pinned, archived, projects, timestamps, code_meta=None
+):
     thread_list = []
     for t in threads:
         tid = t.decode("utf-8")
@@ -764,6 +877,7 @@ def _build_thread_list(threads, titles, pinned, archived, projects, timestamps):
             ts = float(timestamps.get(t, b"0").decode("utf-8"))
         except ValueError:
             ts = 0.0
+        meta = _parse_code_meta((code_meta or {}).get(t))
         thread_list.append(
             {
                 "thread_id": tid,
@@ -771,6 +885,10 @@ def _build_thread_list(threads, titles, pinned, archived, projects, timestamps):
                 "is_pinned": t in pinned,
                 "is_archived": t in archived,
                 "project_id": projects.get(t, b"").decode("utf-8") or None,
+                "workspace_mode": meta["workspace_mode"],
+                "repo_key": meta["repo_key"],
+                "branch": meta["branch"],
+                "selected_sources": meta["selected_sources"],
                 "_timestamp": ts,
             }
         )
@@ -840,9 +958,7 @@ async def _stream_events(
         _active_thread_generations.add(thread_id)
     try:
         yield f"data: {json.dumps({'event': 'metadata', 'data': {'thread_id': thread_id}})}\n\n"
-        ts = chat_request.tool_settings or {}
-        if chat_request.custom_system_prompt:
-            ts["custom_system_prompt"] = chat_request.custom_system_prompt
+        ts = _effective_tool_settings(chat_request)
 
         async for event in stream_answer_question(
             chat_request.question,
@@ -1175,6 +1291,12 @@ def register_chat_routes(
                 await request.app.state.redis.hset(
                     f"tenant:{tenant_id}:thread_timestamps", thread_id, str(time.time())
                 )
+                await _save_thread_code_meta(
+                    request.app.state.redis,
+                    tenant_id,
+                    thread_id,
+                    _code_meta_from_request(chat_request),
+                )
                 if added == 1:
                     initial_title = (
                         chat_request.question[:40] + "..."
@@ -1207,10 +1329,8 @@ def register_chat_routes(
                     ),
                     media_type="text/event-stream",
                 )
-            # Inject custom_system_prompt into tool_settings
-            ts = chat_request.tool_settings or {}
-            if chat_request.custom_system_prompt:
-                ts["custom_system_prompt"] = chat_request.custom_system_prompt
+            # Inject custom_system_prompt + Code Mode fields into tool_settings
+            ts = _effective_tool_settings(chat_request)
 
             async with _get_thread_mutation_lock(thread_id):
                 _active_thread_generations.add(thread_id)
@@ -1252,8 +1372,17 @@ def register_chat_routes(
             )
 
     @app_router.get("/api/chat/threads")
-    async def list_threads(request: Request, tenant_id: str = Depends(get_tenant_id)):
-        """Returns a list of all thread IDs belonging to the tenant."""
+    async def list_threads(
+        request: Request,
+        workspace_mode: str | None = None,
+        repo_key: str | None = None,
+        tenant_id: str = Depends(get_tenant_id),
+    ):
+        """Returns a list of all thread IDs belonging to the tenant.
+
+        ``workspace_mode`` ('chat' / 'code') and ``repo_key`` query
+        params optionally filter by the thread's Code Mode metadata.
+        """
         logger.info(f"LIST THREADS CALLED FOR TENANT: {tenant_id}")
         # Guest users store threads locally on-device — nothing to return from the server.
         if tenant_id == "local_guest":
@@ -1266,6 +1395,7 @@ def register_chat_routes(
                 archived,
                 projects,
                 timestamps,
+                code_meta,
             ) = await asyncio.gather(
                 request.app.state.redis.smembers(f"tenant:{tenant_id}:threads"),
                 request.app.state.redis.hgetall(f"tenant:{tenant_id}:thread_titles"),
@@ -1273,12 +1403,20 @@ def register_chat_routes(
                 request.app.state.redis.smembers(f"tenant:{tenant_id}:archived_threads"),
                 request.app.state.redis.hgetall(f"tenant:{tenant_id}:thread_projects"),
                 request.app.state.redis.hgetall(f"tenant:{tenant_id}:thread_timestamps"),
+                request.app.state.redis.hgetall(f"tenant:{tenant_id}:thread_code_meta"),
             )
-            return {
-                "threads": _build_thread_list(
-                    threads, titles, pinned, archived, projects, timestamps
-                )
-            }
+            thread_list = _build_thread_list(
+                threads, titles, pinned, archived, projects, timestamps, code_meta
+            )
+            if workspace_mode is not None:
+                thread_list = [
+                    t for t in thread_list if t["workspace_mode"] == workspace_mode
+                ]
+            if repo_key is not None:
+                thread_list = [
+                    t for t in thread_list if t["repo_key"] == repo_key
+                ]
+            return {"threads": thread_list}
         except HTTPException:
             raise
         except Exception as e:
@@ -1924,6 +2062,7 @@ def register_chat_routes(
             request.app.state.redis.hdel(f"tenant:{tenant_id}:thread_projects", thread_id),
             request.app.state.redis.hdel(f"tenant:{tenant_id}:thread_timestamps", thread_id),
             request.app.state.redis.hdel(f"tenant:{tenant_id}:thread_activities", thread_id),
+            request.app.state.redis.hdel(f"tenant:{tenant_id}:thread_code_meta", thread_id),
         )
         await _delete_postgres_checkpoints([thread_id])
         return {"status": "deleted"}
@@ -1945,6 +2084,7 @@ def register_chat_routes(
             request.app.state.redis.delete(f"tenant:{tenant_id}:thread_projects"),
             request.app.state.redis.delete(f"tenant:{tenant_id}:thread_timestamps"),
             request.app.state.redis.delete(f"tenant:{tenant_id}:thread_activities"),
+            request.app.state.redis.delete(f"tenant:{tenant_id}:thread_code_meta"),
         )
         if tids:
             await _delete_postgres_checkpoints(tids)

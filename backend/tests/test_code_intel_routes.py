@@ -772,3 +772,47 @@ class TestCodeFileEndpoint:
             "/api/v1/code/file", params={"path": "pkg/widget.py"}
         )
         assert resp.status_code == 404
+
+
+class TestCodeFilesEndpoint:
+    def test_lists_files_with_scope_params(self, client, monkeypatch):
+        seen = {}
+
+        def fake_list(tenant_id, repo_key=None, q=None, limit=50):
+            seen.update(
+                tenant_id=tenant_id, repo_key=repo_key, q=q, limit=limit
+            )
+            return [
+                {
+                    "path": "pkg/widget.py",
+                    "name": "widget.py",
+                    "language": "python",
+                    "repo_key": "owner/repo",
+                }
+            ]
+
+        monkeypatch.setattr(routes, "list_code_files", fake_list)
+        resp = client.get(
+            "/api/v1/code/files",
+            params={"repo_key": "owner/repo", "q": "Wid", "limit": 10},
+        )
+        assert resp.status_code == 200, resp.text
+        body = resp.json()
+        assert body["files"][0]["path"] == "pkg/widget.py"
+        assert body["files"][0]["repo_key"] == "owner/repo"
+        assert seen == {
+            "tenant_id": "tenant-1",
+            "repo_key": "owner/repo",
+            "q": "Wid",
+            "limit": 10,
+        }
+
+    def test_lists_files_defaults(self, client, monkeypatch):
+        monkeypatch.setattr(
+            routes,
+            "list_code_files",
+            lambda tenant_id, repo_key=None, q=None, limit=50: [],
+        )
+        resp = client.get("/api/v1/code/files")
+        assert resp.status_code == 200
+        assert resp.json() == {"files": []}

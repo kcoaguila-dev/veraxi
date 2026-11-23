@@ -493,3 +493,207 @@ async def test_delete_thread_success(override_redis):
         assert response.status_code == 200
         assert response.json()["status"] == "deleted"
         mock_del_pg.assert_called_once_with(["thread-to-delete"])
+
+
+# ---------------------------------------------------------------------------
+# Code Mode Phase 1: thread_code_meta, ChatRequest fields, thread filters
+# ---------------------------------------------------------------------------
+
+import json as _json
+
+from backend.routes.chat import ChatRequest, _build_thread_list, _parse_code_meta
+
+
+def _b(value):
+    return value.encode() if isinstance(value, str) else value
+
+
+class _StatefulRedis:
+    """In-memory Redis fake with real set/hash semantics (bytes values,
+    mirroring redis-py's wire behaviour)."""
+
+    def __init__(self):
+        self.sets: dict[str, set] = {}
+        self.hashes: dict[str, dict] = {}
+
+    async def sadd(self, key, value):
+        bucket = self.sets.setdefault(key, set())
+        added = 0 if _b(value) in bucket else 1
+        bucket.add(_b(value))
+        return added
+
+    async def srem(self, key, value):
+        self.sets.get(key, set()).discard(_b(value))
+        return 1
+
+    async def smembers(self, key):
+        return set(self.sets.get(key, set()))
+
+    async def sismember(self, key, value):
+        return _b(value) in self.sets.get(key, set())
+
+    async def hset(self, key, field, value=None, **kwargs):
+        if kwargs:
+            self.hashes.setdefault(key, {}).update(
+                {_b(k): _b(v) for k, v in kwargs.items()}
+            )
+            return 1
+        self.hashes.setdefault(key, {})[_b(field)] = _b(value)
+        return 1
+
+    async def hget(self, key, field):
+        return self.hashes.get(key, {}).get(_b(field))
+
+    async def hgetall(self, key):
+        return dict(self.hashes.get(key, {}))
+
+    async def hdel(self, key, field):
+        self.hashes.get(key, {}).pop(_b(field), None)
+        return 1
+
+    async def delete(self, key):
+        self.sets.pop(key, None)
+        self.hashes.pop(key, None)
+        return 1
+
+
+@pytest.fixture
+def stateful_redis(monkeypatch):
+    fake = _StatefulRedis()
+    monkeypatch.setattr(app.state, "redis", fake, raising=False)
+    return fake
+
+
+def test_chat_request_code_mode_defaults_are_backward_compatible():
+    req = ChatRequest(question="hi")
+    assert req.workspace_mode == "chat"
+    assert req.repo_key is None
+    assert req.branch is None
+    assert req.thinking_level is None
+    assert req.execution_mode == "act"
+    assert req.autonomy_mode is None
+    assert req.source_scope is None
+
+
+def test_chat_request_code_mode_validation():
+    req = ChatRequest(
+        question="hi",
+        workspace_mode="code",
+        repo_key="owner/repo",
+        branch="main",
+        thinking_level="high",
+        execution_mode="plan",
+        autonomy_mode="auto_workspace_writes",
+        source_scope={"repo_key": "owner/repo"},
+    )
+    assert req.workspace_mode == "code"
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError):
+        ChatRequest(question="hi", workspace_mode="bogus")
+    with pytest.raises(ValidationError):
+        ChatRequest(question="hi", execution_mode="yolo")
+    with pytest.raises(ValidationError):
+        ChatRequest(question="hi", autonomy_mode="yolo")
+
+
+def test_parse_code_meta_fail_soft():
+    assert _parse_code_meta(None)["workspace_mode"] == "chat"
+    assert _parse_code_meta(b"not json")["workspace_mode"] == "chat"
+    meta = _parse_code_meta(
+        _json.dumps(
+            {
+                "workspace_mode": "code",
+                "repo_key": "owner/repo",
+                "branch": "dev",
+                "selected_sources": {"repo_key": "owner/repo"},
+            }
+        ).encode()
+    )
+    assert meta["workspace_mode"] == "code"
+    assert meta["repo_key"] == "owner/repo"
+    assert meta["selected_sources"] == {"repo_key": "owner/repo"}
+
+
+def test_build_thread_list_includes_code_meta():
+    threads = {b"t1", b"t2"}
+    titles = {b"t1": b"Code thread", b"t2": b"Plain"}
+    timestamps = {b"t1": b"2.0", b"t2": b"1.0"}
+    code_meta = {
+        b"t1": _json.dumps(
+            {
+                "workspace_mode": "code",
+                "repo_key": "owner/repo",
+                "branch": "main",
+                "selected_sources": {},
+            }
+        ).encode()
+    }
+    result = _build_thread_list(threads, titles, set(), set(), {}, timestamps, code_meta)
+    by_id = {t["thread_id"]: t for t in result}
+    assert by_id["t1"]["workspace_mode"] == "code"
+    assert by_id["t1"]["repo_key"] == "owner/repo"
+    assert by_id["t1"]["branch"] == "main"
+    # Threads without code meta degrade to chat defaults.
+    assert by_id["t2"]["workspace_mode"] == "chat"
+    assert by_id["t2"]["repo_key"] is None
+    assert by_id["t2"]["selected_sources"] == {}
+
+
+@pytest.mark.asyncio
+async def test_chat_code_mode_persists_code_meta_and_threads_filter(
+    stateful_redis,
+):
+    with patch(
+        "backend.routes.chat.answer_question", new_callable=AsyncMock
+    ) as mock_answer:
+        mock_answer.return_value = ("ok", "ctx", {"grounding_score": 0.5})
+        response = client.post(
+            "/api/chat",
+            json={
+                "question": "Explain this repo",
+                "stream": False,
+                "model": "test-model",
+                "api_key": "dummy",
+                "thread_id": "code-thread-1",
+                "workspace_mode": "code",
+                "repo_key": "owner/repo",
+                "branch": "main",
+                "thinking_level": "high",
+                "execution_mode": "plan",
+                "autonomy_mode": "auto_workspace_writes",
+                "source_scope": {"repo_key": "owner/repo"},
+            },
+        )
+        assert response.status_code == 200, response.text
+        # Orchestrator received the Code Mode fields via tool_settings.
+        tool_settings = mock_answer.call_args.kwargs["tool_settings"]
+        assert tool_settings["execution_mode"] == "plan"
+        assert tool_settings["thinking_level"] == "high"
+        assert tool_settings["sandbox_autonomy_mode"] == "auto_workspace_writes"
+        assert tool_settings["source_scope"] == {"repo_key": "owner/repo"}
+        assert tool_settings["repo_key"] == "owner/repo"
+
+    raw = await stateful_redis.hget(
+        "tenant:test_tenant_id:thread_code_meta", "code-thread-1"
+    )
+    meta = _json.loads(raw)
+    assert meta["workspace_mode"] == "code"
+    assert meta["repo_key"] == "owner/repo"
+    assert meta["branch"] == "main"
+    assert meta["selected_sources"] == {"repo_key": "owner/repo"}
+
+    # A plain chat thread coexists; filters separate them.
+    await stateful_redis.sadd("tenant:test_tenant_id:threads", "plain-1")
+    listing = client.get("/api/chat/threads")
+    assert listing.status_code == 200
+    by_id = {t["thread_id"]: t for t in listing.json()["threads"]}
+    assert by_id["code-thread-1"]["workspace_mode"] == "code"
+    assert by_id["plain-1"]["workspace_mode"] == "chat"
+
+    code_only = client.get("/api/chat/threads", params={"workspace_mode": "code"})
+    assert [t["thread_id"] for t in code_only.json()["threads"]] == ["code-thread-1"]
+    repo_only = client.get("/api/chat/threads", params={"repo_key": "owner/repo"})
+    assert [t["thread_id"] for t in repo_only.json()["threads"]] == ["code-thread-1"]
+    no_match = client.get("/api/chat/threads", params={"repo_key": "other/repo"})
+    assert no_match.json()["threads"] == []

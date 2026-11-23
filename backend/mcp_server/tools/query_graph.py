@@ -12,7 +12,27 @@ logger = logging.getLogger(__name__)
 MAX_ALLOWED_HOPS = 3
 
 
-def _build_query_graph_params(entity_name: str, tenant_id: str) -> dict:
+def _repo_key_from_scope(source_scope: dict | None) -> str | None:
+    """The single repo_key a source_scope pins the search to, if any."""
+    if not isinstance(source_scope, dict):
+        return None
+    for scope in (source_scope, source_scope.get("selected_sources")):
+        if not isinstance(scope, dict):
+            continue
+        value = scope.get("repo_key")
+        if isinstance(value, str) and value:
+            return value
+        keys = scope.get("repo_keys")
+        if isinstance(keys, (list, tuple)) and len(keys) == 1:
+            only = keys[0]
+            if isinstance(only, str) and only:
+                return only
+    return None
+
+
+def _build_query_graph_params(
+    entity_name: str, tenant_id: str, repo_key: str | None = None
+) -> dict:
     """Pre-processes entity query terms for whole-word / phrase-boundary Cypher matching."""
     trimmed = (entity_name or "").strip()
     norm_words = [w.lower() for w in re.findall(r"\w+", trimmed) if len(w) >= 2]
@@ -28,6 +48,7 @@ def _build_query_graph_params(entity_name: str, tenant_id: str) -> dict:
         "padded_norm_query": padded_norm,
         "padded_raw_query": padded_raw,
         "tenant_id": tenant_id,
+        "repo_key": repo_key,
     }
 
 
@@ -60,12 +81,22 @@ def _hydrate_graph_hits_from_qdrant(config, hits: list[GraphHit]) -> None:
 
 
 def query_graph(
-    entity_name: str, max_hops: int = 2, tenant_id: str = "default"
+    entity_name: str,
+    max_hops: int = 2,
+    tenant_id: str = "default",
+    source_scope: dict | None = None,
 ) -> list[GraphHit]:
     """
     Perform a parameterized Cypher traversal from a starting entity out to max_hops.
     Returns results as GraphHit objects ready for merge_rank.
     No string-concatenated queries for user inputs.
+
+    ``source_scope`` (Code Mode) may pin the traversal to one repo:
+    the ``$repo_key`` parameter then filters ONLY code nodes
+    (CodeFile/CodeModule/Class/Function — the nodes that carry a
+    ``repo_key`` property). Shared public-tenant nodes (CVE, CWE,
+    Package, ATT&CK) and ordinary entities carry no repo_key and are
+    never filtered out by it.
     """
     config = get_config()
     neo4j = Neo4jStorageClient.from_config(config)
@@ -75,7 +106,9 @@ def query_graph(
     # We must ensure it's a positive integer to avoid injection.
     max_hops = min(max(1, int(max_hops)), MAX_ALLOWED_HOPS)
 
-    params = _build_query_graph_params(entity_name, tenant_id)
+    params = _build_query_graph_params(
+        entity_name, tenant_id, repo_key=_repo_key_from_scope(source_scope)
+    )
 
     # We parameterize all user inputs and rank candidate start nodes by match quality:
     # Tier 0: Exact match on name/id or alias
@@ -89,6 +122,8 @@ def query_graph(
         OR ((start:CodeModule OR start:Class OR start:Function OR start:CodeFile OR start:SecurityFinding OR start:ReconFinding OR start:TargetHost OR start:SecurityAlert OR start:IOC) AND start.tenant_id = $tenant_id)
         OR ((start:CVE OR start:CWE OR start:Package OR start:AttackTechnique OR start:AttackTactic OR start:AttackMitigation) AND start.tenant_id IN [$tenant_id, 'public'])
       )
+      AND ($repo_key IS NULL OR coalesce(start.repo_key, '') = $repo_key
+           OR NOT (start:CodeFile OR start:CodeModule OR start:Class OR start:Function))
       AND coalesce(start.name, start.id, start.qualified_name) IS NOT NULL
     WITH start, coalesce(start.name, start.id, start.qualified_name) AS start_label
     WHERE (
@@ -118,8 +153,10 @@ def query_graph(
     ORDER BY match_tier ASC, size(start_label) DESC
     LIMIT 5
     MATCH path = (start)-[rels*1..{max_hops}]-(end)
-    WHERE end.tenant_id = $tenant_id
-       OR ((end:CVE OR end:CWE OR end:Package OR end:AttackTechnique OR end:AttackTactic OR end:AttackMitigation) AND end.tenant_id = 'public')
+    WHERE (end.tenant_id = $tenant_id
+       OR ((end:CVE OR end:CWE OR end:Package OR end:AttackTechnique OR end:AttackTactic OR end:AttackMitigation) AND end.tenant_id = 'public'))
+      AND ($repo_key IS NULL OR coalesce(end.repo_key, '') = $repo_key
+           OR NOT (end:CodeFile OR end:CodeModule OR end:Class OR end:Function))
     WITH start, start_label, end, last(rels) AS last_rel, size(rels) AS hop_distance,
          size([r IN rels WHERE type(r) IN ['MENTIONED_WITH', 'ASSOCIATED_WITH', 'RELATED_TO']]) AS noisy_hops,
          [n IN nodes(path) | coalesce(n.name, n.id, n.qualified_name)] AS path_node_names,
@@ -234,9 +271,13 @@ def seed_graph_hits_from_vectors(
     tenant_id: str,
     max_seeds: int = 3,
     query_graph_fn=None,
+    source_scope: dict | None = None,
 ) -> list[GraphHit]:
     """Traverse graph for up to max_seeds distinct entities discovered in top vector hits."""
     traverse_fn = query_graph_fn or query_graph
+    # Only forward the scope when one is set, so injected traversal
+    # functions with the pre-scope signature keep working unchanged.
+    scope_kwargs = {"source_scope": source_scope} if source_scope else {}
     candidates = extract_seed_entity_candidates(v_hits, query_text)
     g_hits: list[GraphHit] = []
     seen_ids = set()
@@ -247,6 +288,7 @@ def seed_graph_hits_from_vectors(
                 entity_name=candidate,
                 max_hops=max_hops,
                 tenant_id=tenant_id,
+                **scope_kwargs,
             )
             for h in hits:
                 if h.id not in seen_ids:
@@ -262,6 +304,7 @@ def seed_graph_hits_from_vectors(
                 entity_name=query_text.strip(),
                 max_hops=max_hops,
                 tenant_id=tenant_id,
+                **scope_kwargs,
             )
             for h in hits:
                 if h.id not in seen_ids:

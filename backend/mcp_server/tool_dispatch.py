@@ -22,8 +22,35 @@ logger = logging.getLogger(__name__)
 _MCP_TOOL_CACHE: dict[str, Any] = {}  # Cache tool schemas to avoid frequent handshakes
 
 
-async def get_tools(tool_settings: dict | None = None, tenant_id: str | None = None) -> list:
-    """Return a list of tool definitions to bind to the LLM."""
+PLAN_MUTATING_TOOL_NAMES = {"sandbox_exec", "sandbox_write_file"}
+
+
+def _tool_name_of(tool: Any) -> str | None:
+    if isinstance(tool, dict):
+        fn = tool.get("function")
+        if isinstance(fn, dict) and isinstance(fn.get("name"), str):
+            return fn["name"]
+        if isinstance(tool.get("name"), str):
+            return tool["name"]
+    return getattr(tool, "name", None)
+
+
+async def get_tools(
+    tool_settings: dict | None = None,
+    tenant_id: str | None = None,
+    execution_mode: str | None = None,
+) -> list:
+    """Return a list of tool definitions to bind to the LLM.
+
+    In plan mode (``execution_mode="plan"``, or
+    ``tool_settings["execution_mode"]``) the mutating sandbox tools
+    (``sandbox_exec``, ``sandbox_write_file``) are removed from the
+    offered schemas entirely; dispatch-time enforcement in
+    ``_execute_sandbox_tool`` still blocks them if called directly.
+    """
+    effective_execution_mode = (
+        execution_mode or (tool_settings or {}).get("execution_mode") or "act"
+    )
     config = get_config()
 
     # Default to disabled if settings are missing
@@ -323,6 +350,11 @@ async def get_tools(tool_settings: dict | None = None, tenant_id: str | None = N
     except Exception as e:
         logger.error(f"Failed to fetch OpenAPI action tools: {e}")
 
+    if str(effective_execution_mode).strip().lower() == "plan":
+        all_tools = [
+            t for t in all_tools if _tool_name_of(t) not in PLAN_MUTATING_TOOL_NAMES
+        ]
+
     return all_tools
 
 
@@ -484,7 +516,10 @@ def _execute_single_tool(
             return [ErrorHit()], []
         limit = int(tool_input.get("limit", config.default_search_limit))
         return search_vectors(
-            tool_input["query_text"], limit=limit, tenant_id=tenant_id
+            tool_input["query_text"],
+            limit=limit,
+            tenant_id=tenant_id,
+            source_scope=settings.get("source_scope"),
         ), []
 
     elif tool_name == "query_graph":
@@ -492,7 +527,10 @@ def _execute_single_tool(
             return [], []
         max_hops = int(tool_input.get("max_hops", config.default_max_hops))
         return [], query_graph(
-            tool_input["entity_name"], max_hops=max_hops, tenant_id=tenant_id
+            tool_input["entity_name"],
+            max_hops=max_hops,
+            tenant_id=tenant_id,
+            source_scope=settings.get("source_scope"),
         )
 
     elif tool_name in ("code_symbol", "code_impact", "code_overview"):
@@ -1005,10 +1043,33 @@ def _resolve_sandbox_manager(tool_settings: dict):
 
 async def _execute_sandbox_tool(tc: dict, tenant_id: str, tool_settings: dict) -> list:
     """Execute one sandbox_* tool call through the SandboxManager."""
-    from backend.sandbox.policy import classify_command, requires_approval
+    from backend.sandbox.policy import (
+        classify_command,
+        plan_mode_block,
+        requires_approval,
+    )
 
     t_name = tc.get("name", "")
     t_input = tc.get("args", {}) or {}
+
+    is_write = t_name == "sandbox_write_file"
+    command = None
+    if t_name == "sandbox_exec":
+        command = str(t_input.get("command") or "")
+        is_write = classify_command(command) == "mutating"
+
+    # Plan mode is enforced here, at dispatch time — before any
+    # manager/session work — so a mutating tool called directly
+    # (bypassing the plan-filtered schema list) is still refused.
+    block = plan_mode_block(
+        (tool_settings or {}).get("execution_mode"),
+        tool_name=t_name,
+        command=command,
+        is_write=t_name == "sandbox_write_file",
+    )
+    if block is not None:
+        return [PlanModeHit(block)]
+
     manager = _resolve_sandbox_manager(tool_settings)
     try:
         settings, _secrets, _row = manager.load_tenant_config(tenant_id)
@@ -1016,12 +1077,13 @@ async def _execute_sandbox_tool(tc: dict, tenant_id: str, tool_settings: dict) -
     except Exception as e:
         logger.error(f"Failed to load sandbox config for {tenant_id}: {e}")
         autonomy_mode = str((tool_settings or {}).get("sandbox_autonomy_mode") or "auto_read_test")
-
-    is_write = t_name == "sandbox_write_file"
-    command = None
+    # A per-request autonomy mode (ChatRequest.autonomy_mode, merged
+    # into tool_settings by the chat route) wins over tenant config.
+    request_autonomy = (tool_settings or {}).get("sandbox_autonomy_mode")
+    if request_autonomy:
+        autonomy_mode = str(request_autonomy)
     if t_name == "sandbox_exec":
-        command = str(t_input.get("command") or "")
-        is_write = classify_command(command) == "mutating"
+        is_write = classify_command(command or "") == "mutating"
 
     if requires_approval(autonomy_mode, command, is_write=is_write) and not _tool_call_confirmed(tc, tool_settings):
         try:
@@ -1076,6 +1138,23 @@ async def _execute_sandbox_tool(tc: dict, tenant_id: str, tool_settings: dict) -
     except Exception as e:
         logger.error(f"Sandbox tool {t_name} failed: {e}")
         return [SandboxHit({"content": f"Sandbox error: {e}", "error": str(e), "tool": t_name, "sandbox_events": []})]
+
+
+class PlanModeHit:
+    """Result of a mutating sandbox tool call refused by plan mode.
+
+    The payload is the structured ``plan_mode_blocked`` deny from
+    ``backend.sandbox.policy.plan_mode_block`` plus a plain content
+    string, so the chat stream can surface *why* nothing ran. The
+    tool is NOT executed — this is dispatch-time enforcement, so it
+    holds even when a mutating tool is invoked directly without
+    going through the plan-filtered tool list.
+    """
+
+    def __init__(self, block: dict):
+        self.id = "plan_mode_blocked"
+        self.payload = {**block, "content": block.get("message", "")}
+        self.sources = ["Plan Mode"]
 
 
 class ToolConfirmationHit:
@@ -1467,6 +1546,7 @@ async def execute_tools_internal(
             tenant_id,
             3,
             query_graph,
+            (tool_settings or {}).get("source_scope"),
         )
         graph_hits.extend(seeded_graph)
 

@@ -18,6 +18,7 @@ from backend.retrieval.code_queries import (
     code_source_url,
     impact_analysis,
     indexed_file,
+    list_code_files,
     repo_overview,
     symbol_lookup,
 )
@@ -69,6 +70,21 @@ class FakeCodeGraphClient:
             if node.label == "CodeFile" and node.path == path:
                 return self._row(node)
         return None
+
+    def list_files(self, tenant_id, repo_key=None, q=None, limit=50):
+        rows = [
+            self._row(node)
+            for node in self.graph.nodes
+            if node.label == "CodeFile"
+            and (repo_key is None or node.repo_key == repo_key)
+            and (
+                q is None
+                or q.lower() in node.path.lower()
+                or q.lower() in (node.name or "").lower()
+            )
+        ]
+        rows.sort(key=lambda r: r["path"])
+        return rows[:limit]
 
     def incoming_edges(self, tenant_id, target_qns, repo_key=None):
         rows = []
@@ -400,3 +416,121 @@ def test_neo4j_adapter_parameterized():
         assert params["tenant_id"] == "tenant-a"
     assert stub.calls[2][1]["target_qns"] == ["pkg.helpers.shout"]
     assert stub.calls[2][1]["edge_types"] == ["CALLS", "IMPORTS"]
+
+
+# ---------------------------------------------------------------------------
+# Code Mode Phase 1: list_code_files + source_scope propagation
+# ---------------------------------------------------------------------------
+
+
+class TestListCodeFiles:
+    def test_lists_all_code_files(self, fake):
+        rows = list_code_files(tenant_id="t", client=fake)
+        paths = [r["path"] for r in rows]
+        assert paths == sorted(paths)
+        assert "pkg/helpers.py" in paths
+        assert all(r["label"] == "CodeFile" for r in rows)
+
+    def test_q_substring_filters_path_and_name(self, fake):
+        rows = list_code_files(tenant_id="t", q="HELPERS", client=fake)
+        assert [r["path"] for r in rows] == ["pkg/helpers.py"]
+        assert list_code_files(tenant_id="t", q="nope", client=fake) == []
+
+    def test_limit_is_respected(self, fake):
+        rows = list_code_files(tenant_id="t", limit=1, client=fake)
+        assert len(rows) == 1
+
+    def test_neo4j_adapter_parameterized(self):
+        stub = RecordingNeo4jStub()
+        client = Neo4jCodeGraphClient(stub)
+        evil = "x' OR 1=1 //"
+        client.list_files("tenant-a", repo_key=evil, q=evil, limit=5)
+        assert len(stub.calls) == 1
+        query, params = stub.calls[0]
+        # Injection attempt travels only as a parameter, never in Cypher.
+        assert evil not in query
+        assert params["tenant_id"] == "tenant-a"
+        assert params["repo_key"] == evil
+        assert params["q"] == evil.lower()
+        assert params["limit"] == 5
+        assert "(n:CodeFile)" in query
+
+
+def test_query_graph_source_scope_is_parameterized():
+    from unittest.mock import patch
+
+    from backend.mcp_server.tools import query_graph as qg_module
+
+    evil_repo = "repo' OR 1=1 //"
+    with (
+        patch.object(qg_module, "get_config", lambda: object()),
+        patch.object(qg_module, "Neo4jStorageClient") as mock_client,
+    ):
+        instance = mock_client.from_config.return_value
+        instance.execute_read.return_value = []
+        qg_module.query_graph(
+            "Alice",
+            tenant_id="t1",
+            source_scope={"repo_key": evil_repo},
+        )
+        query, params = instance.execute_read.call_args[0]
+        assert evil_repo not in query
+        assert params["repo_key"] == evil_repo
+        assert "$repo_key" in query
+        # Shared public nodes are NOT repo-filtered: the filter only
+        # applies to code labels, and the public CVE clause survives.
+        assert "start:CVE" in query
+        assert "NOT (start:CodeFile" in query
+        assert "NOT (end:CodeFile" in query
+
+    # Without a scope, repo_key stays None (unfiltered).
+    with (
+        patch.object(qg_module, "get_config", lambda: object()),
+        patch.object(qg_module, "Neo4jStorageClient") as mock_client,
+    ):
+        instance = mock_client.from_config.return_value
+        instance.execute_read.return_value = []
+        qg_module.query_graph("Alice", tenant_id="t1")
+        _query, params = instance.execute_read.call_args[0]
+        assert params["repo_key"] is None
+
+
+def test_search_vectors_passes_source_scope_to_qdrant():
+    from unittest.mock import patch
+
+    from backend.mcp_server.tools import search_vectors as sv_module
+    from backend.storage.qdrant_client import scope_filter_values
+
+    captured = {}
+
+    class FakeQdrant:
+        def search_hybrid(self, **kwargs):
+            captured.update(kwargs)
+            return [{"id": "1", "score": 0.9, "payload": {"content": "x"}}]
+
+    with (
+        patch.object(sv_module, "embed_text", lambda text: [0.1]),
+        patch.object(
+            sv_module, "embed_text_sparse", lambda text: {"indices": [], "values": []}
+        ),
+        patch.object(
+            sv_module.QdrantStorageClient, "from_config", lambda cfg: FakeQdrant()
+        ),
+    ):
+        hits = sv_module.search_vectors(
+            "query", tenant_id="t1", source_scope={"repo_key": "owner/repo"}
+        )
+    assert hits[0].payload == {"content": "x"}
+    assert captured["source_scope"] == {"repo_key": "owner/repo"}
+    assert captured["tenant_id"] == "t1"
+
+    # Scope extraction accepts singular/plural + selected_sources shapes.
+    assert scope_filter_values({"repo_key": "a/b"}) == (["a/b"], [])
+    assert scope_filter_values(
+        {"repo_keys": ["a/b", "c/d"], "source_ids": ["s1"]}
+    ) == (["a/b", "c/d"], ["s1"])
+    assert scope_filter_values({"selected_sources": {"source_id": "s9"}}) == (
+        [],
+        ["s9"],
+    )
+    assert scope_filter_values(None) == ([], [])

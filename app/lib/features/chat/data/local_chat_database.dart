@@ -12,6 +12,14 @@ class LocalThreads extends Table {
   TextColumn get projectId => text().nullable()();
   DateTimeColumn get timestamp => dateTime().nullable()();
 
+  // Code Mode (Phase 1): which workspace the thread belongs to and
+  // the repo/branch/source selection it is scoped to. Mirrors the
+  // server-side thread_code_meta / thread_metadata fields.
+  TextColumn get workspaceMode => text().withDefault(const Constant('chat'))();
+  TextColumn get repoKey => text().nullable()();
+  TextColumn get branch => text().nullable()();
+  TextColumn get selectedSources => text().nullable()(); // JSON encoded
+
   @override
   Set<Column> get primaryKey => {threadId};
 }
@@ -76,7 +84,7 @@ class LocalChatDatabase extends _$LocalChatDatabase {
   LocalChatDatabase.withExecutor(super.executor);
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -95,6 +103,12 @@ class LocalChatDatabase extends _$LocalChatDatabase {
           }
           if (from < 5) {
             await m.createTable(artifactRuntimeStorageEntries);
+          }
+          if (from < 6) {
+            await m.addColumn(localThreads, localThreads.workspaceMode);
+            await m.addColumn(localThreads, localThreads.repoKey);
+            await m.addColumn(localThreads, localThreads.branch);
+            await m.addColumn(localThreads, localThreads.selectedSources);
           }
         },
       );

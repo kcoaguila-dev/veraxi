@@ -7,7 +7,12 @@ from backend.sandbox.base import (
     SandboxSessionInfo,
 )
 from backend.sandbox.manager import SandboxManager, get_default_manager
-from backend.sandbox.policy import classify_command, requires_approval
+from backend.sandbox.policy import (
+    classify_command,
+    is_plan_blocked,
+    plan_mode_block,
+    requires_approval,
+)
 
 __all__ = [
     "ExecEvent",
@@ -17,5 +22,7 @@ __all__ = [
     "SandboxSessionInfo",
     "classify_command",
     "get_default_manager",
+    "is_plan_blocked",
+    "plan_mode_block",
     "requires_approval",
 ]
