@@ -170,5 +170,22 @@ void main() {
       final afterInitialSessionRepo = container.read(chatRepositoryProvider);
       expect(identical(initialRepo, afterInitialSessionRepo), isTrue);
     });
+
+    test('loadThreads clears isLoadingThreads when repository throws',
+        () async {
+      SharedPreferences.setMockInitialValues({});
+      when(() => mockChatRepository.getThreads())
+          .thenThrow(Exception('network error'));
+
+      final viewModel = ChatViewModel(
+        mockChatRepository,
+        mockTTSRepository,
+        mockMemoryRepository,
+      );
+      await viewModel.loadThreads();
+
+      expect(viewModel.state.isLoadingThreads, isFalse);
+      expect(viewModel.state.pastThreads, isEmpty);
+    });
   });
 }

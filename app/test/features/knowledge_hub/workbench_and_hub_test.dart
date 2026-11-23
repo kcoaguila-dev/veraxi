@@ -1,3 +1,4 @@
+import 'package:cupertino_ui/cupertino_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -947,5 +948,51 @@ void main() {
     expect(high.bg, isNot(equals(low.bg)));
     expect(moderate.bg, isNot(equals(low.bg)));
     expect(high.text, isNot(equals(low.text)));
+  });
+
+  testWidgets(
+      'ChatSidebar clears CupertinoActivityIndicator and shows empty state when getThreads resolves empty or throws',
+      (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(1440, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    final mockRepo = _MockChatRepository();
+    when(() => mockRepo.getThreads()).thenAnswer((_) async => []);
+
+    final realVm = ChatViewModel(
+      mockRepo,
+      _MockTtsRepository(),
+      _MockMemoryRepository(),
+      _MockMigrationService(),
+    );
+    final codeRepo = _FakeCodeIntelRepository();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          chatViewModelProvider.overrideWith((ref) => realVm),
+          codeIntelRepositoryProvider.overrideWithValue(codeRepo),
+        ],
+        child: MaterialApp(
+          theme: AppTheme.darkTheme,
+          home: const ChatScreen(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(CupertinoActivityIndicator), findsNothing);
+    expect(find.text('No conversations yet'), findsOneWidget);
+
+    when(() => mockRepo.getThreads()).thenThrow(Exception('CORS failure'));
+    await realVm.loadThreads();
+    await tester.pumpAndSettle();
+
+    expect(find.byType(CupertinoActivityIndicator), findsNothing);
+    expect(find.text('No conversations yet'), findsOneWidget);
   });
 }

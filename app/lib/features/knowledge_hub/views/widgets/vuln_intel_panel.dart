@@ -654,81 +654,101 @@ class VulnIntelPanel extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 6,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    if (color != null && finding.severity != null)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: color,
+                          borderRadius: BorderRadius.circular(11),
+                        ),
+                        child: Text(
+                          finding.severity!.toUpperCase(),
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                    if (finding.kev)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF8B7CF6),
+                          borderRadius: BorderRadius.circular(11),
+                        ),
+                        child: const Text('KEV',
+                            style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700)),
+                      ),
+                    if (finding.epssScore != null)
+                      Builder(builder: (context) {
+                        final epss = epssBadgeColors(finding.epssScore!);
+                        return Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: epss.bg,
+                            borderRadius: BorderRadius.circular(11),
+                            border: Border.all(color: epss.border, width: 0.8),
+                          ),
+                          child: Text(
+                            'EPSS ${(finding.epssScore! * 100).toStringAsFixed(1)}%',
+                            style: TextStyle(
+                              color: epss.text,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              fontFeatures: const [
+                                FontFeature.tabularFigures()
+                              ],
+                            ),
+                          ),
+                        );
+                      }),
+                    if (finding.isReachable)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF164E63),
+                          borderRadius: BorderRadius.circular(11),
+                        ),
+                        child: Text(
+                          'Reachable in Code · ${finding.reachableFileCount} '
+                          '${finding.reachableFileCount == 1 ? 'file' : 'files'}',
+                          style: const TextStyle(
+                              color: Color(0xFFA5F3FC),
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              if (onAskFinding != null || onInspectPath != null) ...[
+                const SizedBox(width: 8),
+                _buildFindingActionButtons(finding, isSelected),
+              ],
+            ],
+          ),
+          const SizedBox(height: 8),
           Wrap(
-            spacing: 8,
-            runSpacing: 6,
+            spacing: 10,
+            runSpacing: 4,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              if (color != null && finding.severity != null)
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: color,
-                    borderRadius: BorderRadius.circular(11),
-                  ),
-                  child: Text(
-                    finding.severity!.toUpperCase(),
-                    style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700),
-                  ),
-                ),
-              if (finding.kev)
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF8B7CF6),
-                    borderRadius: BorderRadius.circular(11),
-                  ),
-                  child: const Text('KEV',
-                      style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700)),
-                ),
-              if (finding.epssScore != null) ...[
-                Builder(builder: (context) {
-                  final epss = epssBadgeColors(finding.epssScore!);
-                  return Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: epss.bg,
-                      borderRadius: BorderRadius.circular(11),
-                      border: Border.all(color: epss.border, width: 0.8),
-                    ),
-                    child: Text(
-                      'EPSS ${(finding.epssScore! * 100).toStringAsFixed(1)}%',
-                      style: TextStyle(
-                        color: epss.text,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        fontFeatures: const [FontFeature.tabularFigures()],
-                      ),
-                    ),
-                  );
-                }),
-              ],
-              if (finding.isReachable)
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF164E63),
-                    borderRadius: BorderRadius.circular(11),
-                  ),
-                  child: Text(
-                    'Reachable in Code · ${finding.reachableFileCount} '
-                    '${finding.reachableFileCount == 1 ? 'file' : 'files'}',
-                    style: const TextStyle(
-                        color: Color(0xFFA5F3FC),
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700),
-                  ),
-                ),
               Text(
                 '${finding.package}${finding.version != null ? ' ${finding.version}' : ''} — ${finding.cveId}',
                 style: const TextStyle(
@@ -746,63 +766,6 @@ class VulnIntelPanel extends ConsumerWidget {
                   fontWeight: FontWeight.w600,
                 ),
               ),
-              if (onAskFinding != null || onInspectPath != null) ...[
-                const SizedBox(width: 8),
-                if (onAskFinding != null)
-                  InkWell(
-                    borderRadius: BorderRadius.circular(6),
-                    onTap: () => onAskFinding!(finding),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: isSelected
-                            ? const Color(0xFF10B981)
-                            : const Color(0xFF27272A),
-                        borderRadius: BorderRadius.circular(6),
-                        border: isSelected
-                            ? null
-                            : Border.all(
-                                color: const Color(0xFF3F3F46), width: 0.8),
-                      ),
-                      child: Text(
-                        'Ask',
-                        style: TextStyle(
-                          color: isSelected
-                              ? const Color(0xFF0B0F0E)
-                              : const Color(0xFFD4D4D8),
-                          fontSize: 11.5,
-                          fontWeight:
-                              isSelected ? FontWeight.w600 : FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                  ),
-                if (onInspectPath != null &&
-                    (finding.isReachable || finding.reachableInCode.isNotEmpty))
-                  InkWell(
-                    borderRadius: BorderRadius.circular(6),
-                    onTap: () => onInspectPath!(finding),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF2A2A2E),
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(
-                            color: const Color(0xFF3F3F46), width: 0.8),
-                      ),
-                      child: const Text(
-                        'Path',
-                        style: TextStyle(
-                          color: Color(0xFFD4D4D8),
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
             ],
           ),
           if (finding.cweIds.isNotEmpty) ...[
@@ -859,6 +822,65 @@ class VulnIntelPanel extends ConsumerWidget {
           ],
         ],
       ),
+    );
+  }
+
+  Widget _buildFindingActionButtons(VulnFinding finding, bool isSelected) {
+    final showPath = onInspectPath != null &&
+        (finding.isReachable || finding.reachableInCode.isNotEmpty);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (onAskFinding != null)
+          InkWell(
+            borderRadius: BorderRadius.circular(6),
+            onTap: () => onAskFinding!(finding),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: isSelected
+                    ? const Color(0xFF10B981)
+                    : const Color(0xFF27272A),
+                borderRadius: BorderRadius.circular(6),
+                border: isSelected
+                    ? null
+                    : Border.all(color: const Color(0xFF3F3F46), width: 0.8),
+              ),
+              child: Text(
+                'Ask',
+                style: TextStyle(
+                  color: isSelected
+                      ? const Color(0xFF0B0F0E)
+                      : const Color(0xFFD4D4D8),
+                  fontSize: 11.5,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                ),
+              ),
+            ),
+          ),
+        if (onAskFinding != null && showPath) const SizedBox(width: 6),
+        if (showPath)
+          InkWell(
+            borderRadius: BorderRadius.circular(6),
+            onTap: () => onInspectPath!(finding),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: const Color(0xFF2A2A2E),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: const Color(0xFF3F3F46), width: 0.8),
+              ),
+              child: const Text(
+                'Path',
+                style: TextStyle(
+                  color: Color(0xFFD4D4D8),
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }

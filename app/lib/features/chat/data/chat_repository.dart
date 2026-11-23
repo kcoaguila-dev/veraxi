@@ -17,6 +17,9 @@ import 'package:veraxi_app/features/chat/data/local_chat_data_source.dart'
     if (dart.library.html) 'package:veraxi_app/features/chat/data/local_chat_data_source_web.dart';
 import 'package:veraxi_app/features/auth/view_models/auth_view_model.dart';
 
+const bool _isAuthEnabled =
+    bool.fromEnvironment('AUTH_ENABLED', defaultValue: true);
+
 final chatRepositoryProvider = Provider<IChatRepository>((ref) {
   final hasAuthSession = ref.watch(
     authStateProvider
@@ -26,7 +29,8 @@ final chatRepositoryProvider = Provider<IChatRepository>((ref) {
   final apiKeyStorage = ref.watch(apiKeyStorageProvider);
 
   // Also check if Supabase has a valid session to avoid returning Cloud repo when logged out
-  bool isLoggedIn = hasAuthSession || apiClient.tenantId != null;
+  bool isLoggedIn =
+      !_isAuthEnabled || hasAuthSession || apiClient.tenantId != null;
   if (!isLoggedIn) {
     try {
       isLoggedIn = Supabase.instance.client.auth.currentSession != null;

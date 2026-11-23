@@ -259,7 +259,8 @@ class ChatViewModel extends StateNotifier<ChatState> {
   Future<bool> _fetchThreads() async {
     state = state.copyWith(isLoadingThreads: true);
     try {
-      final threads = await _repository.getThreads();
+      final threads =
+          await _repository.getThreads().timeout(const Duration(seconds: 6));
       state = state.copyWith(pastThreads: threads, isLoadingThreads: false);
       _lastLoadThreadsSucceeded = true;
       return true;

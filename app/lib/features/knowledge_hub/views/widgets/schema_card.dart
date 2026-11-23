@@ -46,7 +46,7 @@ class _SchemaCardState extends ConsumerState<SchemaCard> {
           const SizedBox(height: 20),
           LayoutBuilder(
             builder: (context, constraints) {
-              final isMobile = constraints.maxWidth < 600;
+              final isMobile = constraints.maxWidth < 860;
 
               final autoGenerateSection = Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -144,9 +144,9 @@ class _SchemaCardState extends ConsumerState<SchemaCard> {
                 return Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(flex: 1, child: autoGenerateSection),
-                    SizedBox(width: 24),
-                    Expanded(flex: 1, child: schemaVisualSection),
+                    Expanded(flex: 2, child: autoGenerateSection),
+                    const SizedBox(width: 24),
+                    Expanded(flex: 3, child: schemaVisualSection),
                   ],
                 );
               }

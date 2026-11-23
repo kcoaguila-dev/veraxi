@@ -1440,7 +1440,20 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
                                               (t) => t['is_archived'] != true)
                                           .toList();
                                       if (timelineChats.isEmpty) {
-                                        return SizedBox.shrink();
+                                        return Padding(
+                                          padding: const EdgeInsets.only(
+                                              left: 8.0, top: 4.0),
+                                          child: Text(
+                                            'No conversations yet',
+                                            style: TextStyle(
+                                              color: Theme.of(context)
+                                                  .extension<
+                                                      AppThemeExtension>()!
+                                                  .textTertiary,
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                        );
                                       }
 
                                       final groups =

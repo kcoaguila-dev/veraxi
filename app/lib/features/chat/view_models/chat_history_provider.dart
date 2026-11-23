@@ -72,7 +72,8 @@ class ChatHistoryViewModel extends Notifier<ChatHistoryState> {
     state = state.copyWith(isLoadingThreads: true);
     try {
       final repo = ref.read(chatRepositoryProvider);
-      final threads = await repo.getThreads();
+      final threads =
+          await repo.getThreads().timeout(const Duration(seconds: 6));
       state = state.copyWith(pastThreads: threads, isLoadingThreads: false);
     } catch (e, stack) {
       Sentry.captureException(e, stackTrace: stack);

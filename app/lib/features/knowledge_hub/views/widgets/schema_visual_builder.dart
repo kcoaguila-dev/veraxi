@@ -419,8 +419,11 @@ class _SchemaVisualBuilderState extends State<SchemaVisualBuilder> {
                           (val) => _updateRelation(index, 'target', val!)),
                     ),
                     IconButton(
-                      icon: Icon(Icons.remove_circle_outline,
-                          color: Colors.redAccent, size: 20),
+                      constraints:
+                          const BoxConstraints(minWidth: 32, minHeight: 32),
+                      padding: const EdgeInsets.all(4),
+                      icon: const Icon(Icons.remove_circle_outline,
+                          color: Colors.redAccent, size: 18),
                       onPressed: () => _removeRelation(index),
                     ),
                   ],
@@ -464,7 +467,7 @@ class _SchemaVisualBuilderState extends State<SchemaVisualBuilder> {
 
     return Container(
       height: 36,
-      padding: EdgeInsets.symmetric(horizontal: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 10),
       decoration: BoxDecoration(
         color: Theme.of(context).extension<AppThemeExtension>()!.borderColor,
         borderRadius: BorderRadius.circular(4),
@@ -474,10 +477,16 @@ class _SchemaVisualBuilderState extends State<SchemaVisualBuilder> {
           value: validValue,
           dropdownColor:
               Theme.of(context).extension<AppThemeExtension>()!.borderColor,
-          style: TextStyle(color: Colors.white, fontSize: 13),
+          style: const TextStyle(color: Colors.white, fontSize: 13),
           isExpanded: true,
           items: _entities
-              .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+              .map((e) => DropdownMenuItem(
+                    value: e,
+                    child: Text(
+                      e,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ))
               .toList(),
           onChanged: onChanged,
         ),
