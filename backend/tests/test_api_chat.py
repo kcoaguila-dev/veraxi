@@ -697,3 +697,219 @@ async def test_chat_code_mode_persists_code_meta_and_threads_filter(
     assert [t["thread_id"] for t in repo_only.json()["threads"]] == ["code-thread-1"]
     no_match = client.get("/api/chat/threads", params={"repo_key": "other/repo"})
     assert no_match.json()["threads"] == []
+
+
+# ---------------------------------------------------------------------------
+# Code Mode Phase 2: files_changed SSE + assistant metadata persistence
+# ---------------------------------------------------------------------------
+
+from backend.sandbox.base import ExecEvent, SandboxProvider, SandboxSessionInfo
+from backend.sandbox.manager import SandboxManager
+
+
+class _GitChatProvider(SandboxProvider):
+    provider_name = "fake-git"
+
+    def __init__(self, settings, secrets=None, edits=True):
+        super().__init__(settings, secrets)
+        self.edits = edits
+        self.commands: list[str] = []
+
+    async def start_session(self, tenant_id, repo_url=None):
+        return SandboxSessionInfo(
+            tenant_id=tenant_id, provider="fake-git", status="running"
+        )
+
+    async def exec_command(self, session_id, cmd, cwd=None, timeout_sec=120):
+        self.commands.append(cmd)
+        stdout, exit_code = "", 0
+        if cmd.startswith("git rev-parse"):
+            stdout = "/repo\n"
+        elif cmd.startswith("git diff HEAD --numstat") and self.edits:
+            stdout = "2\t1\ta.py\n"
+        elif cmd.startswith("git diff HEAD") and self.edits:
+            stdout = (
+                "diff --git a/a.py b/a.py\n--- a/a.py\n+++ b/a.py\n"
+                "@@ -1,2 +1,3 @@\n x\n-old\n+new\n+more\n"
+            )
+        elif cmd.startswith("git ls-files --others"):
+            stdout = ""
+        if stdout:
+            yield ExecEvent(kind="stdout", data=stdout)
+        yield ExecEvent(kind="exit", data="", exit_code=exit_code)
+
+    async def read_file(self, session_id, path):
+        return ""
+
+    async def write_file(self, session_id, path, content):
+        return None
+
+    async def get_diff(self, session_id):
+        return ""
+
+    async def stop_session(self, session_id):
+        return None
+
+
+@pytest.fixture
+def sandbox_chat_manager():
+    from backend.mcp_server.tool_dispatch import set_sandbox_manager
+
+    created = []
+
+    def factory(settings, secrets):
+        provider = _GitChatProvider(settings, secrets, edits=True)
+        created.append(provider)
+        return provider
+
+    mgr = SandboxManager(provider_factory=factory)
+    mgr.set_tenant_config("test_tenant_id", {"provider": "modal"})
+    set_sandbox_manager(mgr)
+    yield mgr, created
+    set_sandbox_manager(None)
+
+
+@pytest.mark.asyncio
+async def test_stream_code_turn_emits_files_changed_and_persists(
+    stateful_redis, sandbox_chat_manager
+):
+    mgr, _created = sandbox_chat_manager
+    info = await mgr.start_session("test_tenant_id", chat_id="code-turn-1")
+
+    async def mock_stream(*args, **kwargs):
+        yield {"type": "content", "content": "done"}
+
+    with patch(
+        "backend.routes.chat.stream_answer_question", side_effect=mock_stream
+    ):
+        response = client.post(
+            "/api/chat",
+            json={
+                "question": "Edit a.py",
+                "stream": True,
+                "model": "test-model",
+                "api_key": "dummy",
+                "thread_id": "code-turn-1",
+                "workspace_mode": "code",
+                "repo_key": "owner/repo",
+            },
+        )
+    assert response.status_code == 200, response.text
+    events = [
+        _json.loads(line[len("data: "):])
+        for line in response.text.strip().split("\n\n")
+        if line.startswith("data: {")
+    ]
+    changed = [e for e in events if e.get("type") == "files_changed"]
+    assert len(changed) == 1
+    event = changed[0]
+    assert event["session_id"] == info.session_id
+    assert event["turn_id"]
+    assert event["total_additions"] == 2
+    assert event["total_deletions"] == 1
+    assert event["files"][0]["path"] == "a.py"
+    assert event["files"][0]["language"] == "python"
+    assert event["files"][0]["hunks"][0]["lines"][-1] == "+more"
+
+    # Persisted in the per-turn assistant metadata (thread_activities),
+    # so the summary survives a thread-history reload.
+    raw = await stateful_redis.hget(
+        "tenant:test_tenant_id:thread_activities", "code-turn-1"
+    )
+    entries = _json.loads(raw)
+    assert entries[-1]["files_changed"]["session_id"] == info.session_id
+    assert entries[-1]["files_changed"]["total_additions"] == 2
+    assert entries[-1]["files_changed"]["files"][0]["path"] == "a.py"
+
+
+@pytest.mark.asyncio
+async def test_stream_code_turn_without_edits_emits_nothing(
+    stateful_redis, sandbox_chat_manager
+):
+    mgr, created = sandbox_chat_manager
+    await mgr.start_session("test_tenant_id", chat_id="code-turn-2")
+    created[-1].edits = False
+
+    async def mock_stream(*args, **kwargs):
+        yield {"type": "content", "content": "no edits"}
+
+    with patch(
+        "backend.routes.chat.stream_answer_question", side_effect=mock_stream
+    ):
+        response = client.post(
+            "/api/chat",
+            json={
+                "question": "Just explain",
+                "stream": True,
+                "model": "test-model",
+                "api_key": "dummy",
+                "thread_id": "code-turn-2",
+                "workspace_mode": "code",
+            },
+        )
+    assert response.status_code == 200, response.text
+    assert "files_changed" not in response.text
+    raw = await stateful_redis.hget(
+        "tenant:test_tenant_id:thread_activities", "code-turn-2"
+    )
+    entries = _json.loads(raw)
+    assert "files_changed" not in entries[-1]
+
+
+@pytest.mark.asyncio
+async def test_stream_code_turn_without_sandbox_session_emits_nothing(
+    stateful_redis, sandbox_chat_manager
+):
+    async def mock_stream(*args, **kwargs):
+        yield {"type": "content", "content": "hi"}
+
+    with patch(
+        "backend.routes.chat.stream_answer_question", side_effect=mock_stream
+    ):
+        response = client.post(
+            "/api/chat",
+            json={
+                "question": "hi",
+                "stream": True,
+                "model": "test-model",
+                "api_key": "dummy",
+                "thread_id": "code-turn-no-session",
+                "workspace_mode": "code",
+            },
+        )
+    assert response.status_code == 200, response.text
+    assert "files_changed" not in response.text
+
+
+def test_extract_messages_attaches_persisted_files_changed():
+    from backend.routes.chat import _extract_messages_from_state
+    from langchain_core.messages import AIMessage, HumanMessage
+
+    summary = {
+        "session_id": "s1",
+        "turn_id": "t1",
+        "total_additions": 2,
+        "total_deletions": 1,
+        "files": [{"path": "a.py"}],
+    }
+    messages = _extract_messages_from_state(
+        [HumanMessage(content="edit", id="u1"), AIMessage(content="done", id="a1")],
+        {},
+        files_changed_history=[summary],
+    )
+    assistant = next(m for m in messages if m["role"] == "assistant")
+    assert assistant["files_changed"] == summary
+    user = next(m for m in messages if m["role"] == "user")
+    assert "files_changed" not in user
+
+
+def test_process_message_carries_files_changed_kwarg():
+    from backend.routes.chat import _process_single_message
+    from langchain_core.messages import AIMessage
+
+    summary = {"session_id": "s1", "total_additions": 1, "files": []}
+    msg = AIMessage(
+        content="done", id="a9", additional_kwargs={"files_changed": summary}
+    )
+    processed = _process_single_message(msg, {}, {})
+    assert processed["files_changed"] == summary

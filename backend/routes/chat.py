@@ -266,7 +266,7 @@ def _process_single_message(msg, tool_results, feedback_dict):
             }
         ] + activity
     reasoning, reasoning_duration_seconds = _reasoning_from_kwargs(msg)
-    return {
+    processed = {
         "id": str(msg_id),
         "role": "user" if msg_type == "HumanMessage" else "assistant",
         "content": msg.content,
@@ -278,6 +278,10 @@ def _process_single_message(msg, tool_results, feedback_dict):
         "reasoning": reasoning,
         "reasoning_duration_seconds": reasoning_duration_seconds,
     }
+    files_changed = getattr(msg, "additional_kwargs", {}).get("files_changed")
+    if isinstance(files_changed, dict):
+        processed["files_changed"] = files_changed
+    return processed
 
 
 def _apply_saved_reasoning(message: dict, saved: dict | None) -> None:
@@ -338,6 +342,7 @@ def _extract_messages_from_state(
     feedback_dict: dict | None = None,
     activity_history: list[list[dict]] | None = None,
     reasoning_history: list[dict | None] | None = None,
+    files_changed_history: list[dict | None] | None = None,
 ) -> list:
     if feedback_dict is None:
         feedback_dict = {}
@@ -370,6 +375,19 @@ def _extract_messages_from_state(
                 reasoning_history[-len(assistant_messages) :],
             ):
                 _apply_saved_reasoning(message, saved_reasoning)
+    if files_changed_history:
+        assistant_messages = _final_assistant_messages(messages)
+        if assistant_messages:
+            for message, saved_files_changed in zip(
+                assistant_messages[-len(files_changed_history) :],
+                files_changed_history[-len(assistant_messages) :],
+            ):
+                if (
+                    "files_changed" not in message
+                    and isinstance(saved_files_changed, dict)
+                    and saved_files_changed
+                ):
+                    message["files_changed"] = saved_files_changed
     merged = _merge_intermediate_tool_messages(messages)
     for message in merged:
         if message.get("role") != "assistant":
@@ -512,6 +530,7 @@ async def _save_activity_history(
     activity: list[dict],
     reasoning: str | None = None,
     reasoning_duration_seconds: float | None = None,
+    files_changed: dict | None = None,
 ) -> None:
     if tenant_id == "local_guest":
         return
@@ -526,8 +545,57 @@ async def _save_activity_history(
         entry["reasoning"] = reasoning
     if reasoning_duration_seconds is not None:
         entry["reasoning_duration_seconds"] = float(reasoning_duration_seconds)
+    if files_changed:
+        # Code Mode Phase 2: the per-turn files_changed summary lives
+        # in the same per-turn record as activity/reasoning, so the
+        # thread-history reload path can re-attach it to the turn's
+        # assistant message (see _extract_messages_from_state).
+        entry["files_changed"] = files_changed
     history.append(entry)
     await redis.hset(key, thread_id, json.dumps(history))
+
+
+async def _collect_turn_files_changed(
+    tenant_id: str, thread_id: str, tool_settings: dict, turn_id: str
+) -> dict | None:
+    """Diff summary for a finished Code Mode turn, or None.
+
+    Returns None — emitting nothing — when the turn is not Code Mode,
+    when no sandbox session is bound to this thread, or when the
+    session has no file edits. Never fabricates a summary: any
+    failure resolves to None (and is reported to Sentry).
+    """
+    if (tool_settings or {}).get("workspace_mode") != "code":
+        return None
+    try:
+        from backend.mcp_server.tool_dispatch import _resolve_sandbox_manager
+        from backend.sandbox.git_diff import collect_session_diff
+
+        manager = _resolve_sandbox_manager(tool_settings or {})
+        if manager is None:
+            return None
+        session_id = None
+        session_for_chat = getattr(manager, "session_id_for_chat", None)
+        if callable(session_for_chat):
+            session_id = session_for_chat(tenant_id, thread_id)
+        if not session_id:
+            for info in manager.list_session_infos(tenant_id):
+                if getattr(info, "chat_id", None) == thread_id:
+                    session_id = info.session_id
+                    break
+        if not session_id:
+            return None
+        provider = manager.provider_for(session_id)
+        if provider is None:
+            return None
+        summary = await collect_session_diff(provider, session_id, turn_id=turn_id)
+        if not summary.get("files"):
+            return None
+        return summary
+    except Exception as e:
+        sentry_sdk.capture_exception(e)
+        logger.warning(f"Failed to collect files_changed for thread {thread_id}: {e}")
+        return None
 
 
 def _count_final_ai_messages(raw_messages: list[Any]) -> int:
@@ -954,6 +1022,7 @@ async def _stream_events(
     activity: list[dict] = []
     reasoning_parts: list[str] = []
     reasoning_duration_seconds: float | None = None
+    turn_id = str(uuid.uuid4())
     async with _get_thread_mutation_lock(thread_id):
         _active_thread_generations.add(thread_id)
     try:
@@ -992,6 +1061,11 @@ async def _stream_events(
             except Exception as e:
                 logger.error(f"Error waiting for title task: {e}")
         _complete_activity(activity)
+        files_changed = await _collect_turn_files_changed(
+            tenant_id, thread_id, ts, turn_id
+        )
+        if files_changed:
+            yield f"data: {json.dumps({'type': 'files_changed', **files_changed})}\n\n"
         await _save_activity_history(
             redis,
             tenant_id,
@@ -999,6 +1073,7 @@ async def _stream_events(
             activity,
             reasoning="".join(reasoning_parts) or None,
             reasoning_duration_seconds=reasoning_duration_seconds,
+            files_changed=files_changed,
         )
         yield "data: [DONE]\n\n"
     except Exception as e:
@@ -1477,6 +1552,7 @@ def register_chat_routes(
                 logger.error(f"Failed to fetch feedback: {e}")
             activity_history = []
             reasoning_history: list[dict | None] = []
+            files_changed_history: list[dict | None] = []
             try:
                 activity_raw = await request.app.state.redis.hget(
                     f"tenant:{tenant_id}:thread_activities", thread_id
@@ -1498,6 +1574,13 @@ def register_chat_routes(
                                     "reasoning_duration_seconds"
                                 ),
                             }
+                            if isinstance(item, dict)
+                            else None
+                            for item in decoded
+                            if isinstance(item, (dict, list))
+                        ]
+                        files_changed_history = [
+                            item.get("files_changed")
                             if isinstance(item, dict)
                             else None
                             for item in decoded
@@ -1532,6 +1615,7 @@ def register_chat_routes(
                     feedback_dict,
                     activity_history,
                     reasoning_history=reasoning_history,
+                    files_changed_history=files_changed_history,
                 )
             }
         except HTTPException:
