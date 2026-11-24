@@ -190,6 +190,9 @@ class GitFakeProvider(FakeProvider):
             return UNIFIED_DIFF, 0
         if cmd.startswith("git ls-files --others"):
             return "notes.txt\n", 0
+        if cmd.startswith("git cat-file -e HEAD:"):
+            path = cmd.split("HEAD:", 1)[-1].strip("'\"")
+            return ("", 0) if path in self.tracked else ("", 1)
         if cmd.startswith("git ls-files --error-unmatch"):
             path = cmd.rsplit("-- ", 1)[-1].strip("'\"")
             return ("", 0) if path in self.tracked else ("", 1)
@@ -375,7 +378,7 @@ class TestAcceptRevertCommit:
         )
         assert resp.status_code == 200, resp.text
         assert resp.json()["reverted"] == ["src/main.py", "notes.txt"]
-        assert "git checkout -- src/main.py" in provider.commands
+        assert "git checkout HEAD -- src/main.py" in provider.commands
         assert provider.removed == ["notes.txt"]
         assert not [c for c in provider.commands if c.startswith("git checkout -- notes")]
 
@@ -449,3 +452,87 @@ class TestRunnerWebSocket:
             "/api/v1/sandboxes/runner/ws?tenant_id=tenant-1&token=wrong"
         ):
             pass
+
+
+class TestPhase2Remediation:
+    """Phase 2 fixes: tenant fail-closed, .git paths, HEAD revert, preview cap."""
+
+    def test_session_with_missing_tenant_is_not_found(self, git_harness):
+        tc, _fake, mgr, _created = git_harness
+        session_id, _provider = _git_session(git_harness)
+        _provider2, info = mgr._sessions[session_id]
+        for bad_tenant in (None, ""):
+            info.tenant_id = bad_tenant
+            resp = tc.get(f"/api/v1/sandboxes/sessions/{session_id}/diff")
+            assert resp.status_code == 404, (bad_tenant, resp.text)
+        info.tenant_id = "tenant-1"
+        resp = tc.get(f"/api/v1/sandboxes/sessions/{session_id}/diff")
+        assert resp.status_code == 200, resp.text
+
+    @pytest.mark.parametrize("bad_path", [".git/HEAD", ".git/hooks/pre-commit", "src/.git/config"])
+    def test_accept_rejects_git_internals(self, git_harness, bad_path):
+        tc, _fake, _mgr, _created = git_harness
+        session_id, _provider = _git_session(git_harness)
+        resp = tc.post(
+            f"/api/v1/sandboxes/sessions/{session_id}/files/accept",
+            json={"paths": [bad_path]},
+        )
+        assert resp.status_code == 400, resp.text
+
+    def test_revert_after_accept_restores_head_and_removes_new_file(self, git_harness):
+        tc, _fake, _mgr, _created = git_harness
+        session_id, provider = _git_session(git_harness)
+        # Accept (stage) both a tracked file and a brand-new file,
+        # then revert: tracked must restore from HEAD (not the index)
+        # and the new file must be unstaged + removed.
+        resp = tc.post(
+            f"/api/v1/sandboxes/sessions/{session_id}/files/accept",
+            json={"paths": ["src/main.py", "notes.txt"]},
+        )
+        assert resp.status_code == 200, resp.text
+        resp = tc.post(
+            f"/api/v1/sandboxes/sessions/{session_id}/files/revert",
+            json={"paths": ["src/main.py", "notes.txt"]},
+        )
+        assert resp.status_code == 200, resp.text
+        assert "git checkout HEAD -- src/main.py" in provider.commands
+        assert not any(
+            c == "git checkout -- src/main.py" for c in provider.commands
+        )
+        assert any(
+            c.startswith("git rm -f --cached") and "notes.txt" in c
+            for c in provider.commands
+        )
+        assert provider.removed == ["notes.txt"]
+
+    def test_untracked_preview_capped_at_200_lines(self, git_harness, monkeypatch):
+        import asyncio
+
+        from backend.sandbox import git_diff as gd
+
+        _tc, _fake, _mgr, _created = git_harness
+        session_id, provider = _git_session(git_harness)
+        big_preview = "\n".join(
+            ["diff --git a/big.txt b/big.txt", "--- /dev/null", "+++ b/big.txt",
+             "@@ -0,0 +1,500 @@"]
+            + [f"+line {i}" for i in range(500)]
+        )
+
+        async def fake_gather(_provider, _sid, cmd):
+            if cmd.startswith("git diff --no-index"):
+                return big_preview, "", 1
+            if cmd.startswith("git ls-files --others"):
+                return "big.txt\n", "", 0
+            if cmd.startswith("git diff HEAD --numstat"):
+                return "", "", 0
+            if cmd.startswith("git diff HEAD"):
+                return "", "", 0
+            return "/repo\n", "", 0
+
+        monkeypatch.setattr(gd, "_gather", fake_gather)
+        summary = asyncio.run(gd.collect_session_diff(provider, session_id))
+        files = {f["path"]: f for f in summary["files"]}
+        assert "big.txt" in files
+        total_lines = sum(len(h["lines"]) for h in files["big.txt"]["hunks"])
+        assert total_lines <= gd._UNTRACKED_PREVIEW_LINES + 5
+        assert files["big.txt"]["additions"] <= gd._UNTRACKED_PREVIEW_LINES

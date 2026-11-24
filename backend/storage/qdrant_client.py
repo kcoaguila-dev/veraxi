@@ -27,7 +27,11 @@ def scope_filter_values(
 
     Accepts ``repo_key`` (str) / ``repo_keys`` (list) and
     ``source_id`` (str) / ``source_ids`` (list); a ``selected_sources``
-    sub-dict in the same shapes is merged in. Anything else is ignored.
+    sub-dict in the same shapes is merged in. A ``selected_sources``
+    list (the shape the sources pill produces from
+    ``GET /api/admin/sources``) contributes its string entries as
+    source ids and any dict entries in the shapes above. Anything
+    else is ignored.
     """
     repo_keys: list[str] = []
     source_ids: list[str] = []
@@ -47,7 +51,16 @@ def scope_filter_values(
 
     if isinstance(source_scope, dict):
         _collect(source_scope)
-        _collect(source_scope.get("selected_sources"))
+        selected = source_scope.get("selected_sources")
+        if isinstance(selected, (list, tuple)):
+            for item in selected:
+                if isinstance(item, str):
+                    if item and item not in source_ids:
+                        source_ids.append(item)
+                else:
+                    _collect(item)
+        else:
+            _collect(selected)
     return repo_keys, source_ids
 
 
@@ -377,25 +390,29 @@ class QdrantStorageClient:
         )
 
         # Code Mode source scoping: when the caller scopes the search
-        # to repo(s)/source(s), the tenant filter is kept AND narrowed
-        # with a MatchAny payload filter on repo_key / source_id.
-        # Public shared intel is not repo-scoped, so a scoped search
+        # to source(s), the tenant filter is kept AND narrowed with a
+        # MatchAny payload filter. The filter keys must match what
+        # ingestion actually writes (see ingestion/__main__.py):
+        # document points carry `source` (the id GET /api/admin/sources
+        # returns for a doc) and `document_id` — there is no `source_id`
+        # payload key, and filtering on one silently matched nothing.
+        # Repo scoping is NOT applied here: code ingestion writes
+        # Neo4j only (no Qdrant code points exist to stamp or match a
+        # `repo_key` on), so repo scope is enforced by the graph layer
+        # (mcp_server/tools/query_graph.py) and must not narrow — let
+        # alone empty — the tenant's document results.
+        # Public shared intel is not source-scoped, so a scoped search
         # deliberately searches only the tenant's own scoped points.
-        repo_keys, source_ids = scope_filter_values(source_scope)
-        if repo_keys or source_ids:
-            scope_conditions = []
-            if repo_keys:
-                scope_conditions.append(
-                    models.FieldCondition(
-                        key="repo_key", match=models.MatchAny(any=repo_keys)
-                    )
-                )
-            if source_ids:
-                scope_conditions.append(
-                    models.FieldCondition(
-                        key="source_id", match=models.MatchAny(any=source_ids)
-                    )
-                )
+        _repo_keys, source_ids = scope_filter_values(source_scope)
+        if source_ids:
+            scope_conditions = [
+                models.FieldCondition(
+                    key="source", match=models.MatchAny(any=source_ids)
+                ),
+                models.FieldCondition(
+                    key="document_id", match=models.MatchAny(any=source_ids)
+                ),
+            ]
             query_filter = models.Filter(
                 must=[
                     models.FieldCondition(

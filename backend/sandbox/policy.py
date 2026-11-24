@@ -29,8 +29,10 @@ may proceed (read-only work is always allowed in plan mode).
 """
 
 import logging
+import os
 import re
 import shlex
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
@@ -62,11 +64,86 @@ _GIT_MUTATING = {
 
 
 def _segments(command: str) -> list[str]:
-    return [s.strip() for s in re.split(r"&&|\|\||;|\|", command or "") if s.strip()]
+    return [
+        s.strip()
+        for s in re.split(r"&&|\|\||;|\||\n", command or "")
+        if s.strip()
+    ]
+
+
+def _has_shell_expansion(command: str) -> bool:
+    """True when the command can smuggle execution past segment checks.
+
+    Command substitution (``$(...)`` / backticks) executes even inside
+    double quotes, so it counts everywhere except single quotes.
+    Process substitution (``<(`` / ``>(``) and bare newlines only act
+    as shell syntax outside any quotes. Any hit fails closed: the
+    segment classifier cannot see inside an expansion.
+    """
+    in_single = False
+    in_double = False
+    escaped = False
+    prev = ""
+    for ch in command or "":
+        if escaped:
+            escaped = False
+            prev = ch
+            continue
+        if ch == "\\" and not in_single:
+            escaped = True
+            prev = ch
+            continue
+        if ch == "'" and not in_double:
+            in_single = not in_single
+        elif ch == '"' and not in_single:
+            in_double = not in_double
+        elif not in_single:
+            if ch == "`" or (ch == "(" and prev == "$"):
+                return True
+            if not in_double and (ch == "\n" or (prev in "<>" and ch == "(")):
+                return True
+        prev = ch
+    return False
+
+
+# `git branch` forms that only list or query refs. Anything else
+# (create / delete / rename / copy / force) mutates refs.
+_GIT_BRANCH_READ_ONLY_FLAGS = {
+    "--list", "-l", "-a", "--all", "-r", "--remotes", "-v", "-vv",
+    "--show-current", "--contains", "--merged", "--no-merged",
+}
+_GIT_BRANCH_VALUE_FLAGS = {"--contains", "--merged", "--no-merged"}
+
+
+def _git_branch_is_read_only(args: list[str]) -> bool:
+    """Argument-aware check for ``git branch`` (never phrase-matched)."""
+    i = 0
+    while i < len(args):
+        token = args[i]
+        if token in _GIT_BRANCH_VALUE_FLAGS:
+            i += 2  # flag plus its commit-ish value
+            continue
+        if any(token.startswith(f + "=") for f in _GIT_BRANCH_VALUE_FLAGS):
+            i += 1
+            continue
+        if token not in _GIT_BRANCH_READ_ONLY_FLAGS:
+            return False
+        i += 1
+    return True
 
 
 def _segment_is_read_only(segment: str) -> bool:
     lowered = segment.lower()
+    if lowered.startswith("git branch"):
+        # `git branch` is argument-sensitive (listing vs -D/create);
+        # never approve it via the phrase list.
+        try:
+            branch_tokens = shlex.split(segment)
+        except ValueError:
+            return False
+        if len(branch_tokens) >= 2 and branch_tokens[1] == "branch":
+            return _git_branch_is_read_only(branch_tokens[2:])
+        return False
     if any(lowered.startswith(p) or lowered == p for p in _READ_ONLY_PHRASES):
         return True
     try:
@@ -112,6 +189,8 @@ def classify_command(command: str) -> str:
     cmd = (command or "").strip()
     if not cmd:
         return READ_ONLY
+    if _has_shell_expansion(cmd):
+        return MUTATING
     if ">" in cmd or ">>" in cmd:
         return MUTATING
     if is_git_push(cmd):
@@ -127,11 +206,16 @@ _INSTALL_NETWORK_SYSTEM_HEADS = {
     "scp", "kill", "chmod", "chown",
 }
 _PACKAGE_MANAGER_HEADS = {"npm", "npx", "yarn", "pnpm"}
-# File-mutating shell heads whose effects stay inside the workspace.
+# File-mutating shell heads whose effects are path-bounded: every
+# path operand is checked against the workspace before auto-approval.
 _WORKSPACE_WRITE_HEADS = {
     "rm", "mv", "cp", "mkdir", "touch", "ln", "tee", "sed",
-    "python", "python3", "node", "make", "flutter", "dart",
 }
+# Toolchain heads auto-approved only for test/lint subcommands.
+_FLUTTER_AUTO_SUBCOMMANDS = {"test", "analyze"}
+_DART_AUTO_SUBCOMMANDS = {"analyze", "test", "format"}
+# `python -m <module>` entry points that only test or lint.
+_PYTHON_AUTO_MODULES = {"pytest", "ruff"}
 # The only mutating git subcommands auto-approved in the workspace:
 # they stage/commit work that stays local until a (separately gated)
 # push.
@@ -148,7 +232,52 @@ def _segment_head(segment: str) -> tuple[str, list[str]]:
     return tokens[0].rsplit("/", 1)[-1], tokens
 
 
-def _auto_workspace_segment_requires_approval(segment: str) -> bool:
+def _path_within_workspace(raw: str, workspace_root: str | None) -> bool:
+    """Whether one path operand provably stays inside the workspace.
+
+    Dynamic paths (env vars, ``~``, globs) cannot be proven safe and
+    fail closed. With a known ``workspace_root`` the path is resolved
+    against it; without one (the dispatch layer has no root — the
+    sandbox session is only created after the approval check) the
+    sandbox's implicit working directory is the root, so only plain
+    relative paths that never climb out with ``..`` qualify and every
+    absolute path requires approval.
+    """
+    if not raw or any(c in raw for c in "$~*?["):
+        return False
+    if workspace_root:
+        root = Path(workspace_root).resolve()
+        candidate = Path(raw)
+        resolved = (
+            candidate.resolve()
+            if candidate.is_absolute()
+            else (root / candidate).resolve()
+        )
+        return resolved == root or root in resolved.parents
+    if os.path.isabs(raw):
+        return False
+    normalized = os.path.normpath(raw)
+    return normalized != ".." and not normalized.startswith("../")
+
+
+def _all_paths_within_workspace(
+    paths: list[str], workspace_root: str | None
+) -> bool:
+    """True when every path operand stays inside the workspace."""
+    return all(_path_within_workspace(p, workspace_root) for p in paths)
+
+
+_REDIRECTION_TARGET_RE = re.compile(r"(?:\d+|&)?>>?\s*([^\s;|&]+)")
+
+
+def _redirection_targets(command: str) -> list[str]:
+    """Output-redirection targets (``>``, ``>>``, ``1>``, ``2>``, ``&>``)."""
+    return _REDIRECTION_TARGET_RE.findall(command or "")
+
+
+def _auto_workspace_segment_requires_approval(
+    segment: str, workspace_root: str | None = None
+) -> bool:
     """One command segment under the ``auto_workspace_writes`` rule."""
     if _segment_is_read_only(segment):
         return False
@@ -162,31 +291,64 @@ def _auto_workspace_segment_requires_approval(segment: str) -> bool:
         # Test/typecheck phrases were already cleared as read-only
         # above; any other package-manager invocation can install.
         return True
-    # Workspace-write heads are auto-approved; unknown mutating
-    # segments fail closed to approval.
-    return head not in _WORKSPACE_WRITE_HEADS
+    if head in ("python", "python3"):
+        # Only explicit test/lint module entry points; `-c`, scripts,
+        # and `-m pip` are arbitrary code / installs and need approval.
+        if len(tokens) >= 3 and tokens[1] == "-m":
+            module = tokens[2]
+            if module not in _PYTHON_AUTO_MODULES:
+                return True
+            if module == "pytest":
+                return False
+            return not (len(tokens) >= 4 and tokens[3] == "check")
+        return True
+    if head in ("node", "make"):
+        # Bare interpreters / build drivers run arbitrary code whose
+        # effects are not path-bounded; never auto-approved.
+        return True
+    if head == "flutter":
+        subcommand = tokens[1] if len(tokens) >= 2 else ""
+        return subcommand not in _FLUTTER_AUTO_SUBCOMMANDS
+    if head == "dart":
+        subcommand = tokens[1] if len(tokens) >= 2 else ""
+        return subcommand not in _DART_AUTO_SUBCOMMANDS
+    if head in _WORKSPACE_WRITE_HEADS:
+        operands = [t for t in tokens[1:] if not t.startswith("-")]
+        return not _all_paths_within_workspace(operands, workspace_root)
+    # Unknown mutating segments fail closed to approval.
+    return True
 
 
 def _auto_workspace_requires_approval(
-    command: str | None, *, is_write: bool
+    command: str | None,
+    *,
+    is_write: bool,
+    workspace_root: str | None = None,
 ) -> bool:
-    if is_write:
-        # sandbox_write_file writes inside the tenant workspace.
-        return False
     if command is None:
-        return False
+        # sandbox_write_file writes inside the tenant workspace.
+        return not is_write
     cmd = command.strip()
     if not cmd:
         return False
+    if _has_shell_expansion(cmd):
+        return True
+    # Every redirection target must stay inside the workspace.
+    if not _all_paths_within_workspace(
+        _redirection_targets(cmd), workspace_root
+    ):
+        return True
     if ">" in cmd:
         # Output redirection is a workspace write — unless a segment
         # independently needs approval (install/network/system/git).
         segments = [s.replace(">", " ") for s in _segments(cmd)]
         return any(
-            _auto_workspace_segment_requires_approval(s) for s in segments
+            _auto_workspace_segment_requires_approval(s, workspace_root)
+            for s in segments
         )
     return any(
-        _auto_workspace_segment_requires_approval(s) for s in _segments(cmd)
+        _auto_workspace_segment_requires_approval(s, workspace_root)
+        for s in _segments(cmd)
     )
 
 
@@ -195,6 +357,7 @@ def requires_approval(
     command: str | None = None,
     *,
     is_write: bool = False,
+    workspace_root: str | None = None,
 ) -> bool:
     """Whether a sandbox operation needs user approval first."""
     mode = (autonomy_mode or "auto_read_test").strip().lower()
@@ -205,7 +368,9 @@ def requires_approval(
     if mode == "autonomous":
         return False
     if mode == "auto_workspace_writes":
-        return _auto_workspace_requires_approval(command, is_write=is_write)
+        return _auto_workspace_requires_approval(
+            command, is_write=is_write, workspace_root=workspace_root
+        )
     # auto_read_test (and any unknown mode fails closed to it)
     if is_write:
         return True

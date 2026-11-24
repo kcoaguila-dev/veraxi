@@ -191,3 +191,14 @@ def test_admin_stats_and_sources_routes(monkeypatch):
         assert del_resp.status_code == 200
         assert del_resp.json()["deleted_nodes"] == 5
         assert del_resp.json()["deleted_vectors"] == 4
+
+
+def test_format_relative_age_parses_z_suffix_timestamp():
+    """Python 3.11+ fromisoformat handles a trailing "Z" natively (FURB162 fix)."""
+    from backend.storage.source_registry import _format_relative_age
+
+    recent = datetime.now(UTC) - timedelta(minutes=5)
+    iso_z = recent.strftime("%Y-%m-%dT%H:%M:%SZ")
+    label, is_stale = _format_relative_age(iso_z, stale_days=14)
+    assert label == "5m ago"
+    assert is_stale is False

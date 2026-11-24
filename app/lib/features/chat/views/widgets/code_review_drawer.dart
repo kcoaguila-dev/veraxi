@@ -679,43 +679,15 @@ class _CodeReviewDrawerState extends ConsumerState<CodeReviewDrawer> {
   // ---- Commit --------------------------------------------------------------
 
   Future<void> _openCommitDialog() async {
-    final controller = TextEditingController();
+    // The dialog owns its TextEditingController (see
+    // _CommitMessageDialog): disposing a locally created controller
+    // as soon as `showDialog` resolves races the dialog's exit
+    // animation, which rebuilds the TextField and throws
+    // `A TextEditingController was used after being disposed`.
     final message = await showDialog<String>(
       context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          backgroundColor: ObsidianTokens.card,
-          title: const Text(
-            'Commit changes',
-            style: TextStyle(fontSize: 15, color: Color(0xFFF4F4F5)),
-          ),
-          content: TextField(
-            key: const Key('code-review-commit-message-field'),
-            controller: controller,
-            autofocus: true,
-            maxLines: 3,
-            style: const TextStyle(fontSize: 13, color: Color(0xFFE4E4E7)),
-            decoration: const InputDecoration(
-              hintText: 'Commit message',
-              hintStyle: TextStyle(color: Color(0xFF71717A)),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              key: const Key('code-review-commit-confirm'),
-              onPressed: () =>
-                  Navigator.of(dialogContext).pop(controller.text),
-              child: const Text('Commit'),
-            ),
-          ],
-        );
-      },
+      builder: (_) => const _CommitMessageDialog(),
     );
-    controller.dispose();
     if (message == null || message.trim().isEmpty || !mounted) return;
     final ok =
         await ref.read(codeReviewProvider.notifier).commit(message);
@@ -725,6 +697,65 @@ class _CodeReviewDrawerState extends ConsumerState<CodeReviewDrawer> {
         content: Text(ok ? 'Committed' : 'Commit failed'),
         duration: const Duration(seconds: 2),
       ),
+    );
+  }
+}
+
+/// Commit-message dialog that owns its [TextEditingController]:
+/// created in `initState`, disposed in `dispose`, so the controller
+/// outlives the dialog's exit animation.
+class _CommitMessageDialog extends StatefulWidget {
+  const _CommitMessageDialog();
+
+  @override
+  State<_CommitMessageDialog> createState() => _CommitMessageDialogState();
+}
+
+class _CommitMessageDialogState extends State<_CommitMessageDialog> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: ObsidianTokens.card,
+      title: const Text(
+        'Commit changes',
+        style: TextStyle(fontSize: 15, color: Color(0xFFF4F4F5)),
+      ),
+      content: TextField(
+        key: const Key('code-review-commit-message-field'),
+        controller: _controller,
+        autofocus: true,
+        maxLines: 3,
+        style: const TextStyle(fontSize: 13, color: Color(0xFFE4E4E7)),
+        decoration: const InputDecoration(
+          hintText: 'Commit message',
+          hintStyle: TextStyle(color: Color(0xFF71717A)),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          key: const Key('code-review-commit-confirm'),
+          onPressed: () => Navigator.of(context).pop(_controller.text),
+          child: const Text('Commit'),
+        ),
+      ],
     );
   }
 }

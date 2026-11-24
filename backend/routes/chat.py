@@ -878,6 +878,21 @@ def _parse_code_meta(raw: Any) -> dict[str, Any]:
     return meta
 
 
+def _field_explicitly_set(chat_request: Any, name: str) -> bool:
+    """Whether the client actually supplied ``name`` on this request.
+
+    ``ChatRequest.workspace_mode`` / ``execution_mode`` carry non-None
+    defaults (``"chat"`` / ``"act"``) for backward compatibility, so
+    the value alone cannot distinguish "client sent the default" from
+    "client sent nothing" — ``model_fields_set`` can. Lightweight
+    request doubles without it fall back to attribute presence.
+    """
+    fields_set = getattr(chat_request, "model_fields_set", None)
+    if isinstance(fields_set, (set, frozenset)):
+        return name in fields_set
+    return getattr(chat_request, name, None) is not None
+
+
 def _code_meta_from_request(chat_request: ChatRequest) -> dict[str, Any]:
     """Code Mode metadata carried by one chat request.
 
@@ -891,6 +906,30 @@ def _code_meta_from_request(chat_request: ChatRequest) -> dict[str, Any]:
         "branch": getattr(chat_request, "branch", None),
         "selected_sources": getattr(chat_request, "source_scope", None) or {},
     }
+
+
+def _merged_code_meta(existing_raw: Any, chat_request: ChatRequest) -> dict[str, Any]:
+    """Merge a request's Code Mode fields over previously stored meta.
+
+    Follow-up turns commonly send only ``thread_id``; fields the
+    client did not explicitly supply keep their stored values instead
+    of being clobbered back to chat/null/empty (which made Code Mode
+    threads vanish from the Code rail).
+    """
+    merged = _parse_code_meta(existing_raw)
+    if _field_explicitly_set(chat_request, "workspace_mode"):
+        merged["workspace_mode"] = (
+            getattr(chat_request, "workspace_mode", None) or "chat"
+        )
+    if _field_explicitly_set(chat_request, "repo_key"):
+        merged["repo_key"] = getattr(chat_request, "repo_key", None)
+    if _field_explicitly_set(chat_request, "branch"):
+        merged["branch"] = getattr(chat_request, "branch", None)
+    if _field_explicitly_set(chat_request, "source_scope"):
+        merged["selected_sources"] = (
+            getattr(chat_request, "source_scope", None) or {}
+        )
+    return merged
 
 
 async def _save_thread_code_meta(redis, tenant_id: str, thread_id: str, meta: dict) -> None:
@@ -917,8 +956,18 @@ def _effective_tool_settings(chat_request: ChatRequest) -> dict:
     ts = dict(chat_request.tool_settings or {})
     # getattr throughout: lightweight request doubles (SimpleNamespace
     # in tests) may not carry the Code Mode fields at all.
-    ts["workspace_mode"] = getattr(chat_request, "workspace_mode", None) or "chat"
-    ts["execution_mode"] = getattr(chat_request, "execution_mode", None) or "act"
+    # workspace_mode / execution_mode only override tool_settings when
+    # the client explicitly supplied them: their model defaults
+    # ("chat" / "act") must not silently downgrade a plan/code mode
+    # the client set through tool_settings alone.
+    if _field_explicitly_set(chat_request, "workspace_mode"):
+        ts["workspace_mode"] = getattr(chat_request, "workspace_mode", None) or "chat"
+    elif "workspace_mode" not in ts:
+        ts["workspace_mode"] = "chat"
+    if _field_explicitly_set(chat_request, "execution_mode"):
+        ts["execution_mode"] = getattr(chat_request, "execution_mode", None) or "act"
+    elif "execution_mode" not in ts:
+        ts["execution_mode"] = "act"
     if getattr(chat_request, "repo_key", None) is not None:
         ts["repo_key"] = chat_request.repo_key
     if getattr(chat_request, "branch", None) is not None:
@@ -1366,11 +1415,36 @@ def register_chat_routes(
                 await request.app.state.redis.hset(
                     f"tenant:{tenant_id}:thread_timestamps", thread_id, str(time.time())
                 )
+                # Fail-soft: a Redis double without hget (unit-test
+                # fakes) simply means "no stored meta to merge".
+                _hget = getattr(request.app.state.redis, "hget", None)
+                existing_meta_raw = (
+                    await _hget(
+                        f"tenant:{tenant_id}:thread_code_meta", thread_id
+                    )
+                    if _hget is not None
+                    else None
+                )
+                merged_meta = _merged_code_meta(existing_meta_raw, chat_request)
+                # Hydrate omitted Code Mode fields from the stored
+                # meta so a follow-up turn that only repeats the
+                # thread_id still runs in the thread's workspace.
+                if existing_meta_raw is not None:
+                    if not _field_explicitly_set(chat_request, "workspace_mode"):
+                        chat_request.workspace_mode = merged_meta["workspace_mode"]
+                    if not _field_explicitly_set(chat_request, "repo_key"):
+                        chat_request.repo_key = merged_meta["repo_key"]
+                    if not _field_explicitly_set(chat_request, "branch"):
+                        chat_request.branch = merged_meta["branch"]
+                    if not _field_explicitly_set(chat_request, "source_scope"):
+                        chat_request.source_scope = (
+                            merged_meta["selected_sources"] or None
+                        )
                 await _save_thread_code_meta(
                     request.app.state.redis,
                     tenant_id,
                     thread_id,
-                    _code_meta_from_request(chat_request),
+                    merged_meta,
                 )
                 if added == 1:
                     initial_title = (
