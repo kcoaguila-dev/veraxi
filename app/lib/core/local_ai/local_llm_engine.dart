@@ -62,7 +62,12 @@ class LocalLlmEngine {
     }
   }
 
-  Stream<String> streamGenerate(String prompt) {
+  Stream<String> streamGenerate(
+    String prompt, {
+    double temperature = 0.7,
+    int nPredict = -1,
+    List<String>? stop,
+  }) {
     final controller = StreamController<String>();
 
     if (_contextId == null) {
@@ -86,7 +91,14 @@ class LocalLlmEngine {
     });
 
     Fllama.instance()
-        ?.completion(_contextId!, prompt: prompt, emitRealtimeCompletion: true)
+        ?.completion(
+          _contextId!,
+          prompt: prompt,
+          temperature: temperature,
+          nPredict: nPredict,
+          stop: stop,
+          emitRealtimeCompletion: true,
+        )
         .then((result) {
       // The completion result is where the binding reports usage;
       // it used to be discarded here.

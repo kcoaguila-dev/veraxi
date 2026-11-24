@@ -459,7 +459,8 @@ class ChatViewModel extends StateNotifier<ChatState> {
   Future<void> sendMessage(String text,
       {String? model,
       List<dynamic>? attachments,
-      Map<String, dynamic>? codeScope}) async {
+      Map<String, dynamic>? codeScope,
+      String? thinkingLevel}) async {
     if (text.trim().isEmpty && (attachments == null || attachments.isEmpty))
       return;
 
@@ -575,6 +576,7 @@ class ChatViewModel extends StateNotifier<ChatState> {
                 model: model,
                 calculateGrounding: state.showTelemetry,
                 toolSettings: toolSettings,
+                thinkingLevel: thinkingLevel,
               )
             : _repository.streamChat(
                 currentQuery,
@@ -584,6 +586,7 @@ class ChatViewModel extends StateNotifier<ChatState> {
                 calculateGrounding: state.showTelemetry,
                 toolSettings: toolSettings,
                 codeScope: codeScope,
+                thinkingLevel: thinkingLevel,
               );
         await for (final event in stream) {
           _handleStreamEvent(event);

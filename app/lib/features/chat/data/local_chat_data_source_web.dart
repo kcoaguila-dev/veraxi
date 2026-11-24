@@ -3,7 +3,11 @@ class LocalChatDataSource {
 
   static LocalChatDataSource forModel() => const LocalChatDataSource._();
 
-  Stream<Map<String, dynamic>> streamChat(String question, String modelName) {
+  Stream<Map<String, dynamic>> streamChat(
+    String question,
+    String modelName, {
+    String? thinkingLevel,
+  }) {
     return Stream.error(
       UnsupportedError('Local models are not supported on Flutter Web.'),
     );

@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 360" width="920" height="360">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0E1015"/>
+      <stop offset="100%" stop-color="#151922"/>
+    </linearGradient>
+    <linearGradient id="pillGlow" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#252B3B"/>
+      <stop offset="100%" stop-color="#1E2330"/>
+    </linearGradient>
+    <linearGradient id="accentGrad" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#7C8CFF"/>
+      <stop offset="100%" stop-color="#A78BFA"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="920" height="360" rx="16" fill="url(#bg)"/>
+  <text x="28" y="34" fill="#F1F5F9" font-family="Inter, sans-serif" font-size="16" font-weight="600">
+    Veraxi Unified Thinking Level Selector — Design Contract
+  </text>
+  <text x="28" y="54" fill="#94A3B8" font-family="Inter, sans-serif" font-size="12">
+    Shared across Chat Mode &amp; Code Mode · Model-Capability Filtered · AnimatedSwitcher on Model Change
+  </text>
+
+  <!-- Card 1: Tiered Effort Model (e.g. gpt-5.4) -->
+  <rect x="28" y="76" width="280" height="256" rx="12" fill="#161A23" stroke="#262C3B"/>
+  <text x="44" y="100" fill="#A78BFA" font-family="Inter, sans-serif" font-size="11" font-weight="600">STATE 1 · TIERED EFFORT (gpt-5.4)</text>
+
+  <!-- Pill -->
+  <rect x="44" y="114" width="152" height="30" rx="8" fill="url(#pillGlow)" stroke="#3B4358"/>
+  <circle cx="60" cy="129" r="5" fill="url(#accentGrad)"/>
+  <text x="72" y="133" fill="#E2E8F0" font-family="Inter, sans-serif" font-size="12" font-weight="500">Thinking: High</text>
+  <path d="M178 126 l4 4 l4 -4" stroke="#94A3B8" stroke-width="1.5" fill="none"/>
+
+  <!-- Popover Menu -->
+  <rect x="44" y="152" width="224" height="164" rx="10" fill="#1C212E" stroke="#2F374A"/>
+  <text x="58" y="174" fill="#94A3B8" font-family="Inter, sans-serif" font-size="11">Off · Fastest</text>
+  <text x="58" y="196" fill="#94A3B8" font-family="Inter, sans-serif" font-size="11">Minimal · Light check</text>
+  <text x="58" y="218" fill="#CBD5E1" font-family="Inter, sans-serif" font-size="11">Low · Quick reasoning</text>
+  <text x="58" y="240" fill="#CBD5E1" font-family="Inter, sans-serif" font-size="11">Medium · Balanced</text>
+  <rect x="50" y="248" width="212" height="24" rx="6" fill="#2A3147"/>
+  <text x="58" y="264" fill="#F8FAFC" font-family="Inter, sans-serif" font-size="11" font-weight="600">✓ High · Deep analysis</text>
+  <text x="58" y="290" fill="#CBD5E1" font-family="Inter, sans-serif" font-size="11">Max · Exhaustive</text>
+
+  <!-- Card 2: Toggle Model (e.g. deepseek-chat / Ollama qwen3) -->
+  <rect x="328" y="76" width="272" height="256" rx="12" fill="#161A23" stroke="#262C3B"/>
+  <text x="344" y="100" fill="#38BDF8" font-family="Inter, sans-serif" font-size="11" font-weight="600">STATE 2 · TOGGLE (deepseek / qwen3)</text>
+
+  <rect x="344" y="114" width="132" height="30" rx="8" fill="url(#pillGlow)" stroke="#3B4358"/>
+  <circle cx="360" cy="129" r="5" fill="#38BDF8"/>
+  <text x="372" y="133" fill="#E2E8F0" font-family="Inter, sans-serif" font-size="12" font-weight="500">Thinking: On</text>
+
+  <rect x="344" y="152" width="204" height="68" rx="10" fill="#1C212E" stroke="#2F374A"/>
+  <text x="358" y="176" fill="#94A3B8" font-family="Inter, sans-serif" font-size="11">Off · Direct answer</text>
+  <rect x="350" y="186" width="192" height="24" rx="6" fill="#233146"/>
+  <text x="358" y="202" fill="#F8FAFC" font-family="Inter, sans-serif" font-size="11" font-weight="600">✓ On · Step-by-step</text>
+
+  <!-- Card 3: Non-Reasoning Model (e.g. gpt-4o) -->
+  <rect x="620" y="76" width="272" height="256" rx="12" fill="#161A23" stroke="#262C3B"/>
+  <text x="636" y="100" fill="#64748B" font-family="Inter, sans-serif" font-size="11" font-weight="600">STATE 3 · NON-REASONING (gpt-4o)</text>
+
+  <rect x="636" y="114" width="142" height="30" rx="8" fill="#1C2029" stroke="#282E3D"/>
+  <text x="650" y="133" fill="#CBD5E1" font-family="Inter, sans-serif" font-size="12">gpt-4o ▾</text>
+  <text x="636" y="176" fill="#64748B" font-family="Inter, sans-serif" font-size="11">
+    Thinking pill smoothly animates out
+  </text>
+  <text x="636" y="194" fill="#64748B" font-family="Inter, sans-serif" font-size="11">
+    (AnimatedSize + AnimatedSwitcher).
+  </text>
+  <text x="636" y="212" fill="#64748B" font-family="Inter, sans-serif" font-size="11">
+    thinking_level omitted from payload.
+  </text>
+</svg>

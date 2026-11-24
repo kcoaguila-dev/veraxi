@@ -18,8 +18,11 @@ import 'package:veraxi_app/features/chat/views/widgets/chat_sidebar.dart';
 import 'package:veraxi_app/features/chat/views/widgets/chat_message_list_item.dart';
 import 'package:veraxi_app/features/chat/views/widgets/project_dashboard_view.dart';
 import 'package:veraxi_app/features/chat/views/widgets/all_projects_dashboard_view.dart';
+import 'package:veraxi_app/core/models/model_thinking_capability.dart';
+import 'package:veraxi_app/core/providers/thinking_level_provider.dart';
 import 'package:veraxi_app/core/widgets/model_selector_menu.dart';
 import 'package:veraxi_app/core/widgets/provider_icon.dart';
+import 'package:veraxi_app/core/widgets/thinking_level_selector.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:veraxi_app/features/chat/view_models/audio_player_service.dart';
 
@@ -861,6 +864,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                                 ),
                                               ),
                                             ),
+                                            ThinkingLevelSelector(
+                                              selectedModel: _selectedModel,
+                                            ),
                                             // Metrics toggle — flush next to the model pill
                                             Tooltip(
                                               message: state.showTelemetry
@@ -1150,7 +1156,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                                                 ? null
                                                                 : _selectedModel,
                                                             attachments:
-                                                                attachments),
+                                                                attachments,
+                                                            thinkingLevel:
+                                                                _effectiveThinkingLevel()),
                                                     errorText: state.error,
                                                     onDismissError: () =>
                                                         viewModel.clearError(),
@@ -1287,6 +1295,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     );
   }
 
+  String? _effectiveThinkingLevel() {
+    final caps = ref.read(modelCapabilitiesProvider).valueOrNull ??
+        const <String, ModelThinkingCapability>{};
+    return resolveEffectiveThinkingLevel(
+      modelName: _selectedModel,
+      savedByModel: ref.read(thinkingLevelByModelProvider),
+      capabilities: caps,
+    );
+  }
+
   Widget _buildEmptyState(ThemeData theme, AppThemeExtension ext,
       ChatState state, ChatViewModel viewModel,
       {bool sandboxEnabled = false}) {
@@ -1317,7 +1335,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     model: _selectedModel == 'Select a model'
                         ? null
                         : _selectedModel,
-                    attachments: attachments),
+                    attachments: attachments,
+                    thinkingLevel: _effectiveThinkingLevel()),
                 errorText: state.error,
                 onDismissError: () => viewModel.clearError(),
               )
@@ -1332,6 +1351,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   model: _selectedModel == 'Select a model'
                       ? null
                       : _selectedModel,
+                  thinkingLevel: _effectiveThinkingLevel(),
                 ),
               ),
               if (sandboxEnabled) ...[

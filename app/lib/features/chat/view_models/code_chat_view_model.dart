@@ -64,7 +64,7 @@ final agentSkillsProvider =
 Map<String, dynamic> buildCodeScope({
   required String? repoKey,
   required String branch,
-  required String thinkingLevel,
+  String? thinkingLevel,
   required CodeExecutionMode executionMode,
   required String autonomyMode,
   required CodeSelectedSources sources,
@@ -77,7 +77,8 @@ Map<String, dynamic> buildCodeScope({
     'workspace_mode': 'code',
     if (repoKey != null && repoKey.isNotEmpty) 'repo_key': repoKey,
     if (branch.isNotEmpty) 'branch': branch,
-    'thinking_level': thinkingLevel.toLowerCase(),
+    if (thinkingLevel != null && thinkingLevel.isNotEmpty)
+      'thinking_level': thinkingLevel.toLowerCase(),
     'execution_mode': executionMode.name,
     'autonomy_mode': autonomyMode,
     'source_scope': <String, dynamic>{

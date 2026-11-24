@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:veraxi_app/core/models/model_thinking_capability.dart';
 import 'package:veraxi_app/core/network/api_client.dart';
 
 final modelConfigRepositoryProvider = Provider<ModelConfigRepository>((ref) {
@@ -37,5 +38,26 @@ class ModelConfigRepository {
       result[entry.key.toString()] = List<String>.from(entry.value as Iterable);
     }
     return result;
+  }
+
+  Future<Map<String, ModelThinkingCapability>> getModelCapabilities() async {
+    final url =
+        '/models/capabilities?_=${DateTime.now().millisecondsSinceEpoch}';
+    try {
+      final data = await apiClient.get(url);
+      if (data is! Map) return {};
+      final result = <String, ModelThinkingCapability>{};
+      for (final entry in data.entries) {
+        if (entry.value is Map) {
+          result[entry.key.toString()] = ModelThinkingCapability.fromJson(
+            Map<String, dynamic>.from(entry.value as Map),
+          );
+        }
+      }
+      return result;
+    } catch (e) {
+      debugPrint('[ModelConfigRepository] getModelCapabilities error: $e');
+      return {};
+    }
   }
 }

@@ -1,7 +1,9 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:veraxi_app/core/models/model_thinking_capability.dart';
 import 'package:veraxi_app/core/providers/model_selection_provider.dart';
+import 'package:veraxi_app/core/providers/thinking_level_provider.dart';
 import 'package:veraxi_app/core/providers/workspace_mode_provider.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
 import 'package:veraxi_app/core/widgets/profile_menu_button.dart';
@@ -63,15 +65,23 @@ class _CodeChatPaneState extends ConsumerState<CodeChatPane> {
         (sources.repoKeys.isNotEmpty
             ? sources.repoKeys.first
             : (repos.isNotEmpty ? repos.first.repoKey : null));
+    final model = ref.read(modelSelectionProvider).selectedModel;
+    final caps = ref.read(modelCapabilitiesProvider).valueOrNull ??
+        const <String, ModelThinkingCapability>{};
+    final effectiveThinking = resolveEffectiveThinkingLevel(
+      modelName: model,
+      savedByModel: ref.read(thinkingLevelByModelProvider),
+      capabilities: caps,
+      fallbackLevel: ref.read(codeThinkingLevelProvider),
+    );
     final scope = buildCodeScope(
       repoKey: repoKey,
       branch: ref.read(codeBranchProvider),
-      thinkingLevel: ref.read(codeThinkingLevelProvider),
+      thinkingLevel: effectiveThinking,
       executionMode: ref.read(codeExecutionModeProvider),
       autonomyMode: ref.read(codeAutonomyModeProvider),
       sources: sources,
     );
-    final model = ref.read(modelSelectionProvider).selectedModel;
     ref.read(codeChatViewModelProvider.notifier).sendMessage(
           text,
           model: model == 'Select a model' ? null : model,

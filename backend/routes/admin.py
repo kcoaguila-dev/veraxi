@@ -204,6 +204,42 @@ def register_admin_routes(
 
         return final_models_dict
 
+    @app_router.get("/api/models/capabilities")
+    async def get_model_capabilities(request: Request):
+        """Return per-model thinking/reasoning capabilities for UI filtering."""
+        from backend.thinking_policy import (
+            probe_local_runtime,
+            resolve_thinking_capability,
+        )
+
+        models_by_provider = await get_models(request)
+        capabilities: dict[str, dict] = {}
+        local_url = request.headers.get("x-byod-local-url")
+
+        local_probe = None
+        local_models = models_by_provider.get("Local") or []
+        if local_url and local_models:
+            config = get_config()
+            validated_url = _validate_provider_url(
+                local_url, is_enterprise=config.is_enterprise
+            )
+            local_probe = await probe_local_runtime(validated_url, local_models)
+
+        for provider, models in models_by_provider.items():
+            for model in models:
+                if provider == "Local":
+                    cap = resolve_thinking_capability(
+                        model,
+                        base_url=local_url or "http://localhost:11434",
+                        runtime_probe=local_probe,
+                    )
+                    capabilities[f"local::{model}"] = cap.to_dict()
+                else:
+                    cap = resolve_thinking_capability(model)
+                    capabilities[model] = cap.to_dict()
+
+        return capabilities
+
     @app_router.get("/api/config/ui")
     async def get_ui_config():
         """Returns UI configuration URLs for the frontend."""

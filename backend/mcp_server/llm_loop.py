@@ -22,6 +22,7 @@ from backend.mcp_server.orchestrator import (
     _request_base_url,
     _request_model,
 )
+from backend.mcp_server.think_parser import ThinkParseResult, ThinkTagStreamParser
 from backend.prompts import TITLE_GENERATION_PROMPT
 
 logger = logging.getLogger(__name__)
@@ -320,6 +321,29 @@ def _handle_chain_end_langgraph(
     return events
 
 
+def _reasoning_events_from_parse(
+    parsed: ThinkParseResult, event: dict, chunk: Any
+) -> list[dict]:
+    """Convert a ``ThinkParseResult`` into SSE stream events."""
+    out: list[dict] = []
+    for r_delta in parsed.reasoning_deltas:
+        out.append({"event": "on_reasoning_stream", "data": {"text": r_delta}})
+    if parsed.reasoning_ended_ms is not None:
+        out.append(
+            {
+                "event": "on_reasoning_end",
+                "data": {
+                    "duration_ms": parsed.reasoning_ended_ms,
+                    "seconds": round(parsed.reasoning_ended_ms / 1000, 1),
+                },
+            }
+        )
+    for c_delta in parsed.content_deltas:
+        chunk.content = c_delta
+        out.append(event)
+    return out
+
+
 async def stream_answer_question(
     question: str,
     tenant_id: str = "default",
@@ -362,8 +386,7 @@ async def stream_answer_question(
         async def _process_stream(stream):
             tool_start_times: dict[str, float] = {}
             current_step = 1
-            in_thinking_mode = False
-            thinking_start_time: float | None = None
+            think_parser = ThinkTagStreamParser()
             called_tools: list[str] = []
             started_at = time.perf_counter()
 
@@ -387,105 +410,23 @@ async def stream_answer_question(
                     ]:
                         continue
 
-                # Parse reasoning / <think> blocks (DeepSeek-R1 / QwQ)
+                # Parse reasoning / <think> blocks (DeepSeek-R1 / QwQ / Qwen3 / Ollama)
                 if event["event"] == "on_chat_model_stream":
                     chunk = event.get("data", {}).get("chunk")
-                    # Check for explicit reasoning_content in additional_kwargs (e.g. DeepSeek API)
                     if hasattr(
                         chunk, "additional_kwargs"
                     ) and chunk.additional_kwargs.get("reasoning_content"):
-                        if thinking_start_time is None:
-                            thinking_start_time = time.perf_counter()
-                        reasoning_text = chunk.additional_kwargs["reasoning_content"]
-                        yield {
-                            "event": "on_reasoning_stream",
-                            "data": {"text": reasoning_text},
-                        }
-                    elif hasattr(chunk, "content") and isinstance(chunk.content, str):
-                        txt = chunk.content
-                        if thinking_start_time is not None and not in_thinking_mode:
-                            # Concluded explicit reasoning_content stream
-                            t_dur_ms = round(
-                                (time.perf_counter() - thinking_start_time) * 1000
-                            )
-                            thinking_start_time = None
-                            yield {
-                                "event": "on_reasoning_end",
-                                "data": {
-                                    "duration_ms": t_dur_ms,
-                                    "seconds": round(t_dur_ms / 1000, 1),
-                                },
-                            }
-
-                        if "<think>" in txt:
-                            in_thinking_mode = True
-                            thinking_start_time = time.perf_counter()
-                            parts = txt.split("<think>", 1)
-                            if parts[0]:
-                                yield event
-                            if "</think>" in parts[1]:
-                                think_body, after_think = parts[1].split("</think>", 1)
-                                t_dur_ms = round(
-                                    (time.perf_counter() - thinking_start_time) * 1000
-                                )
-                                yield {
-                                    "event": "on_reasoning_stream",
-                                    "data": {"text": think_body},
-                                }
-                                yield {
-                                    "event": "on_reasoning_end",
-                                    "data": {
-                                        "duration_ms": t_dur_ms,
-                                        "seconds": round(t_dur_ms / 1000, 1),
-                                    },
-                                }
-                                in_thinking_mode = False
-                                thinking_start_time = None
-                                if after_think:
-                                    chunk.content = after_think
-                                    yield event
-                                continue
-                            else:
-                                if parts[1]:
-                                    yield {
-                                        "event": "on_reasoning_stream",
-                                        "data": {"text": parts[1]},
-                                    }
-                                continue
-                        elif in_thinking_mode:
-                            if "</think>" in txt:
-                                think_body, after_think = txt.split("</think>", 1)
-                                t_dur_ms = (
-                                    round(
-                                        (time.perf_counter() - thinking_start_time)
-                                        * 1000
-                                    )
-                                    if thinking_start_time
-                                    else 0
-                                )
-                                if think_body:
-                                    yield {
-                                        "event": "on_reasoning_stream",
-                                        "data": {"text": think_body},
-                                    }
-                                yield {
-                                    "event": "on_reasoning_end",
-                                    "data": {
-                                        "duration_ms": t_dur_ms,
-                                        "seconds": round(t_dur_ms / 1000, 1),
-                                    },
-                                }
-                                in_thinking_mode = False
-                                thinking_start_time = None
-                                if after_think:
-                                    chunk.content = after_think
-                                    yield event
-                            else:
-                                yield {
-                                    "event": "on_reasoning_stream",
-                                    "data": {"text": txt},
-                                }
-                            continue
+                        parsed = think_parser.feed_explicit_reasoning(
+                            chunk.additional_kwargs["reasoning_content"]
+                        )
+                        for sse_ev in _reasoning_events_from_parse(parsed, event, chunk):
+                            yield sse_ev
+                        continue
+                    if hasattr(chunk, "content") and isinstance(chunk.content, str):
+                        parsed = think_parser.feed_content(chunk.content)
+                        for sse_ev in _reasoning_events_from_parse(parsed, event, chunk):
+                            yield sse_ev
+                        continue
 
                 if event["event"] == "on_chat_model_end":
                     tool_events = _handle_chat_model_end(

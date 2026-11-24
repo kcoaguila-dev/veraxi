@@ -101,7 +101,8 @@ class LocalChatRepository implements IChatRepository {
       String? model,
       bool calculateGrounding = true,
       Map<String, dynamic>? toolSettings,
-      Map<String, dynamic>? codeScope}) async* {
+      Map<String, dynamic>? codeScope,
+      String? thinkingLevel}) async* {
     final effectiveThreadId = threadId ?? _uuid.v4();
 
     // Code Mode scope stamped onto the local thread row (Phase 1
@@ -168,7 +169,11 @@ class LocalChatRepository implements IChatRepository {
     Stream<Map<String, dynamic>> stream;
     if (model != null && model.endsWith('.gguf')) {
       final localDataSource = LocalChatDataSource.forModel();
-      stream = localDataSource.streamChat(question, model);
+      stream = localDataSource.streamChat(
+        question,
+        model,
+        thinkingLevel: thinkingLevel ?? codeScope?['thinking_level'] as String?,
+      );
     } else {
       final cloudRepo = CloudChatRepository(
           apiClient: apiClient, apiKeyStorage: apiKeyStorage);

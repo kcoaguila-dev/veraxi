@@ -57,7 +57,8 @@ abstract class IChatRepository {
       String? model,
       bool calculateGrounding = true,
       Map<String, dynamic>? toolSettings,
-      Map<String, dynamic>? codeScope});
+      Map<String, dynamic>? codeScope,
+      String? thinkingLevel});
   Future<String> uploadAttachment(List<int> fileBytes, String fileName);
   Future<void> submitFeedback(String messageId, int value);
   Future<Map<String, dynamic>> confirmToolCall({
@@ -135,10 +136,15 @@ class CloudChatRepository implements IChatRepository {
       String? model,
       bool calculateGrounding = true,
       Map<String, dynamic>? toolSettings,
-      Map<String, dynamic>? codeScope}) async* {
+      Map<String, dynamic>? codeScope,
+      String? thinkingLevel}) async* {
     if (model != null && model.endsWith('.gguf')) {
       final localDataSource = LocalChatDataSource.forModel();
-      yield* localDataSource.streamChat(question, model);
+      yield* localDataSource.streamChat(
+        question,
+        model,
+        thinkingLevel: thinkingLevel ?? codeScope?['thinking_level'] as String?,
+      );
       return;
     }
 
@@ -160,6 +166,9 @@ class CloudChatRepository implements IChatRepository {
         'calculate_grounding': calculateGrounding,
         ...llmOptions,
         if (toolSettings != null) 'tool_settings': toolSettings,
+        if (thinkingLevel != null &&
+            (codeScope == null || !codeScope.containsKey('thinking_level')))
+          'thinking_level': thinkingLevel,
         // Code Mode (Phase 1): the scope fields are top-level
         // ChatRequest fields on the backend, not tool_settings.
         if (codeScope != null) ...codeScope,

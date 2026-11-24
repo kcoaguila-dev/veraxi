@@ -118,9 +118,9 @@ def test_normalize_litellm_model_prefixes():
     assert model == "gemini/gemini-2.5-flash"
     assert base_url is None
 
-    # Custom local endpoint
+    # Custom local Ollama endpoint routes via ollama_chat/ for native thinking support
     model, base_url = normalize_litellm_model("custom-llm", "http://localhost:11434")
-    assert model == "ollama/custom-llm"
+    assert model == "ollama_chat/custom-llm"
     assert base_url == "http://localhost:11434"
 
 

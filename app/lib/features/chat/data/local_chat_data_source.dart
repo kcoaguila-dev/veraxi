@@ -1,6 +1,8 @@
 import 'package:veraxi_app/core/local_ai/local_llm_engine.dart';
 import 'package:veraxi_app/core/local_ai/local_vector_db.dart';
 import 'package:veraxi_app/core/local_ai/local_embedding_engine.dart';
+import 'package:veraxi_app/core/local_ai/think_tag_stream_parser.dart';
+import 'package:veraxi_app/core/models/model_thinking_capability.dart';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
@@ -67,7 +69,10 @@ class LocalChatDataSource {
   }
 
   Stream<Map<String, dynamic>> streamChat(
-      String question, String modelName) async* {
+    String question,
+    String modelName, {
+    String? thinkingLevel,
+  }) async* {
     final appDocsDir = await getApplicationDocumentsDirectory();
     final modelPath = p.join(appDocsDir.path, modelName);
 
@@ -98,25 +103,40 @@ class LocalChatDataSource {
       // Ignore if embedding model isn't loaded (e.g., local model testing)
     }
 
+    final capability = ModelThinkingCapability.forModel(modelName);
+    final effectiveLevel = capability.clampLevel(thinkingLevel);
+    final isReasoningOff = effectiveLevel == 'off';
+    final temperature =
+        (capability.supportsReasoning && !isReasoningOff) ? 0.6 : 0.2;
+
+    final thinkingHint = _buildLocalThinkingHint(modelName, effectiveLevel);
+    final effectiveQuestion =
+        (isReasoningOff && modelName.toLowerCase().contains('qwen3'))
+            ? '$question /no_think'
+            : question;
+
     // 3. Augment the prompt
     final prompt = '''
-Use the following context to answer the user's question. If the context is empty or unhelpful, answer from your general knowledge.
+Use the following context to answer the user's question. If the context is empty or unhelpful, answer from your general knowledge.$thinkingHint
 
 Context:
 $contextText
 
 Question:
-$question
+$effectiveQuestion
 ''';
 
-    // 4. Stream response back in the format expected by the app
-    await for (final chunk in _llmEngine.streamGenerate(prompt)) {
-      yield {
-        'event': 'on_chat_model_stream',
-        'data': {
-          'chunk': {'content': chunk}
-        }
-      };
+    // 4. Stream response back, separating <think> blocks into reasoning events
+    final parser = ThinkTagStreamParser();
+    await for (final chunk
+        in _llmEngine.streamGenerate(prompt, temperature: temperature)) {
+      final parsed = parser.feed(chunk);
+      for (final ev in _eventsFromParsed(parsed)) {
+        yield ev;
+      }
+    }
+    for (final ev in _eventsFromParsed(parser.flush())) {
+      yield ev;
     }
 
     // 5. Report the engine's real usage when the binding surfaced
@@ -133,6 +153,49 @@ $question
             'total_tokens': usage.promptTokens + usage.completionTokens,
           }
         }
+      };
+    }
+  }
+
+  static String _buildLocalThinkingHint(
+      String modelName, String? effectiveLevel) {
+    if (effectiveLevel == null) return '';
+    if (effectiveLevel == 'off') {
+      return '\nRespond directly and concisely without step-by-step scratchpad thinking.';
+    }
+    if (effectiveLevel == 'low') {
+      return '\nKeep internal reasoning brief before answering.';
+    }
+    if (effectiveLevel == 'high' || effectiveLevel == 'max') {
+      return '\nThink carefully and thoroughly step-by-step before answering.';
+    }
+    return '';
+  }
+
+  static Iterable<Map<String, dynamic>> _eventsFromParsed(
+      ThinkParseResult parsed) sync* {
+    for (final r in parsed.reasoningDeltas) {
+      yield {
+        'event': 'on_reasoning_stream',
+        'data': {'text': r},
+      };
+    }
+    if (parsed.reasoningEndedMs != null) {
+      yield {
+        'event': 'on_reasoning_end',
+        'data': {
+          'duration_ms': parsed.reasoningEndedMs,
+          'seconds': double.parse(
+              (parsed.reasoningEndedMs! / 1000).toStringAsFixed(1)),
+        },
+      };
+    }
+    for (final c in parsed.contentDeltas) {
+      yield {
+        'event': 'on_chat_model_stream',
+        'data': {
+          'chunk': {'content': c},
+        },
       };
     }
   }

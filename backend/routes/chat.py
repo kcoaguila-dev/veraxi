@@ -63,7 +63,9 @@ class ChatRequest(BaseModel):
     workspace_mode: Literal["chat", "code"] = "chat"
     repo_key: str | None = None
     branch: str | None = None
-    thinking_level: Literal["low", "medium", "high"] | None = None
+    thinking_level: (
+        Literal["off", "minimal", "low", "medium", "high", "max", "on"] | None
+    ) = None
     execution_mode: Literal["plan", "act"] = "act"
     autonomy_mode: (
         Literal[

@@ -8,6 +8,7 @@ import 'package:veraxi_app/core/providers/workspace_mode_provider.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
 import 'package:veraxi_app/core/widgets/language_file_icon.dart';
 import 'package:veraxi_app/core/widgets/model_selector_menu.dart';
+import 'package:veraxi_app/core/widgets/thinking_level_selector.dart';
 import 'package:veraxi_app/features/chat/view_models/auto_compact.dart';
 import 'package:veraxi_app/features/chat/view_models/code_chat_view_model.dart';
 import 'package:veraxi_app/features/chat/view_models/code_file_view_model.dart';
@@ -483,7 +484,6 @@ class _CodeChatComposerState extends ConsumerState<CodeChatComposer> {
 
   Widget _buildBelowComposerRow() {
     final modelSelection = ref.watch(modelSelectionProvider);
-    final thinkingLevel = ref.watch(codeThinkingLevelProvider);
     final executionMode = ref.watch(codeExecutionModeProvider);
     final sandboxEnabled = ref.watch(sandboxToggleViewModelProvider).enabled;
     final autonomyMode = ref.watch(codeAutonomyModeProvider);
@@ -510,36 +510,16 @@ class _CodeChatComposerState extends ConsumerState<CodeChatComposer> {
             label: modelSelection.selectedModel,
           ),
         ),
-        PopupMenuButton<String>(
-          tooltip: 'Thinking level',
-          color: ext.cardBackground,
-          onSelected: (level) =>
-              ref.read(codeThinkingLevelProvider.notifier).setLevel(level),
-          itemBuilder: (context) => [
-            for (final level in CodeThinkingLevelNotifier.levels)
-              PopupMenuItem<String>(
-                value: level,
-                child: Row(
-                  children: [
-                    Icon(
-                      level == thinkingLevel ? Icons.check : null,
-                      size: 15,
-                      color: theme.colorScheme.onSurface,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      level,
-                      style: TextStyle(
-                          color: theme.colorScheme.onSurface, fontSize: 13),
-                    ),
-                  ],
-                ),
-              ),
-          ],
-          child: _belowRowPill(
-            icon: Icons.lightbulb_outline,
-            label: 'Thinking: $thinkingLevel',
-          ),
+        ThinkingLevelSelector(
+          selectedModel: modelSelection.selectedModel,
+          openUpward: true,
+          backgroundColor: ext.cardBackground,
+          onChanged: (level) {
+            final title = level[0].toUpperCase() + level.substring(1);
+            if (CodeThinkingLevelNotifier.levels.contains(title)) {
+              ref.read(codeThinkingLevelProvider.notifier).setLevel(title);
+            }
+          },
         ),
         _buildPlanActToggle(executionMode),
         if (sandboxEnabled)

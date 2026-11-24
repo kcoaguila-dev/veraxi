@@ -110,6 +110,7 @@ def normalize_litellm_model(
         "groq/",
         "moonshot/",
         "openai/",
+        "ollama_chat/",
         "ollama/",
         "openrouter/",
         "azure/",
@@ -123,7 +124,7 @@ def normalize_litellm_model(
 
     if base_url:
         if "11434" in base_url or m.startswith("ollama"):
-            return f"ollama/{model_name}", base_url
+            return f"ollama_chat/{model_name}", base_url
         return f"openai/{model_name}", base_url
 
     if m.startswith("gemini"):
@@ -251,16 +252,68 @@ def _extract_rate_limit_delay(exc: Exception) -> float | None:
     return 2.0
 
 
+_UNSUPPORTED_THINKING_PARAM_MARKERS = (
+    "reasoning_effort",
+    "budget_tokens",
+    "thinking_level",
+    "enable_thinking",
+    "thinking is not supported",
+    "unsupported parameter: 'thinking'",
+    "unsupported value: 'temperature'",
+)
+
+
+def _is_unsupported_thinking_error(exc: Exception) -> bool:
+    """True when a provider rejects reasoning/thinking kwargs at invoke time."""
+    if isinstance(exc, litellm.exceptions.UnsupportedParamsError):
+        return True
+    text = _exception_chain_text(exc)
+    return any(marker in text for marker in _UNSUPPORTED_THINKING_PARAM_MARKERS)
+
+
+def _strip_reasoning_kwargs_from_client(client: Any) -> bool:
+    """Remove reasoning/thinking keys from a ChatLiteLLM client's model_kwargs."""
+    target = getattr(client, "bound", client)
+    kwargs = getattr(target, "model_kwargs", None)
+    if not isinstance(kwargs, dict) or not kwargs:
+        return False
+    removed = False
+    for key in ("reasoning_effort", "thinking", "extra_body"):
+        if key in kwargs:
+            kwargs.pop(key, None)
+            removed = True
+    return removed
+
+
 async def _ainvoke_with_rate_limit_retry(
     client: Any,
     messages: list[BaseMessage],
     model_name: str,
     max_attempts: int = 3,
 ):
-    """Invoke an LLM client with bounded backoff on transient RateLimitError."""
+    """Invoke an LLM client with bounded backoff on transient RateLimitError
+    and one-shot downgrade if reasoning kwargs are rejected at runtime."""
+    stripped_reasoning = False
     for attempt in range(max_attempts):
         try:
             return await client.ainvoke(messages)
+        except (
+            litellm.exceptions.UnsupportedParamsError,
+            litellm.exceptions.BadRequestError,
+        ) as exc:
+            if (
+                not stripped_reasoning
+                and _is_unsupported_thinking_error(exc)
+                and _strip_reasoning_kwargs_from_client(client)
+            ):
+                stripped_reasoning = True
+                logger.warning(
+                    "Provider rejected thinking params for %s; retrying without reasoning kwargs: %s",
+                    model_name,
+                    exc,
+                )
+                continue
+            raise
         except litellm.exceptions.RateLimitError as exc:
             delay = _extract_rate_limit_delay(exc)
             if delay is None or attempt >= max_attempts - 1:
@@ -378,22 +431,29 @@ class _ReasoningStrippedChatLiteLLM(ChatLiteLLM):
         return message_dicts, params
 
 
-_THINKING_LEVELS = ("low", "medium", "high")
+def _thinking_llm_args(
+    model_name: str,
+    thinking_level: str | None,
+    base_url: str | None = None,
+) -> tuple[dict[str, Any], float | None, int | None]:
+    """Translate a thinking level via the unified ``thinking_policy`` registry.
 
-
-def _thinking_llm_args(thinking_level: str | None) -> dict[str, Any]:
-    """Map a Code Mode thinking level to LiteLLM reasoning args.
-
-    ``low``/``medium``/``high`` are exactly the ``reasoning_effort``
-    values reasoning providers accept. Anything unset or unknown
-    maps to no args at all (provider default), never a guess.
+    Returns ``(model_kwargs, temperature, max_tokens_min)``. Passing reasoning
+    options via ``ChatLiteLLM(model_kwargs=...)`` ensures LiteLLM forwards them
+    instead of Pydantic silently dropping unknown top-level fields.
     """
-    if not isinstance(thinking_level, str):
-        return {}
-    level = thinking_level.strip().lower()
-    if level not in _THINKING_LEVELS:
-        return {}
-    return {"reasoning_effort": level}
+    from backend.thinking_policy import build_litellm_thinking_params
+
+    translation = build_litellm_thinking_params(
+        model_name=model_name,
+        thinking_level=thinking_level,
+        base_url=base_url,
+    )
+    return (
+        translation.model_kwargs,
+        translation.temperature,
+        translation.max_tokens_min,
+    )
 
 
 def _create_chat_llm(
@@ -426,31 +486,20 @@ def _create_chat_llm(
     if final_base_url:
         llm_args["api_base"] = final_base_url
 
-    # LiteLLM routing directly via ChatLiteLLM. Thinking level is
-    # best-effort: providers/models without reasoning support reject
-    # the kwarg at construction or call time — construction failures
-    # fall back cleanly to the same client without it.
-    thinking_args = _thinking_llm_args(thinking_level)
-    try:
-        return _ReasoningStrippedChatLiteLLM(
-            model=normalized_model,
-            temperature=0,
-            **llm_args,
-            **thinking_args,
-        )
-    except TypeError:
-        if not thinking_args:
-            raise
-        logger.warning(
-            "LLM client rejected reasoning args %s for %s; ignoring thinking level",
-            thinking_args,
-            normalized_model,
-        )
-        return _ReasoningStrippedChatLiteLLM(
-            model=normalized_model,
-            temperature=0,
-            **llm_args,
-        )
+    thinking_kwargs, temperature, max_tokens_min = _thinking_llm_args(
+        normalized_model, thinking_level, base_url=final_base_url
+    )
+    if temperature is not None:
+        llm_args["temperature"] = temperature
+    if max_tokens_min is not None:
+        llm_args["max_tokens"] = max_tokens_min
+    if thinking_kwargs:
+        llm_args["model_kwargs"] = thinking_kwargs
+
+    return _ReasoningStrippedChatLiteLLM(
+        model=normalized_model,
+        **llm_args,
+    )
 
 
 class AgentState(TypedDict):
