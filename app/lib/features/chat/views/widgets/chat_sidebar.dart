@@ -1088,32 +1088,36 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
         const SizedBox(height: 8),
         Expanded(
           child: indexedRepos.isEmpty && scratchpadThreads.isEmpty
-              ? Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(7),
-                    onTap: () {
-                      ref.read(codeSubViewProvider.notifier).state =
-                          CodeSubView.repoXray;
-                    },
-                    child: const Padding(
-                      padding:
-                          EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'No repos indexed yet',
-                            style: TextStyle(
-                                color: Color(0xFF71717A), fontSize: 12),
-                          ),
-                          SizedBox(height: 2),
-                          Text(
-                            '+ Connect a repo →',
-                            style: TextStyle(
-                                color: Color(0xFF34D399), fontSize: 11),
-                          ),
-                        ],
+              ? Align(
+                  alignment: Alignment.topLeft,
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(7),
+                      onTap: () {
+                        ref.read(codeSubViewProvider.notifier).state =
+                            CodeSubView.repoXray;
+                      },
+                      child: const Padding(
+                        padding:
+                            EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'No repos indexed yet',
+                              style: TextStyle(
+                                  color: Color(0xFF71717A), fontSize: 12),
+                            ),
+                            SizedBox(height: 2),
+                            Text(
+                              '+ Connect a repo →',
+                              style: TextStyle(
+                                  color: Color(0xFF34D399), fontSize: 11),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
