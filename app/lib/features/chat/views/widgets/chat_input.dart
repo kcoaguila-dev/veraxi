@@ -7,7 +7,6 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 import 'web_search_dialog.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
-import 'package:veraxi_app/core/theme/obsidian_tokens.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
 import 'package:veraxi_app/features/chat/view_models/auto_compact.dart';
 import 'package:veraxi_app/features/chat/view_models/token_usage.dart';
@@ -56,11 +55,6 @@ class ChatInput extends StatefulWidget {
   /// Overrides the default hint text when non-null.
   final String? hintText;
 
-  /// Obsidian composer styling for Code Mode (`#13151A` surface,
-  /// `#252833` outline, 24px radius) instead of the themed chat
-  /// surface.
-  final bool obsidianStyle;
-
   /// Extra widget rendered in the bottom action row just before the
   /// token-usage ring (the Code composer's `N sources` pill).
   final Widget? trailingSlot;
@@ -82,7 +76,6 @@ class ChatInput extends StatefulWidget {
     this.controller,
     this.onChanged,
     this.hintText,
-    this.obsidianStyle = false,
     this.trailingSlot,
   });
 
@@ -519,15 +512,10 @@ class _ChatInputState extends State<ChatInput> {
         Container(
           width: double.infinity,
           decoration: BoxDecoration(
-            color: widget.obsidianStyle
-                ? ObsidianTokens.composer
-                : Theme.of(context)
-                    .extension<AppThemeExtension>()!
-                    .surfaceHighlight,
+            color: Theme.of(context)
+                .extension<AppThemeExtension>()!
+                .surfaceHighlight,
             borderRadius: BorderRadius.circular(24),
-            border: widget.obsidianStyle
-                ? Border.all(color: ObsidianTokens.composerBorder)
-                : null,
           ),
           padding: EdgeInsets.symmetric(horizontal: 12.0, vertical: 4.0),
           child: Column(

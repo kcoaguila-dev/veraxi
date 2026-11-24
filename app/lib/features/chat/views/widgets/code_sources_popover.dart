@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:veraxi_app/core/providers/indexed_sources_provider.dart';
 import 'package:veraxi_app/core/providers/workspace_mode_provider.dart';
-import 'package:veraxi_app/core/theme/obsidian_tokens.dart';
+import 'package:veraxi_app/core/theme_extension.dart';
 
 /// The `N sources` pill rendered in the Code composer, with its
 /// 320px anchored popover for choosing the thread's source scope.
@@ -50,6 +50,7 @@ class _CodeSourcesPillState extends State<CodeSourcesPill> {
           builder: (context, ref, _) {
             final selected = ref.watch(codeSelectedSourcesProvider);
             final count = selected.repoKeys.length + selected.docIds.length;
+            final ext = Theme.of(context).extension<AppThemeExtension>()!;
             return InkWell(
               onTap: () {
                 if (_overlayController.isShowing) {
@@ -62,9 +63,9 @@ class _CodeSourcesPillState extends State<CodeSourcesPill> {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: ObsidianTokens.card,
+                  color: ext.cardBackground,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: ObsidianTokens.borderStrong),
+                  border: Border.all(color: ext.borderColorStrong),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -145,105 +146,110 @@ class _CodeSourcesPopoverState extends ConsumerState<_CodeSourcesPopover> {
       child: Material(
         color: Colors.transparent,
         elevation: 12,
-        child: Container(
-          width: 320,
-          constraints: const BoxConstraints(maxHeight: 380),
-          decoration: BoxDecoration(
-            color: ObsidianTokens.card,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: ObsidianTokens.borderStrong),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.6),
-                blurRadius: 20,
-                offset: const Offset(0, 8),
+        child: Builder(
+          builder: (context) {
+            final ext = Theme.of(context).extension<AppThemeExtension>()!;
+            final onSurface = Theme.of(context).colorScheme.onSurface;
+            return Container(
+              width: 320,
+              constraints: const BoxConstraints(maxHeight: 380),
+              decoration: BoxDecoration(
+                color: ext.cardBackground,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: ext.borderColorStrong),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.45),
+                    blurRadius: 20,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
               ),
-            ],
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(12, 10, 8, 6),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        style: const TextStyle(
-                            color: Colors.white, fontSize: 12.5),
-                        cursorColor: Colors.white,
-                        decoration: const InputDecoration(
-                          hintText: 'Search sources',
-                          hintStyle: TextStyle(
-                              color: Color(0xFF6E6E6E), fontSize: 12.5),
-                          isDense: true,
-                          border: InputBorder.none,
-                          contentPadding: EdgeInsets.symmetric(vertical: 6),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 10, 8, 6),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            style: TextStyle(color: onSurface, fontSize: 12.5),
+                            cursorColor: onSurface,
+                            decoration: InputDecoration(
+                              hintText: 'Search sources',
+                              hintStyle: TextStyle(
+                                  color: ext.textTertiary, fontSize: 12.5),
+                              isDense: true,
+                              border: InputBorder.none,
+                              contentPadding:
+                                  const EdgeInsets.symmetric(vertical: 6),
+                            ),
+                            onChanged: (value) =>
+                                setState(() => _filter = value),
+                          ),
                         ),
-                        onChanged: (value) => setState(() => _filter = value),
-                      ),
+                        TextButton(
+                          onPressed: () {
+                            notifier.state = allSelected
+                                ? const CodeSelectedSources()
+                                : CodeSelectedSources(
+                                    repoKeys: allKeys,
+                                    docIds: allDocIds,
+                                  );
+                          },
+                          child: Text(
+                            allSelected ? 'Clear all' : 'Select all',
+                            style: const TextStyle(
+                              color: Color(0xFF4F8EF7),
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                    TextButton(
-                      onPressed: () {
-                        notifier.state = allSelected
-                            ? const CodeSelectedSources()
-                            : CodeSelectedSources(
-                                repoKeys: allKeys,
-                                docIds: allDocIds,
-                              );
-                      },
-                      child: Text(
-                        allSelected ? 'Clear all' : 'Select all',
-                        style: const TextStyle(
-                          color: Color(0xFF4F8EF7),
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
+                  ),
+                  Divider(height: 1, color: ext.borderColor),
+                  Flexible(
+                    child: ListView(
+                      shrinkWrap: true,
+                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      children: [
+                        if (visibleRepos.isNotEmpty)
+                          const _SourcesSectionLabel('Indexed Repos'),
+                        for (final repo in visibleRepos)
+                          _SourceCheckboxRow(
+                            label: repo.displayName,
+                            subtitle: repo.subtitle,
+                            checked: selected.repoKeys.contains(repo.repoKey),
+                            onChanged: () => notifier.state =
+                                selected.toggleRepoKey(repo.repoKey),
+                          ),
+                        if (visibleDocs.isNotEmpty)
+                          const _SourcesSectionLabel('Knowledge Hub Docs'),
+                        for (final doc in visibleDocs)
+                          _SourceCheckboxRow(
+                            label: doc.name,
+                            subtitle: doc.subtitle,
+                            checked: selected.docIds.contains(doc.id),
+                            onChanged: () =>
+                                notifier.state = selected.toggleDocId(doc.id),
+                          ),
+                        if (visibleRepos.isEmpty && visibleDocs.isEmpty)
+                          Padding(
+                            padding: const EdgeInsets.all(12),
+                            child: Text(
+                              'No sources match.',
+                              style: TextStyle(
+                                  color: ext.textTertiary, fontSize: 12),
+                            ),
+                          ),
+                      ],
                     ),
-                  ],
-                ),
-              ),
-              const Divider(height: 1, color: ObsidianTokens.hairline),
-              Flexible(
-                child: ListView(
-                  shrinkWrap: true,
-                  padding: const EdgeInsets.symmetric(vertical: 6),
-                  children: [
-                    if (visibleRepos.isNotEmpty)
-                      const _SourcesSectionLabel('Indexed Repos'),
-                    for (final repo in visibleRepos)
-                      _SourceCheckboxRow(
-                        label: repo.displayName,
-                        subtitle: repo.subtitle,
-                        checked: selected.repoKeys.contains(repo.repoKey),
-                        onChanged: () => notifier.state =
-                            selected.toggleRepoKey(repo.repoKey),
-                      ),
-                    if (visibleDocs.isNotEmpty)
-                      const _SourcesSectionLabel('Knowledge Hub Docs'),
-                    for (final doc in visibleDocs)
-                      _SourceCheckboxRow(
-                        label: doc.name,
-                        subtitle: doc.subtitle,
-                        checked: selected.docIds.contains(doc.id),
-                        onChanged: () =>
-                            notifier.state = selected.toggleDocId(doc.id),
-                      ),
-                    if (visibleRepos.isEmpty && visibleDocs.isEmpty)
-                      const Padding(
-                        padding: EdgeInsets.all(12),
-                        child: Text(
-                          'No sources match.',
-                          style:
-                              TextStyle(color: Color(0xFFA1A1AA), fontSize: 12),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-              const Divider(height: 1, color: ObsidianTokens.hairline),
+                  ),
+                  Divider(height: 1, color: ext.borderColor),
               InkWell(
                 onTap: () {
                   widget.onClose();
@@ -263,6 +269,8 @@ class _CodeSourcesPopoverState extends ConsumerState<_CodeSourcesPopover> {
               ),
             ],
           ),
+        );
+          },
         ),
       ),
     );

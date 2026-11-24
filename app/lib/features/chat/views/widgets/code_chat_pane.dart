@@ -3,7 +3,6 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:veraxi_app/core/providers/model_selection_provider.dart';
 import 'package:veraxi_app/core/providers/workspace_mode_provider.dart';
-import 'package:veraxi_app/core/theme/obsidian_tokens.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
 import 'package:veraxi_app/features/chat/view_models/chat_view_model.dart';
 import 'package:veraxi_app/features/chat/view_models/code_chat_view_model.dart';
@@ -145,106 +144,97 @@ class _CodeChatPaneState extends ConsumerState<CodeChatPane> {
       },
     );
 
-    return Padding(
-      padding: const EdgeInsets.all(10),
-      child: Container(
-        decoration: BoxDecoration(
-          color: ObsidianTokens.recessedCanvas,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: ObsidianTokens.canvasBorder),
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(14),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _buildBreadcrumbHeader(state),
-              Expanded(
-                child: state.isLoadingHistory
-                    ? const Center(
-                        child: SizedBox(
-                          width: 24,
-                          height: 24,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                              Color(0xFF878787),
-                            ),
-                          ),
+    return ColoredBox(
+      color: theme.scaffoldBackgroundColor,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _buildBreadcrumbHeader(state, theme, ext),
+          Expanded(
+            child: state.isLoadingHistory
+                ? Center(
+                    child: SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          ext.textTertiary,
                         ),
-                      )
-                    : isEmpty
-                        ? _buildEmptyBody(state)
-                        : ListView.builder(
-                            controller: _scrollController,
-                            padding: const EdgeInsets.only(
-                              left: 16,
-                              right: 16,
-                              top: 24,
-                              bottom: 24,
-                            ),
-                            itemCount: state.messages.length,
-                            itemBuilder: (context, index) {
-                              return ChatMessageListItem(
-                                msg: state.messages[index],
-                                theme: theme,
-                                ext: ext,
-                                showTelemetry: state.showTelemetry,
-                              );
-                            },
-                          ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 4, 16, 14),
-                child: Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 800),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        if (isEmpty && !state.isLoadingHistory) ...[
-                          const _WeldedNewChatTray(),
-                          const SizedBox(height: 10),
-                        ],
-                        CodeChatComposer(
-                          isLoading: state.isLoading,
-                          onSend: _handleSend,
-                          errorText: state.error,
-                          onDismissError: () => viewModel.clearError(),
-                          usageSummary: viewModel.tokenUsageStyle ==
-                                  TokenUsageIndicatorStyle.ring
-                              ? summarizeTokenUsage(state.messages)
-                              : null,
-                          tokenUsageStyle: viewModel.tokenUsageStyle,
-                          onTokenUsageStyleChanged:
-                              viewModel.setTokenUsageStyle,
-                          autoCompactMode: viewModel.autoCompactMode,
-                          onAutoCompactModeChanged:
-                              viewModel.setAutoCompactMode,
-                          onCompactPressed: () =>
-                              _handleSlashCommand('/compact'),
-                          onSlashCommand: _handleSlashCommand,
-                        ),
-                      ],
+                      ),
                     ),
-                  ),
+                  )
+                : isEmpty
+                    ? _buildEmptyBody(state, ext)
+                    : ListView.builder(
+                        controller: _scrollController,
+                        padding: const EdgeInsets.only(
+                          left: 16,
+                          right: 16,
+                          top: 24,
+                          bottom: 24,
+                        ),
+                        itemCount: state.messages.length,
+                        itemBuilder: (context, index) {
+                          return ChatMessageListItem(
+                            msg: state.messages[index],
+                            theme: theme,
+                            ext: ext,
+                            showTelemetry: state.showTelemetry,
+                          );
+                        },
+                      ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 14),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 800),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (isEmpty && !state.isLoadingHistory) ...[
+                      const _WeldedNewChatTray(),
+                      const SizedBox(height: 10),
+                    ],
+                    CodeChatComposer(
+                      isLoading: state.isLoading,
+                      onSend: _handleSend,
+                      errorText: state.error,
+                      onDismissError: () => viewModel.clearError(),
+                      usageSummary: viewModel.tokenUsageStyle ==
+                              TokenUsageIndicatorStyle.ring
+                          ? summarizeTokenUsage(state.messages)
+                          : null,
+                      tokenUsageStyle: viewModel.tokenUsageStyle,
+                      onTokenUsageStyleChanged:
+                          viewModel.setTokenUsageStyle,
+                      autoCompactMode: viewModel.autoCompactMode,
+                      onAutoCompactModeChanged:
+                          viewModel.setAutoCompactMode,
+                      onCompactPressed: () =>
+                          _handleSlashCommand('/compact'),
+                      onSlashCommand: _handleSlashCommand,
+                    ),
+                  ],
                 ),
               ),
-            ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
 
-  Widget _buildBreadcrumbHeader(ChatState state) {
+  Widget _buildBreadcrumbHeader(
+      ChatState state, ThemeData theme, AppThemeExtension ext) {
     return Container(
       height: 52,
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         border: Border(
-          bottom: BorderSide(color: ObsidianTokens.hairline, width: 1),
+          bottom: BorderSide(color: ext.borderColor, width: 1),
         ),
       ),
       child: Row(
@@ -254,14 +244,14 @@ class _CodeChatPaneState extends ConsumerState<CodeChatPane> {
             height: 22,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: ObsidianTokens.card,
+              color: ext.cardBackground,
               borderRadius: BorderRadius.circular(6),
-              border: Border.all(color: ObsidianTokens.borderStrong),
+              border: Border.all(color: ext.borderColorStrong),
             ),
-            child: const Text(
+            child: Text(
               'VX',
               style: TextStyle(
-                color: Colors.white,
+                color: theme.colorScheme.onSurface,
                 fontSize: 10,
                 fontWeight: FontWeight.w800,
                 letterSpacing: 0.4,
@@ -272,8 +262,8 @@ class _CodeChatPaneState extends ConsumerState<CodeChatPane> {
           Expanded(
             child: Text(
               _repoBreadcrumb(state),
-              style: const TextStyle(
-                color: Color(0xFFD4D4D8),
+              style: TextStyle(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.85),
                 fontSize: 13,
                 fontWeight: FontWeight.w500,
               ),
@@ -286,7 +276,7 @@ class _CodeChatPaneState extends ConsumerState<CodeChatPane> {
     );
   }
 
-  Widget _buildEmptyBody(ChatState state) {
+  Widget _buildEmptyBody(ChatState state, AppThemeExtension ext) {
     final selectedRepo = ref.watch(selectedIndexedRepoProvider);
     return Center(
       child: Padding(
@@ -294,10 +284,10 @@ class _CodeChatPaneState extends ConsumerState<CodeChatPane> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(
+            Icon(
               Icons.code,
               size: 28,
-              color: Color(0xFF52525B),
+              color: ext.textTertiary,
             ),
             const SizedBox(height: 12),
             Text(
@@ -305,8 +295,8 @@ class _CodeChatPaneState extends ConsumerState<CodeChatPane> {
                   ? 'Ask anything about your indexed code.'
                   : 'Ask anything about $selectedRepo.',
               textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: Color(0xFFA1A1AA),
+              style: TextStyle(
+                color: ext.textTertiary,
                 fontSize: 14,
               ),
             ),
@@ -330,24 +320,26 @@ class _WeldedNewChatTray extends ConsumerWidget {
     final repos = ref.watch(indexedReposProvider);
     final selectedRepo = ref.watch(selectedIndexedRepoProvider);
     final branch = ref.watch(codeBranchProvider);
+    final theme = Theme.of(context);
+    final ext = theme.extension<AppThemeExtension>()!;
     const branches = <String>['main'];
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: ObsidianTokens.weldedTray,
+        color: ext.cardBackground,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: ObsidianTokens.canvasBorder),
+        border: Border.all(color: ext.borderColor),
       ),
       child: Row(
         children: [
-          const Icon(Icons.folder_outlined, size: 15, color: Color(0xFFA1A1AA)),
+          Icon(Icons.folder_outlined, size: 15, color: ext.iconColor),
           const SizedBox(width: 8),
           Expanded(
             child: repos.isEmpty
-                ? const Text(
+                ? Text(
                     'No indexed repos',
-                    style: TextStyle(color: Color(0xFFA1A1AA), fontSize: 12.5),
+                    style: TextStyle(color: ext.textTertiary, fontSize: 12.5),
                   )
                 : DropdownButtonHideUnderline(
                     child: DropdownButton<String>(
@@ -355,11 +347,11 @@ class _WeldedNewChatTray extends ConsumerWidget {
                           ? selectedRepo
                           : repos.first.repoKey,
                       isDense: true,
-                      dropdownColor: ObsidianTokens.card,
-                      icon: const Icon(Icons.keyboard_arrow_down,
-                          size: 16, color: Color(0xFFA1A1AA)),
-                      style: const TextStyle(
-                        color: Color(0xFFE4E4E7),
+                      dropdownColor: ext.cardBackground,
+                      icon: Icon(Icons.keyboard_arrow_down,
+                          size: 16, color: ext.iconColor),
+                      style: TextStyle(
+                        color: theme.colorScheme.onSurface,
                         fontSize: 12.5,
                       ),
                       items: [
@@ -384,17 +376,17 @@ class _WeldedNewChatTray extends ConsumerWidget {
                   ),
           ),
           const SizedBox(width: 12),
-          const Icon(Icons.call_split, size: 14, color: Color(0xFFA1A1AA)),
+          Icon(Icons.call_split, size: 14, color: ext.iconColor),
           const SizedBox(width: 6),
           DropdownButtonHideUnderline(
             child: DropdownButton<String>(
               value: branches.contains(branch) ? branch : branches.first,
               isDense: true,
-              dropdownColor: ObsidianTokens.card,
-              icon: const Icon(Icons.keyboard_arrow_down,
-                  size: 16, color: Color(0xFFA1A1AA)),
-              style: const TextStyle(
-                color: Color(0xFFE4E4E7),
+              dropdownColor: ext.cardBackground,
+              icon: Icon(Icons.keyboard_arrow_down,
+                  size: 16, color: ext.iconColor),
+              style: TextStyle(
+                color: theme.colorScheme.onSurface,
                 fontSize: 12.5,
               ),
               items: [

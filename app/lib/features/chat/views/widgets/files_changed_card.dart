@@ -1,7 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:veraxi_app/core/providers/workspace_mode_provider.dart';
-import 'package:veraxi_app/core/theme/obsidian_tokens.dart';
+import 'package:veraxi_app/core/theme_extension.dart';
 import 'package:veraxi_app/core/widgets/language_file_icon.dart';
 import 'package:veraxi_app/features/chat/view_models/chat_state.dart';
 
@@ -58,6 +58,8 @@ class _FilesChangedCardState extends ConsumerState<FilesChangedCard> {
   @override
   Widget build(BuildContext context) {
     final summary = _summary;
+    final theme = Theme.of(context);
+    final ext = theme.extension<AppThemeExtension>()!;
     // The 12px top spacing lives on this outer Padding, NOT on the
     // keyed Container: the collapsed card itself must measure 34px
     // (32px strip + 2px border) per veraxi_code_review_pane.svg.
@@ -66,9 +68,9 @@ class _FilesChangedCardState extends ConsumerState<FilesChangedCard> {
       child: Container(
         key: const Key('files-changed-card'),
         decoration: BoxDecoration(
-          color: ObsidianTokens.card,
+          color: ext.cardBackground,
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: ObsidianTokens.hairline),
+          border: Border.all(color: ext.borderColor),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -92,10 +94,10 @@ class _FilesChangedCardState extends ConsumerState<FilesChangedCard> {
                                 '${summary.files.length} '
                                 '${summary.files.length == 1 ? 'file' : 'files'} changed',
                                 overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w500,
-                                  color: Color(0xFFE4E4E7),
+                                  color: theme.colorScheme.onSurface,
                                 ),
                               ),
                             ),
@@ -112,10 +114,10 @@ class _FilesChangedCardState extends ConsumerState<FilesChangedCard> {
                             AnimatedRotation(
                               turns: _expanded ? 0.5 : 0.0,
                               duration: const Duration(milliseconds: 180),
-                              child: const Icon(
+                              child: Icon(
                                 Icons.keyboard_arrow_down,
                                 size: 16,
-                                color: Color(0xFF71717A),
+                                color: ext.iconColor,
                               ),
                             ),
                           ],
@@ -132,18 +134,18 @@ class _FilesChangedCardState extends ConsumerState<FilesChangedCard> {
                         onPressed: () => _openReview(),
                         style: OutlinedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(horizontal: 10),
-                          backgroundColor: const Color(0xFF1C1F26),
-                          side: const BorderSide(color: Color(0xFF2E323D)),
+                          backgroundColor: ext.surfaceHighlight,
+                          side: BorderSide(color: ext.borderColorStrong),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(6),
                           ),
                         ),
-                        child: const Text(
+                        child: Text(
                           'Review',
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w500,
-                            color: Color(0xFFF4F4F5),
+                            color: theme.colorScheme.onSurface,
                           ),
                         ),
                       ),
@@ -161,9 +163,9 @@ class _FilesChangedCardState extends ConsumerState<FilesChangedCard> {
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        const Divider(
+                        Divider(
                           height: 1,
-                          color: ObsidianTokens.hairline,
+                          color: ext.borderColor,
                         ),
                         for (final file in summary.files) _buildFileRow(file),
                       ],

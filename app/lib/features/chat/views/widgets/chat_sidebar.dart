@@ -11,7 +11,6 @@ import 'package:veraxi_app/features/chat/view_models/chat_view_model.dart';
 import 'package:veraxi_app/core/providers/model_selection_provider.dart';
 import 'package:veraxi_app/core/providers/project_view_model.dart';
 import 'package:veraxi_app/core/providers/workspace_mode_provider.dart';
-import 'package:veraxi_app/core/theme/obsidian_tokens.dart';
 import 'package:veraxi_app/features/chat/views/widgets/chat_message_list_item.dart';
 import 'package:veraxi_app/features/chat/views/widgets/pinned_models_widget.dart';
 
@@ -1301,8 +1300,11 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
                             },
                           ),
                           const SizedBox(height: 10),
-                          const Divider(
-                              color: ObsidianTokens.hairline, height: 1),
+                          Divider(
+                              color: Theme.of(context)
+                                  .extension<AppThemeExtension>()!
+                                  .borderColor,
+                              height: 1),
                           const SizedBox(height: 12),
                         ],
                         if (workspaceMode == WorkspaceMode.chat &&
@@ -1739,7 +1741,9 @@ class _RepoGroupRowState extends State<_RepoGroupRow> {
                           size: 14,
                           color: Color(0xFFA1A1AA),
                         ),
-                        color: ObsidianTokens.card,
+                        color: Theme.of(context)
+                            .extension<AppThemeExtension>()!
+                            .cardBackground,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),

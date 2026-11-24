@@ -5,7 +5,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:veraxi_app/core/providers/model_selection_provider.dart';
 import 'package:veraxi_app/core/providers/workspace_mode_provider.dart';
-import 'package:veraxi_app/core/theme/obsidian_tokens.dart';
+import 'package:veraxi_app/core/theme_extension.dart';
 import 'package:veraxi_app/core/widgets/language_file_icon.dart';
 import 'package:veraxi_app/core/widgets/model_selector_menu.dart';
 import 'package:veraxi_app/features/chat/view_models/auto_compact.dart';
@@ -220,7 +220,6 @@ class _CodeChatComposerState extends ConsumerState<CodeChatComposer> {
           onAutoCompactModeChanged: widget.onAutoCompactModeChanged,
           onCompactPressed: widget.onCompactPressed,
           hintText: 'Ask anything. @ files, \$ skills, / commands',
-          obsidianStyle: true,
           trailingSlot: const CodeSourcesPill(),
         ),
         const SizedBox(height: 8),
@@ -243,15 +242,16 @@ class _CodeChatComposerState extends ConsumerState<CodeChatComposer> {
   }
 
   Widget _overlayShell({required Widget child}) {
+    final ext = Theme.of(context).extension<AppThemeExtension>()!;
     return Container(
       constraints: const BoxConstraints(maxHeight: 264),
       decoration: BoxDecoration(
-        color: ObsidianTokens.card,
+        color: ext.cardBackground,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: ObsidianTokens.borderStrong),
+        border: Border.all(color: ext.borderColorStrong),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.5),
+            color: Colors.black.withValues(alpha: 0.4),
             blurRadius: 16,
             offset: const Offset(0, 6),
           ),
@@ -488,6 +488,8 @@ class _CodeChatComposerState extends ConsumerState<CodeChatComposer> {
     final sandboxEnabled = ref.watch(sandboxToggleViewModelProvider).enabled;
     final autonomyMode = ref.watch(codeAutonomyModeProvider);
 
+    final theme = Theme.of(context);
+    final ext = theme.extension<AppThemeExtension>()!;
     return Wrap(
       spacing: 8,
       runSpacing: 6,
@@ -509,7 +511,7 @@ class _CodeChatComposerState extends ConsumerState<CodeChatComposer> {
         ),
         PopupMenuButton<String>(
           tooltip: 'Thinking level',
-          color: ObsidianTokens.card,
+          color: ext.cardBackground,
           onSelected: (level) =>
               ref.read(codeThinkingLevelProvider.notifier).setLevel(level),
           itemBuilder: (context) => [
@@ -521,12 +523,13 @@ class _CodeChatComposerState extends ConsumerState<CodeChatComposer> {
                     Icon(
                       level == thinkingLevel ? Icons.check : null,
                       size: 15,
-                      color: Colors.white,
+                      color: theme.colorScheme.onSurface,
                     ),
                     const SizedBox(width: 8),
                     Text(
                       level,
-                      style: const TextStyle(color: Colors.white, fontSize: 13),
+                      style: TextStyle(
+                          color: theme.colorScheme.onSurface, fontSize: 13),
                     ),
                   ],
                 ),
@@ -541,7 +544,7 @@ class _CodeChatComposerState extends ConsumerState<CodeChatComposer> {
         if (sandboxEnabled)
           PopupMenuButton<String>(
             tooltip: 'Sandbox autonomy',
-            color: ObsidianTokens.card,
+            color: ext.cardBackground,
             onSelected: (value) =>
                 ref.read(codeAutonomyModeProvider.notifier).state = value,
             itemBuilder: (context) => [
@@ -553,13 +556,13 @@ class _CodeChatComposerState extends ConsumerState<CodeChatComposer> {
                       Icon(
                         value == autonomyMode ? Icons.check : null,
                         size: 15,
-                        color: Colors.white,
+                        color: theme.colorScheme.onSurface,
                       ),
                       const SizedBox(width: 8),
                       Text(
                         label,
-                        style:
-                            const TextStyle(color: Colors.white, fontSize: 13),
+                        style: TextStyle(
+                            color: theme.colorScheme.onSurface, fontSize: 13),
                       ),
                     ],
                   ),
@@ -575,24 +578,26 @@ class _CodeChatComposerState extends ConsumerState<CodeChatComposer> {
   }
 
   Widget _belowRowPill({required IconData icon, required String label}) {
+    final theme = Theme.of(context);
+    final ext = theme.extension<AppThemeExtension>()!;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: ObsidianTokens.card,
+        color: ext.cardBackground,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: ObsidianTokens.borderStrong),
+        border: Border.all(color: ext.borderColorStrong),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 14, color: const Color(0xFFA1A1AA)),
+          Icon(icon, size: 14, color: ext.iconColor),
           const SizedBox(width: 6),
           ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 200),
             child: Text(
               label,
-              style: const TextStyle(
-                color: Color(0xFFD4D4D8),
+              style: TextStyle(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.9),
                 fontSize: 12,
                 fontWeight: FontWeight.w500,
               ),
@@ -601,10 +606,10 @@ class _CodeChatComposerState extends ConsumerState<CodeChatComposer> {
             ),
           ),
           const SizedBox(width: 4),
-          const Icon(
+          Icon(
             Icons.keyboard_arrow_down,
             size: 14,
-            color: Color(0xFFA1A1AA),
+            color: ext.iconColor,
           ),
         ],
       ),
@@ -612,11 +617,13 @@ class _CodeChatComposerState extends ConsumerState<CodeChatComposer> {
   }
 
   Widget _buildPlanActToggle(CodeExecutionMode mode) {
+    final theme = Theme.of(context);
+    final ext = theme.extension<AppThemeExtension>()!;
     return Container(
       decoration: BoxDecoration(
-        color: ObsidianTokens.card,
+        color: ext.cardBackground,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: ObsidianTokens.borderStrong),
+        border: Border.all(color: ext.borderColorStrong),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -631,15 +638,16 @@ class _CodeChatComposerState extends ConsumerState<CodeChatComposer> {
                     const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
                   color: mode == value
-                      ? ObsidianTokens.bubble
+                      ? ext.surfaceHighlight
                       : Colors.transparent,
                   borderRadius: BorderRadius.circular(7),
                 ),
                 child: Text(
                   value == CodeExecutionMode.plan ? 'Plan' : 'Act',
                   style: TextStyle(
-                    color:
-                        mode == value ? Colors.white : const Color(0xFFA1A1AA),
+                    color: mode == value
+                        ? theme.colorScheme.onSurface
+                        : ext.textTertiary,
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
                   ),
