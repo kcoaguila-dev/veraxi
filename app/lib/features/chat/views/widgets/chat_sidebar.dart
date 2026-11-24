@@ -1088,8 +1088,11 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
         ),
         const SizedBox(height: 8),
         Expanded(
-          child: indexedRepos.isEmpty && scratchpadThreads.isEmpty
-              ? Align(
+          child: ListView(
+            padding: EdgeInsets.zero,
+            children: [
+              if (visibleRepos.isEmpty)
+                Align(
                   alignment: Alignment.topLeft,
                   child: Material(
                     color: Colors.transparent,
@@ -1120,52 +1123,49 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
                     ),
                   ),
                 )
-              : ListView(
-                  padding: EdgeInsets.zero,
-                  children: [
-                    for (final repo in visibleRepos) ...[
-                      _RepoGroupRow(
-                        key: ValueKey(repo.repoKey),
-                        repo: repo,
-                        threads: _codeThreadsForRepo(state, repo.repoKey),
-                        selected: selectedRepo == repo.repoKey,
-                        initiallyExpanded: selectedRepo == repo.repoKey ||
-                            (visibleRepos.length == 1 &&
-                                scratchpadThreads.isEmpty),
-                        selectedThreadId: state.threadId,
-                        onSelectRepo: () {
-                          ref.read(selectedIndexedRepoProvider.notifier).state =
-                              repo.repoKey;
-                          ref.read(codeSubViewProvider.notifier).state =
-                              CodeSubView.codeChat;
-                          _goSafe(context, '/chat');
-                        },
-                        onNewThread: () => _startCodeThreadForRepo(repo),
-                        onMenuAction: (action) =>
-                            _handleRepoMenuAction(action, repo),
-                        onSelectThread: (threadId) {
-                          ref.read(selectedIndexedRepoProvider.notifier).state =
-                              repo.repoKey;
-                          ref.read(codeSubViewProvider.notifier).state =
-                              CodeSubView.codeChat;
-                          viewModel.selectThread(threadId);
-                          _goSafe(context, '/chat');
-                          if (widget.isMobile) {
-                            Navigator.of(context).pop();
-                          }
-                        },
-                      ),
-                      const SizedBox(height: 6),
-                    ],
-                    const SizedBox(height: 10),
-                    _buildCodeConversationsSection(
-                      context: context,
-                      threads: scratchpadThreads,
-                      selectedThreadId: state.threadId,
-                      viewModel: viewModel,
-                    ),
-                  ],
-                ),
+              else
+                for (final repo in visibleRepos) ...[
+                  _RepoGroupRow(
+                    key: ValueKey(repo.repoKey),
+                    repo: repo,
+                    threads: _codeThreadsForRepo(state, repo.repoKey),
+                    selected: selectedRepo == repo.repoKey,
+                    initiallyExpanded: selectedRepo == repo.repoKey ||
+                        (visibleRepos.length == 1 && scratchpadThreads.isEmpty),
+                    selectedThreadId: state.threadId,
+                    onSelectRepo: () {
+                      ref.read(selectedIndexedRepoProvider.notifier).state =
+                          repo.repoKey;
+                      ref.read(codeSubViewProvider.notifier).state =
+                          CodeSubView.codeChat;
+                      _goSafe(context, '/chat');
+                    },
+                    onNewThread: () => _startCodeThreadForRepo(repo),
+                    onMenuAction: (action) =>
+                        _handleRepoMenuAction(action, repo),
+                    onSelectThread: (threadId) {
+                      ref.read(selectedIndexedRepoProvider.notifier).state =
+                          repo.repoKey;
+                      ref.read(codeSubViewProvider.notifier).state =
+                          CodeSubView.codeChat;
+                      viewModel.selectThread(threadId);
+                      _goSafe(context, '/chat');
+                      if (widget.isMobile) {
+                        Navigator.of(context).pop();
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 6),
+                ],
+              const SizedBox(height: 12),
+              _buildCodeConversationsSection(
+                context: context,
+                threads: scratchpadThreads,
+                selectedThreadId: state.threadId,
+                viewModel: viewModel,
+              ),
+            ],
+          ),
         ),
       ],
     );
