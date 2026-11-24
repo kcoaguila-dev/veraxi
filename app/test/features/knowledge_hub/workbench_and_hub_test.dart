@@ -13,6 +13,7 @@ import 'package:veraxi_app/core/theme.dart';
 import 'package:veraxi_app/features/chat/data/chat_repository.dart';
 import 'package:veraxi_app/features/chat/data/local_chat_migration_service.dart';
 import 'package:veraxi_app/features/chat/view_models/chat_view_model.dart';
+import 'package:veraxi_app/features/chat/view_models/sandbox_toggle_view_model.dart';
 import 'package:veraxi_app/features/chat/views/chat_screen.dart';
 import 'package:veraxi_app/features/knowledge_hub/data/code_intel_repository.dart';
 import 'package:veraxi_app/features/knowledge_hub/data/knowledge_hub_repository.dart';
@@ -1068,5 +1069,53 @@ void main() {
     expect(find.textContaining('What\'s next?'), findsOneWidget);
     expect(
         find.text('Ask anything about veraxi/custom-service.'), findsOneWidget);
+  });
+
+  testWidgets(
+      'Code Mode supports No repo (Scratchpad) without blocking first message',
+      (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(1440, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    final chatVm = _StubChatViewModel(ChatState(messages: []));
+    final codeVm = _StubChatViewModel(ChatState(messages: []));
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          chatViewModelProvider.overrideWith((ref) => chatVm),
+          codeChatViewModelProvider.overrideWith((ref) => codeVm),
+          workspaceModeProvider.overrideWith((ref) => WorkspaceMode.code),
+        ],
+        child: MaterialApp(
+          theme: AppTheme.darkTheme,
+          home: const ChatScreen(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Chat only'), findsOneWidget);
+    expect(find.text('No repo (Scratchpad)'), findsOneWidget);
+    expect(find.text('+ Connect repo'), findsOneWidget);
+    expect(
+      find.text('Ask anything, paste code, or connect a repo.'),
+      findsOneWidget,
+    );
+    expect(find.text('Index a repo in Repo X-Ray →'), findsNothing);
+
+    // Selecting Cloud Sandbox from the tray updates sandboxToggleViewModelProvider.
+    await tester.tap(find.text('Chat only'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Cloud Sandbox').last);
+    await tester.pumpAndSettle();
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(ChatScreen)),
+    );
+    expect(container.read(sandboxToggleViewModelProvider).enabled, isTrue);
   });
 }

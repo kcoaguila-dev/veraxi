@@ -20,14 +20,25 @@ import 'tabs/sync_tab.dart';
 
 class SettingsDialog extends ConsumerStatefulWidget {
   final VoidCallback? onDeleteAllChats;
-  const SettingsDialog({super.key, this.onDeleteAllChats});
+  final String initialTab;
+  const SettingsDialog({
+    super.key,
+    this.onDeleteAllChats,
+    this.initialTab = 'General',
+  });
 
   @override
   ConsumerState<SettingsDialog> createState() => _SettingsDialogState();
 }
 
 class _SettingsDialogState extends ConsumerState<SettingsDialog> {
-  String _selectedTab = 'General';
+  late String _selectedTab;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedTab = widget.initialTab;
+  }
 
   final List<String> _tabs = [
     'General',

@@ -190,24 +190,38 @@ class _CodeSourcesPopoverState extends ConsumerState<_CodeSourcesPopover> {
                                 setState(() => _filter = value),
                           ),
                         ),
-                        TextButton(
-                          onPressed: () {
-                            notifier.state = allSelected
-                                ? const CodeSelectedSources()
-                                : CodeSelectedSources(
-                                    repoKeys: allKeys,
-                                    docIds: allDocIds,
-                                  );
-                          },
-                          child: Text(
-                            allSelected ? 'Clear all' : 'Select all',
-                            style: const TextStyle(
-                              color: Color(0xFF4F8EF7),
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.w600,
+                        if (selected.repoKeys.isNotEmpty ||
+                            selected.docIds.isNotEmpty)
+                          TextButton(
+                            onPressed: () {
+                              notifier.state = const CodeSelectedSources();
+                            },
+                            child: const Text(
+                              'Clear all',
+                              style: TextStyle(
+                                color: Color(0xFFA1A1AA),
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                           ),
-                        ),
+                        if (!allSelected && hasAny)
+                          TextButton(
+                            onPressed: () {
+                              notifier.state = CodeSelectedSources(
+                                repoKeys: allKeys,
+                                docIds: allDocIds,
+                              );
+                            },
+                            child: const Text(
+                              'Select all',
+                              style: TextStyle(
+                                color: Color(0xFF4F8EF7),
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
                       ],
                     ),
                   ),

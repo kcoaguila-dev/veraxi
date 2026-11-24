@@ -9,10 +9,12 @@ import 'package:veraxi_app/core/theme_extension.dart';
 import 'package:veraxi_app/core/widgets/profile_menu_button.dart';
 import 'package:veraxi_app/features/chat/view_models/chat_view_model.dart';
 import 'package:veraxi_app/features/chat/view_models/code_chat_view_model.dart';
+import 'package:veraxi_app/features/chat/view_models/sandbox_toggle_view_model.dart';
 import 'package:veraxi_app/features/chat/view_models/token_usage.dart';
 import 'package:veraxi_app/features/chat/views/widgets/chat_message_list_item.dart';
 import 'package:veraxi_app/features/chat/views/widgets/code_chat_composer.dart';
 import 'package:veraxi_app/features/chat/views/widgets/compaction_sheet.dart';
+import 'package:veraxi_app/features/settings/views/widgets/settings_dialog.dart';
 
 /// Code Chat pane: the Code Mode center stage.
 ///
@@ -59,12 +61,9 @@ class _CodeChatPaneState extends ConsumerState<CodeChatPane> {
   /// local (Drift) thread row when it creates the thread.
   void _handleSend(String text, {List<PlatformFile>? attachments}) {
     final selectedRepo = ref.read(selectedIndexedRepoProvider);
-    final repos = ref.read(indexedReposProvider);
     final sources = ref.read(codeSelectedSourcesProvider);
     final repoKey = selectedRepo ??
-        (sources.repoKeys.isNotEmpty
-            ? sources.repoKeys.first
-            : (repos.isNotEmpty ? repos.first.repoKey : null));
+        (sources.repoKeys.isNotEmpty ? sources.repoKeys.first : null);
     final model = ref.read(modelSelectionProvider).selectedModel;
     final caps = ref.read(modelCapabilitiesProvider).valueOrNull ??
         const <String, ModelThinkingCapability>{};
@@ -269,7 +268,6 @@ class _CodeChatPaneState extends ConsumerState<CodeChatPane> {
 
   Widget _buildEmptyBody(ChatState state, AppThemeExtension ext) {
     final selectedRepo = ref.watch(selectedIndexedRepoProvider);
-    final repos = ref.watch(indexedReposProvider);
     final theme = Theme.of(context);
     final displayName = resolveDisplayName();
 
@@ -293,7 +291,7 @@ class _CodeChatPaneState extends ConsumerState<CodeChatPane> {
               const SizedBox(height: 8),
               Text(
                 selectedRepo == null
-                    ? 'Ask anything about your indexed code.'
+                    ? 'Ask anything, paste code, or connect a repo.'
                     : 'Ask anything about $selectedRepo.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
@@ -301,44 +299,6 @@ class _CodeChatPaneState extends ConsumerState<CodeChatPane> {
                   fontSize: 13.5,
                 ),
               ),
-              if (repos.isEmpty) ...[
-                const SizedBox(height: 16),
-                Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(8),
-                    onTap: () {
-                      ref.read(codeSubViewProvider.notifier).state =
-                          CodeSubView.repoXray;
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 7),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF12231D),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: const Color(0xFF1F4034)),
-                      ),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.account_tree_outlined,
-                              size: 14, color: Color(0xFF34D399)),
-                          SizedBox(width: 6),
-                          Text(
-                            'Index a repo in Repo X-Ray →',
-                            style: TextStyle(
-                              color: Color(0xFF34D399),
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ],
             ],
           ),
         ),
@@ -355,14 +315,22 @@ class _CodeChatPaneState extends ConsumerState<CodeChatPane> {
 class _WeldedNewChatTray extends ConsumerWidget {
   const _WeldedNewChatTray();
 
+  static const String _noRepoSentinel = '__no_repo__';
+  static const String _execChatOnly = 'chat_only';
+  static const String _execSandbox = 'sandbox';
+  static const String _execConfigure = 'configure_sandbox';
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final repos = ref.watch(indexedReposProvider);
     final selectedRepo = ref.watch(selectedIndexedRepoProvider);
     final branch = ref.watch(codeBranchProvider);
+    final sandboxEnabled = ref.watch(sandboxToggleViewModelProvider).enabled;
     final theme = Theme.of(context);
     final ext = theme.extension<AppThemeExtension>()!;
     const branches = <String>['main'];
+    final hasSelectedRepo =
+        selectedRepo != null && repos.any((r) => r.repoKey == selectedRepo);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -373,16 +341,81 @@ class _WeldedNewChatTray extends ConsumerWidget {
       ),
       child: Row(
         children: [
+          Icon(
+            sandboxEnabled
+                ? Icons.terminal_outlined
+                : Icons.chat_bubble_outline,
+            size: 14,
+            color: sandboxEnabled ? const Color(0xFF34D399) : ext.iconColor,
+          ),
+          const SizedBox(width: 6),
+          PopupMenuButton<String>(
+            tooltip: 'Execution target',
+            color: ext.cardBackground,
+            padding: EdgeInsets.zero,
+            onSelected: (value) {
+              if (value == _execConfigure) {
+                showDialog<void>(
+                  context: context,
+                  builder: (_) =>
+                      const SettingsDialog(initialTab: 'Code Sandboxes'),
+                );
+                return;
+              }
+              ref
+                  .read(sandboxToggleViewModelProvider.notifier)
+                  .setEnabled(value == _execSandbox);
+            },
+            itemBuilder: (_) => [
+              const PopupMenuItem<String>(
+                value: _execChatOnly,
+                child: Text('Chat only'),
+              ),
+              const PopupMenuItem<String>(
+                value: _execSandbox,
+                child: Text('Cloud Sandbox'),
+              ),
+              const PopupMenuItem<String>(
+                value: _execConfigure,
+                child: Text(
+                  'Configure Sandbox…',
+                  style: TextStyle(color: Color(0xFF34D399)),
+                ),
+              ),
+            ],
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    sandboxEnabled ? 'Cloud Sandbox' : 'Chat only',
+                    style: TextStyle(
+                      color: theme.colorScheme.onSurface,
+                      fontSize: 12.5,
+                    ),
+                  ),
+                  const SizedBox(width: 2),
+                  Icon(Icons.keyboard_arrow_down,
+                      size: 16, color: ext.iconColor),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
           Icon(Icons.folder_outlined, size: 15, color: ext.iconColor),
           const SizedBox(width: 8),
           Expanded(
             child: repos.isEmpty
                 ? Row(
                     children: [
-                      Text(
-                        'No indexed repos',
-                        style:
-                            TextStyle(color: ext.textTertiary, fontSize: 12.5),
+                      Flexible(
+                        child: Text(
+                          'No repo (Scratchpad)',
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                              color: ext.textTertiary, fontSize: 12.5),
+                        ),
                       ),
                       const SizedBox(width: 10),
                       InkWell(
@@ -395,7 +428,7 @@ class _WeldedNewChatTray extends ConsumerWidget {
                           padding:
                               EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                           child: Text(
-                            'Index in Repo X-Ray →',
+                            '+ Connect repo',
                             style: TextStyle(
                               color: Color(0xFF34D399),
                               fontSize: 12,
@@ -408,10 +441,9 @@ class _WeldedNewChatTray extends ConsumerWidget {
                   )
                 : DropdownButtonHideUnderline(
                     child: DropdownButton<String>(
-                      value: repos.any((r) => r.repoKey == selectedRepo)
-                          ? selectedRepo
-                          : repos.first.repoKey,
+                      value: hasSelectedRepo ? selectedRepo : _noRepoSentinel,
                       isDense: true,
+                      isExpanded: true,
                       dropdownColor: ext.cardBackground,
                       icon: Icon(Icons.keyboard_arrow_down,
                           size: 16, color: ext.iconColor),
@@ -420,20 +452,38 @@ class _WeldedNewChatTray extends ConsumerWidget {
                         fontSize: 12.5,
                       ),
                       items: [
+                        DropdownMenuItem<String>(
+                          value: _noRepoSentinel,
+                          child: Text(
+                            'No repo (Scratchpad)',
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(color: ext.textTertiary),
+                          ),
+                        ),
                         for (final repo in repos)
                           DropdownMenuItem<String>(
                             value: repo.repoKey,
-                            child: Text(repo.displayName),
+                            child: Text(
+                              repo.displayName,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
                       ],
                       onChanged: (value) {
                         if (value == null) return;
+                        final sources = ref.read(codeSelectedSourcesProvider);
+                        if (value == _noRepoSentinel) {
+                          ref.read(selectedIndexedRepoProvider.notifier).state =
+                              null;
+                          ref.read(codeSelectedSourcesProvider.notifier).state =
+                              sources.copyWith(repoKeys: const {});
+                          return;
+                        }
                         ref.read(selectedIndexedRepoProvider.notifier).state =
                             value;
                         // A welded-tray repo pick replaces the repo
                         // selection (preserving any selected docs) so
                         // the first send is scoped to this repo.
-                        final sources = ref.read(codeSelectedSourcesProvider);
                         ref.read(codeSelectedSourcesProvider.notifier).state =
                             sources.copyWith(repoKeys: {value});
                       },
