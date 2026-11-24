@@ -19,7 +19,8 @@ def search_vectors(
     Search Qdrant vectors using Hybrid Search (Dense + Sparse).
     Embeds the query_text, performs a hybrid search, and returns VectorHit objects ready for merge_rank.
     ``source_scope`` (Code Mode) narrows the tenant search with a
-    MatchAny payload filter on repo_key / source_id — see
+    MatchAny payload filter on the ingestion payload keys
+    (``source`` / ``document_id``) — see
     ``QdrantStorageClient.search_hybrid``.
     """
     config = get_config()

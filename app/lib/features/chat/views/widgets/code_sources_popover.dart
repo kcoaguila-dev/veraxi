@@ -1,18 +1,20 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:veraxi_app/core/providers/indexed_sources_provider.dart';
 import 'package:veraxi_app/core/providers/workspace_mode_provider.dart';
 import 'package:veraxi_app/core/theme/obsidian_tokens.dart';
-import 'package:veraxi_app/features/knowledge_hub/view_models/knowledge_hub_view_model.dart';
 
 /// The `N sources` pill rendered in the Code composer, with its
 /// 320px anchored popover for choosing the thread's source scope.
 ///
 /// Repos come from [indexedReposProvider] (GET /api/v1/code/repos,
 /// populated by the workbench) and Knowledge Hub documents from
-/// [knowledgeHubViewModelProvider] (GET /api/admin/sources). Every
-/// toggle writes straight to [codeSelectedSourcesProvider], which
-/// the next send stamps as `source_scope`.
+/// [indexedKnowledgeSourcesProvider] (GET /api/admin/sources, synced
+/// into `core/` by the Knowledge Hub view model — features never
+/// import another feature's view models directly). Every toggle
+/// writes straight to [codeSelectedSourcesProvider], which the next
+/// send stamps as `source_scope`.
 class CodeSourcesPill extends StatefulWidget {
   const CodeSourcesPill({super.key});
 
@@ -113,9 +115,8 @@ class _CodeSourcesPopoverState extends ConsumerState<_CodeSourcesPopover> {
     // the hub screen has not been visited yet this session.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      final hub = ref.read(knowledgeHubViewModelProvider);
-      if (!hub.sourcesLoaded) {
-        ref.read(knowledgeHubViewModelProvider.notifier).fetchSources();
+      if (!ref.read(indexedKnowledgeSourcesLoadedProvider)) {
+        ref.read(indexedSourcesLoadRequestProvider.notifier).state++;
       }
     });
   }
@@ -126,7 +127,7 @@ class _CodeSourcesPopoverState extends ConsumerState<_CodeSourcesPopover> {
   @override
   Widget build(BuildContext context) {
     final repos = ref.watch(indexedReposProvider);
-    final docs = ref.watch(knowledgeHubViewModelProvider).sources;
+    final docs = ref.watch(indexedKnowledgeSourcesProvider);
     final selected = ref.watch(codeSelectedSourcesProvider);
     final notifier = ref.read(codeSelectedSourcesProvider.notifier);
 

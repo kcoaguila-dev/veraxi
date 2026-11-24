@@ -58,116 +58,121 @@ class _FilesChangedCardState extends ConsumerState<FilesChangedCard> {
   @override
   Widget build(BuildContext context) {
     final summary = _summary;
-    return Container(
-      key: const Key('files-changed-card'),
-      margin: const EdgeInsets.only(top: 12),
-      decoration: BoxDecoration(
-        color: ObsidianTokens.card,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: ObsidianTokens.hairline),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          SizedBox(
-            height: 32,
-            child: Row(
-              children: [
-                Expanded(
-                  child: InkWell(
-                    key: const Key('files-changed-toggle'),
-                    borderRadius: BorderRadius.circular(8),
-                    onTap: () => setState(() => _expanded = !_expanded),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 10),
-                      child: Row(
-                        children: [
-                          Flexible(
-                            child: Text(
-                              '${summary.files.length} '
-                              '${summary.files.length == 1 ? 'file' : 'files'} changed',
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w500,
-                                color: Color(0xFFE4E4E7),
+    // The 12px top spacing lives on this outer Padding, NOT on the
+    // keyed Container: the collapsed card itself must measure 34px
+    // (32px strip + 2px border) per veraxi_code_review_pane.svg.
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: Container(
+        key: const Key('files-changed-card'),
+        decoration: BoxDecoration(
+          color: ObsidianTokens.card,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: ObsidianTokens.hairline),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SizedBox(
+              height: 32,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: InkWell(
+                      key: const Key('files-changed-toggle'),
+                      borderRadius: BorderRadius.circular(8),
+                      onTap: () => setState(() => _expanded = !_expanded),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                        child: Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                '${summary.files.length} '
+                                '${summary.files.length == 1 ? 'file' : 'files'} changed',
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                  color: Color(0xFFE4E4E7),
+                                ),
                               ),
                             ),
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            '+${summary.totalAdditions} -${summary.totalDeletions}',
-                            style: const TextStyle(
-                              fontSize: 11.5,
-                              fontFamily: 'monospace',
-                              color: Color(0xFF34D399),
+                            const SizedBox(width: 8),
+                            Text(
+                              '+${summary.totalAdditions} -${summary.totalDeletions}',
+                              style: const TextStyle(
+                                fontSize: 11.5,
+                                fontFamily: 'monospace',
+                                color: Color(0xFF34D399),
+                              ),
                             ),
-                          ),
-                          const SizedBox(width: 4),
-                          AnimatedRotation(
-                            turns: _expanded ? 0.5 : 0.0,
-                            duration: const Duration(milliseconds: 180),
-                            child: const Icon(
-                              Icons.keyboard_arrow_down,
-                              size: 16,
-                              color: Color(0xFF71717A),
+                            const SizedBox(width: 4),
+                            AnimatedRotation(
+                              turns: _expanded ? 0.5 : 0.0,
+                              duration: const Duration(milliseconds: 180),
+                              child: const Icon(
+                                Icons.keyboard_arrow_down,
+                                size: 16,
+                                color: Color(0xFF71717A),
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.only(right: 6),
-                  child: SizedBox(
-                    height: 22,
-                    child: OutlinedButton(
-                      key: const Key('files-changed-review-button'),
-                      onPressed: () => _openReview(),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 10),
-                        backgroundColor: const Color(0xFF1C1F26),
-                        side: const BorderSide(color: Color(0xFF2E323D)),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                      ),
-                      child: const Text(
-                        'Review',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w500,
-                          color: Color(0xFFF4F4F5),
+                          ],
                         ),
                       ),
                     ),
                   ),
-                ),
-              ],
+                  Padding(
+                    padding: const EdgeInsets.only(right: 6),
+                    child: SizedBox(
+                      height: 22,
+                      child: OutlinedButton(
+                        key: const Key('files-changed-review-button'),
+                        onPressed: () => _openReview(),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 10),
+                          backgroundColor: const Color(0xFF1C1F26),
+                          side: const BorderSide(color: Color(0xFF2E323D)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                        ),
+                        child: const Text(
+                          'Review',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500,
+                            color: Color(0xFFF4F4F5),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-          AnimatedSize(
-            duration: const Duration(milliseconds: 180),
-            curve: Curves.easeInOut,
-            alignment: Alignment.topCenter,
-            child: _expanded
-                ? Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      const Divider(
-                        height: 1,
-                        color: ObsidianTokens.hairline,
-                      ),
-                      for (final file in summary.files)
-                        _buildFileRow(file),
-                    ],
-                  )
-                : const SizedBox.shrink(),
-          ),
-        ],
+            AnimatedSize(
+              duration: const Duration(milliseconds: 180),
+              curve: Curves.easeInOut,
+              alignment: Alignment.topCenter,
+              child: _expanded
+                  ? Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const Divider(
+                          height: 1,
+                          color: ObsidianTokens.hairline,
+                        ),
+                        for (final file in summary.files)
+                          _buildFileRow(file),
+                      ],
+                    )
+                  : const SizedBox.shrink(),
+            ),
+          ],
+        ),
       ),
     );
   }

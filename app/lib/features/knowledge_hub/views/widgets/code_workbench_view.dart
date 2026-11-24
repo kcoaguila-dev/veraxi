@@ -195,6 +195,12 @@ class _CodeWorkbenchViewState extends ConsumerState<CodeWorkbenchView> {
 
     final screenWidth = MediaQuery.sizeOf(context).width;
     final isWideDesktop = screenWidth >= 1200;
+    // Code Chat is a 2-column layout (rail + pane) per
+    // docs/design/veraxi_code_workbench.svg: the pane renders its
+    // own header bar, so the workbench header and the Ask Veraxi
+    // sidecar (which belong to the Security/Intel sub-views) must
+    // not mount while it is active.
+    final isCodeChat = activeSubView == CodeSubView.codeChat;
 
     // Phase 5 review pane host: an active review session splits in
     // on the right (~55%) on desktop and overlays as a modal sheet
@@ -202,8 +208,11 @@ class _CodeWorkbenchViewState extends ConsumerState<CodeWorkbenchView> {
     // ChatScreen — so the drawer never mounts twice.
     final workspaceMode = ref.watch(workspaceModeProvider);
     final activeReview = ref.watch(activeReviewSessionProvider);
+    // Promoted local: guards below use `review != null`, so no
+    // non-null assertions are needed at the drawer mounts.
+    final review = activeReview;
     final showReview =
-        activeReview != null && workspaceMode == WorkspaceMode.code;
+        review != null && workspaceMode == WorkspaceMode.code;
 
     return Stack(
       children: [
@@ -212,14 +221,15 @@ class _CodeWorkbenchViewState extends ConsumerState<CodeWorkbenchView> {
             Expanded(
               child: Column(
                 children: [
-                  _buildHeaderBar(
-                    context: context,
-                    title: _subViewTitle(activeSubView),
-                    repoLabel: selectedRepo,
-                    isWideDesktop: isWideDesktop,
-                    activeSubView: activeSubView,
-                    activeFinding: activeFinding,
-                  ),
+                  if (!isCodeChat)
+                    _buildHeaderBar(
+                      context: context,
+                      title: _subViewTitle(activeSubView),
+                      repoLabel: selectedRepo,
+                      isWideDesktop: isWideDesktop,
+                      activeSubView: activeSubView,
+                      activeFinding: activeFinding,
+                    ),
                   Expanded(
                     child: IndexedStack(
                       index: activeSubView.index,
@@ -274,7 +284,7 @@ class _CodeWorkbenchViewState extends ConsumerState<CodeWorkbenchView> {
                 ],
               ),
             ),
-            if (isWideDesktop)
+            if (isWideDesktop && !isCodeChat && !showReview)
               AskVeraxiSidecar(
                 finding: activeFinding,
                 composerFocusNode: _sidecarComposerFocusNode,
@@ -287,8 +297,8 @@ class _CodeWorkbenchViewState extends ConsumerState<CodeWorkbenchView> {
                 width: (screenWidth * 0.55).clamp(480.0, 1100.0),
                 child: CodeReviewDrawer(
                   key: ValueKey(
-                      'review-${activeReview!.sessionId}-${activeReview.turnId}'),
-                  review: activeReview!,
+                      'review-${review.sessionId}-${review.turnId}'),
+                  review: review,
                 ),
               ),
           ],
@@ -307,15 +317,15 @@ class _CodeWorkbenchViewState extends ConsumerState<CodeWorkbenchView> {
                     width: (screenWidth * 0.92).clamp(320.0, 640.0),
                     child: CodeReviewDrawer(
                       key: ValueKey(
-                          'review-sheet-${activeReview!.sessionId}-${activeReview.turnId}'),
-                      review: activeReview!,
+                          'review-sheet-${review.sessionId}-${review.turnId}'),
+                      review: review,
                     ),
                   ),
                 ),
               ),
             ),
           ),
-        if (!isWideDesktop && _narrowSidecarOpen)
+        if (!isWideDesktop && !isCodeChat && !showReview && _narrowSidecarOpen)
           Positioned.fill(
             child: GestureDetector(
               onTap: () => setState(() => _narrowSidecarOpen = false),
