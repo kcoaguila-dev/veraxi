@@ -1103,6 +1103,9 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
                         onSelectRepo: () {
                           ref.read(selectedIndexedRepoProvider.notifier).state =
                               repo.repoKey;
+                          ref.read(codeSubViewProvider.notifier).state =
+                              CodeSubView.codeChat;
+                          _goSafe(context, '/chat');
                         },
                         onNewThread: () => _startCodeThreadForRepo(repo),
                         onMenuAction: (action) =>
@@ -1300,21 +1303,6 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
                         _buildModeSwitcher(context, workspaceMode, kevCount),
                         const SizedBox(height: 14),
                         if (isCodeRail) ...[
-                          _buildCodeNavRow(
-                            icon: Icons.edit_square,
-                            label: 'New chat',
-                            selected: !widget.isKnowledgeHubRoute &&
-                                ref.watch(codeSubViewProvider) ==
-                                    CodeSubView.codeChat &&
-                                state.threadId == null,
-                            onTap: () {
-                              ref.read(codeSubViewProvider.notifier).state =
-                                  CodeSubView.codeChat;
-                              viewModel.startNewChat();
-                              _goSafe(context, '/chat');
-                            },
-                          ),
-                          const SizedBox(height: 4),
                           _buildCodeNavRow(
                             icon: Icons.library_books_outlined,
                             label: 'Knowledge Hub',

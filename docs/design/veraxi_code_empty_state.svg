@@ -37,11 +37,10 @@
   <!-- Main Code Canvas -->
   <rect x="260" y="12" width="1008" height="776" rx="14" fill="#060709" stroke="#1F1F23" stroke-width="1"/>
 
-  <!-- Minimal Breadcrumb Header -->
+  <!-- Minimal Breadcrumb Header (omitted when no repo/thread is active) -->
   <line x1="260" y1="64" x2="1268" y2="64" stroke="#18181B" stroke-width="1"/>
   <rect x="276" y="27" width="22" height="22" rx="6" fill="#18181B" stroke="#2E2E36" stroke-width="1"/>
   <text x="281" y="42" fill="#E4E4E7" font-family="Inter, sans-serif" font-size="10" font-weight="800">VX</text>
-  <text x="308" y="42" fill="#A1A1AA" font-family="Inter, sans-serif" font-size="13" font-weight="500">Code / New chat</text>
 
   <!-- Centered Antigravity-Inspired Empty State Hero -->
   <rect x="740" y="268" width="48" height="48" rx="14" fill="url(#logoGlow)" stroke="#2E2E36" stroke-width="1"/>

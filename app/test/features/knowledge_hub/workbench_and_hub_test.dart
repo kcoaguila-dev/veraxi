@@ -427,7 +427,7 @@ void main() {
   });
 
   testWidgets(
-      'CodeWorkbenchView does not mount Ask Veraxi sidecar below 1200px and New chat returns to Code Chat',
+      'CodeWorkbenchView does not mount Ask Veraxi sidecar below 1200px and selecting a repo returns to Code Chat',
       (WidgetTester tester) async {
     tester.view.physicalSize = const Size(1000, 800);
     tester.view.devicePixelRatio = 1.0;
@@ -437,6 +437,7 @@ void main() {
     });
 
     final chatVm = _StubChatViewModel(ChatState(messages: []));
+    final codeRepo = _FakeCodeIntelRepository();
 
     await tester.pumpWidget(
       ProviderScope(
@@ -444,6 +445,7 @@ void main() {
           chatViewModelProvider.overrideWith((ref) => chatVm),
           codeChatViewModelProvider.overrideWith(
               (ref) => _StubChatViewModel(ChatState(messages: []))),
+          codeIntelRepositoryProvider.overrideWithValue(codeRepo),
           workspaceModeProvider.overrideWith((ref) => WorkspaceMode.code),
         ],
         child: MaterialApp(
@@ -454,14 +456,16 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    expect(find.text('New chat'), findsNothing);
+
     await tester.tap(find.text('Security'));
     await tester.pumpAndSettle();
 
     expect(find.text('Ask Veraxi'), findsNothing);
     expect(find.text('REACHABILITY PATH · SELECTED ROW'), findsNothing);
 
-    // Tapping New chat in Code sidebar returns to Code Chat ("Good to see you" view).
-    await tester.tap(find.text('New chat').first);
+    // Tapping a repo in Projects returns to Code Chat.
+    await tester.tap(find.text('veraxi/custom-service').first);
     await tester.pumpAndSettle();
     final container = ProviderScope.containerOf(
       tester.element(find.byType(ChatScreen)),
@@ -683,8 +687,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    // Stays in Code mode sidebar (Security & New chat visible, Chats list hidden).
-    expect(find.text('New chat'), findsOneWidget);
+    // Stays in Code mode sidebar (Security & Knowledge Hub visible, New chat & Chats list hidden).
+    expect(find.text('New chat'), findsNothing);
     expect(find.text('Knowledge Hub'), findsNWidgets(2)); // sidebar + header
     expect(find.text('Security'), findsOneWidget);
     expect(find.text('Chats'), findsNothing);

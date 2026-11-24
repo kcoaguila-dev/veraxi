@@ -136,6 +136,7 @@ class _CodeChatPaneState extends ConsumerState<CodeChatPane> {
       }
     }
     repoLabel ??= selectedRepo;
+    if (repoLabel == null && state.threadId == null) return '';
     final title = _threadTitle(state);
     return repoLabel == null ? title : '$repoLabel / $title';
   }
