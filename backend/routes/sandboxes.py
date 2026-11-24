@@ -21,6 +21,17 @@ from fastapi import Depends, HTTPException, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
 
 from backend.sandbox.base import normalize_settings
+from backend.sandbox.git_diff import (
+    GitError,
+    NotGitRepoError,
+    PathValidationError,
+    collect_session_diff,
+    get_repo_root,
+    git_add_paths,
+    git_commit,
+    git_revert_paths,
+    validate_repo_paths,
+)
 from backend.sandbox.manager import SandboxManager
 from backend.sandbox.ws_runner_provider import GLOBAL_REGISTRY, WsRunnerProvider
 from backend.services import sandbox_store as store
@@ -71,6 +82,14 @@ class SandboxTestRequest(BaseModel):
 class SandboxApproveRequest(BaseModel):
     approve: bool = True
     tool_name: str | None = None
+
+
+class SandboxPathsRequest(BaseModel):
+    paths: list[str] = []
+
+
+class SandboxCommitRequest(BaseModel):
+    message: str = ""
 
 
 def register_sandbox_routes(app_router, get_tenant_id, _get_supabase, config=None, manager=None):
@@ -259,6 +278,118 @@ def register_sandbox_routes(app_router, get_tenant_id, _get_supabase, config=Non
             raise HTTPException(status_code=404, detail="Sandbox session not found")
         result = mgr.approve_session(session_id, payload.approve, payload.tool_name)
         return {"status": "approved" if payload.approve else "rejected", **result}
+
+    def _session_provider(mgr, tenant_id: str, session_id: str):
+        """Resolve a live session's provider, fail-closed on tenant mismatch."""
+        entry = mgr.get_session(session_id)
+        if entry is None:
+            raise HTTPException(status_code=404, detail="Sandbox session not found")
+        provider, info = entry
+        session_tenant = getattr(info, "tenant_id", None)
+        if not session_tenant or session_tenant != tenant_id:
+            raise HTTPException(status_code=404, detail="Sandbox session not found")
+        return provider
+
+    async def _validated_paths(mgr, tenant_id, session_id, paths):
+        provider = _session_provider(mgr, tenant_id, session_id)
+        try:
+            root = await get_repo_root(provider, session_id)
+        except NotGitRepoError as e:
+            raise HTTPException(status_code=400, detail=str(e)) from e
+        try:
+            return provider, validate_repo_paths(paths, root)
+        except PathValidationError as e:
+            raise HTTPException(status_code=400, detail=str(e)) from e
+
+    @app_router.get("/api/v1/sandboxes/sessions/{session_id}/diff")
+    async def get_sandbox_diff(
+        session_id: str,
+        turn_id: str = "",
+        tenant_id: str = Depends(get_tenant_id),
+    ):
+        """Read-only git diff summary for one session (Code Mode Phase 2)."""
+        sb = _get_supabase()
+        mgr = _manager(sb)
+        provider = _session_provider(mgr, tenant_id, session_id)
+        try:
+            return await collect_session_diff(provider, session_id, turn_id=turn_id)
+        except NotGitRepoError as e:
+            raise HTTPException(status_code=400, detail=str(e)) from e
+        except GitError as e:
+            raise HTTPException(status_code=400, detail=str(e)) from e
+        except Exception as e:
+            sentry_sdk.capture_exception(e)
+            raise HTTPException(status_code=502, detail=f"Sandbox diff failed: {e}") from e
+
+    @app_router.post("/api/v1/sandboxes/sessions/{session_id}/files/accept")
+    async def accept_sandbox_files(
+        session_id: str,
+        payload: SandboxPathsRequest,
+        tenant_id: str = Depends(get_tenant_id),
+    ):
+        """Stage the given files (``git add -- <path>`` per file)."""
+        sb = _get_supabase()
+        mgr = _manager(sb)
+        provider, rel_paths = await _validated_paths(
+            mgr, tenant_id, session_id, payload.paths
+        )
+        try:
+            await git_add_paths(provider, session_id, rel_paths)
+        except GitError as e:
+            raise HTTPException(status_code=400, detail=str(e)) from e
+        except Exception as e:
+            sentry_sdk.capture_exception(e)
+            raise HTTPException(status_code=502, detail=f"Sandbox accept failed: {e}") from e
+        return {"session_id": session_id, "accepted": rel_paths}
+
+    @app_router.post("/api/v1/sandboxes/sessions/{session_id}/files/revert")
+    async def revert_sandbox_files(
+        session_id: str,
+        payload: SandboxPathsRequest,
+        tenant_id: str = Depends(get_tenant_id),
+    ):
+        """Revert the given files: checkout tracked, remove untracked."""
+        sb = _get_supabase()
+        mgr = _manager(sb)
+        provider, rel_paths = await _validated_paths(
+            mgr, tenant_id, session_id, payload.paths
+        )
+        try:
+            await git_revert_paths(provider, session_id, rel_paths)
+        except GitError as e:
+            raise HTTPException(status_code=400, detail=str(e)) from e
+        except Exception as e:
+            sentry_sdk.capture_exception(e)
+            raise HTTPException(status_code=502, detail=f"Sandbox revert failed: {e}") from e
+        return {"session_id": session_id, "reverted": rel_paths}
+
+    @app_router.post("/api/v1/sandboxes/sessions/{session_id}/commit")
+    async def commit_sandbox_files(
+        session_id: str,
+        payload: SandboxCommitRequest,
+        tenant_id: str = Depends(get_tenant_id),
+    ):
+        """Commit staged files with the user's message. NEVER pushes."""
+        if not payload.message or not payload.message.strip():
+            raise HTTPException(status_code=400, detail="Commit message must not be empty")
+        sb = _get_supabase()
+        mgr = _manager(sb)
+        provider = _session_provider(mgr, tenant_id, session_id)
+        try:
+            await get_repo_root(provider, session_id)
+        except NotGitRepoError as e:
+            raise HTTPException(status_code=400, detail=str(e)) from e
+        except Exception as e:
+            sentry_sdk.capture_exception(e)
+            raise HTTPException(status_code=502, detail=f"Sandbox commit failed: {e}") from e
+        try:
+            await git_commit(provider, session_id, payload.message.strip())
+        except GitError as e:
+            raise HTTPException(status_code=400, detail=str(e)) from e
+        except Exception as e:
+            sentry_sdk.capture_exception(e)
+            raise HTTPException(status_code=502, detail=f"Sandbox commit failed: {e}") from e
+        return {"session_id": session_id, "committed": True, "message": payload.message.strip()}
 
     @app_router.websocket("/api/v1/sandboxes/runner/ws")
     async def runner_websocket(websocket: WebSocket):

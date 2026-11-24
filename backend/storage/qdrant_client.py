@@ -13,6 +13,7 @@ from qdrant_client.models import (
 )
 
 from backend import context as byod_context
+from backend.storage.scope import scope_filter_values
 
 logger = logging.getLogger(__name__)
 
@@ -321,6 +322,7 @@ class QdrantStorageClient:
         sparse_query_vector: dict,
         limit: int = 10,
         tenant_id: str = "default",
+        source_scope: dict | None = None,
     ) -> list[dict[str, Any]]:
         """Search for similar vectors using Hybrid Search (Dense + Sparse with RRF)."""
         from qdrant_client.http import models
@@ -343,6 +345,39 @@ class QdrantStorageClient:
                 ),
             ]
         )
+
+        # Code Mode source scoping: when the caller scopes the search
+        # to source(s), the tenant filter is kept AND narrowed with a
+        # MatchAny payload filter. The filter keys must match what
+        # ingestion actually writes (see ingestion/__main__.py):
+        # document points carry `source` (the id GET /api/admin/sources
+        # returns for a doc) and `document_id` — there is no `source_id`
+        # payload key, and filtering on one silently matched nothing.
+        # Repo scoping is NOT applied here: code ingestion writes
+        # Neo4j only (no Qdrant code points exist to stamp or match a
+        # `repo_key` on), so repo scope is enforced by the graph layer
+        # (mcp_server/tools/query_graph.py) and must not narrow — let
+        # alone empty — the tenant's document results.
+        # Public shared intel is not source-scoped, so a scoped search
+        # deliberately searches only the tenant's own scoped points.
+        _repo_keys, source_ids = scope_filter_values(source_scope)
+        if source_ids:
+            scope_conditions: list[models.Condition] = [
+                models.FieldCondition(
+                    key="source", match=models.MatchAny(any=source_ids)
+                ),
+                models.FieldCondition(
+                    key="document_id", match=models.MatchAny(any=source_ids)
+                ),
+            ]
+            query_filter = models.Filter(
+                must=[
+                    models.FieldCondition(
+                        key="tenant_id", match=models.MatchValue(value=tenant_id)
+                    ),
+                    models.Filter(should=scope_conditions),
+                ]
+            )
 
         from qdrant_client.http.exceptions import UnexpectedResponse
 
