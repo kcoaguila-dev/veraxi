@@ -60,7 +60,8 @@ class _PermissionGateCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Icon(Icons.shield_outlined, size: 16, color: Color(0xFF818CF8)),
+              const Icon(Icons.shield_outlined,
+                  size: 16, color: Color(0xFF818CF8)),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
@@ -89,24 +90,30 @@ class _PermissionGateCard extends StatelessWidget {
                 style: FilledButton.styleFrom(
                   backgroundColor: const Color(0xFF38BDF8),
                   foregroundColor: const Color(0xFF0B0E14),
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 ),
-                child: const Text('Allow Once', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600)),
+                child: const Text('Allow Once',
+                    style:
+                        TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600)),
               ),
               OutlinedButton(
                 onPressed: () => onDecision('allow_session'),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: const Color(0xFFE2E8F0),
                   side: const BorderSide(color: Color(0xFF3B4763)),
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 ),
-                child: const Text('Allow Session', style: TextStyle(fontSize: 11.5)),
+                child: const Text('Allow Session',
+                    style: TextStyle(fontSize: 11.5)),
               ),
               TextButton(
                 onPressed: () => onDecision('deny'),
                 style: TextButton.styleFrom(
                   foregroundColor: const Color(0xFFFCA5A5),
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 ),
                 child: const Text('Deny', style: TextStyle(fontSize: 11.5)),
               ),
@@ -139,7 +146,8 @@ class _QuotaExhaustedCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(Icons.warning_amber_rounded, size: 18, color: Color(0xFFF59E0B)),
+          const Icon(Icons.warning_amber_rounded,
+              size: 18, color: Color(0xFFF59E0B)),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
@@ -156,7 +164,8 @@ class _QuotaExhaustedCard extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   message,
-                  style: const TextStyle(fontSize: 11, color: Color(0xFFFCD34D)),
+                  style:
+                      const TextStyle(fontSize: 11, color: Color(0xFFFCD34D)),
                 ),
               ],
             ),
@@ -169,7 +178,8 @@ class _QuotaExhaustedCard extends StatelessWidget {
               foregroundColor: const Color(0xFF0B0E14),
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             ),
-            child: const Text('Switch to BYOK', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600)),
+            child: const Text('Switch to BYOK',
+                style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600)),
           ),
         ],
       ),

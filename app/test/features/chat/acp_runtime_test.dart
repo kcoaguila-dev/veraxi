@@ -35,7 +35,9 @@ class _FakeAcpRepository extends AcpRepository {
 }
 
 void main() {
-  test('AcpRuntimeNotifier switches runtime, refreshes status, and resolves permissions', () async {
+  test(
+      'AcpRuntimeNotifier switches runtime, refreshes status, and resolves permissions',
+      () async {
     final repo = _FakeAcpRepository();
     final notifier = AcpRuntimeNotifier(repo);
 
@@ -69,7 +71,8 @@ void main() {
     expect(notifier.state.quotaExhaustedMessage, isNull);
   });
 
-  testWidgets('AcpPermissionBanner renders permission gate and quota fallback', (tester) async {
+  testWidgets('AcpPermissionBanner renders permission gate and quota fallback',
+      (tester) async {
     final repo = _FakeAcpRepository();
     final notifier = AcpRuntimeNotifier(repo);
 
@@ -94,7 +97,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('Antigravity requests permission'), findsOneWidget);
+    expect(
+        find.textContaining('Antigravity requests permission'), findsOneWidget);
     expect(find.text('Allow Once'), findsOneWidget);
 
     await tester.tap(find.text('Allow Once'));

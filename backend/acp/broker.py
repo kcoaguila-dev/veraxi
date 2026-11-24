@@ -116,9 +116,7 @@ class AcpSessionBroker:
         if not attach_veraxi_mcp:
             return []
         cfg = get_config()
-        base = cfg.internal_api_url.rstrip("/")
-        if base.endswith("/api"):
-            base = base[:-4]
+        base = cfg.internal_api_url.rstrip("/").removesuffix("/api")
         return [
             {
                 "name": "veraxi",

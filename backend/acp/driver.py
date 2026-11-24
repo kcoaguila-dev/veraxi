@@ -53,7 +53,7 @@ _ENV_ALLOWLIST = (
 def build_scrubbed_env(base_env: dict[str, str] | None = None) -> dict[str, str]:
     """Return a minimal environment allowlist without Veraxi backend secrets."""
     source = base_env if base_env is not None else os.environ
-    return {key: source[key] for key in _ENV_ALLOWLIST if key in source and source[key]}
+    return {key: source[key] for key in _ENV_ALLOWLIST if source.get(key)}
 
 
 class AcpDriverError(RuntimeError):

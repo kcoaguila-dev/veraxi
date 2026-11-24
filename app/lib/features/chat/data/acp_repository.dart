@@ -132,7 +132,8 @@ class AcpRepository {
 
   Future<bool> cancelSession(String sessionId) async {
     try {
-      final res = await apiClient.post('/acp/sessions/$sessionId/cancel', body: {});
+      final res =
+          await apiClient.post('/acp/sessions/$sessionId/cancel', body: {});
       return res['cancelled'] == true;
     } catch (e, st) {
       await Sentry.captureException(e, stackTrace: st);

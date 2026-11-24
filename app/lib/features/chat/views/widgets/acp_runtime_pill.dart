@@ -100,7 +100,9 @@ class AcpRuntimePill extends ConsumerWidget {
               : ext.cardBackground.withValues(alpha: 0.72),
           borderRadius: BorderRadius.circular(9),
           border: Border.all(
-            color: isAcp ? const Color(0xFF38BDF8).withValues(alpha: 0.45) : ext.borderColor,
+            color: isAcp
+                ? const Color(0xFF38BDF8).withValues(alpha: 0.45)
+                : ext.borderColor,
           ),
         ),
         child: AnimatedSwitcher(
