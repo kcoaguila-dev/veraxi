@@ -285,7 +285,8 @@ def register_sandbox_routes(app_router, get_tenant_id, _get_supabase, config=Non
         if entry is None:
             raise HTTPException(status_code=404, detail="Sandbox session not found")
         provider, info = entry
-        if getattr(info, "tenant_id", None) not in (None, "", tenant_id):
+        session_tenant = getattr(info, "tenant_id", None)
+        if not session_tenant or session_tenant != tenant_id:
             raise HTTPException(status_code=404, detail="Sandbox session not found")
         return provider
 
