@@ -24,7 +24,9 @@ import litellm
 
 logger = logging.getLogger(__name__)
 
-ThinkingMode = Literal["none", "toggle", "effort", "adaptive_effort", "level", "budget"]
+ThinkingMode = Literal[
+    "none", "unknown", "toggle", "effort", "adaptive_effort", "level", "budget"
+]
 CanonicalLevel = Literal["off", "minimal", "low", "medium", "high", "max", "on"]
 
 CANONICAL_LEVELS: tuple[str, ...] = (
@@ -75,6 +77,32 @@ class ThinkingCapability:
         }
 
 
+class UnsupportedThinkingLevelError(ValueError):
+    """Raised when a caller requests a thinking level the model does not support."""
+
+    def __init__(
+        self,
+        model_name: str,
+        requested_level: str,
+        supported_levels: tuple[str, ...],
+    ) -> None:
+        self.model_name = model_name
+        self.requested_level = requested_level
+        self.supported_levels = supported_levels
+        if not supported_levels:
+            msg = (
+                f"Model '{model_name}' does not support thinking levels "
+                f"(requested '{requested_level}')."
+            )
+        else:
+            opts = ", ".join(supported_levels)
+            msg = (
+                f"Model '{model_name}' does not support thinking level "
+                f"'{requested_level}'. Supported levels: [{opts}]."
+            )
+        super().__init__(msg)
+
+
 @dataclass(frozen=True)
 class ThinkingTranslation:
     """Provider-ready LiteLLM kwargs and safe sampling overrides."""
@@ -97,6 +125,14 @@ class LocalRuntimeProbe:
 _NO_THINKING = ThinkingCapability(
     mode="none",
     levels=(),
+    default_level=None,
+    temp_when_off=0.0,
+    temp_when_thinking=None,
+)
+
+_UNKNOWN_THINKING = ThinkingCapability(
+    mode="unknown",
+    levels=("off", "minimal", "low", "medium", "high", "max", "on"),
     default_level=None,
     temp_when_off=0.0,
     temp_when_thinking=None,
@@ -402,14 +438,29 @@ def resolve_thinking_capability(
         )
     if bare.startswith("kimi-k2") and "thinking" in bare:
         return _DEEPSEEK_TOGGLE_CAP
+    if bare.startswith(
+        (
+            "llama-",
+            "meta-llama/",
+            "allam-",
+            "canopylabs/",
+            "moonshot-",
+            "codestral-",
+            "pixtral-",
+            "ministral-",
+            "devstral-",
+            "mistral-",
+        )
+    ):
+        return _NO_THINKING
 
-    # Dynamic fallback for newly released models via LiteLLM metadata.
+    # Dynamic fallback for newly released or custom models via LiteLLM metadata.
     try:
         if litellm.supports_reasoning(model=model_name):
             return _OPENAI_O_SERIES_CAP
     except Exception:
         pass
-    return _NO_THINKING
+    return _UNKNOWN_THINKING
 
 
 def clamp_thinking_level(
@@ -518,7 +569,37 @@ def _translate_kwargs_for_capability(
             }, None
         return {"reasoning_effort": "high" if is_on else "none"}, None
 
+    if capability.mode == "unknown":
+        is_on = effective_level != "off"
+        return (
+            {"reasoning_effort": "none" if not is_on else effective_level},
+            None,
+        )
+
     return {}, None
+
+
+def validate_thinking_level(
+    model_name: str,
+    thinking_level: str | None,
+    capability: ThinkingCapability,
+) -> str | None:
+    """Strictly validate ``thinking_level`` against ``capability.levels``.
+
+    Never silently overrides or downgrades the user's explicit choice:
+    raises ``UnsupportedThinkingLevelError`` if ``thinking_level`` is
+    incompatible with ``model_name``.
+    """
+    if not isinstance(thinking_level, str) or not thinking_level.strip():
+        return None
+    level = thinking_level.strip().lower()
+    if not capability.supports_reasoning or level not in capability.levels:
+        raise UnsupportedThinkingLevelError(
+            model_name=model_name,
+            requested_level=level,
+            supported_levels=capability.levels,
+        )
+    return level
 
 
 def build_litellm_thinking_params(
@@ -527,11 +608,17 @@ def build_litellm_thinking_params(
     base_url: str | None = None,
     runtime_probe: LocalRuntimeProbe | None = None,
 ) -> ThinkingTranslation:
-    """Translate a requested thinking level into safe LiteLLM kwargs & temperature."""
+    """Translate a requested thinking level into LiteLLM kwargs & temperature.
+
+    Raises ``UnsupportedThinkingLevelError`` if ``thinking_level`` is
+    explicitly set to a value not supported by ``model_name``.
+    """
     effective_probe = runtime_probe or get_cached_local_probe(base_url)
     capability = resolve_thinking_capability(
         model_name, base_url=base_url, runtime_probe=effective_probe
     )
+
+    effective_level = validate_thinking_level(model_name, thinking_level, capability)
     if not capability.supports_reasoning:
         return ThinkingTranslation(
             model_kwargs={},
@@ -540,7 +627,6 @@ def build_litellm_thinking_params(
             effective_level=None,
         )
 
-    effective_level, clamped_from = clamp_thinking_level(thinking_level, capability)
     if effective_level is None:
         # Unset: respect provider default; keep safe temperature for always-on models.
         is_always_on = "off" not in capability.levels
@@ -564,7 +650,6 @@ def build_litellm_thinking_params(
         temperature=temperature,
         max_tokens_min=max_tokens_min,
         effective_level=effective_level,
-        clamped_from=clamped_from,
     )
 
 

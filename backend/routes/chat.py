@@ -1399,6 +1399,35 @@ def register_chat_routes(
                 detail="You must provide your own LLM API key. Add your key in Settings → API Keys.",
             )
 
+        requested_thinking = chat_request.thinking_level or (
+            chat_request.tool_settings.get("thinking_level")
+            if isinstance(chat_request.tool_settings, dict)
+            else None
+        )
+        if requested_thinking is not None:
+            from backend.thinking_policy import (
+                UnsupportedThinkingLevelError,
+                build_litellm_thinking_params,
+                get_cached_local_probe,
+                probe_local_runtime,
+            )
+
+            if (
+                chat_request.base_url
+                and get_cached_local_probe(chat_request.base_url) is None
+            ):
+                await probe_local_runtime(
+                    chat_request.base_url, [chat_request.model]
+                )
+            try:
+                build_litellm_thinking_params(
+                    chat_request.model,
+                    requested_thinking,
+                    base_url=chat_request.base_url,
+                )
+            except UnsupportedThinkingLevelError as exc:
+                raise HTTPException(status_code=400, detail=str(exc)) from exc
+
         api_key_override = chat_request.api_key or None
         is_flagged = await moderate_text(
             chat_request.question, api_key=api_key_override

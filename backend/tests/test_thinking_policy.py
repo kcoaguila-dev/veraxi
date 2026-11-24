@@ -4,10 +4,11 @@ import litellm
 import pytest
 from langchain_core.messages import AIMessage, HumanMessage
 
-from backend.mcp_server.orchestrator import _create_chat_llm, call_model
+from backend.mcp_server.orchestrator import _create_chat_llm
 from backend.thinking_policy import (
     LocalRuntimeProbe,
     ThinkingCapability,
+    UnsupportedThinkingLevelError,
     build_litellm_thinking_params,
     clamp_thinking_level,
     resolve_thinking_capability,
@@ -21,9 +22,9 @@ from backend.thinking_policy import (
         ("gpt-5.4", "minimal", {"reasoning_effort": "minimal"}, None),
         ("gpt-5.4", "high", {"reasoning_effort": "high"}, None),
         ("gpt-5.4", "max", {"reasoning_effort": "xhigh"}, None),
-        ("o3-mini", "off", {"reasoning_effort": "low"}, None),
-        ("o3-mini", "max", {"reasoning_effort": "high"}, None),
-        ("gpt-4o", "high", {}, 0.0),
+        ("o3-mini", "low", {"reasoning_effort": "low"}, None),
+        ("o3-mini", "high", {"reasoning_effort": "high"}, None),
+        ("gpt-4o", None, {}, 0.0),
         (
             "claude-sonnet-4-6",
             "high",
@@ -42,9 +43,9 @@ from backend.thinking_policy import (
             {"thinking": {"type": "enabled", "budget_tokens": 8192}},
             None,
         ),
-        ("claude-3-5-sonnet-latest", "high", {}, 0.0),
+        ("claude-3-5-sonnet-latest", None, {}, 0.0),
         ("gemini-3.6-flash", "minimal", {"reasoning_effort": "minimal"}, None),
-        ("gemini-3.1-pro-preview", "off", {"reasoning_effort": "low"}, None),
+        ("gemini-3.1-pro-preview", "low", {"reasoning_effort": "low"}, None),
         (
             "gemini-2.5-flash",
             "off",
@@ -59,11 +60,11 @@ from backend.thinking_policy import (
         ),
         ("deepseek-chat", "on", {"reasoning_effort": "high"}, 0.6),
         ("deepseek-chat", "off", {"reasoning_effort": "none"}, 0.0),
-        ("deepseek-reasoner", "off", {"reasoning_effort": "high"}, None),
+        ("deepseek-reasoner", "on", {"reasoning_effort": "high"}, None),
         ("openai/gpt-oss-20b", "medium", {"reasoning_effort": "medium"}, None),
         ("qwen/qwen3.6-27b", "off", {"reasoning_effort": "none"}, 0.0),
-        ("llama-3.3-70b-versatile", "high", {}, 0.0),
-        ("moonshot-v1-auto", "high", {}, 0.0),
+        ("llama-3.3-70b-versatile", None, {}, 0.0),
+        ("moonshot-v1-auto", None, {}, 0.0),
     ],
 )
 def test_build_litellm_thinking_params_matrix(
@@ -72,6 +73,24 @@ def test_build_litellm_thinking_params_matrix(
     res = build_litellm_thinking_params(model, level)
     assert res.model_kwargs == expected_kwargs
     assert res.temperature == expected_temp
+
+
+@pytest.mark.parametrize(
+    ("model", "invalid_level"),
+    [
+        ("gpt-4o", "high"),
+        ("claude-3-5-sonnet-latest", "medium"),
+        ("o3-mini", "off"),
+        ("o3-mini", "max"),
+        ("gemini-3.1-pro-preview", "off"),
+        ("deepseek-reasoner", "off"),
+        ("deepseek-chat", "high"),
+        ("llama-3.3-70b-versatile", "low"),
+    ],
+)
+def test_strict_fail_fast_raises_on_unsupported_thinking_level(model, invalid_level):
+    with pytest.raises(UnsupportedThinkingLevelError):
+        build_litellm_thinking_params(model, invalid_level)
 
 
 def test_anthropic_budget_sets_max_tokens_floor():
@@ -133,7 +152,7 @@ def test_create_chat_llm_anthropic_omits_temperature_when_thinking():
 
 
 @pytest.mark.asyncio
-async def test_runtime_unsupported_thinking_param_two_stage_downgrade():
+async def test_runtime_unsupported_thinking_param_fails_fast_without_downgrade():
     from backend.mcp_server.orchestrator import _ainvoke_with_rate_limit_retry
 
     with patch("backend.mcp_server.orchestrator.get_config") as mock_cfg:
@@ -147,12 +166,13 @@ async def test_runtime_unsupported_thinking_param_two_stage_downgrade():
         model="gpt-5.4",
         llm_provider="openai",
     )
-    # Stage 1 clamps xhigh -> high; Stage 2 strips all reasoning kwargs
-    mock_ainvoke = AsyncMock(side_effect=[err, err, AIMessage(content="ok")])
-    with patch.object(type(llm), "ainvoke", mock_ainvoke):
-        res = await _ainvoke_with_rate_limit_retry(
+    mock_ainvoke = AsyncMock(side_effect=err)
+    with (
+        patch.object(type(llm), "ainvoke", mock_ainvoke),
+        pytest.raises(litellm.exceptions.BadRequestError),
+    ):
+        await _ainvoke_with_rate_limit_retry(
             llm, [HumanMessage(content="hi")], "gpt-5.4"
         )
-    assert res.content == "ok"
-    assert mock_ainvoke.call_count == 3
-    assert "reasoning_effort" not in llm.model_kwargs
+    assert mock_ainvoke.call_count == 1
+    assert llm.model_kwargs.get("reasoning_effort") == "xhigh"

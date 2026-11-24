@@ -252,76 +252,20 @@ def _extract_rate_limit_delay(exc: Exception) -> float | None:
     return 2.0
 
 
-_UNSUPPORTED_THINKING_PARAM_MARKERS = (
-    "reasoning_effort",
-    "budget_tokens",
-    "thinking_level",
-    "enable_thinking",
-    "thinking is not supported",
-    "unsupported parameter: 'thinking'",
-    "unsupported value: 'temperature'",
-)
-
-
-def _is_unsupported_thinking_error(exc: Exception) -> bool:
-    """True when a provider rejects reasoning/thinking kwargs at invoke time."""
-    if isinstance(exc, litellm.exceptions.UnsupportedParamsError):
-        return True
-    text = _exception_chain_text(exc)
-    return any(marker in text for marker in _UNSUPPORTED_THINKING_PARAM_MARKERS)
-
-
-def _downgrade_reasoning_kwargs(client: Any) -> str | None:
-    """Two-stage fallback when a provider rejects reasoning kwargs:
-    1. Clamp ``max``/``xhigh`` -> ``high`` first to preserve reasoning.
-    2. Strip all reasoning/thinking keys if the provider still rejects them.
-    """
-    target = getattr(client, "bound", client)
-    kwargs = getattr(target, "model_kwargs", None)
-    if not isinstance(kwargs, dict) or not kwargs:
-        return None
-    if kwargs.get("reasoning_effort") in ("max", "xhigh"):
-        kwargs["reasoning_effort"] = "high"
-        return "clamped_to_high"
-    removed = False
-    for key in ("reasoning_effort", "thinking", "extra_body"):
-        if key in kwargs:
-            kwargs.pop(key, None)
-            removed = True
-    return "stripped" if removed else None
-
-
 async def _ainvoke_with_rate_limit_retry(
     client: Any,
     messages: list[BaseMessage],
     model_name: str,
     max_attempts: int = 3,
 ):
-    """Invoke an LLM client with bounded backoff on transient RateLimitError
-    and two-stage downgrade (clamp -> strip) if reasoning kwargs are rejected."""
-    downgrades = 0
+    """Invoke an LLM client with bounded backoff on transient RateLimitError.
+
+    Strict fail-fast: never silently downgrades or strips the user's chosen
+    thinking level if a provider rejects it.
+    """
     for attempt in range(max_attempts):
         try:
             return await client.ainvoke(messages)
-        except (
-            litellm.exceptions.UnsupportedParamsError,
-            litellm.exceptions.BadRequestError,
-        ) as exc:
-            action = (
-                _downgrade_reasoning_kwargs(client)
-                if downgrades < 2 and _is_unsupported_thinking_error(exc)
-                else None
-            )
-            if action is not None:
-                downgrades += 1
-                logger.warning(
-                    "Provider rejected thinking params for %s (%s); retrying: %s",
-                    model_name,
-                    action,
-                    exc,
-                )
-                continue
-            raise
         except litellm.exceptions.RateLimitError as exc:
             delay = _extract_rate_limit_delay(exc)
             if delay is None or attempt >= max_attempts - 1:

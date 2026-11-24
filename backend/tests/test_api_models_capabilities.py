@@ -135,3 +135,24 @@ def test_llamacpp_probe_populates_reasoning_budget_on_inference():
             thinking_level="low",
         )
         assert llm.model_kwargs["extra_body"]["reasoning_budget"] == 2048
+
+
+def test_chat_endpoint_rejects_unsupported_thinking_level_strictly():
+    from backend.api_gateway import get_tenant_id
+
+    app.dependency_overrides[get_tenant_id] = lambda: "test_tenant"
+    try:
+        client = TestClient(app)
+        res = client.post(
+            "/api/chat",
+            json={
+                "question": "hi",
+                "model": "gpt-4o",
+                "api_key": "test-key",
+                "thinking_level": "high",
+            },
+        )
+        assert res.status_code == 400
+        assert "does not support thinking levels" in res.json()["detail"]
+    finally:
+        app.dependency_overrides.pop(get_tenant_id, None)
