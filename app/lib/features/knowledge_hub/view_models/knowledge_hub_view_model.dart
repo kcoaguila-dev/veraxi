@@ -127,7 +127,10 @@ class KnowledgeHubViewModel extends StateNotifier<KnowledgeHubState> {
     } on PaymentRequiredException catch (_) {
       state = state.copyWith(requiresPayment: true, sourcesLoaded: true);
     } catch (e, st) {
-      state = state.copyWith(sourcesLoaded: true);
+      state = state.copyWith(
+        sourcesLoaded: true,
+        error: 'Failed to load indexed sources: $e',
+      );
       await Sentry.captureException(e, stackTrace: st);
     }
     _syncIndexedSources();

@@ -37,4 +37,16 @@ void main() {
     await Future.delayed(Duration.zero);
     expect(viewModel.state.requiresPayment, isTrue);
   });
+
+  test('fetchSources sets error instead of silently showing empty state',
+      () async {
+    when(() => mockRepository.fetchSources())
+        .thenAnswer((_) => Future.error(Exception('404 Not Found')));
+    viewModel = KnowledgeHubViewModel(mockRepository);
+    await Future.delayed(Duration.zero);
+    await viewModel.fetchSources();
+    expect(viewModel.state.sourcesLoaded, isTrue);
+    expect(viewModel.state.sources, isEmpty);
+    expect(viewModel.state.error, contains('Failed to load indexed sources'));
+  });
 }
