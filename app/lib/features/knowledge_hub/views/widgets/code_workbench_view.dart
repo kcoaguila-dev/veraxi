@@ -194,6 +194,12 @@ class _CodeWorkbenchViewState extends ConsumerState<CodeWorkbenchView> {
 
     final screenWidth = MediaQuery.sizeOf(context).width;
     final isWideDesktop = screenWidth >= 1200;
+    // Code Chat is a 2-column layout (rail + pane) per
+    // docs/design/veraxi_code_workbench.svg: the pane renders its
+    // own header bar, so the workbench header and the Ask Veraxi
+    // sidecar (which belong to the Security/Intel sub-views) must
+    // not mount while it is active.
+    final isCodeChat = activeSubView == CodeSubView.codeChat;
 
     return Stack(
       children: [
@@ -202,14 +208,15 @@ class _CodeWorkbenchViewState extends ConsumerState<CodeWorkbenchView> {
             Expanded(
               child: Column(
                 children: [
-                  _buildHeaderBar(
-                    context: context,
-                    title: _subViewTitle(activeSubView),
-                    repoLabel: selectedRepo,
-                    isWideDesktop: isWideDesktop,
-                    activeSubView: activeSubView,
-                    activeFinding: activeFinding,
-                  ),
+                  if (!isCodeChat)
+                    _buildHeaderBar(
+                      context: context,
+                      title: _subViewTitle(activeSubView),
+                      repoLabel: selectedRepo,
+                      isWideDesktop: isWideDesktop,
+                      activeSubView: activeSubView,
+                      activeFinding: activeFinding,
+                    ),
                   Expanded(
                     child: IndexedStack(
                       index: activeSubView.index,
@@ -264,7 +271,7 @@ class _CodeWorkbenchViewState extends ConsumerState<CodeWorkbenchView> {
                 ],
               ),
             ),
-            if (isWideDesktop)
+            if (isWideDesktop && !isCodeChat)
               AskVeraxiSidecar(
                 finding: activeFinding,
                 composerFocusNode: _sidecarComposerFocusNode,
@@ -274,7 +281,7 @@ class _CodeWorkbenchViewState extends ConsumerState<CodeWorkbenchView> {
               ),
           ],
         ),
-        if (!isWideDesktop && _narrowSidecarOpen)
+        if (!isWideDesktop && !isCodeChat && _narrowSidecarOpen)
           Positioned.fill(
             child: GestureDetector(
               onTap: () => setState(() => _narrowSidecarOpen = false),

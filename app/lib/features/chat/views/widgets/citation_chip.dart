@@ -1115,7 +1115,7 @@ class _CitationChipState extends State<CitationChip> {
     final activeSource = _sources[_currentIndex];
     final codeTarget = _codeTargetFor(activeSource);
     if (codeTarget != null) {
-      return _CodeCitationHoverCard(
+      final cardArgs = (
         target: codeTarget,
         index: _currentIndex,
         total: _sources.length,
@@ -1126,6 +1126,40 @@ class _CitationChipState extends State<CitationChip> {
             ? () => setState(() => _currentIndex++)
             : null,
         onOpenReview: () => _openCodeTarget(codeTarget),
+      );
+      // The hover card is built through an OverlayPortal, whose
+      // overlay ancestry may not include a ProviderScope (widget
+      // tests pump the chip bare). Hand the live card the ambient
+      // container explicitly when one exists; otherwise render the
+      // static card from the CodeCitationTarget fields alone instead
+      // of throwing `Bad state: No ProviderScope found`.
+      ProviderContainer? container;
+      try {
+        container = ProviderScope.containerOf(context, listen: false);
+      } catch (_) {
+        container = null;
+      }
+      if (container != null) {
+        return UncontrolledProviderScope(
+          container: container,
+          child: _LiveCodeCitationHoverCard(
+            target: cardArgs.target,
+            index: cardArgs.index,
+            total: cardArgs.total,
+            onPrev: cardArgs.onPrev,
+            onNext: cardArgs.onNext,
+            onOpenReview: cardArgs.onOpenReview,
+          ),
+        );
+      }
+      return _CodeCitationHoverCard(
+        target: cardArgs.target,
+        index: cardArgs.index,
+        total: cardArgs.total,
+        onPrev: cardArgs.onPrev,
+        onNext: cardArgs.onNext,
+        onOpenReview: cardArgs.onOpenReview,
+        asyncContent: null,
       );
     }
 
@@ -1506,7 +1540,10 @@ class _CitationChipState extends State<CitationChip> {
 /// file identity, a line-numbered snippet of the cited range
 /// (fetched/cached through [codeFileProvider], i.e.
 /// GET /api/v1/code/file), and the review footer.
-class _CodeCitationHoverCard extends ConsumerWidget {
+/// Live variant: watches [codeFileProvider] and forwards the
+/// result to the static card. Only ever built under a
+/// [ProviderScope] (see `_buildHoverCard`).
+class _LiveCodeCitationHoverCard extends ConsumerWidget {
   final CodeCitationTarget target;
   final int index;
   final int total;
@@ -1514,7 +1551,7 @@ class _CodeCitationHoverCard extends ConsumerWidget {
   final VoidCallback? onNext;
   final VoidCallback onOpenReview;
 
-  const _CodeCitationHoverCard({
+  const _LiveCodeCitationHoverCard({
     required this.target,
     required this.index,
     required this.total,
@@ -1525,7 +1562,43 @@ class _CodeCitationHoverCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final asyncContent = ref.watch(codeFileProvider(target));
+    return _CodeCitationHoverCard(
+      target: target,
+      index: index,
+      total: total,
+      onPrev: onPrev,
+      onNext: onNext,
+      onOpenReview: onOpenReview,
+      asyncContent: ref.watch(codeFileProvider(target)),
+    );
+  }
+}
+
+class _CodeCitationHoverCard extends StatelessWidget {
+  final CodeCitationTarget target;
+  final int index;
+  final int total;
+  final VoidCallback? onPrev;
+  final VoidCallback? onNext;
+  final VoidCallback onOpenReview;
+
+  /// Snippet state from [codeFileProvider], or null when no
+  /// [ProviderScope] is available (bare widget tests): the card then
+  /// renders its fallback body from the target fields alone.
+  final AsyncValue<CodeFileContent>? asyncContent;
+
+  const _CodeCitationHoverCard({
+    required this.target,
+    required this.index,
+    required this.total,
+    required this.onPrev,
+    required this.onNext,
+    required this.onOpenReview,
+    required this.asyncContent,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     final rangeLabel = target.endLine != null
         ? 'L${target.startLine}-L${target.endLine}'
         : 'L${target.startLine}';
@@ -1573,7 +1646,16 @@ class _CodeCitationHoverCard extends ConsumerWidget {
                 ],
               ),
             ),
-            asyncContent.when(
+            if (asyncContent == null)
+              const Padding(
+                padding: EdgeInsets.fromLTRB(12, 6, 12, 10),
+                child: Text(
+                  "This file isn't available on the server.",
+                  style: TextStyle(color: Color(0xFFA1A1AA), fontSize: 11.5),
+                ),
+              )
+            else
+              asyncContent!.when(
               data: (content) => _buildSnippet(content),
               loading: () => const Padding(
                 padding: EdgeInsets.symmetric(vertical: 16),

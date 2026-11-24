@@ -164,6 +164,10 @@ def _validate_one_path(raw, root: str) -> str:
         rel = posixpath.normpath(candidate)
     if rel in ("", "."):
         raise PathValidationError("path must name a file inside the repository")
+    if ".git" in rel.split("/"):
+        # Nothing under .git/ is a reviewable file; accepting or
+        # reverting it would let a caller rewrite hooks/config.
+        raise PathValidationError("path must not target .git internals")
     if rel.startswith("../") or rel == "..":
         raise PathValidationError(f"path {raw!r} escapes the repository root")
     return rel
@@ -343,6 +347,12 @@ async def collect_session_diff(provider, session_id: str, turn_id: str = "") -> 
             session_id,
             f"git diff --no-index -U3 -- /dev/null {shlex.quote(path)}",
         )
+        preview_lines = preview.splitlines()
+        if len(preview_lines) > _UNTRACKED_PREVIEW_LINES:
+            preview = "\n".join(
+                preview_lines[:_UNTRACKED_PREVIEW_LINES]
+                + ["... (preview truncated)"]
+            )
         untracked.append((path, preview))
     return build_diff_summary(session_id, turn_id, numstat, diff_text, untracked)
 
@@ -361,20 +371,24 @@ async def git_add_paths(provider, session_id: str, rel_paths: list[str]) -> None
 
 
 async def git_revert_paths(provider, session_id: str, rel_paths: list[str]) -> None:
-    """Revert each validated path.
+    """Revert each validated path to its ``HEAD`` state.
 
-    Tracked files are restored with ``git checkout -- <path>``;
-    untracked files (created during the turn) are removed.
+    Files present in ``HEAD`` are restored with
+    ``git checkout HEAD -- <path>`` (index AND working tree — a plain
+    ``git checkout --`` restores from the index, so a file that was
+    already Accepted/staged would silently keep its changes). Files
+    absent from ``HEAD`` (newly staged or untracked) are unstaged
+    with ``git rm --cached`` and removed from the working tree.
     """
     for rel in rel_paths:
         _out, _err, code = await _gather(
             provider,
             session_id,
-            f"git ls-files --error-unmatch -- {shlex.quote(rel)}",
+            f"git cat-file -e HEAD:{shlex.quote(rel)}",
         )
         if code == 0:
             _o, stderr, exit_code = await _gather(
-                provider, session_id, f"git checkout -- {shlex.quote(rel)}"
+                provider, session_id, f"git checkout HEAD -- {shlex.quote(rel)}"
             )
             if exit_code != 0:
                 raise GitError(
@@ -382,6 +396,11 @@ async def git_revert_paths(provider, session_id: str, rel_paths: list[str]) -> N
                     + (f": {stderr.strip()}" if stderr.strip() else "")
                 )
         else:
+            await _gather(
+                provider,
+                session_id,
+                f"git rm -f --cached --ignore-unmatch -- {shlex.quote(rel)}",
+            )
             _o, stderr, exit_code = await _gather(
                 provider, session_id, f"rm -f -- {shlex.quote(rel)}"
             )

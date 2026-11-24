@@ -12,26 +12,75 @@ logger = logging.getLogger(__name__)
 MAX_ALLOWED_HOPS = 3
 
 
+def _repo_keys_from_scope(source_scope: dict | None) -> list[str]:
+    """All repo_keys a source_scope pins the search to (possibly none).
+
+    Reads ``repo_key`` / ``repo_keys`` from the scope and from a
+    ``selected_sources`` sub-dict (or dict entries of a
+    ``selected_sources`` list). String entries of a
+    ``selected_sources`` list are source ids, not repo keys — see
+    :func:`_scope_has_source_ids`.
+    """
+    if not isinstance(source_scope, dict):
+        return []
+    repo_keys: list[str] = []
+
+    def _collect(scope: dict | None) -> None:
+        if not isinstance(scope, dict):
+            return
+        value = scope.get("repo_key")
+        if isinstance(value, str) and value and value not in repo_keys:
+            repo_keys.append(value)
+        keys = scope.get("repo_keys")
+        if isinstance(keys, (list, tuple)):
+            for item in keys:
+                if isinstance(item, str) and item and item not in repo_keys:
+                    repo_keys.append(item)
+
+    _collect(source_scope)
+    selected = source_scope.get("selected_sources")
+    if isinstance(selected, (list, tuple)):
+        for item in selected:
+            _collect(item)
+    else:
+        _collect(selected)
+    return repo_keys
+
+
 def _repo_key_from_scope(source_scope: dict | None) -> str | None:
     """The single repo_key a source_scope pins the search to, if any."""
+    keys = _repo_keys_from_scope(source_scope)
+    return keys[0] if len(keys) == 1 else None
+
+
+def _scope_has_source_ids(source_scope: dict | None) -> bool:
+    """Whether the scope names document sources (source_id(s) / list ids)."""
     if not isinstance(source_scope, dict):
-        return None
-    for scope in (source_scope, source_scope.get("selected_sources")):
-        if not isinstance(scope, dict):
-            continue
-        value = scope.get("repo_key")
-        if isinstance(value, str) and value:
-            return value
-        keys = scope.get("repo_keys")
-        if isinstance(keys, (list, tuple)) and len(keys) == 1:
-            only = keys[0]
-            if isinstance(only, str) and only:
-                return only
-    return None
+        return False
+    if source_scope.get("source_id"):
+        return True
+    ids = source_scope.get("source_ids")
+    if isinstance(ids, (list, tuple)) and any(
+        isinstance(i, str) and i for i in ids
+    ):
+        return True
+    selected = source_scope.get("selected_sources")
+    if isinstance(selected, dict):
+        return _scope_has_source_ids(selected)
+    if isinstance(selected, (list, tuple)):
+        return any(
+            (isinstance(i, str) and bool(i)) or _scope_has_source_ids(i)
+            for i in selected
+        )
+    return False
 
 
 def _build_query_graph_params(
-    entity_name: str, tenant_id: str, repo_key: str | None = None
+    entity_name: str,
+    tenant_id: str,
+    repo_key: str | None = None,
+    repo_keys: list[str] | None = None,
+    exclude_code_nodes: bool = False,
 ) -> dict:
     """Pre-processes entity query terms for whole-word / phrase-boundary Cypher matching."""
     trimmed = (entity_name or "").strip()
@@ -49,6 +98,8 @@ def _build_query_graph_params(
         "padded_raw_query": padded_raw,
         "tenant_id": tenant_id,
         "repo_key": repo_key,
+        "repo_keys": list(repo_keys or []),
+        "exclude_code_nodes": exclude_code_nodes,
     }
 
 
@@ -91,12 +142,15 @@ def query_graph(
     Returns results as GraphHit objects ready for merge_rank.
     No string-concatenated queries for user inputs.
 
-    ``source_scope`` (Code Mode) may pin the traversal to one repo:
-    the ``$repo_key`` parameter then filters ONLY code nodes
-    (CodeFile/CodeModule/Class/Function — the nodes that carry a
-    ``repo_key`` property). Shared public-tenant nodes (CVE, CWE,
-    Package, ATT&CK) and ordinary entities carry no repo_key and are
-    never filtered out by it.
+    ``source_scope`` (Code Mode) may pin the traversal to one or
+    more repos: the ``$repo_keys`` parameter then filters ONLY code
+    nodes (CodeFile/CodeModule/Class/Function — the nodes that carry
+    a ``repo_key`` property), on the start node, the end node, and
+    every intermediate node of the path. Shared public-tenant nodes
+    (CVE, CWE, Package, ATT&CK) and ordinary entities carry no
+    repo_key and are never filtered out by it. A scope that names
+    document sources but no repo sets ``$exclude_code_nodes`` so the
+    traversal cannot silently widen to every repo's code nodes.
     """
     config = get_config()
     neo4j = Neo4jStorageClient.from_config(config)
@@ -106,8 +160,17 @@ def query_graph(
     # We must ensure it's a positive integer to avoid injection.
     max_hops = min(max(1, int(max_hops)), MAX_ALLOWED_HOPS)
 
+    repo_keys = _repo_keys_from_scope(source_scope)
     params = _build_query_graph_params(
-        entity_name, tenant_id, repo_key=_repo_key_from_scope(source_scope)
+        entity_name,
+        tenant_id,
+        repo_key=repo_keys[0] if len(repo_keys) == 1 else None,
+        repo_keys=repo_keys,
+        exclude_code_nodes=(
+            isinstance(source_scope, dict)
+            and not repo_keys
+            and _scope_has_source_ids(source_scope)
+        ),
     )
 
     # We parameterize all user inputs and rank candidate start nodes by match quality:
@@ -122,7 +185,9 @@ def query_graph(
         OR ((start:CodeModule OR start:Class OR start:Function OR start:CodeFile OR start:SecurityFinding OR start:ReconFinding OR start:TargetHost OR start:SecurityAlert OR start:IOC) AND start.tenant_id = $tenant_id)
         OR ((start:CVE OR start:CWE OR start:Package OR start:AttackTechnique OR start:AttackTactic OR start:AttackMitigation) AND start.tenant_id IN [$tenant_id, 'public'])
       )
-      AND ($repo_key IS NULL OR coalesce(start.repo_key, '') = $repo_key
+      AND ($repo_keys = [] OR coalesce(start.repo_key, '') IN $repo_keys
+           OR NOT (start:CodeFile OR start:CodeModule OR start:Class OR start:Function))
+      AND (NOT $exclude_code_nodes
            OR NOT (start:CodeFile OR start:CodeModule OR start:Class OR start:Function))
       AND coalesce(start.name, start.id, start.qualified_name) IS NOT NULL
     WITH start, coalesce(start.name, start.id, start.qualified_name) AS start_label
@@ -155,8 +220,15 @@ def query_graph(
     MATCH path = (start)-[rels*1..{max_hops}]-(end)
     WHERE (end.tenant_id = $tenant_id
        OR ((end:CVE OR end:CWE OR end:Package OR end:AttackTechnique OR end:AttackTactic OR end:AttackMitigation) AND end.tenant_id = 'public'))
-      AND ($repo_key IS NULL OR coalesce(end.repo_key, '') = $repo_key
+      AND ($repo_keys = [] OR coalesce(end.repo_key, '') IN $repo_keys
            OR NOT (end:CodeFile OR end:CodeModule OR end:Class OR end:Function))
+      AND (NOT $exclude_code_nodes
+           OR NOT (end:CodeFile OR end:CodeModule OR end:Class OR end:Function))
+      AND ($repo_keys = [] OR all(n IN nodes(path) WHERE
+            NOT (n:CodeFile OR n:CodeModule OR n:Class OR n:Function)
+            OR coalesce(n.repo_key, '') IN $repo_keys))
+      AND (NOT $exclude_code_nodes OR all(n IN nodes(path) WHERE
+            NOT (n:CodeFile OR n:CodeModule OR n:Class OR n:Function)))
     WITH start, start_label, end, last(rels) AS last_rel, size(rels) AS hop_distance,
          size([r IN rels WHERE type(r) IN ['MENTIONED_WITH', 'ASSOCIATED_WITH', 'RELATED_TO']]) AS noisy_hops,
          [n IN nodes(path) | coalesce(n.name, n.id, n.qualified_name)] AS path_node_names,

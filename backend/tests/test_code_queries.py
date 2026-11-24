@@ -534,3 +534,121 @@ def test_search_vectors_passes_source_scope_to_qdrant():
         ["s9"],
     )
     assert scope_filter_values(None) == ([], [])
+
+
+def test_search_hybrid_scoped_filter_matches_ingestion_payload_keys():
+    """Phase 1 (1.3): scoped search must filter on keys ingestion writes.
+
+    Document points carry `source` / `document_id` (never `source_id`),
+    and code points do not exist in Qdrant, so a `repo_key` condition
+    must never be emitted — it silently returned zero hits.
+    """
+    from unittest.mock import MagicMock
+
+    from backend.storage.qdrant_client import QdrantStorageClient
+
+    storage = QdrantStorageClient.__new__(QdrantStorageClient)
+    mock_client = MagicMock()
+    mock_resp = MagicMock()
+    mock_resp.points = []
+    mock_client.query_points.return_value = mock_resp
+    storage.client = mock_client
+
+    def _filter_keys(flt, acc):
+        for cond in (flt.must or []) + (flt.should or []) + (flt.must_not or []):
+            key = getattr(cond, "key", None)
+            if key:
+                acc.add(key)
+            if hasattr(cond, "must") or hasattr(cond, "should"):
+                _filter_keys(cond, acc)
+        return acc
+
+    storage.search_hybrid(
+        collection_name="c",
+        query_vector=[0.1, 0.2],
+        sparse_query_vector={"indices": [], "values": []},
+        tenant_id="t1",
+        source_scope={"source_ids": ["guide.pdf"], "repo_keys": ["a/b"]},
+    )
+    flt = mock_client.query_points.call_args.kwargs["prefetch"][0].filter
+    keys = _filter_keys(flt, set())
+    assert "source" in keys
+    assert "document_id" in keys
+    assert "source_id" not in keys
+    assert "repo_key" not in keys
+
+    # Repo-only scope must not narrow the tenant document search.
+    mock_client.query_points.reset_mock()
+    storage.search_hybrid(
+        collection_name="c",
+        query_vector=[0.1, 0.2],
+        sparse_query_vector={"indices": [], "values": []},
+        tenant_id="t1",
+        source_scope={"repo_key": "a/b"},
+    )
+    flt2 = mock_client.query_points.call_args.kwargs["prefetch"][0].filter
+    keys2 = _filter_keys(flt2, set())
+    assert "repo_key" not in keys2
+    assert "source" not in keys2
+
+
+def test_scope_filter_values_accepts_selected_sources_list():
+    from backend.storage.qdrant_client import scope_filter_values
+
+    assert scope_filter_values({"selected_sources": ["guide.pdf", "a/b"]}) == (
+        [],
+        ["guide.pdf", "a/b"],
+    )
+    assert scope_filter_values(
+        {"selected_sources": [{"repo_key": "a/b"}, {"source_id": "s1"}]}
+    ) == (["a/b"], ["s1"])
+
+
+def test_query_graph_multi_repo_scope_is_parameterized():
+    """Phase 1 (1.4): multi-repo scopes must not widen to all repos."""
+    from unittest.mock import patch
+
+    from backend.mcp_server.tools import query_graph as qg_module
+
+    with (
+        patch.object(qg_module, "get_config", lambda: object()),
+        patch.object(qg_module, "Neo4jStorageClient") as mock_client,
+    ):
+        instance = mock_client.from_config.return_value
+        instance.execute_read.return_value = []
+        qg_module.query_graph(
+            "Alice",
+            tenant_id="t1",
+            source_scope={"repo_keys": ["a/b", "c/d"]},
+        )
+        query, params = instance.execute_read.call_args[0]
+        assert params["repo_keys"] == ["a/b", "c/d"]
+        assert "a/b" not in query and "c/d" not in query
+        assert "$repo_keys" in query
+        # Every node in the path is repo-scoped, not just start/end.
+        assert "all(n IN nodes(path)" in query
+        assert "coalesce(n.repo_key, '') IN $repo_keys" in query
+        assert params["exclude_code_nodes"] is False
+
+
+def test_query_graph_source_ids_only_scope_excludes_code_nodes():
+    """Phase 1 (1.4): a sources-only scope must not traverse code repos."""
+    from unittest.mock import patch
+
+    from backend.mcp_server.tools import query_graph as qg_module
+
+    with (
+        patch.object(qg_module, "get_config", lambda: object()),
+        patch.object(qg_module, "Neo4jStorageClient") as mock_client,
+    ):
+        instance = mock_client.from_config.return_value
+        instance.execute_read.return_value = []
+        qg_module.query_graph(
+            "Alice",
+            tenant_id="t1",
+            source_scope={"selected_sources": ["guide.pdf"]},
+        )
+        query, params = instance.execute_read.call_args[0]
+        assert params["repo_keys"] == []
+        assert params["exclude_code_nodes"] is True
+        assert "$exclude_code_nodes" in query

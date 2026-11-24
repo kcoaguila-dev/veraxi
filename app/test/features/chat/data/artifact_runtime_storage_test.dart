@@ -127,7 +127,7 @@ void main() {
       expect(await store.entriesForScope('t:0:0'), {'k2': 'v2'});
     });
 
-    test('schema is 5 and a v4 database upgrades cleanly', () async {
+    test('schema is 6 and a v4 database upgrades cleanly', () async {
       final dir = await Directory.systemTemp.createTemp('veraxi_mig_');
       addTearDown(() => dir.delete(recursive: true));
       final file = File('${dir.path}/chat.sqlite');
@@ -170,7 +170,7 @@ void main() {
 
       final db = LocalChatDatabase.withExecutor(NativeDatabase(file));
       addTearDown(db.close);
-      expect(db.schemaVersion, 5);
+      expect(db.schemaVersion, 6);
       // The upgrade created the runtime-storage table and it works.
       final store = DriftArtifactRuntimeLocalStore(database: db);
       await store.put('t:0:0', 'k', 'v');
@@ -179,6 +179,83 @@ void main() {
       final work = await db.select(db.artifactWorkEntries).get();
       expect(work, hasLength(1));
       expect(work.single.workKey, 't:0:0');
+    });
+
+    test('a v5 database upgrades to v6 with Code Mode columns', () async {
+      final dir = await Directory.systemTemp.createTemp('veraxi_mig_v6_');
+      addTearDown(() => dir.delete(recursive: true));
+      final file = File('${dir.path}/chat.sqlite');
+
+      // Build a v5-shaped database by hand: the v4 tables plus the
+      // v5 runtime-storage table and user_version = 5, with one
+      // thread row that must survive with default Code Mode values.
+      final raw = sqlite3.open(file.path);
+      raw.execute('''
+        CREATE TABLE local_threads (
+          thread_id TEXT NOT NULL PRIMARY KEY,
+          title TEXT NOT NULL,
+          is_pinned INTEGER NOT NULL DEFAULT 0,
+          is_archived INTEGER NOT NULL DEFAULT 0,
+          project_id TEXT NULL,
+          timestamp INTEGER NULL
+        );
+        CREATE TABLE local_messages (
+          id TEXT NOT NULL PRIMARY KEY,
+          thread_id TEXT NOT NULL,
+          role TEXT NOT NULL,
+          content TEXT NOT NULL,
+          feedback INTEGER NOT NULL DEFAULT 0,
+          model_name TEXT NULL,
+          metrics TEXT NULL,
+          tool_events TEXT NULL,
+          activity TEXT NULL,
+          reasoning TEXT NULL,
+          reasoning_duration_seconds REAL NULL,
+          timestamp INTEGER NULL
+        );
+        CREATE TABLE artifact_work_entries (
+          work_key TEXT NOT NULL PRIMARY KEY,
+          state_json TEXT NOT NULL,
+          updated_at_ms INTEGER NOT NULL DEFAULT 0
+        );
+        CREATE TABLE artifact_runtime_storage_entries (
+          scope_id TEXT NOT NULL,
+          entry_key TEXT NOT NULL,
+          entry_value TEXT NOT NULL,
+          updated_at_ms INTEGER NOT NULL DEFAULT 0,
+          PRIMARY KEY (scope_id, entry_key)
+        );
+        INSERT INTO local_threads VALUES ('thread-1', 'Hello', 0, 0, NULL, NULL);
+        PRAGMA user_version = 5;
+      ''');
+      raw.close();
+
+      final db = LocalChatDatabase.withExecutor(NativeDatabase(file));
+      addTearDown(db.close);
+      expect(db.schemaVersion, 6);
+      // The v6 upgrade added the Code Mode columns to local_threads
+      // and the pre-existing thread reads back with valid defaults.
+      final threads = await db.select(db.localThreads).get();
+      expect(threads, hasLength(1));
+      expect(threads.single.threadId, 'thread-1');
+      expect(threads.single.workspaceMode, 'chat');
+      expect(threads.single.repoKey, isNull);
+      expect(threads.single.branch, isNull);
+      expect(threads.single.selectedSources, isNull);
+      // The new columns are writable after the upgrade.
+      await (db.update(db.localThreads)
+            ..where((t) => t.threadId.equals('thread-1')))
+          .write(const LocalThreadsCompanion(
+        workspaceMode: Value('code'),
+        repoKey: Value('veraxi/custom-service'),
+        branch: Value('main'),
+        selectedSources: Value('["arch.pdf"]'),
+      ));
+      final updated = await db.select(db.localThreads).getSingle();
+      expect(updated.workspaceMode, 'code');
+      expect(updated.repoKey, 'veraxi/custom-service');
+      expect(updated.branch, 'main');
+      expect(updated.selectedSources, '["arch.pdf"]');
     });
   });
 }
