@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:veraxi_app/core/network/api_client.dart';
+import 'package:veraxi_app/features/chat/data/desktop_acp_client.dart';
 
 final acpRepositoryProvider = Provider<AcpRepository>((ref) {
   return AcpRepository(apiClient: ref.watch(apiClientProvider));
@@ -103,14 +103,11 @@ class AcpRepository {
 
   AcpRepository({required this.apiClient});
 
+  bool get isPlatformSupported => DesktopAcpClient.isSupported;
+
   Future<AcpStatus> fetchStatus() async {
-    try {
-      final raw = await apiClient.get('/acp/status');
-      return AcpStatus.fromJson(Map<String, dynamic>.from(raw as Map));
-    } catch (e, st) {
-      await Sentry.captureException(e, stackTrace: st);
-      return const AcpStatus();
-    }
+    if (!isPlatformSupported) return const AcpStatus();
+    return DesktopAcpClient.instance.checkStatus();
   }
 
   Future<bool> resolvePermission({
@@ -118,26 +115,16 @@ class AcpRepository {
     required String requestId,
     required String outcome,
   }) async {
-    try {
-      final res = await apiClient.post(
-        '/acp/sessions/$sessionId/permission',
-        body: {'request_id': requestId, 'outcome': outcome},
-      );
-      return res['resolved'] == true;
-    } catch (e, st) {
-      await Sentry.captureException(e, stackTrace: st);
-      return false;
-    }
+    if (!isPlatformSupported) return false;
+    return DesktopAcpClient.instance.resolvePermission(
+      sessionId: sessionId,
+      requestId: requestId,
+      outcome: outcome,
+    );
   }
 
   Future<bool> cancelSession(String sessionId) async {
-    try {
-      final res =
-          await apiClient.post('/acp/sessions/$sessionId/cancel', body: {});
-      return res['cancelled'] == true;
-    } catch (e, st) {
-      await Sentry.captureException(e, stackTrace: st);
-      return false;
-    }
+    if (!isPlatformSupported) return false;
+    return DesktopAcpClient.instance.cancelSession(sessionId);
   }
 }

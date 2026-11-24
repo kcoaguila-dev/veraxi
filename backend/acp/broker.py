@@ -1,4 +1,4 @@
-"""ACP Session Broker — selects local stdio or runner WebSocket transport."""
+"""ACP Session Broker — local stdio transport for self-hosted/desktop mode."""
 
 from __future__ import annotations
 
@@ -9,7 +9,6 @@ from typing import Any
 
 from backend.acp.driver import AcpDriverError, LocalAcpDriver
 from backend.acp.protocol import build_friendly_acp_error
-from backend.acp.runner_transport import RunnerAcpTransport
 from backend.acp.usage_reader import read_local_usage_summary
 from backend.config import get_config
 
@@ -47,43 +46,30 @@ DEFAULT_ANTIGRAVITY_MODELS: list[str] = [
 class AcpSessionBroker:
     """Unified entry point for external ACP agent sessions."""
 
-    def __init__(
-        self,
-        local_driver: LocalAcpDriver | None = None,
-        runner_transport: RunnerAcpTransport | None = None,
-    ):
+    def __init__(self, local_driver: LocalAcpDriver | None = None):
         cfg = get_config()
         self.local_driver = local_driver or LocalAcpDriver(
             binary=cfg.antigravity_acp_bin,
             idle_timeout_sec=cfg.acp_idle_timeout_sec,
             max_sessions_per_tenant=cfg.acp_max_sessions_per_tenant,
         )
-        self.runner_transport = runner_transport or RunnerAcpTransport()
         self._session_tenants: dict[str, str] = {}
 
     def get_status(self, tenant_id: str) -> dict[str, Any]:
-        """Report ACP availability, active transport, and honest local usage summary."""
+        """Report ACP availability and read-only local usage summary."""
+        del tenant_id
         cfg = get_config()
-        runner_connected = self.runner_transport.is_connected(tenant_id)
         local_ok, local_bin = self.local_driver.is_available()
         usage = read_local_usage_summary(cfg.antigravity_data_dir)
 
-        if runner_connected:
-            transport = "veraxi_runner"
-            available = True
-        elif cfg.acp_enabled and local_ok:
-            transport = "local_stdio"
-            available = True
-        else:
-            transport = "unavailable"
-            available = False
+        available = bool(cfg.acp_enabled and local_ok)
+        transport = "local_stdio" if available else "unavailable"
 
         return {
             "available": available,
             "acp_enabled": cfg.acp_enabled,
             "transport": transport,
             "binary": local_bin or cfg.antigravity_acp_bin,
-            "runner_connected": runner_connected,
             "models": self._list_local_models(local_bin) if local_ok else list(DEFAULT_ANTIGRAVITY_MODELS),
             "usage": usage,
         }
@@ -140,24 +126,10 @@ class AcpSessionBroker:
         effective_cwd = cwd or os.getcwd()
         mcp_servers = self._build_veraxi_mcp_servers(tenant_id, attach_veraxi_mcp)
 
-        if self.runner_transport.is_connected(tenant_id):
-            async for evt in self.runner_transport.stream_prompt(
-                tenant_id=tenant_id,
-                thread_id=thread_id,
-                prompt_text=prompt_text,
-                cwd=effective_cwd,
-                mcp_servers=mcp_servers,
-                model=model,
-            ):
-                if evt.get("session_id"):
-                    self._session_tenants[str(evt["session_id"])] = tenant_id
-                yield evt
-            return
-
         if not cfg.acp_enabled:
             yield build_friendly_acp_error(
                 "Local ACP runtime is disabled on this server. "
-                "Connect veraxi-runner with --enable-acp or set ACP_ENABLED=true for self-hosted local mode."
+                "Use the Veraxi Desktop app for direct local Antigravity ACP sessions."
             )
             return
 
@@ -179,16 +151,12 @@ class AcpSessionBroker:
     async def resolve_permission(
         self, tenant_id: str, session_id: str, request_id: str, outcome: str
     ) -> bool:
-        if await self.local_driver.resolve_permission(session_id, request_id, outcome):
-            return True
-        return await self.runner_transport.resolve_permission(
-            tenant_id, session_id, request_id, outcome
-        )
+        del tenant_id
+        return await self.local_driver.resolve_permission(session_id, request_id, outcome)
 
     async def cancel_session(self, tenant_id: str, session_id: str) -> bool:
-        if await self.local_driver.cancel_session_turn(session_id):
-            return True
-        return await self.runner_transport.cancel_session_turn(tenant_id, session_id)
+        del tenant_id
+        return await self.local_driver.cancel_session_turn(session_id)
 
     async def close_session(self, session_id: str) -> None:
         self._session_tenants.pop(session_id, None)

@@ -12,8 +12,11 @@ class AcpRuntimePill extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final acp = ref.watch(acpRuntimeProvider);
     final notifier = ref.read(acpRuntimeProvider.notifier);
+    if (!notifier.isPlatformSupported) {
+      return const SizedBox.shrink();
+    }
+    final acp = ref.watch(acpRuntimeProvider);
     final ext = Theme.of(context).extension<AppThemeExtension>()!;
     final isAcp = acp.isAcpActive;
     final statusColor = !isAcp

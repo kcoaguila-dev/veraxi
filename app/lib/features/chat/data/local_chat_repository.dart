@@ -4,6 +4,7 @@ import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:veraxi_app/core/network/api_client.dart';
 import 'package:veraxi_app/core/api_key_storage.dart';
 import 'package:veraxi_app/features/chat/data/chat_repository.dart';
+import 'package:veraxi_app/features/chat/data/desktop_acp_client.dart';
 import 'package:veraxi_app/features/chat/data/compaction_local.dart';
 import 'package:veraxi_app/features/chat/data/local_chat_database.dart';
 import 'package:uuid/uuid.dart';
@@ -169,7 +170,13 @@ class LocalChatRepository implements IChatRepository {
     }
 
     Stream<Map<String, dynamic>> stream;
-    if (model != null && model.endsWith('.gguf')) {
+    if (agentRuntime == 'antigravity_acp') {
+      stream = DesktopAcpClient.instance.streamPrompt(
+        threadId: effectiveThreadId,
+        prompt: question,
+        model: model,
+      );
+    } else if (model != null && model.endsWith('.gguf')) {
       final localDataSource = LocalChatDataSource.forModel();
       stream = localDataSource.streamChat(
         question,

@@ -11,8 +11,11 @@ class AcpPermissionBanner extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final acp = ref.watch(acpRuntimeProvider);
     final notifier = ref.read(acpRuntimeProvider.notifier);
+    if (!notifier.isPlatformSupported) {
+      return const SizedBox.shrink();
+    }
+    final acp = ref.watch(acpRuntimeProvider);
 
     return AnimatedSize(
       duration: const Duration(milliseconds: 200),

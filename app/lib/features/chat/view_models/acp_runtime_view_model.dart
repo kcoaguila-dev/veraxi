@@ -91,6 +91,8 @@ class AcpRuntimeNotifier extends StateNotifier<AcpRuntimeState> {
 
   AcpRuntimeNotifier(this._repository) : super(const AcpRuntimeState());
 
+  bool get isPlatformSupported => _repository.isPlatformSupported;
+
   Future<void> refreshStatus() async {
     state = state.copyWith(isLoadingStatus: true);
     final status = await _repository.fetchStatus();

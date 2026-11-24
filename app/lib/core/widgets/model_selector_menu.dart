@@ -474,44 +474,49 @@ class _ModelSelectorMenuState extends ConsumerState<ModelSelectorMenu> {
                                               height: 1),
                                         ),
                                       ],
-                                      const Padding(
-                                        padding: EdgeInsets.symmetric(
-                                            horizontal: 12, vertical: 4),
-                                        child: Text('Subscription',
-                                            style: TextStyle(
-                                                color: Color(0xFF6E6E6E),
-                                                fontSize: 11,
-                                                fontWeight: FontWeight.w600)),
-                                      ),
-                                      HoverableProviderRow(
-                                        provider: 'Antigravity',
-                                        isHovered:
-                                            _hoveredProvider == 'Antigravity',
-                                        onEnter: (layerLink) {},
-                                        onTap: (layerLink) {
-                                          _openSubMenu(
-                                            'Antigravity',
-                                            antigravityModels,
-                                            isSubscription: true,
-                                          );
-                                        },
-                                        onSettingsTap: () {
-                                          _openSubMenu(
-                                            'Antigravity',
-                                            antigravityModels,
-                                            isSubscription: true,
-                                          );
-                                        },
-                                      ),
-                                      Padding(
-                                        padding: const EdgeInsets.symmetric(
-                                            vertical: 4),
-                                        child: Divider(
-                                            color: Theme.of(context)
-                                                .extension<AppThemeExtension>()!
-                                                .borderColor,
-                                            height: 1),
-                                      ),
+                                      if (ref
+                                          .read(acpRuntimeProvider.notifier)
+                                          .isPlatformSupported) ...[
+                                        const Padding(
+                                          padding: EdgeInsets.symmetric(
+                                              horizontal: 12, vertical: 4),
+                                          child: Text('Subscription',
+                                              style: TextStyle(
+                                                  color: Color(0xFF6E6E6E),
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.w600)),
+                                        ),
+                                        HoverableProviderRow(
+                                          provider: 'Antigravity',
+                                          isHovered:
+                                              _hoveredProvider == 'Antigravity',
+                                          onEnter: (layerLink) {},
+                                          onTap: (layerLink) {
+                                            _openSubMenu(
+                                              'Antigravity',
+                                              antigravityModels,
+                                              isSubscription: true,
+                                            );
+                                          },
+                                          onSettingsTap: () {
+                                            _openSubMenu(
+                                              'Antigravity',
+                                              antigravityModels,
+                                              isSubscription: true,
+                                            );
+                                          },
+                                        ),
+                                        Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                              vertical: 4),
+                                          child: Divider(
+                                              color: Theme.of(context)
+                                                  .extension<
+                                                      AppThemeExtension>()!
+                                                  .borderColor,
+                                              height: 1),
+                                        ),
+                                      ],
                                       if (allProviderModels.isNotEmpty) ...[
                                         Padding(
                                           padding: EdgeInsets.symmetric(

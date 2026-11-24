@@ -12,6 +12,7 @@ import 'package:veraxi_app/core/network/llm_request_options.dart';
 import 'package:veraxi_app/core/network/sse_parser.dart';
 import 'package:veraxi_app/core/api_key_storage.dart';
 
+import 'package:veraxi_app/features/chat/data/desktop_acp_client.dart';
 import 'package:veraxi_app/features/chat/data/local_chat_repository.dart';
 import 'package:veraxi_app/features/chat/data/local_chat_data_source.dart'
     if (dart.library.html) 'package:veraxi_app/features/chat/data/local_chat_data_source_web.dart';
@@ -142,6 +143,14 @@ class CloudChatRepository implements IChatRepository {
       String? thinkingLevel,
       String? agentRuntime,
       bool attachVeraxiMcp = true}) async* {
+    if (agentRuntime == 'antigravity_acp') {
+      yield* DesktopAcpClient.instance.streamPrompt(
+        threadId: threadId ?? 'default',
+        prompt: question,
+        model: model,
+      );
+      return;
+    }
     if (model != null && model.endsWith('.gguf')) {
       final localDataSource = LocalChatDataSource.forModel();
       yield* localDataSource.streamChat(
