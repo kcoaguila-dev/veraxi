@@ -12,6 +12,7 @@ class ModelSelectorMenu extends ConsumerStatefulWidget {
   final ValueChanged<String>? onModelPinned;
   final ValueChanged<String>? onModelUnpinned;
   final Widget child;
+  final bool? openUpward;
 
   const ModelSelectorMenu({
     super.key,
@@ -21,6 +22,7 @@ class ModelSelectorMenu extends ConsumerStatefulWidget {
     this.onModelPinned,
     this.onModelUnpinned,
     required this.child,
+    this.openUpward,
   });
 
   @override
@@ -255,7 +257,18 @@ class _ModelSelectorMenuState extends ConsumerState<ModelSelectorMenu> {
     );
   }
 
+  bool _shouldOpenUpward(BuildContext context) {
+    if (widget.openUpward != null) return widget.openUpward!;
+    final renderObject = context.findRenderObject();
+    if (renderObject is! RenderBox || !renderObject.hasSize) return false;
+    final bottomY =
+        renderObject.localToGlobal(Offset(0, renderObject.size.height)).dy;
+    final viewportHeight = MediaQuery.sizeOf(context).height;
+    return viewportHeight - bottomY < 320;
+  }
+
   OverlayEntry _createOverlayEntry() {
+    final openUpward = _shouldOpenUpward(context);
     return OverlayEntry(
       builder: (context) {
         return Consumer(
@@ -276,8 +289,11 @@ class _ModelSelectorMenuState extends ConsumerState<ModelSelectorMenu> {
                 CompositedTransformFollower(
                   link: _layerLink,
                   showWhenUnlinked: false,
-                  offset: const Offset(
-                      0, 48), // Adjust this to sit below the button
+                  targetAnchor:
+                      openUpward ? Alignment.topLeft : Alignment.bottomLeft,
+                  followerAnchor:
+                      openUpward ? Alignment.bottomLeft : Alignment.topLeft,
+                  offset: openUpward ? const Offset(0, -8) : const Offset(0, 8),
                   child: Material(
                     color: Colors.transparent,
                     child: Container(

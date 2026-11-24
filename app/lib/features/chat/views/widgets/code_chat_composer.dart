@@ -498,6 +498,7 @@ class _CodeChatComposerState extends ConsumerState<CodeChatComposer> {
         ModelSelectorMenu(
           selectedModel: modelSelection.selectedModel,
           pinnedModels: modelSelection.pinnedModels.toList(),
+          openUpward: true,
           onModelSelected: (model) =>
               ref.read(modelSelectionProvider.notifier).selectModel(model),
           onModelPinned: (model) =>
