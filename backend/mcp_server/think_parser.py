@@ -131,9 +131,21 @@ class ThinkTagStreamParser:
         )
 
     def flush(self) -> ThinkParseResult:
-        """Flush any buffered partial tag text at end of stream."""
+        """Flush any buffered partial tag text and close active reasoning timers."""
+        ended_ms: int | None = None
+        if self._explicit_reasoning_active:
+            self._explicit_reasoning_active = False
+            ended_ms = self._finish_timer_ms()
+
         if not self._buffer:
-            return ThinkParseResult(reasoning_deltas=[], content_deltas=[])
+            if self.in_thinking:
+                self.in_thinking = False
+                ended_ms = self._finish_timer_ms()
+            return ThinkParseResult(
+                reasoning_deltas=[],
+                content_deltas=[],
+                reasoning_ended_ms=ended_ms,
+            )
         leftover = self._buffer
         self._buffer = ""
         if self.in_thinking:
@@ -143,4 +155,8 @@ class ThinkTagStreamParser:
                 content_deltas=[],
                 reasoning_ended_ms=self._finish_timer_ms(),
             )
-        return ThinkParseResult(reasoning_deltas=[], content_deltas=[leftover])
+        return ThinkParseResult(
+            reasoning_deltas=[],
+            content_deltas=[leftover],
+            reasoning_ended_ms=ended_ms,
+        )

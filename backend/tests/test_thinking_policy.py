@@ -133,24 +133,26 @@ def test_create_chat_llm_anthropic_omits_temperature_when_thinking():
 
 
 @pytest.mark.asyncio
-async def test_runtime_unsupported_thinking_param_auto_downgrades():
+async def test_runtime_unsupported_thinking_param_two_stage_downgrade():
     from backend.mcp_server.orchestrator import _ainvoke_with_rate_limit_retry
 
     with patch("backend.mcp_server.orchestrator.get_config") as mock_cfg:
         mock_cfg.return_value.llm_api_key = "k"
         mock_cfg.return_value.llm_base_url = None
-        llm = _create_chat_llm("gpt-5.4", "k", thinking_level="high")
+        llm = _create_chat_llm("gpt-5.4", "k", thinking_level="max")
 
+    assert llm.model_kwargs.get("reasoning_effort") == "xhigh"
     err = litellm.exceptions.BadRequestError(
-        message="Unsupported parameter: 'reasoning_effort' is not supported",
+        message="Unsupported parameter: 'reasoning_effort' xhigh is not supported",
         model="gpt-5.4",
         llm_provider="openai",
     )
-    mock_ainvoke = AsyncMock(side_effect=[err, AIMessage(content="ok")])
+    # Stage 1 clamps xhigh -> high; Stage 2 strips all reasoning kwargs
+    mock_ainvoke = AsyncMock(side_effect=[err, err, AIMessage(content="ok")])
     with patch.object(type(llm), "ainvoke", mock_ainvoke):
         res = await _ainvoke_with_rate_limit_retry(
             llm, [HumanMessage(content="hi")], "gpt-5.4"
         )
     assert res.content == "ok"
-    assert mock_ainvoke.call_count == 2
+    assert mock_ainvoke.call_count == 3
     assert "reasoning_effort" not in llm.model_kwargs

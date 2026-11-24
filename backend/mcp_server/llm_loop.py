@@ -5,7 +5,12 @@ import uuid
 from collections.abc import AsyncGenerator
 from typing import Any
 
-from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
+from langchain_core.messages import (
+    AIMessageChunk,
+    BaseMessage,
+    HumanMessage,
+    SystemMessage,
+)
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 
@@ -344,6 +349,32 @@ def _reasoning_events_from_parse(
     return out
 
 
+def _flush_think_parser(think_parser: ThinkTagStreamParser) -> list[dict]:
+    """Flush trailing buffered characters and close any active reasoning block."""
+    flushed = think_parser.flush()
+    out: list[dict] = []
+    for r_delta in flushed.reasoning_deltas:
+        out.append({"event": "on_reasoning_stream", "data": {"text": r_delta}})
+    if flushed.reasoning_ended_ms is not None:
+        out.append(
+            {
+                "event": "on_reasoning_end",
+                "data": {
+                    "duration_ms": flushed.reasoning_ended_ms,
+                    "seconds": round(flushed.reasoning_ended_ms / 1000, 1),
+                },
+            }
+        )
+    for c_delta in flushed.content_deltas:
+        out.append(
+            {
+                "event": "on_chat_model_stream",
+                "data": {"chunk": AIMessageChunk(content=c_delta)},
+            }
+        )
+    return out
+
+
 async def stream_answer_question(
     question: str,
     tenant_id: str = "default",
@@ -429,6 +460,8 @@ async def stream_answer_question(
                         continue
 
                 if event["event"] == "on_chat_model_end":
+                    for sse_ev in _flush_think_parser(think_parser):
+                        yield sse_ev
                     tool_events = _handle_chat_model_end(
                         event, tool_start_times, current_step
                     )
@@ -486,6 +519,9 @@ async def stream_answer_question(
                         yield e
 
                 yield event
+
+            for sse_ev in _flush_think_parser(think_parser):
+                yield sse_ev
 
         if is_temporary:
             app = workflow.compile()

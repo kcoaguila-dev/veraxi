@@ -62,6 +62,16 @@ class LocalLlmEngine {
     }
   }
 
+  Future<void> stopCurrentCompletion() async {
+    final contextId = _contextId;
+    if (contextId == null) return;
+    try {
+      await Fllama.instance()?.stopCompletion(contextId: contextId);
+    } catch (_) {
+      // Ignore if no completion is active.
+    }
+  }
+
   Stream<String> streamGenerate(
     String prompt, {
     double temperature = 0.7,

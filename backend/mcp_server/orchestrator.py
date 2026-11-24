@@ -271,18 +271,24 @@ def _is_unsupported_thinking_error(exc: Exception) -> bool:
     return any(marker in text for marker in _UNSUPPORTED_THINKING_PARAM_MARKERS)
 
 
-def _strip_reasoning_kwargs_from_client(client: Any) -> bool:
-    """Remove reasoning/thinking keys from a ChatLiteLLM client's model_kwargs."""
+def _downgrade_reasoning_kwargs(client: Any) -> str | None:
+    """Two-stage fallback when a provider rejects reasoning kwargs:
+    1. Clamp ``max``/``xhigh`` -> ``high`` first to preserve reasoning.
+    2. Strip all reasoning/thinking keys if the provider still rejects them.
+    """
     target = getattr(client, "bound", client)
     kwargs = getattr(target, "model_kwargs", None)
     if not isinstance(kwargs, dict) or not kwargs:
-        return False
+        return None
+    if kwargs.get("reasoning_effort") in ("max", "xhigh"):
+        kwargs["reasoning_effort"] = "high"
+        return "clamped_to_high"
     removed = False
     for key in ("reasoning_effort", "thinking", "extra_body"):
         if key in kwargs:
             kwargs.pop(key, None)
             removed = True
-    return removed
+    return "stripped" if removed else None
 
 
 async def _ainvoke_with_rate_limit_retry(
@@ -292,8 +298,8 @@ async def _ainvoke_with_rate_limit_retry(
     max_attempts: int = 3,
 ):
     """Invoke an LLM client with bounded backoff on transient RateLimitError
-    and one-shot downgrade if reasoning kwargs are rejected at runtime."""
-    stripped_reasoning = False
+    and two-stage downgrade (clamp -> strip) if reasoning kwargs are rejected."""
+    downgrades = 0
     for attempt in range(max_attempts):
         try:
             return await client.ainvoke(messages)
@@ -301,15 +307,17 @@ async def _ainvoke_with_rate_limit_retry(
             litellm.exceptions.UnsupportedParamsError,
             litellm.exceptions.BadRequestError,
         ) as exc:
-            if (
-                not stripped_reasoning
-                and _is_unsupported_thinking_error(exc)
-                and _strip_reasoning_kwargs_from_client(client)
-            ):
-                stripped_reasoning = True
+            action = (
+                _downgrade_reasoning_kwargs(client)
+                if downgrades < 2 and _is_unsupported_thinking_error(exc)
+                else None
+            )
+            if action is not None:
+                downgrades += 1
                 logger.warning(
-                    "Provider rejected thinking params for %s; retrying without reasoning kwargs: %s",
+                    "Provider rejected thinking params for %s (%s); retrying: %s",
                     model_name,
+                    action,
                     exc,
                 )
                 continue
@@ -854,6 +862,15 @@ async def call_model(state: AgentState):
 
     # Check if artifacts are enabled to inject system prompt
     tool_settings = state.get("tool_settings") or {}
+    if effective_base_url:
+        from backend.thinking_policy import (
+            get_cached_local_probe,
+            probe_local_runtime,
+        )
+
+        if get_cached_local_probe(effective_base_url) is None:
+            await probe_local_runtime(effective_base_url, [effective_model])
+
     llm = _create_chat_llm(
         effective_model,
         effective_api_key,

@@ -15,6 +15,7 @@ from __future__ import annotations
 import logging
 import time
 from dataclasses import dataclass
+from functools import lru_cache
 from typing import Any, Literal
 from urllib.parse import urlparse
 
@@ -260,13 +261,39 @@ def _resolve_openai_capability(bare: str) -> ThinkingCapability:
     return _NO_THINKING
 
 
+@lru_cache(maxsize=64)
+def _anthropic_supports_max(bare: str) -> bool:
+    """Ask LiteLLM's Anthropic validator whether ``effort='max'`` is allowed."""
+    try:
+        from litellm.llms.anthropic.chat.transformation import AnthropicConfig
+
+        validator = getattr(
+            AnthropicConfig,
+            "validate_effort_for_model",
+            getattr(AnthropicConfig, "_validate_effort_for_model", None),
+        )
+        if validator is None:
+            return True
+        return validator(bare, "max", "anthropic") is None
+    except Exception:
+        return True
+
+
 def _resolve_anthropic_capability(bare: str) -> ThinkingCapability:
     if bare.startswith("claude-3-5") or bare.startswith("claude-3-opus") or bare.startswith("claude-3-sonnet") or bare.startswith("claude-3-haiku"):
         return _NO_THINKING
     if bare.startswith(("claude-3-7", "claude-opus-4-2025", "claude-sonnet-4-2025")):
         return _ANTHROPIC_BUDGET_CAP
     if bare.startswith(("claude-opus-5", "claude-sonnet-5", "claude-fable-5", "claude-opus-4-8", "claude-opus-4-7", "claude-opus-4-6", "claude-sonnet-4-6")):
-        return _ANTHROPIC_ADAPTIVE_CAP
+        if _anthropic_supports_max(bare):
+            return _ANTHROPIC_ADAPTIVE_CAP
+        return ThinkingCapability(
+            mode="adaptive_effort",
+            levels=("off", "low", "medium", "high"),
+            default_level="medium",
+            temp_when_off=0.0,
+            temp_when_thinking=None,
+        )
     return _NO_THINKING
 
 
@@ -312,6 +339,17 @@ def _resolve_local_heuristic(bare: str, runtime: str | None = None) -> ThinkingC
     )
 
 
+def get_cached_local_probe(base_url: str | None) -> LocalRuntimeProbe | None:
+    """Return a non-expired ``LocalRuntimeProbe`` for ``base_url``, if cached."""
+    if not base_url:
+        return None
+    origin = _origin_from_base_url(base_url)
+    cached = _local_probe_cache.get(origin)
+    if cached and (time.time() - cached[0]) < _LOCAL_PROBE_TTL_SECONDS:
+        return cached[1]
+    return None
+
+
 def resolve_thinking_capability(
     model_name: str,
     base_url: str | None = None,
@@ -321,15 +359,18 @@ def resolve_thinking_capability(
     if not model_name or model_name == "Select a model":
         return _NO_THINKING
 
-    if runtime_probe is not None:
-        probed = runtime_probe.model_capabilities.get(model_name)
+    prefix, bare = _strip_provider_prefix(model_name)
+    effective_probe = runtime_probe or get_cached_local_probe(base_url)
+
+    if effective_probe is not None:
+        probed = effective_probe.model_capabilities.get(
+            model_name
+        ) or effective_probe.model_capabilities.get(bare)
         if probed is not None:
             return probed
 
-    prefix, bare = _strip_provider_prefix(model_name)
-
     if base_url or prefix in ("ollama", "ollama_chat"):
-        runtime = runtime_probe.runtime if runtime_probe else (
+        runtime = effective_probe.runtime if effective_probe else (
             "ollama" if (base_url and "11434" in base_url) or prefix in ("ollama", "ollama_chat") else "openai_compat"
         )
         return _resolve_local_heuristic(bare, runtime=runtime)
@@ -487,8 +528,9 @@ def build_litellm_thinking_params(
     runtime_probe: LocalRuntimeProbe | None = None,
 ) -> ThinkingTranslation:
     """Translate a requested thinking level into safe LiteLLM kwargs & temperature."""
+    effective_probe = runtime_probe or get_cached_local_probe(base_url)
     capability = resolve_thinking_capability(
-        model_name, base_url=base_url, runtime_probe=runtime_probe
+        model_name, base_url=base_url, runtime_probe=effective_probe
     )
     if not capability.supports_reasoning:
         return ThinkingTranslation(

@@ -19,6 +19,7 @@ import 'package:veraxi_app/features/chat/views/widgets/chat_message_list_item.da
 import 'package:veraxi_app/features/chat/views/widgets/project_dashboard_view.dart';
 import 'package:veraxi_app/features/chat/views/widgets/all_projects_dashboard_view.dart';
 import 'package:veraxi_app/core/models/model_thinking_capability.dart';
+import 'package:veraxi_app/core/providers/model_selection_provider.dart';
 import 'package:veraxi_app/core/providers/thinking_level_provider.dart';
 import 'package:veraxi_app/core/widgets/model_selector_menu.dart';
 import 'package:veraxi_app/core/widgets/provider_icon.dart';
@@ -803,6 +804,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                                 setState(() {
                                                   _selectedModel = model;
                                                 });
+                                                ref
+                                                    .read(modelSelectionProvider
+                                                        .notifier)
+                                                    .selectModel(model);
                                                 final prefs =
                                                     await SharedPreferences
                                                         .getInstance();
@@ -1199,6 +1204,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                               viewModel.sendMessage(
                                             prompt,
                                             model: _selectedModel,
+                                            thinkingLevel:
+                                                _effectiveThinkingLevel(),
                                           ),
                                         ),
                                       ),
@@ -1254,6 +1261,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                       viewModel.sendMessage(
                                     prompt,
                                     model: _selectedModel,
+                                    thinkingLevel: _effectiveThinkingLevel(),
                                   ),
                                 ),
                               ),

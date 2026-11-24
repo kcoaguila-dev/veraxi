@@ -46,3 +46,18 @@ def test_explicit_reasoning_content_transitions_cleanly():
     r2 = parser.feed_content("answer")
     assert r2.reasoning_ended_ms is not None
     assert r2.content_deltas == ["answer"]
+
+
+def test_flush_closes_explicit_reasoning_and_emits_trailing_partial_tag():
+    parser = ThinkTagStreamParser()
+    parser.feed_explicit_reasoning("reasoning before tool call")
+    flushed = parser.flush()
+    assert flushed.reasoning_ended_ms is not None
+    assert flushed.content_deltas == []
+
+    # Trailing "<" that looks like a partial tag must be emitted on flush
+    parser2 = ThinkTagStreamParser()
+    r1 = parser2.feed_content("a < b <")
+    assert r1.content_deltas == ["a < b "]
+    f2 = parser2.flush()
+    assert f2.content_deltas == ["<"]

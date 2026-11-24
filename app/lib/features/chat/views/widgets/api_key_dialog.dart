@@ -3,6 +3,7 @@ import 'package:flutter/gestures.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:veraxi_app/core/api_key_storage.dart';
+import 'package:veraxi_app/core/providers/thinking_level_provider.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:veraxi_app/features/chat/view_models/model_download_provider.dart';
@@ -798,6 +799,7 @@ class _ApiKeyDialogState extends ConsumerState<ApiKeyDialog> {
                       if (provider == 'local') {
                         await ApiKeyStorage().saveValue('local_base_url', '');
                         await ApiKeyStorage().saveValue('local_model_name', '');
+                        ref.invalidate(modelCapabilitiesProvider);
                       }
                       if (context.mounted) Navigator.of(context).pop();
                     },
@@ -825,6 +827,7 @@ class _ApiKeyDialogState extends ConsumerState<ApiKeyDialog> {
                             'local_base_url', _baseUrlController.text);
                         await ApiKeyStorage().saveValue(
                             'local_model_name', _modelNameController.text);
+                        ref.invalidate(modelCapabilitiesProvider);
                         if (_modelNameController.text.isNotEmpty &&
                             widget.onModelSaved != null) {
                           widget.onModelSaved!(_modelNameController.text);

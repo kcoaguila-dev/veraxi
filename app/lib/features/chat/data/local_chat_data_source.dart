@@ -108,12 +108,16 @@ class LocalChatDataSource {
     final isReasoningOff = effectiveLevel == 'off';
     final temperature =
         (capability.supportsReasoning && !isReasoningOff) ? 0.6 : 0.2;
+    final budgetCap = _reasoningBudgetForLevel(effectiveLevel);
 
+    final lowerModel = modelName.toLowerCase();
     final thinkingHint = _buildLocalThinkingHint(modelName, effectiveLevel);
-    final effectiveQuestion =
-        (isReasoningOff && modelName.toLowerCase().contains('qwen3'))
-            ? '$question /no_think'
-            : question;
+    final effectiveQuestion = (isReasoningOff && lowerModel.contains('qwen3'))
+        ? '$question /no_think'
+        : question;
+    final prefill = (isReasoningOff && _isR1Family(lowerModel))
+        ? '<think>\n</think>\n'
+        : '';
 
     // 3. Augment the prompt
     final prompt = '''
@@ -124,19 +128,51 @@ $contextText
 
 Question:
 $effectiveQuestion
-''';
+$prefill''';
 
     // 4. Stream response back, separating <think> blocks into reasoning events
+    // and enforcing a reasoning token budget cap when configured.
     final parser = ThinkTagStreamParser();
+    final reasoningBuffer = StringBuffer();
+    var reasoningTokens = 0;
+    var hitBudgetCap = false;
+
     await for (final chunk
         in _llmEngine.streamGenerate(prompt, temperature: temperature)) {
       final parsed = parser.feed(chunk);
+      for (final r in parsed.reasoningDeltas) {
+        reasoningBuffer.write(r);
+        reasoningTokens++;
+      }
       for (final ev in _eventsFromParsed(parsed)) {
         yield ev;
+      }
+      if (budgetCap != null &&
+          parser.inThinking &&
+          reasoningTokens >= budgetCap) {
+        hitBudgetCap = true;
+        await _llmEngine.stopCurrentCompletion();
+        break;
       }
     }
     for (final ev in _eventsFromParsed(parser.flush())) {
       yield ev;
+    }
+
+    if (hitBudgetCap) {
+      final continuationPrompt =
+          '$prompt<think>${reasoningBuffer.toString()}\n</think>\n';
+      await for (final chunk in _llmEngine.streamGenerate(
+        continuationPrompt,
+        temperature: temperature,
+      )) {
+        yield {
+          'event': 'on_chat_model_stream',
+          'data': {
+            'chunk': {'content': chunk},
+          },
+        };
+      }
     }
 
     // 5. Report the engine's real usage when the binding surfaced
@@ -154,6 +190,28 @@ $effectiveQuestion
           }
         }
       };
+    }
+  }
+
+  static bool _isR1Family(String lowerModel) {
+    return lowerModel.contains('deepseek-r1') ||
+        lowerModel.contains('r1-distill') ||
+        lowerModel.contains('qwq');
+  }
+
+  static int? _reasoningBudgetForLevel(String? effectiveLevel) {
+    switch (effectiveLevel) {
+      case 'minimal':
+        return 256;
+      case 'low':
+        return 512;
+      case 'medium':
+        return 2048;
+      case 'high':
+      case 'on':
+        return 8192;
+      default:
+        return null;
     }
   }
 
