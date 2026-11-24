@@ -1163,4 +1163,83 @@ void main() {
     expect(find.text('Scratchpad'), findsOneWidget);
     expect(find.text('Quick regex helper'), findsOneWidget);
   });
+
+  testWidgets(
+      'Code Mode sidebar collapses inactive repos by default and toggles on click',
+      (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(1440, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    final chatVm = _StubChatViewModel(ChatState(messages: []));
+    final codeVm = _StubChatViewModel(
+      ChatState(
+        messages: [],
+        pastThreads: const [
+          {
+            'thread_id': 't-alpha',
+            'title': 'Alpha thread',
+            'workspace_mode': 'code',
+            'repo_key': 'org/alpha',
+            'is_archived': false,
+          },
+          {
+            'thread_id': 't-beta',
+            'title': 'Beta thread',
+            'workspace_mode': 'code',
+            'repo_key': 'org/beta',
+            'is_archived': false,
+          },
+        ],
+      ),
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          chatViewModelProvider.overrideWith((ref) => chatVm),
+          codeChatViewModelProvider.overrideWith((ref) => codeVm),
+          workspaceModeProvider.overrideWith((ref) => WorkspaceMode.code),
+          indexedReposProvider.overrideWith(
+            (ref) => const [
+              IndexedRepoItem(
+                repoKey: 'org/alpha',
+                displayName: 'org/alpha',
+                fileCount: 10,
+                symbolCount: 20,
+              ),
+              IndexedRepoItem(
+                repoKey: 'org/beta',
+                displayName: 'org/beta',
+                fileCount: 12,
+                symbolCount: 30,
+              ),
+            ],
+          ),
+          selectedIndexedRepoProvider.overrideWith((ref) => 'org/alpha'),
+        ],
+        child: MaterialApp(
+          theme: AppTheme.darkTheme,
+          home: const ChatScreen(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Active repo (org/alpha) is expanded; inactive repo (org/beta) is collapsed.
+    expect(find.text('Alpha thread'), findsOneWidget);
+    expect(find.text('Beta thread'), findsNothing);
+
+    // Clicking org/beta expands its threads; clicking again collapses them.
+    await tester.tap(find.text('org/beta').first);
+    await tester.pumpAndSettle();
+    expect(find.text('Beta thread'), findsOneWidget);
+
+    await tester.tap(find.text('org/beta').first);
+    await tester.pumpAndSettle();
+    expect(find.text('Beta thread'), findsNothing);
+  });
 }

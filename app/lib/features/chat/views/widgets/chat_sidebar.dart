@@ -1123,9 +1123,13 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
                   children: [
                     for (final repo in visibleRepos) ...[
                       _RepoGroupRow(
+                        key: ValueKey(repo.repoKey),
                         repo: repo,
                         threads: _codeThreadsForRepo(state, repo.repoKey),
                         selected: selectedRepo == repo.repoKey,
+                        initiallyExpanded: selectedRepo == repo.repoKey ||
+                            (visibleRepos.length == 1 &&
+                                scratchpadThreads.isEmpty),
                         selectedThreadId: state.threadId,
                         onSelectRepo: () {
                           ref.read(selectedIndexedRepoProvider.notifier).state =
@@ -1153,6 +1157,7 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
                     ],
                     if (scratchpadThreads.isNotEmpty)
                       _RepoGroupRow(
+                        key: const ValueKey('__scratchpad__'),
                         repo: const IndexedRepoItem(
                           repoKey: '__scratchpad__',
                           displayName: 'Scratchpad',
@@ -1162,6 +1167,8 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
                         icon: Icons.edit_note_outlined,
                         threads: scratchpadThreads,
                         selected: selectedRepo == null,
+                        initiallyExpanded:
+                            selectedRepo == null || visibleRepos.isEmpty,
                         selectedThreadId: state.threadId,
                         onSelectRepo: _startScratchpadCodeThread,
                         onNewThread: _startScratchpadCodeThread,
@@ -1694,6 +1701,7 @@ class _RepoGroupRow extends StatefulWidget {
   final IconData icon;
   final List<Map<String, dynamic>> threads;
   final bool selected;
+  final bool initiallyExpanded;
   final String? selectedThreadId;
   final VoidCallback onSelectRepo;
   final VoidCallback onNewThread;
@@ -1701,10 +1709,12 @@ class _RepoGroupRow extends StatefulWidget {
   final ValueChanged<String> onSelectThread;
 
   const _RepoGroupRow({
+    super.key,
     required this.repo,
     this.icon = Icons.folder_outlined,
     required this.threads,
     required this.selected,
+    this.initiallyExpanded = false,
     required this.selectedThreadId,
     required this.onSelectRepo,
     required this.onNewThread,
@@ -1717,9 +1727,15 @@ class _RepoGroupRow extends StatefulWidget {
 }
 
 class _RepoGroupRowState extends State<_RepoGroupRow> {
-  bool _expanded = true;
+  late bool _expanded;
   bool _showAll = false;
   bool _hovered = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _expanded = widget.initiallyExpanded;
+  }
 
   Widget _buildThreadRow(Map<String, dynamic> thread) {
     final threadId = thread['thread_id'] as String? ?? '';
