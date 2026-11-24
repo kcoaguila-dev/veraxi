@@ -114,6 +114,114 @@ class ActivityStep {
   }
 }
 
+/// One hunk of a changed file in a [FilesChangedSummary]: the raw
+/// unified-diff lines plus the 1-based old/new start lines, exactly
+/// as the Phase 2 diff endpoint emits them.
+class FilesChangedHunk {
+  final int oldStart;
+  final int newStart;
+  final List<String> lines;
+
+  const FilesChangedHunk({
+    this.oldStart = 1,
+    this.newStart = 1,
+    this.lines = const [],
+  });
+
+  factory FilesChangedHunk.fromJson(Map<String, dynamic> json) {
+    return FilesChangedHunk(
+      oldStart: (json['old_start'] as num?)?.toInt() ?? 1,
+      newStart: (json['new_start'] as num?)?.toInt() ?? 1,
+      lines: json['lines'] is List
+          ? (json['lines'] as List).map((e) => e.toString()).toList()
+          : const [],
+    );
+  }
+}
+
+/// One file entry of a [FilesChangedSummary].
+class FilesChangedFile {
+  final String path;
+  final String? language;
+  final String status;
+  final int additions;
+  final int deletions;
+  final List<FilesChangedHunk> hunks;
+
+  const FilesChangedFile({
+    required this.path,
+    this.language,
+    this.status = 'modified',
+    this.additions = 0,
+    this.deletions = 0,
+    this.hunks = const [],
+  });
+
+  factory FilesChangedFile.fromJson(Map<String, dynamic> json) {
+    return FilesChangedFile(
+      path: json['path'] as String? ?? '',
+      language: json['language'] as String?,
+      status: json['status'] as String? ?? 'modified',
+      additions: (json['additions'] as num?)?.toInt() ?? 0,
+      deletions: (json['deletions'] as num?)?.toInt() ?? 0,
+      hunks: json['hunks'] is List
+          ? (json['hunks'] as List)
+              .whereType<Map>()
+              .map((h) =>
+                  FilesChangedHunk.fromJson(Map<String, dynamic>.from(h)))
+              .toList()
+          : const [],
+    );
+  }
+
+  /// Bare file name (the part after the last `/`).
+  String get fileName => path.contains('/') ? path.split('/').last : path;
+
+  /// Directory portion of [path], or empty for a root-level file.
+  String get directory =>
+      path.contains('/') ? path.substring(0, path.lastIndexOf('/')) : '';
+}
+
+/// Per-turn `files_changed` summary emitted by the backend for Code
+/// Mode turns (Phase 2): the SSE `files_changed` event and the
+/// thread-history `files_changed` field share this exact shape,
+/// which is also the sandbox diff endpoint's response shape.
+class FilesChangedSummary {
+  final String sessionId;
+  final String turnId;
+  final int totalAdditions;
+  final int totalDeletions;
+  final List<FilesChangedFile> files;
+
+  const FilesChangedSummary({
+    this.sessionId = '',
+    this.turnId = '',
+    this.totalAdditions = 0,
+    this.totalDeletions = 0,
+    this.files = const [],
+  });
+
+  factory FilesChangedSummary.fromJson(Map<String, dynamic> json) {
+    final files = json['files'] is List
+        ? (json['files'] as List)
+            .whereType<Map>()
+            .map((f) => FilesChangedFile.fromJson(Map<String, dynamic>.from(f)))
+            .toList()
+        : const <FilesChangedFile>[];
+    return FilesChangedSummary(
+      sessionId: json['session_id'] as String? ?? '',
+      turnId: json['turn_id'] as String? ?? '',
+      totalAdditions: (json['total_additions'] as num?)?.toInt() ??
+          files.fold(0, (sum, f) => sum + f.additions),
+      totalDeletions: (json['total_deletions'] as num?)?.toInt() ??
+          files.fold(0, (sum, f) => sum + f.deletions),
+      files: files,
+    );
+  }
+
+  bool get isEmpty => files.isEmpty;
+}
+
 class ChatMessage {
   final String? id;
   final String role; // 'user' or 'assistant'
@@ -129,6 +237,11 @@ class ChatMessage {
   final String? modelName; // Store the AI model that generated this message
   final Map<String, dynamic>? metrics;
 
+  /// Code Mode per-turn changed-files summary (Phase 2
+  /// `files_changed`), or null for ordinary turns. Rendered as a
+  /// FilesChangedCard above the assistant action row (Phase 5).
+  final FilesChangedSummary? filesChanged;
+
   ChatMessage({
     this.id,
     required this.role,
@@ -143,6 +256,7 @@ class ChatMessage {
     this.feedback = 0,
     this.modelName,
     this.metrics,
+    this.filesChanged,
   });
 
   bool get isUser => role == 'user';
@@ -161,6 +275,7 @@ class ChatMessage {
     int? feedback,
     String? modelName,
     Map<String, dynamic>? metrics,
+    FilesChangedSummary? filesChanged,
   }) {
     return ChatMessage(
       id: id ?? this.id,
@@ -177,6 +292,7 @@ class ChatMessage {
       feedback: feedback ?? this.feedback,
       modelName: modelName ?? this.modelName,
       metrics: metrics ?? this.metrics,
+      filesChanged: filesChanged ?? this.filesChanged,
     );
   }
 }

@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import '../../../core/network/api_client.dart';
+import '../../../core/providers/indexed_sources_provider.dart';
 import '../data/knowledge_hub_repository.dart';
 
 export '../data/knowledge_hub_repository.dart'
@@ -66,16 +67,38 @@ class KnowledgeHubState {
 final knowledgeHubViewModelProvider =
     StateNotifierProvider<KnowledgeHubViewModel, KnowledgeHubState>((ref) {
   final repository = ref.watch(knowledgeHubRepositoryProvider);
-  return KnowledgeHubViewModel(repository);
+  return KnowledgeHubViewModel(repository, ref);
 });
 
 class KnowledgeHubViewModel extends StateNotifier<KnowledgeHubState> {
   final KnowledgeHubRepository repository;
+  final Ref? _ref;
 
-  KnowledgeHubViewModel(this.repository) : super(const KnowledgeHubState()) {
+  KnowledgeHubViewModel(this.repository, [this._ref])
+      : super(const KnowledgeHubState()) {
+    // Other features request a sources (re)load through core/
+    // (indexedSourcesLoadRequestProvider) instead of importing this
+    // view model; honour those requests while this VM is alive.
+    _ref?.listen<int>(indexedSourcesLoadRequestProvider, (_, __) {
+      fetchSources();
+    });
     fetchStats();
     fetchSchema();
     fetchSources();
+  }
+
+  /// Mirror the current source list into the shared core providers
+  /// so other features (e.g. the Code sources popover) can read it
+  /// without a cross-feature import.
+  void _syncIndexedSources() {
+    final ref = _ref;
+    if (ref == null) return;
+    ref.read(indexedKnowledgeSourcesProvider.notifier).state = [
+      for (final s in state.sources)
+        IndexedSourceSummary(id: s.id, name: s.name, subtitle: s.subtitle),
+    ];
+    ref.read(indexedKnowledgeSourcesLoadedProvider.notifier).state =
+        state.sourcesLoaded;
   }
 
   Future<void> fetchSchema() async {
@@ -107,6 +130,7 @@ class KnowledgeHubViewModel extends StateNotifier<KnowledgeHubState> {
       state = state.copyWith(sourcesLoaded: true);
       await Sentry.captureException(e, stackTrace: st);
     }
+    _syncIndexedSources();
   }
 
   Future<void> saveSchema(Map<String, dynamic> newSchema) async {
@@ -177,6 +201,7 @@ class KnowledgeHubViewModel extends StateNotifier<KnowledgeHubState> {
         clearBusySource: true,
         successMessage: 'Deleted ${item.name} from graph and vector store.',
       );
+      _syncIndexedSources();
       await fetchStats();
     } catch (e, st) {
       await Sentry.captureException(e, stackTrace: st);

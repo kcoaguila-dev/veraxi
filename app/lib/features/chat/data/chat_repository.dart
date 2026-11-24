@@ -56,7 +56,8 @@ abstract class IChatRepository {
       bool isTemporary = false,
       String? model,
       bool calculateGrounding = true,
-      Map<String, dynamic>? toolSettings});
+      Map<String, dynamic>? toolSettings,
+      Map<String, dynamic>? codeScope});
   Future<String> uploadAttachment(List<int> fileBytes, String fileName);
   Future<void> submitFeedback(String messageId, int value);
   Future<Map<String, dynamic>> confirmToolCall({
@@ -133,7 +134,8 @@ class CloudChatRepository implements IChatRepository {
       bool isTemporary = false,
       String? model,
       bool calculateGrounding = true,
-      Map<String, dynamic>? toolSettings}) async* {
+      Map<String, dynamic>? toolSettings,
+      Map<String, dynamic>? codeScope}) async* {
     if (model != null && model.endsWith('.gguf')) {
       final localDataSource = LocalChatDataSource.forModel();
       yield* localDataSource.streamChat(question, model);
@@ -158,6 +160,9 @@ class CloudChatRepository implements IChatRepository {
         'calculate_grounding': calculateGrounding,
         ...llmOptions,
         if (toolSettings != null) 'tool_settings': toolSettings,
+        // Code Mode (Phase 1): the scope fields are top-level
+        // ChatRequest fields on the backend, not tool_settings.
+        if (codeScope != null) ...codeScope,
       });
 
       final response = await apiClient.client.send(request);

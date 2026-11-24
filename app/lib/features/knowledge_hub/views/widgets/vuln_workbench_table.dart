@@ -1,4 +1,5 @@
 import 'package:material_ui/material_ui.dart';
+import 'package:veraxi_app/core/theme/obsidian_tokens.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
 import 'package:veraxi_app/features/knowledge_hub/view_models/code_intel_view_model.dart';
 import 'package:veraxi_app/features/knowledge_hub/views/widgets/vuln_intel_panel.dart';
@@ -26,9 +27,9 @@ class VulnWorkbenchTable extends StatelessWidget {
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1A1D),
+        color: ObsidianTokens.card,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFF2D2D32)),
+        border: Border.all(color: ObsidianTokens.hairline),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,

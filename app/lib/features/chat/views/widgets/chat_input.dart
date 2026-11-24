@@ -7,6 +7,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 import 'web_search_dialog.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
+import 'package:veraxi_app/core/theme/obsidian_tokens.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
 import 'package:veraxi_app/features/chat/view_models/auto_compact.dart';
 import 'package:veraxi_app/features/chat/view_models/token_usage.dart';
@@ -43,6 +44,27 @@ class ChatInput extends StatefulWidget {
   /// Opens the manual-compaction flow from the breakdown sheet.
   final VoidCallback? onCompactPressed;
 
+  /// Optional externally-owned text controller. The Code composer
+  /// owns one so its `@`/`$`/`/` autocomplete overlay can observe
+  /// and rewrite the draft; chat mode leaves this null and the
+  /// input owns (and disposes) its controller as before.
+  final TextEditingController? controller;
+
+  /// Forwarded from the inner [TextField] on every edit.
+  final ValueChanged<String>? onChanged;
+
+  /// Overrides the default hint text when non-null.
+  final String? hintText;
+
+  /// Obsidian composer styling for Code Mode (`#13151A` surface,
+  /// `#252833` outline, 24px radius) instead of the themed chat
+  /// surface.
+  final bool obsidianStyle;
+
+  /// Extra widget rendered in the bottom action row just before the
+  /// token-usage ring (the Code composer's `N sources` pill).
+  final Widget? trailingSlot;
+
   const ChatInput({
     super.key,
     required this.isLoading,
@@ -57,6 +79,11 @@ class ChatInput extends StatefulWidget {
     this.autoCompactMode,
     this.onAutoCompactModeChanged,
     this.onCompactPressed,
+    this.controller,
+    this.onChanged,
+    this.hintText,
+    this.obsidianStyle = false,
+    this.trailingSlot,
   });
 
   @override
@@ -65,6 +92,11 @@ class ChatInput extends StatefulWidget {
 
 class _ChatInputState extends State<ChatInput> {
   final TextEditingController _controller = TextEditingController();
+
+  /// The controller the field actually edits: the externally-owned
+  /// one when supplied (Code composer), otherwise the internal one.
+  TextEditingController get _effectiveController =>
+      widget.controller ?? _controller;
   bool _hasText = false;
   bool _fileSearchPinned = false;
   bool _fileSearchActive = false;
@@ -89,27 +121,40 @@ class _ChatInputState extends State<ChatInput> {
 
   bool get _shouldShowExpand {
     if (_isExpanded) return true;
-    final text = _controller.text;
+    final text = _effectiveController.text;
     final newlineCount = text.split('\n').length;
     final approxWrappedLines = (text.length / 70).ceil();
     return newlineCount >= 3 || approxWrappedLines >= 3;
+  }
+
+  void _handleControllerChange() {
+    final hasText = _effectiveController.text.trim().isNotEmpty;
+    final shouldShowExpand = _shouldShowExpand;
+    if (hasText != _hasText || shouldShowExpand != _showExpandIcon) {
+      setState(() {
+        _hasText = hasText;
+        _showExpandIcon = shouldShowExpand;
+      });
+    }
   }
 
   @override
   void initState() {
     super.initState();
     _loadToolSettings();
-    _controller.addListener(() {
-      final hasText = _controller.text.trim().isNotEmpty;
-      final shouldShowExpand = _shouldShowExpand;
-      if (hasText != _hasText || shouldShowExpand != _showExpandIcon) {
-        setState(() {
-          _hasText = hasText;
-          _showExpandIcon = shouldShowExpand;
-        });
-      }
-    });
+    _effectiveController.addListener(_handleControllerChange);
     _initSpeech();
+  }
+
+  @override
+  void didUpdateWidget(covariant ChatInput oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller != widget.controller) {
+      (oldWidget.controller ?? _controller)
+          .removeListener(_handleControllerChange);
+      _effectiveController.addListener(_handleControllerChange);
+      _handleControllerChange();
+    }
   }
 
   void _initSpeech() async {
@@ -143,7 +188,7 @@ class _ChatInputState extends State<ChatInput> {
         _isListening = false;
       });
     } else {
-      _textBeforeListen = _controller.text;
+      _textBeforeListen = _effectiveController.text;
       if (_textBeforeListen.isNotEmpty && !_textBeforeListen.endsWith(' ')) {
         _textBeforeListen += ' ';
       }
@@ -152,9 +197,10 @@ class _ChatInputState extends State<ChatInput> {
         onResult: (result) {
           setState(() {
             _lastRecognizedWords = result.recognizedWords;
-            _controller.text = _textBeforeListen + _lastRecognizedWords;
-            _controller.selection = TextSelection.fromPosition(
-                TextPosition(offset: _controller.text.length));
+            _effectiveController.text =
+                _textBeforeListen + _lastRecognizedWords;
+            _effectiveController.selection = TextSelection.fromPosition(
+                TextPosition(offset: _effectiveController.text.length));
           });
         },
       );
@@ -374,7 +420,7 @@ class _ChatInputState extends State<ChatInput> {
   }
 
   void _handleSend() {
-    final text = _controller.text;
+    final text = _effectiveController.text;
     if (text.trim().isNotEmpty && !widget.isLoading) {
       final attachments = _attachedFiles.isNotEmpty
           ? List<PlatformFile>.from(_attachedFiles)
@@ -383,7 +429,7 @@ class _ChatInputState extends State<ChatInput> {
         () => widget.onSend(text, attachments: attachments),
       );
       sendFuture.whenComplete(_restorePinnedToolSettings);
-      _controller.clear();
+      _effectiveController.clear();
       setState(() {
         _attachedFiles.clear();
         if (!_fileSearchPinned) _fileSearchActive = false;
@@ -473,10 +519,15 @@ class _ChatInputState extends State<ChatInput> {
         Container(
           width: double.infinity,
           decoration: BoxDecoration(
-            color: Theme.of(context)
-                .extension<AppThemeExtension>()!
-                .surfaceHighlight,
+            color: widget.obsidianStyle
+                ? ObsidianTokens.composer
+                : Theme.of(context)
+                    .extension<AppThemeExtension>()!
+                    .surfaceHighlight,
             borderRadius: BorderRadius.circular(24),
+            border: widget.obsidianStyle
+                ? Border.all(color: ObsidianTokens.composerBorder)
+                : null,
           ),
           padding: EdgeInsets.symmetric(horizontal: 12.0, vertical: 4.0),
           child: Column(
@@ -520,15 +571,16 @@ class _ChatInputState extends State<ChatInput> {
               Stack(
                 children: [
                   TextField(
-                    controller: _controller,
+                    controller: _effectiveController,
                     minLines: 1,
                     maxLines: _isExpanded ? 20 : 1,
                     style: TextStyle(color: Colors.white, fontSize: 16),
                     cursorColor: Colors.white,
                     decoration: InputDecoration(
-                      hintText: widget.projectName != null
-                          ? 'New chat in ${widget.projectName}'
-                          : 'Message Veraxi...',
+                      hintText: widget.hintText ??
+                          (widget.projectName != null
+                              ? 'New chat in ${widget.projectName}'
+                              : 'Message Veraxi...'),
                       hintStyle: TextStyle(
                           color: Theme.of(context)
                               .extension<AppThemeExtension>()!
@@ -545,6 +597,7 @@ class _ChatInputState extends State<ChatInput> {
                           left: 4, right: 32, top: 8, bottom: 8),
                     ),
                     onSubmitted: (_) => _handleSend(),
+                    onChanged: widget.onChanged,
                     enabled: !widget.isLoading,
                     textInputAction: _isExpanded
                         ? TextInputAction.newline
@@ -734,6 +787,10 @@ class _ChatInputState extends State<ChatInput> {
                       ),
                     ),
                   ),
+                  if (widget.trailingSlot != null) ...[
+                    widget.trailingSlot!,
+                    SizedBox(width: 4),
+                  ],
                   if (widget.usageSummary != null) ...[
                     TokenUsageRing(
                       usage: widget.usageSummary!,
@@ -1103,6 +1160,9 @@ class _ChatInputState extends State<ChatInput> {
 
   @override
   void dispose() {
+    // The effective controller may be externally owned (Code
+    // composer): detach from it, but only dispose our own.
+    _effectiveController.removeListener(_handleControllerChange);
     _controller.dispose();
     super.dispose();
   }

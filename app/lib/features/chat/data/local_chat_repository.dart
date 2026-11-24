@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:drift/drift.dart';
+import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:veraxi_app/core/network/api_client.dart';
 import 'package:veraxi_app/core/api_key_storage.dart';
 import 'package:veraxi_app/features/chat/data/chat_repository.dart';
@@ -28,6 +29,16 @@ class LocalChatRepository implements IChatRepository {
       ..write(LocalThreadsCompanion(projectId: Value(projectId)));
   }
 
+  dynamic _decodeSelectedSources(String? raw) {
+    if (raw == null || raw.isEmpty) return null;
+    try {
+      return jsonDecode(raw);
+    } catch (e, st) {
+      Sentry.captureException(e, stackTrace: st);
+      return null;
+    }
+  }
+
   @override
   Future<List<Map<String, dynamic>>> getThreads() async {
     final query = db.select(db.localThreads)
@@ -43,6 +54,10 @@ class LocalChatRepository implements IChatRepository {
               'is_pinned': t.isPinned,
               'is_archived': t.isArchived,
               'project_id': t.projectId,
+              'workspace_mode': t.workspaceMode,
+              'repo_key': t.repoKey,
+              'branch': t.branch,
+              'selected_sources': _decodeSelectedSources(t.selectedSources),
             })
         .toList();
   }
@@ -85,8 +100,31 @@ class LocalChatRepository implements IChatRepository {
       bool isTemporary = false,
       String? model,
       bool calculateGrounding = true,
-      Map<String, dynamic>? toolSettings}) async* {
+      Map<String, dynamic>? toolSettings,
+      Map<String, dynamic>? codeScope}) async* {
     final effectiveThreadId = threadId ?? _uuid.v4();
+
+    // Code Mode scope stamped onto the local thread row (Phase 1
+    // Drift columns), mirroring the server thread_code_meta write.
+    // Partial updates preserve existing columns via Value.absent().
+    final scopeCompanion = codeScope == null
+        ? const LocalThreadsCompanion()
+        : LocalThreadsCompanion(
+            workspaceMode: codeScope.containsKey('workspace_mode')
+                ? Value(codeScope['workspace_mode'] as String? ?? 'chat')
+                : const Value.absent(),
+            repoKey: codeScope.containsKey('repo_key')
+                ? Value(codeScope['repo_key'] as String?)
+                : const Value.absent(),
+            branch: codeScope.containsKey('branch')
+                ? Value(codeScope['branch'] as String?)
+                : const Value.absent(),
+            selectedSources: codeScope.containsKey('source_scope')
+                ? Value(codeScope['source_scope'] != null
+                    ? jsonEncode(codeScope['source_scope'])
+                    : null)
+                : const Value.absent(),
+          );
 
     if (!isTemporary) {
       // Create thread if it doesn't exist
@@ -100,11 +138,21 @@ class LocalChatRepository implements IChatRepository {
               threadId: effectiveThreadId,
               title: title,
               timestamp: Value(DateTime.now()),
+              workspaceMode: scopeCompanion.workspaceMode,
+              repoKey: scopeCompanion.repoKey,
+              branch: scopeCompanion.branch,
+              selectedSources: scopeCompanion.selectedSources,
             ));
       } else {
         await (db.update(db.localThreads)
               ..where((t) => t.threadId.equals(effectiveThreadId)))
-            .write(LocalThreadsCompanion(timestamp: Value(DateTime.now())));
+            .write(LocalThreadsCompanion(
+          timestamp: Value(DateTime.now()),
+          workspaceMode: scopeCompanion.workspaceMode,
+          repoKey: scopeCompanion.repoKey,
+          branch: scopeCompanion.branch,
+          selectedSources: scopeCompanion.selectedSources,
+        ));
       }
 
       // Save User Message
@@ -131,6 +179,7 @@ class LocalChatRepository implements IChatRepository {
         model: model,
         calculateGrounding: calculateGrounding,
         toolSettings: toolSettings,
+        codeScope: codeScope,
       );
     }
 
