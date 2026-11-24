@@ -2,6 +2,8 @@ import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:veraxi_app/core/providers/workspace_mode_provider.dart';
+import 'package:veraxi_app/features/chat/views/widgets/code_chat_pane.dart';
+import 'package:veraxi_app/features/chat/views/widgets/code_review_drawer.dart';
 import 'package:veraxi_app/features/knowledge_hub/view_models/code_intel_view_model.dart';
 import 'package:veraxi_app/features/knowledge_hub/views/widgets/ask_veraxi_sidecar.dart';
 import 'package:veraxi_app/features/knowledge_hub/views/widgets/corpus_briefing_panel.dart';
@@ -108,10 +110,29 @@ class _CodeWorkbenchViewState extends ConsumerState<CodeWorkbenchView> {
         return 'Corpus Briefing';
       case CodeSubView.dbtLineage:
         return 'dbt Lineage';
+      case CodeSubView.codeChat:
+        return 'Code Chat';
     }
   }
 
   void _askFinding(VulnFinding finding, {required bool isNarrow}) {
+    // Phase 6 Ask Veraxi routing decision: keep the slide-over /
+    // docked sidecar instead of routing into a Code Chat thread.
+    // A CVE-scoped Code Chat thread is not cheap with the existing
+    // flow: Code Chat sends go through the chat feature's view model
+    // (which knowledge_hub views must not import — see the repo-menu
+    // note in chat_sidebar.dart), and CodeScope carries repo /
+    // sources / branch only, with no CVE anchor, so a new thread
+    // would silently lose the finding this follow-up is about. The
+    // sidecar's Q&A provider is keyed by CVE id and preserves that
+    // anchor. What we do seed here is the Code Chat source scope, so
+    // if the user later opens Code Chat it is already scoped to the
+    // selected repo.
+    final selectedRepo = ref.read(selectedIndexedRepoProvider);
+    if (selectedRepo != null) {
+      ref.read(codeSelectedSourcesProvider.notifier).state =
+          CodeSelectedSources(repoKeys: {selectedRepo});
+    }
     setState(() {
       _selectedFinding = finding;
       if (isNarrow) {
@@ -191,6 +212,23 @@ class _CodeWorkbenchViewState extends ConsumerState<CodeWorkbenchView> {
 
     final screenWidth = MediaQuery.sizeOf(context).width;
     final isWideDesktop = screenWidth >= 1200;
+    // Code Chat is a 2-column layout (rail + pane) per
+    // docs/design/veraxi_code_workbench.svg: the pane renders its
+    // own header bar, so the workbench header and the Ask Veraxi
+    // sidecar (which belong to the Security/Intel sub-views) must
+    // not mount while it is active.
+    final isCodeChat = activeSubView == CodeSubView.codeChat;
+
+    // Phase 5 review pane host: an active review session splits in
+    // on the right (~55%) on desktop and overlays as a modal sheet
+    // below 1200px. Gated to Code Mode — Chat Mode's host lives in
+    // ChatScreen — so the drawer never mounts twice.
+    final workspaceMode = ref.watch(workspaceModeProvider);
+    final activeReview = ref.watch(activeReviewSessionProvider);
+    // Promoted local: guards below use `review != null`, so no
+    // non-null assertions are needed at the drawer mounts.
+    final review = activeReview;
+    final showReview = review != null && workspaceMode == WorkspaceMode.code;
 
     return Stack(
       children: [
@@ -199,14 +237,15 @@ class _CodeWorkbenchViewState extends ConsumerState<CodeWorkbenchView> {
             Expanded(
               child: Column(
                 children: [
-                  _buildHeaderBar(
-                    context: context,
-                    title: _subViewTitle(activeSubView),
-                    repoLabel: selectedRepo,
-                    isWideDesktop: isWideDesktop,
-                    activeSubView: activeSubView,
-                    activeFinding: activeFinding,
-                  ),
+                  if (!isCodeChat)
+                    _buildHeaderBar(
+                      context: context,
+                      title: _subViewTitle(activeSubView),
+                      repoLabel: selectedRepo,
+                      isWideDesktop: isWideDesktop,
+                      activeSubView: activeSubView,
+                      activeFinding: activeFinding,
+                    ),
                   Expanded(
                     child: IndexedStack(
                       index: activeSubView.index,
@@ -251,13 +290,17 @@ class _CodeWorkbenchViewState extends ConsumerState<CodeWorkbenchView> {
                                 CorpusBriefingSectionFilter.dbtLineageOnly,
                           ),
                         ),
+                        // CodeSubView.codeChat (index 5, the default
+                        // sub-view since Phase 3): the Code Chat pane
+                        // from the chat feature.
+                        const CodeChatPane(),
                       ],
                     ),
                   ),
                 ],
               ),
             ),
-            if (isWideDesktop)
+            if (isWideDesktop && !isCodeChat && !showReview)
               AskVeraxiSidecar(
                 finding: activeFinding,
                 composerFocusNode: _sidecarComposerFocusNode,
@@ -265,9 +308,39 @@ class _CodeWorkbenchViewState extends ConsumerState<CodeWorkbenchView> {
                 citationOpenNonce: _citationOpenNonce,
                 pathHighlightNonce: _pathHighlightNonce,
               ),
+            if (showReview && isWideDesktop)
+              SizedBox(
+                width: (screenWidth * 0.55).clamp(480.0, 1100.0),
+                child: CodeReviewDrawer(
+                  key: ValueKey('review-${review.sessionId}-${review.turnId}'),
+                  review: review,
+                ),
+              ),
           ],
         ),
-        if (!isWideDesktop && _narrowSidecarOpen)
+        if (showReview && !isWideDesktop)
+          Positioned.fill(
+            child: GestureDetector(
+              onTap: () =>
+                  ref.read(activeReviewSessionProvider.notifier).state = null,
+              child: Container(
+                color: Colors.black54,
+                alignment: Alignment.centerRight,
+                child: GestureDetector(
+                  onTap: () {},
+                  child: SizedBox(
+                    width: (screenWidth * 0.92).clamp(320.0, 640.0),
+                    child: CodeReviewDrawer(
+                      key: ValueKey(
+                          'review-sheet-${review.sessionId}-${review.turnId}'),
+                      review: review,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        if (!isWideDesktop && !isCodeChat && !showReview && _narrowSidecarOpen)
           Positioned.fill(
             child: GestureDetector(
               onTap: () => setState(() => _narrowSidecarOpen = false),

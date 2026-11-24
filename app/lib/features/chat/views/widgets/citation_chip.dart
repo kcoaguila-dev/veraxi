@@ -3,11 +3,15 @@ import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:material_ui/material_ui.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:url_launcher/url_launcher_string.dart';
+import 'package:veraxi_app/core/providers/workspace_mode_provider.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
+import 'package:veraxi_app/core/widgets/language_file_icon.dart';
 import 'package:veraxi_app/features/chat/view_models/chat_view_model.dart';
 import 'package:veraxi_app/features/chat/view_models/code_file_view_model.dart';
+import 'package:veraxi_app/features/chat/views/widgets/code_citation_hover_card.dart';
 import 'package:veraxi_app/features/chat/views/widgets/code_citation_viewer.dart';
 import 'package:veraxi_app/features/chat/views/widgets/sources_sidebar.dart';
 
@@ -474,6 +478,7 @@ class _CitationChipState extends State<CitationChip> {
   bool _isHoveringChip = false;
   bool _isHoveringCard = false;
   Timer? _hideTimer;
+  Timer? _showTimer;
 
   @override
   void initState() {
@@ -496,7 +501,53 @@ class _CitationChipState extends State<CitationChip> {
   @override
   void dispose() {
     _cancelHideTimer();
+    _showTimer?.cancel();
     super.dispose();
+  }
+
+  /// The line-anchored code target a resolved source points at, or
+  /// null for ordinary web/document citations.
+  CodeCitationTarget? _codeTargetFor(_ResolvedSource source) =>
+      CodeCitationTarget.tryParse(source.effectiveUrl);
+
+  CodeCitationTarget? get _primaryCodeTarget =>
+      _sources.isEmpty ? null : _codeTargetFor(_sources.first);
+
+  ProviderContainer? _ambientContainer() {
+    try {
+      return ProviderScope.containerOf(context, listen: false);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Opens a code citation. In Code Mode the citation focuses the
+  /// review session (Phase 5 review pane consumes
+  /// [activeReviewSessionProvider]); in Chat Mode it keeps the
+  /// Phase 1 (#195) in-app citation viewer.
+  void _openCodeTarget(CodeCitationTarget target) {
+    final container = _ambientContainer();
+    if (container != null &&
+        container.read(workspaceModeProvider) == WorkspaceMode.code) {
+      container.read(activeReviewSessionProvider.notifier).state =
+          CodeReviewState(
+        // A citation carries no live sandbox session: the empty
+        // session id is what makes the Phase 5 review pane render
+        // read-only (no accept/revert/commit) for this open.
+        sessionId: '',
+        turnId: widget.message.id ?? '',
+        focusedPath: target.path,
+        focusedStartLine: target.startLine,
+        focusedEndLine: target.effectiveEndLine,
+      );
+      _overlayController.hide();
+      return;
+    }
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => CodeCitationViewer(target: target),
+      ),
+    );
   }
 
   bool _sameCitations(List<CitationEntry>? a, List<CitationEntry>? b) {
@@ -526,16 +577,12 @@ class _CitationChipState extends State<CitationChip> {
     if (url.isEmpty) return;
     if (url.startsWith('file://')) {
       // Line-anchored code citations open in the in-app viewer at
-      // the cited lines; every other file citation (documents with
-      // #page= anchors, plain file:// paths) keeps the historical
-      // external launch.
+      // the cited lines (or focus the review session in Code Mode);
+      // every other file citation (documents with #page= anchors,
+      // plain file:// paths) keeps the historical external launch.
       final target = CodeCitationTarget.tryParse(url);
       if (target != null) {
-        Navigator.of(context).push(
-          MaterialPageRoute<void>(
-            builder: (_) => CodeCitationViewer(target: target),
-          ),
-        );
+        _openCodeTarget(target);
         return;
       }
       launchUrlString(fileCitationLaunchUrl(url));
@@ -950,6 +997,7 @@ class _CitationChipState extends State<CitationChip> {
     final primarySource = _sources.first;
     final extraCount = _sources.length - 1;
     final faviconUrl = _faviconUrlFor(primarySource);
+    final codeTarget = _primaryCodeTarget;
 
     return CompositedTransformTarget(
       link: _link,
@@ -957,9 +1005,26 @@ class _CitationChipState extends State<CitationChip> {
         onEnter: (_) {
           _cancelHideTimer();
           _isHoveringChip = true;
-          _overlayController.show();
+          final container = _ambientContainer();
+          final isCodeMode = container != null &&
+              container.read(workspaceModeProvider) == WorkspaceMode.code;
+          if (_primaryCodeTarget != null && isCodeMode) {
+            // Code citations in Code Mode use a 200ms hover-intent
+            // delay so sweeping the pointer across a pill does not
+            // flash the snippet card; the card itself keeps the
+            // overlay alive via _isHoveringCard (see _checkHide).
+            _showTimer?.cancel();
+            _showTimer = Timer(const Duration(milliseconds: 200), () {
+              if (mounted && _isHoveringChip) {
+                _overlayController.show();
+              }
+            });
+          } else {
+            _overlayController.show();
+          }
         },
         onExit: (_) {
+          _showTimer?.cancel();
           _isHoveringChip = false;
           _checkHide();
         },
@@ -1001,7 +1066,13 @@ class _CitationChipState extends State<CitationChip> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  if (faviconUrl.isNotEmpty) ...[
+                  if (codeTarget != null) ...[
+                    LanguageFileIcon(
+                      fileName: codeTarget.path,
+                      size: 12,
+                    ),
+                    const SizedBox(width: 4),
+                  ] else if (faviconUrl.isNotEmpty) ...[
                     ClipOval(
                       child: Image.network(
                         faviconUrl,
@@ -1019,7 +1090,11 @@ class _CitationChipState extends State<CitationChip> {
                   ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 220),
                     child: Text(
-                      _displayTextFor(primarySource),
+                      // Compact code pill: just the file name (the
+                      // +N suffix below still counts extra sources).
+                      codeTarget != null
+                          ? codeTarget.path.split('/').last
+                          : _displayTextFor(primarySource),
                       style: const TextStyle(
                         fontSize: 11,
                         color: Color(0xFFCCCCCC),
@@ -1053,6 +1128,51 @@ class _CitationChipState extends State<CitationChip> {
     final ext = Theme.of(context).extension<AppThemeExtension>();
     final cardBg = ext?.cardBackground ?? const Color(0xFF1F1F1F);
     final activeSource = _sources[_currentIndex];
+    final codeTarget = _codeTargetFor(activeSource);
+    if (codeTarget != null) {
+      final cardArgs = (
+        target: codeTarget,
+        index: _currentIndex,
+        total: _sources.length,
+        onPrev:
+            _currentIndex > 0 ? () => setState(() => _currentIndex--) : null,
+        onNext: _currentIndex < _sources.length - 1
+            ? () => setState(() => _currentIndex++)
+            : null,
+        onOpenReview: () => _openCodeTarget(codeTarget),
+      );
+      final resolvedTitle = _resolveTitleFor(activeSource);
+      final sourceTitle =
+          resolvedTitle.isNotEmpty ? resolvedTitle : activeSource.rawText;
+      final sourceSnippet = _resolveSnippetFor(activeSource);
+      final container = _ambientContainer();
+      if (container != null) {
+        return UncontrolledProviderScope(
+          container: container,
+          child: LiveCodeCitationHoverCard(
+            target: cardArgs.target,
+            sourceTitle: sourceTitle,
+            sourceSnippet: sourceSnippet,
+            index: cardArgs.index,
+            total: cardArgs.total,
+            onPrev: cardArgs.onPrev,
+            onNext: cardArgs.onNext,
+            onOpenReview: cardArgs.onOpenReview,
+          ),
+        );
+      }
+      return CodeCitationHoverCard(
+        target: cardArgs.target,
+        sourceTitle: sourceTitle,
+        sourceSnippet: sourceSnippet,
+        index: cardArgs.index,
+        total: cardArgs.total,
+        onPrev: cardArgs.onPrev,
+        onNext: cardArgs.onNext,
+        onOpenReview: cardArgs.onOpenReview,
+        asyncContent: null,
+      );
+    }
 
     return Material(
       color: Colors.transparent,

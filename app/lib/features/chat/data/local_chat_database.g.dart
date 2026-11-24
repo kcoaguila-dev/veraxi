@@ -52,9 +52,44 @@ class $LocalThreadsTable extends LocalThreads
   late final GeneratedColumn<DateTime> timestamp = GeneratedColumn<DateTime>(
       'timestamp', aliasedName, true,
       type: DriftSqlType.dateTime, requiredDuringInsert: false);
+  static const VerificationMeta _workspaceModeMeta =
+      const VerificationMeta('workspaceMode');
   @override
-  List<GeneratedColumn> get $columns =>
-      [threadId, title, isPinned, isArchived, projectId, timestamp];
+  late final GeneratedColumn<String> workspaceMode = GeneratedColumn<String>(
+      'workspace_mode', aliasedName, false,
+      type: DriftSqlType.string,
+      requiredDuringInsert: false,
+      defaultValue: const Constant('chat'));
+  static const VerificationMeta _repoKeyMeta =
+      const VerificationMeta('repoKey');
+  @override
+  late final GeneratedColumn<String> repoKey = GeneratedColumn<String>(
+      'repo_key', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _branchMeta = const VerificationMeta('branch');
+  @override
+  late final GeneratedColumn<String> branch = GeneratedColumn<String>(
+      'branch', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _selectedSourcesMeta =
+      const VerificationMeta('selectedSources');
+  @override
+  late final GeneratedColumn<String> selectedSources = GeneratedColumn<String>(
+      'selected_sources', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  @override
+  List<GeneratedColumn> get $columns => [
+        threadId,
+        title,
+        isPinned,
+        isArchived,
+        projectId,
+        timestamp,
+        workspaceMode,
+        repoKey,
+        branch,
+        selectedSources
+      ];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -95,6 +130,26 @@ class $LocalThreadsTable extends LocalThreads
       context.handle(_timestampMeta,
           timestamp.isAcceptableOrUnknown(data['timestamp']!, _timestampMeta));
     }
+    if (data.containsKey('workspace_mode')) {
+      context.handle(
+          _workspaceModeMeta,
+          workspaceMode.isAcceptableOrUnknown(
+              data['workspace_mode']!, _workspaceModeMeta));
+    }
+    if (data.containsKey('repo_key')) {
+      context.handle(_repoKeyMeta,
+          repoKey.isAcceptableOrUnknown(data['repo_key']!, _repoKeyMeta));
+    }
+    if (data.containsKey('branch')) {
+      context.handle(_branchMeta,
+          branch.isAcceptableOrUnknown(data['branch']!, _branchMeta));
+    }
+    if (data.containsKey('selected_sources')) {
+      context.handle(
+          _selectedSourcesMeta,
+          selectedSources.isAcceptableOrUnknown(
+              data['selected_sources']!, _selectedSourcesMeta));
+    }
     return context;
   }
 
@@ -116,6 +171,14 @@ class $LocalThreadsTable extends LocalThreads
           .read(DriftSqlType.string, data['${effectivePrefix}project_id']),
       timestamp: attachedDatabase.typeMapping
           .read(DriftSqlType.dateTime, data['${effectivePrefix}timestamp']),
+      workspaceMode: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}workspace_mode'])!,
+      repoKey: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}repo_key']),
+      branch: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}branch']),
+      selectedSources: attachedDatabase.typeMapping.read(
+          DriftSqlType.string, data['${effectivePrefix}selected_sources']),
     );
   }
 
@@ -132,13 +195,21 @@ class LocalThread extends DataClass implements Insertable<LocalThread> {
   final bool isArchived;
   final String? projectId;
   final DateTime? timestamp;
+  final String workspaceMode;
+  final String? repoKey;
+  final String? branch;
+  final String? selectedSources;
   const LocalThread(
       {required this.threadId,
       required this.title,
       required this.isPinned,
       required this.isArchived,
       this.projectId,
-      this.timestamp});
+      this.timestamp,
+      required this.workspaceMode,
+      this.repoKey,
+      this.branch,
+      this.selectedSources});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
@@ -151,6 +222,16 @@ class LocalThread extends DataClass implements Insertable<LocalThread> {
     }
     if (!nullToAbsent || timestamp != null) {
       map['timestamp'] = Variable<DateTime>(timestamp);
+    }
+    map['workspace_mode'] = Variable<String>(workspaceMode);
+    if (!nullToAbsent || repoKey != null) {
+      map['repo_key'] = Variable<String>(repoKey);
+    }
+    if (!nullToAbsent || branch != null) {
+      map['branch'] = Variable<String>(branch);
+    }
+    if (!nullToAbsent || selectedSources != null) {
+      map['selected_sources'] = Variable<String>(selectedSources);
     }
     return map;
   }
@@ -167,6 +248,15 @@ class LocalThread extends DataClass implements Insertable<LocalThread> {
       timestamp: timestamp == null && nullToAbsent
           ? const Value.absent()
           : Value(timestamp),
+      workspaceMode: Value(workspaceMode),
+      repoKey: repoKey == null && nullToAbsent
+          ? const Value.absent()
+          : Value(repoKey),
+      branch:
+          branch == null && nullToAbsent ? const Value.absent() : Value(branch),
+      selectedSources: selectedSources == null && nullToAbsent
+          ? const Value.absent()
+          : Value(selectedSources),
     );
   }
 
@@ -180,6 +270,10 @@ class LocalThread extends DataClass implements Insertable<LocalThread> {
       isArchived: serializer.fromJson<bool>(json['isArchived']),
       projectId: serializer.fromJson<String?>(json['projectId']),
       timestamp: serializer.fromJson<DateTime?>(json['timestamp']),
+      workspaceMode: serializer.fromJson<String>(json['workspaceMode']),
+      repoKey: serializer.fromJson<String?>(json['repoKey']),
+      branch: serializer.fromJson<String?>(json['branch']),
+      selectedSources: serializer.fromJson<String?>(json['selectedSources']),
     );
   }
   @override
@@ -192,6 +286,10 @@ class LocalThread extends DataClass implements Insertable<LocalThread> {
       'isArchived': serializer.toJson<bool>(isArchived),
       'projectId': serializer.toJson<String?>(projectId),
       'timestamp': serializer.toJson<DateTime?>(timestamp),
+      'workspaceMode': serializer.toJson<String>(workspaceMode),
+      'repoKey': serializer.toJson<String?>(repoKey),
+      'branch': serializer.toJson<String?>(branch),
+      'selectedSources': serializer.toJson<String?>(selectedSources),
     };
   }
 
@@ -201,7 +299,11 @@ class LocalThread extends DataClass implements Insertable<LocalThread> {
           bool? isPinned,
           bool? isArchived,
           Value<String?> projectId = const Value.absent(),
-          Value<DateTime?> timestamp = const Value.absent()}) =>
+          Value<DateTime?> timestamp = const Value.absent(),
+          String? workspaceMode,
+          Value<String?> repoKey = const Value.absent(),
+          Value<String?> branch = const Value.absent(),
+          Value<String?> selectedSources = const Value.absent()}) =>
       LocalThread(
         threadId: threadId ?? this.threadId,
         title: title ?? this.title,
@@ -209,6 +311,12 @@ class LocalThread extends DataClass implements Insertable<LocalThread> {
         isArchived: isArchived ?? this.isArchived,
         projectId: projectId.present ? projectId.value : this.projectId,
         timestamp: timestamp.present ? timestamp.value : this.timestamp,
+        workspaceMode: workspaceMode ?? this.workspaceMode,
+        repoKey: repoKey.present ? repoKey.value : this.repoKey,
+        branch: branch.present ? branch.value : this.branch,
+        selectedSources: selectedSources.present
+            ? selectedSources.value
+            : this.selectedSources,
       );
   LocalThread copyWithCompanion(LocalThreadsCompanion data) {
     return LocalThread(
@@ -219,6 +327,14 @@ class LocalThread extends DataClass implements Insertable<LocalThread> {
           data.isArchived.present ? data.isArchived.value : this.isArchived,
       projectId: data.projectId.present ? data.projectId.value : this.projectId,
       timestamp: data.timestamp.present ? data.timestamp.value : this.timestamp,
+      workspaceMode: data.workspaceMode.present
+          ? data.workspaceMode.value
+          : this.workspaceMode,
+      repoKey: data.repoKey.present ? data.repoKey.value : this.repoKey,
+      branch: data.branch.present ? data.branch.value : this.branch,
+      selectedSources: data.selectedSources.present
+          ? data.selectedSources.value
+          : this.selectedSources,
     );
   }
 
@@ -230,14 +346,18 @@ class LocalThread extends DataClass implements Insertable<LocalThread> {
           ..write('isPinned: $isPinned, ')
           ..write('isArchived: $isArchived, ')
           ..write('projectId: $projectId, ')
-          ..write('timestamp: $timestamp')
+          ..write('timestamp: $timestamp, ')
+          ..write('workspaceMode: $workspaceMode, ')
+          ..write('repoKey: $repoKey, ')
+          ..write('branch: $branch, ')
+          ..write('selectedSources: $selectedSources')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode =>
-      Object.hash(threadId, title, isPinned, isArchived, projectId, timestamp);
+  int get hashCode => Object.hash(threadId, title, isPinned, isArchived,
+      projectId, timestamp, workspaceMode, repoKey, branch, selectedSources);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -247,7 +367,11 @@ class LocalThread extends DataClass implements Insertable<LocalThread> {
           other.isPinned == this.isPinned &&
           other.isArchived == this.isArchived &&
           other.projectId == this.projectId &&
-          other.timestamp == this.timestamp);
+          other.timestamp == this.timestamp &&
+          other.workspaceMode == this.workspaceMode &&
+          other.repoKey == this.repoKey &&
+          other.branch == this.branch &&
+          other.selectedSources == this.selectedSources);
 }
 
 class LocalThreadsCompanion extends UpdateCompanion<LocalThread> {
@@ -257,6 +381,10 @@ class LocalThreadsCompanion extends UpdateCompanion<LocalThread> {
   final Value<bool> isArchived;
   final Value<String?> projectId;
   final Value<DateTime?> timestamp;
+  final Value<String> workspaceMode;
+  final Value<String?> repoKey;
+  final Value<String?> branch;
+  final Value<String?> selectedSources;
   final Value<int> rowid;
   const LocalThreadsCompanion({
     this.threadId = const Value.absent(),
@@ -265,6 +393,10 @@ class LocalThreadsCompanion extends UpdateCompanion<LocalThread> {
     this.isArchived = const Value.absent(),
     this.projectId = const Value.absent(),
     this.timestamp = const Value.absent(),
+    this.workspaceMode = const Value.absent(),
+    this.repoKey = const Value.absent(),
+    this.branch = const Value.absent(),
+    this.selectedSources = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   LocalThreadsCompanion.insert({
@@ -274,6 +406,10 @@ class LocalThreadsCompanion extends UpdateCompanion<LocalThread> {
     this.isArchived = const Value.absent(),
     this.projectId = const Value.absent(),
     this.timestamp = const Value.absent(),
+    this.workspaceMode = const Value.absent(),
+    this.repoKey = const Value.absent(),
+    this.branch = const Value.absent(),
+    this.selectedSources = const Value.absent(),
     this.rowid = const Value.absent(),
   })  : threadId = Value(threadId),
         title = Value(title);
@@ -284,6 +420,10 @@ class LocalThreadsCompanion extends UpdateCompanion<LocalThread> {
     Expression<bool>? isArchived,
     Expression<String>? projectId,
     Expression<DateTime>? timestamp,
+    Expression<String>? workspaceMode,
+    Expression<String>? repoKey,
+    Expression<String>? branch,
+    Expression<String>? selectedSources,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -293,6 +433,10 @@ class LocalThreadsCompanion extends UpdateCompanion<LocalThread> {
       if (isArchived != null) 'is_archived': isArchived,
       if (projectId != null) 'project_id': projectId,
       if (timestamp != null) 'timestamp': timestamp,
+      if (workspaceMode != null) 'workspace_mode': workspaceMode,
+      if (repoKey != null) 'repo_key': repoKey,
+      if (branch != null) 'branch': branch,
+      if (selectedSources != null) 'selected_sources': selectedSources,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -304,6 +448,10 @@ class LocalThreadsCompanion extends UpdateCompanion<LocalThread> {
       Value<bool>? isArchived,
       Value<String?>? projectId,
       Value<DateTime?>? timestamp,
+      Value<String>? workspaceMode,
+      Value<String?>? repoKey,
+      Value<String?>? branch,
+      Value<String?>? selectedSources,
       Value<int>? rowid}) {
     return LocalThreadsCompanion(
       threadId: threadId ?? this.threadId,
@@ -312,6 +460,10 @@ class LocalThreadsCompanion extends UpdateCompanion<LocalThread> {
       isArchived: isArchived ?? this.isArchived,
       projectId: projectId ?? this.projectId,
       timestamp: timestamp ?? this.timestamp,
+      workspaceMode: workspaceMode ?? this.workspaceMode,
+      repoKey: repoKey ?? this.repoKey,
+      branch: branch ?? this.branch,
+      selectedSources: selectedSources ?? this.selectedSources,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -337,6 +489,18 @@ class LocalThreadsCompanion extends UpdateCompanion<LocalThread> {
     if (timestamp.present) {
       map['timestamp'] = Variable<DateTime>(timestamp.value);
     }
+    if (workspaceMode.present) {
+      map['workspace_mode'] = Variable<String>(workspaceMode.value);
+    }
+    if (repoKey.present) {
+      map['repo_key'] = Variable<String>(repoKey.value);
+    }
+    if (branch.present) {
+      map['branch'] = Variable<String>(branch.value);
+    }
+    if (selectedSources.present) {
+      map['selected_sources'] = Variable<String>(selectedSources.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -352,6 +516,10 @@ class LocalThreadsCompanion extends UpdateCompanion<LocalThread> {
           ..write('isArchived: $isArchived, ')
           ..write('projectId: $projectId, ')
           ..write('timestamp: $timestamp, ')
+          ..write('workspaceMode: $workspaceMode, ')
+          ..write('repoKey: $repoKey, ')
+          ..write('branch: $branch, ')
+          ..write('selectedSources: $selectedSources, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -1524,6 +1692,10 @@ typedef $$LocalThreadsTableCreateCompanionBuilder = LocalThreadsCompanion
   Value<bool> isArchived,
   Value<String?> projectId,
   Value<DateTime?> timestamp,
+  Value<String> workspaceMode,
+  Value<String?> repoKey,
+  Value<String?> branch,
+  Value<String?> selectedSources,
   Value<int> rowid,
 });
 typedef $$LocalThreadsTableUpdateCompanionBuilder = LocalThreadsCompanion
@@ -1534,6 +1706,10 @@ typedef $$LocalThreadsTableUpdateCompanionBuilder = LocalThreadsCompanion
   Value<bool> isArchived,
   Value<String?> projectId,
   Value<DateTime?> timestamp,
+  Value<String> workspaceMode,
+  Value<String?> repoKey,
+  Value<String?> branch,
+  Value<String?> selectedSources,
   Value<int> rowid,
 });
 
@@ -1563,6 +1739,19 @@ class $$LocalThreadsTableFilterComposer
 
   ColumnFilters<DateTime> get timestamp => $composableBuilder(
       column: $table.timestamp, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get workspaceMode => $composableBuilder(
+      column: $table.workspaceMode, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get repoKey => $composableBuilder(
+      column: $table.repoKey, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get branch => $composableBuilder(
+      column: $table.branch, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get selectedSources => $composableBuilder(
+      column: $table.selectedSources,
+      builder: (column) => ColumnFilters(column));
 }
 
 class $$LocalThreadsTableOrderingComposer
@@ -1591,6 +1780,20 @@ class $$LocalThreadsTableOrderingComposer
 
   ColumnOrderings<DateTime> get timestamp => $composableBuilder(
       column: $table.timestamp, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get workspaceMode => $composableBuilder(
+      column: $table.workspaceMode,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get repoKey => $composableBuilder(
+      column: $table.repoKey, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get branch => $composableBuilder(
+      column: $table.branch, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get selectedSources => $composableBuilder(
+      column: $table.selectedSources,
+      builder: (column) => ColumnOrderings(column));
 }
 
 class $$LocalThreadsTableAnnotationComposer
@@ -1619,6 +1822,18 @@ class $$LocalThreadsTableAnnotationComposer
 
   GeneratedColumn<DateTime> get timestamp =>
       $composableBuilder(column: $table.timestamp, builder: (column) => column);
+
+  GeneratedColumn<String> get workspaceMode => $composableBuilder(
+      column: $table.workspaceMode, builder: (column) => column);
+
+  GeneratedColumn<String> get repoKey =>
+      $composableBuilder(column: $table.repoKey, builder: (column) => column);
+
+  GeneratedColumn<String> get branch =>
+      $composableBuilder(column: $table.branch, builder: (column) => column);
+
+  GeneratedColumn<String> get selectedSources => $composableBuilder(
+      column: $table.selectedSources, builder: (column) => column);
 }
 
 class $$LocalThreadsTableTableManager extends RootTableManager<
@@ -1654,6 +1869,10 @@ class $$LocalThreadsTableTableManager extends RootTableManager<
             Value<bool> isArchived = const Value.absent(),
             Value<String?> projectId = const Value.absent(),
             Value<DateTime?> timestamp = const Value.absent(),
+            Value<String> workspaceMode = const Value.absent(),
+            Value<String?> repoKey = const Value.absent(),
+            Value<String?> branch = const Value.absent(),
+            Value<String?> selectedSources = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
               LocalThreadsCompanion(
@@ -1663,6 +1882,10 @@ class $$LocalThreadsTableTableManager extends RootTableManager<
             isArchived: isArchived,
             projectId: projectId,
             timestamp: timestamp,
+            workspaceMode: workspaceMode,
+            repoKey: repoKey,
+            branch: branch,
+            selectedSources: selectedSources,
             rowid: rowid,
           ),
           createCompanionCallback: ({
@@ -1672,6 +1895,10 @@ class $$LocalThreadsTableTableManager extends RootTableManager<
             Value<bool> isArchived = const Value.absent(),
             Value<String?> projectId = const Value.absent(),
             Value<DateTime?> timestamp = const Value.absent(),
+            Value<String> workspaceMode = const Value.absent(),
+            Value<String?> repoKey = const Value.absent(),
+            Value<String?> branch = const Value.absent(),
+            Value<String?> selectedSources = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
               LocalThreadsCompanion.insert(
@@ -1681,6 +1908,10 @@ class $$LocalThreadsTableTableManager extends RootTableManager<
             isArchived: isArchived,
             projectId: projectId,
             timestamp: timestamp,
+            workspaceMode: workspaceMode,
+            repoKey: repoKey,
+            branch: branch,
+            selectedSources: selectedSources,
             rowid: rowid,
           ),
           withReferenceMapper: (p0) => p0

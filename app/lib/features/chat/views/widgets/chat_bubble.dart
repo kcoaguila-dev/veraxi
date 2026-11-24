@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'dart:convert';
+import 'package:veraxi_app/core/theme/obsidian_tokens.dart';
 import 'package:veraxi_app/features/chat/view_models/chat_view_model.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:veraxi_app/features/chat/views/widgets/graph_artifact.dart';
@@ -86,7 +87,12 @@ class ChatBubble extends StatelessWidget {
           styleSheet: MarkdownStyleSheet(
             p: TextStyle(color: theme.colorScheme.onSurface, fontSize: 16),
             code: TextStyle(
-              backgroundColor: theme.colorScheme.surface,
+              backgroundColor: theme.brightness == Brightness.dark
+                  ? ObsidianTokens.codeSpanBg
+                  : theme.colorScheme.surfaceContainerHighest,
+              color: theme.brightness == Brightness.dark
+                  ? ObsidianTokens.codeSpanText
+                  : theme.colorScheme.onSurface,
               fontFamily: 'monospace',
             ),
             codeblockDecoration: BoxDecoration(

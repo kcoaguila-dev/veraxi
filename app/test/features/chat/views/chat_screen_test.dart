@@ -249,10 +249,17 @@ class MockChatViewModel extends ChatViewModel {
 
   @override
   Future<void> sendMessage(String text,
-      {List<dynamic>? attachments, String? model}) async {
+      {List<dynamic>? attachments,
+      String? model,
+      Map<String, dynamic>? codeScope}) async {
     return super.noSuchMethod(
-      Invocation.method(
-          #sendMessage, [text], {#attachments: attachments, #model: model}),
+      Invocation.method(#sendMessage, [
+        text
+      ], {
+        #attachments: attachments,
+        #model: model,
+        #codeScope: codeScope,
+      }),
     );
   }
 

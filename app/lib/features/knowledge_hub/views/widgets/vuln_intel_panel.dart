@@ -6,6 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
 import 'package:veraxi_app/core/widgets/veraxi_switch.dart';
 import 'package:veraxi_app/features/knowledge_hub/view_models/code_intel_view_model.dart';
+import 'package:veraxi_app/features/knowledge_hub/views/widgets/security_feed_panel.dart';
+import 'package:veraxi_app/features/knowledge_hub/views/widgets/security_launchpad.dart';
 import 'package:veraxi_app/features/knowledge_hub/views/widgets/vuln_workbench_table.dart';
 
 /// Severity badge colors. Unknown/absent severity renders no badge.
@@ -205,7 +207,7 @@ class VulnIntelToolbarActions extends ConsumerWidget {
 /// findings (version provably in range) and 'unknown' findings
 /// (version/range unparseable) are visually distinct — unknown is
 /// outlined amber and never presented as confirmed vulnerable.
-class VulnIntelPanel extends ConsumerWidget {
+class VulnIntelPanel extends ConsumerStatefulWidget {
   final TextEditingController repoPathController;
   final bool workbenchMode;
   final bool hideToolbarActions;
@@ -226,21 +228,53 @@ class VulnIntelPanel extends ConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<VulnIntelPanel> createState() => _VulnIntelPanelState();
+}
+
+class _VulnIntelPanelState extends ConsumerState<VulnIntelPanel> {
+  SecuritySection _section = SecuritySection.cves;
+  String _securityQuery = '';
+
+  // Convenience accessors preserving the pre-Phase-6 field names in
+  // the build/helpers below.
+  TextEditingController get repoPathController => widget.repoPathController;
+  bool get workbenchMode => widget.workbenchMode;
+  bool get hideToolbarActions => widget.hideToolbarActions;
+  String? get selectedCveId => widget.selectedCveId;
+  ValueChanged<VulnFinding>? get onAskFinding => widget.onAskFinding;
+  ValueChanged<VulnFinding>? get onInspectPath => widget.onInspectPath;
+  VoidCallback? get onOpenRepoXray => widget.onOpenRepoXray;
+
+  @override
+  Widget build(BuildContext context) {
     final ext = Theme.of(context).extension<AppThemeExtension>()!;
     final state = ref.watch(codeIntelViewModelProvider);
     final viewModel = ref.read(codeIntelViewModelProvider.notifier);
     final report = state.vulnReport;
 
-    final showToolbarRow = !hideToolbarActions ||
-        state.syncStatus != null ||
-        state.sbomFileName != null ||
-        !workbenchMode ||
-        report == null;
+    final showToolbarRow =
+        (!workbenchMode || _section == SecuritySection.cves) &&
+            (!hideToolbarActions ||
+                state.syncStatus != null ||
+                state.sbomFileName != null ||
+                !workbenchMode ||
+                report == null);
 
     final content = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        if (workbenchMode) ...[
+          SecuritySectionTabs(
+            selected: _section,
+            onChanged: (section) => setState(() => _section = section),
+          ),
+          const SizedBox(height: 16),
+          if (_section != SecuritySection.cves)
+            SecurityFeedPanel(
+              embedded: true,
+              initialTab: securityFeedTabForSection(_section) ?? 0,
+            ),
+        ],
         if (!workbenchMode) ...[
           const Text('Vulnerability Intel',
               style: TextStyle(
@@ -284,7 +318,10 @@ class VulnIntelPanel extends ConsumerWidget {
                         ),
                     ],
                   ),
-                  if (workbenchMode && !hasScanTarget && report == null) ...[
+                  if (workbenchMode &&
+                      !hasScanTarget &&
+                      report == null &&
+                      hideToolbarActions) ...[
                     const SizedBox(height: 8),
                     _buildEmptyScanHint(ext),
                   ],
@@ -292,12 +329,23 @@ class VulnIntelPanel extends ConsumerWidget {
               );
             },
           ),
-        if (state.vulnError != null) ...[
+        if (workbenchMode &&
+            _section == SecuritySection.cves &&
+            report == null) ...[
+          const SizedBox(height: 16),
+          SecurityLaunchpad(
+            repoPathController: repoPathController,
+            onSelectSection: (section) => setState(() => _section = section),
+          ),
+        ],
+        if (state.vulnError != null &&
+            (!workbenchMode || _section == SecuritySection.cves)) ...[
           const SizedBox(height: 8),
           Text(state.vulnError!,
               style: const TextStyle(color: Color(0xFFF59E0B), fontSize: 13)),
         ],
-        if (report != null) ...[
+        if (report != null &&
+            (!workbenchMode || _section == SecuritySection.cves)) ...[
           const SizedBox(height: 16),
           if (workbenchMode)
             _buildTriageFunnelStrip(report, state, viewModel)
@@ -313,9 +361,22 @@ class VulnIntelPanel extends ConsumerWidget {
             _buildWorkbenchFilterPills(report, state, viewModel)
           else
             _buildLegacyFilterPills(state, viewModel),
+          if (workbenchMode) ...[
+            const SizedBox(height: 12),
+            SecurityQueryBar(
+              initialValue: _securityQuery,
+              resultCount: filterFindingsByQuery(
+                      _effectiveFindings(state), _securityQuery)
+                  .length,
+              onChanged: (value) => setState(() => _securityQuery = value),
+            ),
+          ],
           const SizedBox(height: 12),
           LayoutBuilder(builder: (context, constraints) {
-            final findings = _effectiveFindings(state);
+            final findings = workbenchMode
+                ? filterFindingsByQuery(
+                    _effectiveFindings(state), _securityQuery)
+                : _effectiveFindings(state);
             final useDesktopTable =
                 workbenchMode && constraints.maxWidth >= 640;
             return AnimatedSwitcher(
@@ -323,7 +384,7 @@ class VulnIntelPanel extends ConsumerWidget {
               child: useDesktopTable
                   ? VulnWorkbenchTable(
                       key: ValueKey(
-                        '${state.severityFilter}-${state.vulnQuickFilter}-${state.matchedOnly}-${findings.length}-table',
+                        '${state.severityFilter}-${state.vulnQuickFilter}-${state.matchedOnly}-${findings.length}-$_securityQuery-table',
                       ),
                       findings: findings,
                       selectedCveId: selectedCveId,
@@ -332,7 +393,7 @@ class VulnIntelPanel extends ConsumerWidget {
                     )
                   : Column(
                       key: ValueKey(
-                        '${state.severityFilter}-${state.vulnQuickFilter}-${state.matchedOnly}-${findings.length}-$workbenchMode-stacked',
+                        '${state.severityFilter}-${state.vulnQuickFilter}-${state.matchedOnly}-${findings.length}-$_securityQuery-$workbenchMode-stacked',
                       ),
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
