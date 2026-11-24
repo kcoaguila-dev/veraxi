@@ -77,6 +77,8 @@ class ChatRequest(BaseModel):
         | None
     ) = None
     source_scope: dict | None = None
+    agent_runtime: Literal["veraxi", "antigravity_acp"] = "veraxi"
+    attach_veraxi_mcp: bool = True
 
 
 class ChatResponse(BaseModel):
@@ -147,6 +149,30 @@ class ConfirmToolRequest(BaseModel):
     tool_name: str
     args: dict = {}
     approve: bool = False
+
+
+def _validate_acp_chat_request(chat_request: ChatRequest) -> None:
+    """Enforce Section 6 & architecture guardrails for external ACP runtimes."""
+    if chat_request.mode == "deep":
+        raise HTTPException(
+            status_code=400,
+            detail="Deep multi-agent debate mode is not supported with Antigravity ACP. Switch to Fast mode or use a BYOK API key.",
+        )
+    if chat_request.calculate_grounding:
+        raise HTTPException(
+            status_code=400,
+            detail="Grounding evaluation is not supported with Antigravity ACP. Disable grounding or use a BYOK API key.",
+        )
+    if chat_request.custom_system_prompt:
+        raise HTTPException(
+            status_code=400,
+            detail="Custom system prompts cannot be injected into Antigravity ACP (Antigravity owns its system prompt).",
+        )
+    if not chat_request.stream:
+        raise HTTPException(
+            status_code=400,
+            detail="Antigravity ACP requires streaming (stream=true).",
+        )
 
 
 def _friendly_provider_error(error: Exception) -> str:
@@ -1080,17 +1106,30 @@ async def _stream_events(
         yield f"data: {json.dumps({'event': 'metadata', 'data': {'thread_id': thread_id}})}\n\n"
         ts = _effective_tool_settings(chat_request)
 
-        async for event in stream_answer_question(
-            chat_request.question,
-            tenant_id=tenant_id,
-            thread_id=thread_id,
-            is_temporary=chat_request.is_temporary,
-            api_key_override=api_key_override,
-            base_url_override=chat_request.base_url,
-            model_override=chat_request.model,
-            calculate_grounding=chat_request.calculate_grounding,
-            tool_settings=ts,
-        ):
+        if chat_request.agent_runtime == "antigravity_acp":
+            from backend.acp.broker import get_acp_broker
+
+            event_stream = get_acp_broker().stream_prompt(
+                tenant_id=tenant_id,
+                thread_id=thread_id,
+                prompt_text=chat_request.question,
+                attach_veraxi_mcp=chat_request.attach_veraxi_mcp,
+                model=chat_request.model,
+            )
+        else:
+            event_stream = stream_answer_question(
+                chat_request.question,
+                tenant_id=tenant_id,
+                thread_id=thread_id,
+                is_temporary=chat_request.is_temporary,
+                api_key_override=api_key_override,
+                base_url_override=chat_request.base_url,
+                model_override=chat_request.model,
+                calculate_grounding=chat_request.calculate_grounding,
+                tool_settings=ts,
+            )
+
+        async for event in event_stream:
             _record_activity_event(activity, event)
             reasoning_duration_seconds = _record_reasoning_event(
                 event, reasoning_parts, reasoning_duration_seconds
@@ -1375,6 +1414,12 @@ def register_chat_routes(
         logger.warning(
             f"Received question: {chat_request.question} for tenant: {tenant_id} | tool_settings: {chat_request.tool_settings}"
         )
+        is_acp_runtime = chat_request.agent_runtime == "antigravity_acp"
+        if is_acp_runtime:
+            _validate_acp_chat_request(chat_request)
+            if not chat_request.model:
+                chat_request.model = "antigravity-acp"
+
         if not chat_request.model:
             raise HTTPException(status_code=400, detail="No AI model selected")
 
@@ -1390,10 +1435,9 @@ def register_chat_routes(
             # Local endpoints don't need a real API key, but we provide a dummy one to pass checks
             chat_request.api_key = "dummy"
 
-        # This is a pure Bring Your Own Key (BYOK) service.
-        # ALL users (guest, free, and paid) MUST supply their own API key.
-        # This guarantees the server never pays for inference costs.
-        if not chat_request.api_key:
+        # This is a pure Bring Your Own Key (BYOK) service for Veraxi-managed
+        # inference. External ACP runtimes authenticate via the user's local CLI.
+        if not is_acp_runtime and not chat_request.api_key:
             raise HTTPException(
                 status_code=403,
                 detail="You must provide your own LLM API key. Add your key in Settings → API Keys.",
@@ -1404,7 +1448,7 @@ def register_chat_routes(
             if isinstance(chat_request.tool_settings, dict)
             else None
         )
-        if requested_thinking is not None:
+        if not is_acp_runtime and requested_thinking is not None:
             from backend.thinking_policy import (
                 UnsupportedThinkingLevelError,
                 build_litellm_thinking_params,
@@ -1429,8 +1473,10 @@ def register_chat_routes(
                 raise HTTPException(status_code=400, detail=str(exc)) from exc
 
         api_key_override = chat_request.api_key or None
-        is_flagged = await moderate_text(
-            chat_request.question, api_key=api_key_override
+        is_flagged = (
+            False
+            if is_acp_runtime and not api_key_override
+            else await moderate_text(chat_request.question, api_key=api_key_override)
         )
         if is_flagged:
             raise HTTPException(
@@ -1503,17 +1549,18 @@ def register_chat_routes(
                     await request.app.state.redis.hset(
                         f"tenant:{tenant_id}:thread_titles", thread_id, initial_title
                     )
-                    title_task = asyncio.create_task(
-                        _generate_and_save_title(
-                            chat_request.question,
-                            tenant_id,
-                            thread_id,
-                            request.app.state.redis,
-                            api_key_override=api_key_override,
-                            base_url_override=chat_request.base_url,
-                            model_override=chat_request.model,
+                    if not is_acp_runtime or api_key_override:
+                        title_task = asyncio.create_task(
+                            _generate_and_save_title(
+                                chat_request.question,
+                                tenant_id,
+                                thread_id,
+                                request.app.state.redis,
+                                api_key_override=api_key_override,
+                                base_url_override=chat_request.base_url,
+                                model_override=chat_request.model,
+                            )
                         )
-                    )
             if chat_request.stream:
                 return StreamingResponse(
                     _stream_events(

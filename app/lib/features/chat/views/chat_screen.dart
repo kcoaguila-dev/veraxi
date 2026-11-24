@@ -12,6 +12,7 @@ import 'package:veraxi_app/features/chat/view_models/chat_view_model.dart';
 import 'package:veraxi_app/features/chat/view_models/token_usage.dart';
 import 'package:veraxi_app/features/chat/views/widgets/token_usage_ring.dart';
 import 'package:veraxi_app/features/chat/views/widgets/compaction_sheet.dart';
+import 'package:veraxi_app/features/chat/views/widgets/acp_permission_banner.dart';
 import 'package:veraxi_app/features/chat/views/widgets/chat_input.dart';
 import 'package:veraxi_app/features/chat/views/widgets/chat_empty_state.dart';
 import 'package:veraxi_app/features/chat/views/widgets/chat_sidebar.dart';
@@ -1130,6 +1131,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                                     ),
                                                     const SizedBox(height: 8),
                                                   ],
+                                                  const AcpPermissionBanner(),
                                                   ChatInput(
                                                     usageSummary: viewModel
                                                                 .tokenUsageStyle ==
@@ -1341,6 +1343,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 ),
               ).animate().fade(duration: 800.ms).slideY(begin: 0.1, end: 0),
               const SizedBox(height: 32),
+              const AcpPermissionBanner(),
               ChatInput(
                 model:
                     _selectedModel == 'Select a model' ? null : _selectedModel,

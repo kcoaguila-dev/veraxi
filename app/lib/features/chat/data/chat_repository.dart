@@ -58,7 +58,9 @@ abstract class IChatRepository {
       bool calculateGrounding = true,
       Map<String, dynamic>? toolSettings,
       Map<String, dynamic>? codeScope,
-      String? thinkingLevel});
+      String? thinkingLevel,
+      String? agentRuntime,
+      bool attachVeraxiMcp = true});
   Future<String> uploadAttachment(List<int> fileBytes, String fileName);
   Future<void> submitFeedback(String messageId, int value);
   Future<Map<String, dynamic>> confirmToolCall({
@@ -137,7 +139,9 @@ class CloudChatRepository implements IChatRepository {
       bool calculateGrounding = true,
       Map<String, dynamic>? toolSettings,
       Map<String, dynamic>? codeScope,
-      String? thinkingLevel}) async* {
+      String? thinkingLevel,
+      String? agentRuntime,
+      bool attachVeraxiMcp = true}) async* {
     if (model != null && model.endsWith('.gguf')) {
       final localDataSource = LocalChatDataSource.forModel();
       yield* localDataSource.streamChat(
@@ -172,6 +176,9 @@ class CloudChatRepository implements IChatRepository {
         // Code Mode (Phase 1): the scope fields are top-level
         // ChatRequest fields on the backend, not tool_settings.
         if (codeScope != null) ...codeScope,
+        if (agentRuntime != null) 'agent_runtime': agentRuntime,
+        if (agentRuntime == 'antigravity_acp')
+          'attach_veraxi_mcp': attachVeraxiMcp,
       });
 
       final response = await apiClient.client.send(request);

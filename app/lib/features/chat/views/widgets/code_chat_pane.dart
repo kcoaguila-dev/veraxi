@@ -14,6 +14,7 @@ import 'package:veraxi_app/features/chat/view_models/connect_repo_view_model.dar
 import 'package:veraxi_app/features/chat/view_models/sandbox_toggle_view_model.dart';
 import 'package:veraxi_app/features/chat/view_models/token_usage.dart';
 import 'package:veraxi_app/features/chat/views/widgets/chat_message_list_item.dart';
+import 'package:veraxi_app/features/chat/views/widgets/acp_permission_banner.dart';
 import 'package:veraxi_app/features/chat/views/widgets/code_chat_composer.dart';
 import 'package:veraxi_app/features/chat/views/widgets/compaction_sheet.dart';
 import 'package:veraxi_app/features/chat/views/widgets/connect_repo_dialog.dart';
@@ -236,6 +237,7 @@ class _CodeChatPaneState extends ConsumerState<CodeChatPane> {
                       const _WeldedNewChatTray(),
                       const SizedBox(height: 10),
                     ],
+                    const AcpPermissionBanner(),
                     CodeChatComposer(
                       isLoading: state.isLoading,
                       onSend: _handleSend,

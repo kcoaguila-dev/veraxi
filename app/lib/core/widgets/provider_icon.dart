@@ -20,9 +20,12 @@ Widget buildProviderIcon(String provider) {
     assetPath = 'assets/icons/kimi.svg';
   } else if (lower == 'local') {
     assetPath = 'assets/icons/local.svg';
+  } else if (lower == 'antigravity') {
+    assetPath = 'assets/icons/antigravity.svg';
   }
 
   final colors = {
+    'Antigravity': const Color(0xFF38BDF8),
     'Google': Colors.white,
     'OpenAI': Colors.white,
     'Anthropic': const Color(0xFFd97757),

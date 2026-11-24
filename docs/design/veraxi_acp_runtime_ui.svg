@@ -1,0 +1,121 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1120 520" width="1120" height="520">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0B0E14"/>
+      <stop offset="100%" stop-color="#131823"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#38BDF8"/>
+      <stop offset="100%" stop-color="#818CF8"/>
+    </linearGradient>
+    <linearGradient id="warnGrad" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#F59E0B"/>
+      <stop offset="100%" stop-color="#F97316"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1120" height="520" rx="16" fill="url(#bg)"/>
+  <text x="28" y="34" fill="#F8FAFC" font-family="Inter, sans-serif" font-size="16" font-weight="600">
+    Veraxi External ACP Agent Runtime (Antigravity) — Design Contract
+  </text>
+  <text x="28" y="54" fill="#94A3B8" font-family="Inter, sans-serif" font-size="12">
+    Runtime Selector Pill · Interactive Permission Gate · Honest Quota &amp; 429 Fallback Banner · Settings Panel
+  </text>
+
+  <!-- Panel 1: Runtime Selector Pill (Code Workbench & Chat Composer) -->
+  <rect x="28" y="76" width="340" height="200" rx="12" fill="#151B26" stroke="#263044"/>
+  <text x="44" y="100" fill="#38BDF8" font-family="Inter, sans-serif" font-size="11" font-weight="600">
+    1. COMPOSER RUNTIME SELECTOR PILL
+  </text>
+  <rect x="44" y="116" width="218" height="32" rx="9" fill="#1D2433" stroke="#334155"/>
+  <circle cx="60" cy="132" r="4.5" fill="#22C55E"/>
+  <text x="72" y="136" fill="#E2E8F0" font-family="Inter, sans-serif" font-size="12" font-weight="500">Antigravity (Local ACP)</text>
+  <path d="M244 129 l4 4 l4 -4" stroke="#94A3B8" stroke-width="1.5" fill="none"/>
+
+  <!-- Popover -->
+  <rect x="44" y="156" width="308" height="104" rx="10" fill="#1B2230" stroke="#2F3B52"/>
+  <text x="58" y="178" fill="#94A3B8" font-family="Inter, sans-serif" font-size="11">Veraxi Engine · BYOK / Local Models (CRAG + Deep)</text>
+  <rect x="50" y="188" width="296" height="30" rx="6" fill="#233248"/>
+  <circle cx="64" cy="203" r="4" fill="#22C55E"/>
+  <text x="76" y="207" fill="#F8FAFC" font-family="Inter, sans-serif" font-size="11.5" font-weight="600">✓ Antigravity (Local ACP) · User Quota</text>
+  <text x="58" y="242" fill="#64748B" font-family="Inter, sans-serif" font-size="10.5">
+    Deep Debate &amp; Custom Prompt disabled in ACP mode
+  </text>
+
+  <!-- Panel 2: Interactive Permission Gate -->
+  <rect x="388" y="76" width="350" height="200" rx="12" fill="#151B26" stroke="#263044"/>
+  <text x="404" y="100" fill="#818CF8" font-family="Inter, sans-serif" font-size="11" font-weight="600">
+    2. ACP PERMISSION GATE (session/request_permission)
+  </text>
+  <rect x="404" y="116" width="318" height="142" rx="10" fill="#1B2230" stroke="#364158"/>
+  <text x="420" y="138" fill="#F1F5F9" font-family="Inter, sans-serif" font-size="12" font-weight="600">
+    Antigravity requests permission
+  </text>
+  <text x="420" y="158" fill="#94A3B8" font-family="Inter, sans-serif" font-size="11">
+    Tool: edit_file · backend/retrieval/vuln_queries.py
+  </text>
+  <rect x="420" y="170" width="286" height="32" rx="6" fill="#0F141D" stroke="#263044"/>
+  <text x="430" y="190" fill="#CBD5E1" font-family="monospace" font-size="10.5">
+    + parameterize tenant_id filter in Cypher query
+  </text>
+  <rect x="420" y="214" width="90" height="30" rx="7" fill="url(#accent)"/>
+  <text x="434" y="233" fill="#0B0E14" font-family="Inter, sans-serif" font-size="11" font-weight="600">Allow Once</text>
+  <rect x="518" y="214" width="102" height="30" rx="7" fill="#252E42" stroke="#3B4763"/>
+  <text x="530" y="233" fill="#E2E8F0" font-family="Inter, sans-serif" font-size="11">Allow Session</text>
+  <rect x="628" y="214" width="78" height="30" rx="7" fill="#2A1D24" stroke="#7F1D1D"/>
+  <text x="652" y="233" fill="#FCA5A5" font-family="Inter, sans-serif" font-size="11">Deny</text>
+
+  <!-- Panel 3: Quota & 429 Fallback Banner -->
+  <rect x="758" y="76" width="334" height="200" rx="12" fill="#151B26" stroke="#263044"/>
+  <text x="774" y="100" fill="#F59E0B" font-family="Inter, sans-serif" font-size="11" font-weight="600">
+    3. QUOTA TELEMETRY &amp; 429 FALLBACK
+  </text>
+  <rect x="774" y="116" width="302" height="44" rx="8" fill="#1C2332" stroke="#2F3A50"/>
+  <text x="788" y="135" fill="#CBD5E1" font-family="Inter, sans-serif" font-size="11">Local Session: 14.2k tokens · Quota: Native CLI</text>
+  <text x="788" y="150" fill="#64748B" font-family="Inter, sans-serif" font-size="10">Veraxi never fabricates unverified % remaining</text>
+
+  <rect x="774" y="172" width="302" height="86" rx="9" fill="#2A1E14" stroke="#B45309"/>
+  <text x="788" y="194" fill="#FDE68A" font-family="Inter, sans-serif" font-size="11.5" font-weight="600">
+    Antigravity Quota Exhausted (HTTP 429)
+  </text>
+  <text x="788" y="212" fill="#FCD34D" font-family="Inter, sans-serif" font-size="10.5">
+    Your Google AI subscription limit was reached.
+  </text>
+  <rect x="788" y="222" width="170" height="26" rx="6" fill="url(#warnGrad)"/>
+  <text x="798" y="239" fill="#0B0E14" font-family="Inter, sans-serif" font-size="10.5" font-weight="600">Switch to BYOK Model</text>
+
+  <!-- Panel 4: Settings -> Agent Runtimes -->
+  <rect x="28" y="296" width="1064" height="196" rx="12" fill="#151B26" stroke="#263044"/>
+  <text x="44" y="320" fill="#94A3B8" font-family="Inter, sans-serif" font-size="11" font-weight="600">
+    4. SETTINGS → EXTERNAL AGENT RUNTIMES
+  </text>
+  <rect x="44" y="336" width="500" height="136" rx="10" fill="#1B2230" stroke="#2E3A50"/>
+  <circle cx="64" cy="360" r="5" fill="#22C55E"/>
+  <text x="78" y="364" fill="#F8FAFC" font-family="Inter, sans-serif" font-size="13" font-weight="600">
+    Google Antigravity CLI (agy acp)
+  </text>
+  <text x="60" y="388" fill="#94A3B8" font-family="Inter, sans-serif" font-size="11">
+    Transport: Local stdio subprocess · Status: Ready
+  </text>
+  <text x="60" y="408" fill="#94A3B8" font-family="Inter, sans-serif" font-size="11">
+    Veraxi MCP Auto-Attach: Enabled (/mcp GraphRAG + Code X-Ray)
+  </text>
+  <text x="60" y="434" fill="#64748B" font-family="Inter, sans-serif" font-size="10.5">
+    Auth stays inside your local agy login. Veraxi never reads OAuth tokens.
+  </text>
+
+  <rect x="564" y="336" width="512" height="136" rx="10" fill="#1B2230" stroke="#2E3A50"/>
+  <text x="580" y="364" fill="#F8FAFC" font-family="Inter, sans-serif" font-size="13" font-weight="600">
+    Remote / Cloud Mode via veraxi-runner
+  </text>
+  <text x="580" y="388" fill="#94A3B8" font-family="Inter, sans-serif" font-size="11">
+    Connect your workstation to stream local Antigravity quota securely:
+  </text>
+  <rect x="580" y="402" width="480" height="30" rx="6" fill="#0F141D" stroke="#263044"/>
+  <text x="592" y="421" fill="#38BDF8" font-family="monospace" font-size="11">
+    veraxi-runner connect --url wss://... --enable-acp --acp-agents antigravity
+  </text>
+  <text x="580" y="452" fill="#64748B" font-family="Inter, sans-serif" font-size="10.5">
+    Outbound WebSocket · Zero inbound ports · Local trust boundary preserved
+  </text>
+</svg>

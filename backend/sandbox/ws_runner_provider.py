@@ -89,6 +89,11 @@ class WsRunnerProvider(SandboxProvider):
             logger.warning("Runner sent non-JSON message for tenant %s", tenant_id)
             return
         request_id = message.get("id")
+        if message.get("acp_event"):
+            from backend.acp.broker import get_acp_broker
+
+            await get_acp_broker().runner_transport.handle_runner_acp_event(message)
+            return
         queue = self._pending.get(str(request_id)) if request_id is not None else None
         if queue is not None:
             await queue.put(message)

@@ -25,6 +25,7 @@ def main(argv: list[str] | None = None) -> int:
     connect.add_argument("--runtime", choices=["microsandbox", "docker", "direct"], default="docker")
     connect.add_argument("--tenant-id", default=None, help="Tenant id (or VERAXI_TENANT_ID)")
     connect.add_argument("--offline", action="store_true", help="Disable networking for commands")
+    connect.add_argument("--enable-acp", action="store_true", help="Enable local ACP bridge (e.g. agy acp)")
     args = parser.parse_args(argv)
 
     if args.command == "connect":
@@ -34,7 +35,10 @@ def main(argv: list[str] | None = None) -> int:
         tenant_id = args.tenant_id or os.environ.get("VERAXI_TENANT_ID", "")
         from veraxi_runner.client import run_connect
 
-        run_connect(args.url, token, args.repo, args.runtime, tenant_id, args.offline)
+        run_connect(
+            args.url, token, args.repo, args.runtime, tenant_id, args.offline,
+            enable_acp=args.enable_acp,
+        )
         return 0
     return 2
 

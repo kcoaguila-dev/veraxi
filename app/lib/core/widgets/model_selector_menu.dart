@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:veraxi_app/features/chat/view_models/acp_runtime_view_model.dart';
 import 'package:veraxi_app/features/chat/view_models/chat_view_model.dart';
 import 'package:veraxi_app/features/chat/views/widgets/api_key_dialog.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
@@ -89,8 +90,12 @@ class _ModelSelectorMenuState extends ConsumerState<ModelSelectorMenu> {
     _subMenuOverlayEntry = null;
   }
 
-  void _openSubMenu(String provider, List<String> models) {
+  void _openSubMenu(String provider, List<String> models,
+      {bool isSubscription = false}) {
     _closeMenu(); // close main menu
+    if (isSubscription) {
+      ref.read(acpRuntimeProvider.notifier).refreshStatus();
+    }
 
     showDialog(
       context: context,
@@ -231,6 +236,11 @@ class _ModelSelectorMenuState extends ConsumerState<ModelSelectorMenu> {
                               isSelected: isSelected,
                               isPinned: isPinned,
                               onTap: () {
+                                ref
+                                    .read(acpRuntimeProvider.notifier)
+                                    .selectRuntime(isSubscription
+                                        ? AgentRuntimeType.antigravityAcp
+                                        : AgentRuntimeType.veraxi);
                                 widget.onModelSelected(model);
                                 Navigator.of(context).pop();
                               },
@@ -274,6 +284,8 @@ class _ModelSelectorMenuState extends ConsumerState<ModelSelectorMenu> {
         return Consumer(
           builder: (context, ref, child) {
             final allProviderModels = ref.watch(providerModelsProvider);
+            final acpState = ref.watch(acpRuntimeProvider);
+            final antigravityModels = acpState.status.models;
 
             return Stack(
               children: [
@@ -462,6 +474,44 @@ class _ModelSelectorMenuState extends ConsumerState<ModelSelectorMenu> {
                                               height: 1),
                                         ),
                                       ],
+                                      const Padding(
+                                        padding: EdgeInsets.symmetric(
+                                            horizontal: 12, vertical: 4),
+                                        child: Text('Subscription',
+                                            style: TextStyle(
+                                                color: Color(0xFF6E6E6E),
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.w600)),
+                                      ),
+                                      HoverableProviderRow(
+                                        provider: 'Antigravity',
+                                        isHovered:
+                                            _hoveredProvider == 'Antigravity',
+                                        onEnter: (layerLink) {},
+                                        onTap: (layerLink) {
+                                          _openSubMenu(
+                                            'Antigravity',
+                                            antigravityModels,
+                                            isSubscription: true,
+                                          );
+                                        },
+                                        onSettingsTap: () {
+                                          _openSubMenu(
+                                            'Antigravity',
+                                            antigravityModels,
+                                            isSubscription: true,
+                                          );
+                                        },
+                                      ),
+                                      Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                            vertical: 4),
+                                        child: Divider(
+                                            color: Theme.of(context)
+                                                .extension<AppThemeExtension>()!
+                                                .borderColor,
+                                            height: 1),
+                                      ),
                                       if (allProviderModels.isNotEmpty) ...[
                                         Padding(
                                           padding: EdgeInsets.symmetric(

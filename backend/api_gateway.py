@@ -330,6 +330,7 @@ async def verify_infrastructure_access(
 # ---------------------------------------------------------------------------
 # Register all route modules
 # ---------------------------------------------------------------------------
+from backend.routes.acp import register_acp_routes
 from backend.routes.admin import register_admin_routes
 from backend.routes.api_keys import register_api_key_routes
 from backend.routes.artifacts import register_artifact_routes
@@ -371,6 +372,7 @@ register_integration_routes(app, get_tenant_id, _get_supabase, config)
 register_sandbox_routes(app, get_tenant_id, _get_supabase, config)
 register_memory_routes(app, get_tenant_id, _get_supabase, config)
 register_usage_routes(app, get_tenant_id, _get_supabase, config)
+register_acp_routes(app, get_tenant_id, _get_supabase, config)
 register_corpus_insights_routes(app, get_tenant_id, _get_supabase, config)
 register_code_intel_routes(app, get_tenant_id, _get_supabase, config)
 register_eval_routes(app, get_tenant_id, _get_supabase, config)

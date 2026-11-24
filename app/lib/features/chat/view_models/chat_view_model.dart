@@ -13,6 +13,7 @@ import 'package:veraxi_app/features/chat/data/chat_repository.dart';
 import 'package:veraxi_app/features/chat/data/local_chat_migration_service.dart';
 import 'package:veraxi_app/core/repositories/memory_repository.dart';
 export 'chat_state.dart';
+import 'package:veraxi_app/features/chat/view_models/acp_runtime_view_model.dart';
 import 'package:veraxi_app/features/chat/view_models/chat_state.dart';
 import 'package:veraxi_app/features/chat/view_models/auto_compact.dart';
 import 'package:veraxi_app/features/chat/view_models/token_usage.dart';
@@ -25,7 +26,14 @@ final chatViewModelProvider =
   final migrationService = LocalChatMigrationService(
     apiClient: ref.watch(apiClientProvider),
   );
-  return ChatViewModel(repo, ttsRepo, memoryRepo, migrationService);
+  return ChatViewModel(
+    repo,
+    ttsRepo,
+    memoryRepo,
+    migrationService,
+    'last_active_thread_id',
+    ref.read(acpRuntimeProvider.notifier),
+  );
 });
 
 /// Dedicated thread state for Code Mode so Code threads stay isolated from
@@ -44,6 +52,7 @@ final codeChatViewModelProvider =
     memoryRepo,
     migrationService,
     'last_active_code_thread_id',
+    ref.read(acpRuntimeProvider.notifier),
   );
 });
 
@@ -61,10 +70,12 @@ class ChatViewModel extends StateNotifier<ChatState> {
   bool _lastLoadThreadsSucceeded = false;
 
   final String _lastThreadIdKey;
+  final AcpRuntimeNotifier? _acpNotifier;
 
   ChatViewModel(this._repository, TTSRepository? _, this._memoryRepository,
       [this._localChatMigrationService,
-      String lastThreadIdKey = 'last_active_thread_id'])
+      String lastThreadIdKey = 'last_active_thread_id',
+      this._acpNotifier])
       : _lastThreadIdKey = lastThreadIdKey,
         super(ChatState(isLoadingHistory: true)) {
     _init();
@@ -464,7 +475,11 @@ class ChatViewModel extends StateNotifier<ChatState> {
     if (text.trim().isEmpty && (attachments == null || attachments.isEmpty))
       return;
 
-    if (model == null || model == 'Select a model' || model.isEmpty) {
+    final acpState = _acpNotifier?.state;
+    final isAcpActive = acpState?.isAcpActive ?? false;
+
+    if (!isAcpActive &&
+        (model == null || model == 'Select a model' || model.isEmpty)) {
       final userMsg = ChatMessage(
           role: 'user', content: text.isEmpty ? '[Attachment]' : text);
       final errorMsg = ChatMessage(
@@ -477,19 +492,22 @@ class ChatViewModel extends StateNotifier<ChatState> {
       return;
     }
 
-    final provider = ModelProviderMapper.resolve(model);
-    final hasExpired = await ApiKeyStorage().isKeyExpired(provider);
-    if (hasExpired) {
-      final expireDate = await ApiKeyStorage().getKeyExpirationDate(provider);
-      final userMsg = ChatMessage(role: 'user', content: text);
-      final errorMsg = ChatMessage(
-        role: 'assistant',
-        content:
-            'Provided key for $provider expired at $expireDate. Please provide a new key and try again.',
-        isError: true,
-      );
-      state = state.copyWith(messages: [...state.messages, userMsg, errorMsg]);
-      return;
+    if (!isAcpActive && model != null) {
+      final provider = ModelProviderMapper.resolve(model);
+      final hasExpired = await ApiKeyStorage().isKeyExpired(provider);
+      if (hasExpired) {
+        final expireDate = await ApiKeyStorage().getKeyExpirationDate(provider);
+        final userMsg = ChatMessage(role: 'user', content: text);
+        final errorMsg = ChatMessage(
+          role: 'assistant',
+          content:
+              'Provided key for $provider expired at $expireDate. Please provide a new key and try again.',
+          isError: true,
+        );
+        state =
+            state.copyWith(messages: [...state.messages, userMsg, errorMsg]);
+        return;
+      }
     }
 
     final userMsgForUI = ChatMessage(
@@ -568,25 +586,34 @@ class ChatViewModel extends StateNotifier<ChatState> {
       try {
         // Code Mode sends carry the Phase 1 scope; plain chat keeps
         // the exact legacy invocation shape.
+        final effectiveModel = isAcpActive
+            ? (model != null && model.isNotEmpty && model != 'Select a model'
+                ? model
+                : 'antigravity-acp')
+            : model;
         final stream = codeScope == null
             ? _repository.streamChat(
                 currentQuery,
                 threadId: state.threadId,
                 isTemporary: state.isTemporary,
-                model: model,
-                calculateGrounding: state.showTelemetry,
+                model: effectiveModel,
+                calculateGrounding: isAcpActive ? false : state.showTelemetry,
                 toolSettings: toolSettings,
                 thinkingLevel: thinkingLevel,
+                agentRuntime: isAcpActive ? 'antigravity_acp' : null,
+                attachVeraxiMcp: acpState?.attachVeraxiMcp ?? true,
               )
             : _repository.streamChat(
                 currentQuery,
                 threadId: state.threadId,
                 isTemporary: state.isTemporary,
-                model: model,
-                calculateGrounding: state.showTelemetry,
+                model: effectiveModel,
+                calculateGrounding: isAcpActive ? false : state.showTelemetry,
                 toolSettings: toolSettings,
                 codeScope: codeScope,
                 thinkingLevel: thinkingLevel,
+                agentRuntime: isAcpActive ? 'antigravity_acp' : null,
+                attachVeraxiMcp: acpState?.attachVeraxiMcp ?? true,
               );
         await for (final event in stream) {
           _handleStreamEvent(event);
@@ -711,6 +738,9 @@ class ChatViewModel extends StateNotifier<ChatState> {
     }
     if (event.containsKey('error')) {
       final rawError = event['error'].toString();
+      if (event['code'] == 'quota_exhausted') {
+        _acpNotifier?.markQuotaExhausted(rawError);
+      }
       String uiError = rawError;
       if (rawError.contains("API key") ||
           rawError.contains("API_KEY_INVALID") ||
@@ -742,6 +772,10 @@ class ChatViewModel extends StateNotifier<ChatState> {
     }
 
     final type = event['event']; // astream_events v2 provides 'event'
+    if (type == 'acp_permission_request') {
+      _acpNotifier?.setPendingPermission(AcpPermissionPrompt.fromEvent(event));
+      return;
+    }
     if (type == 'metadata') {
       final data = event['data'];
       bool shouldLoad = false;

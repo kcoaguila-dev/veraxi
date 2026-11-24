@@ -139,6 +139,12 @@ class Config:
     reranker_enabled: bool = True
     reranker_model_name: str = "Xenova/ms-marco-MiniLM-L-6-v2"
     near_duplicate_threshold: float = 0.75
+    # External ACP Agent Runtimes (e.g. Google Antigravity CLI `agy acp`)
+    acp_enabled: bool = False
+    antigravity_acp_bin: str = "agy"
+    antigravity_data_dir: str = ""
+    acp_idle_timeout_sec: int = 900
+    acp_max_sessions_per_tenant: int = 3
 
     @classmethod
     def from_env(cls) -> "Config":
@@ -372,6 +378,13 @@ class Config:
             ),
             near_duplicate_threshold=float(
                 os.environ.get("NEAR_DUPLICATE_THRESHOLD", "0.75")
+            ),
+            acp_enabled=os.environ.get("ACP_ENABLED", "false").lower() == "true",
+            antigravity_acp_bin=os.environ.get("ANTIGRAVITY_ACP_BIN", "agy"),
+            antigravity_data_dir=os.environ.get("ANTIGRAVITY_DATA_DIR", ""),
+            acp_idle_timeout_sec=int(os.environ.get("ACP_IDLE_TIMEOUT_SEC", "900")),
+            acp_max_sessions_per_tenant=int(
+                os.environ.get("ACP_MAX_SESSIONS_PER_TENANT", "3")
             ),
         )
 

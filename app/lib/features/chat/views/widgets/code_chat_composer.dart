@@ -14,6 +14,7 @@ import 'package:veraxi_app/features/chat/view_models/code_chat_view_model.dart';
 import 'package:veraxi_app/features/chat/view_models/code_file_view_model.dart';
 import 'package:veraxi_app/features/chat/view_models/sandbox_toggle_view_model.dart';
 import 'package:veraxi_app/features/chat/view_models/token_usage.dart';
+import 'package:veraxi_app/features/chat/views/widgets/acp_runtime_pill.dart';
 import 'package:veraxi_app/features/chat/views/widgets/chat_input.dart';
 import 'package:veraxi_app/features/chat/views/widgets/code_sources_popover.dart';
 
@@ -564,6 +565,7 @@ class _CodeChatComposerState extends ConsumerState<CodeChatComposer> {
       runSpacing: 6,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
+        const AcpRuntimePill(),
         ModelSelectorMenu(
           selectedModel: modelSelection.selectedModel,
           pinnedModels: modelSelection.pinnedModels.toList(),

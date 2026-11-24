@@ -102,7 +102,9 @@ class LocalChatRepository implements IChatRepository {
       bool calculateGrounding = true,
       Map<String, dynamic>? toolSettings,
       Map<String, dynamic>? codeScope,
-      String? thinkingLevel}) async* {
+      String? thinkingLevel,
+      String? agentRuntime,
+      bool attachVeraxiMcp = true}) async* {
     final effectiveThreadId = threadId ?? _uuid.v4();
 
     // Code Mode scope stamped onto the local thread row (Phase 1
@@ -185,6 +187,8 @@ class LocalChatRepository implements IChatRepository {
         calculateGrounding: calculateGrounding,
         toolSettings: toolSettings,
         codeScope: codeScope,
+        agentRuntime: agentRuntime,
+        attachVeraxiMcp: attachVeraxiMcp,
       );
     }
 
