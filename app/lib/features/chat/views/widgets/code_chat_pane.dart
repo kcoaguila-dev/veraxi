@@ -11,14 +11,13 @@ import 'package:veraxi_app/features/chat/view_models/chat_view_model.dart';
 import 'package:veraxi_app/features/chat/view_models/code_chat_view_model.dart';
 import 'package:veraxi_app/features/chat/view_models/code_review_view_model.dart';
 import 'package:veraxi_app/features/chat/view_models/connect_repo_view_model.dart';
-import 'package:veraxi_app/features/chat/view_models/sandbox_toggle_view_model.dart';
 import 'package:veraxi_app/features/chat/view_models/token_usage.dart';
 import 'package:veraxi_app/features/chat/views/widgets/chat_message_list_item.dart';
 import 'package:veraxi_app/features/chat/views/widgets/acp_permission_banner.dart';
 import 'package:veraxi_app/features/chat/views/widgets/code_chat_composer.dart';
 import 'package:veraxi_app/features/chat/views/widgets/compaction_sheet.dart';
+import 'package:veraxi_app/features/chat/views/widgets/composer_context_bar.dart';
 import 'package:veraxi_app/features/chat/views/widgets/connect_repo_dialog.dart';
-import 'package:veraxi_app/features/settings/views/widgets/settings_dialog.dart';
 
 /// Code Chat pane: the Code Mode center stage.
 ///
@@ -233,12 +232,13 @@ class _CodeChatPaneState extends ConsumerState<CodeChatPane> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    if (isEmpty && !state.isLoadingHistory) ...[
-                      const _WeldedNewChatTray(),
-                      const SizedBox(height: 10),
-                    ],
                     const AcpPermissionBanner(),
                     CodeChatComposer(
+                      headerSlot: isEmpty && !state.isLoadingHistory
+                          ? ComposerContextBar(
+                              indexingStatusSlot: _buildIndexingStatusSlot(),
+                            )
+                          : null,
                       isLoading: state.isLoading,
                       onSend: _handleSend,
                       errorText: state.error,
@@ -334,232 +334,23 @@ class _CodeChatPaneState extends ConsumerState<CodeChatPane> {
       ),
     );
   }
-}
 
-/// Welded New Chat tray: docked directly above the composer in the
-/// empty state, carrying the repo and branch the new thread will be
-/// scoped to. Repo options are the indexed repos; branch options
-/// are the known branches for the repo — no branch-list endpoint
-/// exists yet, so `main` is the only entry until one does.
-class _WeldedNewChatTray extends ConsumerWidget {
-  const _WeldedNewChatTray();
-
-  static const String _noRepoSentinel = '__no_repo__';
-  static const String _execChatOnly = 'chat_only';
-  static const String _execSandbox = 'sandbox';
-  static const String _execConfigure = 'configure_sandbox';
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final repos = ref.watch(indexedReposProvider);
-    final selectedRepo = ref.watch(selectedIndexedRepoProvider);
-    final branch = ref.watch(codeBranchProvider);
-    final sandboxEnabled = ref.watch(sandboxToggleViewModelProvider).enabled;
+  Widget _buildIndexingStatusSlot() {
     final connectState = ref.watch(connectRepoViewModelProvider);
-    final theme = Theme.of(context);
-    final ext = theme.extension<AppThemeExtension>()!;
-    const branches = <String>['main'];
-    final hasSelectedRepo =
-        selectedRepo != null && repos.any((r) => r.repoKey == selectedRepo);
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: ext.cardBackground,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: ext.borderColor),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            sandboxEnabled
-                ? Icons.terminal_outlined
-                : Icons.chat_bubble_outline,
-            size: 14,
-            color: sandboxEnabled ? const Color(0xFF34D399) : ext.iconColor,
-          ),
-          const SizedBox(width: 6),
-          PopupMenuButton<String>(
-            tooltip: 'Execution target',
-            color: ext.cardBackground,
-            padding: EdgeInsets.zero,
-            onSelected: (value) {
-              if (value == _execConfigure) {
-                showDialog<void>(
-                  context: context,
-                  builder: (_) =>
-                      const SettingsDialog(initialTab: 'Code Sandboxes'),
-                );
-                return;
-              }
-              ref
-                  .read(sandboxToggleViewModelProvider.notifier)
-                  .setEnabled(value == _execSandbox);
-            },
-            itemBuilder: (_) => [
-              const PopupMenuItem<String>(
-                value: _execChatOnly,
-                child: Text('Chat only'),
-              ),
-              const PopupMenuItem<String>(
-                value: _execSandbox,
-                child: Text('Cloud Sandbox'),
-              ),
-              const PopupMenuItem<String>(
-                value: _execConfigure,
-                child: Text(
-                  'Configure Sandbox…',
-                  style: TextStyle(color: Color(0xFF34D399)),
-                ),
-              ),
-            ],
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    sandboxEnabled ? 'Cloud Sandbox' : 'Chat only',
-                    style: TextStyle(
-                      color: theme.colorScheme.onSurface,
-                      fontSize: 12.5,
-                    ),
-                  ),
-                  const SizedBox(width: 2),
-                  Icon(Icons.keyboard_arrow_down,
-                      size: 16, color: ext.iconColor),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Icon(Icons.folder_outlined, size: 15, color: ext.iconColor),
-          const SizedBox(width: 8),
-          Expanded(
-            child: repos.isEmpty
-                ? Row(
-                    children: [
-                      Flexible(
-                        child: Text(
-                          'No repo (Scratchpad)',
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                              color: ext.textTertiary, fontSize: 12.5),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      if (connectState.indexing)
-                        _IndexingStatusPill(
-                          target: connectState.activeTarget ?? 'repo',
-                        )
-                      else if (connectState.errorMessage != null)
-                        _IndexingErrorPill(
-                          message: connectState.errorMessage!,
-                          onRetry: () => showConnectRepoDialog(context),
-                          onDismiss: () => ref
-                              .read(connectRepoViewModelProvider.notifier)
-                              .clearBanner(),
-                        )
-                      else
-                        InkWell(
-                          borderRadius: BorderRadius.circular(6),
-                          onTap: () => showConnectRepoDialog(context),
-                          child: const Padding(
-                            padding: EdgeInsets.symmetric(
-                                horizontal: 6, vertical: 2),
-                            child: Text(
-                              '+ Connect repo',
-                              style: TextStyle(
-                                color: Color(0xFF34D399),
-                                fontSize: 12,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ),
-                        ),
-                    ],
-                  )
-                : DropdownButtonHideUnderline(
-                    child: DropdownButton<String>(
-                      value: hasSelectedRepo ? selectedRepo : _noRepoSentinel,
-                      isDense: true,
-                      isExpanded: true,
-                      dropdownColor: ext.cardBackground,
-                      icon: Icon(Icons.keyboard_arrow_down,
-                          size: 16, color: ext.iconColor),
-                      style: TextStyle(
-                        color: theme.colorScheme.onSurface,
-                        fontSize: 12.5,
-                      ),
-                      items: [
-                        DropdownMenuItem<String>(
-                          value: _noRepoSentinel,
-                          child: Text(
-                            'No repo (Scratchpad)',
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(color: ext.textTertiary),
-                          ),
-                        ),
-                        for (final repo in repos)
-                          DropdownMenuItem<String>(
-                            value: repo.repoKey,
-                            child: Text(
-                              repo.displayName,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                      ],
-                      onChanged: (value) {
-                        if (value == null) return;
-                        final sources = ref.read(codeSelectedSourcesProvider);
-                        if (value == _noRepoSentinel) {
-                          ref.read(selectedIndexedRepoProvider.notifier).state =
-                              null;
-                          ref.read(codeSelectedSourcesProvider.notifier).state =
-                              sources.copyWith(repoKeys: const {});
-                          return;
-                        }
-                        ref.read(selectedIndexedRepoProvider.notifier).state =
-                            value;
-                        // A welded-tray repo pick replaces the repo
-                        // selection (preserving any selected docs) so
-                        // the first send is scoped to this repo.
-                        ref.read(codeSelectedSourcesProvider.notifier).state =
-                            sources.copyWith(repoKeys: {value});
-                      },
-                    ),
-                  ),
-          ),
-          const SizedBox(width: 12),
-          Icon(Icons.call_split, size: 14, color: ext.iconColor),
-          const SizedBox(width: 6),
-          DropdownButtonHideUnderline(
-            child: DropdownButton<String>(
-              value: branches.contains(branch) ? branch : branches.first,
-              isDense: true,
-              dropdownColor: ext.cardBackground,
-              icon: Icon(Icons.keyboard_arrow_down,
-                  size: 16, color: ext.iconColor),
-              style: TextStyle(
-                color: theme.colorScheme.onSurface,
-                fontSize: 12.5,
-              ),
-              items: [
-                for (final name in branches)
-                  DropdownMenuItem<String>(
-                    value: name,
-                    child: Text(name),
-                  ),
-              ],
-              onChanged: (value) {
-                if (value == null) return;
-                ref.read(codeBranchProvider.notifier).state = value;
-              },
-            ),
-          ),
-        ],
-      ),
-    );
+    if (connectState.indexing) {
+      return _IndexingStatusPill(
+        target: connectState.activeTarget ?? 'repo',
+      );
+    }
+    if (connectState.errorMessage != null) {
+      return _IndexingErrorPill(
+        message: connectState.errorMessage!,
+        onRetry: () => showConnectRepoDialog(context),
+        onDismiss: () =>
+            ref.read(connectRepoViewModelProvider.notifier).clearBanner(),
+      );
+    }
+    return const SizedBox.shrink();
   }
 }
 

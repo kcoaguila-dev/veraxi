@@ -261,6 +261,9 @@ final codeSelectedSourcesProvider =
 /// thread sends as the request `branch`.
 final codeBranchProvider = StateProvider<String>((ref) => 'main');
 
+/// Whether the next Code thread should isolate edits in a new git worktree.
+final codeWorktreeProvider = StateProvider<bool>((ref) => false);
+
 /// Active Code review session focus, or null when no review is open.
 final activeReviewSessionProvider =
     StateProvider<CodeReviewState?>((ref) => null);

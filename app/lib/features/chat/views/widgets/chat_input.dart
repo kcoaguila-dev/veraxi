@@ -55,9 +55,18 @@ class ChatInput extends StatefulWidget {
   /// Overrides the default hint text when non-null.
   final String? hintText;
 
+  /// Extra widget rendered in the bottom action row just after the
+  /// attachment/tools buttons (used by Code composer for model,
+  /// thinking level, and Plan|Act controls).
+  final Widget? leadingFooterSlot;
+
   /// Extra widget rendered in the bottom action row just before the
   /// token-usage ring (the Code composer's `N sources` pill).
   final Widget? trailingSlot;
+
+  /// When true, omits the outer rounded card decoration so a parent
+  /// unified composer card can own the outer container and borders.
+  final bool embedded;
 
   const ChatInput({
     super.key,
@@ -76,7 +85,9 @@ class ChatInput extends StatefulWidget {
     this.controller,
     this.onChanged,
     this.hintText,
+    this.leadingFooterSlot,
     this.trailingSlot,
+    this.embedded = false,
   });
 
   @override
@@ -511,13 +522,18 @@ class _ChatInputState extends State<ChatInput> {
           ),
         Container(
           width: double.infinity,
-          decoration: BoxDecoration(
-            color: Theme.of(context)
-                .extension<AppThemeExtension>()!
-                .surfaceHighlight,
-            borderRadius: BorderRadius.circular(24),
+          decoration: widget.embedded
+              ? null
+              : BoxDecoration(
+                  color: Theme.of(context)
+                      .extension<AppThemeExtension>()!
+                      .surfaceHighlight,
+                  borderRadius: BorderRadius.circular(24),
+                ),
+          padding: EdgeInsets.symmetric(
+            horizontal: widget.embedded ? 14.0 : 12.0,
+            vertical: widget.embedded ? 6.0 : 4.0,
           ),
-          padding: EdgeInsets.symmetric(horizontal: 12.0, vertical: 4.0),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -742,12 +758,16 @@ class _ChatInputState extends State<ChatInput> {
                       const ToolsMenuIntegrations(),
                     ],
                   ),
-                  SizedBox(width: 8),
+                  SizedBox(width: 4),
                   Expanded(
                     child: SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
                       child: Row(
                         children: [
+                          if (widget.leadingFooterSlot != null) ...[
+                            widget.leadingFooterSlot!,
+                            const SizedBox(width: 8),
+                          ],
                           if (_fileSearchActive)
                             _buildActiveToolChip(
                                 'File Search',

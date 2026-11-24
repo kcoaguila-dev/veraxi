@@ -12,11 +12,11 @@ import 'package:veraxi_app/core/widgets/thinking_level_selector.dart';
 import 'package:veraxi_app/features/chat/view_models/auto_compact.dart';
 import 'package:veraxi_app/features/chat/view_models/code_chat_view_model.dart';
 import 'package:veraxi_app/features/chat/view_models/code_file_view_model.dart';
-import 'package:veraxi_app/features/chat/view_models/sandbox_toggle_view_model.dart';
 import 'package:veraxi_app/features/chat/view_models/token_usage.dart';
 import 'package:veraxi_app/features/chat/views/widgets/acp_runtime_pill.dart';
 import 'package:veraxi_app/features/chat/views/widgets/chat_input.dart';
 import 'package:veraxi_app/features/chat/views/widgets/code_sources_popover.dart';
+import 'package:veraxi_app/features/chat/views/widgets/composer_context_bar.dart';
 
 /// The active autocomplete trigger in the Code composer draft: the
 /// sigil (`@`, `$`, `/`), the partial token after it, and the offset
@@ -60,6 +60,10 @@ class CodeChatComposer extends ConsumerStatefulWidget {
   /// handled internally against [codeExecutionModeProvider].
   final ValueChanged<String>? onSlashCommand;
 
+  /// Optional connected top context bar (repo, branch/worktree,
+  /// execution mode) docked inside the unified composer card.
+  final Widget? headerSlot;
+
   const CodeChatComposer({
     super.key,
     required this.isLoading,
@@ -73,6 +77,7 @@ class CodeChatComposer extends ConsumerStatefulWidget {
     this.onAutoCompactModeChanged,
     this.onCompactPressed,
     this.onSlashCommand,
+    this.headerSlot,
   });
 
   @override
@@ -208,6 +213,7 @@ class _CodeChatComposerState extends ConsumerState<CodeChatComposer> {
   Widget build(BuildContext context) {
     final selectedModel = ref.watch(modelSelectionProvider).selectedModel;
     final attachedHunk = ref.watch(attachedDiffHunkProvider);
+    final ext = Theme.of(context).extension<AppThemeExtension>()!;
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -217,20 +223,24 @@ class _CodeChatComposerState extends ConsumerState<CodeChatComposer> {
           const SizedBox(height: 8),
         ],
         Container(
-          decoration: attachedHunk != null
-              ? BoxDecoration(
-                  color: const Color(0xFF13151A),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: const Color(0xFF3B82F6),
-                    width: 0.9,
-                  ),
-                )
-              : null,
+          decoration: BoxDecoration(
+            color: ext.surfaceHighlight,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: attachedHunk != null
+                  ? const Color(0xFF3B82F6)
+                  : ext.borderColorStrong,
+              width: 0.9,
+            ),
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              if (widget.headerSlot != null) ...[
+                widget.headerSlot!,
+                Divider(height: 1, thickness: 1, color: ext.borderColor),
+              ],
               if (attachedHunk != null)
                 Padding(
                   padding: const EdgeInsets.fromLTRB(12, 10, 12, 2),
@@ -288,13 +298,20 @@ class _CodeChatComposerState extends ConsumerState<CodeChatComposer> {
                 onCompactPressed: widget.onCompactPressed,
                 hintText:
                     'Ask anything. @ files, \$ skills, / commands (/security-review)',
-                trailingSlot: const CodeSourcesPill(),
+                leadingFooterSlot: _buildInlineFooterControls(),
+                trailingSlot: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    CodeSourcesPill(),
+                    SizedBox(width: 4),
+                    LocalPermissionsTrigger(),
+                  ],
+                ),
+                embedded: true,
               ),
             ],
           ),
         ),
-        const SizedBox(height: 8),
-        _buildBelowComposerRow(),
       ],
     );
   }
@@ -552,20 +569,17 @@ class _CodeChatComposerState extends ConsumerState<CodeChatComposer> {
     );
   }
 
-  Widget _buildBelowComposerRow() {
+  Widget _buildInlineFooterControls() {
     final modelSelection = ref.watch(modelSelectionProvider);
     final executionMode = ref.watch(codeExecutionModeProvider);
-    final sandboxEnabled = ref.watch(sandboxToggleViewModelProvider).enabled;
-    final autonomyMode = ref.watch(codeAutonomyModeProvider);
 
     final theme = Theme.of(context);
     final ext = theme.extension<AppThemeExtension>()!;
-    return Wrap(
-      spacing: 8,
-      runSpacing: 6,
-      crossAxisAlignment: WrapCrossAlignment.center,
+    return Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
         const AcpRuntimePill(),
+        const SizedBox(width: 6),
         ModelSelectorMenu(
           selectedModel: modelSelection.selectedModel,
           pinnedModels: modelSelection.pinnedModels.toList(),
@@ -576,11 +590,12 @@ class _CodeChatComposerState extends ConsumerState<CodeChatComposer> {
               ref.read(modelSelectionProvider.notifier).pinModel(model),
           onModelUnpinned: (model) =>
               ref.read(modelSelectionProvider.notifier).unpinModel(model),
-          child: _belowRowPill(
+          child: _inlineControlPill(
             icon: Icons.psychology_outlined,
             label: modelSelection.selectedModel,
           ),
         ),
+        const SizedBox(width: 6),
         ThinkingLevelSelector(
           selectedModel: modelSelection.selectedModel,
           openUpward: true,
@@ -592,60 +607,24 @@ class _CodeChatComposerState extends ConsumerState<CodeChatComposer> {
             }
           },
         ),
+        const SizedBox(width: 6),
         _buildPlanActToggle(executionMode),
-        if (sandboxEnabled)
-          PopupMenuButton<String>(
-            tooltip: 'Sandbox autonomy',
-            color: ext.cardBackground,
-            onSelected: (value) =>
-                ref.read(codeAutonomyModeProvider.notifier).state = value,
-            itemBuilder: (context) => [
-              for (final (value, label) in codeAutonomyTiers)
-                PopupMenuItem<String>(
-                  value: value,
-                  child: Row(
-                    children: [
-                      Icon(
-                        value == autonomyMode ? Icons.check : null,
-                        size: 15,
-                        color: theme.colorScheme.onSurface,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        label,
-                        style: TextStyle(
-                            color: theme.colorScheme.onSurface, fontSize: 13),
-                      ),
-                    ],
-                  ),
-                ),
-            ],
-            child: _belowRowPill(
-              icon: Icons.shield_outlined,
-              label: codeAutonomyLabel(autonomyMode),
-            ),
-          ),
       ],
     );
   }
 
-  Widget _belowRowPill({required IconData icon, required String label}) {
+  Widget _inlineControlPill({required IconData icon, required String label}) {
     final theme = Theme.of(context);
     final ext = theme.extension<AppThemeExtension>()!;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: ext.cardBackground,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: ext.borderColorStrong),
-      ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(icon, size: 14, color: ext.iconColor),
-          const SizedBox(width: 6),
+          const SizedBox(width: 5),
           ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 200),
+            constraints: const BoxConstraints(maxWidth: 180),
             child: Text(
               label,
               style: TextStyle(
@@ -657,7 +636,7 @@ class _CodeChatComposerState extends ConsumerState<CodeChatComposer> {
               overflow: TextOverflow.ellipsis,
             ),
           ),
-          const SizedBox(width: 4),
+          const SizedBox(width: 2),
           Icon(
             Icons.keyboard_arrow_down,
             size: 14,
