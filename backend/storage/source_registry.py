@@ -31,7 +31,7 @@ def _format_relative_age(iso_ts: str | None, stale_days: int) -> tuple[str, bool
     if not iso_ts:
         return "Indexed", False
     try:
-        dt = datetime.fromisoformat(str(iso_ts).replace("Z", "+00:00"))
+        dt = datetime.fromisoformat(str(iso_ts))
         if dt.tzinfo is None:
             dt = dt.replace(tzinfo=UTC)
         now = datetime.now(UTC)

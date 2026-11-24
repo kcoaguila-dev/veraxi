@@ -501,7 +501,13 @@ async def test_delete_thread_success(override_redis):
 
 import json as _json
 
-from backend.routes.chat import ChatRequest, _build_thread_list, _parse_code_meta
+from backend.routes.chat import (
+    ChatRequest,
+    _build_thread_list,
+    _effective_tool_settings,
+    _merged_code_meta,
+    _parse_code_meta,
+)
 
 
 def _b(value):
@@ -699,6 +705,59 @@ async def test_chat_code_mode_persists_code_meta_and_threads_filter(
     assert no_match.json()["threads"] == []
 
 
+def test_effective_tool_settings_preserves_tool_settings_plan_mode():
+    """Phase 1 (1.5): tool_settings plan/code must not be downgraded
+    by the ChatRequest defaults when the top-level fields are omitted."""
+    req = ChatRequest(
+        question="hi",
+        tool_settings={"execution_mode": "plan", "workspace_mode": "code"},
+    )
+    ts = _effective_tool_settings(req)
+    assert ts["execution_mode"] == "plan"
+    assert ts["workspace_mode"] == "code"
+    # Explicit top-level fields still win over tool_settings.
+    req2 = ChatRequest(
+        question="hi",
+        execution_mode="act",
+        workspace_mode="chat",
+        tool_settings={"execution_mode": "plan", "workspace_mode": "code"},
+    )
+    ts2 = _effective_tool_settings(req2)
+    assert ts2["execution_mode"] == "act"
+    assert ts2["workspace_mode"] == "chat"
+    # Neither channel set: documented defaults apply.
+    ts3 = _effective_tool_settings(ChatRequest(question="hi"))
+    assert ts3["execution_mode"] == "act"
+    assert ts3["workspace_mode"] == "chat"
+
+
+def test_merged_code_meta_preserves_stored_fields_on_follow_up():
+    """Phase 1 (1.5): a follow-up turn sending only thread_id keeps
+    the stored Code Mode meta instead of resetting it to chat/null."""
+    import json as _json
+
+    stored = _json.dumps(
+        {
+            "workspace_mode": "code",
+            "repo_key": "owner/repo",
+            "branch": "main",
+            "selected_sources": {"repo_key": "owner/repo"},
+        }
+    )
+    follow_up = ChatRequest(question="again", thread_id="t-1")
+    merged = _merged_code_meta(stored, follow_up)
+    assert merged["workspace_mode"] == "code"
+    assert merged["repo_key"] == "owner/repo"
+    assert merged["branch"] == "main"
+    assert merged["selected_sources"] == {"repo_key": "owner/repo"}
+    # Explicit fields on the follow-up do override the stored meta.
+    explicit = ChatRequest(
+        question="again", thread_id="t-1", repo_key="other/repo", branch="dev"
+    )
+    merged2 = _merged_code_meta(stored, explicit)
+    assert merged2["repo_key"] == "other/repo"
+    assert merged2["branch"] == "dev"
+    assert merged2["workspace_mode"] == "code"
 # ---------------------------------------------------------------------------
 # Code Mode Phase 2: files_changed SSE + assistant metadata persistence
 # ---------------------------------------------------------------------------
