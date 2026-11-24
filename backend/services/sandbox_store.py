@@ -38,7 +38,7 @@ _SESSION_COLUMNS = (
 )
 
 _PROVIDERS = ("disabled", "modal", "e2b", "remote_mcp", "local_runner")
-_AUTONOMY = ("ask_all", "auto_read_test", "autonomous")
+_AUTONOMY = ("ask_all", "auto_read_test", "auto_workspace_writes", "autonomous")
 _EGRESS = ("offline", "allowlist", "unrestricted")
 
 

@@ -58,6 +58,23 @@ class ChatRequest(BaseModel):
     tool_settings: dict | None = None
     custom_system_prompt: str | None = None
     mode: str = "fast"
+    # Code Mode (Phase 1) — all optional / defaulted so existing chat
+    # clients keep working unchanged.
+    workspace_mode: Literal["chat", "code"] = "chat"
+    repo_key: str | None = None
+    branch: str | None = None
+    thinking_level: Literal["low", "medium", "high"] | None = None
+    execution_mode: Literal["plan", "act"] = "act"
+    autonomy_mode: (
+        Literal[
+            "ask_all",
+            "auto_read_test",
+            "auto_workspace_writes",
+            "autonomous",
+        ]
+        | None
+    ) = None
+    source_scope: dict | None = None
 
 
 class ChatResponse(BaseModel):
@@ -249,7 +266,7 @@ def _process_single_message(msg, tool_results, feedback_dict):
             }
         ] + activity
     reasoning, reasoning_duration_seconds = _reasoning_from_kwargs(msg)
-    return {
+    processed = {
         "id": str(msg_id),
         "role": "user" if msg_type == "HumanMessage" else "assistant",
         "content": msg.content,
@@ -261,6 +278,10 @@ def _process_single_message(msg, tool_results, feedback_dict):
         "reasoning": reasoning,
         "reasoning_duration_seconds": reasoning_duration_seconds,
     }
+    files_changed = getattr(msg, "additional_kwargs", {}).get("files_changed")
+    if isinstance(files_changed, dict):
+        processed["files_changed"] = files_changed
+    return processed
 
 
 def _apply_saved_reasoning(message: dict, saved: dict | None) -> None:
@@ -321,6 +342,7 @@ def _extract_messages_from_state(
     feedback_dict: dict | None = None,
     activity_history: list[list[dict]] | None = None,
     reasoning_history: list[dict | None] | None = None,
+    files_changed_history: list[dict | None] | None = None,
 ) -> list:
     if feedback_dict is None:
         feedback_dict = {}
@@ -353,6 +375,19 @@ def _extract_messages_from_state(
                 reasoning_history[-len(assistant_messages) :],
             ):
                 _apply_saved_reasoning(message, saved_reasoning)
+    if files_changed_history:
+        assistant_messages = _final_assistant_messages(messages)
+        if assistant_messages:
+            for message, saved_files_changed in zip(
+                assistant_messages[-len(files_changed_history) :],
+                files_changed_history[-len(assistant_messages) :],
+            ):
+                if (
+                    "files_changed" not in message
+                    and isinstance(saved_files_changed, dict)
+                    and saved_files_changed
+                ):
+                    message["files_changed"] = saved_files_changed
     merged = _merge_intermediate_tool_messages(messages)
     for message in merged:
         if message.get("role") != "assistant":
@@ -495,6 +530,7 @@ async def _save_activity_history(
     activity: list[dict],
     reasoning: str | None = None,
     reasoning_duration_seconds: float | None = None,
+    files_changed: dict | None = None,
 ) -> None:
     if tenant_id == "local_guest":
         return
@@ -509,8 +545,57 @@ async def _save_activity_history(
         entry["reasoning"] = reasoning
     if reasoning_duration_seconds is not None:
         entry["reasoning_duration_seconds"] = float(reasoning_duration_seconds)
+    if files_changed:
+        # Code Mode Phase 2: the per-turn files_changed summary lives
+        # in the same per-turn record as activity/reasoning, so the
+        # thread-history reload path can re-attach it to the turn's
+        # assistant message (see _extract_messages_from_state).
+        entry["files_changed"] = files_changed
     history.append(entry)
     await redis.hset(key, thread_id, json.dumps(history))
+
+
+async def _collect_turn_files_changed(
+    tenant_id: str, thread_id: str, tool_settings: dict, turn_id: str
+) -> dict | None:
+    """Diff summary for a finished Code Mode turn, or None.
+
+    Returns None — emitting nothing — when the turn is not Code Mode,
+    when no sandbox session is bound to this thread, or when the
+    session has no file edits. Never fabricates a summary: any
+    failure resolves to None (and is reported to Sentry).
+    """
+    if (tool_settings or {}).get("workspace_mode") != "code":
+        return None
+    try:
+        from backend.mcp_server.tool_dispatch import _resolve_sandbox_manager
+        from backend.sandbox.git_diff import collect_session_diff
+
+        manager = _resolve_sandbox_manager(tool_settings or {})
+        if manager is None:
+            return None
+        session_id = None
+        session_for_chat = getattr(manager, "session_id_for_chat", None)
+        if callable(session_for_chat):
+            session_id = session_for_chat(tenant_id, thread_id)
+        if not session_id:
+            for info in manager.list_session_infos(tenant_id):
+                if getattr(info, "chat_id", None) == thread_id:
+                    session_id = info.session_id
+                    break
+        if not session_id:
+            return None
+        provider = manager.provider_for(session_id)
+        if provider is None:
+            return None
+        summary = await collect_session_diff(provider, session_id, turn_id=turn_id)
+        if not summary.get("files"):
+            return None
+        return summary
+    except Exception as e:
+        sentry_sdk.capture_exception(e)
+        logger.warning(f"Failed to collect files_changed for thread {thread_id}: {e}")
+        return None
 
 
 def _count_final_ai_messages(raw_messages: list[Any]) -> int:
@@ -755,7 +840,152 @@ def _prepare_duplicated_messages(raw_messages: list[Any]) -> list[Any]:
     return copied_messages
 
 
-def _build_thread_list(threads, titles, pinned, archived, projects, timestamps):
+def _default_code_meta() -> dict[str, Any]:
+    """Code Mode metadata for a plain chat thread."""
+    return {
+        "workspace_mode": "chat",
+        "repo_key": None,
+        "branch": None,
+        "selected_sources": {},
+    }
+
+
+def _parse_code_meta(raw: Any) -> dict[str, Any]:
+    """Parse one ``thread_code_meta`` hash value (JSON) fail-soft.
+
+    Anything missing or malformed degrades to the chat defaults —
+    a thread predating Code Mode is a chat thread, never an error.
+    """
+    meta = _default_code_meta()
+    if raw is None:
+        return meta
+    if isinstance(raw, bytes):
+        raw = raw.decode("utf-8", errors="replace")
+    try:
+        parsed = json.loads(raw) if isinstance(raw, str) else raw
+    except (ValueError, TypeError):
+        return meta
+    if not isinstance(parsed, dict):
+        return meta
+    if parsed.get("workspace_mode") in ("chat", "code"):
+        meta["workspace_mode"] = parsed["workspace_mode"]
+    if isinstance(parsed.get("repo_key"), str) and parsed["repo_key"]:
+        meta["repo_key"] = parsed["repo_key"]
+    if isinstance(parsed.get("branch"), str) and parsed["branch"]:
+        meta["branch"] = parsed["branch"]
+    if isinstance(parsed.get("selected_sources"), dict):
+        meta["selected_sources"] = parsed["selected_sources"]
+    return meta
+
+
+def _field_explicitly_set(chat_request: Any, name: str) -> bool:
+    """Whether the client actually supplied ``name`` on this request.
+
+    ``ChatRequest.workspace_mode`` / ``execution_mode`` carry non-None
+    defaults (``"chat"`` / ``"act"``) for backward compatibility, so
+    the value alone cannot distinguish "client sent the default" from
+    "client sent nothing" — ``model_fields_set`` can. Lightweight
+    request doubles without it fall back to attribute presence.
+    """
+    fields_set = getattr(chat_request, "model_fields_set", None)
+    if isinstance(fields_set, (set, frozenset)):
+        return name in fields_set
+    return getattr(chat_request, name, None) is not None
+
+
+def _code_meta_from_request(chat_request: ChatRequest) -> dict[str, Any]:
+    """Code Mode metadata carried by one chat request.
+
+    ``source_scope`` doubles as the thread's ``selected_sources``:
+    it is the client-visible selection of repos/sources the thread
+    is scoped to.
+    """
+    return {
+        "workspace_mode": getattr(chat_request, "workspace_mode", None) or "chat",
+        "repo_key": getattr(chat_request, "repo_key", None),
+        "branch": getattr(chat_request, "branch", None),
+        "selected_sources": getattr(chat_request, "source_scope", None) or {},
+    }
+
+
+def _merged_code_meta(existing_raw: Any, chat_request: ChatRequest) -> dict[str, Any]:
+    """Merge a request's Code Mode fields over previously stored meta.
+
+    Follow-up turns commonly send only ``thread_id``; fields the
+    client did not explicitly supply keep their stored values instead
+    of being clobbered back to chat/null/empty (which made Code Mode
+    threads vanish from the Code rail).
+    """
+    merged = _parse_code_meta(existing_raw)
+    if _field_explicitly_set(chat_request, "workspace_mode"):
+        merged["workspace_mode"] = (
+            getattr(chat_request, "workspace_mode", None) or "chat"
+        )
+    if _field_explicitly_set(chat_request, "repo_key"):
+        merged["repo_key"] = getattr(chat_request, "repo_key", None)
+    if _field_explicitly_set(chat_request, "branch"):
+        merged["branch"] = getattr(chat_request, "branch", None)
+    if _field_explicitly_set(chat_request, "source_scope"):
+        merged["selected_sources"] = (
+            getattr(chat_request, "source_scope", None) or {}
+        )
+    return merged
+
+
+async def _save_thread_code_meta(redis, tenant_id: str, thread_id: str, meta: dict) -> None:
+    """Persist code meta in the ``thread_code_meta`` Redis hash.
+
+    Written from the same code path that writes ``thread_projects`` /
+    ``thread_timestamps`` on thread create/update, so the hash always
+    reflects the latest request for the thread. The durable mirror is
+    the Supabase ``thread_metadata`` table (migration 008).
+    """
+    await redis.hset(
+        f"tenant:{tenant_id}:thread_code_meta", thread_id, json.dumps(meta)
+    )
+
+
+def _effective_tool_settings(chat_request: ChatRequest) -> dict:
+    """tool_settings plus the Code Mode fields the orchestrator reads.
+
+    The orchestrator / tool dispatch receive everything through
+    ``tool_settings`` (AgentState), so the Phase 1 fields are merged
+    in here — explicitly-set request fields win over anything the
+    client put in the raw tool_settings dict.
+    """
+    ts = dict(chat_request.tool_settings or {})
+    # getattr throughout: lightweight request doubles (SimpleNamespace
+    # in tests) may not carry the Code Mode fields at all.
+    # workspace_mode / execution_mode only override tool_settings when
+    # the client explicitly supplied them: their model defaults
+    # ("chat" / "act") must not silently downgrade a plan/code mode
+    # the client set through tool_settings alone.
+    if _field_explicitly_set(chat_request, "workspace_mode"):
+        ts["workspace_mode"] = getattr(chat_request, "workspace_mode", None) or "chat"
+    elif "workspace_mode" not in ts:
+        ts["workspace_mode"] = "chat"
+    if _field_explicitly_set(chat_request, "execution_mode"):
+        ts["execution_mode"] = getattr(chat_request, "execution_mode", None) or "act"
+    elif "execution_mode" not in ts:
+        ts["execution_mode"] = "act"
+    if getattr(chat_request, "repo_key", None) is not None:
+        ts["repo_key"] = chat_request.repo_key
+    if getattr(chat_request, "branch", None) is not None:
+        ts["branch"] = chat_request.branch
+    if getattr(chat_request, "thinking_level", None) is not None:
+        ts["thinking_level"] = chat_request.thinking_level
+    if getattr(chat_request, "autonomy_mode", None) is not None:
+        ts["sandbox_autonomy_mode"] = chat_request.autonomy_mode
+    if getattr(chat_request, "source_scope", None) is not None:
+        ts["source_scope"] = chat_request.source_scope
+    if getattr(chat_request, "custom_system_prompt", None):
+        ts["custom_system_prompt"] = chat_request.custom_system_prompt
+    return ts
+
+
+def _build_thread_list(
+    threads, titles, pinned, archived, projects, timestamps, code_meta=None
+):
     thread_list = []
     for t in threads:
         tid = t.decode("utf-8")
@@ -764,6 +994,7 @@ def _build_thread_list(threads, titles, pinned, archived, projects, timestamps):
             ts = float(timestamps.get(t, b"0").decode("utf-8"))
         except ValueError:
             ts = 0.0
+        meta = _parse_code_meta((code_meta or {}).get(t))
         thread_list.append(
             {
                 "thread_id": tid,
@@ -771,6 +1002,10 @@ def _build_thread_list(threads, titles, pinned, archived, projects, timestamps):
                 "is_pinned": t in pinned,
                 "is_archived": t in archived,
                 "project_id": projects.get(t, b"").decode("utf-8") or None,
+                "workspace_mode": meta["workspace_mode"],
+                "repo_key": meta["repo_key"],
+                "branch": meta["branch"],
+                "selected_sources": meta["selected_sources"],
                 "_timestamp": ts,
             }
         )
@@ -836,13 +1071,12 @@ async def _stream_events(
     activity: list[dict] = []
     reasoning_parts: list[str] = []
     reasoning_duration_seconds: float | None = None
+    turn_id = str(uuid.uuid4())
     async with _get_thread_mutation_lock(thread_id):
         _active_thread_generations.add(thread_id)
     try:
         yield f"data: {json.dumps({'event': 'metadata', 'data': {'thread_id': thread_id}})}\n\n"
-        ts = chat_request.tool_settings or {}
-        if chat_request.custom_system_prompt:
-            ts["custom_system_prompt"] = chat_request.custom_system_prompt
+        ts = _effective_tool_settings(chat_request)
 
         async for event in stream_answer_question(
             chat_request.question,
@@ -876,6 +1110,11 @@ async def _stream_events(
             except Exception as e:
                 logger.error(f"Error waiting for title task: {e}")
         _complete_activity(activity)
+        files_changed = await _collect_turn_files_changed(
+            tenant_id, thread_id, ts, turn_id
+        )
+        if files_changed:
+            yield f"data: {json.dumps({'type': 'files_changed', **files_changed})}\n\n"
         await _save_activity_history(
             redis,
             tenant_id,
@@ -883,6 +1122,7 @@ async def _stream_events(
             activity,
             reasoning="".join(reasoning_parts) or None,
             reasoning_duration_seconds=reasoning_duration_seconds,
+            files_changed=files_changed,
         )
         yield "data: [DONE]\n\n"
     except Exception as e:
@@ -1175,6 +1415,54 @@ def register_chat_routes(
                 await request.app.state.redis.hset(
                     f"tenant:{tenant_id}:thread_timestamps", thread_id, str(time.time())
                 )
+                # Serialize read-merge-write per thread so overlapping
+                # requests cannot clobber each other's Code Mode fields.
+                async with _get_thread_mutation_lock(thread_id):
+                    # Fail-soft: a Redis double without hget (unit-test
+                    # fakes) simply means "no stored meta to merge".
+                    _hget = getattr(request.app.state.redis, "hget", None)
+                    existing_meta_raw = (
+                        await _hget(
+                            f"tenant:{tenant_id}:thread_code_meta", thread_id
+                        )
+                        if _hget is not None
+                        else None
+                    )
+                    merged_meta = _merged_code_meta(existing_meta_raw, chat_request)
+                    # Hydrate omitted Code Mode fields from the stored
+                    # meta so a follow-up turn that only repeats the
+                    # thread_id still runs in the thread's workspace,
+                    # without overriding explicit tool_settings values.
+                    if existing_meta_raw is not None:
+                        raw_ts = chat_request.tool_settings or {}
+                        if (
+                            not _field_explicitly_set(chat_request, "workspace_mode")
+                            and "workspace_mode" not in raw_ts
+                        ):
+                            chat_request.workspace_mode = merged_meta["workspace_mode"]
+                        if (
+                            not _field_explicitly_set(chat_request, "repo_key")
+                            and "repo_key" not in raw_ts
+                        ):
+                            chat_request.repo_key = merged_meta["repo_key"]
+                        if (
+                            not _field_explicitly_set(chat_request, "branch")
+                            and "branch" not in raw_ts
+                        ):
+                            chat_request.branch = merged_meta["branch"]
+                        if (
+                            not _field_explicitly_set(chat_request, "source_scope")
+                            and "source_scope" not in raw_ts
+                        ):
+                            chat_request.source_scope = (
+                                merged_meta["selected_sources"] or None
+                            )
+                    await _save_thread_code_meta(
+                        request.app.state.redis,
+                        tenant_id,
+                        thread_id,
+                        merged_meta,
+                    )
                 if added == 1:
                     initial_title = (
                         chat_request.question[:40] + "..."
@@ -1207,10 +1495,8 @@ def register_chat_routes(
                     ),
                     media_type="text/event-stream",
                 )
-            # Inject custom_system_prompt into tool_settings
-            ts = chat_request.tool_settings or {}
-            if chat_request.custom_system_prompt:
-                ts["custom_system_prompt"] = chat_request.custom_system_prompt
+            # Inject custom_system_prompt + Code Mode fields into tool_settings
+            ts = _effective_tool_settings(chat_request)
 
             async with _get_thread_mutation_lock(thread_id):
                 _active_thread_generations.add(thread_id)
@@ -1252,8 +1538,17 @@ def register_chat_routes(
             )
 
     @app_router.get("/api/chat/threads")
-    async def list_threads(request: Request, tenant_id: str = Depends(get_tenant_id)):
-        """Returns a list of all thread IDs belonging to the tenant."""
+    async def list_threads(
+        request: Request,
+        workspace_mode: str | None = None,
+        repo_key: str | None = None,
+        tenant_id: str = Depends(get_tenant_id),
+    ):
+        """Returns a list of all thread IDs belonging to the tenant.
+
+        ``workspace_mode`` ('chat' / 'code') and ``repo_key`` query
+        params optionally filter by the thread's Code Mode metadata.
+        """
         logger.info(f"LIST THREADS CALLED FOR TENANT: {tenant_id}")
         # Guest users store threads locally on-device — nothing to return from the server.
         if tenant_id == "local_guest":
@@ -1266,6 +1561,7 @@ def register_chat_routes(
                 archived,
                 projects,
                 timestamps,
+                code_meta,
             ) = await asyncio.gather(
                 request.app.state.redis.smembers(f"tenant:{tenant_id}:threads"),
                 request.app.state.redis.hgetall(f"tenant:{tenant_id}:thread_titles"),
@@ -1273,12 +1569,20 @@ def register_chat_routes(
                 request.app.state.redis.smembers(f"tenant:{tenant_id}:archived_threads"),
                 request.app.state.redis.hgetall(f"tenant:{tenant_id}:thread_projects"),
                 request.app.state.redis.hgetall(f"tenant:{tenant_id}:thread_timestamps"),
+                request.app.state.redis.hgetall(f"tenant:{tenant_id}:thread_code_meta"),
             )
-            return {
-                "threads": _build_thread_list(
-                    threads, titles, pinned, archived, projects, timestamps
-                )
-            }
+            thread_list = _build_thread_list(
+                threads, titles, pinned, archived, projects, timestamps, code_meta
+            )
+            if workspace_mode is not None:
+                thread_list = [
+                    t for t in thread_list if t["workspace_mode"] == workspace_mode
+                ]
+            if repo_key is not None:
+                thread_list = [
+                    t for t in thread_list if t["repo_key"] == repo_key
+                ]
+            return {"threads": thread_list}
         except HTTPException:
             raise
         except Exception as e:
@@ -1339,6 +1643,7 @@ def register_chat_routes(
                 logger.error(f"Failed to fetch feedback: {e}")
             activity_history = []
             reasoning_history: list[dict | None] = []
+            files_changed_history: list[dict | None] = []
             try:
                 activity_raw = await request.app.state.redis.hget(
                     f"tenant:{tenant_id}:thread_activities", thread_id
@@ -1360,6 +1665,13 @@ def register_chat_routes(
                                     "reasoning_duration_seconds"
                                 ),
                             }
+                            if isinstance(item, dict)
+                            else None
+                            for item in decoded
+                            if isinstance(item, (dict, list))
+                        ]
+                        files_changed_history = [
+                            item.get("files_changed")
                             if isinstance(item, dict)
                             else None
                             for item in decoded
@@ -1394,6 +1706,7 @@ def register_chat_routes(
                     feedback_dict,
                     activity_history,
                     reasoning_history=reasoning_history,
+                    files_changed_history=files_changed_history,
                 )
             }
         except HTTPException:
@@ -1924,6 +2237,7 @@ def register_chat_routes(
             request.app.state.redis.hdel(f"tenant:{tenant_id}:thread_projects", thread_id),
             request.app.state.redis.hdel(f"tenant:{tenant_id}:thread_timestamps", thread_id),
             request.app.state.redis.hdel(f"tenant:{tenant_id}:thread_activities", thread_id),
+            request.app.state.redis.hdel(f"tenant:{tenant_id}:thread_code_meta", thread_id),
         )
         await _delete_postgres_checkpoints([thread_id])
         return {"status": "deleted"}
@@ -1945,6 +2259,7 @@ def register_chat_routes(
             request.app.state.redis.delete(f"tenant:{tenant_id}:thread_projects"),
             request.app.state.redis.delete(f"tenant:{tenant_id}:thread_timestamps"),
             request.app.state.redis.delete(f"tenant:{tenant_id}:thread_activities"),
+            request.app.state.redis.delete(f"tenant:{tenant_id}:thread_code_meta"),
         )
         if tids:
             await _delete_postgres_checkpoints(tids)

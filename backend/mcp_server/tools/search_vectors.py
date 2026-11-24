@@ -10,11 +10,18 @@ _EMBED_EXECUTOR = ThreadPoolExecutor(
 
 
 def search_vectors(
-    query_text: str, limit: int = 10, tenant_id: str = "default"
+    query_text: str,
+    limit: int = 10,
+    tenant_id: str = "default",
+    source_scope: dict | None = None,
 ) -> list[VectorHit]:
     """
     Search Qdrant vectors using Hybrid Search (Dense + Sparse).
     Embeds the query_text, performs a hybrid search, and returns VectorHit objects ready for merge_rank.
+    ``source_scope`` (Code Mode) narrows the tenant search with a
+    MatchAny payload filter on the ingestion payload keys
+    (``source`` / ``document_id``) — see
+    ``QdrantStorageClient.search_hybrid``.
     """
     config = get_config()
     qdrant_client = QdrantStorageClient.from_config(config)
@@ -38,6 +45,7 @@ def search_vectors(
         sparse_query_vector=sparse_query_vector,
         limit=limit,
         tenant_id=tenant_id,
+        source_scope=source_scope,
     )
 
     # Return as VectorHit objects

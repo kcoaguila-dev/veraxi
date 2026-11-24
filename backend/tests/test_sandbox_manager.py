@@ -7,7 +7,12 @@ import pytest
 
 from backend.sandbox.base import ExecEvent, SandboxError, SandboxProvider, SandboxSessionInfo
 from backend.sandbox.manager import SandboxManager
-from backend.sandbox.policy import classify_command, requires_approval
+from backend.sandbox.policy import (
+    classify_command,
+    is_plan_blocked,
+    plan_mode_block,
+    requires_approval,
+)
 from backend.security.token_vault import decrypt_secrets
 from backend.services import sandbox_store as store
 
@@ -189,6 +194,55 @@ class TestPolicy:
         assert requires_approval("autonomous", "rm x") is False
         assert requires_approval("autonomous", None, is_write=True) is False
 
+    def test_auto_workspace_writes_matrix(self):
+        mode = "auto_workspace_writes"
+        # Reads and tests run automatically.
+        assert requires_approval(mode, "ls") is False
+        assert requires_approval(mode, "pytest -q") is False
+        assert requires_approval(mode, "git status") is False
+        # Workspace writes run automatically.
+        assert requires_approval(mode, None, is_write=True) is False
+        assert requires_approval(mode, "mkdir -p src/x") is False
+        assert requires_approval(mode, "cp a.py b.py") is False
+        assert requires_approval(mode, "echo hi > out.txt") is False
+        # git add / commit inside the workspace run automatically.
+        assert requires_approval(mode, "git add -A") is False
+        assert requires_approval(mode, "git commit -m wip") is False
+        # Installs, network, and system commands need approval.
+        assert requires_approval(mode, "pip install requests") is True
+        assert requires_approval(mode, "npm install") is True
+        assert requires_approval(mode, "curl https://example.com") is True
+        assert requires_approval(mode, "wget https://example.com/x") is True
+        assert requires_approval(mode, "sudo ls") is True
+        assert requires_approval(mode, "apt-get install git") is True
+        # Other mutating git subcommands need approval.
+        assert requires_approval(mode, "git checkout -b feat") is True
+        assert requires_approval(mode, "git pull") is True
+        assert requires_approval(mode, "git reset --hard") is True
+        # git push ALWAYS needs approval, in this mode too.
+        assert requires_approval(mode, "git push origin main") is True
+        assert requires_approval(mode, "ls && git push") is True
+
+    def test_auto_workspace_writes_is_a_valid_config_mode(self):
+        store.validate_config_fields({"autonomy_mode": "auto_workspace_writes"})
+
+    def test_plan_mode_block(self):
+        block = plan_mode_block("plan", tool_name="sandbox_write_file")
+        assert block is not None
+        assert block["error"] == "plan_mode_blocked"
+        assert block["execution_mode"] == "plan"
+        assert plan_mode_block(
+            "plan", tool_name="sandbox_exec", command="rm -rf build"
+        )["error"] == "plan_mode_blocked"
+        # Read-only work is never blocked in plan mode.
+        assert plan_mode_block("plan", tool_name="sandbox_exec", command="ls") is None
+        assert plan_mode_block("plan", tool_name="sandbox_read_file") is None
+        # Act mode blocks nothing.
+        assert plan_mode_block("act", tool_name="sandbox_write_file") is None
+        assert plan_mode_block(None, tool_name="sandbox_write_file") is None
+        assert is_plan_blocked("plan", is_write=True) is True
+        assert is_plan_blocked("plan", command="git status") is False
+
 
 # -- Manager -----------------------------------------------------------------
 class FakeProvider(SandboxProvider):
@@ -313,6 +367,157 @@ class TestSandboxTools:
         ]
 
     @pytest.mark.asyncio
+    async def test_get_tools_plan_mode_removes_mutating_sandbox_tools(self):
+        from backend.mcp_server.tool_dispatch import get_tools
+
+        tools = await get_tools(
+            {"sandbox_enabled": True, "execution_mode": "plan"},
+            tenant_id="tenant-1",
+        )
+        names = [t["function"]["name"] for t in tools]
+        assert "sandbox_exec" not in names
+        assert "sandbox_write_file" not in names
+        # Read-only sandbox tools stay available while planning.
+        assert "sandbox_read_file" in names
+        assert "sandbox_diff" in names
+
+        act_tools = await get_tools(
+            {"sandbox_enabled": True, "execution_mode": "act"},
+            tenant_id="tenant-1",
+        )
+        act_names = [t["function"]["name"] for t in act_tools]
+        assert "sandbox_exec" in act_names
+        assert "sandbox_write_file" in act_names
+
+    @pytest.mark.asyncio
+    async def test_plan_mode_blocks_write_file_called_directly(self):
+        """Adversarial: dispatch must refuse even when the caller
+        bypasses the plan-filtered tool schema list entirely."""
+        from backend.mcp_server.tool_dispatch import execute_tools_internal
+
+        mgr, created = _manager_with_fake()
+        _context, merged = await execute_tools_internal(
+            [{"name": "sandbox_write_file", "args": {"path": "a.txt", "content": "hi"}}],
+            "tenant-1",
+            {
+                "sandbox_enabled": True,
+                "sandbox_manager": mgr,
+                "execution_mode": "plan",
+            },
+        )
+        payloads = [getattr(m, "payload", {}) for m in merged]
+        blocked = [
+            p for p in payloads
+            if isinstance(p, dict) and p.get("error") == "plan_mode_blocked"
+        ]
+        assert blocked, payloads
+        assert blocked[0]["tool_name"] == "sandbox_write_file"
+        assert created == []  # nothing executed / no session started
+
+    @pytest.mark.asyncio
+    async def test_plan_mode_blocks_mutating_exec_but_allows_reads(self):
+        from backend.mcp_server.tool_dispatch import execute_tools_internal
+
+        mgr, created = _manager_with_fake()
+        _context, merged = await execute_tools_internal(
+            [{"name": "sandbox_exec", "args": {"command": "rm -rf build"}}],
+            "tenant-1",
+            {
+                "sandbox_enabled": True,
+                "sandbox_manager": mgr,
+                "execution_mode": "plan",
+            },
+        )
+        payloads = [getattr(m, "payload", {}) for m in merged]
+        assert any(
+            isinstance(p, dict) and p.get("error") == "plan_mode_blocked"
+            for p in payloads
+        )
+        assert created == []
+
+        _context2, merged2 = await execute_tools_internal(
+            [{"name": "sandbox_exec", "args": {"command": "ls -la"}}],
+            "tenant-1",
+            {
+                "sandbox_enabled": True,
+                "sandbox_manager": mgr,
+                "execution_mode": "plan",
+            },
+        )
+        payloads2 = [getattr(m, "payload", {}) for m in merged2]
+        assert any(
+            p.get("tool") == "sandbox_exec" and p.get("exit_code") == 0
+            for p in payloads2
+            if isinstance(p, dict)
+        )
+
+    @pytest.mark.asyncio
+    async def test_auto_workspace_writes_dispatch(self):
+        from backend.mcp_server.tool_dispatch import execute_tools_internal
+
+        mgr, _created = _manager_with_fake()
+        settings = {
+            "sandbox_enabled": True,
+            "sandbox_manager": mgr,
+            "sandbox_autonomy_mode": "auto_workspace_writes",
+        }
+        # Workspace writes run without an approval round-trip.
+        _c, merged = await execute_tools_internal(
+            [{"name": "sandbox_write_file", "args": {"path": "a.txt", "content": "hi"}}],
+            "tenant-1",
+            settings,
+        )
+        payloads = [getattr(m, "payload", {}) for m in merged]
+        assert any(
+            p.get("tool") == "sandbox_write_file" for p in payloads
+            if isinstance(p, dict)
+        )
+        assert not any(
+            "approval_required" in p for p in payloads if isinstance(p, dict)
+        )
+        # git push still requires approval in this mode.
+        _c2, merged2 = await execute_tools_internal(
+            [{"name": "sandbox_exec", "args": {"command": "git push origin main"}}],
+            "tenant-1",
+            settings,
+        )
+        payloads2 = [getattr(m, "payload", {}) for m in merged2]
+        assert any(
+            "approval_required" in p for p in payloads2 if isinstance(p, dict)
+        )
+
+    @pytest.mark.asyncio
+    async def test_auto_workspace_writes_dispatch_blocks_installs(self):
+        # Regression (Phase 1, 1.2): mutating sandbox_exec commands
+        # reach requires_approval with is_write=True from dispatch;
+        # installs / network / destructive git must still be gated.
+        from backend.mcp_server.tool_dispatch import execute_tools_internal
+
+        mgr, created = _manager_with_fake()
+        settings = {
+            "sandbox_enabled": True,
+            "sandbox_manager": mgr,
+            "sandbox_autonomy_mode": "auto_workspace_writes",
+        }
+        for command in (
+            "pip install requests",
+            "curl https://evil.example/x",
+            "git reset --hard",
+            "rm ../outside.txt",
+        ):
+            _c, merged = await execute_tools_internal(
+                [{"name": "sandbox_exec", "args": {"command": command}}],
+                "tenant-1",
+                settings,
+            )
+            payloads = [getattr(m, "payload", {}) for m in merged]
+            assert any(
+                "approval_required" in p for p in payloads
+                if isinstance(p, dict)
+            ), command
+        assert created == []
+
+    @pytest.mark.asyncio
     async def test_get_tools_absent_when_disabled(self):
         from backend.mcp_server.tool_dispatch import get_tools
 
@@ -394,3 +599,99 @@ class TestSandboxTools:
             p.get("approval_required", {}).get("tool_name") == "sandbox_write_file"
             for p in payloads if isinstance(p, dict)
         )
+
+
+class TestSandboxPolicyHardening:
+    """Phase 1 (1.2): plan-mode and auto_workspace_writes bypasses."""
+
+    def test_command_substitution_blocked_in_plan_mode(self):
+        assert plan_mode_block(
+            "plan", tool_name="sandbox_exec",
+            command='git status "$(touch pwned)"',
+        ) is not None
+        assert plan_mode_block(
+            "plan", tool_name="sandbox_exec", command="git status `id`"
+        ) is not None
+        assert plan_mode_block(
+            "plan", tool_name="sandbox_exec", command="ls <(cat /etc/passwd)"
+        ) is not None
+        assert plan_mode_block(
+            "plan", tool_name="sandbox_exec", command="ls\nrm -rf /"
+        ) is not None
+
+    def test_git_branch_argument_aware(self):
+        assert classify_command("git branch -D feature") == "mutating"
+        assert classify_command("git branch new-branch") == "mutating"
+        assert classify_command("git branch -m old new") == "mutating"
+        assert classify_command("git branch --list") == "read_only"
+        assert classify_command("git branch --show-current") == "read_only"
+        assert classify_command("git branch") == "read_only"
+        assert plan_mode_block(
+            "plan", tool_name="sandbox_exec", command="git branch -D feature"
+        ) is not None
+        assert plan_mode_block(
+            "plan", tool_name="sandbox_exec", command="git branch --list"
+        ) is None
+
+    def test_auto_workspace_writes_path_confinement(self):
+        mode = "auto_workspace_writes"
+        assert requires_approval(mode, "rm ../outside.txt") is True
+        assert requires_approval(mode, "rm -rf /etc") is True
+        assert requires_approval(mode, "cp a.py /etc/cron.d/x") is True
+        assert requires_approval(mode, "echo hi > /tmp/x") is True
+        assert requires_approval(mode, "echo hi > ../x") is True
+        assert requires_approval(mode, "echo hi > out.txt") is False
+        assert requires_approval(mode, "rm src/old.py") is False
+        # A known workspace root confines absolute paths against it.
+        assert requires_approval(
+            mode, "rm /tmp/ws/old.py", workspace_root="/tmp/ws"
+        ) is False
+        assert requires_approval(
+            mode, "rm /tmp/other/old.py", workspace_root="/tmp/ws"
+        ) is True
+
+    def test_auto_workspace_writes_interpreters_gated(self):
+        mode = "auto_workspace_writes"
+        assert requires_approval(mode, "python -m pip install foo") is True
+        assert requires_approval(mode, 'python -c "import os"') is True
+        assert requires_approval(mode, "python script.py") is True
+        assert requires_approval(mode, "node server.js") is True
+        assert requires_approval(mode, "make build") is True
+        assert requires_approval(mode, "python -m pytest -q") is False
+        assert requires_approval(mode, "python -m ruff check .") is False
+
+    def test_auto_workspace_writes_dispatch_style_is_write(self):
+        # Regression: dispatch passes is_write=True for mutating
+        # sandbox_exec commands; that must not short-circuit the
+        # command analysis in auto_workspace_writes mode.
+        mode = "auto_workspace_writes"
+        assert requires_approval(mode, "pip install requests", is_write=True) is True
+        assert requires_approval(mode, "curl https://evil.example", is_write=True) is True
+        assert requires_approval(mode, "git reset --hard", is_write=True) is True
+
+    def test_security_bypass_vectors_blocked(self):
+        # Single-& command separator must not be treated as read-only.
+        assert classify_command("ls & rm -rf /") == "mutating"
+        assert classify_command('echo "a & b"') == "read_only"
+        assert plan_mode_block("plan", tool_name="sandbox_exec", command="ls & rm -rf /") is not None
+        assert requires_approval("auto_workspace_writes", "ls & rm -rf /") is True
+
+        # Quoted redirection targets must still be confined to workspace.
+        assert requires_approval("auto_workspace_writes", 'echo hi > "../outside.txt"') is True
+        assert requires_approval("auto_workspace_writes", 'echo hi > "/tmp/outside.txt"') is True
+        assert requires_approval("auto_workspace_writes", 'echo hi > "local.txt"') is False
+
+        # Git global flags must not bypass is_git_push or read-only checks.
+        assert requires_approval("autonomous", "git -C . push origin main") is True
+        assert requires_approval("autonomous", "git --git-dir=.git push") is True
+        assert classify_command("git config core.hooksPath /tmp") == "mutating"
+        assert classify_command("git remote add origin https://evil.example") == "mutating"
+        assert classify_command("git diff --output=/tmp/evil") == "mutating"
+        assert classify_command("git -C . status") == "read_only"
+
+        # Mutating flags on find / ln / cp must require approval.
+        assert classify_command("find . -delete") == "mutating"
+        assert classify_command("find . -exec rm {} +") == "mutating"
+        assert classify_command("find . -name '*.py'") == "read_only"
+        assert requires_approval("auto_workspace_writes", "ln -s /etc/passwd leak") is True
+        assert requires_approval("auto_workspace_writes", "cp a --target-directory=/etc") is True

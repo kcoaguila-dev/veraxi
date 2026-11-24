@@ -378,7 +378,30 @@ class _ReasoningStrippedChatLiteLLM(ChatLiteLLM):
         return message_dicts, params
 
 
-def _create_chat_llm(model_name: str, api_key: str | None, base_url: str | None = None):
+_THINKING_LEVELS = ("low", "medium", "high")
+
+
+def _thinking_llm_args(thinking_level: str | None) -> dict[str, Any]:
+    """Map a Code Mode thinking level to LiteLLM reasoning args.
+
+    ``low``/``medium``/``high`` are exactly the ``reasoning_effort``
+    values reasoning providers accept. Anything unset or unknown
+    maps to no args at all (provider default), never a guess.
+    """
+    if not isinstance(thinking_level, str):
+        return {}
+    level = thinking_level.strip().lower()
+    if level not in _THINKING_LEVELS:
+        return {}
+    return {"reasoning_effort": level}
+
+
+def _create_chat_llm(
+    model_name: str,
+    api_key: str | None,
+    base_url: str | None = None,
+    thinking_level: str | None = None,
+):
     """Build the configured chat LLM client via unified LiteLLM routing."""
     config = get_config()
 
@@ -403,12 +426,31 @@ def _create_chat_llm(model_name: str, api_key: str | None, base_url: str | None 
     if final_base_url:
         llm_args["api_base"] = final_base_url
 
-    # LiteLLM routing directly via ChatLiteLLM
-    return _ReasoningStrippedChatLiteLLM(
-        model=normalized_model,
-        temperature=0,
-        **llm_args,
-    )
+    # LiteLLM routing directly via ChatLiteLLM. Thinking level is
+    # best-effort: providers/models without reasoning support reject
+    # the kwarg at construction or call time — construction failures
+    # fall back cleanly to the same client without it.
+    thinking_args = _thinking_llm_args(thinking_level)
+    try:
+        return _ReasoningStrippedChatLiteLLM(
+            model=normalized_model,
+            temperature=0,
+            **llm_args,
+            **thinking_args,
+        )
+    except TypeError:
+        if not thinking_args:
+            raise
+        logger.warning(
+            "LLM client rejected reasoning args %s for %s; ignoring thinking level",
+            thinking_args,
+            normalized_model,
+        )
+        return _ReasoningStrippedChatLiteLLM(
+            model=normalized_model,
+            temperature=0,
+            **llm_args,
+        )
 
 
 class AgentState(TypedDict):
@@ -760,10 +802,15 @@ async def call_model(state: AgentState):
     # over the server-wide LLM_API_KEY so users can supply their own key via the UI.
     effective_api_key = _request_api_key.get() or config.llm_api_key
     effective_base_url = _request_base_url.get() or None
-    llm = _create_chat_llm(effective_model, effective_api_key, effective_base_url)
 
     # Check if artifacts are enabled to inject system prompt
     tool_settings = state.get("tool_settings") or {}
+    llm = _create_chat_llm(
+        effective_model,
+        effective_api_key,
+        effective_base_url,
+        thinking_level=tool_settings.get("thinking_level"),
+    )
     artifacts_enabled = tool_settings.get("artifacts_enabled", False)
 
     extra_system_messages: list[SystemMessage] = []
@@ -840,7 +887,11 @@ async def call_model(state: AgentState):
     if is_fallback or is_after_tool:
         llm_with_tools = llm
     else:
-        tools_list = await get_tools(tool_settings, tenant_id=state.get("tenant_id"))
+        tools_list = await get_tools(
+            tool_settings,
+            tenant_id=state.get("tenant_id"),
+            execution_mode=tool_settings.get("execution_mode"),
+        )
         if tools_list:
             bound_tools = tools_list
             note = _integration_capability_note(tools_list)

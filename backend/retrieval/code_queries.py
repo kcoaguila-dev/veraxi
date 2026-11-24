@@ -88,6 +88,21 @@ class CodeGraphClient(Protocol):
         """
         ...
 
+    def list_files(
+        self,
+        tenant_id: str,
+        repo_key: str | None = None,
+        q: str | None = None,
+        limit: int = 50,
+    ) -> list[dict[str, Any]]:
+        """Return CodeFile rows for the tenant, optionally repo-scoped.
+
+        ``q`` is a case-insensitive substring matched against the
+        file's path and name. Rows carry ``path``, ``name``,
+        ``language`` and ``repo_key``.
+        """
+        ...
+
     def incoming_edges(
         self, tenant_id: str, target_qns: list[str], repo_key: str | None = None
     ) -> list[dict[str, Any]]:
@@ -213,6 +228,37 @@ class Neo4jCodeGraphClient:
         """
         rows = self._read(query, {"tenant_id": tenant_id, "path": path})
         return rows[0] if rows else None
+
+    def list_files(
+        self,
+        tenant_id: str,
+        repo_key: str | None = None,
+        q: str | None = None,
+        limit: int = 50,
+    ) -> list[dict[str, Any]]:
+        # All user input travels as parameters ($tenant_id, $repo_key,
+        # $q, $limit); nothing is concatenated into the Cypher.
+        limit = min(max(1, int(limit)), 200)
+        query = """
+        MATCH (n:CodeFile)
+        WHERE n.tenant_id = $tenant_id
+          AND ($repo_key IS NULL OR coalesce(n.repo_key, '') = $repo_key)
+          AND ($q IS NULL OR toLower(n.path) CONTAINS $q
+               OR toLower(coalesce(n.name, '')) CONTAINS $q)
+        RETURN n.path AS path, n.name AS name, n.language AS language,
+               coalesce(n.repo_key, '') AS repo_key
+        ORDER BY n.path ASC
+        LIMIT $limit
+        """
+        return self._read(
+            query,
+            {
+                "tenant_id": tenant_id,
+                "repo_key": repo_key,
+                "q": q.lower() if q else None,
+                "limit": limit,
+            },
+        )
 
     def incoming_edges(
         self, tenant_id: str, target_qns: list[str], repo_key: str | None = None
@@ -508,6 +554,27 @@ def indexed_file(
     if not query:
         return None
     return graph_client.find_file(tenant_id, query)
+
+
+def list_code_files(
+    tenant_id: str = "default",
+    repo_key: str | None = None,
+    q: str | None = None,
+    limit: int = 50,
+    client: CodeGraphClient | None = None,
+) -> list[dict[str, Any]]:
+    """List indexed CodeFiles for a tenant (Code Mode file picker).
+
+    ``repo_key`` scopes to one indexed repo; ``q`` substring-filters
+    on path/name. Blank ``q``/``repo_key`` mean unfiltered.
+    """
+    graph_client = _default_client(client)
+    return graph_client.list_files(
+        tenant_id,
+        repo_key=repo_key or None,
+        q=(q or "").strip() or None,
+        limit=limit,
+    )
 
 
 def impact_analysis(

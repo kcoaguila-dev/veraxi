@@ -53,6 +53,7 @@ from backend.ingestion.vuln_intel import (
 from backend.retrieval.code_queries import (
     impact_analysis,
     indexed_file,
+    list_code_files,
     list_indexed_repos,
     repo_overview,
     symbol_lookup,
@@ -739,6 +740,34 @@ def register_code_intel_routes(
             sentry_sdk.capture_exception(e)
             raise HTTPException(
                 status_code=500, detail="Failed to list indexed repos"
+            ) from e
+
+    @app_router.get("/api/v1/code/files")
+    async def get_code_files(
+        repo_key: str | None = None,
+        q: str | None = None,
+        limit: int = 50,
+        tenant_id: str = Depends(get_tenant_id),
+    ):
+        """List indexed code files for this tenant (Code Mode picker).
+
+        Queries ``:CodeFile`` nodes with parameterized Cypher only:
+        tenant + optional ``repo_key`` scoping, and an optional
+        case-insensitive ``q`` substring over path/name.
+        """
+        try:
+            files = await asyncio.to_thread(
+                list_code_files,
+                tenant_id=tenant_id,
+                repo_key=repo_key,
+                q=q,
+                limit=limit,
+            )
+            return {"files": files}
+        except Exception as e:
+            sentry_sdk.capture_exception(e)
+            raise HTTPException(
+                status_code=500, detail="Failed to list code files"
             ) from e
 
     @app_router.get("/api/v1/code/overview")

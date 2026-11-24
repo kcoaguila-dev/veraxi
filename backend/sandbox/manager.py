@@ -188,6 +188,18 @@ class SandboxManager:
     def get_session(self, session_id: str) -> tuple[SandboxProvider, SandboxSessionInfo] | None:
         return self._sessions.get(session_id)
 
+    def session_id_for_chat(self, tenant_id: str, chat_id: str | None) -> str | None:
+        """Return the live session id bound to ``(tenant, chat)``, if any."""
+        if not chat_id:
+            return None
+        session_id = self._chat_sessions.get((tenant_id, chat_id))
+        if session_id and session_id in self._sessions:
+            return session_id
+        for _provider, info in self._sessions.values():
+            if info.tenant_id == tenant_id and info.chat_id == chat_id:
+                return info.session_id
+        return None
+
     def provider_for(self, session_id: str) -> SandboxProvider | None:
         entry = self._sessions.get(session_id)
         return entry[0] if entry else None
