@@ -20,9 +20,7 @@ ModelThinkingCapability resolveModelCapability(
   String? modelName,
   Map<String, ModelThinkingCapability> capabilities,
 ) {
-  if (modelName == null ||
-      modelName.isEmpty ||
-      modelName == 'Select a model') {
+  if (modelName == null || modelName.isEmpty || modelName == 'Select a model') {
     return ModelThinkingCapability.none;
   }
   return capabilities[modelName] ??

@@ -102,13 +102,13 @@ class LocalLlmEngine {
 
     Fllama.instance()
         ?.completion(
-          _contextId!,
-          prompt: prompt,
-          temperature: temperature,
-          nPredict: nPredict,
-          stop: stop,
-          emitRealtimeCompletion: true,
-        )
+      _contextId!,
+      prompt: prompt,
+      temperature: temperature,
+      nPredict: nPredict,
+      stop: stop,
+      emitRealtimeCompletion: true,
+    )
         .then((result) {
       // The completion result is where the binding reports usage;
       // it used to be discarded here.

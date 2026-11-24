@@ -53,7 +53,8 @@ class ThinkingLevelSelector extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final capsAsync = ref.watch(modelCapabilitiesProvider);
-    final caps = capsAsync.valueOrNull ?? const <String, ModelThinkingCapability>{};
+    final caps =
+        capsAsync.valueOrNull ?? const <String, ModelThinkingCapability>{};
     final capability = resolveModelCapability(selectedModel, caps);
     final savedByModel = ref.watch(thinkingLevelByModelProvider);
     final effective = resolveEffectiveThinkingLevel(
@@ -151,7 +152,9 @@ class ThinkingLevelSelector extends ConsumerWidget {
           color: bg,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color: isOff ? border : theme.colorScheme.primary.withValues(alpha: 0.45),
+            color: isOff
+                ? border
+                : theme.colorScheme.primary.withValues(alpha: 0.45),
           ),
         ),
         child: Row(

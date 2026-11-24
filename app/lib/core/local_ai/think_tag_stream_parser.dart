@@ -35,7 +35,8 @@ class ThinkTagStreamParser {
   }
 
   int _trailingPartialTagLen(String text, List<String> tags) {
-    final maxCheck = text.length < _maxTagLen - 1 ? text.length : _maxTagLen - 1;
+    final maxCheck =
+        text.length < _maxTagLen - 1 ? text.length : _maxTagLen - 1;
     for (var size = maxCheck; size > 0; size--) {
       final suffix = text.substring(text.length - size);
       if (tags.any((t) => t.startsWith(suffix))) {
@@ -96,7 +97,8 @@ class ThinkTagStreamParser {
         continue;
       }
 
-      final hold = _trailingPartialTagLen(_buffer, [..._openTags, ..._closeTags]);
+      final hold =
+          _trailingPartialTagLen(_buffer, [..._openTags, ..._closeTags]);
       final emitLen = _buffer.length - hold;
       if (emitLen > 0) {
         content.add(_buffer.substring(0, emitLen));

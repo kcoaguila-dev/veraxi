@@ -8,7 +8,8 @@ void main() {
     test('identifies reasoning vs non-reasoning models and clamps levels', () {
       final gpt5 = ModelThinkingCapability.forModel('gpt-5.4');
       expect(gpt5.supportsReasoning, isTrue);
-      expect(gpt5.levels, containsAll(['off', 'minimal', 'low', 'medium', 'high', 'max']));
+      expect(gpt5.levels,
+          containsAll(['off', 'minimal', 'low', 'medium', 'high', 'max']));
       expect(gpt5.clampLevel('max'), 'max');
 
       final gpt4o = ModelThinkingCapability.forModel('gpt-4o');
@@ -29,7 +30,8 @@ void main() {
       expect(ggufQwen.levels, contains('off'));
     });
 
-    test('resolveEffectiveThinkingLevel uses per-model preference and clamps', () {
+    test('resolveEffectiveThinkingLevel uses per-model preference and clamps',
+        () {
       const caps = {
         'gpt-5.4': ModelThinkingCapability(
           mode: 'effort',

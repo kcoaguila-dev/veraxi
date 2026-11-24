@@ -147,7 +147,7 @@ class _FakeCodeIntelRepository extends CodeIntelRepository {
         'is_stale': false,
       },
     ],
-  }) :  streamedSourcePath = 'routes.py',
+  })  : streamedSourcePath = 'routes.py',
         streamedToken = null,
         fileResponseBuilder = null,
         super(
