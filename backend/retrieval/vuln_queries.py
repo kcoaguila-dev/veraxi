@@ -40,7 +40,7 @@ from __future__ import annotations
 
 import logging
 import re
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any, Protocol, runtime_checkable
 
 logger = logging.getLogger(__name__)
@@ -431,7 +431,7 @@ class Neo4jVulnGraphClient:
             query,
             {
                 "tenant_id": tenant_id,
-                "now": datetime.now(timezone.utc).isoformat(),
+                "now": datetime.now(UTC).isoformat(),
             },
         )
         return {
@@ -621,7 +621,7 @@ def ignore_vuln_finding(
     """Persist an audit-safe vulnerability suppression to Neo4j."""
     if reason not in _VALID_IGNORE_REASONS:
         raise ValueError(f"Unsupported suppression reason: {reason}")
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     resolved_expires = expires_at
     if reason == "snooze_30d" and not resolved_expires:
         resolved_expires = (now + timedelta(days=30)).isoformat()

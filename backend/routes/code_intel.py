@@ -25,7 +25,7 @@ import hmac
 import json
 import logging
 import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any, Literal
 
 import sentry_sdk
@@ -368,7 +368,7 @@ def _extract_diff_paths(files: list[str], diff: str) -> list[str]:
     """Collect and validate unique repo-relative file paths from request + diff."""
     candidates: list[str] = list(files)
     for line in diff.splitlines():
-        if line.startswith("+++ b/") or line.startswith("--- a/"):
+        if line.startswith(("+++ b/", "--- a/")):
             path = line[6:].strip()
             if path and path != "/dev/null":
                 candidates.append(path)
@@ -926,7 +926,7 @@ def register_code_intel_routes(
             raise HTTPException(
                 status_code=500, detail="Failed to sync vulnerability intel"
             ) from e
-        synced_at = datetime.now(timezone.utc).isoformat()
+        synced_at = datetime.now(UTC).isoformat()
         _last_vuln_sync_at[tenant_id] = synced_at
         return {"status": "ok", "feed_synced_at": synced_at, **counts}
 

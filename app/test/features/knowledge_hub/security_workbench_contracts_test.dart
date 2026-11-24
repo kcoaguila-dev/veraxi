@@ -175,7 +175,8 @@ void main() {
     expect(find.text('+ Connect a repo'), findsOneWidget);
     expect(find.text('semgrep --sarif -o results.sarif .'), findsOneWidget);
     expect(
-      find.text('Supports Semgrep · CodeQL · Bandit · Snyk · Trivy SARIF 2.1.0'),
+      find.text(
+          'Supports Semgrep · CodeQL · Bandit · Snyk · Trivy SARIF 2.1.0'),
       findsOneWidget,
     );
   });

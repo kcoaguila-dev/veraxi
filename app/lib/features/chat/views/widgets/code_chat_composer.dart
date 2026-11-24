@@ -278,8 +278,7 @@ class _CodeChatComposerState extends ConsumerState<CodeChatComposer> {
                 onSend: _handleComposerSend,
                 errorText: widget.errorText,
                 onDismissError: widget.onDismissError,
-                model:
-                    selectedModel == 'Select a model' ? null : selectedModel,
+                model: selectedModel == 'Select a model' ? null : selectedModel,
                 usageSummary: widget.usageSummary,
                 tokenUsageStyle: widget.tokenUsageStyle,
                 onTokenUsageStyleChanged: widget.onTokenUsageStyleChanged,

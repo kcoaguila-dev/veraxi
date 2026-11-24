@@ -229,7 +229,8 @@ class VulnWorkbenchTable extends StatelessWidget {
             children: [
               SizedBox(width: 82, child: Text('SEVERITY', style: style)),
               SizedBox(width: 8),
-              Expanded(flex: 4, child: Text('PACKAGE / DEPENDENCY', style: style)),
+              Expanded(
+                  flex: 4, child: Text('PACKAGE / DEPENDENCY', style: style)),
               SizedBox(width: 8),
               Expanded(flex: 3, child: Text('SIGNALS', style: style)),
               SizedBox(width: 8),
@@ -315,12 +316,13 @@ class VulnWorkbenchTable extends StatelessWidget {
   }
 
   Widget _buildPackageDependencyColumn(VulnFinding finding) {
-    final topSite = finding.callSites.isNotEmpty ? finding.callSites.first : null;
+    final topSite =
+        finding.callSites.isNotEmpty ? finding.callSites.first : null;
     final cwe = finding.cweIds.isNotEmpty ? ' · ${finding.cweIds.first}' : '';
-    final via = finding.dependencyScope == 'transitive' &&
-            finding.introducedVia != null
-        ? ' · via ${finding.introducedVia}'
-        : '';
+    final via =
+        finding.dependencyScope == 'transitive' && finding.introducedVia != null
+            ? ' · via ${finding.introducedVia}'
+            : '';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -472,5 +474,4 @@ class VulnWorkbenchTable extends StatelessWidget {
       ],
     );
   }
-
 }

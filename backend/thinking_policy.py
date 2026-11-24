@@ -49,7 +49,7 @@ _BUDGET_TOKENS_BY_LEVEL: dict[str, int] = {
 }
 
 _LOCAL_PROBE_TTL_SECONDS = 300.0
-_local_probe_cache: dict[str, tuple[float, "LocalRuntimeProbe"]] = {}
+_local_probe_cache: dict[str, tuple[float, LocalRuntimeProbe]] = {}
 
 
 @dataclass(frozen=True)
@@ -316,7 +316,7 @@ def _anthropic_supports_max(bare: str) -> bool:
 
 
 def _resolve_anthropic_capability(bare: str) -> ThinkingCapability:
-    if bare.startswith("claude-3-5") or bare.startswith("claude-3-opus") or bare.startswith("claude-3-sonnet") or bare.startswith("claude-3-haiku"):
+    if bare.startswith(("claude-3-5", "claude-3-opus", "claude-3-sonnet", "claude-3-haiku")):
         return _NO_THINKING
     if bare.startswith(("claude-3-7", "claude-opus-4-2025", "claude-sonnet-4-2025")):
         return _ANTHROPIC_BUDGET_CAP
@@ -458,8 +458,8 @@ def resolve_thinking_capability(
     try:
         if litellm.supports_reasoning(model=model_name):
             return _OPENAI_O_SERIES_CAP
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("litellm.supports_reasoning probe failed for %s: %s", model_name, exc)
     return _UNKNOWN_THINKING
 
 

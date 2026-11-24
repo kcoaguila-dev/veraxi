@@ -9,7 +9,8 @@ import 'package:veraxi_app/features/knowledge_hub/views/widgets/vuln_intel_panel
 /// nested cards, matching `docs/design/veraxi_security_workbench.svg`.
 class VulnInspectorPane extends StatelessWidget {
   final VulnFinding finding;
-  final void Function(VulnFinding finding, VulnCallSite? site)? onInspectCallSite;
+  final void Function(VulnFinding finding, VulnCallSite? site)?
+      onInspectCallSite;
   final ValueChanged<VulnFinding>? onAskFixInCodeThread;
   final void Function(VulnFinding finding, String reason)? onIgnoreFinding;
   final VoidCallback? onClose;
@@ -97,8 +98,7 @@ class VulnInspectorPane extends StatelessWidget {
                 ),
               ),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
                   color: scoreColor.withValues(alpha: 0.14),
                   borderRadius: BorderRadius.circular(10),
@@ -225,8 +225,7 @@ class VulnInspectorPane extends StatelessWidget {
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                 decoration: BoxDecoration(
                   color: const Color(0xFF064E3B),
                   borderRadius: BorderRadius.circular(8),

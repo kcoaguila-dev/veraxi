@@ -140,8 +140,8 @@ class _FilesChangedCardState extends ConsumerState<FilesChangedCard> {
                               .read(codeReviewProvider.notifier)
                               .runSecurityDiffAudit(files: paths, repo: repo);
                           ref
-                              .read(pendingSecurityThreadPromptProvider
-                                  .notifier)
+                              .read(
+                                  pendingSecurityThreadPromptProvider.notifier)
                               .state = auditSummary;
                         },
                         style: OutlinedButton.styleFrom(

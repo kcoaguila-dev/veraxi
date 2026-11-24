@@ -246,24 +246,25 @@ class _CodeReviewDrawerState extends ConsumerState<CodeReviewDrawer> {
                       onPressed: _close,
                       child: const Text(
                         'Discard',
-                        style: TextStyle(
-                            fontSize: 11.5, color: Color(0xFFF87171)),
+                        style:
+                            TextStyle(fontSize: 11.5, color: Color(0xFFF87171)),
                       ),
                     ),
                     OutlinedButton(
                       key: const Key('code-review-apply-locally-button'),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: const Color(0xFFE4E4E7),
-                        side:
-                            const BorderSide(color: ObsidianTokens.borderStrong),
+                        side: const BorderSide(
+                            color: ObsidianTokens.borderStrong),
                         padding: const EdgeInsets.symmetric(
                             horizontal: 10, vertical: 6),
                         minimumSize: const Size(0, 28),
                         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       ),
                       onPressed: () {
-                        final files = ref.read(codeReviewProvider).diff?.files ??
-                            const <CodeReviewDiffFile>[];
+                        final files =
+                            ref.read(codeReviewProvider).diff?.files ??
+                                const <CodeReviewDiffFile>[];
                         for (final f in files) {
                           ref
                               .read(codeReviewProvider.notifier)
@@ -317,13 +318,9 @@ class _CodeReviewDrawerState extends ConsumerState<CodeReviewDrawer> {
   }
 
   Future<void> _triggerAuditDiff() async {
-    final files = ref
-            .read(codeReviewProvider)
-            .diff
-            ?.files
-            .map((f) => f.path)
-            .toList() ??
-        const <String>[];
+    final files =
+        ref.read(codeReviewProvider).diff?.files.map((f) => f.path).toList() ??
+            const <String>[];
     final repo = ref.read(selectedIndexedRepoProvider);
     final auditSummary = await ref
         .read(codeReviewProvider.notifier)
@@ -689,8 +686,7 @@ class _CodeReviewDrawerState extends ConsumerState<CodeReviewDrawer> {
                     color: isAttached
                         ? const Color(0xFF60A5FA)
                         : const Color(0xFFD4D4D8),
-                    fontWeight:
-                        isAttached ? FontWeight.w600 : FontWeight.w400,
+                    fontWeight: isAttached ? FontWeight.w600 : FontWeight.w400,
                   ),
                 ),
               ),

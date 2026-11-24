@@ -177,8 +177,7 @@ class CodeIntelState {
     if (report == null || !_reachabilityAvailable) return 0;
     return report.findings
         .where(
-          (f) =>
-              !suppressedFindingIds.contains(f.findingId) && !f.isReachable,
+          (f) => !suppressedFindingIds.contains(f.findingId) && !f.isReachable,
         )
         .length;
   }

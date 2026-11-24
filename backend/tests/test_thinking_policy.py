@@ -1,8 +1,8 @@
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import litellm
 import pytest
-from langchain_core.messages import AIMessage, HumanMessage
+from langchain_core.messages import HumanMessage
 
 from backend.mcp_server.orchestrator import _create_chat_llm
 from backend.thinking_policy import (

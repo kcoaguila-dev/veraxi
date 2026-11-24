@@ -206,7 +206,8 @@ class VulnCallSite {
     return VulnCallSite(
       file: json['file'] as String? ?? json['path'] as String? ?? '',
       line: (json['line'] as num?)?.toInt(),
-      symbol: json['symbol'] as String? ?? json['qualified_name'] as String? ?? '',
+      symbol:
+          json['symbol'] as String? ?? json['qualified_name'] as String? ?? '',
       chain: rawChain.map((e) => e.toString()).toList(),
     );
   }
@@ -321,12 +322,14 @@ class VulnFinding {
     final cwes = json['cwe_ids'] as List<dynamic>? ?? const [];
     final reachable = json['reachable_in_code'] as List<dynamic>? ?? const [];
     final impacted = reachable
-        .map((e) => ImpactedSymbol.fromJson(Map<String, dynamic>.from(e as Map)))
+        .map(
+            (e) => ImpactedSymbol.fromJson(Map<String, dynamic>.from(e as Map)))
         .toList();
     final rawCallSites = json['call_sites'] as List<dynamic>?;
     final parsedCallSites = rawCallSites != null
         ? rawCallSites
-            .map((e) => VulnCallSite.fromJson(Map<String, dynamic>.from(e as Map)))
+            .map((e) =>
+                VulnCallSite.fromJson(Map<String, dynamic>.from(e as Map)))
             .toList()
         : impacted
             .where((item) => (item.path ?? '').isNotEmpty)

@@ -308,9 +308,8 @@ class _SecurityFeedPanelState extends ConsumerState<SecurityFeedPanel> {
           title: 'Drop SARIF 2.1.0 report to correlate SAST with Neo4j',
           subtitle:
               'Veraxi maps static taint flows directly onto your indexed call graph and links findings to CWEs.',
-          primaryLabel: state.sarifBusy
-              ? 'Ingesting…'
-              : 'Upload SARIF 2.1.0 (.json)',
+          primaryLabel:
+              state.sarifBusy ? 'Ingesting…' : 'Upload SARIF 2.1.0 (.json)',
           onPrimary: state.sarifBusy
               ? null
               : () async {
@@ -379,19 +378,18 @@ class _SecurityFeedPanelState extends ConsumerState<SecurityFeedPanel> {
       title: 'Ingest Recon & DAST scan output',
       subtitle:
           'Correlate exposed endpoints, CVEs, and misconfigurations with your repository graph.',
-      primaryLabel:
-          state.reconBusy ? 'Ingesting…' : 'Upload Nuclei JSON/JSONL',
+      primaryLabel: state.reconBusy ? 'Ingesting…' : 'Upload Nuclei JSON/JSONL',
       onPrimary: state.reconBusy
           ? null
           : () async {
               final text = await _pickText(['json', 'jsonl']);
               if (text != null) await viewModel.ingestRecon(text);
             },
-      secondaryLabel:
-          widget.onConnectRepo != null ? '+ Connect a repo' : null,
+      secondaryLabel: widget.onConnectRepo != null ? '+ Connect a repo' : null,
       onSecondary: widget.onConnectRepo,
       cliSnippet: 'nuclei -u https://target.example.com -je recon.json',
-      supportedTools: 'Supports Nuclei JSON/JSONL · Nmap XML · Burp XML · Caido',
+      supportedTools:
+          'Supports Nuclei JSON/JSONL · Nmap XML · Burp XML · Caido',
       status: state.reconStatus,
       error: state.reconError,
       ext: ext,
@@ -408,8 +406,7 @@ class _SecurityFeedPanelState extends ConsumerState<SecurityFeedPanel> {
       title: 'Sync MITRE ATT&CK STIX 2.1 Intel',
       subtitle:
           'Link techniques, tactics, and mitigations to CVEs and runtime alerts in Neo4j.',
-      primaryLabel:
-          state.attackBusy ? 'Syncing…' : 'Sync MITRE ATT&CK',
+      primaryLabel: state.attackBusy ? 'Syncing…' : 'Sync MITRE ATT&CK',
       onPrimary: state.attackBusy ? null : () => viewModel.syncAttackIntel(),
       secondaryLabel: 'Upload STIX bundle',
       onSecondary: state.attackBusy
@@ -420,7 +417,8 @@ class _SecurityFeedPanelState extends ConsumerState<SecurityFeedPanel> {
                 await viewModel.syncAttackIntelFromText(text);
               }
             },
-      cliSnippet: 'curl -sO https://raw.githubusercontent.com/mitre/cti/master/enterprise-attack/enterprise-attack.json',
+      cliSnippet:
+          'curl -sO https://raw.githubusercontent.com/mitre/cti/master/enterprise-attack/enterprise-attack.json',
       supportedTools: 'Supports MITRE ATT&CK Enterprise STIX 2.1 bundles',
       status: state.attackStatus,
       error: state.attackError,
@@ -446,8 +444,7 @@ class _SecurityFeedPanelState extends ConsumerState<SecurityFeedPanel> {
               final text = await _pickText(['json', 'jsonl']);
               if (text != null) await viewModel.ingestAlertsText(text);
             },
-      secondaryLabel:
-          widget.onConnectRepo != null ? '+ Connect a repo' : null,
+      secondaryLabel: widget.onConnectRepo != null ? '+ Connect a repo' : null,
       onSecondary: widget.onConnectRepo,
       cliSnippet: 'veraxi ingest alerts --file siem-alerts.json',
       supportedTools: 'Supports ECS JSON · OCSF · Splunk/Elastic alert exports',

@@ -1246,8 +1246,7 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
     required VoidCallback onTap,
   }) {
     final title = (thread['title'] as String?)?.trim();
-    final label =
-        (title == null || title.isEmpty) ? 'New conversation' : title;
+    final label = (title == null || title.isEmpty) ? 'New conversation' : title;
     final age = _formatThreadAge(thread['updated_at'] ?? thread['created_at']);
     return InkWell(
       borderRadius: BorderRadius.circular(6),
