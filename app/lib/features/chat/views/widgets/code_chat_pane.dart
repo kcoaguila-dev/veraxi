@@ -228,40 +228,22 @@ class _CodeChatPaneState extends ConsumerState<CodeChatPane> {
   Widget _buildBreadcrumbHeader(
       ChatState state, ThemeData theme, AppThemeExtension ext) {
     return Container(
-      height: 52,
+      height: 48,
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(
-        border: Border(
-          bottom: BorderSide(color: ext.borderColor, width: 1),
-        ),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 22,
-            height: 22,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: ext.cardBackground,
-              borderRadius: BorderRadius.circular(6),
-              border: Border.all(color: ext.borderColorStrong),
-            ),
-            child: Text(
-              'VX',
-              style: TextStyle(
-                color: theme.colorScheme.onSurface,
-                fontSize: 10,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 0.4,
+      decoration: state.messages.isEmpty
+          ? null
+          : BoxDecoration(
+              border: Border(
+                bottom: BorderSide(color: ext.borderColor, width: 1),
               ),
             ),
-          ),
-          const SizedBox(width: 10),
+      child: Row(
+        children: [
           Expanded(
             child: Text(
               _repoBreadcrumb(state),
               style: TextStyle(
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.85),
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.72),
                 fontSize: 13,
                 fontWeight: FontWeight.w500,
               ),
@@ -288,30 +270,6 @@ class _CodeChatPaneState extends ConsumerState<CodeChatPane> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Container(
-                width: 48,
-                height: 48,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [Color(0xFF1F1F24), Color(0xFF111115)],
-                  ),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: ext.borderColorStrong),
-                ),
-                child: Text(
-                  'VX',
-                  style: TextStyle(
-                    color: theme.colorScheme.onSurface.withValues(alpha: 0.88),
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0.6,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
               Text(
                 'Good to see you, $displayName. What\'s next?',
                 textAlign: TextAlign.center,
