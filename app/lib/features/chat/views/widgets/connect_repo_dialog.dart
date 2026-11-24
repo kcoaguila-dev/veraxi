@@ -404,9 +404,8 @@ class _SourceTabButton extends StatelessWidget {
           decoration: BoxDecoration(
             color: selected ? const Color(0xFF222228) : Colors.transparent,
             borderRadius: BorderRadius.circular(7),
-            border: selected
-                ? Border.all(color: const Color(0xFF32323A))
-                : null,
+            border:
+                selected ? Border.all(color: const Color(0xFF32323A)) : null,
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -573,9 +572,8 @@ class _IndexedRepoRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final initial = repo.displayName.isNotEmpty
-        ? repo.displayName[0].toUpperCase()
-        : 'R';
+    final initial =
+        repo.displayName.isNotEmpty ? repo.displayName[0].toUpperCase() : 'R';
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
@@ -744,8 +742,8 @@ class _GitUrlTab extends StatelessWidget {
                       fontFamily: 'monospace',
                       fontSize: 12.5,
                     ),
-                    decoration:
-                        _inputDecoration('github_pat_... (Contents: Read-only)'),
+                    decoration: _inputDecoration(
+                        'github_pat_... (Contents: Read-only)'),
                   ),
                 ],
               ),

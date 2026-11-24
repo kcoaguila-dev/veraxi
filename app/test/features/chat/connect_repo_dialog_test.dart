@@ -68,7 +68,8 @@ void main() {
 
     await tester.tap(find.text('Connect & Index'));
     await tester.pump();
-    expect(find.text('Enter a local repository directory path.'), findsOneWidget);
+    expect(
+        find.text('Enter a local repository directory path.'), findsOneWidget);
 
     await tester.tap(find.text('Git URL / PAT'));
     await tester.pumpAndSettle();
@@ -101,7 +102,8 @@ void main() {
     expect(repo.ingestedPaths, ['/home/ubuntu/src/ai/veraxi']);
   });
 
-  testWidgets('selecting already-indexed repo updates selectedIndexedRepoProvider',
+  testWidgets(
+      'selecting already-indexed repo updates selectedIndexedRepoProvider',
       (tester) async {
     final repo = _FakeConnectRepoRepository();
     const existing = IndexedRepoItem(
