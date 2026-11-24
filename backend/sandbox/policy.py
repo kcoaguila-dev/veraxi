@@ -239,9 +239,7 @@ def _segment_is_read_only(segment: str) -> bool:
             return False
         if subcommand == "branch":
             return _git_branch_is_read_only(rest)
-        if any(a == "--output" or a.startswith("--output=") for a in rest):
-            return False
-        return True
+        return not any(a == "--output" or a.startswith("--output=") for a in rest)
     if head == "find":
         return not any(t in _FIND_MUTATING_FLAGS for t in tokens[1:])
     if head == "pytest":
