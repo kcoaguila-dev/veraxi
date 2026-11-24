@@ -1,0 +1,341 @@
+<svg width="1440" height="900" viewBox="0 0 1440 900" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Visual Contract v2: Veraxi Unified Security Workbench (Populated Triage)
+       Craft-floor & Senior-Dev fixes over v1:
+       1. Removed 4-card hero-metric template -> replaced with compact 36px
+          posture & feed-health strip (gives +60px vertical space to findings).
+       2. Removed nested cards in Vulnerability Inspector -> uses hairline
+          dividers (#1E2026) and typographic hierarchy.
+       3. Removed one-sided left accent bar on selected row -> uses full
+          border (#3B82F6 at 50% / #2E4A7D) + #181A20 surface tint.
+       4. Added Direct vs. Transitive dependency clarity + package CVE grouping.
+       5. Replaced bare "Dismiss" with audit-safe "Ignore ▾" (reason / snooze).
+       6. Removed literal markdown backticks in copy; cleaned Neo4j path spacing.
+       7. Responsive contract (<1000px): right inspector collapses into a
+          slide-over drawer/sheet; clicking a call site opens the line-anchored
+          code citation viewer; "Ignore / Snooze ▾" opens reason/expiry menu.
+       Tokens: ObsidianTokens (#0D0E11 shell, #060709 canvas, #111317 card,
+       #181A20 active, #1E2026 hairline, #282B36 borderStrong). -->
+  <defs>
+    <style>
+      .sans { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }
+      .mono { font-family: 'JetBrains Mono', monospace; }
+    </style>
+  </defs>
+
+  <!-- Outer Shell -->
+  <rect width="1440" height="900" fill="#0D0E11"/>
+
+  <!-- ============================================================ -->
+  <!-- 1. LEFT RAIL (268px, #0D0E11)                                -->
+  <!-- ============================================================ -->
+  <rect x="0" y="0" width="268" height="900" fill="#0D0E11"/>
+  <line x1="268" y1="0" x2="268" y2="900" stroke="#1E2026" stroke-width="1"/>
+
+  <!-- Brand + Sidebar Toggle -->
+  <text x="18" y="32" fill="#F4F4F5" font-size="15" font-weight="600" class="sans">Veraxi</text>
+  <rect x="234" y="20" width="16" height="13" rx="3" stroke="#71717A" stroke-width="1.2"/>
+  <line x1="240" y1="20" x2="240" y2="33" stroke="#71717A" stroke-width="1.2"/>
+
+  <!-- [ Chat | <> Code ] Segmented Switch -->
+  <rect x="16" y="48" width="236" height="26" rx="8" fill="#13151A" stroke="#1E2026"/>
+  <text x="62" y="65" fill="#71717A" font-size="11.5" font-weight="500" class="sans">Chat</text>
+  <rect x="136" y="50" width="114" height="22" rx="6" fill="#23252C" stroke="#2F323C" stroke-width="0.8"/>
+  <text x="168" y="65" fill="#F4F4F5" font-size="11.5" font-weight="600" class="sans">&lt;&gt; Code</text>
+
+  <!-- Knowledge Hub -->
+  <rect x="20" y="95" width="12" height="12" rx="2" stroke="#A1A1AA" stroke-width="1.3" fill="none"/>
+  <line x1="23" y1="99" x2="29" y2="99" stroke="#A1A1AA" stroke-width="1.2"/>
+  <line x1="23" y1="103" x2="27" y2="103" stroke="#A1A1AA" stroke-width="1.2"/>
+  <text x="40" y="106" fill="#A1A1AA" font-size="13" class="sans">Knowledge Hub</text>
+
+  <!-- Security (Active Nav Item) -->
+  <rect x="12" y="118" width="244" height="34" rx="8" fill="#181A20" stroke="#282B36" stroke-width="0.8"/>
+  <path d="M26 128L32 130.5V135C32 138.8 29.4 142.2 26 143.2C22.6 142.2 20 138.8 20 135V130.5L26 128Z" stroke="#E4E4E7" stroke-width="1.3" fill="none"/>
+  <text x="40" y="139" fill="#F4F4F5" font-size="13" font-weight="600" class="sans">Security</text>
+  <rect x="218" y="126" width="28" height="18" rx="9" fill="#2A1215" stroke="#7F1D1D" stroke-width="0.8"/>
+  <text x="232" y="138" text-anchor="middle" fill="#FCA5A5" font-size="10.5" font-weight="600" class="sans">4</text>
+
+  <!-- Projects Section -->
+  <line x1="16" y1="170" x2="252" y2="170" stroke="#1E2026" stroke-width="1"/>
+  <text x="18" y="192" fill="#71717A" font-size="11" font-weight="600" class="sans">Projects</text>
+  <rect x="16" y="204" width="236" height="30" rx="7" fill="#13151A" stroke="#1E2026"/>
+  <circle cx="28" cy="219" r="3.5" fill="#10B981"/>
+  <text x="38" y="223" fill="#E4E4E7" font-size="12" font-weight="500" class="mono">veraxi/backend</text>
+  <text x="18" y="250" fill="#10B981" font-size="11.5" font-weight="500" class="sans">+ Connect a repo</text>
+
+  <!-- User Profile Footer -->
+  <line x1="16" y1="846" x2="252" y2="846" stroke="#1E2026" stroke-width="1"/>
+  <circle cx="30" cy="872" r="12" fill="#23252C" stroke="#2F323C"/>
+  <text x="30" y="876" text-anchor="middle" fill="#E4E4E7" font-size="11" font-weight="600" class="sans">K</text>
+  <text x="50" y="876" fill="#E4E4E7" font-size="12.5" font-weight="500" class="sans">Kazuo Coaguila</text>
+
+  <!-- ============================================================ -->
+  <!-- 2. MAIN WORKSPACE (1148px, Recessed Canvas #060709)          -->
+  <!-- ============================================================ -->
+  <rect x="280" y="12" width="1148" height="876" rx="14" fill="#060709" stroke="#1C1E24" stroke-width="1"/>
+
+  <!-- Top Header Bar -->
+  <text x="304" y="46" fill="#A1A1AA" font-size="14" class="sans">←</text>
+  <text x="326" y="46" fill="#F4F4F5" font-size="15.5" font-weight="600" class="sans">Security</text>
+  <rect x="398" y="30" width="124" height="22" rx="6" fill="#111317" stroke="#282B36"/>
+  <text x="410" y="45" fill="#A1A1AA" font-size="11" class="mono">veraxi/backend</text>
+
+  <!-- Feed Health Pill -->
+  <rect x="532" y="30" width="218" height="22" rx="11" fill="#0B1F16" stroke="#14532D" stroke-width="0.8"/>
+  <circle cx="545" cy="41" r="3.5" fill="#10B981"/>
+  <text x="555" y="45" fill="#6EE7B7" font-size="11" font-weight="500" class="sans">NVD 12m ago · KEV live · EPSS</text>
+
+  <!-- Header Toolbar Actions -->
+  <rect x="990" y="26" width="108" height="30" rx="7" fill="#181A20" stroke="#282B36"/>
+  <text x="1044" y="45" text-anchor="middle" fill="#E4E4E7" font-size="11.5" font-weight="500" class="sans">Sync NVD &amp; KEV</text>
+
+  <rect x="1106" y="26" width="128" height="30" rx="7" fill="#181A20" stroke="#282B36"/>
+  <text x="1170" y="45" text-anchor="middle" fill="#E4E4E7" font-size="11.5" font-weight="500" class="sans">Upload SBOM / SARIF</text>
+
+  <rect x="1242" y="26" width="162" height="30" rx="7" fill="#1D4ED8"/>
+  <text x="1323" y="45" text-anchor="middle" fill="#FFFFFF" font-size="11.5" font-weight="600" class="sans">Run Vulnerability Scan</text>
+
+  <line x1="280" y1="68" x2="1428" y2="68" stroke="#1E2026" stroke-width="1"/>
+
+  <!-- ============================================================ -->
+  <!-- 3. COMPACT POSTURE & NOISE BAR (No hero-metric cards)        -->
+  <!-- ============================================================ -->
+  <rect x="304" y="80" width="1100" height="36" rx="8" fill="#111317" stroke="#1E2026"/>
+  <circle cx="320" cy="98" r="3.5" fill="#EF4444"/>
+  <text x="331" y="102" fill="#F4F4F5" font-size="12" font-weight="600" class="sans">4 Actionable</text>
+  <text x="412" y="102" fill="#71717A" font-size="12" class="sans">·</text>
+  <text x="424" y="102" fill="#67E8F9" font-size="12" font-weight="500" class="sans">7 Reachable in Neo4j</text>
+  <text x="556" y="102" fill="#71717A" font-size="12" class="sans">·</text>
+  <text x="568" y="102" fill="#34D399" font-size="12" font-weight="500" class="sans">38 Unreachable suppressed (84% noise cut)</text>
+
+  <text x="1388" y="102" text-anchor="end" fill="#A1A1AA" font-size="11.5" class="sans">Grouped by package · 35 packages</text>
+
+  <!-- ============================================================ -->
+  <!-- 4. UNIFIED SECTION TABS + STRUCTURED QUERY BAR               -->
+  <!-- ============================================================ -->
+  <rect x="304" y="128" width="186" height="32" rx="8" fill="#181A20" stroke="#282B36"/>
+  <text x="318" y="148" fill="#F4F4F5" font-size="12" font-weight="600" class="sans">CVEs &amp; Reachability</text>
+  <rect x="448" y="135" width="32" height="18" rx="9" fill="#23252C"/>
+  <text x="464" y="147.5" text-anchor="middle" fill="#E4E4E7" font-size="10.5" font-weight="600" class="sans">45</text>
+
+  <rect x="498" y="128" width="132" height="32" rx="8" fill="#111317" stroke="#1E2026"/>
+  <text x="512" y="148" fill="#A1A1AA" font-size="12" font-weight="500" class="sans">SAST · SARIF</text>
+  <rect x="596" y="135" width="26" height="18" rx="9" fill="#1E2026"/>
+  <text x="609" y="147.5" text-anchor="middle" fill="#A1A1AA" font-size="10.5" class="sans">12</text>
+
+  <rect x="638" y="128" width="122" height="32" rx="8" fill="#111317" stroke="#1E2026"/>
+  <text x="652" y="148" fill="#A1A1AA" font-size="12" font-weight="500" class="sans">Recon · Nuclei</text>
+
+  <rect x="768" y="128" width="116" height="32" rx="8" fill="#111317" stroke="#1E2026"/>
+  <text x="782" y="148" fill="#A1A1AA" font-size="12" font-weight="500" class="sans">ATT&amp;CK · STIX</text>
+
+  <rect x="892" y="128" width="112" height="32" rx="8" fill="#111317" stroke="#1E2026"/>
+  <text x="906" y="148" fill="#A1A1AA" font-size="12" font-weight="500" class="sans">SOC Alerts</text>
+  <rect x="976" y="135" width="20" height="18" rx="9" fill="#1E2026"/>
+  <text x="986" y="147.5" text-anchor="middle" fill="#A1A1AA" font-size="10.5" class="sans">3</text>
+
+  <!-- Structured Query Input -->
+  <rect x="304" y="172" width="600" height="34" rx="8" fill="#111317" stroke="#282B36"/>
+  <circle cx="322" cy="189" r="5" stroke="#71717A" stroke-width="1.3" fill="none"/>
+  <line x1="326" y1="193" x2="330" y2="197" stroke="#71717A" stroke-width="1.3"/>
+  <text x="338" y="193" fill="#E4E4E7" font-size="12" class="mono">is:reachable severity:critical,high epss:&gt;=0.5</text>
+
+  <!-- Quick-Filter Chips -->
+  <rect x="916" y="174" width="116" height="30" rx="15" fill="#1E3A8A" stroke="#3B82F6" stroke-width="0.8"/>
+  <text x="974" y="193" text-anchor="middle" fill="#DBEAFE" font-size="11.5" font-weight="600" class="sans">Actionable (4)</text>
+
+  <rect x="1040" y="174" width="84" height="30" rx="15" fill="#111317" stroke="#282B36"/>
+  <text x="1082" y="193" text-anchor="middle" fill="#A1A1AA" font-size="11.5" class="sans">KEV Only</text>
+
+  <rect x="1132" y="174" width="106" height="30" rx="15" fill="#111317" stroke="#282B36"/>
+  <text x="1185" y="193" text-anchor="middle" fill="#A1A1AA" font-size="11.5" class="sans">Direct Only</text>
+
+  <rect x="1246" y="174" width="158" height="30" rx="15" fill="#0B1F16" stroke="#14532D" stroke-width="0.8"/>
+  <text x="1325" y="193" text-anchor="middle" fill="#6EE7B7" font-size="11.5" font-weight="500" class="sans">✓ Hide Unreachable (38)</text>
+
+  <!-- ============================================================ -->
+  <!-- 5. MASTER-DETAIL SPLIT WORKBENCH                             -->
+  <!-- ============================================================ -->
+
+  <!-- LEFT PANE: Package-Grouped Findings Queue (640px) -->
+  <rect x="304" y="220" width="640" height="648" rx="12" fill="#111317" stroke="#1E2026"/>
+
+  <!-- Table Header -->
+  <text x="322" y="244" fill="#71717A" font-size="10.5" font-weight="600" class="sans">SEVERITY</text>
+  <text x="410" y="244" fill="#71717A" font-size="10.5" font-weight="600" class="sans">PACKAGE / DEPENDENCY</text>
+  <text x="660" y="244" fill="#71717A" font-size="10.5" font-weight="600" class="sans">SIGNALS</text>
+  <text x="866" y="244" fill="#71717A" font-size="10.5" font-weight="600" class="sans">FIX</text>
+  <line x1="304" y1="256" x2="944" y2="256" stroke="#1E2026" stroke-width="1"/>
+
+  <!-- Row 1 (SELECTED — full subtle border + tint, no 1-sided bar) -->
+  <rect x="312" y="264" width="624" height="90" rx="8" fill="#181A20" stroke="#2E4A7D" stroke-width="1"/>
+  <rect x="326" y="280" width="68" height="20" rx="10" fill="#DC2626"/>
+  <text x="360" y="294" text-anchor="middle" fill="#FFFFFF" font-size="10" font-weight="700" class="sans">CRITICAL</text>
+  <text x="410" y="292" fill="#F4F4F5" font-size="13" font-weight="600" class="sans">requests 2.31.0</text>
+  <rect x="524" y="278" width="52" height="18" rx="5" fill="#1E293B"/>
+  <text x="550" y="290.5" text-anchor="middle" fill="#93C5FD" font-size="10" font-weight="600" class="sans">Direct</text>
+  <text x="584" y="291" fill="#A1A1AA" font-size="11" class="sans">· 2 CVEs</text>
+  <text x="410" y="311" fill="#A1A1AA" font-size="11.5" class="mono">CVE-2024-3094 · CWE-918</text>
+  <text x="410" y="331" fill="#71717A" font-size="11" class="mono">api/webhook.py:42 (+2 call sites)</text>
+  <!-- Signals -->
+  <rect x="660" y="280" width="38" height="20" rx="10" fill="#4C1D95" stroke="#7C3AED" stroke-width="0.8"/>
+  <text x="679" y="294" text-anchor="middle" fill="#EDE9FE" font-size="10" font-weight="700" class="sans">KEV</text>
+  <rect x="704" y="280" width="74" height="20" rx="10" fill="#27273A" stroke="#3F3F5C" stroke-width="0.8"/>
+  <text x="741" y="294" text-anchor="middle" fill="#C4B5FD" font-size="10" font-weight="600" class="sans">EPSS 87.3%</text>
+  <rect x="660" y="308" width="128" height="20" rx="10" fill="#083344" stroke="#0E7490" stroke-width="0.8"/>
+  <text x="724" y="322" text-anchor="middle" fill="#67E8F9" font-size="10" font-weight="600" class="sans">Reachable · 3 paths</text>
+  <!-- Fix -->
+  <text x="866" y="294" fill="#34D399" font-size="11.5" font-weight="600" class="mono">≥ 2.32.2</text>
+  <text x="866" y="314" fill="#71717A" font-size="10.5" class="sans">Score 94</text>
+
+  <!-- Row 2 -->
+  <rect x="326" y="376" width="52" height="20" rx="10" fill="#EA580C"/>
+  <text x="352" y="390" text-anchor="middle" fill="#FFFFFF" font-size="10" font-weight="700" class="sans">HIGH</text>
+  <text x="410" y="388" fill="#E4E4E7" font-size="13" font-weight="600" class="sans">urllib3 1.26.15</text>
+  <rect x="520" y="374" width="66" height="18" rx="5" fill="#181A20" stroke="#282B36"/>
+  <text x="553" y="386.5" text-anchor="middle" fill="#A1A1AA" font-size="10" class="sans">Transitive</text>
+  <text x="410" y="407" fill="#A1A1AA" font-size="11.5" class="mono">CVE-2023-45803 · via requests</text>
+  <text x="410" y="427" fill="#71717A" font-size="11" class="mono">services/http_client.py:19</text>
+  <rect x="660" y="376" width="74" height="20" rx="10" fill="#27273A" stroke="#3F3F5C" stroke-width="0.8"/>
+  <text x="697" y="390" text-anchor="middle" fill="#C4B5FD" font-size="10" font-weight="600" class="sans">EPSS 64.1%</text>
+  <rect x="660" y="404" width="128" height="20" rx="10" fill="#083344" stroke="#0E7490" stroke-width="0.8"/>
+  <text x="724" y="418" text-anchor="middle" fill="#67E8F9" font-size="10" font-weight="600" class="sans">Reachable · 1 path</text>
+  <text x="866" y="390" fill="#34D399" font-size="11.5" font-weight="600" class="mono">≥ 2.0.7</text>
+  <text x="866" y="410" fill="#71717A" font-size="10.5" class="sans">Score 78</text>
+  <line x1="304" y1="446" x2="944" y2="446" stroke="#1E2026" stroke-width="1"/>
+
+  <!-- Row 3 -->
+  <rect x="326" y="464" width="52" height="20" rx="10" fill="#EA580C"/>
+  <text x="352" y="478" text-anchor="middle" fill="#FFFFFF" font-size="10" font-weight="700" class="sans">HIGH</text>
+  <text x="410" y="476" fill="#E4E4E7" font-size="13" font-weight="600" class="sans">cryptography 41.0.2</text>
+  <rect x="554" y="462" width="52" height="18" rx="5" fill="#1E293B"/>
+  <text x="580" y="474.5" text-anchor="middle" fill="#93C5FD" font-size="10" font-weight="600" class="sans">Direct</text>
+  <text x="410" y="495" fill="#A1A1AA" font-size="11.5" class="mono">CVE-2023-49083 · CWE-476</text>
+  <text x="410" y="515" fill="#71717A" font-size="11" class="mono">auth/jwt_verify.py:104</text>
+  <rect x="660" y="464" width="74" height="20" rx="10" fill="#27273A" stroke="#3F3F5C" stroke-width="0.8"/>
+  <text x="697" y="478" text-anchor="middle" fill="#C4B5FD" font-size="10" font-weight="600" class="sans">EPSS 52.0%</text>
+  <rect x="660" y="492" width="128" height="20" rx="10" fill="#083344" stroke="#0E7490" stroke-width="0.8"/>
+  <text x="724" y="506" text-anchor="middle" fill="#67E8F9" font-size="10" font-weight="600" class="sans">Reachable · 2 paths</text>
+  <text x="866" y="478" fill="#34D399" font-size="11.5" font-weight="600" class="mono">≥ 41.0.6</text>
+  <text x="866" y="498" fill="#71717A" font-size="10.5" class="sans">Score 74</text>
+  <line x1="304" y1="534" x2="944" y2="534" stroke="#1E2026" stroke-width="1"/>
+
+  <!-- Row 4: Medium Reachable -->
+  <rect x="326" y="552" width="60" height="20" rx="10" fill="#F59E0B"/>
+  <text x="356" y="566" text-anchor="middle" fill="#18181B" font-size="10" font-weight="700" class="sans">MEDIUM</text>
+  <text x="410" y="564" fill="#E4E4E7" font-size="13" font-weight="600" class="sans">pyyaml 6.0</text>
+  <rect x="492" y="550" width="52" height="18" rx="5" fill="#1E293B"/>
+  <text x="518" y="562.5" text-anchor="middle" fill="#93C5FD" font-size="10" font-weight="600" class="sans">Direct</text>
+  <text x="410" y="583" fill="#A1A1AA" font-size="11.5" class="mono">CVE-2024-2151 · CWE-502</text>
+  <text x="410" y="603" fill="#71717A" font-size="11" class="mono">config/loader.py:27</text>
+  <rect x="660" y="552" width="74" height="20" rx="10" fill="#27273A" stroke="#3F3F5C" stroke-width="0.8"/>
+  <text x="697" y="566" text-anchor="middle" fill="#C4B5FD" font-size="10" font-weight="600" class="sans">EPSS 38.4%</text>
+  <rect x="660" y="580" width="128" height="20" rx="10" fill="#083344" stroke="#0E7490" stroke-width="0.8"/>
+  <text x="724" y="594" text-anchor="middle" fill="#67E8F9" font-size="10" font-weight="600" class="sans">Reachable · 1 path</text>
+  <text x="866" y="566" fill="#34D399" font-size="11.5" font-weight="600" class="mono">≥ 6.0.1</text>
+  <text x="866" y="586" fill="#71717A" font-size="10.5" class="sans">Score 61</text>
+  <line x1="304" y1="622" x2="944" y2="622" stroke="#1E2026" stroke-width="1"/>
+
+  <!-- Row 5: Unknown / Unparseable Version -->
+  <rect x="326" y="640" width="64" height="20" rx="10" fill="#181A20" stroke="#F59E0B" stroke-width="1"/>
+  <text x="358" y="654" text-anchor="middle" fill="#FBBF24" font-size="10" font-weight="600" class="sans">UNKNOWN</text>
+  <text x="410" y="652" fill="#FBBF24" font-size="13" font-weight="500" class="sans">legacy-xml-parser</text>
+  <text x="410" y="671" fill="#A1A1AA" font-size="11.5" class="mono">CVE-2023-9999 · Version unparseable</text>
+  <text x="410" y="691" fill="#71717A" font-size="11" class="mono">ingestion/xml_loader.py:31</text>
+  <rect x="660" y="640" width="128" height="20" rx="10" fill="#272010" stroke="#92400E" stroke-width="0.8"/>
+  <text x="724" y="654" text-anchor="middle" fill="#FCD34D" font-size="10" font-weight="600" class="sans">Needs manual check</text>
+  <text x="866" y="654" fill="#71717A" font-size="11" class="sans">Unpinned</text>
+  <line x1="304" y1="710" x2="944" y2="710" stroke="#1E2026" stroke-width="1"/>
+
+  <!-- Row 6: Deprioritized / Unreachable Preview (dimmed) -->
+  <rect x="326" y="728" width="52" height="20" rx="10" fill="#27272A"/>
+  <text x="352" y="742" text-anchor="middle" fill="#A1A1AA" font-size="10" font-weight="600" class="sans">LOW</text>
+  <text x="410" y="740" fill="#A1A1AA" font-size="13" font-weight="500" class="sans">jinja2 3.1.2</text>
+  <rect x="498" y="726" width="66" height="18" rx="5" fill="#181A20" stroke="#282B36"/>
+  <text x="531" y="738.5" text-anchor="middle" fill="#71717A" font-size="10" class="sans">Transitive</text>
+  <text x="410" y="759" fill="#71717A" font-size="11.5" class="mono">CVE-2024-22195 · No call path in Neo4j</text>
+  <text x="410" y="779" fill="#52525B" font-size="11" class="mono">Deprioritized by reachability filter</text>
+  <rect x="660" y="728" width="106" height="20" rx="10" fill="#181A20" stroke="#282B36"/>
+  <text x="713" y="742" text-anchor="middle" fill="#71717A" font-size="10" class="sans">Unreachable</text>
+  <text x="866" y="742" fill="#71717A" font-size="11.5" class="mono">≥ 3.1.3</text>
+  <text x="866" y="762" fill="#52525B" font-size="10.5" class="sans">Score 12</text>
+
+  <!-- Suppressed Noise Summary Footer inside Queue -->
+  <line x1="304" y1="814" x2="944" y2="814" stroke="#1E2026" stroke-width="1"/>
+  <text x="326" y="844" fill="#71717A" font-size="11.5" class="sans">38 unreachable transitive findings hidden (zero call path in Neo4j)</text>
+  <text x="922" y="844" text-anchor="end" fill="#60A5FA" font-size="11.5" font-weight="600" class="sans">Show all 45 →</text>
+
+  <!-- ============================================================ -->
+  <!-- 6. RIGHT PANE: FLAT HAIRLINE INSPECTOR (No nested cards)     -->
+  <!-- ============================================================ -->
+  <rect x="956" y="220" width="448" height="648" rx="12" fill="#111317" stroke="#1E2026"/>
+
+  <!-- Section 1: Identity & Composite Score -->
+  <text x="978" y="248" fill="#71717A" font-size="10.5" font-weight="600" class="sans">VULNERABILITY INSPECTOR</text>
+  <rect x="1308" y="232" width="76" height="24" rx="12" fill="#2A1215" stroke="#DC2626" stroke-width="0.8"/>
+  <text x="1346" y="248" text-anchor="middle" fill="#FCA5A5" font-size="11" font-weight="700" class="sans">Score 94</text>
+
+  <text x="978" y="278" fill="#F4F4F5" font-size="16" font-weight="700" class="sans">CVE-2024-3094 · requests</text>
+  <text x="978" y="298" fill="#A1A1AA" font-size="12" class="sans">SSRF via redirect header leak in</text>
+  <text x="1164" y="298" fill="#E4E4E7" font-size="11.5" class="mono">requests.Session</text>
+
+  <!-- Hairline Divider -->
+  <line x1="978" y1="316" x2="1382" y2="316" stroke="#1E2026" stroke-width="1"/>
+
+  <!-- Section 2: Why This Priority (Flat, scannable bullets) -->
+  <text x="978" y="338" fill="#E4E4E7" font-size="11.5" font-weight="600" class="sans">Why this priority</text>
+  <text x="978" y="360" fill="#67E8F9" font-size="11.5" class="sans">• Reachable in 3 production call sites</text>
+  <text x="978" y="380" fill="#C4B5FD" font-size="11.5" class="sans">• Active in CISA KEV · EPSS 87.3% (99th percentile)</text>
+  <text x="978" y="400" fill="#A1A1AA" font-size="11.5" class="sans">• Direct dependency in requirements.txt</text>
+
+  <line x1="978" y1="418" x2="1382" y2="418" stroke="#1E2026" stroke-width="1"/>
+
+  <!-- Section 3: Remediation Path (Flat, green semantic accent) -->
+  <text x="978" y="440" fill="#6EE7B7" font-size="11.5" font-weight="600" class="sans">Remediation path</text>
+  <rect x="1320" y="426" width="62" height="20" rx="6" fill="#0B1F16" stroke="#14532D"/>
+  <text x="1351" y="440" text-anchor="middle" fill="#6EE7B7" font-size="10" font-weight="600" class="sans">No break</text>
+  <text x="978" y="464" fill="#A1A1AA" font-size="11.5" class="mono">requirements.txt: requests==2.31.0</text>
+  <text x="978" y="484" fill="#34D399" font-size="12" font-weight="600" class="mono">→ Upgrade to requests &gt;= 2.32.2</text>
+
+  <line x1="978" y1="502" x2="1382" y2="502" stroke="#1E2026" stroke-width="1"/>
+
+  <!-- Section 4: Neo4j Reachability & Attack Path -->
+  <text x="978" y="524" fill="#E4E4E7" font-size="11.5" font-weight="600" class="sans">Neo4j Reachability &amp; Attack Path</text>
+
+  <!-- Node 1 -->
+  <rect x="978" y="540" width="184" height="30" rx="7" fill="#16181D" stroke="#282B36"/>
+  <circle cx="992" cy="555" r="4" fill="#3B82F6"/>
+  <text x="1002" y="559" fill="#E4E4E7" font-size="11" class="mono">api/webhook.py:42</text>
+
+  <line x1="1010" y1="570" x2="1010" y2="590" stroke="#3F3F46" stroke-width="1.5"/>
+  <text x="1022" y="584" fill="#71717A" font-size="10.5" class="sans">calls</text>
+
+  <!-- Node 2 -->
+  <rect x="978" y="590" width="210" height="30" rx="7" fill="#16181D" stroke="#282B36"/>
+  <circle cx="992" cy="605" r="4" fill="#22D3EE"/>
+  <text x="1002" y="609" fill="#E4E4E7" font-size="11" class="mono">fetch_remote_payload()</text>
+
+  <line x1="1010" y1="620" x2="1010" y2="640" stroke="#3F3F46" stroke-width="1.5"/>
+  <text x="1022" y="634" fill="#71717A" font-size="10.5" class="sans">reaches vulnerable sink</text>
+
+  <!-- Node 3 -->
+  <rect x="978" y="640" width="246" height="30" rx="7" fill="#2A1215" stroke="#DC2626" stroke-width="0.8"/>
+  <circle cx="992" cy="655" r="4" fill="#EF4444"/>
+  <text x="1002" y="659" fill="#FCA5A5" font-size="11" class="mono">requests.get() · CWE-918</text>
+
+  <line x1="978" y1="686" x2="1382" y2="686" stroke="#1E2026" stroke-width="1"/>
+
+  <!-- Section 5: Call Sites -->
+  <text x="978" y="708" fill="#71717A" font-size="10.5" font-weight="600" class="sans">ALL CALL SITES (3)</text>
+  <text x="978" y="730" fill="#67E8F9" font-size="11.5" class="mono">1. api/webhook.py:42 (handle_hook)</text>
+  <text x="978" y="752" fill="#A1A1AA" font-size="11.5" class="mono">2. services/sync.py:119 (pull_feed)</text>
+  <text x="978" y="774" fill="#A1A1AA" font-size="11.5" class="mono">3. workers/ingest.py:64 (fetch_doc)</text>
+
+  <!-- Primary Action Footer (Audit-safe Ignore + AI Fix) -->
+  <line x1="956" y1="814" x2="1404" y2="814" stroke="#1E2026" stroke-width="1"/>
+  <rect x="978" y="826" width="110" height="32" rx="7" fill="#181A20" stroke="#282B36"/>
+  <text x="1033" y="846" text-anchor="middle" fill="#A1A1AA" font-size="11.5" font-weight="500" class="sans">Ignore / Snooze ▾</text>
+
+  <rect x="1098" y="826" width="284" height="32" rx="7" fill="#1D4ED8"/>
+  <text x="1240" y="846" text-anchor="middle" fill="#FFFFFF" font-size="12" font-weight="600" class="sans">Ask Veraxi to Fix in Code Thread →</text>
+</svg>

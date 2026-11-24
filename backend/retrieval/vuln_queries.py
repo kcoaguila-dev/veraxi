@@ -40,6 +40,7 @@ from __future__ import annotations
 
 import logging
 import re
+from datetime import datetime, timedelta, timezone
 from typing import Any, Protocol, runtime_checkable
 
 logger = logging.getLogger(__name__)
@@ -119,6 +120,104 @@ def _entry_match_status(version: str | None, entry: dict[str, Any]) -> str:
     return "matched" if all(checks) else "not_matched"
 
 
+_LOCKFILE_NAMES = {
+    "uv.lock",
+    "package-lock.json",
+    "poetry.lock",
+    "yarn.lock",
+    "pnpm-lock.yaml",
+    "pubspec.lock",
+    "cargo.lock",
+}
+_DIRECT_MANIFEST_NAMES = {
+    "pyproject.toml",
+    "package.json",
+    "pubspec.yaml",
+    "requirements.txt",
+    "cargo.toml",
+    "go.mod",
+    "pom.xml",
+    "build.gradle",
+}
+_SEVERITY_SCORE_WEIGHTS = {
+    "CRITICAL": 10,
+    "HIGH": 7,
+    "MEDIUM": 4,
+    "LOW": 2,
+}
+
+
+def _infer_dependency_scope(dependency: dict[str, Any]) -> str:
+    """Return ``'direct'``, ``'transitive'``, or ``'unknown'``."""
+    explicit = str(
+        dependency.get("dependency_scope") or dependency.get("scope") or ""
+    ).strip().lower()
+    if explicit in ("direct", "transitive"):
+        return explicit
+    if dependency.get("direct") is True:
+        return "direct"
+    if dependency.get("direct") is False:
+        return "transitive"
+    if dependency.get("introduced_via") or dependency.get("parent"):
+        return "transitive"
+    source_file = str(dependency.get("source_file") or "").strip().lower()
+    basename = source_file.rsplit("/", 1)[-1] if source_file else ""
+    if basename in _DIRECT_MANIFEST_NAMES:
+        return "direct"
+    if basename in _LOCKFILE_NAMES:
+        return "transitive"
+    return "unknown"
+
+
+def _infer_introduced_via(dependency: dict[str, Any]) -> str | None:
+    """Return the parent package or manifest file introducing this dep."""
+    via = dependency.get("introduced_via") or dependency.get("parent")
+    if via:
+        return str(via)
+    source_file = dependency.get("source_file")
+    return str(source_file) if source_file else None
+
+
+def _compute_composite_score(finding: dict[str, Any]) -> tuple[int, list[str]]:
+    """Compute a 0-100 composite priority score and human-readable reasons."""
+    score = 0
+    reasons: list[str] = []
+
+    reachable = finding.get("reachable_in_code") or []
+    reachable_files = int(finding.get("reachable_file_count") or 0)
+    call_site_count = len(reachable) if isinstance(reachable, list) else 0
+    if call_site_count > 0:
+        score += 35
+        noun = "call site" if call_site_count == 1 else "call sites"
+        reasons.append(f"Reachable in {call_site_count} {noun}")
+    elif reachable_files > 0:
+        score += 30
+        noun = "file" if reachable_files == 1 else "files"
+        reasons.append(f"Reachable in {reachable_files} {noun}")
+
+    if finding.get("kev"):
+        score += 30
+        reasons.append("Active in CISA KEV")
+
+    epss = finding.get("epss_score")
+    if isinstance(epss, (int, float)) and epss > 0:
+        score += round(min(1.0, max(0.0, float(epss))) * 25)
+        reasons.append(f"EPSS {float(epss) * 100:.1f}%")
+
+    severity = str(finding.get("severity") or "").upper()
+    sev_weight = _SEVERITY_SCORE_WEIGHTS.get(severity, 0)
+    if sev_weight:
+        score += sev_weight
+        if severity in ("CRITICAL", "HIGH"):
+            reasons.append(f"{severity.title()} severity")
+
+    if finding.get("dependency_scope") == "direct":
+        score += 5
+        reasons.append("Direct dependency")
+
+    return min(100, max(0, score)), reasons
+
+
 def _match_single_dependency(
     dependency: dict[str, Any],
     affected_index: dict[str, list[dict[str, Any]]],
@@ -160,7 +259,12 @@ def _match_single_dependency(
             if status == "matched":
                 existing["match_status"] = "matched"
             continue
-        by_cve[cve_id] = {
+        fixed_version = (
+            entry.get("fixed")
+            or entry.get("version_end_excluding")
+            or entry.get("version_end_including")
+        )
+        finding = {
             "package": dependency.get("name"),
             "ecosystem": dependency.get("ecosystem"),
             "source_file": dependency.get("source_file"),
@@ -173,7 +277,14 @@ def _match_single_dependency(
             "kev": bool(entry.get("kev", False)),
             "epss_score": entry.get("epss_score"),
             "epss_percentile": entry.get("epss_percentile"),
+            "fixed_version": str(fixed_version) if fixed_version else None,
+            "dependency_scope": _infer_dependency_scope(dependency),
+            "introduced_via": _infer_introduced_via(dependency),
         }
+        score, reasons = _compute_composite_score(finding)
+        finding["composite_score"] = score
+        finding["priority_reasons"] = reasons
+        by_cve[cve_id] = finding
     return list(by_cve.values())
 
 
@@ -309,6 +420,26 @@ class Neo4jVulnGraphClient:
                 index.setdefault(f"{ecosystem_key}:{package}", []).append(entry)
         return index
 
+    def active_suppressions(self, tenant_id: str) -> set[tuple[str, str]]:
+        """Return ``(cve_id, package)`` pairs currently suppressed for tenant."""
+        query = """
+        MATCH (s:VulnSuppression {tenant_id: $tenant_id})
+        WHERE s.expires_at IS NULL OR s.expires_at > $now
+        RETURN s.cve_id AS cve_id, s.package AS package
+        """
+        rows = self._client.execute_read(
+            query,
+            {
+                "tenant_id": tenant_id,
+                "now": datetime.now(timezone.utc).isoformat(),
+            },
+        )
+        return {
+            (str(r.get("cve_id") or ""), str(r.get("package") or ""))
+            for r in rows
+            if r.get("cve_id") and r.get("package")
+        }
+
 
 def _default_client(client: VulnGraphClient | None) -> VulnGraphClient:
     return client if client is not None else Neo4jVulnGraphClient()
@@ -374,6 +505,9 @@ def attach_code_reachability(
         finding["reachable_file_count"] = len(
             {item.get("path") for item in impacted if item.get("path")}
         )
+        score, reasons = _compute_composite_score(finding)
+        finding["composite_score"] = score
+        finding["priority_reasons"] = reasons
     return findings
 
 
@@ -393,6 +527,28 @@ def vuln_report(
     )
     affected_index = graph_client.affected_index(tenant_id, names)
     report = build_vuln_report(dependencies, affected_index)
+    suppressed_pairs: set[tuple[str, str]] = set()
+    if hasattr(graph_client, "active_suppressions"):
+        try:
+            suppressed_pairs = graph_client.active_suppressions(tenant_id)
+        except Exception as exc:
+            logger.warning("Failed to load active suppressions: %s", exc)
+    if suppressed_pairs:
+        kept = [
+            f
+            for f in report["findings"]
+            if (str(f.get("cve_id") or ""), str(f.get("package") or ""))
+            not in suppressed_pairs
+        ]
+        report["suppressed_count"] = len(report["findings"]) - len(kept)
+        report["findings"] = kept
+        report["matched_count"] = sum(
+            1 for f in kept if f["match_status"] == "matched"
+        )
+        report["unknown_count"] = sum(
+            1 for f in kept if f["match_status"] == "unknown"
+        )
+        report["kev_count"] = sum(1 for f in kept if f["kev"])
     if include_reachability:
         attach_code_reachability(
             report["findings"],
@@ -405,11 +561,215 @@ def vuln_report(
     return report
 
 
+_VALID_IGNORE_REASONS = frozenset(
+    {"false_positive", "not_reachable", "snooze_30d"}
+)
+
+_DIFF_SAST_PATTERNS: tuple[tuple[str, str, str, re.Pattern[str]], ...] = (
+    (
+        "secret_aws_key",
+        "CRITICAL",
+        "Potential hardcoded AWS access key",
+        re.compile(r"AKIA[0-9A-Z]{16}"),
+    ),
+    (
+        "secret_private_key",
+        "CRITICAL",
+        "Potential hardcoded private key block",
+        re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----"),
+    ),
+    (
+        "secret_generic_token",
+        "HIGH",
+        "Potential hardcoded API token or secret literal",
+        re.compile(
+            r"""(?:api_key|secret_key|password|token)\s*=\s*['"][A-Za-z0-9_\-]{12,}['"]""",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "sast_shell_true",
+        "HIGH",
+        "subprocess call with shell=True enables command injection",
+        re.compile(r"\bsubprocess\.[a-zA-Z_]+\([^)]*shell\s*=\s*True"),
+    ),
+    (
+        "sast_eval_exec",
+        "HIGH",
+        "Dynamic eval()/exec() execution on potentially untrusted input",
+        re.compile(r"\b(?:eval|exec)\s*\("),
+    ),
+    (
+        "sast_yaml_unsafe",
+        "MEDIUM",
+        "yaml.load() without SafeLoader allows arbitrary object instantiation",
+        re.compile(r"\byaml\.load\s*\((?![^)]*SafeLoader)"),
+    ),
+)
+
+
+def ignore_vuln_finding(
+    cve_id: str,
+    package: str,
+    reason: str,
+    *,
+    note: str | None = None,
+    expires_at: str | None = None,
+    tenant_id: str = "default",
+    client: Any = None,
+) -> dict[str, Any]:
+    """Persist an audit-safe vulnerability suppression to Neo4j."""
+    if reason not in _VALID_IGNORE_REASONS:
+        raise ValueError(f"Unsupported suppression reason: {reason}")
+    now = datetime.now(timezone.utc)
+    resolved_expires = expires_at
+    if reason == "snooze_30d" and not resolved_expires:
+        resolved_expires = (now + timedelta(days=30)).isoformat()
+
+    if client is None:
+        from backend.config import get_config
+        from backend.storage.neo4j_client import Neo4jStorageClient
+
+        client = Neo4jStorageClient.from_config(get_config())
+
+    query = """
+    MERGE (s:VulnSuppression {
+        tenant_id: $tenant_id,
+        cve_id: $cve_id,
+        package: $package
+    })
+    SET s.reason = $reason,
+        s.note = $note,
+        s.expires_at = $expires_at,
+        s.updated_at = $updated_at
+    RETURN s.cve_id AS cve_id,
+           s.package AS package,
+           s.reason AS reason,
+           s.note AS note,
+           s.expires_at AS expires_at,
+           s.updated_at AS updated_at
+    """
+    params = {
+        "tenant_id": tenant_id,
+        "cve_id": cve_id.strip(),
+        "package": package.strip(),
+        "reason": reason,
+        "note": note,
+        "expires_at": resolved_expires,
+        "updated_at": now.isoformat(),
+    }
+    rows = client.execute_write(query, params)
+    return dict(rows[0]) if rows else {
+        "cve_id": params["cve_id"],
+        "package": params["package"],
+        "reason": reason,
+        "note": note,
+        "expires_at": resolved_expires,
+        "updated_at": params["updated_at"],
+    }
+
+
+def _scan_diff_sast_and_secrets(diff: str) -> list[dict[str, Any]]:
+    """Scan added lines in a unified diff for high-signal SAST/secret issues."""
+    if not diff:
+        return []
+    findings: list[dict[str, Any]] = []
+    current_file = "<diff>"
+    current_line = 0
+    for raw_line in diff.splitlines():
+        if raw_line.startswith("+++ b/"):
+            current_file = raw_line[6:].strip()
+            continue
+        if raw_line.startswith("@@ "):
+            match = re.search(r"\+(\d+)", raw_line)
+            if match:
+                current_line = int(match.group(1))
+            continue
+        if raw_line.startswith("+") and not raw_line.startswith("+++"):
+            added_code = raw_line[1:]
+            for rule_id, severity, message, pattern in _DIFF_SAST_PATTERNS:
+                if pattern.search(added_code):
+                    findings.append(
+                        {
+                            "rule_id": rule_id,
+                            "severity": severity,
+                            "message": message,
+                            "file": current_file,
+                            "line": max(1, current_line),
+                        }
+                    )
+            current_line += 1
+        elif not raw_line.startswith("-"):
+            current_line += 1
+    return findings
+
+
+def audit_diff_files(
+    files: list[str],
+    *,
+    diff: str = "",
+    tenant_id: str = "default",
+    repo: str | None = None,
+    client: Any = None,
+) -> dict[str, Any]:
+    """Scope Neo4j reachability + SAST/secret checks to touched files."""
+    if client is None:
+        from backend.config import get_config
+        from backend.storage.neo4j_client import Neo4jStorageClient
+
+        client = Neo4jStorageClient.from_config(get_config())
+
+    reachable_symbols: list[dict[str, Any]] = []
+    if files:
+        query = """
+        MATCH (f:CodeFile {tenant_id: $tenant_id})
+        WHERE f.path IN $files
+          AND ($repo IS NULL OR f.repo_key = $repo)
+        OPTIONAL MATCH (f)<-[:DEFINED_IN]-(sym)
+        OPTIONAL MATCH (sym)-[:IMPORTS|CALLS*1..2]->(dep)
+        RETURN f.path AS path,
+               f.repo_key AS repo_key,
+               sym.qualified_name AS symbol,
+               collect(DISTINCT dep.qualified_name) AS callees
+        LIMIT 100
+        """
+        rows = client.execute_read(
+            query,
+            {"tenant_id": tenant_id, "files": list(files), "repo": repo},
+        )
+        for row in rows:
+            if row.get("symbol"):
+                reachable_symbols.append(
+                    {
+                        "path": row.get("path"),
+                        "repo_key": row.get("repo_key"),
+                        "symbol": row.get("symbol"),
+                        "callees": [c for c in (row.get("callees") or []) if c],
+                    }
+                )
+
+    sast_findings = _scan_diff_sast_and_secrets(diff)
+    return {
+        "status": "ok",
+        "tenant_id": tenant_id,
+        "files_audited": list(files),
+        "reachable_symbols": reachable_symbols,
+        "findings": sast_findings,
+        "summary": {
+            "files_count": len(files),
+            "reachable_symbol_count": len(reachable_symbols),
+            "finding_count": len(sast_findings),
+        },
+    }
+
+
 __all__ = [
     "Neo4jVulnGraphClient",
     "VulnGraphClient",
     "attach_code_reachability",
+    "audit_diff_files",
     "build_vuln_report",
+    "ignore_vuln_finding",
     "match_dependencies",
     "vuln_report",
 ]

@@ -3,11 +3,13 @@ import 'dart:convert';
 import 'package:file_picker/file_picker.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:veraxi_app/core/theme/obsidian_tokens.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
 import 'package:veraxi_app/core/widgets/veraxi_switch.dart';
 import 'package:veraxi_app/features/knowledge_hub/view_models/code_intel_view_model.dart';
 import 'package:veraxi_app/features/knowledge_hub/views/widgets/security_feed_panel.dart';
 import 'package:veraxi_app/features/knowledge_hub/views/widgets/security_launchpad.dart';
+import 'package:veraxi_app/features/knowledge_hub/views/widgets/vuln_inspector_pane.dart';
 import 'package:veraxi_app/features/knowledge_hub/views/widgets/vuln_workbench_table.dart';
 
 /// Severity badge colors. Unknown/absent severity renders no badge.
@@ -113,6 +115,74 @@ ButtonStyle workbenchPrimaryButtonStyle() {
   );
 }
 
+/// Compact header health pill showing NVD/KEV/EPSS sync freshness or
+/// `No repo · Upload-only mode` when no repository is indexed.
+class FeedHealthPill extends ConsumerWidget {
+  final TextEditingController repoPathController;
+
+  const FeedHealthPill({super.key, required this.repoPathController});
+
+  String _formatRelativeSync(DateTime syncedAt) {
+    final diff = DateTime.now().difference(syncedAt);
+    if (diff.inMinutes < 1) return 'just now';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    if (diff.inHours < 24) return '${diff.inHours}h ago';
+    return '${diff.inDays}d ago';
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(codeIntelViewModelProvider);
+    final hasRepo = repoPathController.text.trim().isNotEmpty ||
+        (state.overview?.totalNodes ?? 0) > 0;
+    final syncedAt = state.lastFeedSyncAt ?? state.vulnReport?.feedSyncedAt;
+    final String label;
+    final Color dotColor;
+    if (syncedAt != null) {
+      label = 'NVD ${_formatRelativeSync(syncedAt)} · KEV live · EPSS';
+      dotColor = const Color(0xFF34D399);
+    } else if (!hasRepo) {
+      label = 'No repo · Upload-only mode';
+      dotColor = const Color(0xFFF59E0B);
+    } else {
+      label = 'NVD ready · KEV live · EPSS';
+      dotColor = const Color(0xFF60A5FA);
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: ObsidianTokens.card,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: ObsidianTokens.hairline),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 6,
+            height: 6,
+            decoration: BoxDecoration(color: dotColor, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              label,
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1,
+              style: const TextStyle(
+                color: Color(0xFFA1A1AA),
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /// Shared action toolbar (`Sync NVD & KEV`, `Upload SBOM`, `Run Vulnerability
 /// Scan`) used in the Code Mode header bar on wide desktop and inline inside
 /// [VulnIntelPanel] on narrower viewports.
@@ -214,6 +284,8 @@ class VulnIntelPanel extends ConsumerStatefulWidget {
   final String? selectedCveId;
   final ValueChanged<VulnFinding>? onAskFinding;
   final ValueChanged<VulnFinding>? onInspectPath;
+  final void Function(VulnFinding finding, VulnCallSite? site)?
+      onInspectCallSite;
   final VoidCallback? onOpenRepoXray;
 
   const VulnIntelPanel({
@@ -224,6 +296,7 @@ class VulnIntelPanel extends ConsumerStatefulWidget {
     this.selectedCveId,
     this.onAskFinding,
     this.onInspectPath,
+    this.onInspectCallSite,
     this.onOpenRepoXray,
   });
 
@@ -243,6 +316,8 @@ class _VulnIntelPanelState extends ConsumerState<VulnIntelPanel> {
   String? get selectedCveId => widget.selectedCveId;
   ValueChanged<VulnFinding>? get onAskFinding => widget.onAskFinding;
   ValueChanged<VulnFinding>? get onInspectPath => widget.onInspectPath;
+  void Function(VulnFinding, VulnCallSite?)? get onInspectCallSite =>
+      widget.onInspectCallSite;
   VoidCallback? get onOpenRepoXray => widget.onOpenRepoXray;
 
   @override
@@ -263,16 +338,23 @@ class _VulnIntelPanelState extends ConsumerState<VulnIntelPanel> {
     final content = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        if (workbenchMode &&
+            _section == SecuritySection.cves &&
+            report != null) ...[
+          _buildPostureStrip(report, state, viewModel),
+          const SizedBox(height: 12),
+        ],
         if (workbenchMode) ...[
           SecuritySectionTabs(
             selected: _section,
             onChanged: (section) => setState(() => _section = section),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
           if (_section != SecuritySection.cves)
             SecurityFeedPanel(
               embedded: true,
               initialTab: securityFeedTabForSection(_section) ?? 0,
+              onConnectRepo: onOpenRepoXray,
             ),
         ],
         if (!workbenchMode) ...[
@@ -346,29 +428,47 @@ class _VulnIntelPanelState extends ConsumerState<VulnIntelPanel> {
         ],
         if (report != null &&
             (!workbenchMode || _section == SecuritySection.cves)) ...[
-          const SizedBox(height: 16),
-          if (workbenchMode)
-            _buildTriageFunnelStrip(report, state, viewModel)
-          else
+          const SizedBox(height: 12),
+          if (!workbenchMode) ...[
             Text(
               '${report.dependenciesChecked} dependencies checked · '
               '${report.matchedCount} matched · ${report.unknownCount} unknown · '
               '${report.kevCount} in CISA KEV',
               style: TextStyle(color: ext.iconColor, fontSize: 13),
             ),
-          const SizedBox(height: 12),
-          if (workbenchMode)
-            _buildWorkbenchFilterPills(report, state, viewModel)
-          else
-            _buildLegacyFilterPills(state, viewModel),
-          if (workbenchMode) ...[
             const SizedBox(height: 12),
-            SecurityQueryBar(
-              initialValue: _securityQuery,
-              resultCount: filterFindingsByQuery(
-                      _effectiveFindings(state), _securityQuery)
-                  .length,
-              onChanged: (value) => setState(() => _securityQuery = value),
+            _buildLegacyFilterPills(state, viewModel),
+          ] else ...[
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final queryBar = SecurityQueryBar(
+                  initialValue: _securityQuery,
+                  resultCount: filterFindingsByQuery(
+                          _effectiveFindings(state), _securityQuery)
+                      .length,
+                  onChanged: (value) => setState(() => _securityQuery = value),
+                );
+                final chips =
+                    _buildWorkbenchFilterPills(report, state, viewModel);
+                if (constraints.maxWidth >= 900) {
+                  return Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Expanded(child: queryBar),
+                      const SizedBox(width: 12),
+                      chips,
+                    ],
+                  );
+                }
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    queryBar,
+                    const SizedBox(height: 10),
+                    chips,
+                  ],
+                );
+              },
             ),
           ],
           const SizedBox(height: 12),
@@ -379,18 +479,61 @@ class _VulnIntelPanelState extends ConsumerState<VulnIntelPanel> {
                 : _effectiveFindings(state);
             final useDesktopTable =
                 workbenchMode && constraints.maxWidth >= 640;
+            final showSplitInspector =
+                workbenchMode && constraints.maxWidth >= 1000;
+            final activeFinding = _resolveSelectedFinding(state, findings);
+
+            final tableWidget = VulnWorkbenchTable(
+              key: ValueKey(
+                '${state.severityFilter}-${state.vulnQuickFilter}-${state.matchedOnly}-${state.hideUnreachable}-${state.directOnly}-${findings.length}-$_securityQuery-table',
+              ),
+              findings: findings,
+              selectedCveId: selectedCveId,
+              selectedFindingId: activeFinding?.findingId,
+              onSelectFinding: (finding) {
+                viewModel.selectFinding(finding.findingId);
+                if (!showSplitInspector) {
+                  _showMobileInspectorSheet(context, finding, viewModel);
+                }
+              },
+              onAskFinding: onAskFinding,
+              onInspectPath: onInspectPath,
+              hiddenUnreachableCount:
+                  state.hideUnreachable ? state.hiddenUnreachableCount : 0,
+              totalFindingsCount: report.findings.length,
+              onShowAll: state.hideUnreachable
+                  ? () => viewModel.setHideUnreachable(false)
+                  : null,
+            );
+
             return AnimatedSwitcher(
               duration: const Duration(milliseconds: 260),
               child: useDesktopTable
-                  ? VulnWorkbenchTable(
-                      key: ValueKey(
-                        '${state.severityFilter}-${state.vulnQuickFilter}-${state.matchedOnly}-${findings.length}-$_securityQuery-table',
-                      ),
-                      findings: findings,
-                      selectedCveId: selectedCveId,
-                      onAskFinding: onAskFinding,
-                      onInspectPath: onInspectPath,
-                    )
+                  ? (showSplitInspector && activeFinding != null
+                      ? Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(flex: 3, child: tableWidget),
+                            const SizedBox(width: 14),
+                            SizedBox(
+                              width: 380,
+                              child: VulnInspectorPane(
+                                finding: activeFinding,
+                                onInspectCallSite: (f, site) {
+                                  if (onInspectCallSite != null) {
+                                    onInspectCallSite!(f, site);
+                                  } else {
+                                    onInspectPath?.call(f);
+                                  }
+                                },
+                                onAskFixInCodeThread: onAskFinding,
+                                onIgnoreFinding: (f, reason) =>
+                                    viewModel.ignoreFinding(f, reason: reason),
+                              ),
+                            ),
+                          ],
+                        )
+                      : tableWidget)
                   : Column(
                       key: ValueKey(
                         '${state.severityFilter}-${state.vulnQuickFilter}-${state.matchedOnly}-${findings.length}-$_securityQuery-$workbenchMode-stacked',
@@ -460,82 +603,168 @@ class _VulnIntelPanelState extends ConsumerState<VulnIntelPanel> {
   }
 
   List<VulnFinding> _effectiveFindings(CodeIntelState state) {
+    final base = workbenchMode
+        ? state.workbenchFilteredFindings
+        : state.filteredFindings;
     if (!workbenchMode || state.vulnQuickFilter != VulnQuickFilter.highEpss) {
-      return state.filteredFindings;
+      return base;
     }
-    final report = state.vulnReport;
-    if (report == null) return const [];
-    return report.findings.where((f) {
-      if (state.severityFilter != 'ALL' &&
-          (f.severity ?? '').toUpperCase() != state.severityFilter) {
-        return false;
-      }
-      if (state.kevOnly && !f.kev) return false;
-      if (state.matchedOnly && !f.isMatched) return false;
-      return (f.epssScore ?? 0) >= 0.7;
-    }).toList();
+    return base.where((f) => (f.epssScore ?? 0) >= 0.7).toList();
   }
 
-  Widget _buildTriageFunnelStrip(
+  VulnFinding? _resolveSelectedFinding(
+    CodeIntelState state,
+    List<VulnFinding> findings,
+  ) {
+    if (findings.isEmpty) return null;
+    if (state.selectedFindingId != null) {
+      for (final f in findings) {
+        if (f.findingId == state.selectedFindingId) return f;
+      }
+    }
+    if (selectedCveId != null) {
+      for (final f in findings) {
+        if (f.cveId == selectedCveId) return f;
+      }
+    }
+    return findings.first;
+  }
+
+  void _showMobileInspectorSheet(
+    BuildContext context,
+    VulnFinding finding,
+    CodeIntelViewModel viewModel,
+  ) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: ObsidianTokens.card,
+      builder: (sheetCtx) => SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(12),
+          child: VulnInspectorPane(
+            finding: finding,
+            onClose: () => Navigator.of(sheetCtx).pop(),
+            onInspectCallSite: (f, site) {
+              Navigator.of(sheetCtx).pop();
+              if (onInspectCallSite != null) {
+                onInspectCallSite!(f, site);
+              } else {
+                onInspectPath?.call(f);
+              }
+            },
+            onAskFixInCodeThread: (f) {
+              Navigator.of(sheetCtx).pop();
+              onAskFinding?.call(f);
+            },
+            onIgnoreFinding: (f, reason) {
+              Navigator.of(sheetCtx).pop();
+              viewModel.ignoreFinding(f, reason: reason);
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPostureStrip(
     VulnReport report,
     CodeIntelState state,
     CodeIntelViewModel viewModel,
   ) {
     final reachableCount = report.findings.where((f) => f.isReachable).length;
+    final hiddenCount = state.hiddenUnreachableCount;
+    final actionableCount = state.filteredFindings.length;
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      constraints: const BoxConstraints(minHeight: 36),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1A1D),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFF2D2D32)),
+        color: ObsidianTokens.card,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: ObsidianTokens.hairline),
       ),
       child: Wrap(
-        spacing: 16,
-        runSpacing: 8,
+        spacing: 12,
+        runSpacing: 6,
         alignment: WrapAlignment.spaceBetween,
         crossAxisAlignment: WrapCrossAlignment.center,
         children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          Text(
+            '$actionableCount Actionable · $reachableCount Reachable in Neo4j · $hiddenCount Unreachable suppressed',
+            style: const TextStyle(
+              color: Color(0xFFE4E4E7),
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          Wrap(
+            spacing: 10,
+            runSpacing: 4,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              const Text(
-                'TRIAGE FUNNEL',
-                style: TextStyle(
-                  color: Color(0xFFA1A1AA),
-                  fontSize: 11,
-                  fontWeight: FontWeight.w500,
-                  letterSpacing: 0.4,
-                ),
-              ),
-              const SizedBox(height: 4),
-              RichText(
-                text: TextSpan(
-                  style: const TextStyle(
-                    color: Color(0xFFF4F4F5),
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.w600,
-                  ),
-                  children: [
-                    TextSpan(
-                        text:
-                            '${report.dependenciesChecked} dependencies  →  ${report.findings.length} known CVEs  →  ${report.kevCount} CISA KEV  →  '),
-                    TextSpan(
-                      text: '$reachableCount statically reachable',
-                      style: const TextStyle(color: Color(0xFFFCA5A5)),
+              InkWell(
+                borderRadius: BorderRadius.circular(12),
+                onTap: () =>
+                    viewModel.setHideUnreachable(!state.hideUnreachable),
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: state.hideUnreachable
+                        ? const Color(0xFF064E3B)
+                        : const Color(0xFF181A20),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: state.hideUnreachable
+                          ? const Color(0xFF10B981)
+                          : ObsidianTokens.borderStrong,
                     ),
-                  ],
+                  ),
+                  child: Text(
+                    '${state.hideUnreachable ? '✓ ' : ''}Hide Unreachable ($hiddenCount)',
+                    style: TextStyle(
+                      color: state.hideUnreachable
+                          ? const Color(0xFF6EE7B7)
+                          : const Color(0xFFA1A1AA),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
               ),
-              const SizedBox(height: 2),
-              Text(
-                '${report.matchedCount} matched · ${report.unknownCount} unknown',
-                style:
-                    const TextStyle(color: Color(0xFF71717A), fontSize: 11.5),
+              InkWell(
+                borderRadius: BorderRadius.circular(12),
+                onTap: () => viewModel.setDirectOnly(!state.directOnly),
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: state.directOnly
+                        ? const Color(0xFF172554)
+                        : const Color(0xFF181A20),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: state.directOnly
+                          ? const Color(0xFF1D4ED8)
+                          : ObsidianTokens.borderStrong,
+                    ),
+                  ),
+                  child: Text(
+                    'Direct only',
+                    style: TextStyle(
+                      color: state.directOnly
+                          ? const Color(0xFF93C5FD)
+                          : const Color(0xFFA1A1AA),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
               ),
+              _buildReachabilityToggle(state, viewModel),
             ],
           ),
-          _buildReachabilityToggle(state, viewModel),
         ],
       ),
     );

@@ -132,4 +132,8 @@ const List<CodeSlashCommand> codeSlashCommands = [
   CodeSlashCommand(command: '/compact', description: 'Compact this thread'),
   CodeSlashCommand(command: '/clear', description: 'Start a new Code chat'),
   CodeSlashCommand(command: '/security', description: 'Open Security'),
+  CodeSlashCommand(
+    command: '/security-review',
+    description: 'Audit active diff for security issues',
+  ),
 ];

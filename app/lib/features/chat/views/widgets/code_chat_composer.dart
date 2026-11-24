@@ -193,12 +193,20 @@ class _CodeChatComposerState extends ConsumerState<CodeChatComposer> {
       _runSlashCommand(trimmed);
       return;
     }
-    widget.onSend(text, attachments: attachments);
+    final hunk = ref.read(attachedDiffHunkProvider);
+    final effectiveText = hunk != null
+        ? '[Attached hunk: ${hunk.chipLabel}]\n```\n${hunk.hunkText}\n```\n\n$text'
+        : text;
+    if (hunk != null) {
+      ref.read(attachedDiffHunkProvider.notifier).state = null;
+    }
+    widget.onSend(effectiveText, attachments: attachments);
   }
 
   @override
   Widget build(BuildContext context) {
     final selectedModel = ref.watch(modelSelectionProvider).selectedModel;
+    final attachedHunk = ref.watch(attachedDiffHunkProvider);
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -207,21 +215,83 @@ class _CodeChatComposerState extends ConsumerState<CodeChatComposer> {
           _buildAutocompleteOverlay(_trigger!),
           const SizedBox(height: 8),
         ],
-        ChatInput(
-          controller: _controller,
-          isLoading: widget.isLoading,
-          onSend: _handleComposerSend,
-          errorText: widget.errorText,
-          onDismissError: widget.onDismissError,
-          model: selectedModel == 'Select a model' ? null : selectedModel,
-          usageSummary: widget.usageSummary,
-          tokenUsageStyle: widget.tokenUsageStyle,
-          onTokenUsageStyleChanged: widget.onTokenUsageStyleChanged,
-          autoCompactMode: widget.autoCompactMode,
-          onAutoCompactModeChanged: widget.onAutoCompactModeChanged,
-          onCompactPressed: widget.onCompactPressed,
-          hintText: 'Ask anything. @ files, \$ skills, / commands',
-          trailingSlot: const CodeSourcesPill(),
+        Container(
+          decoration: attachedHunk != null
+              ? BoxDecoration(
+                  color: const Color(0xFF13151A),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: const Color(0xFF3B82F6),
+                    width: 0.9,
+                  ),
+                )
+              : null,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (attachedHunk != null)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 10, 12, 2),
+                  child: Row(
+                    children: [
+                      InputChip(
+                        key: const Key('composer-attached-diff-hunk-chip'),
+                        avatar: const Icon(
+                          Icons.edit_note,
+                          size: 14,
+                          color: Color(0xFF60A5FA),
+                        ),
+                        label: Text(
+                          attachedHunk.chipLabel,
+                          style: const TextStyle(
+                            fontSize: 11.5,
+                            fontFamily: 'monospace',
+                            color: Color(0xFF93C5FD),
+                          ),
+                        ),
+                        deleteIcon: const Icon(Icons.close, size: 14),
+                        onDeleted: () {
+                          ref.read(attachedDiffHunkProvider.notifier).state =
+                              null;
+                        },
+                        backgroundColor: const Color(0xFF1E293B),
+                        side: const BorderSide(
+                          color: Color(0xFF3B82F6),
+                          width: 0.6,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      const Text(
+                        'Scoped to hunk',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFF71717A),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ChatInput(
+                controller: _controller,
+                isLoading: widget.isLoading,
+                onSend: _handleComposerSend,
+                errorText: widget.errorText,
+                onDismissError: widget.onDismissError,
+                model:
+                    selectedModel == 'Select a model' ? null : selectedModel,
+                usageSummary: widget.usageSummary,
+                tokenUsageStyle: widget.tokenUsageStyle,
+                onTokenUsageStyleChanged: widget.onTokenUsageStyleChanged,
+                autoCompactMode: widget.autoCompactMode,
+                onAutoCompactModeChanged: widget.onAutoCompactModeChanged,
+                onCompactPressed: widget.onCompactPressed,
+                hintText:
+                    'Ask anything. @ files, \$ skills, / commands (/security-review)',
+                trailingSlot: const CodeSourcesPill(),
+              ),
+            ],
+          ),
         ),
         const SizedBox(height: 8),
         _buildBelowComposerRow(),

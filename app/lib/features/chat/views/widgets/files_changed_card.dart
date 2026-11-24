@@ -4,6 +4,7 @@ import 'package:veraxi_app/core/providers/workspace_mode_provider.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
 import 'package:veraxi_app/core/widgets/language_file_icon.dart';
 import 'package:veraxi_app/features/chat/view_models/chat_state.dart';
+import 'package:veraxi_app/features/chat/view_models/code_review_view_model.dart';
 
 /// "N files changed +A -D" card rendered inside an assistant turn,
 /// above its Copy/Thumbs/Timestamp action row (Phase 5).
@@ -121,6 +122,48 @@ class _FilesChangedCardState extends ConsumerState<FilesChangedCard> {
                               ),
                             ),
                           ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.only(right: 6),
+                    child: SizedBox(
+                      height: 22,
+                      child: OutlinedButton.icon(
+                        key: const Key('files-changed-audit-diff-button'),
+                        onPressed: () async {
+                          final paths =
+                              summary.files.map((f) => f.path).toList();
+                          final repo = ref.read(selectedIndexedRepoProvider);
+                          final auditSummary = await ref
+                              .read(codeReviewProvider.notifier)
+                              .runSecurityDiffAudit(files: paths, repo: repo);
+                          ref
+                              .read(pendingSecurityThreadPromptProvider
+                                  .notifier)
+                              .state = auditSummary;
+                        },
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          backgroundColor: ext.surfaceHighlight,
+                          side: BorderSide(color: ext.borderColorStrong),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                        ),
+                        icon: Icon(
+                          Icons.shield_outlined,
+                          size: 12,
+                          color: theme.colorScheme.onSurface,
+                        ),
+                        label: Text(
+                          'Audit Diff',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500,
+                            color: theme.colorScheme.onSurface,
+                          ),
                         ),
                       ),
                     ),

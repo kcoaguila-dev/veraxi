@@ -1,0 +1,232 @@
+<svg width="1440" height="900" viewBox="0 0 1440 900" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Visual Contract: Veraxi "Ask Veraxi to Fix in Code Thread" Flow
+       Shows what happens after clicking "Ask Veraxi to Fix in Code Thread ->"
+       from veraxi_security_workbench.svg.
+       Synthesizes rival strengths + Reddit senior-dev guardrails:
+       1. No blind PR spam: opens a grounded Code Thread + Diff Review split pane.
+       2. Prefilled Neo4j context: CVE/KEV/EPSS + all 3 reachable call sites.
+       3. Graph-aware impact check: checks all callers before editing.
+       4. Sandbox verification loop (GitHub Copilot Autofix style): runs pytest
+          and re-checks CVE status inside sandbox BEFORE surfacing the diff.
+       5. Human-in-the-loop gate: Discard / Apply Patch / Open Draft PR — never
+          auto-merges or auto-commits without developer review.
+       Tokens: ObsidianTokens (#0D0E11 rail/review, #0A0B0D center, #181A20 bubble,
+       #0F291A diffAddBg, #2A1215 diffRemoveBg, #1E2026 hairline, #282B36 border). -->
+  <defs>
+    <style>
+      .sans { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }
+      .mono { font-family: 'JetBrains Mono', monospace; }
+    </style>
+  </defs>
+
+  <rect width="1440" height="900" fill="#0A0B0D"/>
+
+  <!-- ============================================================ -->
+  <!-- 1. LEFT RAIL (240px, #0D0E11)                                -->
+  <!-- ============================================================ -->
+  <rect x="0" y="0" width="240" height="900" fill="#0D0E11"/>
+  <line x1="240" y1="0" x2="240" y2="900" stroke="#1E2026" stroke-width="1"/>
+
+  <text x="16" y="32" fill="#F4F4F5" font-size="15" font-weight="600" class="sans">Veraxi</text>
+  <rect x="208" y="20" width="16" height="13" rx="3" stroke="#71717A" stroke-width="1.2"/>
+  <line x1="214" y1="20" x2="214" y2="33" stroke="#71717A" stroke-width="1.2"/>
+
+  <!-- [ Chat | <> Code ] -->
+  <rect x="14" y="48" width="212" height="26" rx="8" fill="#13151A" stroke="#1E2026"/>
+  <text x="54" y="65" fill="#71717A" font-size="11.5" class="sans">Chat</text>
+  <rect x="122" y="50" width="102" height="22" rx="6" fill="#23252C" stroke="#2F323C" stroke-width="0.8"/>
+  <text x="148" y="65" fill="#F4F4F5" font-size="11.5" font-weight="600" class="sans">&lt;&gt; Code</text>
+
+  <text x="38" y="106" fill="#A1A1AA" font-size="12.5" class="sans">Knowledge Hub</text>
+  <text x="38" y="134" fill="#A1A1AA" font-size="12.5" class="sans">Security</text>
+  <line x1="14" y1="154" x2="226" y2="154" stroke="#1E2026" stroke-width="1"/>
+
+  <text x="16" y="176" fill="#71717A" font-size="11" font-weight="600" class="sans">Projects</text>
+  <text x="16" y="202" fill="#A1A1AA" font-size="12" font-weight="500" class="mono">veraxi/backend</text>
+
+  <!-- Active Security Fix Thread -->
+  <rect x="8" y="212" width="224" height="28" rx="6" fill="#181A20" stroke="#282B36" stroke-width="0.8"/>
+  <circle cx="20" cy="226" r="3" fill="#3B82F6"/>
+  <text x="30" y="230" fill="#F4F4F5" font-size="12" font-weight="500" class="sans">Fix CVE-2024-3094</text>
+
+  <text x="18" y="258" fill="#A1A1AA" font-size="12" class="sans">Hybrid retrieval merge_rank</text>
+  <text x="18" y="282" fill="#A1A1AA" font-size="12" class="sans">Neo4j Cypher parameterization</text>
+
+  <line x1="14" y1="846" x2="226" y2="846" stroke="#1E2026" stroke-width="1"/>
+  <circle cx="28" cy="872" r="12" fill="#23252C" stroke="#2F323C"/>
+  <text x="28" y="876" text-anchor="middle" fill="#E4E4E7" font-size="11" font-weight="600" class="sans">K</text>
+  <text x="48" y="876" fill="#E4E4E7" font-size="12" font-weight="500" class="sans">Kazuo Coaguila</text>
+
+  <!-- ============================================================ -->
+  <!-- 2. CENTER CODE FIX THREAD (440px: x=240..680)                -->
+  <!-- ============================================================ -->
+  <line x1="680" y1="0" x2="680" y2="900" stroke="#1E2026" stroke-width="1"/>
+
+  <!-- Thread Breadcrumb -->
+  <text x="264" y="34" fill="#71717A" font-size="12" class="sans">Security /</text>
+  <text x="324" y="34" fill="#F4F4F5" font-size="12" font-weight="600" class="sans">Fix CVE-2024-3094 · requests</text>
+  <line x1="240" y1="54" x2="680" y2="54" stroke="#1E2026" stroke-width="1"/>
+
+  <!-- Prefilled Security Context Bubble -->
+  <rect x="264" y="74" width="392" height="92" rx="12" fill="#181A20" stroke="#282B36"/>
+  <rect x="278" y="88" width="64" height="18" rx="9" fill="#DC2626"/>
+  <text x="310" y="100.5" text-anchor="middle" fill="#FFFFFF" font-size="9.5" font-weight="700" class="sans">CRITICAL</text>
+  <rect x="348" y="88" width="36" height="18" rx="9" fill="#4C1D95"/>
+  <text x="366" y="100.5" text-anchor="middle" fill="#EDE9FE" font-size="9.5" font-weight="700" class="sans">KEV</text>
+  <text x="392" y="101" fill="#F4F4F5" font-size="12.5" font-weight="600" class="sans">Fix CVE-2024-3094 in requests</text>
+  <text x="278" y="124" fill="#A1A1AA" font-size="11.5" class="sans">Reachable at 3 call sites (api/webhook.py:42,</text>
+  <text x="278" y="142" fill="#A1A1AA" font-size="11.5" class="sans">services/sync.py:119, workers/ingest.py:64). Keep</text>
+  <text x="278" y="158" fill="#A1A1AA" font-size="11.5" class="sans">downstream callers compatible and run tests.</text>
+
+  <!-- Veraxi Agentic Verification Steps (Flat, scannable, zero nested cards) -->
+  <text x="264" y="198" fill="#F4F4F5" font-size="13" font-weight="600" class="sans">Veraxi</text>
+  <text x="310" y="198" fill="#71717A" font-size="11.5" class="sans">· Sandbox verified</text>
+
+  <circle cx="272" cy="222" r="3.5" fill="#10B981"/>
+  <text x="284" y="226" fill="#A1A1AA" font-size="11.5" class="sans">Queried Neo4j call graph: 3 callers, 0 breaking signatures</text>
+
+  <circle cx="272" cy="246" r="3.5" fill="#10B981"/>
+  <text x="284" y="250" fill="#A1A1AA" font-size="11.5" class="sans">Updated requirements.txt and guarded redirect policy</text>
+
+  <circle cx="272" cy="270" r="3.5" fill="#10B981"/>
+  <text x="284" y="274" fill="#6EE7B7" font-size="11.5" font-weight="500" class="sans">Ran pytest in sandbox: 14 passed, 0 failed · CVE cleared</text>
+
+  <line x1="264" y1="292" x2="656" y2="292" stroke="#1E2026" stroke-width="1"/>
+
+  <!-- Grounded Explanation + Inline Citation Pill -->
+  <text x="264" y="318" fill="#E4E4E7" font-size="13" class="sans">Bumped requests from 2.31.0 to 2.32.2 and set</text>
+  <rect x="264" y="328" width="146" height="20" rx="5" fill="#16181D" stroke="#282B36"/>
+  <text x="272" y="342" fill="#E4E4E7" font-size="11.5" class="mono">allow_redirects=False</text>
+  <text x="416" y="342" fill="#E4E4E7" font-size="13" class="sans">in</text>
+  <rect x="432" y="328" width="128" height="20" rx="10" fill="#1E293B" stroke="#3B82F6" stroke-width="0.6"/>
+  <text x="496" y="342" text-anchor="middle" fill="#93C5FD" font-size="11" class="mono">api/webhook.py:42</text>
+  <text x="264" y="366" fill="#E4E4E7" font-size="13" class="sans">so cross-origin redirects cannot leak auth headers.</text>
+
+  <text x="264" y="396" fill="#A1A1AA" font-size="12.5" class="sans">Checked all 3 Neo4j callers: pull_feed and fetch_doc</text>
+  <text x="264" y="416" fill="#A1A1AA" font-size="12.5" class="sans">do not follow redirects, so no caller changes needed.</text>
+
+  <!-- Welded Files-Changed Bar above Composer -->
+  <rect x="264" y="742" width="392" height="36" rx="8" fill="#0C0D10" stroke="#1E2026"/>
+  <text x="278" y="764" fill="#E4E4E7" font-size="11.5" font-weight="500" class="sans">2 files changed</text>
+  <text x="368" y="764" fill="#34D399" font-size="11.5" class="mono">+2</text>
+  <text x="390" y="764" fill="#F87171" font-size="11.5" class="mono">-2</text>
+  <rect x="420" y="750" width="110" height="20" rx="10" fill="#0B1F16" stroke="#14532D"/>
+  <text x="475" y="763.5" text-anchor="middle" fill="#6EE7B7" font-size="10.5" font-weight="600" class="sans">14/14 tests pass</text>
+  <rect x="588" y="748" width="58" height="24" rx="6" fill="#181A20" stroke="#282B36"/>
+  <text x="617" y="764" text-anchor="middle" fill="#F4F4F5" font-size="11" font-weight="600" class="sans">Review</text>
+
+  <!-- Single Center Composer with Attached Hunk Chip (Zero Split-Brain) -->
+  <rect x="264" y="790" width="392" height="88" rx="18" fill="#13151A" stroke="#3B82F6" stroke-width="0.9"/>
+  <rect x="278" y="802" width="144" height="22" rx="6" fill="#1E293B" stroke="#3B82F6" stroke-width="0.6"/>
+  <text x="288" y="817" fill="#93C5FD" font-size="11" class="mono">api/webhook.py:41</text>
+  <text x="408" y="817" fill="#71717A" font-size="11" class="sans">×</text>
+  <text x="430" y="817" fill="#71717A" font-size="11" class="sans">Scoped to hunk</text>
+  <text x="280" y="846" fill="#E4E4E7" font-size="12.5" class="sans">Allow same-origin redirects only, log blocked</text>
+  <circle cx="632" cy="852" r="13" fill="#1D4ED8"/>
+  <text x="632" y="856" text-anchor="middle" fill="#FFFFFF" font-size="12" font-weight="600" class="sans">↑</text>
+
+  <!-- ============================================================ -->
+  <!-- 3. RIGHT DIFF & HUMAN-GATE REVIEW PANE (760px: x=680..1440)  -->
+  <!-- ============================================================ -->
+  <rect x="680" y="0" width="760" height="900" fill="#0D0E11"/>
+
+  <!-- Review Header + Human-in-the-Loop Gate -->
+  <rect x="698" y="14" width="106" height="28" rx="7" fill="#181A20" stroke="#282B36"/>
+  <text x="751" y="32" text-anchor="middle" fill="#F4F4F5" font-size="12" font-weight="600" class="sans">Diff Review</text>
+
+  <rect x="814" y="17" width="166" height="22" rx="11" fill="#0B1F16" stroke="#14532D"/>
+  <circle cx="827" cy="28" r="3.5" fill="#10B981"/>
+  <text x="837" y="32" fill="#6EE7B7" font-size="11" font-weight="500" class="sans">Sandbox: 14/14 pytest</text>
+
+  <!-- Human Approval Buttons (Never auto-merge) -->
+  <rect x="1104" y="14" width="76" height="28" rx="7" fill="#181A20" stroke="#282B36"/>
+  <text x="1142" y="32" text-anchor="middle" fill="#A1A1AA" font-size="11.5" font-weight="500" class="sans">Discard</text>
+
+  <rect x="1188" y="14" width="104" height="28" rx="7" fill="#181A20" stroke="#282B36"/>
+  <text x="1240" y="32" text-anchor="middle" fill="#E4E4E7" font-size="11.5" font-weight="500" class="sans">Apply Locally</text>
+
+  <rect x="1300" y="14" width="122" height="28" rx="7" fill="#1D4ED8"/>
+  <text x="1361" y="32" text-anchor="middle" fill="#FFFFFF" font-size="11.5" font-weight="600" class="sans">Open Draft PR</text>
+
+  <line x1="680" y1="54" x2="1440" y2="54" stroke="#1E2026" stroke-width="1"/>
+
+  <!-- Diff 1: requirements.txt -->
+  <rect x="704" y="74" width="712" height="114" rx="10" fill="#111317" stroke="#1E2026"/>
+  <text x="722" y="98" fill="#E4E4E7" font-size="12" font-weight="600" class="mono">requirements.txt</text>
+  <text x="854" y="98" fill="#34D399" font-size="11" class="mono">+1</text>
+  <text x="876" y="98" fill="#F87171" font-size="11" class="mono">-1</text>
+  <line x1="704" y1="110" x2="1416" y2="110" stroke="#1E2026" stroke-width="1"/>
+
+  <rect x="705" y="114" width="710" height="30" fill="#2A1215"/>
+  <text x="722" y="133" fill="#71717A" font-size="11.5" class="mono">18</text>
+  <text x="754" y="133" fill="#FCA5A5" font-size="12" class="mono">- requests==2.31.0</text>
+
+  <rect x="705" y="144" width="710" height="30" fill="#0F291A"/>
+  <text x="722" y="163" fill="#71717A" font-size="11.5" class="mono">18</text>
+  <text x="754" y="163" fill="#6EE7B7" font-size="12" class="mono">+ requests==2.32.2</text>
+
+  <!-- Diff 2: api/webhook.py (Per-Hunk Accept/Reject/Attach-to-Composer) -->
+  <rect x="704" y="204" width="712" height="240" rx="10" fill="#111317" stroke="#2E4A7D" stroke-width="1"/>
+  <text x="722" y="228" fill="#E4E4E7" font-size="12" font-weight="600" class="mono">api/webhook.py</text>
+  <text x="842" y="228" fill="#34D399" font-size="11" class="mono">+1</text>
+  <text x="864" y="228" fill="#F87171" font-size="11" class="mono">-1</text>
+
+  <!-- Per-Hunk Granular Controls (Attaches hunk to single bottom-center composer) -->
+  <rect x="1116" y="212" width="66" height="22" rx="6" fill="#0B1F16" stroke="#14532D"/>
+  <text x="1149" y="227" text-anchor="middle" fill="#6EE7B7" font-size="10.5" font-weight="600" class="sans">✓ Accept</text>
+  <rect x="1188" y="212" width="64" height="22" rx="6" fill="#181A20" stroke="#282B36"/>
+  <text x="1220" y="227" text-anchor="middle" fill="#A1A1AA" font-size="10.5" class="sans">✕ Reject</text>
+  <rect x="1258" y="212" width="142" height="22" rx="6" fill="#1E293B" stroke="#3B82F6" stroke-width="0.8"/>
+  <text x="1329" y="227" text-anchor="middle" fill="#93C5FD" font-size="10.5" font-weight="600" class="sans">✎ Attached to chat</text>
+
+  <line x1="704" y1="242" x2="1416" y2="242" stroke="#1E2026" stroke-width="1"/>
+
+  <text x="722" y="266" fill="#71717A" font-size="11.5" class="mono">39</text>
+  <text x="754" y="266" fill="#A1A1AA" font-size="12" class="mono">def handle_hook(target_url: str, headers: dict):</text>
+  <text x="722" y="288" fill="#71717A" font-size="11.5" class="mono">40</text>
+  <text x="754" y="288" fill="#A1A1AA" font-size="12" class="mono">    validate_external_host(target_url)</text>
+
+  <rect x="705" y="298" width="710" height="28" fill="#2A1215"/>
+  <text x="722" y="316" fill="#71717A" font-size="11.5" class="mono">41</text>
+  <text x="754" y="316" fill="#FCA5A5" font-size="12" class="mono">-   resp = requests.get(target_url, headers=headers, timeout=10)</text>
+
+  <rect x="705" y="326" width="710" height="28" fill="#0F291A"/>
+  <text x="722" y="344" fill="#71717A" font-size="11.5" class="mono">41</text>
+  <text x="754" y="344" fill="#6EE7B7" font-size="12" class="mono">+   resp = requests.get(target_url, headers=headers, timeout=10, allow_redirects=False)</text>
+
+  <text x="722" y="382" fill="#71717A" font-size="11.5" class="mono">42</text>
+  <text x="754" y="382" fill="#A1A1AA" font-size="12" class="mono">    return resp.json()</text>
+
+  <line x1="704" y1="402" x2="1416" y2="402" stroke="#1E2026" stroke-width="1"/>
+  <text x="722" y="426" fill="#71717A" font-size="11.5" class="sans">Neo4j callers checked: handle_hook · pull_feed · fetch_doc (0 signature breaks)</text>
+
+  <!-- Diff 3: tests/test_webhook_ssrf.py (Regression Test Added) -->
+  <rect x="704" y="460" width="712" height="172" rx="10" fill="#111317" stroke="#1E2026"/>
+  <text x="722" y="484" fill="#E4E4E7" font-size="12" font-weight="600" class="mono">tests/test_webhook_ssrf.py</text>
+  <text x="914" y="484" fill="#34D399" font-size="11" class="mono">+4</text>
+  <text x="936" y="484" fill="#71717A" font-size="11" class="mono">-0</text>
+  <rect x="1322" y="468" width="78" height="22" rx="6" fill="#0B1F16" stroke="#14532D"/>
+  <text x="1361" y="483" text-anchor="middle" fill="#6EE7B7" font-size="10.5" font-weight="600" class="sans">✓ Accepted</text>
+  <line x1="704" y1="498" x2="1416" y2="498" stroke="#1E2026" stroke-width="1"/>
+
+  <rect x="705" y="502" width="710" height="28" fill="#0F291A"/>
+  <text x="722" y="520" fill="#71717A" font-size="11.5" class="mono">12</text>
+  <text x="754" y="520" fill="#6EE7B7" font-size="12" class="mono">+ def test_handle_hook_blocks_cross_origin_redirect_auth_leak(monkeypatch):</text>
+  <rect x="705" y="530" width="710" height="28" fill="#0F291A"/>
+  <text x="722" y="548" fill="#71717A" font-size="11.5" class="mono">13</text>
+  <text x="754" y="548" fill="#6EE7B7" font-size="12" class="mono">+     resp = handle_hook("https://example.com/hook", {"Authorization": "Bearer x"})</text>
+  <rect x="705" y="558" width="710" height="28" fill="#0F291A"/>
+  <text x="722" y="576" fill="#71717A" font-size="11.5" class="mono">14</text>
+  <text x="754" y="576" fill="#6EE7B7" font-size="12" class="mono">+     assert recorded_kwargs["allow_redirects"] is False</text>
+
+  <text x="722" y="612" fill="#71717A" font-size="11.5" class="sans">Generated regression test · verified passing in sandbox</text>
+
+  <!-- Sandbox Verification Log -->
+  <text x="704" y="668" fill="#71717A" font-size="11" font-weight="600" class="sans">SANDBOX VERIFICATION LOG</text>
+  <line x1="704" y1="680" x2="1416" y2="680" stroke="#1E2026" stroke-width="1"/>
+
+  <text x="704" y="706" fill="#6EE7B7" font-size="12" class="mono">$ backend/.venv/bin/pytest tests/test_webhook_ssrf.py tests/test_sync.py</text>
+  <text x="704" y="730" fill="#A1A1AA" font-size="12" class="mono">14 passed in 0.84s (0 skipped, 0 warnings)</text>
+  <text x="704" y="758" fill="#67E8F9" font-size="12" class="mono">$ veraxi-vuln-check --reverify CVE-2024-3094</text>
+  <text x="704" y="782" fill="#34D399" font-size="12" class="mono">PASS: requests==2.32.2 &gt;= fixed version 2.32.2; redirect guard active</text>
+</svg>

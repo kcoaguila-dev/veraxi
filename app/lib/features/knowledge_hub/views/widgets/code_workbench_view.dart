@@ -64,6 +64,59 @@ class _CodeWorkbenchViewState extends ConsumerState<CodeWorkbenchView> {
     }
   }
 
+  void _openCallSiteViewer(VulnFinding finding, VulnCallSite? site) {
+    final targetFile = site?.file ??
+        (finding.callSites.isNotEmpty ? finding.callSites.first.file : null);
+    if (targetFile == null || targetFile.isEmpty) return;
+    final line = site?.line ?? 1;
+    ref.read(activeReviewSessionProvider.notifier).state = CodeReviewState(
+      sessionId: '',
+      turnId: '',
+      focusedPath: targetFile,
+      focusedStartLine: line,
+      focusedEndLine: line,
+      files: [CodeReviewFileSummary(path: targetFile)],
+      turnPrompt: '${finding.cveId} · ${finding.package}',
+    );
+  }
+
+  void _openFindingCodeThread(VulnFinding finding) {
+    final badges = <String>[
+      if (finding.severity != null) finding.severity!.toUpperCase(),
+      if (finding.kev) 'CISA KEV',
+      if (finding.epssScore != null)
+        'EPSS ${(finding.epssScore! * 100).toStringAsFixed(1)}%',
+      if (finding.compositeScore > 0) 'Score ${finding.compositeScore}',
+    ].join(' · ');
+
+    final sites = finding.callSites
+        .take(5)
+        .map((s) =>
+            '- ${s.file}${s.line != null ? ':${s.line}' : ''} (${s.symbol})')
+        .join('\n');
+
+    final prompt = StringBuffer()
+      ..writeln(
+        'Fix ${finding.cveId} in `${finding.package}`'
+        '${finding.version != null ? ' (${finding.version})' : ''}'
+        '${badges.isNotEmpty ? ' [$badges]' : ''}.',
+      )
+      ..writeln()
+      ..writeln(
+        sites.isNotEmpty
+            ? 'Neo4j reachable call sites:\n$sites'
+            : 'No Neo4j call sites attached yet — check callers in the graph first.',
+      )
+      ..writeln()
+      ..writeln(
+        'Run the graph caller check and sandbox pytest verification, then propose a minimal patch in the Diff Review pane.',
+      );
+
+    ref.read(pendingSecurityThreadPromptProvider.notifier).state =
+        prompt.toString();
+    ref.read(codeSubViewProvider.notifier).state = CodeSubView.codeChat;
+  }
+
   @override
   void dispose() {
     _repoPathController.dispose();
@@ -170,6 +223,8 @@ class _CodeWorkbenchViewState extends ConsumerState<CodeWorkbenchView> {
                             repoPathController: _repoPathController,
                             workbenchMode: true,
                             hideToolbarActions: isWideDesktop,
+                            onAskFinding: _openFindingCodeThread,
+                            onInspectCallSite: _openCallSiteViewer,
                             onOpenRepoXray: () => ref
                                 .read(codeSubViewProvider.notifier)
                                 .state = CodeSubView.repoXray,
@@ -331,6 +386,15 @@ class _CodeWorkbenchViewState extends ConsumerState<CodeWorkbenchView> {
                               fontSize: 11.5,
                             ),
                           ),
+                        ),
+                      ),
+                    ],
+                    if (activeSubView == CodeSubView.vulnIntel &&
+                        constraints.maxWidth >= 900) ...[
+                      const SizedBox(width: 10),
+                      Flexible(
+                        child: FeedHealthPill(
+                          repoPathController: _repoPathController,
                         ),
                       ),
                     ],

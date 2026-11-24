@@ -14,6 +14,7 @@ routes (``routes/sandboxes.py``) and the chat stream
 diff endpoint returns for the same session.
 """
 
+import base64
 import posixpath
 import re
 import shlex
@@ -417,6 +418,35 @@ async def git_revert_paths(provider, session_id: str, rel_paths: list[str]) -> N
                     f"failed to remove untracked file {rel}"
                     + (f": {stderr.strip()}" if stderr.strip() else "")
                 )
+
+
+async def git_apply_hunk_patch(
+    provider,
+    session_id: str,
+    rel_path: str,
+    hunk_lines: list[str],
+    *,
+    accept: bool,
+) -> None:
+    """Stage (``accept=True``) or reverse-apply (``accept=False``) a single hunk."""
+    if not hunk_lines:
+        raise GitError("hunk lines must not be empty")
+    patch_text = "\n".join(
+        [f"--- a/{rel_path}", f"+++ b/{rel_path}", *hunk_lines, ""]
+    )
+    encoded = base64.b64encode(patch_text.encode("utf-8")).decode("ascii")
+    flag = "--cached" if accept else "--reverse"
+    cmd = (
+        f"printf %s {shlex.quote(encoded)} | base64 -d | "
+        f"git apply {flag} --unidiff-zero -"
+    )
+    _out, stderr, exit_code = await _gather(provider, session_id, cmd)
+    if exit_code != 0:
+        action = "stage hunk" if accept else "revert hunk"
+        raise GitError(
+            f"git apply ({action}) failed for {rel_path}"
+            + (f": {stderr.strip()}" if stderr.strip() else "")
+        )
 
 
 async def git_commit(provider, session_id: str, message: str) -> None:

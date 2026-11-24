@@ -187,6 +187,57 @@ class ImpactedSymbol {
   }
 }
 
+/// One reachable call site for a vulnerability finding.
+class VulnCallSite {
+  final String file;
+  final int? line;
+  final String symbol;
+  final List<String> chain;
+
+  const VulnCallSite({
+    required this.file,
+    this.line,
+    required this.symbol,
+    this.chain = const [],
+  });
+
+  factory VulnCallSite.fromJson(Map<String, dynamic> json) {
+    final rawChain = json['chain'] as List<dynamic>? ?? const [];
+    return VulnCallSite(
+      file: json['file'] as String? ?? json['path'] as String? ?? '',
+      line: (json['line'] as num?)?.toInt(),
+      symbol: json['symbol'] as String? ?? json['qualified_name'] as String? ?? '',
+      chain: rawChain.map((e) => e.toString()).toList(),
+    );
+  }
+}
+
+/// Result of POST /api/v1/vuln/audit-diff.
+class DiffAuditResult {
+  final List<String> filesAudited;
+  final List<Map<String, dynamic>> reachableSymbols;
+  final List<Map<String, dynamic>> findings;
+
+  const DiffAuditResult({
+    this.filesAudited = const [],
+    this.reachableSymbols = const [],
+    this.findings = const [],
+  });
+
+  factory DiffAuditResult.fromJson(Map<String, dynamic> json) {
+    final files = json['files_audited'] as List<dynamic>? ?? const [];
+    final symbols = json['reachable_symbols'] as List<dynamic>? ?? const [];
+    final findings = json['findings'] as List<dynamic>? ?? const [];
+    return DiffAuditResult(
+      filesAudited: files.map((e) => e.toString()).toList(),
+      reachableSymbols:
+          symbols.map((e) => Map<String, dynamic>.from(e as Map)).toList(),
+      findings:
+          findings.map((e) => Map<String, dynamic>.from(e as Map)).toList(),
+    );
+  }
+}
+
 /// One vulnerability finding from POST /api/v1/vuln/report.
 ///
 /// [matchStatus] is 'matched' (version provably in the affected
@@ -219,6 +270,24 @@ class VulnFinding {
   /// the code graph reaches the package.
   final List<ImpactedSymbol> reachableInCode;
 
+  /// Patched version from NVD/OSV advisory, when available.
+  final String? fixedVersion;
+
+  /// Dependency scope: 'direct', 'transitive', or 'unknown'.
+  final String dependencyScope;
+
+  /// Parent package or manifest file introducing this dependency.
+  final String? introducedVia;
+
+  /// Composite priority score (0..100) computed from reachability, KEV, EPSS.
+  final int compositeScore;
+
+  /// Human-readable priority explanations (e.g. "Active in CISA KEV").
+  final List<String> priorityReasons;
+
+  /// Structured call sites reaching this vulnerable package.
+  final List<VulnCallSite> callSites;
+
   const VulnFinding({
     required this.package,
     this.version,
@@ -233,16 +302,43 @@ class VulnFinding {
     this.epssPercentile,
     this.reachableFileCount = 0,
     this.reachableInCode = const [],
+    this.fixedVersion,
+    this.dependencyScope = 'unknown',
+    this.introducedVia,
+    this.compositeScore = 0,
+    this.priorityReasons = const [],
+    this.callSites = const [],
   });
+
+  String get findingId => '$cveId::$package';
 
   bool get isMatched => matchStatus == 'matched';
 
   /// True when the code graph shows this package is actually reached.
-  bool get isReachable => reachableFileCount > 0;
+  bool get isReachable => reachableFileCount > 0 || callSites.isNotEmpty;
 
   factory VulnFinding.fromJson(Map<String, dynamic> json) {
     final cwes = json['cwe_ids'] as List<dynamic>? ?? const [];
     final reachable = json['reachable_in_code'] as List<dynamic>? ?? const [];
+    final impacted = reachable
+        .map((e) => ImpactedSymbol.fromJson(Map<String, dynamic>.from(e as Map)))
+        .toList();
+    final rawCallSites = json['call_sites'] as List<dynamic>?;
+    final parsedCallSites = rawCallSites != null
+        ? rawCallSites
+            .map((e) => VulnCallSite.fromJson(Map<String, dynamic>.from(e as Map)))
+            .toList()
+        : impacted
+            .where((item) => (item.path ?? '').isNotEmpty)
+            .map(
+              (item) => VulnCallSite(
+                file: item.path ?? '',
+                symbol: item.qualifiedName,
+                chain: item.viaEdge != null ? [item.viaEdge!] : const [],
+              ),
+            )
+            .toList();
+    final rawReasons = json['priority_reasons'] as List<dynamic>? ?? const [];
     return VulnFinding(
       package: json['package'] as String? ?? '',
       version: json['version'] as String?,
@@ -256,10 +352,13 @@ class VulnFinding {
       epssScore: (json['epss_score'] as num?)?.toDouble(),
       epssPercentile: (json['epss_percentile'] as num?)?.toDouble(),
       reachableFileCount: (json['reachable_file_count'] as num?)?.toInt() ?? 0,
-      reachableInCode: reachable
-          .map((e) =>
-              ImpactedSymbol.fromJson(Map<String, dynamic>.from(e as Map)))
-          .toList(),
+      reachableInCode: impacted,
+      fixedVersion: json['fixed_version'] as String?,
+      dependencyScope: json['dependency_scope'] as String? ?? 'unknown',
+      introducedVia: json['introduced_via'] as String?,
+      compositeScore: (json['composite_score'] as num?)?.toInt() ?? 0,
+      priorityReasons: rawReasons.map((e) => e.toString()).toList(),
+      callSites: parsedCallSites,
     );
   }
 }
@@ -433,6 +532,7 @@ class VulnReport {
   final int matchedCount;
   final int unknownCount;
   final int kevCount;
+  final DateTime? feedSyncedAt;
 
   const VulnReport({
     this.dependenciesChecked = 0,
@@ -440,10 +540,12 @@ class VulnReport {
     this.matchedCount = 0,
     this.unknownCount = 0,
     this.kevCount = 0,
+    this.feedSyncedAt,
   });
 
   factory VulnReport.fromJson(Map<String, dynamic> json) {
     final findings = json['findings'] as List<dynamic>? ?? const [];
+    final rawSync = json['feed_synced_at'] as String?;
     return VulnReport(
       dependenciesChecked: (json['dependencies_checked'] as num?)?.toInt() ?? 0,
       findings: findings
@@ -452,6 +554,7 @@ class VulnReport {
       matchedCount: (json['matched_count'] as num?)?.toInt() ?? 0,
       unknownCount: (json['unknown_count'] as num?)?.toInt() ?? 0,
       kevCount: (json['kev_count'] as num?)?.toInt() ?? 0,
+      feedSyncedAt: rawSync != null ? DateTime.tryParse(rawSync) : null,
     );
   }
 }
@@ -528,6 +631,44 @@ class CodeIntelRepository {
       },
     );
     return VulnReport.fromJson(Map<String, dynamic>.from(data as Map));
+  }
+
+  /// Persist an audit-safe suppression for a CVE + package (POST /api/v1/vuln/ignore).
+  Future<Map<String, dynamic>> ignoreFinding({
+    required String cveId,
+    required String package,
+    required String reason,
+    String? note,
+    String? expiresAt,
+  }) async {
+    final data = await apiClient.post(
+      '/v1/vuln/ignore',
+      body: {
+        'cve_id': cveId,
+        'package': package,
+        'reason': reason,
+        if (note != null && note.isNotEmpty) 'note': note,
+        if (expiresAt != null && expiresAt.isNotEmpty) 'expires_at': expiresAt,
+      },
+    );
+    return Map<String, dynamic>.from(data as Map);
+  }
+
+  /// Scope Neo4j reachability + SAST/secret checks to touched files (POST /api/v1/vuln/audit-diff).
+  Future<DiffAuditResult> auditDiff({
+    List<String> files = const [],
+    String diff = '',
+    String? repo,
+  }) async {
+    final data = await apiClient.post(
+      '/v1/vuln/audit-diff',
+      body: {
+        'files': files,
+        'diff': diff,
+        if (repo != null && repo.isNotEmpty) 'repo': repo,
+      },
+    );
+    return DiffAuditResult.fromJson(Map<String, dynamic>.from(data as Map));
   }
 
   /// Ingest a SARIF 2.1.0 document (POST /api/v1/vuln/sarif).

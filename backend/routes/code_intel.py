@@ -25,12 +25,13 @@ import hmac
 import json
 import logging
 import os
-from typing import Any
+from datetime import datetime, timezone
+from typing import Any, Literal
 
 import sentry_sdk
 from fastapi import Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from backend.ingestion.code_graph import (
     MAX_INGEST_EDGES,
@@ -58,7 +59,12 @@ from backend.retrieval.code_queries import (
     repo_overview,
     symbol_lookup,
 )
-from backend.retrieval.vuln_queries import build_vuln_report, vuln_report
+from backend.retrieval.vuln_queries import (
+    audit_diff_files,
+    build_vuln_report,
+    ignore_vuln_finding,
+    vuln_report,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -339,6 +345,44 @@ class AlertIngestRequest(BaseModel):
 
 class ScipIngestRequest(BaseModel):
     scip: dict
+
+
+class VulnIgnoreRequest(BaseModel):
+    cve_id: str = Field(..., min_length=1)
+    package: str = Field(..., min_length=1)
+    reason: Literal["false_positive", "not_reachable", "snooze_30d"]
+    note: str | None = None
+    expires_at: str | None = None
+
+
+class AuditDiffRequest(BaseModel):
+    files: list[str] = Field(default_factory=list)
+    diff: str = ""
+    repo: str | None = None
+
+
+_last_vuln_sync_at: dict[str, str] = {}
+
+
+def _extract_diff_paths(files: list[str], diff: str) -> list[str]:
+    """Collect and validate unique repo-relative file paths from request + diff."""
+    candidates: list[str] = list(files)
+    for line in diff.splitlines():
+        if line.startswith("+++ b/") or line.startswith("--- a/"):
+            path = line[6:].strip()
+            if path and path != "/dev/null":
+                candidates.append(path)
+    seen: set[str] = set()
+    cleaned: list[str] = []
+    for raw in candidates:
+        path = raw.strip()
+        if not path or path in seen:
+            continue
+        if _is_code_file_traversal(path):
+            raise HTTPException(status_code=403, detail="Path traversal is forbidden")
+        seen.add(path)
+        cleaned.append(path)
+    return cleaned
 
 
 def _default_neo4j_client():
@@ -882,7 +926,9 @@ def register_code_intel_routes(
             raise HTTPException(
                 status_code=500, detail="Failed to sync vulnerability intel"
             ) from e
-        return {"status": "ok", **counts}
+        synced_at = datetime.now(timezone.utc).isoformat()
+        _last_vuln_sync_at[tenant_id] = synced_at
+        return {"status": "ok", "feed_synced_at": synced_at, **counts}
 
     @app_router.post("/api/v1/vuln/report")
     async def get_vuln_report(
@@ -927,19 +973,68 @@ def register_code_intel_routes(
             ) from e
         if payload.live_osv and not report.get("findings"):
             try:
-                return await asyncio.to_thread(
+                live_report = await asyncio.to_thread(
                     _live_osv_report,
                     dependencies,
                     tenant_id,
                     payload.include_reachability,
                     payload.repo,
                 )
+                live_report["feed_synced_at"] = _last_vuln_sync_at.get(tenant_id)
+                return live_report
             except Exception as e:
                 # Live fallback is optional: a failed OSV lookup
                 # returns the (empty) graph report, not a 500.
                 logger.warning("Live OSV fallback failed: %s", e)
                 sentry_sdk.capture_exception(e)
+        report["feed_synced_at"] = _last_vuln_sync_at.get(tenant_id)
         return report
+
+    @app_router.post("/api/v1/vuln/ignore")
+    async def ignore_vuln(
+        payload: VulnIgnoreRequest,
+        tenant_id: str = Depends(get_tenant_id),
+    ):
+        """Persist an audit-safe vulnerability suppression for a CVE + package."""
+        try:
+            result = await asyncio.to_thread(
+                ignore_vuln_finding,
+                payload.cve_id,
+                payload.package,
+                payload.reason,
+                note=payload.note,
+                expires_at=payload.expires_at,
+                tenant_id=tenant_id,
+            )
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e)) from e
+        except Exception as e:
+            sentry_sdk.capture_exception(e)
+            raise HTTPException(
+                status_code=500, detail="Failed to persist vulnerability suppression"
+            ) from e
+        return {"status": "ok", "suppression": result}
+
+    @app_router.post("/api/v1/vuln/audit-diff")
+    async def audit_diff(
+        payload: AuditDiffRequest,
+        tenant_id: str = Depends(get_tenant_id),
+    ):
+        """Scope Neo4j reachability + SAST/secret checks to touched diff files."""
+        touched_files = _extract_diff_paths(payload.files, payload.diff)
+        try:
+            return await asyncio.to_thread(
+                audit_diff_files,
+                touched_files,
+                diff=payload.diff,
+                tenant_id=tenant_id,
+                repo=payload.repo,
+            )
+        except Exception as e:
+            sentry_sdk.capture_exception(e)
+            raise HTTPException(
+                status_code=500, detail="Failed to audit diff"
+            ) from e
 
     @app_router.post("/api/v1/vuln/sarif")
     async def ingest_sarif(

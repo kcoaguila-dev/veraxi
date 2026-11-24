@@ -148,6 +148,20 @@ class CodeReviewRepository {
     );
   }
 
+  /// POST /api/v1/sandboxes/sessions/{id}/hunks/apply — stages or reverts
+  /// a single unified-diff hunk.
+  Future<void> applyHunk(
+    String sessionId,
+    String path,
+    List<String> lines, {
+    required bool accept,
+  }) async {
+    await apiClient.post(
+      '${_sessionPath(sessionId)}/hunks/apply',
+      body: {'path': path, 'lines': lines, 'accept': accept},
+    );
+  }
+
   /// POST /api/v1/sandboxes/sessions/{id}/commit — commits staged
   /// files with [message]. The backend never pushes.
   Future<void> commit(String sessionId, String message) async {
@@ -155,5 +169,23 @@ class CodeReviewRepository {
       '${_sessionPath(sessionId)}/commit',
       body: {'message': message},
     );
+  }
+
+  /// POST /api/v1/vuln/audit-diff — scopes Neo4j reachability and
+  /// SAST/secret checks to [files] / [diff].
+  Future<Map<String, dynamic>> auditDiff({
+    List<String> files = const [],
+    String diff = '',
+    String? repo,
+  }) async {
+    final data = await apiClient.post(
+      '/v1/vuln/audit-diff',
+      body: {
+        'files': files,
+        'diff': diff,
+        if (repo != null && repo.isNotEmpty) 'repo': repo,
+      },
+    );
+    return Map<String, dynamic>.from(data as Map);
   }
 }

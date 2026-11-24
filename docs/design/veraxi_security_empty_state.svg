@@ -1,0 +1,127 @@
+<svg width="1440" height="900" viewBox="0 0 1440 900" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Visual Contract: Veraxi Security Empty / Onboarding State (Fixes Image 7)
+       Addresses the lone floating "Upload SARIF 2.1.0" button in Image 7.
+       Operate-mode principle: "Empty states that teach the interface, not
+       'nothing here.'"
+       Shows:
+       - Clear repo/feed status in header
+       - Unified tabs (SAST · SARIF active)
+       - Structured SARIF dropzone + repo-connect fallback + copyable CLI
+         commands (Semgrep / CodeQL) + supported scanner badges. -->
+  <defs>
+    <style>
+      .sans { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }
+      .mono { font-family: 'JetBrains Mono', monospace; }
+    </style>
+  </defs>
+
+  <!-- Outer Shell -->
+  <rect width="1440" height="900" fill="#0D0E11"/>
+
+  <!-- ============================================================ -->
+  <!-- 1. LEFT RAIL (268px, #0D0E11)                                -->
+  <!-- ============================================================ -->
+  <rect x="0" y="0" width="268" height="900" fill="#0D0E11"/>
+  <line x1="268" y1="0" x2="268" y2="900" stroke="#1E2026" stroke-width="1"/>
+
+  <text x="18" y="32" fill="#F4F4F5" font-size="15" font-weight="600" class="sans">Veraxi</text>
+  <rect x="234" y="20" width="16" height="13" rx="3" stroke="#71717A" stroke-width="1.2"/>
+  <line x1="240" y1="20" x2="240" y2="33" stroke="#71717A" stroke-width="1.2"/>
+
+  <!-- [ Chat | <> Code ] -->
+  <rect x="16" y="48" width="236" height="26" rx="8" fill="#13151A" stroke="#1E2026"/>
+  <text x="62" y="65" fill="#71717A" font-size="11.5" font-weight="500" class="sans">Chat</text>
+  <rect x="136" y="50" width="114" height="22" rx="6" fill="#23252C" stroke="#2F323C" stroke-width="0.8"/>
+  <text x="168" y="65" fill="#F4F4F5" font-size="11.5" font-weight="600" class="sans">&lt;&gt; Code</text>
+
+  <rect x="20" y="95" width="12" height="12" rx="2" stroke="#A1A1AA" stroke-width="1.3" fill="none"/>
+  <line x1="23" y1="99" x2="29" y2="99" stroke="#A1A1AA" stroke-width="1.2"/>
+  <line x1="23" y1="103" x2="27" y2="103" stroke="#A1A1AA" stroke-width="1.2"/>
+  <text x="40" y="106" fill="#A1A1AA" font-size="13" class="sans">Knowledge Hub</text>
+
+  <rect x="12" y="118" width="244" height="34" rx="8" fill="#181A20" stroke="#282B36" stroke-width="0.8"/>
+  <path d="M26 128L32 130.5V135C32 138.8 29.4 142.2 26 143.2C22.6 142.2 20 138.8 20 135V130.5L26 128Z" stroke="#E4E4E7" stroke-width="1.3" fill="none"/>
+  <text x="40" y="139" fill="#F4F4F5" font-size="13" font-weight="600" class="sans">Security</text>
+
+  <line x1="16" y1="170" x2="252" y2="170" stroke="#1E2026" stroke-width="1"/>
+  <text x="18" y="192" fill="#71717A" font-size="11" font-weight="600" class="sans">Projects</text>
+  <text x="18" y="216" fill="#71717A" font-size="11.5" class="sans">No repos indexed yet</text>
+  <text x="18" y="238" fill="#10B981" font-size="11.5" font-weight="500" class="sans">+ Connect a repo</text>
+
+  <line x1="16" y1="846" x2="252" y2="846" stroke="#1E2026" stroke-width="1"/>
+  <circle cx="30" cy="872" r="12" fill="#23252C" stroke="#2F323C"/>
+  <text x="30" y="876" text-anchor="middle" fill="#E4E4E7" font-size="11" font-weight="600" class="sans">K</text>
+  <text x="50" y="876" fill="#E4E4E7" font-size="12.5" font-weight="500" class="sans">Kazuo Coaguila</text>
+
+  <!-- ============================================================ -->
+  <!-- 2. MAIN WORKSPACE (1148px, Recessed Canvas #060709)          -->
+  <!-- ============================================================ -->
+  <rect x="280" y="12" width="1148" height="876" rx="14" fill="#060709" stroke="#1C1E24" stroke-width="1"/>
+
+  <!-- Top Header Bar -->
+  <text x="304" y="46" fill="#A1A1AA" font-size="14" class="sans">←</text>
+  <text x="326" y="46" fill="#F4F4F5" font-size="15.5" font-weight="600" class="sans">Security</text>
+  <rect x="398" y="30" width="184" height="22" rx="11" fill="#181A20" stroke="#282B36"/>
+  <circle cx="411" cy="41" r="3.5" fill="#F59E0B"/>
+  <text x="421" y="45" fill="#FCD34D" font-size="11" class="sans">No repo · Upload-only mode</text>
+
+  <!-- Header Toolbar -->
+  <rect x="990" y="26" width="108" height="30" rx="7" fill="#181A20" stroke="#282B36"/>
+  <text x="1044" y="45" text-anchor="middle" fill="#E4E4E7" font-size="11.5" font-weight="500" class="sans">Sync NVD &amp; KEV</text>
+
+  <rect x="1106" y="26" width="128" height="30" rx="7" fill="#181A20" stroke="#282B36"/>
+  <text x="1170" y="45" text-anchor="middle" fill="#E4E4E7" font-size="11.5" font-weight="500" class="sans">Upload SBOM / SARIF</text>
+
+  <rect x="1242" y="26" width="162" height="30" rx="7" fill="#13151A" stroke="#1E2026"/>
+  <text x="1323" y="45" text-anchor="middle" fill="#71717A" font-size="11.5" font-weight="500" class="sans">Connect repo to scan</text>
+
+  <line x1="280" y1="68" x2="1428" y2="68" stroke="#1E2026" stroke-width="1"/>
+
+  <!-- Section Tabs (SAST · SARIF Active) -->
+  <rect x="304" y="84" width="160" height="32" rx="8" fill="#111317" stroke="#1E2026"/>
+  <text x="384" y="104" text-anchor="middle" fill="#A1A1AA" font-size="12" font-weight="500" class="sans">CVEs &amp; Reachability</text>
+
+  <rect x="472" y="84" width="118" height="32" rx="8" fill="#181A20" stroke="#282B36"/>
+  <text x="531" y="104" text-anchor="middle" fill="#F4F4F5" font-size="12" font-weight="600" class="sans">SAST · SARIF</text>
+
+  <rect x="598" y="84" width="122" height="32" rx="8" fill="#111317" stroke="#1E2026"/>
+  <text x="659" y="104" text-anchor="middle" fill="#A1A1AA" font-size="12" font-weight="500" class="sans">Recon · Nuclei</text>
+
+  <rect x="728" y="84" width="116" height="32" rx="8" fill="#111317" stroke="#1E2026"/>
+  <text x="786" y="104" text-anchor="middle" fill="#A1A1AA" font-size="12" font-weight="500" class="sans">ATT&amp;CK · STIX</text>
+
+  <rect x="852" y="84" width="104" height="32" rx="8" fill="#111317" stroke="#1E2026"/>
+  <text x="904" y="104" text-anchor="middle" fill="#A1A1AA" font-size="12" font-weight="500" class="sans">SOC Alerts</text>
+
+  <!-- ============================================================ -->
+  <!-- 3. INSTRUCTIVE EMPTY STATE & DROPZONE                        -->
+  <!-- ============================================================ -->
+  <rect x="474" y="196" width="760" height="440" rx="14" fill="#111317" stroke="#282B36" stroke-dasharray="6 4"/>
+
+  <!-- Upload Icon -->
+  <rect x="830" y="236" width="48" height="48" rx="12" fill="#181A20" stroke="#282B36"/>
+  <path d="M854 268V252M854 252L848 258M854 252L860 258" stroke="#60A5FA" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <text x="854" y="314" text-anchor="middle" fill="#F4F4F5" font-size="17" font-weight="600" class="sans">Ingest SAST findings (SARIF 2.1.0)</text>
+  <text x="854" y="338" text-anchor="middle" fill="#A1A1AA" font-size="12.5" class="sans">Drop a .sarif or .json report here to map taint flows (source → sink) onto your Neo4j code graph.</text>
+
+  <!-- Primary + Secondary CTAs -->
+  <rect x="676" y="362" width="186" height="34" rx="8" fill="#1D4ED8"/>
+  <text x="769" y="383" text-anchor="middle" fill="#FFFFFF" font-size="12" font-weight="600" class="sans">Upload SARIF 2.1.0 (.json)</text>
+
+  <rect x="874" y="362" width="158" height="34" rx="8" fill="#181A20" stroke="#282B36"/>
+  <text x="953" y="383" text-anchor="middle" fill="#E4E4E7" font-size="12" font-weight="500" class="sans">+ Connect a repo</text>
+
+  <!-- Hairline Divider -->
+  <line x1="514" y1="422" x2="1194" y2="422" stroke="#1E2026" stroke-width="1"/>
+
+  <!-- CLI Onboarding Snippet -->
+  <text x="514" y="448" fill="#71717A" font-size="11" font-weight="600" class="sans">GENERATE SARIF LOCALLY</text>
+  <rect x="514" y="460" width="680" height="72" rx="8" fill="#0D0E11" stroke="#1E2026"/>
+  <text x="530" y="486" fill="#67E8F9" font-size="11.5" class="mono">$ semgrep scan --sarif --output results.sarif</text>
+  <text x="530" y="512" fill="#A1A1AA" font-size="11.5" class="mono">$ codeql database analyze db --format=sarif-latest -o results.sarif</text>
+
+  <!-- Supported Tools Footer -->
+  <text x="854" y="572" text-anchor="middle" fill="#71717A" font-size="11.5" class="sans">Supports CodeQL · Semgrep · Bandit · Trivy · Snyk Code</text>
+  <text x="854" y="596" text-anchor="middle" fill="#52525B" font-size="11" class="sans">Parsed via POST /api/v1/vuln/sarif · codeFlows linked to CWE &amp; ATT&amp;CK</text>
+</svg>

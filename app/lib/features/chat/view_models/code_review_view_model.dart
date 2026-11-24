@@ -92,6 +92,37 @@ class CodeReviewNotifier extends StateNotifier<CodeReviewLoadState> {
 
   Future<void> revertFile(String path) => _actOnFile(path, accept: false);
 
+  Future<void> acceptHunk(String path, List<String> lines) =>
+      _actOnHunk(path, lines, accept: true);
+
+  Future<void> rejectHunk(String path, List<String> lines) =>
+      _actOnHunk(path, lines, accept: false);
+
+  Future<void> _actOnHunk(
+    String path,
+    List<String> lines, {
+    required bool accept,
+  }) async {
+    if (_sessionId.isEmpty || state.busyPaths.contains(path)) return;
+    state = state.copyWith(busyPaths: {...state.busyPaths, path});
+    try {
+      await _repository.applyHunk(_sessionId, path, lines, accept: accept);
+    } catch (e, st) {
+      Sentry.captureException(e, stackTrace: st);
+      if (!mounted) return;
+      state = state.copyWith(
+        busyPaths: {...state.busyPaths}..remove(path),
+        error: accept
+            ? 'Failed to accept hunk in $path'
+            : 'Failed to reject hunk in $path',
+      );
+      return;
+    }
+    if (!mounted) return;
+    state = state.copyWith(busyPaths: {...state.busyPaths}..remove(path));
+    await _refresh();
+  }
+
   Future<void> _actOnFile(String path, {required bool accept}) async {
     if (_sessionId.isEmpty || state.busyPaths.contains(path)) return;
     state = state.copyWith(busyPaths: {...state.busyPaths, path});
@@ -132,6 +163,41 @@ class CodeReviewNotifier extends StateNotifier<CodeReviewLoadState> {
         state.copyWith(isCommitting: false, committedMessage: message.trim());
     await _refresh();
     return true;
+  }
+
+  /// Calls POST /api/v1/vuln/audit-diff and formats a concise summary for
+  /// `/security-review` or `[🛡 Audit Diff]`.
+  Future<String> runSecurityDiffAudit({
+    List<String> files = const [],
+    String diff = '',
+    String? repo,
+  }) async {
+    try {
+      final result = await _repository.auditDiff(
+        files: files,
+        diff: diff,
+        repo: repo,
+      );
+      final reachable =
+          result['reachable_symbols'] as List<dynamic>? ?? const [];
+      final findings = result['findings'] as List<dynamic>? ?? const [];
+      final buf = StringBuffer()
+        ..writeln(
+          'Security diff audit (${files.length} ${files.length == 1 ? 'file' : 'files'}): '
+          '${reachable.length} Neo4j reachable symbols, ${findings.length} SAST/secret findings.',
+        );
+      for (final f in findings.take(5)) {
+        if (f is Map) {
+          buf.writeln(
+            '- [${f['severity'] ?? 'HIGH'}] ${f['file']}:${f['line']} — ${f['message']}',
+          );
+        }
+      }
+      return buf.toString().trim();
+    } catch (e, st) {
+      Sentry.captureException(e, stackTrace: st);
+      return 'Run `/security-review` on ${files.isEmpty ? 'the active diff' : files.join(', ')} (audit-diff endpoint unavailable).';
+    }
   }
 }
 

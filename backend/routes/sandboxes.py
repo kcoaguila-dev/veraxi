@@ -28,6 +28,7 @@ from backend.sandbox.git_diff import (
     collect_session_diff,
     get_repo_root,
     git_add_paths,
+    git_apply_hunk_patch,
     git_commit,
     git_revert_paths,
     validate_repo_paths,
@@ -362,6 +363,44 @@ def register_sandbox_routes(app_router, get_tenant_id, _get_supabase, config=Non
             sentry_sdk.capture_exception(e)
             raise HTTPException(status_code=502, detail=f"Sandbox revert failed: {e}") from e
         return {"session_id": session_id, "reverted": rel_paths}
+
+    class SandboxHunkRequest(BaseModel):
+        path: str
+        lines: list[str]
+        accept: bool = True
+
+    @app_router.post("/api/v1/sandboxes/sessions/{session_id}/hunks/apply")
+    async def apply_sandbox_hunk(
+        session_id: str,
+        payload: SandboxHunkRequest,
+        tenant_id: str = Depends(get_tenant_id),
+    ):
+        """Stage or revert a single unified-diff hunk for one validated path."""
+        sb = _get_supabase()
+        mgr = _manager(sb)
+        provider, rel_paths = await _validated_paths(
+            mgr, tenant_id, session_id, [payload.path]
+        )
+        try:
+            await git_apply_hunk_patch(
+                provider,
+                session_id,
+                rel_paths[0],
+                payload.lines,
+                accept=payload.accept,
+            )
+        except GitError as e:
+            raise HTTPException(status_code=400, detail=str(e)) from e
+        except Exception as e:
+            sentry_sdk.capture_exception(e)
+            raise HTTPException(
+                status_code=502, detail=f"Sandbox hunk apply failed: {e}"
+            ) from e
+        return {
+            "session_id": session_id,
+            "path": rel_paths[0],
+            "accepted": payload.accept,
+        }
 
     @app_router.post("/api/v1/sandboxes/sessions/{session_id}/commit")
     async def commit_sandbox_files(

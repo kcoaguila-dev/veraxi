@@ -816,3 +816,271 @@ class TestCodeFilesEndpoint:
         resp = client.get("/api/v1/code/files")
         assert resp.status_code == 200
         assert resp.json() == {"files": []}
+
+
+class TestVulnWorkbenchSignals:
+    def test_finding_enrichment_scope_score_and_reasons(self, monkeypatch):
+        from backend.retrieval import code_queries
+        from backend.retrieval.vuln_queries import (
+            attach_code_reachability,
+            build_vuln_report,
+        )
+
+        deps = [
+            {
+                "name": "requests",
+                "version": "2.28.0",
+                "ecosystem": "pypi",
+                "source_file": "pyproject.toml",
+            },
+            {
+                "name": "urllib3",
+                "version": "1.26.5",
+                "ecosystem": "pypi",
+                "source_file": "uv.lock",
+                "introduced_via": "requests",
+            },
+            {
+                "name": "mystery",
+                "version": "1.0.0",
+                "ecosystem": "pypi",
+            },
+        ]
+        index = {
+            "requests": [
+                {
+                    "cve_id": "CVE-2023-32681",
+                    "severity": "HIGH",
+                    "kev": True,
+                    "epss_score": 0.873,
+                    "cwe_ids": ["CWE-522"],
+                    "version_end_excluding": "2.31.0",
+                }
+            ],
+            "urllib3": [
+                {
+                    "cve_id": "CVE-2023-43804",
+                    "severity": "MEDIUM",
+                    "kev": False,
+                    "epss_score": 0.12,
+                    "cwe_ids": [],
+                    "version_end_excluding": "1.26.17",
+                }
+            ],
+            "mystery": [
+                {
+                    "cve_id": "CVE-2024-0001",
+                    "severity": "LOW",
+                    "kev": False,
+                    "cwe_ids": [],
+                    "version_end_excluding": "2.0.0",
+                }
+            ],
+        }
+        report = build_vuln_report(deps, index)
+        by_pkg = {f["package"]: f for f in report["findings"]}
+
+        assert by_pkg["requests"]["dependency_scope"] == "direct"
+        assert by_pkg["requests"]["introduced_via"] == "pyproject.toml"
+        assert by_pkg["requests"]["fixed_version"] == "2.31.0"
+        assert 0 <= by_pkg["requests"]["composite_score"] <= 100
+        assert "Active in CISA KEV" in by_pkg["requests"]["priority_reasons"]
+        assert "EPSS 87.3%" in by_pkg["requests"]["priority_reasons"]
+
+        assert by_pkg["urllib3"]["dependency_scope"] == "transitive"
+        assert by_pkg["urllib3"]["introduced_via"] == "requests"
+        assert by_pkg["mystery"]["dependency_scope"] == "unknown"
+
+        def fake_impact(symbol, tenant_id="default", max_depth=3, client=None, repo=None):
+            if symbol == "requests":
+                return {
+                    "impacted": [
+                        {
+                            "qualified_name": "app.client.fetch",
+                            "path": "app/client.py",
+                            "repo_key": "owner/repo",
+                        },
+                        {
+                            "qualified_name": "app.sync.pull",
+                            "path": "app/sync.py",
+                            "repo_key": "owner/repo",
+                        },
+                    ]
+                }
+            return {"impacted": []}
+
+        monkeypatch.setattr(code_queries, "impact_analysis", fake_impact)
+        attach_code_reachability(report["findings"], tenant_id="t1")
+        assert by_pkg["requests"]["composite_score"] > by_pkg["urllib3"]["composite_score"]
+        assert any(
+            "Reachable in 2 call sites" in r
+            for r in by_pkg["requests"]["priority_reasons"]
+        )
+
+    def test_sync_and_report_include_feed_synced_at(self, client, monkeypatch):
+        monkeypatch.setattr(
+            routes,
+            "_sync_vuln_intel",
+            lambda tenant_id: {"cves": 3, "kev": 1},
+        )
+        sync_resp = client.post("/api/v1/vuln/sync")
+        assert sync_resp.status_code == 200
+        sync_body = sync_resp.json()
+        assert sync_body["feed_synced_at"]
+
+        monkeypatch.setattr(
+            routes,
+            "vuln_report",
+            lambda dependencies, **kwargs: {
+                "dependencies_checked": len(dependencies),
+                "findings": [],
+                "matched_count": 0,
+                "unknown_count": 0,
+                "kev_count": 0,
+            },
+        )
+        report_resp = client.post(
+            "/api/v1/vuln/report",
+            json={"dependencies": [{"name": "requests", "version": "2.28.0"}]},
+        )
+        assert report_resp.status_code == 200
+        assert report_resp.json()["feed_synced_at"] == sync_body["feed_synced_at"]
+
+    def test_ignore_vuln_validation_and_persistence(self, client, monkeypatch):
+        bad_resp = client.post(
+            "/api/v1/vuln/ignore",
+            json={
+                "cve_id": "CVE-2023-32681",
+                "package": "requests",
+                "reason": "wont_fix",
+            },
+        )
+        assert bad_resp.status_code == 422
+
+        captured = {}
+
+        class FakeNeo4j:
+            def execute_write(self, query, params):
+                captured["query"] = query
+                captured["params"] = params
+                return [
+                    {
+                        "cve_id": params["cve_id"],
+                        "package": params["package"],
+                        "reason": params["reason"],
+                        "note": params["note"],
+                        "expires_at": params["expires_at"],
+                        "updated_at": params["updated_at"],
+                    }
+                ]
+
+        from backend.retrieval import vuln_queries
+
+        orig = vuln_queries.ignore_vuln_finding
+
+        def patched_ignore(*args, **kwargs):
+            kwargs["client"] = FakeNeo4j()
+            return orig(*args, **kwargs)
+
+        monkeypatch.setattr(routes, "ignore_vuln_finding", patched_ignore)
+
+        ok_resp = client.post(
+            "/api/v1/vuln/ignore",
+            json={
+                "cve_id": "CVE-2023-32681",
+                "package": "requests",
+                "reason": "snooze_30d",
+                "note": "Mitigated behind WAF",
+            },
+        )
+        assert ok_resp.status_code == 200, ok_resp.text
+        body = ok_resp.json()
+        assert body["status"] == "ok"
+        assert body["suppression"]["cve_id"] == "CVE-2023-32681"
+        assert body["suppression"]["reason"] == "snooze_30d"
+        assert body["suppression"]["expires_at"] is not None
+        assert "$tenant_id" in captured["query"]
+        assert captured["params"]["tenant_id"] == "tenant-1"
+
+    def test_audit_diff_endpoint_and_traversal_guard(self, client, monkeypatch):
+        traversal_resp = client.post(
+            "/api/v1/vuln/audit-diff",
+            json={"files": ["../etc/passwd"], "diff": ""},
+        )
+        assert traversal_resp.status_code == 403
+
+        class FakeNeo4j:
+            def execute_read(self, query, params):
+                assert params["files"] == ["app/auth.py"]
+                return [
+                    {
+                        "path": "app/auth.py",
+                        "repo_key": "owner/repo",
+                        "symbol": "app.auth.login",
+                        "callees": ["requests.post"],
+                    }
+                ]
+
+        from backend.retrieval import vuln_queries
+
+        orig_audit = vuln_queries.audit_diff_files
+
+        def patched_audit(*args, **kwargs):
+            kwargs["client"] = FakeNeo4j()
+            return orig_audit(*args, **kwargs)
+
+        monkeypatch.setattr(routes, "audit_diff_files", patched_audit)
+
+        diff_text = (
+            "--- a/app/auth.py\n"
+            "+++ b/app/auth.py\n"
+            "@@ -10,0 +11,2 @@\n"
+            "+subprocess.run(cmd, shell=True)\n"
+        )
+        resp = client.post(
+            "/api/v1/vuln/audit-diff",
+            json={"diff": diff_text, "repo": "owner/repo"},
+        )
+        assert resp.status_code == 200, resp.text
+        body = resp.json()
+        assert body["files_audited"] == ["app/auth.py"]
+        assert len(body["reachable_symbols"]) == 1
+        assert body["reachable_symbols"][0]["symbol"] == "app.auth.login"
+        assert any(f["rule_id"] == "sast_shell_true" for f in body["findings"])
+
+    def test_vuln_report_filters_active_suppressions(self):
+        from backend.retrieval.vuln_queries import vuln_report
+
+        class FakeGraphClient:
+            def affected_index(self, tenant_id, package_names):
+                return {
+                    "requests": [
+                        {
+                            "cve_id": "CVE-2023-32681",
+                            "severity": "HIGH",
+                            "kev": True,
+                            "version_end_excluding": "2.31.0",
+                        }
+                    ],
+                    "urllib3": [
+                        {
+                            "cve_id": "CVE-2023-43804",
+                            "severity": "MEDIUM",
+                            "kev": False,
+                            "version_end_excluding": "1.26.17",
+                        }
+                    ],
+                }
+
+            def active_suppressions(self, tenant_id):
+                return {("CVE-2023-32681", "requests")}
+
+        deps = [
+            {"name": "requests", "version": "2.28.0", "ecosystem": "pypi"},
+            {"name": "urllib3", "version": "1.26.5", "ecosystem": "pypi"},
+        ]
+        report = vuln_report(deps, tenant_id="t1", client=FakeGraphClient())
+        assert report["suppressed_count"] == 1
+        assert len(report["findings"]) == 1
+        assert report["findings"][0]["package"] == "urllib3"
+        assert report["kev_count"] == 0

@@ -576,3 +576,96 @@ class TestPhase2Remediation:
             json={"paths": ["src/main.py"]},
         )
         assert resp.status_code == 502
+
+    def test_apply_hunk_accept_and_reject(self, git_harness, monkeypatch):
+        from backend.routes import sandboxes as sb_routes
+
+        tc, _fake, _mgr, _created = git_harness
+        session_id, _provider = _git_session(git_harness)
+
+        recorded = []
+
+        async def fake_apply_hunk(
+            provider, sid, rel_path, lines, *, accept=True
+        ):
+            recorded.append((sid, rel_path, lines, accept))
+
+        monkeypatch.setattr(sb_routes, "git_apply_hunk_patch", fake_apply_hunk)
+        hunk_lines = ["@@ -10,1 +10,1 @@", "-old()", "+new()"]
+
+        ok_accept = tc.post(
+            f"/api/v1/sandboxes/sessions/{session_id}/hunks/apply",
+            json={"path": "src/main.py", "lines": hunk_lines, "accept": True},
+        )
+        assert ok_accept.status_code == 200, ok_accept.text
+        assert ok_accept.json() == {
+            "session_id": session_id,
+            "path": "src/main.py",
+            "accepted": True,
+        }
+
+        ok_reject = tc.post(
+            f"/api/v1/sandboxes/sessions/{session_id}/hunks/apply",
+            json={"path": "src/main.py", "lines": hunk_lines, "accept": False},
+        )
+        assert ok_reject.status_code == 200, ok_reject.text
+        assert ok_reject.json()["accepted"] is False
+        assert len(recorded) == 2
+        assert recorded[0][3] is True
+        assert recorded[1][3] is False
+
+    def test_apply_hunk_rejects_traversal_and_git_error(
+        self, git_harness, monkeypatch
+    ):
+        from backend.routes import sandboxes as sb_routes
+
+        tc, _fake, _mgr, _created = git_harness
+        session_id, _provider = _git_session(git_harness)
+
+        bad_path = tc.post(
+            f"/api/v1/sandboxes/sessions/{session_id}/hunks/apply",
+            json={"path": "../etc/passwd", "lines": ["@@ -1 +1 @@"], "accept": True},
+        )
+        assert bad_path.status_code == 400
+
+        async def fail_apply(*_a, **_kw):
+            raise sb_routes.GitError("patch does not apply")
+
+        monkeypatch.setattr(sb_routes, "git_apply_hunk_patch", fail_apply)
+        bad_patch = tc.post(
+            f"/api/v1/sandboxes/sessions/{session_id}/hunks/apply",
+            json={"path": "src/main.py", "lines": ["@@ -1 +1 @@"], "accept": True},
+        )
+        assert bad_patch.status_code == 400
+
+    @pytest.mark.asyncio
+    async def test_git_apply_hunk_patch_builds_base64_command(self):
+        from backend.sandbox.git_diff import git_apply_hunk_patch
+
+        commands = []
+
+        class FakeEvent:
+            kind = "exit"
+            exit_code = 0
+
+        class FakeProvider:
+            async def exec_command(self, sid, cmd, timeout_sec=60):
+                commands.append((sid, cmd))
+                yield FakeEvent()
+
+        await git_apply_hunk_patch(
+            FakeProvider(),
+            "s1",
+            "app/client.py",
+            ["@@ -1,1 +1,1 @@", "-a", "+b"],
+            accept=True,
+        )
+        await git_apply_hunk_patch(
+            FakeProvider(),
+            "s1",
+            "app/client.py",
+            ["@@ -1,1 +1,1 @@", "-a", "+b"],
+            accept=False,
+        )
+        assert "--cached --unidiff-zero -" in commands[0][1]
+        assert "--reverse --unidiff-zero -" in commands[1][1]

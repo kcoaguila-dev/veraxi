@@ -1,8 +1,10 @@
 import 'dart:convert';
 
 import 'package:file_picker/file_picker.dart';
-import 'package:material_ui/material_ui.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:material_ui/material_ui.dart';
+import 'package:veraxi_app/core/theme/obsidian_tokens.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
 import 'package:veraxi_app/features/knowledge_hub/view_models/code_intel_view_model.dart';
 
@@ -26,10 +28,13 @@ class SecurityFeedPanel extends ConsumerStatefulWidget {
   /// workspace can drive the panel from its section tabs.
   final int initialTab;
 
+  final VoidCallback? onConnectRepo;
+
   const SecurityFeedPanel({
     super.key,
     this.embedded = false,
     this.initialTab = 0,
+    this.onConnectRepo,
   });
 
   @override
@@ -135,6 +140,161 @@ class _SecurityFeedPanelState extends ConsumerState<SecurityFeedPanel> {
     );
   }
 
+  Widget _buildEmptyDropzone({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required String primaryLabel,
+    required VoidCallback? onPrimary,
+    String? secondaryLabel,
+    VoidCallback? onSecondary,
+    required String cliSnippet,
+    required String supportedTools,
+    String? status,
+    String? error,
+    required AppThemeExtension ext,
+  }) {
+    return CustomPaint(
+      painter: _DashedBorderPainter(
+        color: ObsidianTokens.borderStrong,
+        radius: 12,
+      ),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: ObsidianTokens.card,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: ObsidianTokens.bubble,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: ObsidianTokens.hairline),
+              ),
+              child: Icon(icon, size: 20, color: const Color(0xFF60A5FA)),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 6),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 480),
+              child: Text(
+                subtitle,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Color(0xFF9CA3AF),
+                  fontSize: 12.5,
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Wrap(
+              spacing: 10,
+              runSpacing: 8,
+              alignment: WrapAlignment.center,
+              children: [
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF1D4ED8),
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 9,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(7),
+                    ),
+                  ),
+                  onPressed: onPrimary,
+                  icon: Icon(icon, size: 15),
+                  label: Text(primaryLabel),
+                ),
+                if (secondaryLabel != null && onSecondary != null)
+                  OutlinedButton(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFFE4E4E7),
+                      side: const BorderSide(
+                        color: ObsidianTokens.borderStrong,
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 9,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(7),
+                      ),
+                    ),
+                    onPressed: onSecondary,
+                    child: Text(secondaryLabel),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Container(
+              constraints: const BoxConstraints(maxWidth: 520),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: ObsidianTokens.recessedCanvas,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: ObsidianTokens.hairline),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: SelectableText(
+                      cliSnippet,
+                      style: const TextStyle(
+                        color: Color(0xFFD4D4D8),
+                        fontSize: 11.5,
+                        fontFamily: 'monospace',
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton(
+                    tooltip: 'Copy CLI command',
+                    icon: const Icon(Icons.copy_outlined, size: 14),
+                    color: const Color(0xFF9CA3AF),
+                    constraints: const BoxConstraints(),
+                    padding: const EdgeInsets.all(4),
+                    onPressed: () {
+                      Clipboard.setData(ClipboardData(text: cliSnippet));
+                    },
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              supportedTools,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Color(0xFF71717A),
+                fontSize: 11,
+              ),
+            ),
+            _statusLines(status, error, ext),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _sastTab(
     AppThemeExtension ext,
     CodeIntelState state,
@@ -143,17 +303,30 @@ class _SecurityFeedPanelState extends ConsumerState<SecurityFeedPanel> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        ElevatedButton.icon(
-          onPressed: state.sarifBusy
+        _buildEmptyDropzone(
+          icon: Icons.upload_file_outlined,
+          title: 'Drop SARIF 2.1.0 report to correlate SAST with Neo4j',
+          subtitle:
+              'Veraxi maps static taint flows directly onto your indexed call graph and links findings to CWEs.',
+          primaryLabel: state.sarifBusy
+              ? 'Ingesting…'
+              : 'Upload SARIF 2.1.0 (.json)',
+          onPrimary: state.sarifBusy
               ? null
               : () async {
                   final text = await _pickText(['json', 'sarif']);
                   if (text != null) await viewModel.ingestSarifText(text);
                 },
-          icon: const Icon(Icons.upload_file_outlined, size: 16),
-          label: Text(state.sarifBusy ? 'Ingesting…' : 'Upload SARIF 2.1.0'),
+          secondaryLabel:
+              widget.onConnectRepo != null ? '+ Connect a repo' : null,
+          onSecondary: widget.onConnectRepo,
+          cliSnippet: 'semgrep --sarif -o results.sarif .',
+          supportedTools:
+              'Supports Semgrep · CodeQL · Bandit · Snyk · Trivy SARIF 2.1.0',
+          status: state.sarifStatus,
+          error: state.sarifError,
+          ext: ext,
         ),
-        _statusLines(state.sarifStatus, state.sarifError, ext),
         if (state.sarifTaintFlows.isNotEmpty) ...[
           const SizedBox(height: 12),
           const Text('Taint paths (source → sink)',
@@ -201,22 +374,27 @@ class _SecurityFeedPanelState extends ConsumerState<SecurityFeedPanel> {
     CodeIntelState state,
     CodeIntelViewModel viewModel,
   ) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        ElevatedButton.icon(
-          onPressed: state.reconBusy
-              ? null
-              : () async {
-                  final text = await _pickText(['json', 'jsonl']);
-                  if (text != null) await viewModel.ingestRecon(text);
-                },
-          icon: const Icon(Icons.radar_outlined, size: 16),
-          label:
-              Text(state.reconBusy ? 'Ingesting…' : 'Upload Nuclei JSON/JSONL'),
-        ),
-        _statusLines(state.reconStatus, state.reconError, ext),
-      ],
+    return _buildEmptyDropzone(
+      icon: Icons.radar_outlined,
+      title: 'Ingest Recon & DAST scan output',
+      subtitle:
+          'Correlate exposed endpoints, CVEs, and misconfigurations with your repository graph.',
+      primaryLabel:
+          state.reconBusy ? 'Ingesting…' : 'Upload Nuclei JSON/JSONL',
+      onPrimary: state.reconBusy
+          ? null
+          : () async {
+              final text = await _pickText(['json', 'jsonl']);
+              if (text != null) await viewModel.ingestRecon(text);
+            },
+      secondaryLabel:
+          widget.onConnectRepo != null ? '+ Connect a repo' : null,
+      onSecondary: widget.onConnectRepo,
+      cliSnippet: 'nuclei -u https://target.example.com -je recon.json',
+      supportedTools: 'Supports Nuclei JSON/JSONL · Nmap XML · Burp XML · Caido',
+      status: state.reconStatus,
+      error: state.reconError,
+      ext: ext,
     );
   }
 
@@ -225,35 +403,28 @@ class _SecurityFeedPanelState extends ConsumerState<SecurityFeedPanel> {
     CodeIntelState state,
     CodeIntelViewModel viewModel,
   ) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Wrap(
-          spacing: 12,
-          runSpacing: 8,
-          children: [
-            ElevatedButton.icon(
-              onPressed:
-                  state.attackBusy ? null : () => viewModel.syncAttackIntel(),
-              icon: const Icon(Icons.sync, size: 16),
-              label: Text(state.attackBusy ? 'Syncing…' : 'Sync MITRE ATT&CK'),
-            ),
-            ElevatedButton.icon(
-              onPressed: state.attackBusy
-                  ? null
-                  : () async {
-                      final text = await _pickText(['json']);
-                      if (text != null) {
-                        await viewModel.syncAttackIntelFromText(text);
-                      }
-                    },
-              icon: const Icon(Icons.upload_file_outlined, size: 16),
-              label: const Text('Upload STIX bundle'),
-            ),
-          ],
-        ),
-        _statusLines(state.attackStatus, state.attackError, ext),
-      ],
+    return _buildEmptyDropzone(
+      icon: Icons.sync,
+      title: 'Sync MITRE ATT&CK STIX 2.1 Intel',
+      subtitle:
+          'Link techniques, tactics, and mitigations to CVEs and runtime alerts in Neo4j.',
+      primaryLabel:
+          state.attackBusy ? 'Syncing…' : 'Sync MITRE ATT&CK',
+      onPrimary: state.attackBusy ? null : () => viewModel.syncAttackIntel(),
+      secondaryLabel: 'Upload STIX bundle',
+      onSecondary: state.attackBusy
+          ? null
+          : () async {
+              final text = await _pickText(['json']);
+              if (text != null) {
+                await viewModel.syncAttackIntelFromText(text);
+              }
+            },
+      cliSnippet: 'curl -sO https://raw.githubusercontent.com/mitre/cti/master/enterprise-attack/enterprise-attack.json',
+      supportedTools: 'Supports MITRE ATT&CK Enterprise STIX 2.1 bundles',
+      status: state.attackStatus,
+      error: state.attackError,
+      ext: ext,
     );
   }
 
@@ -262,21 +433,68 @@ class _SecurityFeedPanelState extends ConsumerState<SecurityFeedPanel> {
     CodeIntelState state,
     CodeIntelViewModel viewModel,
   ) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        ElevatedButton.icon(
-          onPressed: state.alertsBusy
-              ? null
-              : () async {
-                  final text = await _pickText(['json', 'jsonl']);
-                  if (text != null) await viewModel.ingestAlertsText(text);
-                },
-          icon: const Icon(Icons.notifications_active_outlined, size: 16),
-          label: Text(state.alertsBusy ? 'Ingesting…' : 'Upload Alerts / IOCs'),
-        ),
-        _statusLines(state.alertsStatus, state.alertsError, ext),
-      ],
+    return _buildEmptyDropzone(
+      icon: Icons.notifications_active_outlined,
+      title: 'Ingest SOC Alerts & IOCs',
+      subtitle:
+          'Correlate SIEM/EDR alerts and indicators of compromise against your vulnerable packages.',
+      primaryLabel:
+          state.alertsBusy ? 'Ingesting…' : 'Upload Alerts / IOCs (.json)',
+      onPrimary: state.alertsBusy
+          ? null
+          : () async {
+              final text = await _pickText(['json', 'jsonl']);
+              if (text != null) await viewModel.ingestAlertsText(text);
+            },
+      secondaryLabel:
+          widget.onConnectRepo != null ? '+ Connect a repo' : null,
+      onSecondary: widget.onConnectRepo,
+      cliSnippet: 'veraxi ingest alerts --file siem-alerts.json',
+      supportedTools: 'Supports ECS JSON · OCSF · Splunk/Elastic alert exports',
+      status: state.alertsStatus,
+      error: state.alertsError,
+      ext: ext,
     );
   }
+}
+
+class _DashedBorderPainter extends CustomPainter {
+  final Color color;
+  final double radius;
+
+  const _DashedBorderPainter({
+    required this.color,
+    required this.radius,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 1
+      ..style = PaintingStyle.stroke;
+
+    final rrect = RRect.fromRectAndRadius(
+      Offset.zero & size,
+      Radius.circular(radius),
+    );
+    final path = Path()..addRRect(rrect);
+    const dashWidth = 6.0;
+    const dashSpace = 4.0;
+    for (final metric in path.computeMetrics()) {
+      double distance = 0;
+      while (distance < metric.length) {
+        final next = distance + dashWidth;
+        canvas.drawPath(
+          metric.extractPath(distance, next.clamp(0.0, metric.length)),
+          paint,
+        );
+        distance = next + dashSpace;
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _DashedBorderPainter oldDelegate) =>
+      oldDelegate.color != color || oldDelegate.radius != radius;
 }

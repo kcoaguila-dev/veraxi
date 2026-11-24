@@ -1157,40 +1157,149 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
                       ),
                       const SizedBox(height: 6),
                     ],
-                    if (scratchpadThreads.isNotEmpty)
-                      _RepoGroupRow(
-                        key: const ValueKey('__scratchpad__'),
-                        repo: const IndexedRepoItem(
-                          repoKey: '__scratchpad__',
-                          displayName: 'Scratchpad',
-                          fileCount: 0,
-                          symbolCount: 0,
-                        ),
-                        icon: Icons.edit_note_outlined,
-                        threads: scratchpadThreads,
-                        selected: selectedRepo == null,
-                        initiallyExpanded:
-                            selectedRepo == null || visibleRepos.isEmpty,
-                        selectedThreadId: state.threadId,
-                        onSelectRepo: _startScratchpadCodeThread,
-                        onNewThread: _startScratchpadCodeThread,
-                        onSelectThread: (threadId) {
-                          ref.read(selectedIndexedRepoProvider.notifier).state =
-                              null;
-                          ref.read(codeSubViewProvider.notifier).state =
-                              CodeSubView.codeChat;
-                          viewModel.selectThread(threadId);
-                          _goSafe(context, '/chat');
-                          if (widget.isMobile) {
-                            Navigator.of(context).pop();
-                          }
-                        },
-                      ),
+                    const SizedBox(height: 10),
+                    _buildCodeConversationsSection(
+                      context: context,
+                      threads: scratchpadThreads,
+                      selectedThreadId: state.threadId,
+                      viewModel: viewModel,
+                    ),
                   ],
                 ),
         ),
       ],
     );
+  }
+
+  Widget _buildCodeConversationsSection({
+    required BuildContext context,
+    required List<Map<String, dynamic>> threads,
+    required String? selectedThreadId,
+    required ChatViewModel viewModel,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
+          child: Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  'Conversations',
+                  style: TextStyle(
+                    color: Color(0xFF8E8E93),
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              IconButton(
+                key: const Key('code-conversations-new-button'),
+                tooltip: 'New conversation',
+                icon: const Icon(Icons.add, size: 15),
+                color: const Color(0xFF8E8E93),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+                onPressed: _startScratchpadCodeThread,
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 2),
+        if (threads.isEmpty)
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+            child: Text(
+              'No conversations yet',
+              style: TextStyle(color: Color(0xFF71717A), fontSize: 11.5),
+            ),
+          )
+        else
+          for (final thread in threads)
+            _buildCodeConversationRow(
+              context: context,
+              thread: thread,
+              isSelected: selectedThreadId != null &&
+                  selectedThreadId == thread['thread_id'],
+              onTap: () {
+                final threadId = thread['thread_id'] as String?;
+                if (threadId == null || threadId.isEmpty) return;
+                ref.read(selectedIndexedRepoProvider.notifier).state = null;
+                ref.read(codeSubViewProvider.notifier).state =
+                    CodeSubView.codeChat;
+                viewModel.selectThread(threadId);
+                _goSafe(context, '/chat');
+                if (widget.isMobile) {
+                  Navigator.of(context).pop();
+                }
+              },
+            ),
+      ],
+    );
+  }
+
+  Widget _buildCodeConversationRow({
+    required BuildContext context,
+    required Map<String, dynamic> thread,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    final title = (thread['title'] as String?)?.trim();
+    final label =
+        (title == null || title.isEmpty) ? 'New conversation' : title;
+    final age = _formatThreadAge(thread['updated_at'] ?? thread['created_at']);
+    return InkWell(
+      borderRadius: BorderRadius.circular(6),
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 1),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFF1C1F26) : Colors.transparent,
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: isSelected
+                      ? const Color(0xFFF4F4F5)
+                      : const Color(0xFFD4D4D8),
+                  fontSize: 12.5,
+                  fontWeight: isSelected ? FontWeight.w500 : FontWeight.w400,
+                ),
+              ),
+            ),
+            if (age.isNotEmpty) ...[
+              const SizedBox(width: 8),
+              Text(
+                age,
+                style: const TextStyle(
+                  color: Color(0xFF71717A),
+                  fontSize: 10.5,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _formatThreadAge(dynamic rawTimestamp) {
+    if (rawTimestamp is! String || rawTimestamp.isEmpty) return '';
+    final parsed = DateTime.tryParse(rawTimestamp);
+    if (parsed == null) return '';
+    final diff = DateTime.now().difference(parsed.toLocal());
+    if (diff.inMinutes < 1) return 'now';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m';
+    if (diff.inHours < 24) return '${diff.inHours}h';
+    return '${diff.inDays}d';
   }
 
   Widget _buildIngestionQueueSidebarSection(List<IngestionQueueItem> queue) {
@@ -1700,7 +1809,6 @@ String codeThreadTimeLabel(Map<String, dynamic> thread) {
 /// and its slim single-line Code threads underneath.
 class _RepoGroupRow extends StatefulWidget {
   final IndexedRepoItem repo;
-  final IconData icon;
   final List<Map<String, dynamic>> threads;
   final bool selected;
   final bool initiallyExpanded;
@@ -1713,7 +1821,6 @@ class _RepoGroupRow extends StatefulWidget {
   const _RepoGroupRow({
     super.key,
     required this.repo,
-    this.icon = Icons.folder_outlined,
     required this.threads,
     required this.selected,
     this.initiallyExpanded = false,
@@ -1812,7 +1919,7 @@ class _RepoGroupRowState extends State<_RepoGroupRow> {
               child: Row(
                 children: [
                   Icon(
-                    widget.icon,
+                    Icons.folder_outlined,
                     size: 13,
                     color: widget.selected
                         ? const Color(0xFFE4E4E7)

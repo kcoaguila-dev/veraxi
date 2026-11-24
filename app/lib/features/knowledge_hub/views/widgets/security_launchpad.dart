@@ -28,6 +28,7 @@ int? securityFeedTabForSection(SecuritySection section) {
 /// Supported structured tokens:
 ///   * `is:reachable` — only findings reachable in code
 ///   * `is:kev` — only CISA KEV findings
+///   * `is:direct` — only direct dependency findings
 ///   * `severity:critical|high|medium|low` (case-insensitive)
 ///   * `epss:>0.7`, `epss:>=0.7`, `epss:<0.3`, `epss:<=0.3`,
 ///     `epss:=0.5`, or a bare `epss:0.7` (treated as `>=`)
@@ -52,6 +53,7 @@ bool _matchesToken(VulnFinding finding, String rawToken) {
   final token = rawToken.toLowerCase();
   if (token == 'is:reachable') return finding.isReachable;
   if (token == 'is:kev') return finding.kev;
+  if (token == 'is:direct') return finding.dependencyScope == 'direct';
   if (token.startsWith('severity:')) {
     final wanted = token.substring('severity:'.length);
     const known = {'critical', 'high', 'medium', 'low'};

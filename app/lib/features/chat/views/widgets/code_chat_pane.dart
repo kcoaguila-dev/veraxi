@@ -9,6 +9,7 @@ import 'package:veraxi_app/core/theme_extension.dart';
 import 'package:veraxi_app/core/widgets/profile_menu_button.dart';
 import 'package:veraxi_app/features/chat/view_models/chat_view_model.dart';
 import 'package:veraxi_app/features/chat/view_models/code_chat_view_model.dart';
+import 'package:veraxi_app/features/chat/view_models/code_review_view_model.dart';
 import 'package:veraxi_app/features/chat/view_models/connect_repo_view_model.dart';
 import 'package:veraxi_app/features/chat/view_models/sandbox_toggle_view_model.dart';
 import 'package:veraxi_app/features/chat/view_models/token_usage.dart';
@@ -98,6 +99,17 @@ class _CodeChatPaneState extends ConsumerState<CodeChatPane> {
         viewModel.startNewChat();
       case '/security':
         ref.read(codeSubViewProvider.notifier).state = CodeSubView.vulnIntel;
+      case '/security-review':
+        final activeReview = ref.read(activeReviewSessionProvider);
+        final files =
+            activeReview?.files.map((f) => f.path).toList() ?? const <String>[];
+        final repo = ref.read(selectedIndexedRepoProvider);
+        ref
+            .read(codeReviewProvider.notifier)
+            .runSecurityDiffAudit(files: files, repo: repo)
+            .then((auditSummary) {
+          if (mounted) _handleSend(auditSummary);
+        });
       case '/compact':
         final model = ref.read(modelSelectionProvider).selectedModel;
         final effectiveModel = model == 'Select a model' ? null : model;
@@ -154,6 +166,19 @@ class _CodeChatPaneState extends ConsumerState<CodeChatPane> {
       codeChatViewModelProvider.select((s) => s.messages),
       (previous, next) {
         if (next.isNotEmpty) _scrollToBottom();
+      },
+    );
+
+    ref.listen<String?>(
+      pendingSecurityThreadPromptProvider,
+      (previous, next) {
+        if (next != null && next.isNotEmpty) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+            ref.read(pendingSecurityThreadPromptProvider.notifier).state = null;
+            _handleSend(next);
+          });
+        }
       },
     );
 

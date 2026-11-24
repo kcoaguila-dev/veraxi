@@ -279,3 +279,37 @@ final indexedReposProvider =
 /// Live ingestion queue items shared with the Knowledge Hub left rail.
 final ingestionQueueProvider =
     StateProvider<List<IngestionQueueItem>>((ref) => const []);
+
+/// Diff hunk attached from the Diff Review pane to the single bottom-center
+/// Code Thread composer.
+class DiffHunkAttachment {
+  final String file;
+  final int line;
+  final String hunkText;
+
+  const DiffHunkAttachment({
+    required this.file,
+    required this.line,
+    required this.hunkText,
+  });
+
+  String get chipLabel => '$file:$line';
+
+  @override
+  bool operator ==(Object other) =>
+      other is DiffHunkAttachment &&
+      other.file == file &&
+      other.line == line &&
+      other.hunkText == hunkText;
+
+  @override
+  int get hashCode => Object.hash(file, line, hunkText);
+}
+
+/// Currently attached diff hunk for the Code Thread composer.
+final attachedDiffHunkProvider =
+    StateProvider<DiffHunkAttachment?>((ref) => null);
+
+/// Pre-seeded security fix prompt handed off from Security → Code Thread.
+final pendingSecurityThreadPromptProvider =
+    StateProvider<String?>((ref) => null);

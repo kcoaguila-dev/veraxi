@@ -188,30 +188,122 @@ class _CodeReviewDrawerState extends ConsumerState<CodeReviewDrawer> {
       child: Row(
         children: [
           const SizedBox(width: 14),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-            decoration: BoxDecoration(
-              color: const Color(0xFF16181D),
-              borderRadius: BorderRadius.circular(7),
-              border: Border.all(color: const Color(0xFF252833)),
-            ),
-            child: const Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'Review',
-                  style: TextStyle(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w500,
-                    color: Color(0xFFF4F4F5),
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF16181D),
+                      borderRadius: BorderRadius.circular(7),
+                      border: Border.all(color: const Color(0xFF252833)),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'Review',
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w500,
+                            color: Color(0xFFF4F4F5),
+                          ),
+                        ),
+                        SizedBox(width: 6),
+                        Icon(Icons.add, size: 14, color: Color(0xFF71717A)),
+                      ],
+                    ),
                   ),
-                ),
-                SizedBox(width: 6),
-                Icon(Icons.add, size: 14, color: Color(0xFF71717A)),
-              ],
+                  const SizedBox(width: 8),
+                  OutlinedButton.icon(
+                    key: const Key('code-review-audit-diff-button'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFF93C5FD),
+                      side: const BorderSide(color: Color(0xFF252833)),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 6),
+                      minimumSize: const Size(0, 30),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(7),
+                      ),
+                    ),
+                    onPressed: _triggerAuditDiff,
+                    icon: const Icon(Icons.shield_outlined, size: 13),
+                    label: const Text(
+                      'Audit Diff',
+                      style: TextStyle(
+                          fontSize: 11.5, fontWeight: FontWeight.w500),
+                    ),
+                  ),
+                  if (_isLive) ...[
+                    const SizedBox(width: 8),
+                    TextButton(
+                      key: const Key('code-review-discard-button'),
+                      onPressed: _close,
+                      child: const Text(
+                        'Discard',
+                        style: TextStyle(
+                            fontSize: 11.5, color: Color(0xFFF87171)),
+                      ),
+                    ),
+                    OutlinedButton(
+                      key: const Key('code-review-apply-locally-button'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFFE4E4E7),
+                        side:
+                            const BorderSide(color: ObsidianTokens.borderStrong),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 6),
+                        minimumSize: const Size(0, 28),
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      onPressed: () {
+                        final files = ref.read(codeReviewProvider).diff?.files ??
+                            const <CodeReviewDiffFile>[];
+                        for (final f in files) {
+                          ref
+                              .read(codeReviewProvider.notifier)
+                              .acceptFile(f.path);
+                        }
+                      },
+                      child: const Text(
+                        'Apply Locally',
+                        style: TextStyle(
+                            fontSize: 11.5, fontWeight: FontWeight.w500),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    ElevatedButton(
+                      key: const Key('code-review-draft-pr-button'),
+                      onPressed: ref.watch(codeReviewProvider).isCommitting
+                          ? null
+                          : _openCommitDialog,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF1D4ED8),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 6),
+                        minimumSize: const Size(0, 28),
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(7),
+                        ),
+                      ),
+                      child: const Text(
+                        'Open Draft PR',
+                        style: TextStyle(
+                            fontSize: 11.5, fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
             ),
           ),
-          const Spacer(),
           IconButton(
             key: const Key('code-review-close'),
             icon: const Icon(Icons.close, size: 18, color: Color(0xFF71717A)),
@@ -224,12 +316,28 @@ class _CodeReviewDrawerState extends ConsumerState<CodeReviewDrawer> {
     );
   }
 
+  Future<void> _triggerAuditDiff() async {
+    final files = ref
+            .read(codeReviewProvider)
+            .diff
+            ?.files
+            .map((f) => f.path)
+            .toList() ??
+        const <String>[];
+    final repo = ref.read(selectedIndexedRepoProvider);
+    final auditSummary = await ref
+        .read(codeReviewProvider.notifier)
+        .runSecurityDiffAudit(files: files, repo: repo);
+    ref.read(pendingSecurityThreadPromptProvider.notifier).state = auditSummary;
+  }
+
   Widget _buildForTurnBar() {
     final review = widget.review;
     final prompt = review.turnPrompt;
     final label = (prompt != null && prompt.trim().isNotEmpty)
         ? prompt.trim()
         : (review.turnId.isNotEmpty ? review.turnId : 'Current turn');
+    final reviewState = ref.watch(codeReviewProvider);
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
       child: Row(
@@ -258,9 +366,7 @@ class _CodeReviewDrawerState extends ConsumerState<CodeReviewDrawer> {
           const SizedBox(width: 12),
           ElevatedButton(
             key: const Key('code-review-commit-button'),
-            onPressed: ref.watch(codeReviewProvider).isCommitting
-                ? null
-                : _openCommitDialog,
+            onPressed: reviewState.isCommitting ? null : _openCommitDialog,
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF1D4ED8),
               foregroundColor: Colors.white,
@@ -508,9 +614,91 @@ class _CodeReviewDrawerState extends ConsumerState<CodeReviewDrawer> {
 
   Widget _buildHunk(CodeReviewDiffFile file, CodeReviewHunk hunk) {
     final rows = diffRowsForHunk(hunk);
+    final hunkText = hunk.lines.join('\n');
+    final attachment = DiffHunkAttachment(
+      file: file.path,
+      line: hunk.newStart,
+      hunkText: hunkText,
+    );
+    final isAttached = ref.watch(attachedDiffHunkProvider) == attachment;
+    final busy = ref.watch(codeReviewProvider).busyPaths.contains(file.path);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [for (final row in rows) _buildDiffRow(file, row)],
+      children: [
+        Container(
+          color: const Color(0xFF0E1014),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          child: Row(
+            children: [
+              Text(
+                '@@ -${hunk.oldStart} +${hunk.newStart} @@',
+                style: const TextStyle(
+                  fontSize: 10.5,
+                  fontFamily: 'monospace',
+                  color: Color(0xFF71717A),
+                ),
+              ),
+              const Spacer(),
+              TextButton(
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                  minimumSize: const Size(0, 24),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                onPressed: busy
+                    ? null
+                    : () => ref
+                        .read(codeReviewProvider.notifier)
+                        .acceptHunk(file.path, hunk.lines),
+                child: const Text(
+                  '✓ Accept',
+                  style: TextStyle(fontSize: 11, color: Color(0xFF34D399)),
+                ),
+              ),
+              TextButton(
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                  minimumSize: const Size(0, 24),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                onPressed: busy
+                    ? null
+                    : () => ref
+                        .read(codeReviewProvider.notifier)
+                        .rejectHunk(file.path, hunk.lines),
+                child: const Text(
+                  '✕ Reject',
+                  style: TextStyle(fontSize: 11, color: Color(0xFFF87171)),
+                ),
+              ),
+              TextButton(
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                  minimumSize: const Size(0, 24),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                onPressed: () {
+                  ref.read(attachedDiffHunkProvider.notifier).state =
+                      isAttached ? null : attachment;
+                },
+                child: Text(
+                  isAttached ? '✎ Attached to chat' : '✎ Ask AI',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: isAttached
+                        ? const Color(0xFF60A5FA)
+                        : const Color(0xFFD4D4D8),
+                    fontWeight:
+                        isAttached ? FontWeight.w600 : FontWeight.w400,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        for (final row in rows) _buildDiffRow(file, row),
+      ],
     );
   }
 

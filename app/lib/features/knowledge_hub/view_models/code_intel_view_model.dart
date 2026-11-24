@@ -13,13 +13,30 @@ export 'package:veraxi_app/features/knowledge_hub/data/code_intel_repository.dar
         CodeIndexFreshness,
         CodeOverview,
         CodeSymbolMatch,
+        DiffAuditResult,
         ImpactedSymbol,
         ReconIngestResult,
         SarifIngestResult,
         SarifTaintFlow,
         TopConnectedSymbol,
+        VulnCallSite,
         VulnFinding,
         VulnReport;
+
+/// Attached diff hunk chip for the Code Thread bottom-center composer.
+class AttachedDiffHunk {
+  final String file;
+  final int line;
+  final String hunkText;
+
+  const AttachedDiffHunk({
+    required this.file,
+    required this.line,
+    required this.hunkText,
+  });
+
+  String get label => '$file:$line';
+}
 
 /// Quick-filter values for the Vuln Intel findings list, following the
 /// prioritization stack rivals converge on (exploited and reachable
@@ -66,6 +83,28 @@ class CodeIntelState {
   /// One of [VulnQuickFilter]'s values.
   final String vulnQuickFilter;
 
+  /// Hide unreachable findings by default (84% noise cut).
+  final bool hideUnreachable;
+
+  /// Show only direct dependencies (`dependencyScope == 'direct'`).
+  final bool directOnly;
+
+  /// Currently selected finding ID (`cveId::package`) for Master-Detail inspector.
+  final String? selectedFindingId;
+
+  /// Timestamp of the last NVD/KEV feed sync for the header health pill.
+  final DateTime? lastFeedSyncAt;
+
+  /// Diff hunk attached to the single bottom-center Code Thread composer.
+  final AttachedDiffHunk? attachedDiffHunk;
+
+  /// Findings suppressed in this session via POST /api/v1/vuln/ignore.
+  final Set<String> suppressedFindingIds;
+
+  /// Diff audit state for `[🛡 Audit Diff]` and `/security-review`.
+  final bool diffAuditBusy;
+  final DiffAuditResult? diffAuditResult;
+
   // Security Feed (SAST / Recon / ATT&CK / SOC) per-source state.
   final bool sarifBusy;
   final String? sarifStatus;
@@ -103,6 +142,14 @@ class CodeIntelState {
     this.sbomJson,
     this.sbomFileName,
     this.vulnQuickFilter = VulnQuickFilter.all,
+    this.hideUnreachable = true,
+    this.directOnly = false,
+    this.selectedFindingId,
+    this.lastFeedSyncAt,
+    this.attachedDiffHunk,
+    this.suppressedFindingIds = const {},
+    this.diffAuditBusy = false,
+    this.diffAuditResult,
     this.sarifBusy = false,
     this.sarifStatus,
     this.sarifError,
@@ -118,11 +165,42 @@ class CodeIntelState {
     this.alertsError,
   });
 
-  /// Findings after the client-side severity/KEV/status filters.
+  bool get _reachabilityAvailable {
+    final report = vulnReport;
+    if (report == null) return false;
+    return includeReachability || report.findings.any((f) => f.isReachable);
+  }
+
+  /// Count of unreachable findings hidden when [hideUnreachable] is active.
+  int get hiddenUnreachableCount {
+    final report = vulnReport;
+    if (report == null || !_reachabilityAvailable) return 0;
+    return report.findings
+        .where(
+          (f) =>
+              !suppressedFindingIds.contains(f.findingId) && !f.isReachable,
+        )
+        .length;
+  }
+
+  /// Currently selected finding for the Master-Detail inspector.
+  VulnFinding? get selectedFinding {
+    final list = filteredFindings;
+    if (list.isEmpty) return null;
+    if (selectedFindingId != null) {
+      for (final f in list) {
+        if (f.findingId == selectedFindingId) return f;
+      }
+    }
+    return list.first;
+  }
+
+  /// Findings after client-side severity/KEV/status filters (non-workbench).
   List<VulnFinding> get filteredFindings {
     final report = vulnReport;
     if (report == null) return const [];
     return report.findings.where((finding) {
+      if (suppressedFindingIds.contains(finding.findingId)) return false;
       if (severityFilter != 'ALL' &&
           (finding.severity ?? '').toUpperCase() != severityFilter) {
         return false;
@@ -139,6 +217,17 @@ class CodeIntelState {
         case VulnQuickFilter.reachable:
           if (!finding.isReachable) return false;
       }
+      return true;
+    }).toList();
+  }
+
+  /// Findings for the Security Workbench Master-Detail queue, additionally
+  /// applying [hideUnreachable] (default true) and [directOnly].
+  List<VulnFinding> get workbenchFilteredFindings {
+    final hideNonReachable = hideUnreachable && _reachabilityAvailable;
+    return filteredFindings.where((finding) {
+      if (hideNonReachable && !finding.isReachable) return false;
+      if (directOnly && finding.dependencyScope != 'direct') return false;
       return true;
     }).toList();
   }
@@ -170,6 +259,16 @@ class CodeIntelState {
     String? sbomFileName,
     bool clearSbom = false,
     String? vulnQuickFilter,
+    bool? hideUnreachable,
+    bool? directOnly,
+    String? selectedFindingId,
+    bool clearSelectedFinding = false,
+    DateTime? lastFeedSyncAt,
+    AttachedDiffHunk? attachedDiffHunk,
+    bool clearAttachedDiffHunk = false,
+    Set<String>? suppressedFindingIds,
+    bool? diffAuditBusy,
+    DiffAuditResult? diffAuditResult,
     bool? sarifBusy,
     String? sarifStatus,
     bool clearSarifStatus = false,
@@ -214,6 +313,18 @@ class CodeIntelState {
       sbomJson: clearSbom ? null : (sbomJson ?? this.sbomJson),
       sbomFileName: clearSbom ? null : (sbomFileName ?? this.sbomFileName),
       vulnQuickFilter: vulnQuickFilter ?? this.vulnQuickFilter,
+      hideUnreachable: hideUnreachable ?? this.hideUnreachable,
+      directOnly: directOnly ?? this.directOnly,
+      selectedFindingId: clearSelectedFinding
+          ? null
+          : (selectedFindingId ?? this.selectedFindingId),
+      lastFeedSyncAt: lastFeedSyncAt ?? this.lastFeedSyncAt,
+      attachedDiffHunk: clearAttachedDiffHunk
+          ? null
+          : (attachedDiffHunk ?? this.attachedDiffHunk),
+      suppressedFindingIds: suppressedFindingIds ?? this.suppressedFindingIds,
+      diffAuditBusy: diffAuditBusy ?? this.diffAuditBusy,
+      diffAuditResult: diffAuditResult ?? this.diffAuditResult,
       sarifBusy: sarifBusy ?? this.sarifBusy,
       sarifStatus: clearSarifStatus ? null : (sarifStatus ?? this.sarifStatus),
       sarifError: clearSarifError ? null : (sarifError ?? this.sarifError),
@@ -312,9 +423,13 @@ class CodeIntelViewModel extends StateNotifier<CodeIntelState> {
     state = state.copyWith(syncingVuln: true, clearSyncStatus: true);
     try {
       final result = await _repository.syncVulnIntel();
+      final rawSynced = result['feed_synced_at'] as String?;
+      final parsedSync =
+          rawSynced != null ? DateTime.tryParse(rawSynced) : DateTime.now();
       state = state.copyWith(
         syncingVuln: false,
         syncStatus: 'Synced ${result['cves_written'] ?? 0} CVEs',
+        lastFeedSyncAt: parsedSync ?? DateTime.now(),
       );
     } catch (e, st) {
       await Sentry.captureException(e, stackTrace: st);
@@ -339,7 +454,11 @@ class CodeIntelViewModel extends StateNotifier<CodeIntelState> {
               repoPath: path.isEmpty ? null : path,
               includeReachability: state.includeReachability,
             );
-      state = state.copyWith(scanningVuln: false, vulnReport: report);
+      state = state.copyWith(
+        scanningVuln: false,
+        vulnReport: report,
+        lastFeedSyncAt: report.feedSyncedAt ?? state.lastFeedSyncAt,
+      );
     } catch (e, st) {
       await Sentry.captureException(e, stackTrace: st);
       state = state.copyWith(
@@ -367,6 +486,77 @@ class CodeIntelViewModel extends StateNotifier<CodeIntelState> {
 
   void setIncludeReachability(bool value) {
     state = state.copyWith(includeReachability: value);
+  }
+
+  void setHideUnreachable(bool value) {
+    state = state.copyWith(hideUnreachable: value);
+  }
+
+  void setDirectOnly(bool value) {
+    state = state.copyWith(directOnly: value);
+  }
+
+  void selectFinding(String? findingId) {
+    if (findingId == null) {
+      state = state.copyWith(clearSelectedFinding: true);
+    } else {
+      state = state.copyWith(selectedFindingId: findingId);
+    }
+  }
+
+  void attachDiffHunk(AttachedDiffHunk? hunk) {
+    if (hunk == null) {
+      state = state.copyWith(clearAttachedDiffHunk: true);
+    } else {
+      state = state.copyWith(attachedDiffHunk: hunk);
+    }
+  }
+
+  void clearAttachedDiffHunk() {
+    state = state.copyWith(clearAttachedDiffHunk: true);
+  }
+
+  Future<void> ignoreFinding(
+    VulnFinding finding, {
+    required String reason,
+    String? note,
+  }) async {
+    final nextSuppressed = {...state.suppressedFindingIds, finding.findingId};
+    state = state.copyWith(
+      suppressedFindingIds: nextSuppressed,
+      clearSelectedFinding: state.selectedFindingId == finding.findingId,
+    );
+    try {
+      await _repository.ignoreFinding(
+        cveId: finding.cveId,
+        package: finding.package,
+        reason: reason,
+        note: note,
+      );
+    } catch (e, st) {
+      await Sentry.captureException(e, stackTrace: st);
+    }
+  }
+
+  Future<DiffAuditResult?> auditDiff({
+    List<String> files = const [],
+    String diff = '',
+    String? repo,
+  }) async {
+    state = state.copyWith(diffAuditBusy: true);
+    try {
+      final result = await _repository.auditDiff(
+        files: files,
+        diff: diff,
+        repo: repo,
+      );
+      state = state.copyWith(diffAuditBusy: false, diffAuditResult: result);
+      return result;
+    } catch (e, st) {
+      await Sentry.captureException(e, stackTrace: st);
+      state = state.copyWith(diffAuditBusy: false);
+      return null;
+    }
   }
 
   /// Store an uploaded SBOM parsed from [text] (CycloneDX or SPDX JSON).

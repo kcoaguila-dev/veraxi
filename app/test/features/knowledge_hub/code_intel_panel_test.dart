@@ -296,10 +296,10 @@ void main() {
     expect(find.text('Sync MITRE ATT&CK'), findsOneWidget);
     await tester.tap(find.widgetWithText(ChoiceChip, 'SOC'));
     await tester.pumpAndSettle();
-    expect(find.text('Upload Alerts / IOCs'), findsOneWidget);
+    expect(find.text('Upload Alerts / IOCs (.json)'), findsOneWidget);
     await tester.tap(find.widgetWithText(ChoiceChip, 'SAST'));
     await tester.pumpAndSettle();
-    expect(find.text('Upload SARIF 2.1.0'), findsOneWidget);
+    expect(find.text('Upload SARIF 2.1.0 (.json)'), findsOneWidget);
   });
 
   test('severity filter logic in state', () {

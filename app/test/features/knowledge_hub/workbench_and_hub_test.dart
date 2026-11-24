@@ -346,7 +346,7 @@ void main() {
     // action inside the unified workspace, then return to CVEs.
     await tester.tap(find.text('SAST · SARIF').first);
     await tester.pumpAndSettle();
-    expect(find.text('Upload SARIF 2.1.0'), findsOneWidget);
+    expect(find.text('Upload SARIF 2.1.0 (.json)'), findsOneWidget);
     expect(find.text('Security Launchpad'), findsNothing);
     await tester.tap(find.text('CVEs & Reachability'));
     await tester.pumpAndSettle();
@@ -358,12 +358,12 @@ void main() {
     expect(find.text('Security Launchpad'), findsNothing);
     expect(find.text('SAST · SARIF'), findsOneWidget);
     expect(codeRepo.lastScanRepoPath, '/repos/custom');
-    expect(find.text('TRIAGE FUNNEL'), findsOneWidget);
-    expect(find.text('CVE / PACKAGE'), findsOneWidget);
+    expect(find.textContaining('Reachable in Neo4j'), findsOneWidget);
+    expect(find.text('PACKAGE / DEPENDENCY'), findsOneWidget);
     expect(find.text('CVE-2024-3094'), findsWidgets);
-    expect(find.text('Static Path (1 hop)'), findsOneWidget);
+    expect(find.text('Reachable · 1 path'), findsOneWidget);
     expect(find.text('Include reachability'), findsOneWidget);
-    expect(find.text('CWE-502'), findsOneWidget);
+    expect(find.textContaining('CWE-502'), findsOneWidget);
     expect(find.text('All Findings (2)'), findsOneWidget);
     expect(find.text('CISA KEV (1)'), findsOneWidget);
     expect(find.text('Reachable (1)'), findsOneWidget);
@@ -391,7 +391,10 @@ void main() {
       '',
     );
     await tester.pumpAndSettle();
-    expect(find.text('CVE-2024-21503'), findsWidgets);
+    expect(find.text('1 matching'), findsOneWidget);
+    await tester.tap(find.text('Show all 2 →'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('CVE-2024-21503'), findsWidgets);
     expect(find.text('2 matching'), findsOneWidget);
 
     final container = ProviderScope.containerOf(
@@ -799,7 +802,7 @@ void main() {
     expect(find.byType(VulnWorkbenchTable), findsOneWidget);
     expect(find.byType(SecurityQueryBar), findsOneWidget);
     expect(find.text('Security Launchpad'), findsNothing);
-    final headerTextFinder = find.text('CVE / PACKAGE');
+    final headerTextFinder = find.text('PACKAGE / DEPENDENCY');
     expect(headerTextFinder, findsOneWidget);
     final headerContainer = tester.widget<Container>(
       find
@@ -1160,7 +1163,11 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Scratchpad'), findsOneWidget);
+    expect(find.text('Conversations'), findsOneWidget);
+    expect(
+      find.byKey(const Key('code-conversations-new-button')),
+      findsOneWidget,
+    );
     expect(find.text('Quick regex helper'), findsOneWidget);
   });
 
