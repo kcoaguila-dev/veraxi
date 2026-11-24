@@ -300,8 +300,8 @@ def build_diff_summary(
         if preview is None:
             # Fall back to any single parsed file in the preview.
             parsed_preview = parse_unified_diff(preview_text)
-            preview = next(iter(parsed_preview.values()), {"hunks": []})
-        hunks = preview["hunks"]
+            preview = next(iter(parsed_preview.values()), None)
+        hunks: list[dict] = preview["hunks"] if preview is not None else []
         files.append(
             {
                 "path": path,
