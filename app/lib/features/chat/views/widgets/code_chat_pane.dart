@@ -9,11 +9,13 @@ import 'package:veraxi_app/core/theme_extension.dart';
 import 'package:veraxi_app/core/widgets/profile_menu_button.dart';
 import 'package:veraxi_app/features/chat/view_models/chat_view_model.dart';
 import 'package:veraxi_app/features/chat/view_models/code_chat_view_model.dart';
+import 'package:veraxi_app/features/chat/view_models/connect_repo_view_model.dart';
 import 'package:veraxi_app/features/chat/view_models/sandbox_toggle_view_model.dart';
 import 'package:veraxi_app/features/chat/view_models/token_usage.dart';
 import 'package:veraxi_app/features/chat/views/widgets/chat_message_list_item.dart';
 import 'package:veraxi_app/features/chat/views/widgets/code_chat_composer.dart';
 import 'package:veraxi_app/features/chat/views/widgets/compaction_sheet.dart';
+import 'package:veraxi_app/features/chat/views/widgets/connect_repo_dialog.dart';
 import 'package:veraxi_app/features/settings/views/widgets/settings_dialog.dart';
 
 /// Code Chat pane: the Code Mode center stage.
@@ -326,6 +328,7 @@ class _WeldedNewChatTray extends ConsumerWidget {
     final selectedRepo = ref.watch(selectedIndexedRepoProvider);
     final branch = ref.watch(codeBranchProvider);
     final sandboxEnabled = ref.watch(sandboxToggleViewModelProvider).enabled;
+    final connectState = ref.watch(connectRepoViewModelProvider);
     final theme = Theme.of(context);
     final ext = theme.extension<AppThemeExtension>()!;
     const branches = <String>['main'];
@@ -418,25 +421,35 @@ class _WeldedNewChatTray extends ConsumerWidget {
                         ),
                       ),
                       const SizedBox(width: 10),
-                      InkWell(
-                        borderRadius: BorderRadius.circular(6),
-                        onTap: () {
-                          ref.read(codeSubViewProvider.notifier).state =
-                              CodeSubView.repoXray;
-                        },
-                        child: const Padding(
-                          padding:
-                              EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          child: Text(
-                            '+ Connect repo',
-                            style: TextStyle(
-                              color: Color(0xFF34D399),
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
+                      if (connectState.indexing)
+                        _IndexingStatusPill(
+                          target: connectState.activeTarget ?? 'repo',
+                        )
+                      else if (connectState.errorMessage != null)
+                        _IndexingErrorPill(
+                          message: connectState.errorMessage!,
+                          onRetry: () => showConnectRepoDialog(context),
+                          onDismiss: () => ref
+                              .read(connectRepoViewModelProvider.notifier)
+                              .clearBanner(),
+                        )
+                      else
+                        InkWell(
+                          borderRadius: BorderRadius.circular(6),
+                          onTap: () => showConnectRepoDialog(context),
+                          child: const Padding(
+                            padding: EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 2),
+                            child: Text(
+                              '+ Connect repo',
+                              style: TextStyle(
+                                color: Color(0xFF34D399),
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                              ),
                             ),
                           ),
                         ),
-                      ),
                     ],
                   )
                 : DropdownButtonHideUnderline(
@@ -518,6 +531,101 @@ class _WeldedNewChatTray extends ConsumerWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _IndexingStatusPill extends StatelessWidget {
+  final String target;
+
+  const _IndexingStatusPill({required this.target});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: const Color(0xFF14231D),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: const Color(0xFF224438)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(
+            width: 11,
+            height: 11,
+            child: CircularProgressIndicator(
+              strokeWidth: 1.6,
+              color: Color(0xFF34D399),
+            ),
+          ),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              'Indexing $target…',
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Color(0xFF34D399),
+                fontSize: 11.5,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _IndexingErrorPill extends StatelessWidget {
+  final String message;
+  final VoidCallback onRetry;
+  final VoidCallback onDismiss;
+
+  const _IndexingErrorPill({
+    required this.message,
+    required this.onRetry,
+    required this.onDismiss,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: message,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(
+          color: const Color(0xFF2A1618),
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: const Color(0xFF5C262B)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            InkWell(
+              onTap: onRetry,
+              child: const Text(
+                'Index failed · Retry',
+                style: TextStyle(
+                  color: Color(0xFFFCA5A5),
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+            const SizedBox(width: 6),
+            InkWell(
+              onTap: onDismiss,
+              child: const Icon(
+                Icons.close,
+                size: 13,
+                color: Color(0xFFFCA5A5),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

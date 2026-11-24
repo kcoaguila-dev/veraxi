@@ -1,0 +1,198 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 820" width="1280" height="820">
+  <defs>
+    <linearGradient id="modalBg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#141418"/>
+      <stop offset="100%" stop-color="#101014"/>
+    </linearGradient>
+    <linearGradient id="emeraldGlow" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#10B981"/>
+      <stop offset="100%" stop-color="#34D399"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Sheet Background -->
+  <rect width="1280" height="820" fill="#09090B"/>
+
+  <!-- Sheet Header -->
+  <text x="48" y="42" fill="#F4F4F5" font-family="Inter, sans-serif" font-size="16" font-weight="600">
+    Veraxi · Connect Repository Modal — Design Contract
+  </text>
+  <text x="48" y="62" fill="#71717A" font-family="Inter, sans-serif" font-size="12">
+    Triggered from "+ Connect repo" (Code Chat tray) or "+ Connect a repo" (Sidebar) · Keeps user anchored in Code Chat
+  </text>
+
+  <!-- =================================================================== -->
+  <!-- STATE A (PRIMARY): CONNECT REPO MODAL — LOCAL PATH / GIT URL (V1)  -->
+  <!-- =================================================================== -->
+  <text x="48" y="96" fill="#34D399" font-family="Inter, sans-serif" font-size="11" font-weight="600" letter-spacing="0.5">
+    STATE A · PRIMARY MODAL (LOCAL PATH &amp; GIT URL LIVE · GITHUB APP STAGED)
+  </text>
+
+  <!-- Dimmed App Backdrop Frame -->
+  <rect x="48" y="108" width="600" height="668" rx="14" fill="#0D0D10" stroke="#1F1F24" stroke-width="1"/>
+
+  <!-- Modal Card -->
+  <rect x="68" y="128" width="560" height="628" rx="14" fill="url(#modalBg)" stroke="#27272A" stroke-width="1.2"/>
+
+  <!-- Modal Header -->
+  <text x="92" y="164" fill="#F4F4F5" font-family="Inter, sans-serif" font-size="17" font-weight="600">
+    Connect a repository
+  </text>
+  <text x="92" y="185" fill="#A1A1AA" font-family="Inter, sans-serif" font-size="12.5">
+    Index a codebase into Veraxi's Neo4j + Qdrant GraphRAG for line-anchored answers.
+  </text>
+  <!-- Close button -->
+  <rect x="578" y="144" width="28" height="28" rx="7" fill="#18181B" stroke="#27272A" stroke-width="1"/>
+  <text x="588" y="163" fill="#A1A1AA" font-family="Inter, sans-serif" font-size="14">×</text>
+
+  <!-- Source Mode Segmented Tabs (GitHub App staged, Local Path & Git URL live) -->
+  <rect x="92" y="206" width="512" height="36" rx="9" fill="#0B0B0E" stroke="#222227" stroke-width="1"/>
+  <!-- Active Tab: Local Path -->
+  <rect x="96" y="210" width="168" height="28" rx="7" fill="#222228" stroke="#32323A" stroke-width="1"/>
+  <text x="148" y="228" fill="#F4F4F5" font-family="Inter, sans-serif" font-size="12" font-weight="600">Local Path</text>
+  <!-- Tab 2: Git URL / PAT -->
+  <text x="312" y="228" fill="#A1A1AA" font-family="Inter, sans-serif" font-size="12" font-weight="500">Git URL / PAT</text>
+  <!-- Tab 3: GitHub App (Staged) -->
+  <text x="456" y="228" fill="#71717A" font-family="Inter, sans-serif" font-size="12" font-weight="500">GitHub App</text>
+  <rect x="530" y="215" width="66" height="18" rx="4" fill="#18181D" stroke="#27272A" stroke-width="1"/>
+  <text x="537" y="227" fill="#71717A" font-family="Inter, sans-serif" font-size="9.5" font-weight="600">SOON</text>
+
+  <!-- Local Path Input -->
+  <text x="92" y="266" fill="#E4E4E7" font-family="Inter, sans-serif" font-size="12" font-weight="500">Repository Directory</text>
+  <rect x="92" y="276" width="512" height="38" rx="8" fill="#0B0B0E" stroke="#32323A" stroke-width="1"/>
+  <text x="108" y="299" fill="#F4F4F5" font-family="monospace" font-size="12">/home/ubuntu/src/ai/veraxi</text>
+
+  <!-- Already Indexed Repos List (from indexedReposProvider) -->
+  <rect x="92" y="330" width="512" height="226" rx="10" fill="#0E0E12" stroke="#222227" stroke-width="1"/>
+  <text x="108" y="351" fill="#71717A" font-family="Inter, sans-serif" font-size="11" font-weight="600">
+    INDEXED IN WORKSPACE
+  </text>
+  <line x1="92" y1="364" x2="604" y2="364" stroke="#1E1E24" stroke-width="1"/>
+
+  <!-- Empty or Populated State Preview -->
+  <rect x="108" y="378" width="480" height="54" rx="8" fill="#16161C" stroke="#27272D" stroke-width="1"/>
+  <rect x="122" y="393" width="24" height="24" rx="6" fill="#22222A"/>
+  <text x="129" y="409" fill="#E4E4E7" font-family="monospace" font-size="11" font-weight="700">V</text>
+  <text x="158" y="401" fill="#F4F4F5" font-family="Inter, sans-serif" font-size="13" font-weight="600">veraxi</text>
+  <text x="158" y="420" fill="#71717A" font-family="Inter, sans-serif" font-size="11">/home/ubuntu/src/ai/veraxi · 412 files</text>
+  <rect x="490" y="391" width="84" height="28" rx="7" fill="#14231D" stroke="#224438" stroke-width="1"/>
+  <text x="502" y="409" fill="#34D399" font-family="Inter, sans-serif" font-size="11.5" font-weight="500">Use in chat</text>
+
+  <!-- Staged GitHub App Callout -->
+  <rect x="108" y="452" width="480" height="86" rx="8" fill="#121217" stroke="#22222A" stroke-width="1" stroke-dasharray="4 3"/>
+  <text x="124" y="476" fill="#E4E4E7" font-family="Inter, sans-serif" font-size="12" font-weight="600">
+    GitHub App (Selected-Repos OAuth) — Coming Soon
+  </text>
+  <text x="124" y="496" fill="#71717A" font-family="Inter, sans-serif" font-size="11">
+    One-click repo picker with strict read-only, selected-repository permissions.
+  </text>
+  <text x="124" y="514" fill="#34D399" font-family="Inter, sans-serif" font-size="11" font-weight="500">
+    Use Git URL / PAT tab now for remote or private GitHub repos →
+  </text>
+
+  <!-- Branch & Indexing Scope Row -->
+  <rect x="92" y="570" width="512" height="44" rx="9" fill="#16161B" stroke="#222228" stroke-width="1"/>
+  <text x="108" y="596" fill="#A1A1AA" font-family="Inter, sans-serif" font-size="12">Scope:</text>
+  <text x="154" y="596" fill="#71717A" font-family="Inter, sans-serif" font-size="11.5">Auto-skips node_modules, .venv, build/, .git</text>
+
+  <!-- Trust & Privacy Guarantee Bar (Reddit OAuth-trust fix) -->
+  <rect x="92" y="628" width="512" height="58" rx="9" fill="#111916" stroke="#1E352C" stroke-width="1"/>
+  <circle cx="114" cy="650" r="8" fill="#182B24" stroke="#34D399" stroke-width="1"/>
+  <text x="110" y="654" fill="#34D399" font-family="Inter, sans-serif" font-size="10" font-weight="700">✓</text>
+  <text x="132" y="649" fill="#E4E4E7" font-family="Inter, sans-serif" font-size="12" font-weight="600">
+    Read-only &amp; local-first by default
+  </text>
+  <text x="132" y="668" fill="#A1A1AA" font-family="Inter, sans-serif" font-size="11">
+    Veraxi indexes locally into Neo4j &amp; Qdrant. Never pushes, modifies files, or trains on code.
+  </text>
+
+  <!-- Modal Footer Actions -->
+  <text x="92" y="726" fill="#71717A" font-family="Inter, sans-serif" font-size="11.5">
+    Or open full <tspan fill="#A1A1AA" text-decoration="underline">Repo X-Ray</tspan>
+  </text>
+  <rect x="396" y="704" width="76" height="34" rx="8" fill="#18181B" stroke="#27272A" stroke-width="1"/>
+  <text x="416" y="725" fill="#A1A1AA" font-family="Inter, sans-serif" font-size="12.5" font-weight="500">Cancel</text>
+  <rect x="480" y="704" width="124" height="34" rx="8" fill="url(#emeraldGlow)"/>
+  <text x="496" y="725" fill="#052E16" font-family="Inter, sans-serif" font-size="12.5" font-weight="600">Connect &amp; Index</text>
+
+  <!-- =================================================================== -->
+  <!-- STATE B: GIT URL / FINE-GRAINED PAT TAB (ZERO-OAUTH FLOW)           -->
+  <!-- =================================================================== -->
+  <text x="680" y="96" fill="#A78BFA" font-family="Inter, sans-serif" font-size="11" font-weight="600" letter-spacing="0.5">
+    STATE B · GIT URL / FINE-GRAINED PAT (OR LOCAL PATH)
+  </text>
+  <rect x="680" y="108" width="552" height="348" rx="14" fill="url(#modalBg)" stroke="#27272A" stroke-width="1.2"/>
+
+  <!-- Segmented Tabs (Git URL active) -->
+  <rect x="704" y="128" width="504" height="34" rx="9" fill="#0B0B0E" stroke="#222227" stroke-width="1"/>
+  <text x="768" y="149" fill="#A1A1AA" font-family="Inter, sans-serif" font-size="12" font-weight="500">GitHub</text>
+  <rect x="872" y="132" width="168" height="26" rx="7" fill="#222228" stroke="#32323A" stroke-width="1"/>
+  <text x="916" y="149" fill="#F4F4F5" font-family="Inter, sans-serif" font-size="12" font-weight="600">Git URL / PAT</text>
+  <text x="1096" y="149" fill="#A1A1AA" font-family="Inter, sans-serif" font-size="12" font-weight="500">Local Path</text>
+
+  <!-- Repository URL Input -->
+  <text x="704" y="186" fill="#E4E4E7" font-family="Inter, sans-serif" font-size="12" font-weight="500">Repository URL</text>
+  <rect x="704" y="196" width="504" height="38" rx="8" fill="#0B0B0E" stroke="#32323A" stroke-width="1"/>
+  <text x="718" y="219" fill="#F4F4F5" font-family="monospace" font-size="12">https://github.com/org/private-service.git</text>
+
+  <!-- Branch + Optional Read-Only PAT -->
+  <text x="704" y="256" fill="#E4E4E7" font-family="Inter, sans-serif" font-size="12" font-weight="500">Branch</text>
+  <text x="866" y="256" fill="#E4E4E7" font-family="Inter, sans-serif" font-size="12" font-weight="500">
+    Read-only Token (optional for private repos)
+  </text>
+  <rect x="704" y="266" width="148" height="36" rx="8" fill="#0B0B0E" stroke="#27272A" stroke-width="1"/>
+  <text x="718" y="288" fill="#E4E4E7" font-family="monospace" font-size="12">main</text>
+
+  <rect x="866" y="266" width="342" height="36" rx="8" fill="#0B0B0E" stroke="#27272A" stroke-width="1"/>
+  <text x="880" y="288" fill="#71717A" font-family="monospace" font-size="12">github_pat_11A•••••• (Contents: Read-only)</text>
+
+  <text x="704" y="324" fill="#71717A" font-family="Inter, sans-serif" font-size="11">
+    Prefer Local Path? Switch to "Local Path" to index /home/user/src/... with zero network credentials.
+  </text>
+
+  <!-- Primary CTA -->
+  <line x1="704" y1="354" x2="1208" y2="354" stroke="#1E1E24" stroke-width="1"/>
+  <rect x="704" y="372" width="160" height="32" rx="7" fill="#18181B" stroke="#27272A" stroke-width="1"/>
+  <text x="720" y="392" fill="#A1A1AA" font-family="Inter, sans-serif" font-size="11.5">Test connection</text>
+
+  <rect x="1044" y="372" width="164" height="34" rx="8" fill="url(#emeraldGlow)"/>
+  <text x="1068" y="393" fill="#052E16" font-family="Inter, sans-serif" font-size="12.5" font-weight="600">Connect &amp; Index</text>
+
+  <!-- =================================================================== -->
+  <!-- STATE C: LIVE GRAPHRAG INDEXING PROGRESS (NON-BLOCKING)             -->
+  <!-- =================================================================== -->
+  <text x="680" y="486" fill="#38BDF8" font-family="Inter, sans-serif" font-size="11" font-weight="600" letter-spacing="0.5">
+    STATE C · NON-BLOCKING INDEXING PROGRESS (GRAPHRAG PIPELINE)
+  </text>
+  <rect x="680" y="498" width="552" height="278" rx="14" fill="url(#modalBg)" stroke="#27272A" stroke-width="1.2"/>
+
+  <text x="704" y="534" fill="#F4F4F5" font-family="Inter, sans-serif" font-size="15.5" font-weight="600">
+    Indexing veraxi-ai / veraxi
+  </text>
+  <rect x="910" y="518" width="52" height="20" rx="5" fill="#1E1E24" stroke="#2E2E36" stroke-width="1"/>
+  <text x="920" y="532" fill="#A1A1AA" font-family="monospace" font-size="11">main</text>
+  <text x="1166" y="534" fill="#34D399" font-family="monospace" font-size="13" font-weight="600">68%</text>
+
+  <!-- Progress Track -->
+  <rect x="704" y="552" width="504" height="6" rx="3" fill="#1E1E24"/>
+  <rect x="704" y="552" width="342" height="6" rx="3" fill="url(#emeraldGlow)"/>
+
+  <!-- Deterministic Pipeline Steps -->
+  <text x="704" y="590" fill="#34D399" font-family="Inter, sans-serif" font-size="12.5" font-weight="500">
+    ✓  Cloned repository (412 files · 14.2 MB)
+  </text>
+  <text x="704" y="618" fill="#F4F4F5" font-family="Inter, sans-serif" font-size="12.5" font-weight="500">
+    ●  Building AST &amp; Neo4j symbol graph (2,840 nodes)...
+  </text>
+  <text x="704" y="646" fill="#71717A" font-family="Inter, sans-serif" font-size="12.5">
+    ○  Embedding chunks into Qdrant (MiniLM + SPLADE)
+  </text>
+
+  <!-- Footer Action -->
+  <line x1="704" y1="674" x2="1208" y2="674" stroke="#1E1E24" stroke-width="1"/>
+  <text x="704" y="704" fill="#71717A" font-family="Inter, sans-serif" font-size="11.5">
+    Indexing runs in the background. You'll be dropped into Code Chat when ready.
+  </text>
+  <rect x="1032" y="720" width="176" height="34" rx="8" fill="#1C1C22" stroke="#2E2E36" stroke-width="1"/>
+  <text x="1050" y="741" fill="#E4E4E7" font-family="Inter, sans-serif" font-size="12" font-weight="500">Continue in Scratchpad</text>
+</svg>

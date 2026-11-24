@@ -12,6 +12,7 @@ import 'package:veraxi_app/core/providers/model_selection_provider.dart';
 import 'package:veraxi_app/core/providers/project_view_model.dart';
 import 'package:veraxi_app/core/providers/workspace_mode_provider.dart';
 import 'package:veraxi_app/features/chat/views/widgets/chat_message_list_item.dart';
+import 'package:veraxi_app/features/chat/views/widgets/connect_repo_dialog.dart';
 import 'package:veraxi_app/features/chat/views/widgets/pinned_models_widget.dart';
 
 import 'package:veraxi_app/core/widgets/profile_menu_button.dart';
@@ -1094,10 +1095,7 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
                     color: Colors.transparent,
                     child: InkWell(
                       borderRadius: BorderRadius.circular(7),
-                      onTap: () {
-                        ref.read(codeSubViewProvider.notifier).state =
-                            CodeSubView.repoXray;
-                      },
+                      onTap: () => showConnectRepoDialog(context),
                       child: const Padding(
                         padding:
                             EdgeInsets.symmetric(horizontal: 10, vertical: 6),
