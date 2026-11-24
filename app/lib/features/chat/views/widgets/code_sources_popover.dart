@@ -250,26 +250,27 @@ class _CodeSourcesPopoverState extends ConsumerState<_CodeSourcesPopover> {
                     ),
                   ),
                   Divider(height: 1, color: ext.borderColor),
-              InkWell(
-                onTap: () {
-                  widget.onClose();
-                  context.go('/knowledge-hub');
-                },
-                child: const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                  child: Text(
-                    '+ Add sources in Knowledge Hub ->',
-                    style: TextStyle(
-                      color: Color(0xFF4F8EF7),
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
+                  InkWell(
+                    onTap: () {
+                      widget.onClose();
+                      context.go('/knowledge-hub');
+                    },
+                    child: const Padding(
+                      padding:
+                          EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      child: Text(
+                        '+ Add sources in Knowledge Hub ->',
+                        style: TextStyle(
+                          color: Color(0xFF4F8EF7),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ),
                   ),
-                ),
+                ],
               ),
-            ],
-          ),
-        );
+            );
           },
         ),
       ),

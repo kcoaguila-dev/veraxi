@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:veraxi_app/core/providers/model_selection_provider.dart';
 import 'package:veraxi_app/core/providers/workspace_mode_provider.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
+import 'package:veraxi_app/core/widgets/profile_menu_button.dart';
 import 'package:veraxi_app/features/chat/view_models/chat_view_model.dart';
 import 'package:veraxi_app/features/chat/view_models/code_chat_view_model.dart';
 import 'package:veraxi_app/features/chat/view_models/token_usage.dart';
@@ -71,7 +72,7 @@ class _CodeChatPaneState extends ConsumerState<CodeChatPane> {
       sources: sources,
     );
     final model = ref.read(modelSelectionProvider).selectedModel;
-    ref.read(chatViewModelProvider.notifier).sendMessage(
+    ref.read(codeChatViewModelProvider.notifier).sendMessage(
           text,
           model: model == 'Select a model' ? null : model,
           attachments: attachments,
@@ -80,7 +81,7 @@ class _CodeChatPaneState extends ConsumerState<CodeChatPane> {
   }
 
   void _handleSlashCommand(String command) {
-    final viewModel = ref.read(chatViewModelProvider.notifier);
+    final viewModel = ref.read(codeChatViewModelProvider.notifier);
     switch (command) {
       case '/clear':
         viewModel.startNewChat();
@@ -131,14 +132,14 @@ class _CodeChatPaneState extends ConsumerState<CodeChatPane> {
 
   @override
   Widget build(BuildContext context) {
-    final state = ref.watch(chatViewModelProvider);
-    final viewModel = ref.read(chatViewModelProvider.notifier);
+    final state = ref.watch(codeChatViewModelProvider);
+    final viewModel = ref.read(codeChatViewModelProvider.notifier);
     final theme = Theme.of(context);
     final ext = theme.extension<AppThemeExtension>()!;
     final isEmpty = state.messages.isEmpty;
 
     ref.listen<List<ChatMessage>>(
-      chatViewModelProvider.select((s) => s.messages),
+      codeChatViewModelProvider.select((s) => s.messages),
       (previous, next) {
         if (next.isNotEmpty) _scrollToBottom();
       },
@@ -208,13 +209,10 @@ class _CodeChatPaneState extends ConsumerState<CodeChatPane> {
                           ? summarizeTokenUsage(state.messages)
                           : null,
                       tokenUsageStyle: viewModel.tokenUsageStyle,
-                      onTokenUsageStyleChanged:
-                          viewModel.setTokenUsageStyle,
+                      onTokenUsageStyleChanged: viewModel.setTokenUsageStyle,
                       autoCompactMode: viewModel.autoCompactMode,
-                      onAutoCompactModeChanged:
-                          viewModel.setAutoCompactMode,
-                      onCompactPressed: () =>
-                          _handleSlashCommand('/compact'),
+                      onAutoCompactModeChanged: viewModel.setAutoCompactMode,
+                      onCompactPressed: () => _handleSlashCommand('/compact'),
                       onSlashCommand: _handleSlashCommand,
                     ),
                   ],
@@ -278,29 +276,102 @@ class _CodeChatPaneState extends ConsumerState<CodeChatPane> {
 
   Widget _buildEmptyBody(ChatState state, AppThemeExtension ext) {
     final selectedRepo = ref.watch(selectedIndexedRepoProvider);
+    final repos = ref.watch(indexedReposProvider);
+    final theme = Theme.of(context);
+    final displayName = resolveDisplayName();
+
     return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.code,
-              size: 28,
-              color: ext.textTertiary,
-            ),
-            const SizedBox(height: 12),
-            Text(
-              selectedRepo == null
-                  ? 'Ask anything about your indexed code.'
-                  : 'Ask anything about $selectedRepo.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: ext.textTertiary,
-                fontSize: 14,
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 640),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [Color(0xFF1F1F24), Color(0xFF111115)],
+                  ),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: ext.borderColorStrong),
+                ),
+                child: Text(
+                  'VX',
+                  style: TextStyle(
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.88),
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.6,
+                  ),
+                ),
               ),
-            ),
-          ],
+              const SizedBox(height: 20),
+              Text(
+                'Good to see you, $displayName. What\'s next?',
+                textAlign: TextAlign.center,
+                style: theme.textTheme.headlineSmall?.copyWith(
+                  color: theme.colorScheme.onSurface,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: -0.4,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                selectedRepo == null
+                    ? 'Ask anything about your indexed code.'
+                    : 'Ask anything about $selectedRepo.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: ext.textTertiary,
+                  fontSize: 13.5,
+                ),
+              ),
+              if (repos.isEmpty) ...[
+                const SizedBox(height: 16),
+                Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(8),
+                    onTap: () {
+                      ref.read(codeSubViewProvider.notifier).state =
+                          CodeSubView.repoXray;
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 7),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF12231D),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFF1F4034)),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.account_tree_outlined,
+                              size: 14, color: Color(0xFF34D399)),
+                          SizedBox(width: 6),
+                          Text(
+                            'Index a repo in Repo X-Ray →',
+                            style: TextStyle(
+                              color: Color(0xFF34D399),
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
         ),
       ),
     );
@@ -337,9 +408,34 @@ class _WeldedNewChatTray extends ConsumerWidget {
           const SizedBox(width: 8),
           Expanded(
             child: repos.isEmpty
-                ? Text(
-                    'No indexed repos',
-                    style: TextStyle(color: ext.textTertiary, fontSize: 12.5),
+                ? Row(
+                    children: [
+                      Text(
+                        'No indexed repos',
+                        style:
+                            TextStyle(color: ext.textTertiary, fontSize: 12.5),
+                      ),
+                      const SizedBox(width: 10),
+                      InkWell(
+                        borderRadius: BorderRadius.circular(6),
+                        onTap: () {
+                          ref.read(codeSubViewProvider.notifier).state =
+                              CodeSubView.repoXray;
+                        },
+                        child: const Padding(
+                          padding:
+                              EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          child: Text(
+                            'Index in Repo X-Ray →',
+                            style: TextStyle(
+                              color: Color(0xFF34D399),
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   )
                 : DropdownButtonHideUnderline(
                     child: DropdownButton<String>(

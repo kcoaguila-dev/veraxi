@@ -243,7 +243,10 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
 
   Future<void> _handleThreadMenuSelection(
       BuildContext context, String value, String threadId, String title) async {
-    final viewModel = ref.read(chatViewModelProvider.notifier);
+    final isCodeMode = ref.read(workspaceModeProvider) == WorkspaceMode.code;
+    final viewModel = ref.read(
+      (isCodeMode ? codeChatViewModelProvider : chatViewModelProvider).notifier,
+    );
     if (value == 'Share') {
       _showShareDialog(context, viewModel, threadId);
     } else if (value == 'Pin' || value == 'Unpin') {
@@ -936,7 +939,7 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
   }
 
   void _startCodeThreadForRepo(IndexedRepoItem repo) {
-    final viewModel = ref.read(chatViewModelProvider.notifier);
+    final viewModel = ref.read(codeChatViewModelProvider.notifier);
     ref.read(selectedIndexedRepoProvider.notifier).state = repo.repoKey;
     ref.read(codeSelectedSourcesProvider.notifier).state =
         CodeSelectedSources(repoKeys: {repo.repoKey});
@@ -1178,15 +1181,17 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
   }
 
   Widget _buildSidebarContentActual(BuildContext context) {
-    final state = ref.watch(chatViewModelProvider);
-    final viewModel = ref.read(chatViewModelProvider.notifier);
-    final modelSelection = ref.watch(modelSelectionProvider);
     final workspaceMode = ref.watch(workspaceModeProvider);
+    final isCodeRail =
+        workspaceMode == WorkspaceMode.code && !widget.isKnowledgeHubRoute;
+    final activeChatProvider =
+        isCodeRail ? codeChatViewModelProvider : chatViewModelProvider;
+    final state = ref.watch(activeChatProvider);
+    final viewModel = ref.read(activeChatProvider.notifier);
+    final modelSelection = ref.watch(modelSelectionProvider);
     final kevCount = ref.watch(activeKevCountProvider);
     final ingestionQueue = ref.watch(ingestionQueueProvider);
     final isSidebarOpen = widget.isSidebarOpen;
-    final isCodeRail =
-        workspaceMode == WorkspaceMode.code && !widget.isKnowledgeHubRoute;
     return AnimatedContainer(
       duration: const Duration(milliseconds: 250),
       curve: Curves.easeInOut,
@@ -1499,8 +1504,9 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
                                       }
 
                                       final timelineChats = state.pastThreads
-                                          .where(
-                                              (t) => t['is_archived'] != true)
+                                          .where((t) =>
+                                              t['is_archived'] != true &&
+                                              t['workspace_mode'] != 'code')
                                           .toList();
                                       if (timelineChats.isEmpty) {
                                         return Padding(

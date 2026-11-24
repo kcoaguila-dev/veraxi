@@ -637,9 +637,8 @@ class _CodeChatComposerState extends ConsumerState<CodeChatComposer> {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
-                  color: mode == value
-                      ? ext.surfaceHighlight
-                      : Colors.transparent,
+                  color:
+                      mode == value ? ext.surfaceHighlight : Colors.transparent,
                   borderRadius: BorderRadius.circular(7),
                 ),
                 child: Text(

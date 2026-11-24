@@ -36,10 +36,12 @@ void main() {
     });
 
     final viewModel = MockChatViewModel(initialState);
+    final codeViewModel = MockChatViewModel(ChatState(messages: []));
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
           chatViewModelProvider.overrideWith((ref) => viewModel),
+          codeChatViewModelProvider.overrideWith((ref) => codeViewModel),
         ],
         child: MaterialApp(
           theme: AppTheme.lightTheme,

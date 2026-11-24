@@ -28,6 +28,25 @@ final chatViewModelProvider =
   return ChatViewModel(repo, ttsRepo, memoryRepo, migrationService);
 });
 
+/// Dedicated thread state for Code Mode so Code threads stay isolated from
+/// Chat Mode's active conversation and persist their own last-opened thread.
+final codeChatViewModelProvider =
+    StateNotifierProvider<ChatViewModel, ChatState>((ref) {
+  final repo = ref.watch(chatRepositoryProvider);
+  final ttsRepo = ref.watch(ttsRepositoryProvider);
+  final memoryRepo = ref.watch(memoryRepositoryProvider);
+  final migrationService = LocalChatMigrationService(
+    apiClient: ref.watch(apiClientProvider),
+  );
+  return ChatViewModel(
+    repo,
+    ttsRepo,
+    memoryRepo,
+    migrationService,
+    'last_active_code_thread_id',
+  );
+});
+
 class ChatViewModel extends StateNotifier<ChatState> {
   @visibleForTesting
   void setStateForTesting(ChatState s) => state = s;
@@ -41,9 +60,13 @@ class ChatViewModel extends StateNotifier<ChatState> {
   bool _isInitializing = true;
   bool _lastLoadThreadsSucceeded = false;
 
+  final String _lastThreadIdKey;
+
   ChatViewModel(this._repository, TTSRepository? _, this._memoryRepository,
-      [this._localChatMigrationService])
-      : super(ChatState(isLoadingHistory: true)) {
+      [this._localChatMigrationService,
+      String lastThreadIdKey = 'last_active_thread_id'])
+      : _lastThreadIdKey = lastThreadIdKey,
+        super(ChatState(isLoadingHistory: true)) {
     _init();
 
     // Listen to Auth State changes to reload threads if they failed initially
@@ -66,7 +89,7 @@ class ChatViewModel extends StateNotifier<ChatState> {
     }
   }
 
-  static const _lastThreadIdKey = 'last_active_thread_id';
+  // Thread ID persistence key is passed via constructor (_lastThreadIdKey).
 
   Future<void> _persistActiveThreadId(String? threadId) async {
     final prefs = await SharedPreferences.getInstance();

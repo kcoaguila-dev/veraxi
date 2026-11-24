@@ -279,6 +279,8 @@ void main() {
       ProviderScope(
         overrides: [
           chatViewModelProvider.overrideWith((ref) => chatVm),
+          codeChatViewModelProvider.overrideWith(
+              (ref) => _StubChatViewModel(ChatState(messages: []))),
           codeIntelRepositoryProvider.overrideWithValue(codeRepo),
         ],
         child: MaterialApp(
@@ -468,6 +470,8 @@ void main() {
       ProviderScope(
         overrides: [
           chatViewModelProvider.overrideWith((ref) => chatVm),
+          codeChatViewModelProvider.overrideWith(
+              (ref) => _StubChatViewModel(ChatState(messages: []))),
           workspaceModeProvider.overrideWith((ref) => WorkspaceMode.code),
         ],
         child: MaterialApp(
@@ -505,6 +509,8 @@ void main() {
       ProviderScope(
         overrides: [
           chatViewModelProvider.overrideWith((ref) => chatVm),
+          codeChatViewModelProvider.overrideWith(
+              (ref) => _StubChatViewModel(ChatState(messages: []))),
           knowledgeHubRepositoryProvider.overrideWithValue(hubRepo),
         ],
         child: MaterialApp(
@@ -590,6 +596,8 @@ void main() {
       ProviderScope(
         overrides: [
           chatViewModelProvider.overrideWith((ref) => chatVm),
+          codeChatViewModelProvider.overrideWith(
+              (ref) => _StubChatViewModel(ChatState(messages: []))),
           codeIntelRepositoryProvider.overrideWithValue(codeRepo),
           workspaceModeProvider.overrideWith((ref) => WorkspaceMode.code),
           codeSubViewProvider.overrideWith((ref) => CodeSubView.vulnIntel),
@@ -630,6 +638,8 @@ void main() {
       ProviderScope(
         overrides: [
           chatViewModelProvider.overrideWith((ref) => chatVm),
+          codeChatViewModelProvider.overrideWith(
+              (ref) => _StubChatViewModel(ChatState(messages: []))),
           codeIntelRepositoryProvider.overrideWithValue(emptyCodeRepo),
           workspaceModeProvider.overrideWith((ref) => WorkspaceMode.code),
         ],
@@ -684,6 +694,8 @@ void main() {
       ProviderScope(
         overrides: [
           chatViewModelProvider.overrideWith((ref) => chatVm),
+          codeChatViewModelProvider.overrideWith(
+              (ref) => _StubChatViewModel(ChatState(messages: []))),
           codeIntelRepositoryProvider.overrideWithValue(codeRepo),
           workspaceModeProvider.overrideWith((ref) => WorkspaceMode.code),
         ],
@@ -758,6 +770,8 @@ void main() {
       ProviderScope(
         overrides: [
           chatViewModelProvider.overrideWith((ref) => chatVm),
+          codeChatViewModelProvider.overrideWith(
+              (ref) => _StubChatViewModel(ChatState(messages: []))),
           codeIntelRepositoryProvider.overrideWithValue(emptyCodeRepo),
           workspaceModeProvider.overrideWith((ref) => WorkspaceMode.code),
         ],
@@ -806,6 +820,8 @@ void main() {
         key: UniqueKey(),
         overrides: [
           chatViewModelProvider.overrideWith((ref) => chatVm2),
+          codeChatViewModelProvider.overrideWith(
+              (ref) => _StubChatViewModel(ChatState(messages: []))),
           codeIntelRepositoryProvider.overrideWithValue(codeRepo),
           workspaceModeProvider.overrideWith((ref) => WorkspaceMode.code),
         ],
@@ -884,6 +900,8 @@ void main() {
       ProviderScope(
         overrides: [
           chatViewModelProvider.overrideWith((ref) => chatVm),
+          codeChatViewModelProvider.overrideWith(
+              (ref) => _StubChatViewModel(ChatState(messages: []))),
           codeIntelRepositoryProvider.overrideWithValue(codeRepo),
           workspaceModeProvider.overrideWith((ref) => WorkspaceMode.code),
         ],
@@ -1004,6 +1022,8 @@ void main() {
       ProviderScope(
         overrides: [
           chatViewModelProvider.overrideWith((ref) => chatVm),
+          codeChatViewModelProvider.overrideWith(
+              (ref) => _StubChatViewModel(ChatState(messages: []))),
           codeIntelRepositoryProvider.overrideWithValue(codeRepo),
           workspaceModeProvider.overrideWith((ref) => WorkspaceMode.code),
         ],
@@ -1228,6 +1248,8 @@ void main() {
       ProviderScope(
         overrides: [
           chatViewModelProvider.overrideWith((ref) => realVm),
+          codeChatViewModelProvider.overrideWith(
+              (ref) => _StubChatViewModel(ChatState(messages: []))),
           codeIntelRepositoryProvider.overrideWithValue(codeRepo),
         ],
         child: MaterialApp(
@@ -1247,5 +1269,60 @@ void main() {
 
     expect(find.byType(CupertinoActivityIndicator), findsNothing);
     expect(find.text('No conversations yet'), findsOneWidget);
+  });
+
+  testWidgets(
+      'Code Mode isolates its thread from Chat Mode and renders Antigravity-style empty state',
+      (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(1440, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    final chatVm = _StubChatViewModel(
+      ChatState(
+        threadId: 'chat-thread-1',
+        messages: [
+          ChatMessage(
+            id: 'm1',
+            role: 'user',
+            content: 'whos the ceo of nvidia now?',
+          ),
+        ],
+      ),
+    );
+    final codeVm = _StubChatViewModel(ChatState(messages: []));
+    final codeRepo = _FakeCodeIntelRepository();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          chatViewModelProvider.overrideWith((ref) => chatVm),
+          codeChatViewModelProvider.overrideWith((ref) => codeVm),
+          codeIntelRepositoryProvider.overrideWithValue(codeRepo),
+          workspaceModeProvider.overrideWith((ref) => WorkspaceMode.code),
+        ],
+        child: MaterialApp(
+          theme: AppTheme.darkTheme,
+          home: const ChatScreen(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Code Mode must NOT show Chat Mode's active conversation.
+    expect(
+      find.descendant(
+        of: find.byType(CodeChatPane),
+        matching: find.text('whos the ceo of nvidia now?'),
+      ),
+      findsNothing,
+    );
+    // Code Mode shows its Antigravity-inspired empty state.
+    expect(find.textContaining('What\'s next?'), findsOneWidget);
+    expect(
+        find.text('Ask anything about veraxi/custom-service.'), findsOneWidget);
   });
 }
