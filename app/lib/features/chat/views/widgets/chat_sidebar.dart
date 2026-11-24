@@ -951,6 +951,32 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
         .toList();
   }
 
+  /// Code threads without a matching indexed repo (Scratchpad threads).
+  List<Map<String, dynamic>> _scratchpadCodeThreads(
+    ChatState state,
+    List<IndexedRepoItem> indexedRepos,
+  ) {
+    final indexedKeys = {for (final r in indexedRepos) r.repoKey};
+    return state.pastThreads
+        .where((t) =>
+            t['workspace_mode'] == 'code' &&
+            t['is_archived'] != true &&
+            (t['repo_key'] == null || !indexedKeys.contains(t['repo_key'])))
+        .toList();
+  }
+
+  void _startScratchpadCodeThread() {
+    final viewModel = ref.read(codeChatViewModelProvider.notifier);
+    ref.read(selectedIndexedRepoProvider.notifier).state = null;
+    final sources = ref.read(codeSelectedSourcesProvider);
+    ref.read(codeSelectedSourcesProvider.notifier).state =
+        sources.copyWith(repoKeys: const {});
+    ref.read(workspaceModeProvider.notifier).state = WorkspaceMode.code;
+    ref.read(codeSubViewProvider.notifier).state = CodeSubView.codeChat;
+    viewModel.startNewChat();
+    _goSafe(context, '/chat');
+  }
+
   void _startCodeThreadForRepo(IndexedRepoItem repo) {
     final viewModel = ref.read(codeChatViewModelProvider.notifier);
     ref.read(selectedIndexedRepoProvider.notifier).state = repo.repoKey;
@@ -994,6 +1020,7 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
   ) {
     final indexedRepos = ref.watch(indexedReposProvider);
     final selectedRepo = ref.watch(selectedIndexedRepoProvider);
+    final scratchpadThreads = _scratchpadCodeThreads(state, indexedRepos);
 
     final visibleRepos = _codeProjectsFilterActive
         ? indexedRepos
@@ -1060,7 +1087,7 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
         ),
         const SizedBox(height: 8),
         Expanded(
-          child: indexedRepos.isEmpty
+          child: indexedRepos.isEmpty && scratchpadThreads.isEmpty
               ? Material(
                   color: Colors.transparent,
                   child: InkWell(
@@ -1124,6 +1151,32 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
                       ),
                       const SizedBox(height: 6),
                     ],
+                    if (scratchpadThreads.isNotEmpty)
+                      _RepoGroupRow(
+                        repo: const IndexedRepoItem(
+                          repoKey: '__scratchpad__',
+                          displayName: 'Scratchpad',
+                          fileCount: 0,
+                          symbolCount: 0,
+                        ),
+                        icon: Icons.edit_note_outlined,
+                        threads: scratchpadThreads,
+                        selected: selectedRepo == null,
+                        selectedThreadId: state.threadId,
+                        onSelectRepo: _startScratchpadCodeThread,
+                        onNewThread: _startScratchpadCodeThread,
+                        onSelectThread: (threadId) {
+                          ref.read(selectedIndexedRepoProvider.notifier).state =
+                              null;
+                          ref.read(codeSubViewProvider.notifier).state =
+                              CodeSubView.codeChat;
+                          viewModel.selectThread(threadId);
+                          _goSafe(context, '/chat');
+                          if (widget.isMobile) {
+                            Navigator.of(context).pop();
+                          }
+                        },
+                      ),
                   ],
                 ),
         ),
@@ -1638,22 +1691,24 @@ String codeThreadTimeLabel(Map<String, dynamic> thread) {
 /// and its slim single-line Code threads underneath.
 class _RepoGroupRow extends StatefulWidget {
   final IndexedRepoItem repo;
+  final IconData icon;
   final List<Map<String, dynamic>> threads;
   final bool selected;
   final String? selectedThreadId;
   final VoidCallback onSelectRepo;
   final VoidCallback onNewThread;
-  final ValueChanged<String> onMenuAction;
+  final ValueChanged<String>? onMenuAction;
   final ValueChanged<String> onSelectThread;
 
   const _RepoGroupRow({
     required this.repo,
+    this.icon = Icons.folder_outlined,
     required this.threads,
     required this.selected,
     required this.selectedThreadId,
     required this.onSelectRepo,
     required this.onNewThread,
-    required this.onMenuAction,
+    this.onMenuAction,
     required this.onSelectThread,
   });
 
@@ -1739,7 +1794,7 @@ class _RepoGroupRowState extends State<_RepoGroupRow> {
               child: Row(
                 children: [
                   Icon(
-                    Icons.folder_outlined,
+                    widget.icon,
                     size: 13,
                     color: widget.selected
                         ? const Color(0xFFE4E4E7)
@@ -1761,45 +1816,46 @@ class _RepoGroupRowState extends State<_RepoGroupRow> {
                     ),
                   ),
                   if (_hovered || widget.selected) ...[
-                    SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: PopupMenuButton<String>(
-                        icon: const Icon(
-                          Icons.more_vert,
-                          size: 14,
-                          color: Color(0xFFA1A1AA),
+                    if (widget.onMenuAction != null)
+                      SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: PopupMenuButton<String>(
+                          icon: const Icon(
+                            Icons.more_vert,
+                            size: 14,
+                            color: Color(0xFFA1A1AA),
+                          ),
+                          color: Theme.of(context)
+                              .extension<AppThemeExtension>()!
+                              .cardBackground,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          padding: EdgeInsets.zero,
+                          itemBuilder: (_) => const [
+                            PopupMenuItem<String>(
+                              value: 'Re-index',
+                              child: Text('Re-index',
+                                  style: TextStyle(
+                                      color: Color(0xFFE4E4E7), fontSize: 13)),
+                            ),
+                            PopupMenuItem<String>(
+                              value: 'Open in Knowledge Hub',
+                              child: Text('Open in Knowledge Hub',
+                                  style: TextStyle(
+                                      color: Color(0xFFE4E4E7), fontSize: 13)),
+                            ),
+                            PopupMenuItem<String>(
+                              value: 'Remove',
+                              child: Text('Remove',
+                                  style: TextStyle(
+                                      color: Colors.red, fontSize: 13)),
+                            ),
+                          ],
+                          onSelected: widget.onMenuAction!,
                         ),
-                        color: Theme.of(context)
-                            .extension<AppThemeExtension>()!
-                            .cardBackground,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        padding: EdgeInsets.zero,
-                        itemBuilder: (_) => const [
-                          PopupMenuItem<String>(
-                            value: 'Re-index',
-                            child: Text('Re-index',
-                                style: TextStyle(
-                                    color: Color(0xFFE4E4E7), fontSize: 13)),
-                          ),
-                          PopupMenuItem<String>(
-                            value: 'Open in Knowledge Hub',
-                            child: Text('Open in Knowledge Hub',
-                                style: TextStyle(
-                                    color: Color(0xFFE4E4E7), fontSize: 13)),
-                          ),
-                          PopupMenuItem<String>(
-                            value: 'Remove',
-                            child: Text('Remove',
-                                style:
-                                    TextStyle(color: Colors.red, fontSize: 13)),
-                          ),
-                        ],
-                        onSelected: widget.onMenuAction,
                       ),
-                    ),
                     Tooltip(
                       message: 'New Code thread in this repo',
                       child: InkWell(
