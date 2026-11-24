@@ -49,7 +49,7 @@ if config.sentry_dsn:
     sentry_sdk.init(
         dsn=config.sentry_dsn,
         traces_sample_rate=1.0,
-        profiles_sample_rate=1.0,
+        profile_session_sample_rate=1.0,
         integrations=[FastApiIntegration()],
     )
 
