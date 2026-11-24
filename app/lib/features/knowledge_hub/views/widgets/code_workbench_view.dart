@@ -1,20 +1,16 @@
-import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:veraxi_app/core/providers/workspace_mode_provider.dart';
 import 'package:veraxi_app/features/chat/views/widgets/code_chat_pane.dart';
 import 'package:veraxi_app/features/chat/views/widgets/code_review_drawer.dart';
 import 'package:veraxi_app/features/knowledge_hub/view_models/code_intel_view_model.dart';
-import 'package:veraxi_app/features/knowledge_hub/views/widgets/ask_veraxi_sidecar.dart';
 import 'package:veraxi_app/features/knowledge_hub/views/widgets/corpus_briefing_panel.dart';
 import 'package:veraxi_app/features/knowledge_hub/views/widgets/repo_xray_panel.dart';
 import 'package:veraxi_app/features/knowledge_hub/views/widgets/security_feed_panel.dart';
 import 'package:veraxi_app/features/knowledge_hub/views/widgets/vuln_intel_panel.dart';
 
-/// Unified Code Mode workbench surfacing Vuln Intel, Repo X-Ray,
-/// Security Feed, Corpus Briefing, and dbt Lineage as dedicated sub-views
-/// alongside the docked (desktop >= 1200px) or slide-over (< 1200px)
-/// Ask Veraxi sidecar.
+/// Unified Code Mode workbench surfacing Code Chat, Vuln Intel, Repo X-Ray,
+/// Security Feed, Corpus Briefing, and dbt Lineage as dedicated sub-views.
 ///
 /// Design contract: docs/design/veraxi_code_workbench.svg.
 class CodeWorkbenchView extends ConsumerStatefulWidget {
@@ -31,37 +27,15 @@ class CodeWorkbenchView extends ConsumerStatefulWidget {
 
 class _CodeWorkbenchViewState extends ConsumerState<CodeWorkbenchView> {
   final TextEditingController _repoPathController = TextEditingController();
-  final FocusNode _sidecarComposerFocusNode = FocusNode();
-  VulnFinding? _selectedFinding;
-  bool _narrowSidecarOpen = false;
-  String? _citationToOpen;
-  int _citationOpenNonce = 0;
-  int _pathHighlightNonce = 0;
 
   @override
   void initState() {
     super.initState();
-    HardwareKeyboard.instance.addHandler(_handleHardwareKey);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         _refreshIndexedRepos();
       }
     });
-  }
-
-  bool _handleHardwareKey(KeyEvent event) {
-    if (event is KeyDownEvent &&
-        event.logicalKey == LogicalKeyboardKey.escape &&
-        _narrowSidecarOpen &&
-        mounted &&
-        MediaQuery.sizeOf(context).width < 1200) {
-      final route = ModalRoute.of(context);
-      if (route == null || route.isCurrent) {
-        setState(() => _narrowSidecarOpen = false);
-        return true;
-      }
-    }
-    return false;
   }
 
   Future<void> _refreshIndexedRepos() async {
@@ -92,9 +66,7 @@ class _CodeWorkbenchViewState extends ConsumerState<CodeWorkbenchView> {
 
   @override
   void dispose() {
-    HardwareKeyboard.instance.removeHandler(_handleHardwareKey);
     _repoPathController.dispose();
-    _sidecarComposerFocusNode.dispose();
     super.dispose();
   }
 
@@ -115,60 +87,10 @@ class _CodeWorkbenchViewState extends ConsumerState<CodeWorkbenchView> {
     }
   }
 
-  void _askFinding(VulnFinding finding, {required bool isNarrow}) {
-    // Phase 6 Ask Veraxi routing decision: keep the slide-over /
-    // docked sidecar instead of routing into a Code Chat thread.
-    // A CVE-scoped Code Chat thread is not cheap with the existing
-    // flow: Code Chat sends go through the chat feature's view model
-    // (which knowledge_hub views must not import — see the repo-menu
-    // note in chat_sidebar.dart), and CodeScope carries repo /
-    // sources / branch only, with no CVE anchor, so a new thread
-    // would silently lose the finding this follow-up is about. The
-    // sidecar's Q&A provider is keyed by CVE id and preserves that
-    // anchor. What we do seed here is the Code Chat source scope, so
-    // if the user later opens Code Chat it is already scoped to the
-    // selected repo.
-    final selectedRepo = ref.read(selectedIndexedRepoProvider);
-    if (selectedRepo != null) {
-      ref.read(codeSelectedSourcesProvider.notifier).state =
-          CodeSelectedSources(repoKeys: {selectedRepo});
-    }
-    setState(() {
-      _selectedFinding = finding;
-      if (isNarrow) {
-        _narrowSidecarOpen = true;
-      }
-    });
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        _sidecarComposerFocusNode.requestFocus();
-      }
-    });
-  }
-
-  void _inspectPath(VulnFinding finding, {required bool isNarrow}) {
-    final topPath = finding.reachableInCode.isNotEmpty
-        ? finding.reachableInCode.first.path
-        : null;
-    setState(() {
-      _selectedFinding = finding;
-      if (isNarrow) {
-        _narrowSidecarOpen = true;
-      }
-      if (topPath != null && topPath.isNotEmpty) {
-        _citationToOpen = topPath;
-        _citationOpenNonce++;
-      } else {
-        _pathHighlightNonce++;
-      }
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     final activeSubView = ref.watch(codeSubViewProvider);
     final selectedRepo = ref.watch(selectedIndexedRepoProvider);
-    final codeState = ref.watch(codeIntelViewModelProvider);
 
     // Keep sidebar KEV badge/dot synced with the latest vulnerability report.
     ref.listen<CodeIntelState>(codeIntelViewModelProvider, (prev, next) {
@@ -204,19 +126,12 @@ class _CodeWorkbenchViewState extends ConsumerState<CodeWorkbenchView> {
       }
     });
 
-    final activeFinding = _selectedFinding ??
-        (codeState.vulnReport != null &&
-                codeState.vulnReport!.findings.isNotEmpty
-            ? codeState.vulnReport!.findings.first
-            : null);
-
     final screenWidth = MediaQuery.sizeOf(context).width;
     final isWideDesktop = screenWidth >= 1200;
     // Code Chat is a 2-column layout (rail + pane) per
     // docs/design/veraxi_code_workbench.svg: the pane renders its
-    // own header bar, so the workbench header and the Ask Veraxi
-    // sidecar (which belong to the Security/Intel sub-views) must
-    // not mount while it is active.
+    // own header bar, so the workbench header must not mount while
+    // it is active.
     final isCodeChat = activeSubView == CodeSubView.codeChat;
 
     // Phase 5 review pane host: an active review session splits in
@@ -244,7 +159,6 @@ class _CodeWorkbenchViewState extends ConsumerState<CodeWorkbenchView> {
                       repoLabel: selectedRepo,
                       isWideDesktop: isWideDesktop,
                       activeSubView: activeSubView,
-                      activeFinding: activeFinding,
                     ),
                   Expanded(
                     child: IndexedStack(
@@ -256,11 +170,6 @@ class _CodeWorkbenchViewState extends ConsumerState<CodeWorkbenchView> {
                             repoPathController: _repoPathController,
                             workbenchMode: true,
                             hideToolbarActions: isWideDesktop,
-                            selectedCveId: activeFinding?.cveId,
-                            onAskFinding: (f) =>
-                                _askFinding(f, isNarrow: !isWideDesktop),
-                            onInspectPath: (f) =>
-                                _inspectPath(f, isNarrow: !isWideDesktop),
                             onOpenRepoXray: () => ref
                                 .read(codeSubViewProvider.notifier)
                                 .state = CodeSubView.repoXray,
@@ -300,14 +209,6 @@ class _CodeWorkbenchViewState extends ConsumerState<CodeWorkbenchView> {
                 ],
               ),
             ),
-            if (isWideDesktop && !isCodeChat && !showReview)
-              AskVeraxiSidecar(
-                finding: activeFinding,
-                composerFocusNode: _sidecarComposerFocusNode,
-                citationToOpen: _citationToOpen,
-                citationOpenNonce: _citationOpenNonce,
-                pathHighlightNonce: _pathHighlightNonce,
-              ),
             if (showReview && isWideDesktop)
               SizedBox(
                 width: (screenWidth * 0.55).clamp(480.0, 1100.0),
@@ -340,27 +241,6 @@ class _CodeWorkbenchViewState extends ConsumerState<CodeWorkbenchView> {
               ),
             ),
           ),
-        if (!isWideDesktop && !isCodeChat && !showReview && _narrowSidecarOpen)
-          Positioned.fill(
-            child: GestureDetector(
-              onTap: () => setState(() => _narrowSidecarOpen = false),
-              child: Container(
-                color: Colors.black54,
-                alignment: Alignment.centerRight,
-                child: GestureDetector(
-                  onTap: () {},
-                  child: AskVeraxiSidecar(
-                    finding: activeFinding,
-                    composerFocusNode: _sidecarComposerFocusNode,
-                    citationToOpen: _citationToOpen,
-                    citationOpenNonce: _citationOpenNonce,
-                    pathHighlightNonce: _pathHighlightNonce,
-                    onClose: () => setState(() => _narrowSidecarOpen = false),
-                  ),
-                ),
-              ),
-            ),
-          ),
       ],
     );
   }
@@ -371,7 +251,6 @@ class _CodeWorkbenchViewState extends ConsumerState<CodeWorkbenchView> {
     required String? repoLabel,
     required bool isWideDesktop,
     required CodeSubView activeSubView,
-    required VulnFinding? activeFinding,
   }) {
     return Container(
       height: 54,
@@ -400,6 +279,21 @@ class _CodeWorkbenchViewState extends ConsumerState<CodeWorkbenchView> {
                       ),
                       const SizedBox(width: 4),
                     ],
+                    IconButton(
+                      icon: const Icon(
+                        Icons.arrow_back,
+                        color: Color(0xFFB4B4B4),
+                        size: 18,
+                      ),
+                      onPressed: () => ref
+                          .read(codeSubViewProvider.notifier)
+                          .state = CodeSubView.codeChat,
+                      tooltip: 'Back to Code Chat',
+                      padding: EdgeInsets.zero,
+                      constraints:
+                          const BoxConstraints(minWidth: 32, minHeight: 32),
+                    ),
+                    const SizedBox(width: 4),
                     Flexible(
                       child: Text(
                         title,
@@ -449,50 +343,6 @@ class _CodeWorkbenchViewState extends ConsumerState<CodeWorkbenchView> {
                   repoPathController: _repoPathController,
                   workbenchMode: true,
                   compact: true,
-                ),
-              ] else if (!isWideDesktop) ...[
-                const SizedBox(width: 8),
-                InkWell(
-                  borderRadius: BorderRadius.circular(8),
-                  onTap: () => setState(() => _narrowSidecarOpen = true),
-                  child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF1F2D29),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: const Color(0xFF10B981),
-                        width: 0.8,
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(
-                          Icons.auto_awesome,
-                          size: 14,
-                          color: Color(0xFF34D399),
-                        ),
-                        const SizedBox(width: 6),
-                        ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 180),
-                          child: Text(
-                            activeFinding != null
-                                ? 'Ask Veraxi · ${activeFinding.cveId}'
-                                : 'Ask Veraxi',
-                            overflow: TextOverflow.ellipsis,
-                            maxLines: 1,
-                            style: const TextStyle(
-                              color: Color(0xFF34D399),
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
                 ),
               ],
             ],

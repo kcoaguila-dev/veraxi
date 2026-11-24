@@ -7,11 +7,9 @@ import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:veraxi_app/core/network/api_client.dart';
 import 'package:veraxi_app/core/network/tts_repository.dart';
-import 'package:veraxi_app/core/providers/model_selection_provider.dart';
 import 'package:veraxi_app/core/providers/workspace_mode_provider.dart';
 import 'package:veraxi_app/core/repositories/memory_repository.dart';
 import 'package:veraxi_app/core/theme.dart';
-import 'package:veraxi_app/core/widgets/code_lines_view.dart';
 import 'package:veraxi_app/features/chat/data/chat_repository.dart';
 import 'package:veraxi_app/features/chat/data/local_chat_migration_service.dart';
 import 'package:veraxi_app/features/chat/view_models/chat_view_model.dart';
@@ -21,7 +19,6 @@ import 'package:veraxi_app/features/knowledge_hub/data/knowledge_hub_repository.
 import 'package:veraxi_app/features/knowledge_hub/views/knowledge_hub_screen.dart';
 import 'package:veraxi_app/features/chat/views/widgets/code_chat_pane.dart';
 import 'package:veraxi_app/features/chat/views/widgets/code_review_drawer.dart';
-import 'package:veraxi_app/features/knowledge_hub/views/widgets/ask_veraxi_sidecar.dart';
 import 'package:veraxi_app/features/knowledge_hub/views/widgets/corpus_briefing_panel.dart';
 import 'package:veraxi_app/features/knowledge_hub/views/widgets/repo_xray_panel.dart';
 import 'package:veraxi_app/features/knowledge_hub/views/widgets/security_launchpad.dart';
@@ -150,10 +147,10 @@ class _FakeCodeIntelRepository extends CodeIntelRepository {
         'is_stale': false,
       },
     ],
-    this.streamedSourcePath = 'routes.py',
-    this.streamedToken,
-    this.fileResponseBuilder,
-  }) : super(
+  }) :  streamedSourcePath = 'routes.py',
+        streamedToken = null,
+        fileResponseBuilder = null,
+        super(
           apiClient: ApiClient(
             baseUrl: 'https://api.test/api',
             tenantId: 'test-token',
@@ -263,7 +260,7 @@ void main() {
   });
 
   testWidgets(
-      'ChatScreen switches [ Chat | Code ] to the 2-column Code Chat default, unified Security workspace streams Ask Veraxi sidecar, and opens code citation',
+      'ChatScreen switches [ Chat | Code ] to the 2-column Code Chat default, unified Security workspace, and returns to Code Chat',
       (WidgetTester tester) async {
     tester.view.physicalSize = const Size(1440, 900);
     tester.view.devicePixelRatio = 1.0;
@@ -342,11 +339,7 @@ void main() {
     expect(find.byType(SecuritySectionTabs), findsOneWidget);
     expect(find.text('Security Launchpad'), findsOneWidget);
     expect(find.text('Index & Scan'), findsOneWidget);
-    expect(find.text('Ask Veraxi'), findsOneWidget);
-    expect(
-      find.text('Static AST path inferred — verify runtime exposure'),
-      findsOneWidget,
-    );
+    expect(find.text('Ask Veraxi'), findsNothing);
 
     // Embedded Security Feed section: SAST tab shows its real ingest
     // action inside the unified workspace, then return to CVEs.
@@ -374,8 +367,6 @@ void main() {
     expect(find.text('CISA KEV (1)'), findsOneWidget);
     expect(find.text('Reachable (1)'), findsOneWidget);
     expect(find.text('EPSS ≥ 0.7 (1)'), findsOneWidget);
-    expect(find.text('Ask'), findsNWidgets(2));
-    expect(find.text('Path'), findsOneWidget);
 
     // SecurityQueryBar: is:kev narrows the table to the KEV finding,
     // and clearing the query restores every finding.
@@ -402,34 +393,9 @@ void main() {
     expect(find.text('CVE-2024-21503'), findsWidgets);
     expect(find.text('2 matching'), findsOneWidget);
 
-    // Select a model and submit a scoped follow-up via quick chip -> verifies model forwarding, streaming, & line-numbered citation.
     final container = ProviderScope.containerOf(
       tester.element(find.byType(ChatScreen)),
     );
-    await container
-        .read(modelSelectionProvider.notifier)
-        .selectModel('claude-3.5-sonnet');
-    await tester.tap(find.text('What input reaches this symbol?'));
-    await tester.pumpAndSettle();
-    expect(codeRepo.lastSidecarModel, 'claude-3.5-sonnet');
-    expect(find.text('Checked Code Graph · routes.py'), findsOneWidget);
-    expect(
-      find.text('Streamed answer: parse_tar reads uploaded bytes.'),
-      findsOneWidget,
-    );
-    expect(find.text('routes.py'), findsWidgets);
-
-    await tester.tap(find.text('routes.py').last);
-    await tester.pumpAndSettle();
-    expect(find.text('routes.py'), findsWidgets);
-    expect(find.text('Full file'), findsOneWidget);
-    expect(find.text('2 lines · python'), findsOneWidget);
-    expect(find.text('1'), findsOneWidget);
-    expect(find.text('2'), findsOneWidget);
-    expect(find.text('def ingest_route(upload):'), findsOneWidget);
-    expect(find.text('    return parse_tar(upload)'), findsOneWidget);
-    await tester.tap(find.byIcon(Icons.close).last);
-    await tester.pumpAndSettle();
 
     // Repo X-Ray and the standalone Security Feed sub-view remain
     // reachable as Code sub-views (driven here via the provider,
@@ -437,6 +403,12 @@ void main() {
     container.read(codeSubViewProvider.notifier).state = CodeSubView.repoXray;
     await tester.pumpAndSettle();
     expect(find.text('Repo X-Ray'), findsWidgets);
+
+    // Back button in the workbench header returns to Code Chat.
+    await tester.tap(find.byTooltip('Back to Code Chat'));
+    await tester.pumpAndSettle();
+    expect(container.read(codeSubViewProvider), CodeSubView.codeChat);
+    expect(find.byType(CodeChatPane), findsOneWidget);
 
     container.read(codeSubViewProvider.notifier).state =
         CodeSubView.securityFeed;
@@ -455,7 +427,7 @@ void main() {
   });
 
   testWidgets(
-      'CodeWorkbenchView uses slide-over Ask Veraxi drawer below 1200px',
+      'CodeWorkbenchView does not mount Ask Veraxi sidecar below 1200px and New chat returns to Code Chat',
       (WidgetTester tester) async {
     tester.view.physicalSize = const Size(1000, 800);
     tester.view.devicePixelRatio = 1.0;
@@ -485,11 +457,17 @@ void main() {
     await tester.tap(find.text('Security'));
     await tester.pumpAndSettle();
 
-    // Below 1200px, sidecar is collapsed behind the header button until opened.
+    expect(find.text('Ask Veraxi'), findsNothing);
     expect(find.text('REACHABILITY PATH · SELECTED ROW'), findsNothing);
-    await tester.tap(find.text('Ask Veraxi'));
+
+    // Tapping New chat in Code sidebar returns to Code Chat ("Good to see you" view).
+    await tester.tap(find.text('New chat').first);
     await tester.pumpAndSettle();
-    expect(find.text('REACHABILITY PATH · SELECTED ROW'), findsOneWidget);
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(ChatScreen)),
+    );
+    expect(container.read(codeSubViewProvider), CodeSubView.codeChat);
+    expect(find.byType(CodeChatPane), findsOneWidget);
   });
 
   testWidgets(
@@ -676,7 +654,7 @@ void main() {
   });
 
   testWidgets(
-      'Sidecar Q&A turns persist across 1440x900 -> 1000x800 -> 1440x900 resizes and citation highlights #L1-L2',
+      'Code Mode sidebar stays in Code mode on Knowledge Hub and matches Chat Mode row thickness',
       (WidgetTester tester) async {
     tester.view.physicalSize = const Size(1440, 900);
     tester.view.devicePixelRatio = 1.0;
@@ -686,9 +664,7 @@ void main() {
     });
 
     final chatVm = _StubChatViewModel(ChatState(messages: []));
-    final codeRepo = _FakeCodeIntelRepository(
-      streamedSourcePath: 'routes.py#L1-L2',
-    );
+    final hubRepo = _FakeKnowledgeHubRepository();
 
     await tester.pumpWidget(
       ProviderScope(
@@ -696,61 +672,38 @@ void main() {
           chatViewModelProvider.overrideWith((ref) => chatVm),
           codeChatViewModelProvider.overrideWith(
               (ref) => _StubChatViewModel(ChatState(messages: []))),
-          codeIntelRepositoryProvider.overrideWithValue(codeRepo),
+          knowledgeHubRepositoryProvider.overrideWithValue(hubRepo),
           workspaceModeProvider.overrideWith((ref) => WorkspaceMode.code),
         ],
         child: MaterialApp(
           theme: AppTheme.darkTheme,
-          home: const ChatScreen(),
+          home: const KnowledgeHubScreen(),
         ),
       ),
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Security'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Run Vulnerability Scan'));
-    await tester.pumpAndSettle();
+    // Stays in Code mode sidebar (Security & New chat visible, Chats list hidden).
+    expect(find.text('New chat'), findsOneWidget);
+    expect(find.text('Knowledge Hub'), findsNWidgets(2)); // sidebar + header
+    expect(find.text('Security'), findsOneWidget);
+    expect(find.text('Chats'), findsNothing);
 
-    await tester.tap(find.text('What input reaches this symbol?'));
-    await tester.pumpAndSettle();
+    // Sidebar Knowledge Hub & Security rows use 8px vertical padding & 14px font size.
+    final securityText = tester.widget<Text>(find.text('Security'));
+    expect(securityText.style?.fontSize, 14);
+    final securityContainer = tester.widget<Container>(
+      find
+          .ancestor(
+            of: find.text('Security'),
+            matching: find.byType(Container),
+          )
+          .first,
+    );
     expect(
-      find.text('Streamed answer: parse_tar reads uploaded bytes.'),
-      findsOneWidget,
+      securityContainer.padding,
+      const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
     );
-
-    // Resize below 1200px: docked sidecar unmounts, narrow header button opens drawer.
-    tester.view.physicalSize = const Size(1000, 800);
-    await tester.pumpAndSettle();
-    await tester.tap(find.textContaining('Ask Veraxi · CVE-2024-3094'));
-    await tester.pumpAndSettle();
-    expect(
-      find.text('Streamed answer: parse_tar reads uploaded bytes.'),
-      findsOneWidget,
-    );
-
-    // Resize back to >= 1200px: docked sidecar still has the turn.
-    tester.view.physicalSize = const Size(1440, 900);
-    await tester.pumpAndSettle();
-    expect(
-      find.text('Streamed answer: parse_tar reads uploaded bytes.'),
-      findsOneWidget,
-    );
-
-    // Open #L1-L2 citation and verify Full file badge + highlighted lines.
-    await tester.tap(find.text('routes.py#L1-L2'));
-    await tester.pumpAndSettle();
-    expect(find.text('Full file'), findsOneWidget);
-    expect(find.text('Cited lines 1–2 · 2 lines · python'), findsOneWidget);
-    final highlightedContainers = tester.widgetList<Container>(
-      find.descendant(
-        of: find.byType(CodeLinesView),
-        matching: find.byWidgetPredicate(
-          (w) => w is Container && w.color == CodeLinesView.citedBandColor,
-        ),
-      ),
-    );
-    expect(highlightedContainers.length, 2);
   });
 
   testWidgets(
@@ -866,219 +819,6 @@ void main() {
         .where((b) => b.width == 8)
         .length;
     expect(spacerCount, 3);
-  });
-
-  testWidgets(
-      'Sidecar auto-scrolls to cited line #L45-L48, Path opens citation directly, and AST hops are clickable',
-      (WidgetTester tester) async {
-    tester.view.physicalSize = const Size(1440, 900);
-    tester.view.devicePixelRatio = 1.0;
-    addTearDown(() {
-      tester.view.resetPhysicalSize();
-      tester.view.resetDevicePixelRatio();
-    });
-
-    final sixtyLines = List.generate(
-      60,
-      (i) => 'def line_${i + 1}(payload): return payload',
-    ).join('\n');
-
-    final chatVm = _StubChatViewModel(ChatState(messages: []));
-    final codeRepo = _FakeCodeIntelRepository(
-      streamedSourcePath: 'routes.py#L45-L48',
-      fileResponseBuilder: (path) => {
-        'path': path,
-        'source': 'file',
-        'language': 'python',
-        'start_line': 1,
-        'line_count': 60,
-        'content': sixtyLines,
-      },
-    );
-
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          chatViewModelProvider.overrideWith((ref) => chatVm),
-          codeChatViewModelProvider.overrideWith(
-              (ref) => _StubChatViewModel(ChatState(messages: []))),
-          codeIntelRepositoryProvider.overrideWithValue(codeRepo),
-          workspaceModeProvider.overrideWith((ref) => WorkspaceMode.code),
-        ],
-        child: MaterialApp(
-          theme: AppTheme.darkTheme,
-          home: const ChatScreen(),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.text('Security'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Run Vulnerability Scan'));
-    await tester.pumpAndSettle();
-
-    // 1. Tapping Path on a reachable row opens the code citation dialog for routes.py directly.
-    await tester.tap(find.text('Path').first);
-    await tester.pumpAndSettle();
-    expect(find.byType(Dialog), findsOneWidget);
-    expect(find.text('routes.py'), findsOneWidget);
-    await tester.tap(find.descendant(
-      of: find.byType(Dialog),
-      matching: find.byIcon(Icons.close),
-    ));
-    await tester.pumpAndSettle();
-    expect(find.byType(Dialog), findsNothing);
-
-    // 2. Tapping an AST hop inside _buildPathCard opens the code citation dialog for that hop's path.
-    await tester.tap(
-      find.textContaining('fastapi_app.ingest_route', findRichText: true).last,
-    );
-    await tester.pumpAndSettle();
-    expect(find.byType(Dialog), findsOneWidget);
-    expect(find.text('routes.py'), findsOneWidget);
-    await tester.tap(find.descendant(
-      of: find.byType(Dialog),
-      matching: find.byIcon(Icons.close),
-    ));
-    await tester.pumpAndSettle();
-    expect(find.byType(Dialog), findsNothing);
-
-    // 3. Auto-scroll to cited line #L45-L48 in AskVeraxiSidecar.
-    await tester.tap(find.text('What input reaches this symbol?'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('routes.py#L45-L48'));
-    await tester.pumpAndSettle();
-
-    final listView = tester.widget<ListView>(
-      find.descendant(
-        of: find.byType(CodeLinesView),
-        matching: find.byType(ListView),
-      ),
-    );
-    expect(listView.controller, isNotNull);
-    expect(listView.controller!.offset, greaterThan(0.0));
-    await tester.tap(find.descendant(
-      of: find.byType(Dialog),
-      matching: find.byIcon(Icons.close),
-    ));
-    await tester.pumpAndSettle();
-    expect(find.byType(Dialog), findsNothing);
-
-    // 4. Tapping Ask on a finding row focuses the AskVeraxiSidecar composer TextField.
-    final askButton = find.text('Ask').first;
-    await tester.tap(askButton);
-    await tester.pumpAndSettle();
-    final composerField = tester.widget<TextField>(
-      find.descendant(
-        of: find.byType(AskVeraxiSidecar),
-        matching: find.byType(TextField),
-      ),
-    );
-    expect(composerField.focusNode?.hasFocus, isTrue);
-  });
-
-  testWidgets(
-      'Esc dismisses narrow Ask Veraxi drawer, sidecar renders inline code without raw backticks, and Citation Viewer Copy copies cited lines',
-      (tester) async {
-    SharedPreferences.setMockInitialValues({});
-    tester.view.physicalSize = const Size(1000, 800);
-    tester.view.devicePixelRatio = 1.0;
-    addTearDown(() {
-      tester.view.resetPhysicalSize();
-      tester.view.resetDevicePixelRatio();
-    });
-
-    String? copiedText;
-    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-      SystemChannels.platform,
-      (call) async {
-        if (call.method == 'Clipboard.setData') {
-          final args = call.arguments as Map<dynamic, dynamic>?;
-          copiedText = args?['text'] as String?;
-        }
-        return null;
-      },
-    );
-    addTearDown(() => tester.binding.defaultBinaryMessenger
-        .setMockMethodCallHandler(SystemChannels.platform, null));
-
-    final chatVm = _StubChatViewModel(ChatState(messages: []));
-    final codeRepo = _FakeCodeIntelRepository(
-      streamedToken: 'Call flows via `ingest_route` into `parse_tar`.',
-      streamedSourcePath: 'routes.py#L2-L3',
-      fileResponseBuilder: (path) => {
-        'path': path,
-        'source': 'file',
-        'language': 'python',
-        'start_line': 1,
-        'line_count': 4,
-        'content':
-            'def one():\n    return ingest_route()\ndef three():\n    return 3',
-      },
-    );
-
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          chatViewModelProvider.overrideWith((ref) => chatVm),
-          codeChatViewModelProvider.overrideWith(
-              (ref) => _StubChatViewModel(ChatState(messages: []))),
-          codeIntelRepositoryProvider.overrideWithValue(codeRepo),
-          workspaceModeProvider.overrideWith((ref) => WorkspaceMode.code),
-        ],
-        child: MaterialApp(
-          theme: AppTheme.darkTheme,
-          home: const ChatScreen(),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.text('Security'));
-    await tester.pumpAndSettle();
-    // Run scan so a finding is active, then open narrow slide-over Ask Veraxi drawer.
-    await tester.tap(find.text('Run Vulnerability Scan'));
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.textContaining('Ask Veraxi'));
-    await tester.pumpAndSettle();
-    expect(find.byType(AskVeraxiSidecar), findsOneWidget);
-
-    // Stream an answer containing inline backtick code spans.
-    await tester.tap(find.text('What input reaches this symbol?'));
-    await tester.pumpAndSettle();
-    expect(
-      find.descendant(
-        of: find.byType(AskVeraxiSidecar),
-        matching: find.textContaining(
-            'Call flows via ingest_route into parse_tar.',
-            findRichText: true),
-      ),
-      findsOneWidget,
-    );
-    expect(find.textContaining('`', findRichText: true), findsNothing);
-
-    // Open citation viewer and tap Copy to copy highlighted lines 2-3.
-    await tester.tap(find.text('routes.py#L2-L3'));
-    await tester.pumpAndSettle();
-    expect(find.byType(Dialog), findsOneWidget);
-    await tester.tap(find.text('Copy'));
-    await tester.pumpAndSettle();
-    expect(copiedText, '    return ingest_route()\ndef three():');
-    expect(find.text('Copied'), findsOneWidget);
-
-    // Close citation dialog, then verify Esc dismisses the narrow drawer.
-    await tester.tap(find.descendant(
-      of: find.byType(Dialog),
-      matching: find.byIcon(Icons.close),
-    ));
-    await tester.pumpAndSettle();
-    expect(find.byType(Dialog), findsNothing);
-
-    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-    await tester.pumpAndSettle();
-    expect(find.byType(AskVeraxiSidecar), findsNothing);
   });
 
   group('filterFindingsByQuery', () {

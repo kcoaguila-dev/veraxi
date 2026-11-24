@@ -156,6 +156,10 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
                     Theme.of(context).extension<AppThemeExtension>()!.iconColor,
                 size: 18),
             onPressed: () {
+              if (ref.read(workspaceModeProvider) == WorkspaceMode.code) {
+                ref.read(codeSubViewProvider.notifier).state =
+                    CodeSubView.codeChat;
+              }
               viewModel.startNewChat();
               context.go('/chat');
             },
@@ -737,8 +741,8 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
     WorkspaceMode mode,
     int kevCount,
   ) {
-    final isChat = mode == WorkspaceMode.chat && !widget.isKnowledgeHubRoute;
-    final isCode = mode == WorkspaceMode.code && !widget.isKnowledgeHubRoute;
+    final isChat = mode == WorkspaceMode.chat;
+    final isCode = mode == WorkspaceMode.code;
     // Code Mode rail (§3.2) uses the slim 26px switcher with a 22px
     // active pill; Chat Mode keeps its existing 34px switcher.
     final slim = isCode;
@@ -779,6 +783,8 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
               onTap: () {
                 ref.read(workspaceModeProvider.notifier).state =
                     WorkspaceMode.code;
+                ref.read(codeSubViewProvider.notifier).state =
+                    CodeSubView.codeChat;
                 if (widget.isKnowledgeHubRoute) {
                   _goSafe(context, '/chat');
                 }
@@ -884,8 +890,7 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
     );
   }
 
-  /// Flat icon+text nav row used by the Code Mode rail — no bordered
-  /// box, no badge.
+  /// Nav row used by the Code Mode rail, matching Chat Mode row thickness.
   Widget _buildCodeNavRow({
     required IconData icon,
     required String label,
@@ -895,26 +900,34 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.circular(8),
         onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 7),
+        child: Container(
+          decoration: BoxDecoration(
+            color: selected ? const Color(0xFF26262A) : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
           child: Row(
             children: [
               Icon(
                 icon,
-                size: 15,
-                color: selected ? Colors.white : const Color(0xFFA1A1AA),
+                size: 18,
+                color: selected
+                    ? Colors.white
+                    : Theme.of(context)
+                        .extension<AppThemeExtension>()!
+                        .iconColor,
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 12),
               Expanded(
                 child: Text(
                   label,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    color: selected ? Colors.white : const Color(0xFFA1A1AA),
-                    fontSize: 13,
-                    fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                    color: selected ? Colors.white : const Color(0xFFE0E0E0),
+                    fontSize: 14,
+                    fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
                   ),
                 ),
               ),
@@ -1182,8 +1195,7 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
 
   Widget _buildSidebarContentActual(BuildContext context) {
     final workspaceMode = ref.watch(workspaceModeProvider);
-    final isCodeRail =
-        workspaceMode == WorkspaceMode.code && !widget.isKnowledgeHubRoute;
+    final isCodeRail = workspaceMode == WorkspaceMode.code;
     final activeChatProvider =
         isCodeRail ? codeChatViewModelProvider : chatViewModelProvider;
     final state = ref.watch(activeChatProvider);
@@ -1289,21 +1301,44 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
                         const SizedBox(height: 14),
                         if (isCodeRail) ...[
                           _buildCodeNavRow(
+                            icon: Icons.edit_square,
+                            label: 'New chat',
+                            selected: !widget.isKnowledgeHubRoute &&
+                                ref.watch(codeSubViewProvider) ==
+                                    CodeSubView.codeChat &&
+                                state.threadId == null,
+                            onTap: () {
+                              ref.read(codeSubViewProvider.notifier).state =
+                                  CodeSubView.codeChat;
+                              viewModel.startNewChat();
+                              _goSafe(context, '/chat');
+                            },
+                          ),
+                          const SizedBox(height: 4),
+                          _buildCodeNavRow(
                             icon: Icons.library_books_outlined,
                             label: 'Knowledge Hub',
+                            selected: widget.isKnowledgeHubRoute,
                             onTap: () => _goSafe(context, '/knowledge-hub'),
                           ),
+                          const SizedBox(height: 4),
                           _buildCodeNavRow(
                             icon: Icons.shield_outlined,
                             label: 'Security',
-                            selected: ref.watch(codeSubViewProvider) ==
-                                CodeSubView.vulnIntel,
+                            selected: !widget.isKnowledgeHubRoute &&
+                                ref.watch(codeSubViewProvider) ==
+                                    CodeSubView.vulnIntel,
                             onTap: () {
                               ref.read(codeSubViewProvider.notifier).state =
                                   CodeSubView.vulnIntel;
                               _goSafe(context, '/chat');
                             },
                           ),
+                          if (widget.isKnowledgeHubRoute &&
+                              ingestionQueue.isNotEmpty) ...[
+                            const SizedBox(height: 12),
+                            _buildIngestionQueueSidebarSection(ingestionQueue),
+                          ],
                           const SizedBox(height: 10),
                           Divider(
                               color: Theme.of(context)
