@@ -65,7 +65,7 @@ class ThinkingCapability:
 
     @property
     def supports_reasoning(self) -> bool:
-        return self.mode != "none" and len(self.levels) > 0
+        return self.mode not in ("none", "unknown") and len(self.levels) > 0
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -132,7 +132,7 @@ _NO_THINKING = ThinkingCapability(
 
 _UNKNOWN_THINKING = ThinkingCapability(
     mode="unknown",
-    levels=("off", "minimal", "low", "medium", "high", "max", "on"),
+    levels=(),
     default_level=None,
     temp_when_off=0.0,
     temp_when_thinking=None,
@@ -530,10 +530,8 @@ def _translate_kwargs_for_capability(
             extra_body: dict[str, Any] = {
                 "chat_template_kwargs": {"enable_thinking": enable}
             }
-            if capability.runtime == "llamacpp":
-                extra_body["reasoning_budget"] = (
-                    0 if not enable else _BUDGET_TOKENS_BY_LEVEL.get(effective_level, 8192)
-                )
+            if capability.runtime == "llamacpp" and not enable:
+                extra_body["reasoning_budget"] = 0
             return {
                 "reasoning_effort": "none" if not enable else effective_level,
                 "extra_body": extra_body,
@@ -593,6 +591,14 @@ def validate_thinking_level(
     if not isinstance(thinking_level, str) or not thinking_level.strip():
         return None
     level = thinking_level.strip().lower()
+    if capability.mode == "unknown":
+        if level not in CANONICAL_LEVELS:
+            raise UnsupportedThinkingLevelError(
+                model_name=model_name,
+                requested_level=level,
+                supported_levels=CANONICAL_LEVELS,
+            )
+        return level
     if not capability.supports_reasoning or level not in capability.levels:
         raise UnsupportedThinkingLevelError(
             model_name=model_name,
@@ -619,7 +625,7 @@ def build_litellm_thinking_params(
     )
 
     effective_level = validate_thinking_level(model_name, thinking_level, capability)
-    if not capability.supports_reasoning:
+    if capability.mode == "none":
         return ThinkingTranslation(
             model_kwargs={},
             temperature=capability.temp_when_off,

@@ -113,13 +113,31 @@ def test_local_llamacpp_translation_includes_extra_body():
             )
         },
     )
-    res = build_litellm_thinking_params(
+    res_low = build_litellm_thinking_params(
         "qwen3-8b", "low", base_url="http://localhost:8080/v1", runtime_probe=probe
     )
-    assert res.model_kwargs["reasoning_effort"] == "low"
-    assert res.model_kwargs["extra_body"]["chat_template_kwargs"]["enable_thinking"] is True
-    assert res.model_kwargs["extra_body"]["reasoning_budget"] == 2048
-    assert res.temperature == 0.6
+    assert res_low.model_kwargs["reasoning_effort"] == "low"
+    assert res_low.model_kwargs["extra_body"]["chat_template_kwargs"]["enable_thinking"] is True
+    assert "reasoning_budget" not in res_low.model_kwargs["extra_body"]
+    assert res_low.temperature == 0.6
+
+    res_off = build_litellm_thinking_params(
+        "qwen3-8b", "off", base_url="http://localhost:8080/v1", runtime_probe=probe
+    )
+    assert res_off.model_kwargs["reasoning_effort"] == "none"
+    assert res_off.model_kwargs["extra_body"]["chat_template_kwargs"]["enable_thinking"] is False
+    assert res_off.model_kwargs["extra_body"]["reasoning_budget"] == 0
+    assert res_off.temperature == 0.0
+
+
+def test_unknown_model_hides_ui_capability_but_passes_through_explicit_level():
+    cap = resolve_thinking_capability("my-custom-unlisted-model")
+    assert cap.mode == "unknown"
+    assert cap.supports_reasoning is False
+    assert cap.levels == ()
+
+    res = build_litellm_thinking_params("my-custom-unlisted-model", "high")
+    assert res.model_kwargs == {"reasoning_effort": "high"}
 
 
 def test_clamp_thinking_level_toggle_and_bounds():

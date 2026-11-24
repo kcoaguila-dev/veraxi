@@ -128,13 +128,22 @@ def test_llamacpp_probe_populates_reasoning_budget_on_inference():
         assert res.status_code == 200
         assert res.json()["local::qwen3-8b.gguf"]["runtime"] == "llamacpp"
 
-        llm = _create_chat_llm(
+        llm_off = _create_chat_llm(
+            "qwen3-8b.gguf",
+            api_key=None,
+            base_url="http://localhost:8080/v1",
+            thinking_level="off",
+        )
+        assert llm_off.model_kwargs["extra_body"]["reasoning_budget"] == 0
+
+        llm_low = _create_chat_llm(
             "qwen3-8b.gguf",
             api_key=None,
             base_url="http://localhost:8080/v1",
             thinking_level="low",
         )
-        assert llm.model_kwargs["extra_body"]["reasoning_budget"] == 2048
+        assert llm_low.model_kwargs["reasoning_effort"] == "low"
+        assert "reasoning_budget" not in llm_low.model_kwargs["extra_body"]
 
 
 def test_chat_endpoint_rejects_unsupported_thinking_level_strictly():

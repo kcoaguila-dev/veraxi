@@ -604,6 +604,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       }
     });
 
+    ref.listen<ModelSelectionState>(modelSelectionProvider, (_, next) {
+      if (next.selectedModel != _selectedModel &&
+          next.selectedModel != 'Select a model') {
+        setState(() => _selectedModel = next.selectedModel);
+      }
+    });
+
     final workspaceMode = ref.watch(workspaceModeProvider);
     final activeReview = ref.watch(activeReviewSessionProvider);
 
