@@ -108,9 +108,9 @@ growth. Baseline fixture: `backend/evaluation/code_accuracy.py`
 (call-edge precision 0.7333 / recall 0.6111 before Phase 1).
 - [x] Phase 0 — ADR-0007 + baseline eval fixture with measured precision/recall
 - [x] Phase 1 — Alias fix: assignment aliases + transitive `__init__` re-export resolution in `ingestion/code_graph.py`, with collision tests
-- [ ] Phase 2 — Linters as claims (WP3) — **gated:** needs approval to promote ruff/mypy to runtime dependencies
-- [ ] Phase 3 — SCIP spike (Python only, timeboxed, scratch venv) — **gated:** go/no-go against the preset criteria in ADR-0007
-- [ ] Phase 4 — Productionize SCIP generation (local runner / CI only) — **gated:** needs approval of scip tooling dependency
+- [x] Phase 2 — Linters as claims (WP3): ruff/mypy promoted to runtime dependencies (approved 2026-11-25); `ingestion/lint_findings.py` feeds the SARIF path behind `LINT_FINDINGS_ENABLED` (default off); de-dupe pure function built, wiring waits on structured review comments (WP5)
+- [x] Phase 3 — SCIP spike (Python only, timeboxed): **GO** against the preset criteria in ADR-0007 (builds 4/4 real projects; exactly 5 SCIP-only correct edges on constructed hard cases; ~52 s for the backend). Spike also found the shipped SCIP parser rejects real `scip print --json` output (camelCase keys) — Phase 4 must fix that first
+- [ ] Phase 4 — Productionize SCIP generation (local runner / CI only) — gate approved 2026-11-25, in progress
 - [ ] Phase 5 — Dart + live LSP — deferred, separate ADR/decision
 
 ---
