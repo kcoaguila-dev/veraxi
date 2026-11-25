@@ -202,9 +202,11 @@ async def test_exchange_user_oauth_code_raises_config_error_on_404():
     resp = httpx.Response(404, request=req)
     exc = httpx.HTTPStatusError("not found", request=req, response=resp)
 
-    with patch.object(gh_client, "_request_with_backoff", side_effect=exc):
-        with pytest.raises(gh_client.GitHubAppConfigError):
-            await gh_client.exchange_user_oauth_code(cfg, "auth_code_1")
+    with (
+        patch.object(gh_client, "_request_with_backoff", side_effect=exc),
+        pytest.raises(gh_client.GitHubAppConfigError),
+    ):
+        await gh_client.exchange_user_oauth_code(cfg, "auth_code_1")
 
 
 @pytest.mark.asyncio
@@ -215,11 +217,13 @@ async def test_exchange_user_oauth_code_raises_config_error_on_bad_client_creds(
         def json(self):
             return {"error": "incorrect_client_credentials"}
 
-    with patch.object(
-        gh_client, "_request_with_backoff", AsyncMock(return_value=_FakeResp())
+    with (
+        patch.object(
+            gh_client, "_request_with_backoff", AsyncMock(return_value=_FakeResp())
+        ),
+        pytest.raises(gh_client.GitHubAppConfigError),
     ):
-        with pytest.raises(gh_client.GitHubAppConfigError):
-            await gh_client.exchange_user_oauth_code(cfg, "auth_code_1")
+        await gh_client.exchange_user_oauth_code(cfg, "auth_code_1")
 
 
 @pytest.mark.asyncio

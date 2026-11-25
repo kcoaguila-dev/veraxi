@@ -410,8 +410,10 @@ async def _diagnose_404_client_id(
     if probe.status_code == 200:
         return (
             False,
-            "GITHUB_APP_CLIENT_ID mismatch: GITHUB_APP_ID authenticated against "
-            "GitHub, but GITHUB_APP_CLIENT_ID returned 404",
+            (
+                "GITHUB_APP_CLIENT_ID mismatch: GITHUB_APP_ID authenticated against "
+                "GitHub, but GITHUB_APP_CLIENT_ID returned 404"
+            ),
         )
     return False, f"GitHub App not found (404) and app_id probe returned {probe.status_code}"
 
