@@ -504,6 +504,7 @@ def register_github_app_routes(
             logger.warning("GitHub App callback rejected: %s", exc)
             return _oauth_callback_html(app_base, "github_app", "error", "oauth_failed")
         except Exception as exc:
+            logger.exception("Unexpected error in GitHub App callback: %s", exc)
             sentry_sdk.capture_exception(exc)
             return _oauth_callback_html(app_base, "github_app", "error", "oauth_failed")
 
