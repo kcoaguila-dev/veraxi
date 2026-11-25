@@ -316,6 +316,27 @@ void main() {
       expect(find.byType(CodeLinesView), findsOneWidget);
       expect(find.byType(MarkdownBody), findsNothing);
     });
+
+    testWidgets(
+        'markdown preview uses explicit light foreground for tables and headings',
+        (tester) async {
+      const mdReview = CodeReviewState(
+        sessionId: '',
+        turnId: 'msg-table-contrast',
+        focusedPath: 'README.md',
+      );
+      await tester.pumpWidget(wrap(mdReview));
+      await tester.pumpAndSettle();
+
+      final mdBody = tester.widget<MarkdownBody>(find.byType(MarkdownBody));
+      final sheet = mdBody.styleSheet!;
+      expect(sheet.tableHead?.color, Colors.white);
+      expect(sheet.tableBody?.color, const Color(0xFFE2E8F0));
+      expect(sheet.h4?.color, Colors.white);
+      expect(sheet.h5?.color, Colors.white);
+      expect(sheet.h6?.color, const Color(0xFFE2E8F0));
+      expect(sheet.p?.color, const Color(0xFFE2E8F0));
+    });
   });
 
   group('CodeReviewDrawer resizable width', () {

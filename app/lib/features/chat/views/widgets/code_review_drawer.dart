@@ -1173,11 +1173,29 @@ class _CodeReviewDrawerState extends ConsumerState<CodeReviewDrawer> {
               color: Colors.white,
               fontWeight: FontWeight.w600,
             ),
+            h4: theme.textTheme.titleSmall?.copyWith(
+              color: Colors.white,
+              fontWeight: FontWeight.w600,
+            ),
+            h5: theme.textTheme.bodyLarge?.copyWith(
+              color: Colors.white,
+              fontWeight: FontWeight.w600,
+            ),
+            h6: theme.textTheme.bodyMedium?.copyWith(
+              color: const Color(0xFFE2E8F0),
+              fontWeight: FontWeight.w600,
+            ),
             a: const TextStyle(
               color: Color(0xFF93C5FD),
               decoration: TextDecoration.underline,
             ),
             blockquote: const TextStyle(color: Color(0xFFA1A1AA)),
+            img: theme.textTheme.bodyMedium?.copyWith(
+              color: const Color(0xFFE2E8F0),
+            ),
+            checkbox: theme.textTheme.bodyMedium?.copyWith(
+              color: const Color(0xFF93C5FD),
+            ),
             blockquoteDecoration: BoxDecoration(
               color: ObsidianTokens.card,
               borderRadius: BorderRadius.circular(6),
@@ -1201,6 +1219,22 @@ class _CodeReviewDrawerState extends ConsumerState<CodeReviewDrawer> {
               ),
             ),
             listBullet: const TextStyle(color: Color(0xFFE2E8F0)),
+            tableHead: theme.textTheme.bodyMedium?.copyWith(
+              color: Colors.white,
+              fontWeight: FontWeight.w600,
+            ),
+            tableBody: theme.textTheme.bodyMedium?.copyWith(
+              color: const Color(0xFFE2E8F0),
+              height: 1.4,
+            ),
+            tableBorder: TableBorder.all(
+              color: ObsidianTokens.hairline,
+              width: 1,
+            ),
+            tableCellsPadding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 8,
+            ),
           ),
         ),
       ),

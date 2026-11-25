@@ -134,6 +134,32 @@ class _SharedChatScreenState extends ConsumerState<SharedChatScreen> {
                                   ?.copyWith(color: Colors.white),
                               h3: theme.textTheme.titleLarge
                                   ?.copyWith(color: Colors.white),
+                              h4: theme.textTheme.titleMedium
+                                  ?.copyWith(color: Colors.white),
+                              h5: theme.textTheme.titleSmall
+                                  ?.copyWith(color: Colors.white),
+                              h6: theme.textTheme.bodyLarge
+                                  ?.copyWith(color: const Color(0xFFD1D5DB)),
+                              blockquote:
+                                  const TextStyle(color: Color(0xFFA1A1AA)),
+                              listBullet:
+                                  const TextStyle(color: Color(0xFFD1D5DB)),
+                              tableHead: theme.textTheme.bodyMedium?.copyWith(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              tableBody: theme.textTheme.bodyMedium?.copyWith(
+                                color: const Color(0xFFD1D5DB),
+                                height: 1.4,
+                              ),
+                              tableBorder: TableBorder.all(
+                                color: const Color(0xFF3F3F3F),
+                                width: 1,
+                              ),
+                              tableCellsPadding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 8,
+                              ),
                               code: TextStyle(
                                   fontFamily: 'monospace',
                                   backgroundColor: ext.borderColor,

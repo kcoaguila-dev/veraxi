@@ -595,3 +595,53 @@ async def test_evaluate_context_skips_web_fallback_for_empty_code_tool(mock_conf
     }
     res = await evaluate_context(state)
     assert res["context_relevance"] == "yes"
+
+
+@pytest.mark.asyncio
+async def test_stream_answer_question_emits_agent_metrics_before_rate_limit(mock_config):
+    from unittest.mock import MagicMock, patch
+
+    from langchain_core.messages import AIMessage
+
+    from backend.mcp_server.llm_loop import stream_answer_question
+
+    agent_msg = AIMessage(
+        content="",
+        additional_kwargs={
+            "metrics": {
+                "prompt_tokens": 4300,
+                "completion_tokens": 150,
+                "total_tokens": 4450,
+            }
+        },
+    )
+
+    async def fake_astream_events(*args, **kwargs):
+        yield {
+            "event": "on_chain_end",
+            "name": "agent",
+            "data": {"output": {"messages": [agent_msg]}},
+        }
+        raise RuntimeError("RateLimitError: tokens per minute (TPM) limit")
+
+    fake_app = MagicMock()
+    fake_app.astream_events = fake_astream_events
+    fake_workflow = MagicMock()
+    fake_workflow.compile.return_value = fake_app
+
+    emitted = []
+    with (
+        patch("backend.mcp_server.llm_loop._get_workflow", return_value=fake_workflow),
+        pytest.raises(RuntimeError, match="TPM"),
+    ):
+        async for ev in stream_answer_question(
+            "hi", tenant_id="t1", thread_id="th1", is_temporary=True
+        ):
+            emitted.append(ev)
+
+    metadata_events = [e for e in emitted if e.get("event") == "metadata"]
+    assert len(metadata_events) == 1
+    metrics = metadata_events[0]["data"]["metrics"]
+    assert metrics["prompt_tokens"] == 4300
+    assert metrics["completion_tokens"] == 150
+    assert metrics["total_tokens"] == 4450

@@ -324,7 +324,7 @@ def _handle_chain_end_langgraph(
         event.get("data", {}).get("output") or event.get("data", {}).get("chunk") or {}
     )
     if isinstance(output_state, dict):
-        metrics = _extract_metrics_from_state(output_state) or {}
+        metrics = dict(_extract_metrics_from_state(output_state) or {})
         if started_at:
             elapsed = round(time.perf_counter() - started_at, 2)
             metrics["generation_seconds"] = metrics.get("generation_seconds") or elapsed
@@ -519,9 +519,11 @@ async def stream_answer_question(
                         "description": "Synthesizing answer grounded in retrieved knowledge...",
                     }
 
+                # Emit metrics as each agent step finishes so mid-turn failures
+                # (e.g. rate limits on a later step) still surface completed usage.
                 if (
                     event["event"] == "on_chain_end"
-                    and event.get("name") == "LangGraph"
+                    and event.get("name") in ("agent", "LangGraph")
                 ):
                     for e in _handle_chain_end_langgraph(event, started_at):
                         yield e
