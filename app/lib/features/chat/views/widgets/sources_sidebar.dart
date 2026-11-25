@@ -1,6 +1,12 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:url_launcher/url_launcher_string.dart';
+import 'package:veraxi_app/core/providers/workspace_mode_provider.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
+import 'package:veraxi_app/core/widgets/language_file_icon.dart';
+import 'package:veraxi_app/features/chat/view_models/code_file_view_model.dart';
+import 'package:veraxi_app/features/chat/views/widgets/citation_chip.dart';
+import 'package:veraxi_app/features/chat/views/widgets/code_citation_viewer.dart';
 
 /// Maps a fused retrieval score (RRF k=60 with optional cross-encoder boost,
 /// or cosine similarity) into a human-readable match tier.
@@ -15,6 +21,109 @@ Color matchTierColor(double score) {
   if (score >= 0.025) return const Color(0xFF22C55E);
   if (score >= 0.015) return const Color(0xFF4F8EF7);
   return const Color(0xFFF59E0B);
+}
+
+/// Formats a source title with its cited line range (`file:start-end` or
+/// `file:line`) when [lineTarget] carries line numbers.
+String formatSourceDisplayTitle(String title, CodeCitationTarget? lineTarget) {
+  if (lineTarget == null) return title;
+  final endLine = lineTarget.endLine;
+  final lineSuffix = (endLine != null && endLine > lineTarget.startLine)
+      ? '${lineTarget.startLine}-$endLine'
+      : '${lineTarget.startLine}';
+  if (title.endsWith(':$lineSuffix')) return title;
+  return '$title:$lineSuffix';
+}
+
+CodeCitationTarget? _plainRepoFileTarget(String url) {
+  final trimmed = url.trim();
+  if (!trimmed.startsWith('file://') ||
+      trimmed.startsWith('file:///') ||
+      trimmed.contains('#')) {
+    return null;
+  }
+  final path = trimmed.substring('file://'.length).trim();
+  if (path.isEmpty) return null;
+  return CodeCitationTarget(path: path, startLine: 1);
+}
+
+String _extractHttpDomain(String url) {
+  if (url.isEmpty || url == 'Internal Database' || url.startsWith('file://')) {
+    return '';
+  }
+  final uri = Uri.tryParse(url.startsWith('http') ? url : 'http://$url');
+  final domain = uri?.host.replaceFirst('www.', '') ?? '';
+  return domain.contains('.') ? domain : '';
+}
+
+String _resolveDisplayDomain(String domain, CodeCitationTarget? repoTarget) {
+  if (domain.isNotEmpty) return domain;
+  if (repoTarget != null) {
+    final slash = repoTarget.path.lastIndexOf('/');
+    return slash > 0 ? repoTarget.path.substring(0, slash) : 'Repository File';
+  }
+  return 'Internal Database';
+}
+
+ProviderContainer? _ambientContainer(BuildContext context) {
+  try {
+    return ProviderScope.containerOf(context, listen: false);
+  } catch (_) {
+    return null;
+  }
+}
+
+void _openSource(
+  BuildContext context, {
+  required String url,
+  required String displayTitle,
+  required String displayDomain,
+  required String snippet,
+  CodeCitationTarget? repoTarget,
+}) {
+  if (repoTarget != null) {
+    final container = _ambientContainer(context);
+    if (container != null &&
+        container.read(workspaceModeProvider) == WorkspaceMode.code) {
+      container.read(activeReviewSessionProvider.notifier).state =
+          CodeReviewState(
+        sessionId: '',
+        turnId: '',
+        focusedPath: repoTarget.path,
+        focusedStartLine: repoTarget.startLine,
+        focusedEndLine: repoTarget.effectiveEndLine,
+      );
+      Navigator.of(context).maybePop();
+      return;
+    }
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => CodeCitationViewer(target: repoTarget),
+      ),
+    );
+    return;
+  }
+
+  if (url.startsWith('file://')) {
+    launchUrlString(fileCitationLaunchUrl(url));
+    return;
+  }
+
+  if (url.startsWith('http://') || url.startsWith('https://')) {
+    launchUrlString(url);
+    return;
+  }
+
+  if (snippet.isNotEmpty || displayTitle.isNotEmpty) {
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) => _SourceSnippetDialog(
+        title: displayTitle,
+        domain: displayDomain,
+        snippet: snippet,
+      ),
+    );
+  }
 }
 
 class SourcesSidebar extends StatelessWidget {
@@ -71,29 +180,28 @@ class SourcesSidebar extends StatelessWidget {
                 separatorBuilder: (context, index) => SizedBox(height: 16),
                 itemBuilder: (context, index) {
                   final source = sources[index];
-                  String title = source['title'] ?? 'Web Source';
-                  String url = source['url'] ?? '';
-                  String snippet = source['snippet'] ?? '';
-                  String domain = '';
-                  bool hasValidDomain = false;
-                  try {
-                    if (url.isNotEmpty && url != 'Internal Database') {
-                      final uri = Uri.tryParse(
-                          url.startsWith('http') ? url : 'http://$url');
-                      domain = uri?.host.replaceFirst('www.', '') ?? '';
-                      if (domain.contains('.')) {
-                        hasValidDomain = true;
-                      }
-                    }
-                  } catch (_) {}
-
-                  String displayDomain =
-                      hasValidDomain ? domain : 'Internal Database';
+                  final rawTitle =
+                      source['title']?.toString() ?? 'Web Source';
+                  final url = source['url']?.toString() ?? '';
+                  final snippet = source['snippet']?.toString() ?? '';
+                  final lineTarget = CodeCitationTarget.tryParse(url);
+                  final repoTarget = lineTarget ?? _plainRepoFileTarget(url);
+                  final domain = _extractHttpDomain(url);
+                  final hasValidDomain = domain.isNotEmpty;
+                  final displayDomain =
+                      _resolveDisplayDomain(domain, repoTarget);
+                  final displayTitle =
+                      formatSourceDisplayTitle(rawTitle, lineTarget);
 
                   return InkWell(
-                    onTap: () {
-                      if (url.isNotEmpty) launchUrlString(url);
-                    },
+                    onTap: () => _openSource(
+                      context,
+                      url: url,
+                      displayTitle: displayTitle,
+                      displayDomain: displayDomain,
+                      snippet: snippet,
+                      repoTarget: repoTarget,
+                    ),
                     borderRadius: BorderRadius.circular(12),
                     child: Container(
                       padding: EdgeInsets.all(16),
@@ -132,7 +240,12 @@ class SourcesSidebar extends StatelessWidget {
                                 ),
                               ),
                               SizedBox(width: 12),
-                              if (hasValidDomain)
+                              if (repoTarget != null)
+                                LanguageFileIcon(
+                                  fileName: repoTarget.path,
+                                  size: 16,
+                                )
+                              else if (hasValidDomain)
                                 ClipRRect(
                                   borderRadius: BorderRadius.circular(4),
                                   child: Image.network(
@@ -172,7 +285,7 @@ class SourcesSidebar extends StatelessWidget {
                           ),
                           SizedBox(height: 12),
                           Text(
-                            title,
+                            displayTitle,
                             style: TextStyle(
                               color: Colors.white,
                               fontSize: 14,
@@ -367,6 +480,64 @@ class _ProvenanceBadge extends StatelessWidget {
           fontWeight: FontWeight.w500,
         ),
       ),
+    );
+  }
+}
+
+class _SourceSnippetDialog extends StatelessWidget {
+  final String title;
+  final String domain;
+  final String snippet;
+
+  const _SourceSnippetDialog({
+    required this.title,
+    required this.domain,
+    required this.snippet,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context).extension<AppThemeExtension>()!;
+    return AlertDialog(
+      backgroundColor: theme.dialogBackground,
+      title: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            domain,
+            style: TextStyle(color: theme.textTertiary, fontSize: 12),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            title,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+      content: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 560, maxHeight: 420),
+        child: SingleChildScrollView(
+          child: SelectableText(
+            snippet.isNotEmpty ? snippet : 'No preview text available.',
+            style: TextStyle(
+              color: theme.iconColor,
+              fontSize: 13,
+              height: 1.5,
+            ),
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Close'),
+        ),
+      ],
     );
   }
 }

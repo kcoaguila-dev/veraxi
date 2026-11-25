@@ -1,6 +1,11 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:veraxi_app/core/network/api_client.dart';
 import 'package:veraxi_app/core/theme.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:veraxi_app/core/widgets/language_file_icon.dart';
+import 'package:veraxi_app/features/chat/data/code_file_repository.dart';
+import 'package:veraxi_app/features/chat/views/widgets/code_citation_viewer.dart';
 import 'package:veraxi_app/features/chat/views/widgets/sources_sidebar.dart';
 
 void main() {
@@ -243,4 +248,122 @@ void main() {
     expect(find.text('0.016'), findsNothing);
     expect(find.text('0.010'), findsNothing);
   });
+
+  testWidgets(
+      'SourcesSidebar shows line range after code source title and opens CodeCitationViewer on tap',
+      (WidgetTester tester) async {
+    final testSources = [
+      {
+        'url': 'file://README.md#L1-L45',
+        'title': 'README.md',
+        'snippet': '# Veraxi\nHybrid GraphRAG architecture.',
+      },
+    ];
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          codeFileRepositoryProvider.overrideWithValue(
+            _FakeCodeFileRepository(),
+          ),
+        ],
+        child: MaterialApp(
+          theme: AppTheme.lightTheme,
+          home: Scaffold(
+            body: SourcesSidebar(sources: testSources),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Repository File'), findsOneWidget);
+    expect(find.text('README.md:1-45'), findsOneWidget);
+    expect(find.byType(LanguageFileIcon), findsOneWidget);
+
+    await tester.tap(find.text('README.md:1-45'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(CodeCitationViewer), findsOneWidget);
+  });
+
+  testWidgets(
+      'SourcesSidebar opens plain repo file:// source in CodeCitationViewer and shows directory label',
+      (WidgetTester tester) async {
+    final testSources = [
+      {
+        'url': 'file://backend/retrieval/merge_rank.py',
+        'title': 'merge_rank.py',
+        'snippet': 'def merge_rank(): ...',
+      },
+    ];
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          codeFileRepositoryProvider.overrideWithValue(
+            _FakeCodeFileRepository(),
+          ),
+        ],
+        child: MaterialApp(
+          theme: AppTheme.lightTheme,
+          home: Scaffold(
+            body: SourcesSidebar(sources: testSources),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('backend/retrieval'), findsOneWidget);
+    expect(find.text('merge_rank.py'), findsOneWidget);
+
+    await tester.tap(find.text('merge_rank.py'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(CodeCitationViewer), findsOneWidget);
+  });
+
+  testWidgets(
+      'SourcesSidebar opens snippet preview dialog when internal source has no URL',
+      (WidgetTester tester) async {
+    final testSources = [
+      {
+        'url': '',
+        'title': 'Architecture Notes',
+        'snippet': 'Full internal chunk content for preview.',
+      },
+    ];
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.lightTheme,
+        home: Scaffold(
+          body: SourcesSidebar(sources: testSources),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Architecture Notes'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(AlertDialog), findsOneWidget);
+    expect(find.text('Full internal chunk content for preview.'),
+        findsWidgets);
+  });
+}
+
+class _FakeCodeFileRepository extends CodeFileRepository {
+  _FakeCodeFileRepository() : super(apiClient: ApiClient());
+
+  @override
+  Future<CodeFileContent> fetchFile(String path, {String? repoKey}) async {
+    return const CodeFileContent(
+      path: 'README.md',
+      source: 'file',
+      content: '# Veraxi\nHybrid GraphRAG',
+      lines: ['# Veraxi', 'Hybrid GraphRAG'],
+      startLine: 1,
+      endLine: 2,
+      lineCount: 2,
+    );
+  }
 }
