@@ -273,17 +273,27 @@ async def code_read_file(
     *,
     start_line: int | None = None,
     end_line: int | None = None,
+    max_chars: int | None = None,
     tenant_id: str = "default",
     repo: str | None = None,
 ) -> dict[str, Any]:
     """Read a UTF-8 text file from a tenant-accessible repository."""
-    from backend.services.repo_files import RepoFileError, read_repo_file
+    from backend.services.repo_files import (
+        DEFAULT_READ_MAX_CHARS,
+        RepoFileError,
+        read_repo_file,
+    )
 
     if not repo:
         return {"path": path, "error": "No active repository specified."}
     try:
         return await read_repo_file(
-            tenant_id, repo, path, start_line=start_line, end_line=end_line
+            tenant_id,
+            repo,
+            path,
+            start_line=start_line,
+            end_line=end_line,
+            max_chars=max_chars if max_chars is not None else DEFAULT_READ_MAX_CHARS,
         )
     except RepoFileError as exc:
         return {"repo_key": repo, "path": path, "error": exc.detail}

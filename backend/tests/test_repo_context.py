@@ -200,3 +200,13 @@ async def test_build_workspace_context_prompt_code_vs_chat(tmp_path, monkeypatch
     assert "Follow AGENTS rules." in prompt
     assert "# Veraxi" not in prompt
     assert "NEVER ask the user which repository" in prompt
+
+
+def test_code_budget_for_model_prioritizes_paid_models():
+    assert repo_files.code_budget_for_model("claude-sonnet-4-5") == (6_000, 24_000)
+    assert repo_files.code_budget_for_model("gemini/gemini-2.5-pro") == (6_000, 24_000)
+    assert repo_files.code_budget_for_model("openai/gpt-4o") == (6_000, 24_000)
+    assert repo_files.code_budget_for_model(None) == (6_000, 24_000)
+    # Groq / tight-TPM models get compact budgets
+    assert repo_files.code_budget_for_model("openai/gpt-oss-20b") == (1_200, 8_000)
+    assert repo_files.code_budget_for_model("groq/llama-3.3-70b-versatile") == (1_200, 8_000)

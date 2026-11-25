@@ -14,7 +14,9 @@ import logging
 from typing import Any
 
 from backend.services.repo_files import (
+    DEFAULT_INSTRUCTION_MAX_CHARS,
     RepoFileError,
+    code_budget_for_model,
     list_repo_entries,
     read_repo_file,
     verify_tenant_repo_access,
@@ -23,7 +25,6 @@ from backend.services.repo_files import (
 logger = logging.getLogger(__name__)
 
 _MAX_ROOT_ENTRIES = 40
-_MAX_INSTRUCTION_CHARS = 1200
 _INSTRUCTION_CANDIDATES = (
     "AGENTS.md",
     "CLAUDE.md",
@@ -66,6 +67,7 @@ async def _load_instruction_file(
     repo_key: str,
     entries: list[dict[str, Any]],
     *,
+    max_chars: int = DEFAULT_INSTRUCTION_MAX_CHARS,
     neo4j_client: Any = None,
     supabase: Any = None,
     redis_client: Any = None,
@@ -82,7 +84,7 @@ async def _load_instruction_file(
                 tenant_id,
                 repo_key,
                 candidate,
-                max_chars=_MAX_INSTRUCTION_CHARS,
+                max_chars=max_chars,
                 neo4j_client=neo4j_client,
                 supabase=supabase,
                 redis_client=redis_client,
@@ -120,6 +122,8 @@ async def build_workspace_context_prompt(
     tenant_id: str | None,
     tool_settings: dict[str, Any] | None,
     *,
+    model_name: str | None = None,
+    base_url: str | None = None,
     neo4j_client: Any = None,
     supabase: Any = None,
     redis_client: Any = None,
@@ -178,10 +182,12 @@ async def build_workspace_context_prompt(
 
     instruction = None
     if access is not None:
+        max_instruction_chars, _ = code_budget_for_model(model_name, base_url)
         instruction = await _load_instruction_file(
             effective_tenant,
             repo_key,
             entries,
+            max_chars=max_instruction_chars,
             neo4j_client=neo4j_client,
             supabase=supabase,
             redis_client=redis_client,

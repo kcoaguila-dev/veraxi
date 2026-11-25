@@ -1529,14 +1529,20 @@ def _format_code_list_output(res: dict[str, Any]) -> str:
 async def _execute_async_repo_tool(
     t_name: str, t_input: dict, tenant_id: str, tool_settings: dict
 ) -> McpHit:
+    from backend.mcp_server.orchestrator import _request_base_url, _request_model
     from backend.mcp_server.tools.code_tools import code_list_files, code_read_file
+    from backend.services.repo_files import code_budget_for_model
 
     active_repo = _resolve_active_repo(t_input, tool_settings)
     if t_name == "code_read_file":
+        _, max_read_chars = code_budget_for_model(
+            _request_model.get(), _request_base_url.get()
+        )
         res = await code_read_file(
             str(t_input.get("path") or ""),
             start_line=t_input.get("start_line"),
             end_line=t_input.get("end_line"),
+            max_chars=max_read_chars,
             tenant_id=tenant_id,
             repo=active_repo,
         )

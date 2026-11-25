@@ -916,7 +916,10 @@ async def call_model(state: AgentState):
     from backend.services.repo_context import build_workspace_context_prompt
 
     workspace_note = await build_workspace_context_prompt(
-        state.get("tenant_id"), tool_settings
+        state.get("tenant_id"),
+        tool_settings,
+        model_name=effective_model,
+        base_url=effective_base_url,
     )
     if workspace_note:
         extra_system_messages.append(SystemMessage(content=workspace_note))

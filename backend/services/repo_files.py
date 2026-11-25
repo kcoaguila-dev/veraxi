@@ -21,9 +21,47 @@ import sentry_sdk
 logger = logging.getLogger(__name__)
 
 MAX_CODE_FILE_VIEW_BYTES = 1_000_000
-DEFAULT_READ_MAX_CHARS = 8_000
+DEFAULT_READ_MAX_CHARS = 24_000
+DEFAULT_INSTRUCTION_MAX_CHARS = 6_000
+_TIGHT_READ_MAX_CHARS = 8_000
+_TIGHT_INSTRUCTION_MAX_CHARS = 1_200
 _TREE_CACHE_TTL_SEC = 300
 _FILE_CACHE_TTL_SEC = 300
+
+
+def code_budget_for_model(
+    model_name: str | None = None, base_url: str | None = None
+) -> tuple[int, int]:
+    """Return ``(max_instruction_chars, max_read_chars)`` for a model.
+
+    Paid and large-context models get full budgets (6k instruction / 24k read)
+    so quality is never sacrificed. Tight-TPM or small-context models (e.g.
+    Groq free-tier models or <=16k local models) get compact budgets to avoid
+    exceeding per-minute token caps.
+    """
+    if not model_name:
+        return DEFAULT_INSTRUCTION_MAX_CHARS, DEFAULT_READ_MAX_CHARS
+    lowered = model_name.lower()
+    is_groq = lowered.startswith("groq/")
+    if not is_groq:
+        try:
+            from backend.models_config import DEFAULT_PROVIDER_MODELS
+
+            is_groq = model_name in DEFAULT_PROVIDER_MODELS.get("groq", [])
+        except Exception:
+            is_groq = False
+    if is_groq:
+        return _TIGHT_INSTRUCTION_MAX_CHARS, _TIGHT_READ_MAX_CHARS
+    if base_url:
+        try:
+            from backend.mcp_server.formatter import resolve_context_window_tokens
+
+            window = resolve_context_window_tokens(model_name, base_url)
+            if window is not None and window <= 16_384:
+                return _TIGHT_INSTRUCTION_MAX_CHARS, _TIGHT_READ_MAX_CHARS
+        except Exception as exc:
+            logger.debug("Context window lookup skipped for %s: %s", model_name, exc)
+    return DEFAULT_INSTRUCTION_MAX_CHARS, DEFAULT_READ_MAX_CHARS
 
 _SKIP_DIR_NAMES = frozenset({
     ".git",
