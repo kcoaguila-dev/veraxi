@@ -49,6 +49,59 @@ List<_DiffRow> diffRowsForHunk(CodeReviewHunk hunk) {
   return rows;
 }
 
+/// Resolves a Markdown image [uri] against [markdownFilePath] and an
+/// optional GitHub [repoKey] (`owner/repo`).
+///
+/// Absolute `http`/`https` URIs pass through unchanged. Relative paths
+/// are normalized against [markdownFilePath]'s directory (rejecting
+/// any `..` traversal above the repository root) and mapped to
+/// `https://raw.githubusercontent.com/<repoKey>/HEAD/<path>` when
+/// [repoKey] is an `owner/repo` slug.
+Uri? resolveMarkdownImageUri(
+  Uri uri, {
+  required String markdownFilePath,
+  String? repoKey,
+}) {
+  if (uri.hasScheme) {
+    return (uri.scheme == 'http' || uri.scheme == 'https') ? uri : null;
+  }
+  final rawPath = uri.path;
+  if (rawPath.isEmpty) return null;
+
+  final baseSegments = <String>[];
+  if (!rawPath.startsWith('/')) {
+    final fileSegments = markdownFilePath.split('/');
+    if (fileSegments.length > 1) {
+      baseSegments.addAll(
+        fileSegments
+            .sublist(0, fileSegments.length - 1)
+            .where((s) => s.isNotEmpty),
+      );
+    }
+  }
+
+  for (final seg in rawPath.split('/')) {
+    if (seg.isEmpty || seg == '.') continue;
+    if (seg == '..') {
+      if (baseSegments.isEmpty) return null;
+      baseSegments.removeLast();
+    } else {
+      baseSegments.add(seg);
+    }
+  }
+
+  if (baseSegments.isEmpty) return null;
+  final slug = repoKey?.trim();
+  if (slug == null ||
+      !RegExp(r'^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$').hasMatch(slug)) {
+    return null;
+  }
+  return Uri.https(
+    'raw.githubusercontent.com',
+    '/$slug/HEAD/${baseSegments.join('/')}',
+  );
+}
+
 /// Phase 5 Code review pane: the right split-pane (desktop) / modal
 /// overlay (narrow) that reviews one turn's sandbox changes.
 ///
@@ -1057,6 +1110,7 @@ class _CodeReviewDrawerState extends ConsumerState<CodeReviewDrawer> {
               ? _buildMarkdownPreview(
                   key: ValueKey('md-preview-$path'),
                   markdown: content.lines.join('\n'),
+                  markdownFilePath: path,
                 )
               : CodeLinesView(
                   key: ValueKey('code-raw-$path'),
@@ -1085,6 +1139,7 @@ class _CodeReviewDrawerState extends ConsumerState<CodeReviewDrawer> {
   Widget _buildMarkdownPreview({
     required Key key,
     required String markdown,
+    required String markdownFilePath,
   }) {
     final theme = Theme.of(context);
     return Container(
@@ -1096,6 +1151,11 @@ class _CodeReviewDrawerState extends ConsumerState<CodeReviewDrawer> {
           data: markdown,
           selectable: true,
           onTapLink: (_, href, __) => _openMarkdownLink(href),
+          imageBuilder: (uri, _, alt) => _buildMarkdownImage(
+            uri,
+            alt: alt,
+            markdownFilePath: markdownFilePath,
+          ),
           styleSheet: MarkdownStyleSheet(
             p: theme.textTheme.bodyMedium?.copyWith(
               color: const Color(0xFFE2E8F0),
@@ -1143,6 +1203,72 @@ class _CodeReviewDrawerState extends ConsumerState<CodeReviewDrawer> {
             listBullet: const TextStyle(color: Color(0xFFE2E8F0)),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildMarkdownImage(
+    Uri uri, {
+    required String markdownFilePath,
+    String? alt,
+  }) {
+    final repoKey = _resolveActiveGitHubRepoSlug();
+    final resolved = resolveMarkdownImageUri(
+      uri,
+      markdownFilePath: markdownFilePath,
+      repoKey: repoKey,
+    );
+    if (resolved == null) {
+      return _buildBrokenImagePlaceholder(alt);
+    }
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Image.network(
+          resolved.toString(),
+          fit: BoxFit.contain,
+          errorBuilder: (_, __, ___) => _buildBrokenImagePlaceholder(alt),
+        ),
+      ),
+    );
+  }
+
+  String? _resolveActiveGitHubRepoSlug() {
+    final selected = ref.watch(selectedIndexedRepoProvider);
+    if (selected != null && selected.isNotEmpty) return selected;
+    final repos = ref.watch(indexedReposProvider);
+    if (repos.length == 1) return repos.first.repoKey;
+    return null;
+  }
+
+  Widget _buildBrokenImagePlaceholder(String? alt) {
+    final label = (alt != null && alt.trim().isNotEmpty)
+        ? alt.trim()
+        : 'Image unavailable';
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: ObsidianTokens.card,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: ObsidianTokens.hairline),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(
+            Icons.broken_image_outlined,
+            size: 14,
+            color: Color(0xFF71717A),
+          ),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              label,
+              style: const TextStyle(fontSize: 11.5, color: Color(0xFFA1A1AA)),
+            ),
+          ),
+        ],
       ),
     );
   }

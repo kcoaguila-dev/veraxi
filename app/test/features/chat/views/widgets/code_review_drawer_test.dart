@@ -377,4 +377,68 @@ void main() {
       );
     });
   });
+
+  group('resolveMarkdownImageUri', () {
+    test('resolves repo-relative and nested paths against GitHub slug', () {
+      expect(
+        resolveMarkdownImageUri(
+          Uri.parse('docs/images/demo.png'),
+          markdownFilePath: 'README.md',
+          repoKey: 'kcoaguila-dev/veraxi',
+        ).toString(),
+        'https://raw.githubusercontent.com/kcoaguila-dev/veraxi/HEAD/docs/images/demo.png',
+      );
+      expect(
+        resolveMarkdownImageUri(
+          Uri.parse('./images/arch.png'),
+          markdownFilePath: 'docs/architecture.md',
+          repoKey: 'kcoaguila-dev/veraxi',
+        ).toString(),
+        'https://raw.githubusercontent.com/kcoaguila-dev/veraxi/HEAD/docs/images/arch.png',
+      );
+      expect(
+        resolveMarkdownImageUri(
+          Uri.parse('../assets/logo.png'),
+          markdownFilePath: 'docs/sub/guide.md',
+          repoKey: 'kcoaguila-dev/veraxi',
+        ).toString(),
+        'https://raw.githubusercontent.com/kcoaguila-dev/veraxi/HEAD/docs/assets/logo.png',
+      );
+    });
+
+    test('passes through http/https and rejects traversal or unsafe schemes',
+        () {
+      expect(
+        resolveMarkdownImageUri(
+          Uri.parse('https://example.com/pic.png'),
+          markdownFilePath: 'README.md',
+        ).toString(),
+        'https://example.com/pic.png',
+      );
+      expect(
+        resolveMarkdownImageUri(
+          Uri.parse('../../etc/passwd'),
+          markdownFilePath: 'docs/README.md',
+          repoKey: 'kcoaguila-dev/veraxi',
+        ),
+        isNull,
+      );
+      expect(
+        resolveMarkdownImageUri(
+          Uri.parse('file:///etc/passwd'),
+          markdownFilePath: 'README.md',
+          repoKey: 'kcoaguila-dev/veraxi',
+        ),
+        isNull,
+      );
+      expect(
+        resolveMarkdownImageUri(
+          Uri.parse('docs/images/demo.png'),
+          markdownFilePath: 'README.md',
+          repoKey: null,
+        ),
+        isNull,
+      );
+    });
+  });
 }
