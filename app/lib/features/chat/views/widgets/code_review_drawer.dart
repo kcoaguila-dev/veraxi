@@ -1145,95 +1145,97 @@ class _CodeReviewDrawerState extends ConsumerState<CodeReviewDrawer> {
     return Container(
       key: key,
       color: ObsidianTokens.shell,
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: MarkdownBody(
-          data: markdown,
-          selectable: true,
-          onTapLink: (_, href, __) => _openMarkdownLink(href),
-          imageBuilder: (uri, _, alt) => _buildMarkdownImage(
-            uri,
-            alt: alt,
-            markdownFilePath: markdownFilePath,
-          ),
-          styleSheet: MarkdownStyleSheet(
-            p: theme.textTheme.bodyMedium?.copyWith(
-              color: const Color(0xFFE2E8F0),
-              height: 1.6,
+      child: SelectionArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(20),
+          child: MarkdownBody(
+            data: markdown,
+            selectable: false,
+            onTapLink: (_, href, __) => _openMarkdownLink(href),
+            imageBuilder: (uri, _, alt) => _buildMarkdownImage(
+              uri,
+              alt: alt,
+              markdownFilePath: markdownFilePath,
             ),
-            h1: theme.textTheme.headlineSmall?.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.w700,
-            ),
-            h2: theme.textTheme.titleLarge?.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.w700,
-            ),
-            h3: theme.textTheme.titleMedium?.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.w600,
-            ),
-            h4: theme.textTheme.titleSmall?.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.w600,
-            ),
-            h5: theme.textTheme.bodyLarge?.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.w600,
-            ),
-            h6: theme.textTheme.bodyMedium?.copyWith(
-              color: const Color(0xFFE2E8F0),
-              fontWeight: FontWeight.w600,
-            ),
-            a: const TextStyle(
-              color: Color(0xFF93C5FD),
-              decoration: TextDecoration.underline,
-            ),
-            blockquote: const TextStyle(color: Color(0xFFA1A1AA)),
-            img: theme.textTheme.bodyMedium?.copyWith(
-              color: const Color(0xFFE2E8F0),
-            ),
-            checkbox: theme.textTheme.bodyMedium?.copyWith(
-              color: const Color(0xFF93C5FD),
-            ),
-            blockquoteDecoration: BoxDecoration(
-              color: ObsidianTokens.card,
-              borderRadius: BorderRadius.circular(6),
-              border: const Border(
-                left: BorderSide(color: Color(0xFF3B82F6), width: 3),
+            styleSheet: MarkdownStyleSheet(
+              p: theme.textTheme.bodyMedium?.copyWith(
+                color: const Color(0xFFE2E8F0),
+                height: 1.6,
               ),
-            ),
-            code: GoogleFonts.firaCode(
-              backgroundColor: ObsidianTokens.bubble,
-              color: const Color(0xFFE2E8F0),
-              fontSize: 12.5,
-            ),
-            codeblockDecoration: BoxDecoration(
-              color: ObsidianTokens.card,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: ObsidianTokens.hairline),
-            ),
-            horizontalRuleDecoration: const BoxDecoration(
-              border: Border(
-                top: BorderSide(color: ObsidianTokens.hairline),
+              h1: theme.textTheme.headlineSmall?.copyWith(
+                color: Colors.white,
+                fontWeight: FontWeight.w700,
               ),
-            ),
-            listBullet: const TextStyle(color: Color(0xFFE2E8F0)),
-            tableHead: theme.textTheme.bodyMedium?.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.w600,
-            ),
-            tableBody: theme.textTheme.bodyMedium?.copyWith(
-              color: const Color(0xFFE2E8F0),
-              height: 1.4,
-            ),
-            tableBorder: TableBorder.all(
-              color: ObsidianTokens.hairline,
-              width: 1,
-            ),
-            tableCellsPadding: const EdgeInsets.symmetric(
-              horizontal: 12,
-              vertical: 8,
+              h2: theme.textTheme.titleLarge?.copyWith(
+                color: Colors.white,
+                fontWeight: FontWeight.w700,
+              ),
+              h3: theme.textTheme.titleMedium?.copyWith(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+              ),
+              h4: theme.textTheme.titleSmall?.copyWith(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+              ),
+              h5: theme.textTheme.bodyLarge?.copyWith(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+              ),
+              h6: theme.textTheme.bodyMedium?.copyWith(
+                color: const Color(0xFFE2E8F0),
+                fontWeight: FontWeight.w600,
+              ),
+              a: const TextStyle(
+                color: Color(0xFF93C5FD),
+                decoration: TextDecoration.underline,
+              ),
+              blockquote: const TextStyle(color: Color(0xFFA1A1AA)),
+              img: theme.textTheme.bodyMedium?.copyWith(
+                color: const Color(0xFFE2E8F0),
+              ),
+              checkbox: theme.textTheme.bodyMedium?.copyWith(
+                color: const Color(0xFF93C5FD),
+              ),
+              blockquoteDecoration: BoxDecoration(
+                color: ObsidianTokens.card,
+                borderRadius: BorderRadius.circular(6),
+                border: const Border(
+                  left: BorderSide(color: Color(0xFF3B82F6), width: 3),
+                ),
+              ),
+              code: GoogleFonts.firaCode(
+                backgroundColor: ObsidianTokens.bubble,
+                color: const Color(0xFFE2E8F0),
+                fontSize: 12.5,
+              ),
+              codeblockDecoration: BoxDecoration(
+                color: ObsidianTokens.card,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: ObsidianTokens.hairline),
+              ),
+              horizontalRuleDecoration: const BoxDecoration(
+                border: Border(
+                  top: BorderSide(color: ObsidianTokens.hairline),
+                ),
+              ),
+              listBullet: const TextStyle(color: Color(0xFFE2E8F0)),
+              tableHead: theme.textTheme.bodyMedium?.copyWith(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+              ),
+              tableBody: theme.textTheme.bodyMedium?.copyWith(
+                color: const Color(0xFFE2E8F0),
+                height: 1.4,
+              ),
+              tableBorder: TableBorder.all(
+                color: ObsidianTokens.hairline,
+                width: 1,
+              ),
+              tableCellsPadding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 8,
+              ),
             ),
           ),
         ),

@@ -329,6 +329,14 @@ void main() {
       await tester.pumpAndSettle();
 
       final mdBody = tester.widget<MarkdownBody>(find.byType(MarkdownBody));
+      expect(mdBody.selectable, isFalse);
+      expect(
+        find.ancestor(
+          of: find.byType(MarkdownBody),
+          matching: find.byType(SelectionArea),
+        ),
+        findsOneWidget,
+      );
       final sheet = mdBody.styleSheet!;
       expect(sheet.tableHead?.color, Colors.white);
       expect(sheet.tableBody?.color, const Color(0xFFE2E8F0));

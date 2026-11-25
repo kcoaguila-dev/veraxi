@@ -1015,61 +1015,64 @@ class _CodeArtifactPanelState extends ConsumerState<CodeArtifactPanel> {
       final theme = Theme.of(context);
       return Container(
         color: const Color(0xFF141416),
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
-          child: MarkdownBody(
-            data: artifact.code,
-            styleSheet: MarkdownStyleSheet(
-              p: theme.textTheme.bodyMedium?.copyWith(
-                color: const Color(0xFFE2E8F0),
-                height: 1.6,
-              ),
-              h1: theme.textTheme.headlineSmall
-                  ?.copyWith(color: Colors.white, fontWeight: FontWeight.w700),
-              h2: theme.textTheme.titleLarge
-                  ?.copyWith(color: Colors.white, fontWeight: FontWeight.w700),
-              h3: theme.textTheme.titleMedium
-                  ?.copyWith(color: Colors.white, fontWeight: FontWeight.w600),
-              h4: theme.textTheme.titleSmall
-                  ?.copyWith(color: Colors.white, fontWeight: FontWeight.w600),
-              h5: theme.textTheme.bodyLarge
-                  ?.copyWith(color: Colors.white, fontWeight: FontWeight.w600),
-              h6: theme.textTheme.bodyMedium?.copyWith(
-                  color: const Color(0xFFE2E8F0), fontWeight: FontWeight.w600),
-              a: const TextStyle(
-                color: Color(0xFF93C5FD),
-                decoration: TextDecoration.underline,
-              ),
-              blockquote: const TextStyle(color: Color(0xFFA1A1AA)),
-              img: theme.textTheme.bodyMedium
-                  ?.copyWith(color: const Color(0xFFE2E8F0)),
-              checkbox: theme.textTheme.bodyMedium
-                  ?.copyWith(color: const Color(0xFF93C5FD)),
-              code: GoogleFonts.firaCode(
-                backgroundColor: Colors.transparent,
-                color: const Color(0xFFE2E8F0),
-                fontSize: 13,
-              ),
-              codeblockDecoration: BoxDecoration(
-                color: const Color(0xFF0F0F0F),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              listBullet: const TextStyle(color: Color(0xFFE2E8F0)),
-              tableHead: theme.textTheme.bodyMedium?.copyWith(
-                color: Colors.white,
-                fontWeight: FontWeight.w600,
-              ),
-              tableBody: theme.textTheme.bodyMedium?.copyWith(
-                color: const Color(0xFFE2E8F0),
-                height: 1.4,
-              ),
-              tableBorder: TableBorder.all(
-                color: const Color(0xFF3F3F3F),
-                width: 1,
-              ),
-              tableCellsPadding: const EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 8,
+        child: SelectionArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(20),
+            child: MarkdownBody(
+              data: artifact.code,
+              styleSheet: MarkdownStyleSheet(
+                p: theme.textTheme.bodyMedium?.copyWith(
+                  color: const Color(0xFFE2E8F0),
+                  height: 1.6,
+                ),
+                h1: theme.textTheme.headlineSmall?.copyWith(
+                    color: Colors.white, fontWeight: FontWeight.w700),
+                h2: theme.textTheme.titleLarge?.copyWith(
+                    color: Colors.white, fontWeight: FontWeight.w700),
+                h3: theme.textTheme.titleMedium?.copyWith(
+                    color: Colors.white, fontWeight: FontWeight.w600),
+                h4: theme.textTheme.titleSmall?.copyWith(
+                    color: Colors.white, fontWeight: FontWeight.w600),
+                h5: theme.textTheme.bodyLarge?.copyWith(
+                    color: Colors.white, fontWeight: FontWeight.w600),
+                h6: theme.textTheme.bodyMedium?.copyWith(
+                    color: const Color(0xFFE2E8F0),
+                    fontWeight: FontWeight.w600),
+                a: const TextStyle(
+                  color: Color(0xFF93C5FD),
+                  decoration: TextDecoration.underline,
+                ),
+                blockquote: const TextStyle(color: Color(0xFFA1A1AA)),
+                img: theme.textTheme.bodyMedium
+                    ?.copyWith(color: const Color(0xFFE2E8F0)),
+                checkbox: theme.textTheme.bodyMedium
+                    ?.copyWith(color: const Color(0xFF93C5FD)),
+                code: GoogleFonts.firaCode(
+                  backgroundColor: Colors.transparent,
+                  color: const Color(0xFFE2E8F0),
+                  fontSize: 13,
+                ),
+                codeblockDecoration: BoxDecoration(
+                  color: const Color(0xFF0F0F0F),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                listBullet: const TextStyle(color: Color(0xFFE2E8F0)),
+                tableHead: theme.textTheme.bodyMedium?.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                ),
+                tableBody: theme.textTheme.bodyMedium?.copyWith(
+                  color: const Color(0xFFE2E8F0),
+                  height: 1.4,
+                ),
+                tableBorder: TableBorder.all(
+                  color: const Color(0xFF3F3F3F),
+                  width: 1,
+                ),
+                tableCellsPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
               ),
             ),
           ),
