@@ -359,7 +359,8 @@ class _RepoPicker extends StatelessWidget {
           ),
           child: Row(
             children: [
-              const Icon(Icons.check_circle, size: 14, color: Color(0xFF34D399)),
+              const Icon(Icons.check_circle,
+                  size: 14, color: Color(0xFF34D399)),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
@@ -376,7 +377,8 @@ class _RepoPicker extends StatelessWidget {
                 onTap: onRefresh,
                 child: const Padding(
                   padding: EdgeInsets.symmetric(horizontal: 6),
-                  child: Icon(Icons.refresh, size: 15, color: Color(0xFFA1A1AA)),
+                  child:
+                      Icon(Icons.refresh, size: 15, color: Color(0xFFA1A1AA)),
                 ),
               ),
               InkWell(
@@ -423,7 +425,8 @@ class _RepoPicker extends StatelessWidget {
                       child: Text(
                         'No granted repositories match your filter.',
                         textAlign: TextAlign.center,
-                        style: TextStyle(color: Color(0xFF71717A), fontSize: 12),
+                        style:
+                            TextStyle(color: Color(0xFF71717A), fontSize: 12),
                       ),
                     )
                   : ListView.separated(
@@ -439,9 +442,10 @@ class _RepoPicker extends StatelessWidget {
                           repo: repo,
                           selected: selected,
                           onTap: () => onSelectRepo(repo),
-                          onDisconnect: repo.isIndexed && onDisconnectRepo != null
-                              ? () => onDisconnectRepo!(repo)
-                              : null,
+                          onDisconnect:
+                              repo.isIndexed && onDisconnectRepo != null
+                                  ? () => onDisconnectRepo!(repo)
+                                  : null,
                         );
                       },
                     ),
@@ -500,8 +504,7 @@ class _RepoTile extends StatelessWidget {
           color: selected ? const Color(0xFF141C18) : const Color(0xFF121217),
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color:
-                selected ? const Color(0xFF10B981) : const Color(0xFF27272D),
+            color: selected ? const Color(0xFF10B981) : const Color(0xFF27272D),
           ),
         ),
         child: Row(
@@ -509,9 +512,8 @@ class _RepoTile extends StatelessWidget {
             Icon(
               repo.isPrivate ? Icons.lock_outline : Icons.public,
               size: 14,
-              color: selected
-                  ? const Color(0xFF34D399)
-                  : const Color(0xFF71717A),
+              color:
+                  selected ? const Color(0xFF34D399) : const Color(0xFF71717A),
             ),
             const SizedBox(width: 9),
             Expanded(

@@ -137,7 +137,9 @@ async def test_exchange_user_oauth_code_omits_pkce_verifier():
 
     class _FakeResp:
         status_code = 200
-        headers: dict = {}
+
+        def __init__(self):
+            self.headers: dict = {}
 
         def raise_for_status(self):
             return None
@@ -168,7 +170,9 @@ async def test_mint_installation_token_falls_back_to_secondary_key():
 
     class _FakeResp:
         status_code = 201
-        headers: dict = {}
+
+        def __init__(self):
+            self.headers: dict = {}
 
         def json(self):
             return {"token": "ghs_secondary_ok"}

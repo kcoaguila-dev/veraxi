@@ -472,8 +472,10 @@ async def download_repo_tarball(
     """Stream and safely extract ``repo_full_name`` at ``ref`` into ``dest_dir``."""
     url = f"{GITHUB_API_BASE}/repos/{repo_full_name}/tarball/{ref}"
     buf = bytearray()
-    async with httpx.AsyncClient(timeout=120.0, follow_redirects=True) as client:
-        async with client.stream("GET", url, headers=_gh_headers(token)) as resp:
+    async with (
+        httpx.AsyncClient(timeout=120.0, follow_redirects=True) as client,
+        client.stream("GET", url, headers=_gh_headers(token)) as resp,
+    ):
             resp.raise_for_status()
             async for chunk in resp.aiter_bytes(65536):
                 buf.extend(chunk)

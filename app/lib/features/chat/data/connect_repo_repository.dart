@@ -29,7 +29,8 @@ class GitHubAppInstallation {
       installationId: (json['installation_id'] as num?)?.toInt() ?? 0,
       accountLogin: json['account_login'] as String? ?? '',
       accountType: json['account_type'] as String? ?? 'User',
-      repositorySelection: json['repository_selection'] as String? ?? 'selected',
+      repositorySelection:
+          json['repository_selection'] as String? ?? 'selected',
       status: json['status'] as String? ?? 'active',
     );
   }
@@ -60,8 +61,7 @@ class GitHubAppStatus {
       installations: rawInstalls
           .whereType<Map>()
           .map(
-            (e) =>
-                GitHubAppInstallation.fromJson(Map<String, dynamic>.from(e)),
+            (e) => GitHubAppInstallation.fromJson(Map<String, dynamic>.from(e)),
           )
           .toList(),
     );

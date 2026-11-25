@@ -495,9 +495,8 @@ class _SourceTabButton extends StatelessWidget {
             label,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              color: selected
-                  ? const Color(0xFFF4F4F5)
-                  : const Color(0xFFA1A1AA),
+              color:
+                  selected ? const Color(0xFFF4F4F5) : const Color(0xFFA1A1AA),
               fontSize: 12,
               fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
             ),
