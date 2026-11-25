@@ -1526,9 +1526,24 @@ def _format_code_list_output(res: dict[str, Any]) -> str:
     return f"Entries in {res.get('repo_key')} ({res.get('path') or '.'}):\n" + "\n".join(lines)
 
 
+class RepoFileHit:
+    """Structured hit for ``code_read_file`` so Sources UI and citations render cleanly."""
+
+    def __init__(self, res: dict[str, Any], formatted_content: str) -> None:
+        self.id = str(res.get("path") or "code_file")
+        self.payload = {
+            "title": str(res.get("path") or "Repository File"),
+            "url": str(res.get("url") or ""),
+            "path": str(res.get("path") or ""),
+            "text": str(res.get("content") or "")[:400],
+            "content": formatted_content,
+        }
+        self.sources = ["Repo X-Ray"]
+
+
 async def _execute_async_repo_tool(
     t_name: str, t_input: dict, tenant_id: str, tool_settings: dict
-) -> McpHit:
+) -> McpHit | RepoFileHit:
     from backend.mcp_server.orchestrator import _request_base_url, _request_model
     from backend.mcp_server.tools.code_tools import code_list_files, code_read_file
     from backend.services.repo_files import code_budget_for_model
@@ -1546,7 +1561,10 @@ async def _execute_async_repo_tool(
             tenant_id=tenant_id,
             repo=active_repo,
         )
-        return McpHit(_format_code_read_output(res), "", "Repo X-Ray")
+        formatted = _format_code_read_output(res)
+        if res.get("error"):
+            return McpHit(formatted, "", "Repo X-Ray")
+        return RepoFileHit(res, formatted)
     res = await code_list_files(
         str(t_input.get("path") or ""),
         pattern=t_input.get("pattern"),

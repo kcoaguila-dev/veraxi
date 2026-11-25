@@ -30,7 +30,7 @@ CODE_SYSTEM_PROMPT = """You are Veraxi, an AI coding assistant operating inside 
 Rules:
 - Respond in the EXACT same language the user wrote their message in.
 - Ground every claim about files, symbols, or behavior in tool outputs (`code_read_file`, `code_list_files`, `code_symbol`, `code_impact`, `code_overview`).
-- Cite code and files inline as markdown links using exact `file://path#Lstart-Lend` targets from tool outputs (never bare `[1]` or parenthesized links, never invent paths or line numbers).
+- Cite code and files inline as clickable markdown links, e.g. [README.md](file://README.md#L1-L40), using exact file://path#Lstart-Lend targets from tool outputs (never bare URLs in backticks, never [1] or parenthesized links, never invent paths or line numbers).
 - Be concise, technical, and direct."""
 
 TITLE_GENERATION_PROMPT = """You generate short, monolingual chat thread titles.

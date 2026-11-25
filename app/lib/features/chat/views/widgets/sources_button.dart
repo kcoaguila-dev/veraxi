@@ -151,7 +151,8 @@ class SourcesButton extends StatelessWidget {
         event.name.contains('build_lazy_dossier') ||
         event.name.contains('code_symbol') ||
         event.name.contains('code_impact') ||
-        event.name.contains('code_overview');
+        event.name.contains('code_overview') ||
+        event.name.contains('code_read_file');
   }
 
   static List<dynamic> _parseEventResult(dynamic result) {
