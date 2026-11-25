@@ -11,6 +11,7 @@ import 'package:veraxi_app/core/widgets/code_lines_view.dart';
 import 'package:veraxi_app/core/widgets/language_file_icon.dart';
 import 'package:veraxi_app/features/chat/view_models/code_file_view_model.dart';
 import 'package:veraxi_app/features/chat/view_models/code_review_view_model.dart';
+import 'package:veraxi_app/features/chat/views/widgets/selection_edge_auto_scroll.dart';
 
 /// Kind of one rendered diff row.
 enum _DiffRowKind { header, addition, deletion, context, meta }
@@ -1145,8 +1146,9 @@ class _CodeReviewDrawerState extends ConsumerState<CodeReviewDrawer> {
     return Container(
       key: key,
       color: ObsidianTokens.shell,
-      child: SelectionArea(
-        child: SingleChildScrollView(
+      child: SelectionEdgeAutoScroll(
+        builder: (context, controller) => SingleChildScrollView(
+          controller: controller,
           padding: const EdgeInsets.all(20),
           child: MarkdownBody(
             data: markdown,

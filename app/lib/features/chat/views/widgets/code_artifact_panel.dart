@@ -20,6 +20,7 @@ import 'package:veraxi_app/features/chat/view_models/artifact_work_provider.dart
 import 'package:veraxi_app/features/chat/view_models/slide_deck_provider.dart';
 import 'package:veraxi_app/features/chat/views/widgets/artifact_download.dart';
 import 'package:veraxi_app/features/chat/views/widgets/artifact_editor_theme.dart';
+import 'package:veraxi_app/features/chat/views/widgets/selection_edge_auto_scroll.dart';
 import 'package:veraxi_app/features/chat/views/widgets/artifact_sandbox.dart';
 import 'package:veraxi_app/features/chat/views/widgets/slide_deck_preview.dart';
 
@@ -1015,8 +1016,9 @@ class _CodeArtifactPanelState extends ConsumerState<CodeArtifactPanel> {
       final theme = Theme.of(context);
       return Container(
         color: const Color(0xFF141416),
-        child: SelectionArea(
-          child: SingleChildScrollView(
+        child: SelectionEdgeAutoScroll(
+          builder: (context, controller) => SingleChildScrollView(
+            controller: controller,
             padding: const EdgeInsets.all(20),
             child: MarkdownBody(
               data: artifact.code,
