@@ -21,6 +21,7 @@ from typing import Any
 
 import sentry_sdk
 
+_orjson: Any = None
 try:
     import orjson as _orjson
 except ImportError:  # pragma: no cover - fallback when optional orjson absent

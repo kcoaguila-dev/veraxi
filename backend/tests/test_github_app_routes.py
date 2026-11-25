@@ -268,6 +268,73 @@ def test_jobs_endpoint_enforces_tenant_ownership_and_serializes_failures():
     assert "tarball too large" in r_fail.json()["error"]
 
 
+def test_jobs_endpoint_job_result_success_failure_and_fallback():
+    from arq.jobs import JobResult
+
+    sb = _FakeSupabase()
+    redis = FakeRedis()
+    redis.kv["ghapp:job:job-ok"] = "tenant-1"
+    redis.kv["ghapp:job:job-bad"] = "tenant-1"
+    redis.kv["ghapp:job:job-plain"] = "tenant-1"
+    app = _make_app(sb, redis, _cfg())
+    client = TestClient(app)
+
+    now = datetime.now(UTC)
+
+    def _job_result(success, result):
+        return JobResult(
+            function="index_github_app_repo_job",
+            args=(),
+            kwargs={},
+            job_try=1,
+            enqueue_time=now,
+            score=None,
+            job_id="job-x",
+            success=success,
+            result=result,
+            start_time=now,
+            finish_time=now,
+            queue_name="arq:queue",
+        )
+
+    infos = {
+        "job-ok": _job_result(True, {"indexed_files": 42}),
+        "job-bad": _job_result(False, RuntimeError("clone failed")),
+        # Non-JobResult fallback: attributes read defensively via getattr.
+        "job-plain": SimpleNamespace(success=True, result={"indexed_files": 7}),
+    }
+
+    class _FakeStatus:
+        value = "complete"
+
+    class _FakeJob:
+        def __init__(self, job_id, redis=None):
+            self.job_id = job_id
+
+        async def status(self):
+            return _FakeStatus()
+
+        async def info(self):
+            return infos[self.job_id]
+
+    with patch("arq.jobs.Job", _FakeJob):
+        r_ok = client.get("/api/v1/github-app/jobs/job-ok")
+        r_bad = client.get("/api/v1/github-app/jobs/job-bad")
+        r_plain = client.get("/api/v1/github-app/jobs/job-plain")
+
+    assert r_ok.status_code == 200
+    assert r_ok.json()["status"] == "complete"
+    assert r_ok.json()["result"] == {"indexed_files": 42}
+
+    assert r_bad.status_code == 200
+    assert r_bad.json()["status"] == "failed"
+    assert "clone failed" in r_bad.json()["error"]
+
+    assert r_plain.status_code == 200
+    assert r_plain.json()["status"] == "complete"
+    assert r_plain.json()["result"] == {"indexed_files": 7}
+
+
 def test_disconnect_repo_endpoint_purges_and_deletes():
     sb = _FakeSupabase()
     redis = FakeRedis()

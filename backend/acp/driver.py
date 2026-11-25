@@ -272,9 +272,9 @@ class LocalAcpDriver:
         for fut in list(session.pending_rpc.values()):
             if not fut.done():
                 fut.set_exception(AcpDriverError(reason))
-        for fut in list(session.pending_permissions.values()):
-            if not fut.done():
-                fut.set_result("deny")
+        for perm_fut in list(session.pending_permissions.values()):
+            if not perm_fut.done():
+                perm_fut.set_result("deny")
         if session.turn_queue is not None:
             session.turn_queue.put_nowait({"_acp_eof": True, "reason": reason})
 
