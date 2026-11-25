@@ -1,10 +1,12 @@
 import 'package:flutter/services.dart';
+import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:veraxi_app/core/network/api_client.dart';
 import 'package:veraxi_app/core/providers/workspace_mode_provider.dart';
 import 'package:veraxi_app/core/theme.dart';
+import 'package:veraxi_app/core/widgets/code_lines_view.dart';
 import 'package:veraxi_app/features/chat/data/code_file_repository.dart';
 import 'package:veraxi_app/features/chat/data/code_review_repository.dart';
 import 'package:veraxi_app/features/chat/views/widgets/code_review_drawer.dart';
@@ -72,16 +74,19 @@ class _FakeCodeFileRepository extends CodeFileRepository {
 
   @override
   Future<CodeFileContent> fetchFile(String path, {String? repoKey}) async {
-    const lines = ['line one', 'line two', 'line three'];
+    final isMarkdown = path.endsWith('.md');
+    final lines = isMarkdown
+        ? const ['# Heading One', '', 'Body text']
+        : const ['line one', 'line two', 'line three'];
     return CodeFileContent(
       path: path,
       source: 'file',
       content: lines.join('\n'),
       lines: lines,
       startLine: 1,
-      endLine: 3,
-      lineCount: 3,
-      language: 'python',
+      endLine: lines.length,
+      lineCount: lines.length,
+      language: isMarkdown ? 'markdown' : 'python',
     );
   }
 }
@@ -251,9 +256,62 @@ void main() {
       expect(find.text('Revert'), findsNothing);
       expect(find.text('Commit'), findsNothing);
       expect(find.byKey(const Key('code-review-commit-button')), findsNothing);
+      expect(
+          find.byKey(const Key('code-review-markdown-toggle')), findsNothing);
 
       // The sandbox diff endpoint is never called without a session.
       expect(reviewRepository.fetchCount, 0);
+    });
+
+    testWidgets(
+        'markdown file defaults to rendered preview and toggles to raw code',
+        (tester) async {
+      const mdReview = CodeReviewState(
+        sessionId: '',
+        turnId: 'msg-2',
+        focusedPath: 'README.md',
+      );
+      await tester.pumpWidget(wrap(mdReview));
+      await tester.pumpAndSettle();
+
+      expect(
+          find.byKey(const Key('code-review-markdown-toggle')), findsOneWidget);
+      expect(find.byType(MarkdownBody), findsOneWidget);
+      expect(find.byType(CodeLinesView), findsNothing);
+      expect(find.text('Heading One'), findsOneWidget);
+
+      await tester
+          .tap(find.byKey(const Key('code-review-markdown-raw-toggle')));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(CodeLinesView), findsOneWidget);
+      expect(find.byType(MarkdownBody), findsNothing);
+      expect(find.text('# Heading One'), findsOneWidget);
+
+      await tester
+          .tap(find.byKey(const Key('code-review-markdown-preview-toggle')));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(MarkdownBody), findsOneWidget);
+      expect(find.byType(CodeLinesView), findsNothing);
+    });
+
+    testWidgets('line-anchored markdown citation opens in raw mode',
+        (tester) async {
+      const anchoredMdReview = CodeReviewState(
+        sessionId: '',
+        turnId: 'msg-3',
+        focusedPath: 'README.md',
+        focusedStartLine: 3,
+        focusedEndLine: 3,
+      );
+      await tester.pumpWidget(wrap(anchoredMdReview));
+      await tester.pumpAndSettle();
+
+      expect(
+          find.byKey(const Key('code-review-markdown-toggle')), findsOneWidget);
+      expect(find.byType(CodeLinesView), findsOneWidget);
+      expect(find.byType(MarkdownBody), findsNothing);
     });
   });
 }

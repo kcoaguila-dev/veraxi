@@ -1,5 +1,5 @@
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'dart:convert';
 import 'package:veraxi_app/core/theme/obsidian_tokens.dart';
 import 'package:veraxi_app/features/chat/view_models/chat_view_model.dart';

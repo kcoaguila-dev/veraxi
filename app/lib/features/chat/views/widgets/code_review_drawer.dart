@@ -1,6 +1,10 @@
 import 'package:flutter/services.dart';
-import 'package:material_ui/material_ui.dart';
+import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:material_ui/material_ui.dart';
+import 'package:sentry_flutter/sentry_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:veraxi_app/core/providers/workspace_mode_provider.dart';
 import 'package:veraxi_app/core/theme/obsidian_tokens.dart';
 import 'package:veraxi_app/core/widgets/code_lines_view.dart';
@@ -71,8 +75,25 @@ class _CodeReviewDrawerState extends ConsumerState<CodeReviewDrawer> {
   final Map<String, GlobalKey> _fileKeys = {};
   bool _loadStarted = false;
   bool _focusedScrollDone = false;
+  late bool _showMarkdownPreview = _defaultMarkdownPreview();
 
   bool get _isLive => widget.review.hasLiveSandbox;
+
+  bool get _isReadOnlyMarkdown {
+    final path = _readOnlyPath;
+    if (path == null) return false;
+    final lower = path.toLowerCase();
+    return lower.endsWith('.md') ||
+        lower.endsWith('.markdown') ||
+        lower.endsWith('.mdx');
+  }
+
+  /// Open Markdown files in rendered Preview by default, unless a
+  /// specific line > 1 was cited so Raw mode can scroll to & highlight it.
+  bool _defaultMarkdownPreview() {
+    final startLine = widget.review.focusedStartLine;
+    return startLine == null || startLine <= 1;
+  }
 
   @override
   void initState() {
@@ -89,9 +110,12 @@ class _CodeReviewDrawerState extends ConsumerState<CodeReviewDrawer> {
       _loadStarted = false;
       _focusedScrollDone = false;
       _fileKeys.clear();
+      _showMarkdownPreview = _defaultMarkdownPreview();
       WidgetsBinding.instance.addPostFrameCallback((_) => _maybeLoad());
-    } else if (oldWidget.review.focusedPath != widget.review.focusedPath) {
+    } else if (oldWidget.review.focusedPath != widget.review.focusedPath ||
+        oldWidget.review.focusedStartLine != widget.review.focusedStartLine) {
       _focusedScrollDone = false;
+      _showMarkdownPreview = _defaultMarkdownPreview();
       WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToFocused());
     }
   }
@@ -427,7 +451,95 @@ class _CodeReviewDrawerState extends ConsumerState<CodeReviewDrawer> {
               ),
             ),
           ),
+          if (_isReadOnlyMarkdown) ...[
+            const SizedBox(width: 10),
+            _buildMarkdownModeToggle(),
+          ],
         ],
+      ),
+    );
+  }
+
+  Widget _buildMarkdownModeToggle() {
+    return Container(
+      key: const Key('code-review-markdown-toggle'),
+      padding: const EdgeInsets.all(2),
+      decoration: BoxDecoration(
+        color: ObsidianTokens.bubble,
+        borderRadius: BorderRadius.circular(7),
+        border: Border.all(color: ObsidianTokens.borderStrong),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _buildToggleOption(
+            key: const Key('code-review-markdown-preview-toggle'),
+            label: 'Preview',
+            icon: Icons.article_outlined,
+            selected: _showMarkdownPreview,
+            onTap: () {
+              if (!_showMarkdownPreview) {
+                setState(() => _showMarkdownPreview = true);
+              }
+            },
+          ),
+          _buildToggleOption(
+            key: const Key('code-review-markdown-raw-toggle'),
+            label: 'Raw',
+            icon: Icons.code,
+            selected: !_showMarkdownPreview,
+            onTap: () {
+              if (_showMarkdownPreview) {
+                setState(() => _showMarkdownPreview = false);
+              }
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildToggleOption({
+    required Key key,
+    required String label,
+    required IconData icon,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      key: key,
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(5),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 140),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: selected ? const Color(0xFF27272A) : Colors.transparent,
+          borderRadius: BorderRadius.circular(5),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 12,
+              color: selected
+                  ? const Color(0xFFF4F4F5)
+                  : const Color(0xFF71717A),
+            ),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                color: selected
+                    ? const Color(0xFFF4F4F5)
+                    : const Color(0xFFA1A1AA),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -851,13 +963,25 @@ class _CodeReviewDrawerState extends ConsumerState<CodeReviewDrawer> {
     );
     final asyncContent = ref.watch(codeFileProvider(target));
     return asyncContent.when(
-      data: (content) => CodeLinesView(
-        lines: content.lines,
-        startLine: content.startLine,
-        highlightStartLine: widget.review.focusedStartLine,
-        highlightEndLine: widget.review.focusedEndLine,
-        autoScrollToHighlight: widget.review.focusedStartLine != null,
-      ),
+      data: (content) {
+        final showPreview = _isReadOnlyMarkdown && _showMarkdownPreview;
+        return AnimatedSwitcher(
+          duration: const Duration(milliseconds: 150),
+          child: showPreview
+              ? _buildMarkdownPreview(
+                  key: ValueKey('md-preview-$path'),
+                  markdown: content.lines.join('\n'),
+                )
+              : CodeLinesView(
+                  key: ValueKey('code-raw-$path'),
+                  lines: content.lines,
+                  startLine: content.startLine,
+                  highlightStartLine: widget.review.focusedStartLine,
+                  highlightEndLine: widget.review.focusedEndLine,
+                  autoScrollToHighlight: widget.review.focusedStartLine != null,
+                ),
+        );
+      },
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (_, __) => const Center(
         child: Padding(
@@ -870,6 +994,82 @@ class _CodeReviewDrawerState extends ConsumerState<CodeReviewDrawer> {
         ),
       ),
     );
+  }
+
+  Widget _buildMarkdownPreview({
+    required Key key,
+    required String markdown,
+  }) {
+    final theme = Theme.of(context);
+    return Container(
+      key: key,
+      color: ObsidianTokens.shell,
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
+        child: MarkdownBody(
+          data: markdown,
+          selectable: true,
+          onTapLink: (_, href, __) => _openMarkdownLink(href),
+          styleSheet: MarkdownStyleSheet(
+            p: theme.textTheme.bodyMedium?.copyWith(
+              color: const Color(0xFFE2E8F0),
+              height: 1.6,
+            ),
+            h1: theme.textTheme.headlineSmall?.copyWith(
+              color: Colors.white,
+              fontWeight: FontWeight.w700,
+            ),
+            h2: theme.textTheme.titleLarge?.copyWith(
+              color: Colors.white,
+              fontWeight: FontWeight.w700,
+            ),
+            h3: theme.textTheme.titleMedium?.copyWith(
+              color: Colors.white,
+              fontWeight: FontWeight.w600,
+            ),
+            a: const TextStyle(
+              color: Color(0xFF93C5FD),
+              decoration: TextDecoration.underline,
+            ),
+            blockquote: const TextStyle(color: Color(0xFFA1A1AA)),
+            blockquoteDecoration: BoxDecoration(
+              color: ObsidianTokens.card,
+              borderRadius: BorderRadius.circular(6),
+              border: const Border(
+                left: BorderSide(color: Color(0xFF3B82F6), width: 3),
+              ),
+            ),
+            code: GoogleFonts.firaCode(
+              backgroundColor: ObsidianTokens.bubble,
+              color: const Color(0xFFE2E8F0),
+              fontSize: 12.5,
+            ),
+            codeblockDecoration: BoxDecoration(
+              color: ObsidianTokens.card,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: ObsidianTokens.hairline),
+            ),
+            horizontalRuleDecoration: const BoxDecoration(
+              border: Border(
+                top: BorderSide(color: ObsidianTokens.hairline),
+              ),
+            ),
+            listBullet: const TextStyle(color: Color(0xFFE2E8F0)),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openMarkdownLink(String? href) async {
+    if (href == null || href.isEmpty) return;
+    final uri = Uri.tryParse(href);
+    if (uri == null || (uri.scheme != 'http' && uri.scheme != 'https')) return;
+    try {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } catch (e, st) {
+      await Sentry.captureException(e, stackTrace: st);
+    }
   }
 
   // ---- Commit --------------------------------------------------------------
