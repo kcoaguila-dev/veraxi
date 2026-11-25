@@ -342,6 +342,35 @@ class ChatMessageListItem extends ConsumerWidget {
                                       color: Colors.white,
                                       fontWeight: FontWeight.w600,
                                     ),
+                                    h5: theme.textTheme.bodyLarge?.copyWith(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                    h6: theme.textTheme.bodyMedium?.copyWith(
+                                      color: const Color(0xFFE2E8F0),
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                    listBullet:
+                                        theme.textTheme.bodyLarge?.copyWith(
+                                      color: theme.brightness == Brightness.dark
+                                          ? const Color(0xFFE2E8F0)
+                                          : theme.colorScheme.onSurface,
+                                    ),
+                                    blockquote:
+                                        theme.textTheme.bodyLarge?.copyWith(
+                                      color: theme.brightness == Brightness.dark
+                                          ? const Color(0xFFA1A1AA)
+                                          : theme.colorScheme.onSurfaceVariant,
+                                    ),
+                                    img: theme.textTheme.bodyMedium?.copyWith(
+                                      color: theme.brightness == Brightness.dark
+                                          ? const Color(0xFFE2E8F0)
+                                          : theme.colorScheme.onSurface,
+                                    ),
+                                    checkbox:
+                                        theme.textTheme.bodyMedium?.copyWith(
+                                      color: theme.colorScheme.primary,
+                                    ),
                                     tableHead:
                                         theme.textTheme.bodyMedium?.copyWith(
                                       color: Colors.white,

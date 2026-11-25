@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:veraxi_app/core/theme.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
@@ -314,6 +315,30 @@ void main() {
 
       expect(find.byKey(const Key('no-solid-evidence-banner')), findsNothing);
       expect(find.byKey(const Key('low-evidence-banner')), findsNothing);
+    });
+
+    testWidgets('uses explicit light foreground for listBullet in dark theme',
+        (tester) async {
+      final theme = AppTheme.darkTheme;
+      final ext = theme.extension<AppThemeExtension>()!;
+      final msg = ChatMessage(
+        role: 'assistant',
+        content: '- First point\n- Second point',
+      );
+
+      await tester.pumpWidget(
+        wrap(
+          ChatMessageListItem(
+            msg: msg,
+            theme: theme,
+            ext: ext,
+            showTelemetry: false,
+          ),
+        ),
+      );
+
+      final mdBody = tester.widget<MarkdownBody>(find.byType(MarkdownBody));
+      expect(mdBody.styleSheet?.listBullet?.color, const Color(0xFFE2E8F0));
     });
   });
 }
