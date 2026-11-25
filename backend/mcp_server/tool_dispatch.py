@@ -1535,7 +1535,7 @@ class RepoFileHit:
             "title": str(res.get("path") or "Repository File"),
             "url": str(res.get("url") or ""),
             "path": str(res.get("path") or ""),
-            "text": str(res.get("content") or "")[:400],
+            "text": str(res.get("content") or ""),
             "content": formatted_content,
         }
         self.sources = ["Repo X-Ray"]
