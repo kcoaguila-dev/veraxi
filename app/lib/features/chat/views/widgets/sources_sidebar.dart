@@ -180,8 +180,7 @@ class SourcesSidebar extends StatelessWidget {
                 separatorBuilder: (context, index) => SizedBox(height: 16),
                 itemBuilder: (context, index) {
                   final source = sources[index];
-                  final rawTitle =
-                      source['title']?.toString() ?? 'Web Source';
+                  final rawTitle = source['title']?.toString() ?? 'Web Source';
                   final url = source['url']?.toString() ?? '';
                   final snippet = source['snippet']?.toString() ?? '';
                   final lineTarget = CodeCitationTarget.tryParse(url);

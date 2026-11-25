@@ -346,8 +346,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(AlertDialog), findsOneWidget);
-    expect(find.text('Full internal chunk content for preview.'),
-        findsWidgets);
+    expect(find.text('Full internal chunk content for preview.'), findsWidgets);
   });
 }
 
