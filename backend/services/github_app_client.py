@@ -36,6 +36,14 @@ class GitHubAppError(Exception):
     """Raised on GitHub App configuration, auth, or API failures."""
 
 
+class GitHubAppConfigError(GitHubAppError):
+    """Raised when server-side GitHub App credentials or redirect URIs are invalid."""
+
+
+class GitHubAppStateError(GitHubAppError):
+    """Raised when an OAuth installation state token is missing or expired."""
+
+
 class GitHubAppRateLimitError(GitHubAppError):
     """Raised when GitHub API rate limits cannot be satisfied after retries."""
 
@@ -129,16 +137,16 @@ async def build_install_url(config: Any, redis_client: Any, tenant_id: str) -> s
 async def consume_install_state(redis_client: Any, state: str) -> dict[str, Any]:
     """Validate and consume a one-time state token from Redis."""
     if not state:
-        raise GitHubAppError("Missing OAuth state")
+        raise GitHubAppStateError("Missing OAuth state")
     raw = await redis_client.get(_state_key(state))
     if raw is None:
-        raise GitHubAppError("GitHub App state is invalid or expired")
+        raise GitHubAppStateError("GitHub App state is invalid or expired")
     await redis_client.delete(_state_key(state))
     if isinstance(raw, bytes):
         raw = raw.decode("utf-8")
     data = json.loads(raw)
     if not data.get("tenant_id"):
-        raise GitHubAppError("GitHub App state is missing tenant binding")
+        raise GitHubAppStateError("GitHub App state is missing tenant binding")
     return data
 
 
@@ -201,6 +209,31 @@ async def _request_with_backoff(
     raise GitHubAppError(f"GitHub API request failed: {last_exc}")
 
 
+_CONFIG_OAUTH_ERRORS = frozenset(
+    {"incorrect_client_credentials", "redirect_uri_mismatch"}
+)
+
+
+def _handle_github_http_error(exc: httpx.HTTPStatusError, context: str) -> GitHubAppError:
+    """Translate an httpx HTTPStatusError into a typed GitHubAppError."""
+    status = exc.response.status_code
+    if status == 404 and context == "oauth_exchange":
+        return GitHubAppConfigError(
+            "GitHub OAuth token endpoint returned 404; verify GITHUB_APP_CLIENT_ID"
+        )
+    if status == 401 and context == "user_api":
+        return GitHubAppError("GitHub user authorization token is invalid or expired")
+    return GitHubAppError(f"GitHub {context} failed ({status})")
+
+
+def _raise_oauth_payload_error(payload: dict[str, Any], action: str) -> None:
+    """Raise a typed GitHubAppError when GitHub's OAuth JSON omits access_token."""
+    err = str(payload.get("error") or f"{action}_failed")
+    if err in _CONFIG_OAUTH_ERRORS:
+        raise GitHubAppConfigError(f"GitHub {action} misconfigured ({err})")
+    raise GitHubAppError(f"GitHub {action} failed ({err})")
+
+
 async def exchange_user_oauth_code(
     config: Any, code: str
 ) -> dict[str, Any]:
@@ -211,36 +244,40 @@ async def exchange_user_oauth_code(
         "code": code,
         "redirect_uri": callback_uri(config),
     }
-    resp = await _request_with_backoff(
-        "POST",
-        f"{GITHUB_WEB_BASE}/login/oauth/access_token",
-        headers={"Accept": "application/json"},
-        data=body,
-    )
+    try:
+        resp = await _request_with_backoff(
+            "POST",
+            f"{GITHUB_WEB_BASE}/login/oauth/access_token",
+            headers={"Accept": "application/json"},
+            data=body,
+        )
+    except httpx.HTTPStatusError as exc:
+        raise _handle_github_http_error(exc, "oauth_exchange") from exc
     payload = resp.json()
     if not payload.get("access_token"):
-        err = payload.get("error") or "oauth_exchange_failed"
-        raise GitHubAppError(f"GitHub user OAuth exchange failed ({err})")
+        _raise_oauth_payload_error(payload, "user OAuth exchange")
     return payload
 
 
 async def refresh_user_token(config: Any, refresh_token: str) -> dict[str, Any]:
     """Refresh an expiring GitHub App user-to-server access token."""
-    resp = await _request_with_backoff(
-        "POST",
-        f"{GITHUB_WEB_BASE}/login/oauth/access_token",
-        headers={"Accept": "application/json"},
-        data={
-            "client_id": config.github_app_client_id,
-            "client_secret": config.github_app_client_secret,
-            "grant_type": "refresh_token",
-            "refresh_token": refresh_token,
-        },
-    )
+    try:
+        resp = await _request_with_backoff(
+            "POST",
+            f"{GITHUB_WEB_BASE}/login/oauth/access_token",
+            headers={"Accept": "application/json"},
+            data={
+                "client_id": config.github_app_client_id,
+                "client_secret": config.github_app_client_secret,
+                "grant_type": "refresh_token",
+                "refresh_token": refresh_token,
+            },
+        )
+    except httpx.HTTPStatusError as exc:
+        raise _handle_github_http_error(exc, "token_refresh") from exc
     payload = resp.json()
     if not payload.get("access_token"):
-        err = payload.get("error") or "refresh_failed"
-        raise GitHubAppError(f"GitHub user token refresh failed ({err})")
+        _raise_oauth_payload_error(payload, "user token refresh")
     return payload
 
 
@@ -257,12 +294,15 @@ async def list_user_installations(user_token: str) -> list[dict[str, Any]]:
     installations: list[dict[str, Any]] = []
     page = 1
     while page <= 20:
-        resp = await _request_with_backoff(
-            "GET",
-            f"{GITHUB_API_BASE}/user/installations",
-            headers=_gh_headers(user_token),
-            params={"per_page": 100, "page": page},
-        )
+        try:
+            resp = await _request_with_backoff(
+                "GET",
+                f"{GITHUB_API_BASE}/user/installations",
+                headers=_gh_headers(user_token),
+                params={"per_page": 100, "page": page},
+            )
+        except httpx.HTTPStatusError as exc:
+            raise _handle_github_http_error(exc, "user_api") from exc
         batch = resp.json().get("installations") or []
         installations.extend(batch)
         if len(batch) < 100:
@@ -278,12 +318,15 @@ async def list_user_installation_repos(
     repos: list[dict[str, Any]] = []
     page = 1
     while page <= 50:
-        resp = await _request_with_backoff(
-            "GET",
-            f"{GITHUB_API_BASE}/user/installations/{installation_id}/repositories",
-            headers=_gh_headers(user_token),
-            params={"per_page": 100, "page": page},
-        )
+        try:
+            resp = await _request_with_backoff(
+                "GET",
+                f"{GITHUB_API_BASE}/user/installations/{installation_id}/repositories",
+                headers=_gh_headers(user_token),
+                params={"per_page": 100, "page": page},
+            )
+        except httpx.HTTPStatusError as exc:
+            raise _handle_github_http_error(exc, "user_api") from exc
         batch = resp.json().get("repositories") or []
         repos.extend(batch)
         if len(batch) < 100:
@@ -336,6 +379,77 @@ async def _mint_installation_token(config: Any, installation_id: int) -> str:
                 f"Failed to mint installation token ({exc.response.status_code})"
             ) from exc
     raise GitHubAppError(f"Failed to mint installation token: {last_error}")
+
+
+def _mint_jwt_with_issuer(config: Any, issuer: str) -> str:
+    keys = _load_private_keys(config)
+    if not keys:
+        raise GitHubAppError("GitHub App private key is not configured")
+    now = int(time.time())
+    return jwt.encode(
+        {"iat": now - 60, "exp": now + 540, "iss": str(issuer)},
+        keys[0],
+        algorithm="RS256",
+    )
+
+
+async def _diagnose_404_client_id(
+    client: httpx.AsyncClient, config: Any
+) -> tuple[bool, str]:
+    app_id = (getattr(config, "github_app_id", "") or "").strip()
+    client_id = (getattr(config, "github_app_client_id", "") or "").strip()
+    if not app_id or app_id == client_id:
+        return False, "GitHub App not found (404) for configured issuer"
+    try:
+        fallback_jwt = _mint_jwt_with_issuer(config, app_id)
+        probe = await client.get(
+            f"{GITHUB_API_BASE}/app", headers=_gh_headers(fallback_jwt)
+        )
+    except Exception as exc:
+        return False, f"GitHub App credential check failed: {exc}"
+    if probe.status_code == 200:
+        return (
+            False,
+            "GITHUB_APP_CLIENT_ID mismatch: GITHUB_APP_ID authenticated against "
+            "GitHub, but GITHUB_APP_CLIENT_ID returned 404",
+        )
+    return False, f"GitHub App not found (404) and app_id probe returned {probe.status_code}"
+
+
+async def verify_app_credentials(config: Any) -> tuple[bool, str]:
+    """Verify configured GitHub App JWT + slug + client_id against ``GET /app``."""
+    if not is_configured(config):
+        return False, "GitHub App is not configured"
+    try:
+        app_jwt = mint_app_jwt(config)
+    except Exception as exc:
+        return False, f"Failed to mint GitHub App JWT: {exc}"
+
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            resp = await client.get(
+                f"{GITHUB_API_BASE}/app", headers=_gh_headers(app_jwt)
+            )
+            if resp.status_code == 404:
+                return await _diagnose_404_client_id(client, config)
+            if resp.status_code != 200:
+                return False, f"GitHub /app verification returned HTTP {resp.status_code}"
+            info = resp.json()
+    except Exception as exc:
+        return False, f"GitHub /app verification failed: {exc}"
+
+    actual_slug = str(info.get("slug") or "")
+    expected_slug = (getattr(config, "github_app_slug", "") or "").strip("/")
+    if expected_slug and actual_slug and actual_slug != expected_slug:
+        return (
+            False,
+            f"GITHUB_APP_SLUG mismatch: configured '{expected_slug}', GitHub returned '{actual_slug}'",
+        )
+    actual_cid = str(info.get("client_id") or "")
+    expected_cid = (getattr(config, "github_app_client_id", "") or "").strip()
+    if expected_cid and actual_cid and actual_cid != expected_cid:
+        return False, "GITHUB_APP_CLIENT_ID does not match GitHub App metadata"
+    return True, f"GitHub App '{actual_slug or expected_slug}' credentials verified"
 
 
 async def get_installation_token(

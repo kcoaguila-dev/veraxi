@@ -198,8 +198,7 @@ class ConnectRepoViewModel extends StateNotifier<ConnectRepoState> {
         );
       } else if (popupResult.error != null) {
         state = state.copyWith(
-          errorMessage:
-              'GitHub App authorization failed (${popupResult.error}).',
+          errorMessage: friendlyGitHubAppAuthError(popupResult.error!),
         );
       } else {
         // User closed popup or GitHub COOP severed window.opener — refresh
@@ -381,6 +380,24 @@ class ConnectRepoViewModel extends StateNotifier<ConnectRepoState> {
     return idx >= 0 && idx < trimmed.length - 1
         ? trimmed.substring(idx + 1)
         : trimmed;
+  }
+
+  /// Maps allowlisted backend OAuth callback error codes to user-actionable copy.
+  static String friendlyGitHubAppAuthError(String code) {
+    switch (code) {
+      case 'invalid_app_config':
+        return 'GitHub App credentials on this server are misconfigured. Check GITHUB_APP_CLIENT_ID / SECRET and try again.';
+      case 'state_expired':
+        return 'GitHub authorization session expired. Please click Install GitHub App & Select Repos to retry.';
+      case 'missing_params':
+        return 'GitHub did not return authorization parameters. Ensure "Request user authorization (OAuth) during installation" is enabled.';
+      case 'access_denied':
+        return 'GitHub App access was denied or installation ownership could not be verified.';
+      case 'storage_unavailable':
+        return 'Server storage is temporarily unavailable. Please try again.';
+      default:
+        return 'GitHub App authorization failed ($code).';
+    }
   }
 
   String _friendlyError(String path) {

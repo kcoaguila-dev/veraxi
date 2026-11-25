@@ -596,3 +596,38 @@ def test_webhook_installation_deleted_enqueues_arq_purge_when_arq_enabled():
         "purge_github_app_repos_task",
         [["tenant-1", "acme/one"], ["tenant-1", "acme/two"]],
     )
+
+
+def test_callback_maps_config_state_and_missing_param_errors():
+    sb = _FakeSupabase()
+    redis = FakeRedis()
+    app = _make_app(sb, redis, _cfg())
+    client = TestClient(app)
+
+    r_missing = client.get("/api/v1/github-app/callback?installation_id=123")
+    assert r_missing.status_code == 200
+    assert '"error": "missing_params"' in r_missing.text
+
+    r_state = client.get(
+        "/api/v1/github-app/callback?code=abc&installation_id=123&state=expired"
+    )
+    assert r_state.status_code == 200
+    assert '"error": "state_expired"' in r_state.text
+
+    with (
+        patch.object(
+            gh_routes.gh_client,
+            "consume_install_state",
+            AsyncMock(return_value={"tenant_id": "tenant-1"}),
+        ),
+        patch.object(
+            gh_routes.gh_client,
+            "exchange_user_oauth_code",
+            AsyncMock(side_effect=gh_routes.gh_client.GitHubAppConfigError("404")),
+        ),
+    ):
+        r_cfg = client.get(
+            "/api/v1/github-app/callback?code=abc&installation_id=123&state=ok"
+        )
+    assert r_cfg.status_code == 200
+    assert '"error": "invalid_app_config"' in r_cfg.text

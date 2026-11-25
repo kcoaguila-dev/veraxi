@@ -191,3 +191,102 @@ async def test_mint_installation_token_falls_back_to_secondary_key():
 
     assert token == "ghs_secondary_ok"
     assert calls == 2
+
+
+@pytest.mark.asyncio
+async def test_exchange_user_oauth_code_raises_config_error_on_404():
+    import httpx
+
+    cfg = _config(_generate_rsa_pem())
+    req = httpx.Request("POST", "https://github.com/login/oauth/access_token")
+    resp = httpx.Response(404, request=req)
+    exc = httpx.HTTPStatusError("not found", request=req, response=resp)
+
+    with patch.object(gh_client, "_request_with_backoff", side_effect=exc):
+        with pytest.raises(gh_client.GitHubAppConfigError):
+            await gh_client.exchange_user_oauth_code(cfg, "auth_code_1")
+
+
+@pytest.mark.asyncio
+async def test_exchange_user_oauth_code_raises_config_error_on_bad_client_creds():
+    cfg = _config(_generate_rsa_pem())
+
+    class _FakeResp:
+        def json(self):
+            return {"error": "incorrect_client_credentials"}
+
+    with patch.object(
+        gh_client, "_request_with_backoff", AsyncMock(return_value=_FakeResp())
+    ):
+        with pytest.raises(gh_client.GitHubAppConfigError):
+            await gh_client.exchange_user_oauth_code(cfg, "auth_code_1")
+
+
+@pytest.mark.asyncio
+async def test_consume_install_state_raises_state_error_when_missing():
+    redis = _FakeRedis()
+    with pytest.raises(gh_client.GitHubAppStateError):
+        await gh_client.consume_install_state(redis, "nonexistent-state")
+
+
+@pytest.mark.asyncio
+async def test_verify_app_credentials_detects_client_id_mismatch():
+    import httpx
+
+    cfg = _config(_generate_rsa_pem())
+
+    class _FakeAsyncClient:
+        def __init__(self, *args, **kwargs):
+            self.calls = 0
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            return None
+
+        async def get(self, url, headers=None):
+            self.calls += 1
+            if self.calls == 1:
+                return httpx.Response(404, request=httpx.Request("GET", url))
+            return httpx.Response(
+                200,
+                json={"id": 12345, "slug": "veraxi-test", "client_id": "Iv1.realclient"},
+                request=httpx.Request("GET", url),
+            )
+
+    with patch("httpx.AsyncClient", _FakeAsyncClient):
+        ok, msg = await gh_client.verify_app_credentials(cfg)
+
+    assert ok is False
+    assert "GITHUB_APP_CLIENT_ID mismatch" in msg
+
+
+@pytest.mark.asyncio
+async def test_verify_app_credentials_succeeds_when_matching():
+    import httpx
+
+    cfg = _config(_generate_rsa_pem())
+
+    class _FakeAsyncClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            return None
+
+        async def get(self, url, headers=None):
+            return httpx.Response(
+                200,
+                json={"id": 12345, "slug": "veraxi-test", "client_id": "Iv1.testclient"},
+                request=httpx.Request("GET", url),
+            )
+
+    with patch("httpx.AsyncClient", _FakeAsyncClient):
+        ok, msg = await gh_client.verify_app_credentials(cfg)
+
+    assert ok is True
+    assert "veraxi-test" in msg

@@ -319,18 +319,22 @@ class Config:
             oauth_redirect_base_url=os.environ.get(
                 "OAUTH_REDIRECT_BASE_URL", ""
             ).rstrip("/"),
-            github_app_id=os.environ.get("GITHUB_APP_ID", ""),
-            github_app_slug=os.environ.get("GITHUB_APP_SLUG", ""),
-            github_app_client_id=os.environ.get("GITHUB_APP_CLIENT_ID", ""),
-            github_app_client_secret=os.environ.get("GITHUB_APP_CLIENT_SECRET", ""),
+            github_app_id=os.environ.get("GITHUB_APP_ID", "").strip(),
+            github_app_slug=os.environ.get("GITHUB_APP_SLUG", "").strip(),
+            github_app_client_id=os.environ.get("GITHUB_APP_CLIENT_ID", "").strip(),
+            github_app_client_secret=os.environ.get(
+                "GITHUB_APP_CLIENT_SECRET", ""
+            ).strip(),
             github_app_private_key=os.environ.get("GITHUB_APP_PRIVATE_KEY", ""),
             github_app_private_key_path=os.environ.get(
                 "GITHUB_APP_PRIVATE_KEY_PATH", ""
-            ),
+            ).strip(),
             github_app_private_key_secondary=os.environ.get(
                 "GITHUB_APP_PRIVATE_KEY_SECONDARY", ""
             ),
-            github_app_webhook_secret=os.environ.get("GITHUB_APP_WEBHOOK_SECRET", ""),
+            github_app_webhook_secret=os.environ.get(
+                "GITHUB_APP_WEBHOOK_SECRET", ""
+            ).strip(),
             github_app_max_repo_mb=int(
                 os.environ.get("GITHUB_APP_MAX_REPO_MB", "100")
             ),

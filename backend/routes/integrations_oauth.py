@@ -70,6 +70,9 @@ _ALLOWED_OAUTH_ERRORS: dict[str, str] = {
     "server_error": "server_error",
     "temporarily_unavailable": "temporarily_unavailable",
     "storage_unavailable": "storage_unavailable",
+    "invalid_app_config": "invalid_app_config",
+    "state_expired": "state_expired",
+    "missing_params": "missing_params",
     "oauth_failed": "oauth_failed",
 }
 

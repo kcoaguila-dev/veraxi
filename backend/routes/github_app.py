@@ -450,7 +450,17 @@ def register_github_app_routes(
         if setup_action == "update" and (not code or not state):
             return _oauth_callback_html(app_base, "github_app", "connected")
         if not code or not state or not installation_id.isdigit():
-            return _oauth_callback_html(app_base, "github_app", "error", "oauth_failed")
+            logger.warning(
+                "GitHub App callback missing required parameters "
+                "(has_code=%s has_state=%s valid_installation_id=%s setup_action=%s)",
+                bool(code),
+                bool(state),
+                installation_id.isdigit(),
+                setup_action or "none",
+            )
+            return _oauth_callback_html(
+                app_base, "github_app", "error", "missing_params"
+            )
 
         sb = _get_supabase() if _get_supabase else None
         redis_client = _redis(request)
@@ -499,6 +509,17 @@ def register_github_app_routes(
                     token_bundle.get("expires_in")
                 ),
                 status="active",
+            )
+        except gh_client.GitHubAppStateError as exc:
+            logger.warning("GitHub App callback state rejected: %s", exc)
+            return _oauth_callback_html(
+                app_base, "github_app", "error", "state_expired"
+            )
+        except gh_client.GitHubAppConfigError as exc:
+            logger.error("GitHub App callback configuration error: %s", exc)
+            sentry_sdk.capture_exception(exc)
+            return _oauth_callback_html(
+                app_base, "github_app", "error", "invalid_app_config"
             )
         except gh_client.GitHubAppError as exc:
             logger.warning("GitHub App callback rejected: %s", exc)

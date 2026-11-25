@@ -50,6 +50,9 @@ Set these in `backend/.env` (or Cloud Run / Secret Manager):
 ```env
 INTEGRATION_ENCRYPTION_KEY=<fernet-key-or-strong-passphrase>
 OAUTH_REDIRECT_BASE_URL=https://api.veraxi.me
+# If Flutter Web is served under a subpath (e.g. /app/), include it in PUBLIC_APP_URL
+# so popup-blocked fallback redirects land on the app instead of the landing page:
+PUBLIC_APP_URL=https://veraxi.me/app
 
 GITHUB_APP_ID=123456
 GITHUB_APP_SLUG=veraxi-code-intel
@@ -86,3 +89,10 @@ GITHUB_APP_MAX_REPO_MB=100
 4. Ask a question in Code Chat and click a file citation — confirm `GET /api/v1/code/file` serves the exact file at the pinned commit SHA (`source: "github_app"`).
 5. Push a 1-file commit to the default branch on GitHub and verify the `push` webhook triggers an incremental update in the ARQ worker.
 6. Remove the repo from the GitHub App installation settings on GitHub and confirm Neo4j code nodes and `github_app_repos` rows are purged automatically.
+
+---
+
+## 6. Troubleshooting
+
+- **`invalid_app_config` / `404 Not Found` on `/login/oauth/access_token`**: Verify `GITHUB_APP_CLIENT_ID` and `GITHUB_APP_CLIENT_SECRET` in `backend/.env` match your GitHub App settings exactly (a single-character typo causes GitHub to return `404`). Check `veraxi-backend-1` startup logs for `GitHub App credential preflight failed`.
+- **Applying `backend/.env` changes in Docker Compose**: Always run `docker compose up -d --force-recreate backend worker` after editing `backend/.env` so Docker reloads `env_file` values into both containers (`docker restart` reuses the old environment).

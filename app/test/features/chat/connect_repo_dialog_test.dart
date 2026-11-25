@@ -453,4 +453,27 @@ void main() {
 
     expect(find.text('2 accounts · 1 repos granted'), findsOneWidget);
   });
+
+  test('friendlyGitHubAppAuthError maps allowlisted callback error codes', () {
+    expect(
+      ConnectRepoViewModel.friendlyGitHubAppAuthError('invalid_app_config'),
+      contains('GITHUB_APP_CLIENT_ID'),
+    );
+    expect(
+      ConnectRepoViewModel.friendlyGitHubAppAuthError('state_expired'),
+      contains('expired'),
+    );
+    expect(
+      ConnectRepoViewModel.friendlyGitHubAppAuthError('missing_params'),
+      contains('Request user authorization'),
+    );
+    expect(
+      ConnectRepoViewModel.friendlyGitHubAppAuthError('access_denied'),
+      contains('denied'),
+    );
+    expect(
+      ConnectRepoViewModel.friendlyGitHubAppAuthError('oauth_failed'),
+      'GitHub App authorization failed (oauth_failed).',
+    );
+  });
 }

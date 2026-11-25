@@ -5,6 +5,7 @@ This module is the FastAPI entrypoint. All endpoint logic lives in
 provides shared auth dependencies.
 """
 
+import asyncio
 import logging
 import sys
 from contextlib import asynccontextmanager
@@ -64,6 +65,22 @@ jwks_client = PyJWKClient(jwks_url)
 # ---------------------------------------------------------------------------
 
 
+async def _verify_github_app_startup(config) -> None:
+    """Non-blocking startup check for GitHub App credentials."""
+    try:
+        from backend.services import github_app_client as gh_client
+
+        if not gh_client.is_configured(config):
+            return
+        ok, detail = await gh_client.verify_app_credentials(config)
+        if ok:
+            logger.info("%s", detail)
+        else:
+            logger.error("GitHub App credential preflight failed: %s", detail)
+    except Exception as exc:
+        logger.warning("GitHub App startup verification error: %s", exc)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     config = get_config()
@@ -74,6 +91,10 @@ async def lifespan(app: FastAPI):
     else:
         app.state.redis = await create_pool(RedisSettings.from_dsn(config.redis_url))
 
+    verify_task: asyncio.Task[None] | None = None
+    if "pytest" not in sys.modules:
+        verify_task = asyncio.create_task(_verify_github_app_startup(config))
+
     from backend.routes.mcp_transport import reset_streamable_session_manager
 
     session_manager = reset_streamable_session_manager()
@@ -81,6 +102,8 @@ async def lifespan(app: FastAPI):
         async with session_manager.run():
             yield
     finally:
+        if verify_task is not None and not verify_task.done():
+            verify_task.cancel()
         await app.state.redis.close()
 
 
