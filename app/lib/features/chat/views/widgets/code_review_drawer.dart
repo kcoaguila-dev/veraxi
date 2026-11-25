@@ -523,9 +523,8 @@ class _CodeReviewDrawerState extends ConsumerState<CodeReviewDrawer> {
             Icon(
               icon,
               size: 12,
-              color: selected
-                  ? const Color(0xFFF4F4F5)
-                  : const Color(0xFF71717A),
+              color:
+                  selected ? const Color(0xFFF4F4F5) : const Color(0xFF71717A),
             ),
             const SizedBox(width: 4),
             Text(
