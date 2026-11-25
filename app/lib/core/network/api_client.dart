@@ -342,9 +342,8 @@ class ApiClient {
     if (streamed.statusCode != 200) {
       throw Exception('SSE stream error: ${streamed.statusCode}');
     }
-    final lines = streamed.stream
-        .transform(utf8.decoder)
-        .transform(const LineSplitter());
+    final lines =
+        streamed.stream.transform(utf8.decoder).transform(const LineSplitter());
     await for (final line in lines) {
       if (!line.startsWith('data:')) continue;
       final payload = line.substring(5).trim();

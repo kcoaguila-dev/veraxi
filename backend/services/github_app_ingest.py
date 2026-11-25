@@ -131,8 +131,8 @@ async def _report_progress(
             1800,
             json.dumps({"stage": stage, "message": message}),
         )
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("Progress update skipped: %s", exc)
 
 
 def _make_threadsafe_progress_cb(
@@ -147,8 +147,8 @@ def _make_threadsafe_progress_cb(
                 _report_progress(redis_client, tenant_id, repo_full_name, stage, message),
                 loop,
             )
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Threadsafe progress dispatch skipped: %s", exc)
 
     return _cb
 
@@ -183,8 +183,8 @@ async def _save_merkle_state(
             86400 * 7,
             json.dumps({"merkle_root": merkle_root, "file_hashes": file_hashes}),
         )
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("Merkle state save skipped: %s", exc)
 
 
 async def _load_shared_graph(
@@ -255,8 +255,8 @@ async def _save_shared_graph(
                 86400,
                 compressed,
             )
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("Merkle state save skipped: %s", exc)
 
 
 async def index_github_app_repo(
