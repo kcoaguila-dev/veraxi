@@ -578,10 +578,8 @@ class ChatMessageListItem extends ConsumerWidget {
                                               .withValues(alpha: 0.55),
                                         ),
                                       ],
-                                      if (msg.toolEvents.any((e) =>
-                                          (e.name.contains('web_search') ||
-                                              e.name.contains('merge_rank')) &&
-                                          e.result != null)) ...[
+                                      if (msg.toolEvents.any(
+                                          SourcesButton.isSourceEvent)) ...[
                                         SizedBox(width: 16),
                                         SourcesButton(
                                           message: msg,

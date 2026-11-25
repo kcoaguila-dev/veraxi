@@ -114,7 +114,7 @@ class SourcesButton extends StatelessWidget {
     final Set<String> seenUrls = {};
 
     for (var event in message.toolEvents) {
-      if (!_isSourceEvent(event)) continue;
+      if (!isSourceEvent(event)) continue;
 
       final items = _parseEventResult(event.result);
       for (var item in items) {
@@ -142,7 +142,7 @@ class SourcesButton extends StatelessWidget {
     return sources;
   }
 
-  static bool _isSourceEvent(ToolEvent event) {
+  static bool isSourceEvent(ToolEvent event) {
     if (event.result == null) return false;
     return event.name.contains('web_search') ||
         event.name.contains('merge_rank') ||
