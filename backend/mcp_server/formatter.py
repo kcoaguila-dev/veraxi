@@ -625,9 +625,10 @@ def _prepend_system_messages(
     messages: Sequence[BaseMessage],
     extra_system_messages: list[SystemMessage] | None = None,
     custom_system_prompt: str | None = None,
+    base_system_prompt: str = CHAT_SYSTEM_PROMPT,
 ) -> list[BaseMessage]:
     """Inject chat-wide system instructions without persisting them to thread state."""
-    system_messages = [SystemMessage(content=CHAT_SYSTEM_PROMPT)]
+    system_messages = [SystemMessage(content=base_system_prompt)]
 
     if custom_system_prompt and custom_system_prompt.strip():
         system_messages.append(

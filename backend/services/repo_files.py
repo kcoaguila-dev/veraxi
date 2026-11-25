@@ -21,7 +21,7 @@ import sentry_sdk
 logger = logging.getLogger(__name__)
 
 MAX_CODE_FILE_VIEW_BYTES = 1_000_000
-DEFAULT_READ_MAX_CHARS = 24_000
+DEFAULT_READ_MAX_CHARS = 8_000
 _TREE_CACHE_TTL_SEC = 300
 _FILE_CACHE_TTL_SEC = 300
 

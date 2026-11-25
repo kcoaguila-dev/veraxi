@@ -926,7 +926,8 @@ async def call_model(state: AgentState):
     web_enabled = (
         web_search.get("enabled", False) if isinstance(web_search, dict) else False
     )
-    if file_search_enabled or web_enabled or workspace_note is not None:
+    is_code_ws = _is_code_workspace(tool_settings)
+    if file_search_enabled or web_enabled:
         if not can_bind_tools:
             rule_2 = (
                 "2. ANTI-ATTRIBUTION-DRIFT: NEVER reuse citations from previous turns to justify new claims. "
@@ -955,11 +956,14 @@ async def call_model(state: AgentState):
             )
         )
 
+    from backend.prompts import CHAT_SYSTEM_PROMPT, CODE_SYSTEM_PROMPT
+
     custom_system_prompt = tool_settings.get("custom_system_prompt")
     modified_messages = _prepend_system_messages(
         messages,
         extra_system_messages,
         custom_system_prompt=custom_system_prompt,
+        base_system_prompt=CODE_SYSTEM_PROMPT if is_code_ws else CHAT_SYSTEM_PROMPT,
     )
     modified_messages = _sanitize_messages_for_provider(modified_messages)
 

@@ -181,6 +181,11 @@ def _friendly_provider_error(error: Exception) -> str:
     if "model_not_found" in message or "does not have access to model" in message:
         return "The selected model is unavailable. Please choose another model."
     if "ratelimit" in message or "rate limit" in message or "quota" in message:
+        if "request too large" in message or "tokens per minute" in message or "tpm" in message:
+            return (
+                "This request exceeded the provider's tokens-per-minute (TPM) limit. "
+                "Please switch to a higher-limit model or start a shorter thread."
+            )
         return (
             "This provider has reached its quota or rate limit. "
             "Please switch models or try again later."

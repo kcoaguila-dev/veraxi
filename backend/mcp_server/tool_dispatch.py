@@ -257,76 +257,74 @@ async def get_tools(
             }
         )
 
-    # create_office_artifact is always available, unlike run_python_code:
-    # it executes nothing, makes no external calls, and costs nothing —
-    # it only validates a document spec against the deterministic
-    # exporters in backend/services/office_export.py and hands back a
-    # JSON block. Gating it behind a settings toggle would just make
-    # "make me a deck / spreadsheet" fail unpredictably.
-    all_tools.append(
-        {
-            "type": "function",
-            "function": {
-                "name": "create_office_artifact",
-                "description": (
-                    "Create a downloadable Office/PDF document (report, "
-                    "spreadsheet, or slide deck) from a structured spec or "
-                    "Markdown/CSV content. The document is validated "
-                    "server-side; the tool returns a fenced ```json block "
-                    "that you must include verbatim in your reply — it "
-                    "becomes the downloadable file card. Use this whenever "
-                    "the user asks for a document, spreadsheet, budget, "
-                    "slide deck, or PDF file. For spreadsheets, cell strings "
-                    "starting with '=' are stored as live Excel formulas "
-                    "(e.g. '=SUM(B2:B5)'). Provide spec OR content, not both."
-                ),
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "format": {
-                            "type": "string",
-                            "enum": ["pdf", "docx", "xlsx", "pptx"],
-                            "description": "The file format to produce.",
+    # create_office_artifact is always available in Chat Mode, and opt-in
+    # (via artifacts_enabled) in Code Mode to avoid ~450 tokens of
+    # office-export schema bloat on every repository turn.
+    if not _has_active_repo_context(tool_settings) or (tool_settings or {}).get("artifacts_enabled"):
+        all_tools.append(
+            {
+                "type": "function",
+                "function": {
+                    "name": "create_office_artifact",
+                    "description": (
+                        "Create a downloadable Office/PDF document (report, "
+                        "spreadsheet, or slide deck) from a structured spec or "
+                        "Markdown/CSV content. The document is validated "
+                        "server-side; the tool returns a fenced ```json block "
+                        "that you must include verbatim in your reply — it "
+                        "becomes the downloadable file card. Use this whenever "
+                        "the user asks for a document, spreadsheet, budget, "
+                        "slide deck, or PDF file. For spreadsheets, cell strings "
+                        "starting with '=' are stored as live Excel formulas "
+                        "(e.g. '=SUM(B2:B5)'). Provide spec OR content, not both."
+                    ),
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "format": {
+                                "type": "string",
+                                "enum": ["pdf", "docx", "xlsx", "pptx"],
+                                "description": "The file format to produce.",
+                            },
+                            "title": {
+                                "type": "string",
+                                "description": "The document title.",
+                            },
+                            "spec": {
+                                "type": "object",
+                                "description": (
+                                    "Structured spec. pptx: {\"slides\": [{\"title\": str, "
+                                    "\"subtitle\": str (optional), \"bullets\": [str] (optional), "
+                                    "\"table\": {\"headers\": [str], \"rows\": [[...]]} (optional), "
+                                    "\"notes\": str (optional), \"theme\": \"dark\"|\"light\" (optional), "
+                                    "\"accent_color\": \"#RRGGBB\" (optional)}]}. "
+                                    "xlsx: {\"sheets\": [{\"name\": str, \"headers\": [str], "
+                                    "\"rows\": [[...]]}]}. docx: {\"sections\": [{\"heading\": str, "
+                                    "\"level\": 1-3, \"paragraphs\": [str], \"bullets\": [str], "
+                                    "\"table\": {\"headers\": [...], \"rows\": [[...]]}}]}. "
+                                    "pdf accepts any of these shapes."
+                                ),
+                            },
+                            "content": {
+                                "type": "string",
+                                "description": (
+                                    "Document body instead of a spec: Markdown "
+                                    "(headings, lists, tables; for pptx, separate "
+                                    "slides with '---' lines) or CSV when "
+                                    "content_type is 'csv'. Best for prose documents."
+                                ),
+                            },
+                            "content_type": {
+                                "type": "string",
+                                "enum": ["markdown", "csv"],
+                                "description": "How to parse content (default markdown).",
+                            },
                         },
-                        "title": {
-                            "type": "string",
-                            "description": "The document title.",
-                        },
-                        "spec": {
-                            "type": "object",
-                            "description": (
-                                "Structured spec. pptx: {\"slides\": [{\"title\": str, "
-                                "\"subtitle\": str (optional), \"bullets\": [str] (optional), "
-                                "\"table\": {\"headers\": [str], \"rows\": [[...]]} (optional), "
-                                "\"notes\": str (optional), \"theme\": \"dark\"|\"light\" (optional), "
-                                "\"accent_color\": \"#RRGGBB\" (optional)}]}. "
-                                "xlsx: {\"sheets\": [{\"name\": str, \"headers\": [str], "
-                                "\"rows\": [[...]]}]}. docx: {\"sections\": [{\"heading\": str, "
-                                "\"level\": 1-3, \"paragraphs\": [str], \"bullets\": [str], "
-                                "\"table\": {\"headers\": [...], \"rows\": [[...]]}}]}. "
-                                "pdf accepts any of these shapes."
-                            ),
-                        },
-                        "content": {
-                            "type": "string",
-                            "description": (
-                                "Document body instead of a spec: Markdown "
-                                "(headings, lists, tables; for pptx, separate "
-                                "slides with '---' lines) or CSV when "
-                                "content_type is 'csv'. Best for prose documents."
-                            ),
-                        },
-                        "content_type": {
-                            "type": "string",
-                            "enum": ["markdown", "csv"],
-                            "description": "How to parse content (default markdown).",
-                        },
+                        "required": ["format", "title"],
                     },
-                    "required": ["format", "title"],
                 },
-            },
-        }
-    )
+            }
+        )
 
     if run_code_enabled:
         all_tools.append(
@@ -1506,7 +1504,7 @@ def _format_code_read_output(res: dict[str, Any]) -> str:
         f"url: {res.get('url')})"
     )
     if res.get("truncated"):
-        header += " [truncated]"
+        header += " [truncated; use start_line/end_line to read further]"
     start = int(res.get("start_line") or 1)
     numbered = "\n".join(
         f"{idx}: {line}"

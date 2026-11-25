@@ -23,7 +23,7 @@ from backend.services.repo_files import (
 logger = logging.getLogger(__name__)
 
 _MAX_ROOT_ENTRIES = 40
-_MAX_INSTRUCTION_CHARS = 4000
+_MAX_INSTRUCTION_CHARS = 1200
 _INSTRUCTION_CANDIDATES = (
     "AGENTS.md",
     "CLAUDE.md",
