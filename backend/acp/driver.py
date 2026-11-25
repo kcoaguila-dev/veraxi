@@ -23,12 +23,12 @@ import sentry_sdk
 
 from backend.acp.protocol import (
     AcpTurnAdapter,
-    build_friendly_acp_error,
     build_initialize_params,
     build_session_new_params,
     build_session_prompt_params,
     encode_rpc_request,
     encode_rpc_response,
+    friendly_acp_exception_error,
     parse_ndjson_line,
 )
 
@@ -363,14 +363,17 @@ class LocalAcpDriver:
                 for sse_evt in adapter.finalize_turn():
                     yield sse_evt
             except AcpDriverError as exc:
+                sentry_sdk.capture_exception(exc)
+                logger.exception("ACP driver error during prompt turn")
                 for sse_evt in adapter.finalize_turn():
                     yield sse_evt
-                yield self._format_driver_error(exc)
+                yield friendly_acp_exception_error(exc)
             except Exception as exc:
                 sentry_sdk.capture_exception(exc)
+                logger.exception("Unexpected error during ACP prompt turn")
                 for sse_evt in adapter.finalize_turn():
                     yield sse_evt
-                yield build_friendly_acp_error(str(exc))
+                yield friendly_acp_exception_error(exc)
             finally:
                 session.turn_queue = None
                 session.touch()
@@ -399,19 +402,6 @@ class LocalAcpDriver:
         else:
             rpc_result = {"outcome": {"outcome": "selected", "optionId": outcome}}
         await self._write_bytes(session, encode_rpc_response(raw_id, result=rpc_result))
-
-    def _format_driver_error(self, exc: AcpDriverError) -> dict[str, Any]:
-        raw = str(exc)
-        try:
-            parsed = json.loads(raw)
-            if isinstance(parsed, dict):
-                return build_friendly_acp_error(
-                    str(parsed.get("message") or raw),
-                    code=parsed.get("code"),
-                )
-        except ValueError:
-            pass
-        return build_friendly_acp_error(raw)
 
     async def close_session(self, veraxi_session_id: str) -> None:
         """Terminate an ACP session subprocess and clean up indices."""

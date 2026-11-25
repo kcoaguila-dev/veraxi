@@ -48,6 +48,30 @@ def build_friendly_acp_error(message: str, code: int | str | None = None) -> dic
     }
 
 
+def friendly_acp_exception_error(exc: Exception) -> dict[str, Any]:
+    """Classify an ACP exception into a safe, static SSE error payload.
+
+    Raw exception details must never be returned to external clients; callers
+    are responsible for capturing the exception via Sentry/logging.
+    """
+    raw = str(exc)
+    if is_quota_exhausted_error(raw):
+        return build_friendly_acp_error("", code=429)
+    try:
+        parsed = json.loads(raw)
+        if isinstance(parsed, dict):
+            parsed_code = parsed.get("code")
+            parsed_msg = str(parsed.get("message") or "")
+            if parsed_code == 429 or is_quota_exhausted_error(parsed_msg):
+                return build_friendly_acp_error("", code=429)
+    except ValueError:
+        pass
+    return {
+        "error": "External ACP agent failed. Please try again or switch models.",
+        "code": "acp_error",
+    }
+
+
 def encode_rpc_request(
     request_id: str,
     method: str,

@@ -5,6 +5,7 @@ from backend.acp.protocol import (
     build_friendly_acp_error,
     encode_rpc_request,
     encode_rpc_response,
+    friendly_acp_exception_error,
     is_quota_exhausted_error,
     parse_ndjson_line,
 )
@@ -38,6 +39,20 @@ def test_quota_error_classification():
     friendly = build_friendly_acp_error("429 Too Many Requests")
     assert friendly["code"] == "quota_exhausted"
     assert friendly["recoverable_action"] == "switch_model"
+
+
+def test_friendly_acp_exception_error_redacts_internal_details():
+    secret_exc = RuntimeError("/home/ubuntu/secret/path.py: Traceback (most recent call last)")
+    safe = friendly_acp_exception_error(secret_exc)
+    assert safe["code"] == "acp_error"
+    assert "/home/ubuntu/secret/path.py" not in safe["error"]
+    assert "Traceback" not in safe["error"]
+
+    quota_json_exc = RuntimeError('{"code": 429, "message": "internal quota details /var/log"}')
+    quota_safe = friendly_acp_exception_error(quota_json_exc)
+    assert quota_safe["code"] == "quota_exhausted"
+    assert quota_safe["recoverable_action"] == "switch_model"
+    assert "/var/log" not in quota_safe["error"]
 
 
 def test_turn_adapter_translates_thought_text_tools_and_permission():

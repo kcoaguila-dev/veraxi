@@ -2,15 +2,23 @@
 
 from __future__ import annotations
 
+import logging
 import os
 import subprocess
 from collections.abc import AsyncGenerator
 from typing import Any
 
+import sentry_sdk
+
 from backend.acp.driver import AcpDriverError, LocalAcpDriver
-from backend.acp.protocol import build_friendly_acp_error
+from backend.acp.protocol import (
+    build_friendly_acp_error,
+    friendly_acp_exception_error,
+)
 from backend.acp.usage_reader import read_local_usage_summary
 from backend.config import get_config
+
+logger = logging.getLogger(__name__)
 
 DEFAULT_ANTIGRAVITY_MODELS: list[str] = [
     "gemini-4-neon-high",
@@ -146,7 +154,9 @@ class AcpSessionBroker:
                     self._session_tenants[str(evt["session_id"])] = tenant_id
                 yield evt
         except AcpDriverError as exc:
-            yield build_friendly_acp_error(str(exc))
+            sentry_sdk.capture_exception(exc)
+            logger.exception("ACP broker error during prompt turn")
+            yield friendly_acp_exception_error(exc)
 
     async def resolve_permission(
         self, tenant_id: str, session_id: str, request_id: str, outcome: str
