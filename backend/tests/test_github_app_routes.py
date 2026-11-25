@@ -631,3 +631,30 @@ def test_callback_maps_config_state_and_missing_param_errors():
         )
     assert r_cfg.status_code == 200
     assert '"error": "invalid_app_config"' in r_cfg.text
+
+
+def test_code_repos_excludes_incomplete_github_app_repos():
+    sb = _FakeSupabase()
+    sb.tables["github_app_repos"].rows.extend(
+        [
+            {"tenant_id": "tenant-1", "repo_full_name": "acme/indexing", "index_status": "indexing"},
+            {"tenant_id": "tenant-1", "repo_full_name": "acme/ready", "index_status": "indexed"},
+        ]
+    )
+    app = FastAPI()
+    code_intel_routes.register_code_intel_routes(
+        app, lambda: "tenant-1", lambda: sb, _cfg()
+    )
+    client = TestClient(app)
+
+    fake_repos = [
+        {"repo_key": "acme/indexing", "file_count": 10},
+        {"repo_key": "acme/ready", "file_count": 20},
+        {"repo_key": "local-repo", "file_count": 5},
+    ]
+    with patch.object(code_intel_routes, "list_indexed_repos", return_value=fake_repos):
+        resp = client.get("/api/v1/code/repos")
+
+    assert resp.status_code == 200
+    keys = [r["repo_key"] for r in resp.json()["repos"]]
+    assert keys == ["acme/ready", "local-repo"]

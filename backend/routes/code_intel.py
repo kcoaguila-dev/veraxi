@@ -586,6 +586,29 @@ async def _fetch_github_app_code_file(
     return content
 
 
+def _filter_incomplete_github_app_repos(
+    sb: Any, tenant_id: str, repos: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """Exclude GitHub App repos that are still indexing or failed from completed list."""
+    if not sb or not repos:
+        return repos
+    try:
+        from backend.services import github_app_store as gh_store
+
+        gh_rows = gh_store.list_repos(sb, tenant_id)
+    except Exception as exc:
+        logger.debug("Skipping GitHub App status filter: %s", exc)
+        return repos
+    incomplete = {
+        str(r.get("repo_full_name") or "")
+        for r in gh_rows
+        if r.get("repo_full_name") and r.get("index_status") != "indexed"
+    }
+    if not incomplete:
+        return repos
+    return [r for r in repos if str(r.get("repo_key") or "") not in incomplete]
+
+
 def register_code_intel_routes(
     app_router, get_tenant_id, _get_supabase=None, config=None
 ):
@@ -831,6 +854,11 @@ def register_code_intel_routes(
         """List all indexed repositories for this tenant with counts and freshness."""
         try:
             repos = await asyncio.to_thread(list_indexed_repos, tenant_id=tenant_id)
+            sb = _get_supabase() if _get_supabase else None
+            if sb:
+                repos = await asyncio.to_thread(
+                    _filter_incomplete_github_app_repos, sb, tenant_id, repos
+                )
             return {"repos": repos}
         except Exception as e:
             sentry_sdk.capture_exception(e)
