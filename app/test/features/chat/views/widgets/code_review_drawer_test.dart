@@ -95,7 +95,7 @@ void main() {
   late _FakeCodeReviewRepository reviewRepository;
   late WidgetRef capturedRef;
 
-  Widget wrap(CodeReviewState review) {
+  Widget wrap(CodeReviewState review, {double? maxSplitWidth}) {
     return ProviderScope(
       overrides: [
         codeReviewRepositoryProvider.overrideWithValue(reviewRepository),
@@ -110,7 +110,10 @@ void main() {
               return SizedBox(
                 width: 1000,
                 height: 700,
-                child: CodeReviewDrawer(review: review),
+                child: CodeReviewDrawer(
+                  review: review,
+                  maxSplitWidth: maxSplitWidth,
+                ),
               );
             },
           ),
@@ -312,6 +315,66 @@ void main() {
           find.byKey(const Key('code-review-markdown-toggle')), findsOneWidget);
       expect(find.byType(CodeLinesView), findsOneWidget);
       expect(find.byType(MarkdownBody), findsNothing);
+    });
+  });
+
+  group('CodeReviewDrawer resizable width', () {
+    const mdReview = CodeReviewState(
+      sessionId: '',
+      turnId: 'msg-resize',
+      focusedPath: 'README.md',
+    );
+
+    test('computeReviewPaneWidth clamps within safe bounds', () {
+      expect(computeReviewPaneWidth(1400, 0.55), closeTo(770.0, 0.001));
+      expect(computeReviewPaneWidth(1400, 0.1), 380.0);
+      expect(computeReviewPaneWidth(1400, 0.95), 1040.0);
+    });
+
+    testWidgets(
+        'hides resize sash and expand button when maxSplitWidth is null',
+        (tester) async {
+      await tester.pumpWidget(wrap(mdReview));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('code-review-resize-sash')), findsNothing);
+      expect(find.byKey(const Key('code-review-expand-button')), findsNothing);
+    });
+
+    testWidgets('drag sash widens pane and expand button toggles width',
+        (tester) async {
+      await tester.pumpWidget(wrap(mdReview, maxSplitWidth: 1600));
+      await tester.pumpAndSettle();
+
+      final sash = find.byKey(const Key('code-review-resize-sash'));
+      final expand = find.byKey(const Key('code-review-expand-button'));
+      expect(sash, findsOneWidget);
+      expect(expand, findsOneWidget);
+
+      final initialFraction = capturedRef.read(reviewPaneWidthFractionProvider);
+      expect(initialFraction, kDefaultReviewPaneFraction);
+
+      await tester.drag(sash, const Offset(-160, 0));
+      await tester.pumpAndSettle();
+
+      expect(
+        capturedRef.read(reviewPaneWidthFractionProvider),
+        greaterThan(initialFraction),
+      );
+
+      await tester.tap(expand);
+      await tester.pumpAndSettle();
+      expect(
+        capturedRef.read(reviewPaneWidthFractionProvider),
+        kExpandedReviewPaneFraction,
+      );
+
+      await tester.tap(expand);
+      await tester.pumpAndSettle();
+      expect(
+        capturedRef.read(reviewPaneWidthFractionProvider),
+        kDefaultReviewPaneFraction,
+      );
     });
   });
 }

@@ -64,7 +64,16 @@ List<_DiffRow> diffRowsForHunk(CodeReviewHunk hunk) {
 class CodeReviewDrawer extends ConsumerStatefulWidget {
   final CodeReviewState review;
 
-  const CodeReviewDrawer({super.key, required this.review});
+  /// Total desktop split-pane container width when hosted side-by-side.
+  /// When non-null, enables the draggable left-edge resize sash and
+  /// header expand/restore button.
+  final double? maxSplitWidth;
+
+  const CodeReviewDrawer({
+    super.key,
+    required this.review,
+    this.maxSplitWidth,
+  });
 
   @override
   ConsumerState<CodeReviewDrawer> createState() => _CodeReviewDrawerState();
@@ -75,6 +84,8 @@ class _CodeReviewDrawerState extends ConsumerState<CodeReviewDrawer> {
   final Map<String, GlobalKey> _fileKeys = {};
   bool _loadStarted = false;
   bool _focusedScrollDone = false;
+  bool _sashHovered = false;
+  bool _sashDragging = false;
   late bool _showMarkdownPreview = _defaultMarkdownPreview();
 
   bool get _isLive => widget.review.hasLiveSandbox;
@@ -188,22 +199,78 @@ class _CodeReviewDrawerState extends ConsumerState<CodeReviewDrawer> {
     // Esc whenever the diff column, not the drawer chrome, has focus).
     return Container(
       key: const Key('code-review-drawer'),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: ObsidianTokens.shell,
-        border: Border(
-          left: BorderSide(color: ObsidianTokens.hairline),
-        ),
+        border: widget.maxSplitWidth == null
+            ? const Border(
+                left: BorderSide(color: ObsidianTokens.hairline),
+              )
+            : null,
       ),
-      child: Column(
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _buildTabBar(),
-          if (_isLive) _buildForTurnBar() else _buildReadOnlyBar(),
-          const Divider(height: 1, color: ObsidianTokens.hairline),
-          Expanded(child: _isLive ? _buildLiveBody() : _buildReadOnlyBody()),
+          if (widget.maxSplitWidth != null) _buildResizeSash(),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _buildTabBar(),
+                if (_isLive) _buildForTurnBar() else _buildReadOnlyBar(),
+                const Divider(height: 1, color: ObsidianTokens.hairline),
+                Expanded(
+                    child: _isLive ? _buildLiveBody() : _buildReadOnlyBody()),
+              ],
+            ),
+          ),
         ],
       ),
     );
+  }
+
+  Widget _buildResizeSash() {
+    final active = _sashHovered || _sashDragging;
+    return MouseRegion(
+      cursor: SystemMouseCursors.resizeColumn,
+      onEnter: (_) => setState(() => _sashHovered = true),
+      onExit: (_) => setState(() => _sashHovered = false),
+      child: GestureDetector(
+        key: const Key('code-review-resize-sash'),
+        behavior: HitTestBehavior.translucent,
+        onHorizontalDragStart: (_) => setState(() => _sashDragging = true),
+        onHorizontalDragEnd: (_) => setState(() => _sashDragging = false),
+        onHorizontalDragCancel: () => setState(() => _sashDragging = false),
+        onHorizontalDragUpdate: _handleSashDrag,
+        onDoubleTap: () {
+          ref.read(reviewPaneWidthFractionProvider.notifier).state =
+              kDefaultReviewPaneFraction;
+        },
+        child: SizedBox(
+          width: 6,
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 120),
+              width: active ? 2 : 1,
+              color: active ? const Color(0xFF3B82F6) : ObsidianTokens.hairline,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _handleSashDrag(DragUpdateDetails details) {
+    final totalWidth = widget.maxSplitWidth;
+    if (totalWidth == null || totalWidth <= 0) return;
+    final currentFraction = ref.read(reviewPaneWidthFractionProvider);
+    final currentWidth = computeReviewPaneWidth(totalWidth, currentFraction);
+    final nextWidth = currentWidth - details.delta.dx;
+    final minFraction = (380.0 / totalWidth).clamp(0.2, 0.5);
+    final maxFraction =
+        ((totalWidth - 360.0) / totalWidth).clamp(minFraction, 0.85);
+    ref.read(reviewPaneWidthFractionProvider.notifier).state =
+        (nextWidth / totalWidth).clamp(minFraction, maxFraction);
   }
 
   Widget _buildTabBar() {
@@ -329,6 +396,7 @@ class _CodeReviewDrawerState extends ConsumerState<CodeReviewDrawer> {
               ),
             ),
           ),
+          if (widget.maxSplitWidth != null) _buildExpandButton(),
           IconButton(
             key: const Key('code-review-close'),
             icon: const Icon(Icons.close, size: 18, color: Color(0xFF71717A)),
@@ -338,6 +406,25 @@ class _CodeReviewDrawerState extends ConsumerState<CodeReviewDrawer> {
           const SizedBox(width: 6),
         ],
       ),
+    );
+  }
+
+  Widget _buildExpandButton() {
+    final fraction = ref.watch(reviewPaneWidthFractionProvider);
+    final isExpanded = fraction >= 0.72;
+    return IconButton(
+      key: const Key('code-review-expand-button'),
+      icon: Icon(
+        isExpanded ? Icons.close_fullscreen : Icons.open_in_full,
+        size: 16,
+        color: const Color(0xFF71717A),
+      ),
+      tooltip: isExpanded ? 'Restore panel width' : 'Expand panel',
+      onPressed: () {
+        ref.read(reviewPaneWidthFractionProvider.notifier).state = isExpanded
+            ? kDefaultReviewPaneFraction
+            : kExpandedReviewPaneFraction;
+      },
     );
   }
 

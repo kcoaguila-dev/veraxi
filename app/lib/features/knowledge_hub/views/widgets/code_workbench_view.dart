@@ -266,10 +266,14 @@ class _CodeWorkbenchViewState extends ConsumerState<CodeWorkbenchView> {
             ),
             if (showReview && isWideDesktop)
               SizedBox(
-                width: (screenWidth * 0.55).clamp(480.0, 1100.0),
+                width: computeReviewPaneWidth(
+                  screenWidth,
+                  ref.watch(reviewPaneWidthFractionProvider),
+                ),
                 child: CodeReviewDrawer(
                   key: ValueKey('review-${review.sessionId}-${review.turnId}'),
                   review: review,
+                  maxSplitWidth: screenWidth,
                 ),
               ),
           ],

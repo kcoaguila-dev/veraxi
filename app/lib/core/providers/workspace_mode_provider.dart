@@ -316,3 +316,27 @@ final attachedDiffHunkProvider =
 /// Pre-seeded security fix prompt handed off from Security → Code Thread.
 final pendingSecurityThreadPromptProvider =
     StateProvider<String?>((ref) => null);
+
+/// Default split-pane width fraction for [CodeReviewDrawer] on desktop.
+const double kDefaultReviewPaneFraction = 0.55;
+
+/// Expanded split-pane width fraction for [CodeReviewDrawer] on desktop.
+const double kExpandedReviewPaneFraction = 0.78;
+
+/// User-adjusted desktop split-pane width fraction for [CodeReviewDrawer],
+/// shared across Chat Mode and Code Mode.
+final reviewPaneWidthFractionProvider =
+    StateProvider<double>((ref) => kDefaultReviewPaneFraction);
+
+/// Computes the clamped pixel width for the desktop [CodeReviewDrawer]
+/// split-pane so neither the review drawer nor the left workspace collapses.
+double computeReviewPaneWidth(
+  double totalWidth,
+  double fraction, {
+  double minWidth = 380.0,
+  double minRemainingWidth = 360.0,
+}) {
+  final maxAllowed =
+      (totalWidth - minRemainingWidth).clamp(minWidth, totalWidth);
+  return (totalWidth * fraction).clamp(minWidth, maxAllowed);
+}

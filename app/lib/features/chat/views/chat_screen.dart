@@ -1296,11 +1296,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       activeReview != null &&
                       constraints.maxWidth >= 1200)
                     SizedBox(
-                      width: (constraints.maxWidth * 0.55).clamp(520.0, 900.0),
+                      width: computeReviewPaneWidth(
+                        constraints.maxWidth,
+                        ref.watch(reviewPaneWidthFractionProvider),
+                      ),
                       child: CodeReviewDrawer(
                         key: ValueKey(
                             'review-${activeReview.sessionId}-${activeReview.turnId}'),
                         review: activeReview,
+                        maxSplitWidth: constraints.maxWidth,
                       ),
                     ),
                 ],
