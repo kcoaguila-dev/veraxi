@@ -18,8 +18,10 @@ import ast
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
+import tempfile
 import tomllib
 from pathlib import Path
 
@@ -248,6 +250,97 @@ def run_xray_index_scip(scip_path, endpoint=None, key=None, tenant=None, as_json
         f"SCIP indexed {scip_path}: nodes={d.get('nodes_written', 0)} edges={d.get('edges_written', 0)}"
     ))
     sys.exit(0)
+
+
+def _scip_tool_binary(name, env_var):
+    """Resolve a SCIP tool binary: explicit env override, else PATH."""
+    override = os.environ.get(env_var)
+    if override:
+        return override
+    return shutil.which(name)
+
+
+def _repo_head_version(repo):
+    """Git HEAD SHA of ``repo`` as the SCIP project version, else None."""
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(repo), "rev-parse", "HEAD"],
+            capture_output=True, text=True, timeout=30, check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    sha = result.stdout.strip() if result.returncode == 0 else ""
+    return sha or None
+
+
+def run_xray_index_generate_scip(repo_path, endpoint=None, key=None, tenant=None, as_json=False):
+    """Generate a SCIP index locally and upload it (ADR-0007 Phase 4).
+
+    Runs ``scip-python index`` and ``scip print --json`` on *this*
+    machine — the local runner / CI case, never the hosted backend —
+    then uploads through the existing ``--scip`` path
+    (:func:`run_xray_index_scip`). ``scip-python`` is distributed via
+    npm (``@sourcegraph/scip-python``), not PyPI, so it is a tool the
+    operator installs, never a backend dependency; binaries resolve
+    via ``VERAXI_SCIP_PYTHON_BIN`` / ``VERAXI_SCIP_BIN`` or PATH.
+    ``--project-version`` is always passed: scip-python crashes on
+    projects whose version it cannot determine (non-git checkouts).
+    """
+    repo = Path(repo_path)
+    if not repo.is_dir():
+        print(f"Error: repo path {repo_path} is not a directory", file=sys.stderr)
+        sys.exit(1)
+    scip_python = _scip_tool_binary("scip-python", "VERAXI_SCIP_PYTHON_BIN")
+    scip_cli = _scip_tool_binary("scip", "VERAXI_SCIP_BIN")
+    if not scip_python or not scip_cli:
+        print(
+            "Error: SCIP generation needs both `scip-python` "
+            "(npm: @sourcegraph/scip-python) and the `scip` CLI "
+            "(sourcegraph/scip releases) on PATH, or "
+            "VERAXI_SCIP_PYTHON_BIN / VERAXI_SCIP_BIN set.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    version = _repo_head_version(repo) or "0.0.0"
+    with tempfile.TemporaryDirectory() as tmp:
+        index_path = Path(tmp) / "index.scip"
+        index_cmd = [
+            scip_python, "index", "--cwd", str(repo),
+            "--project-name", repo.name, "--project-version", version,
+            "--output", str(index_path),
+        ]
+        try:
+            indexed = subprocess.run(index_cmd, capture_output=True, text=True, timeout=1800, check=False)
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            print(f"Error: scip-python failed to run: {exc}", file=sys.stderr)
+            sys.exit(1)
+        if indexed.returncode != 0 or not index_path.exists():
+            print(
+                f"Error: scip-python index failed ({indexed.returncode}): "
+                f"{(indexed.stderr or '')[-500:]}",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        try:
+            printed = subprocess.run(
+                [scip_cli, "print", "--json", str(index_path)],
+                capture_output=True, text=True, timeout=600, check=False,
+            )
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            print(f"Error: scip print failed to run: {exc}", file=sys.stderr)
+            sys.exit(1)
+        if printed.returncode != 0 or not printed.stdout.strip():
+            print(
+                f"Error: scip print failed ({printed.returncode}): "
+                f"{(printed.stderr or '')[-500:]}",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        json_path = Path(tmp) / "index.scip.json"
+        json_path.write_text(printed.stdout, encoding="utf-8")
+        run_xray_index_scip(
+            str(json_path), endpoint=endpoint, key=key, tenant=tenant, as_json=as_json
+        )
 
 
 def run_xray_symbol(name, endpoint=None, key=None, tenant=None, as_json=False, resolved_only=False):

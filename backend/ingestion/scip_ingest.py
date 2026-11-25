@@ -73,6 +73,14 @@ nodes for edge targets, so emitting edges to undefined symbols would
 flood the graph with external placeholders; SCIP indexes already
 distinguish definitions, so under-claiming here is exact, not lossy,
 for everything the index itself defines.
+
+Real ``scip print --json`` output uses protobuf-JSON **camelCase**
+keys (``relativePath``, ``symbolRoles``, ``enclosingRange``,
+``displayName``, ``projectRoot``); the parser's internal shape is
+snake_case. :func:`parse_scip_payload` normalizes either form on
+entry (ADR-0007 Phase 3 spike: without this, a real index parsed to
+zero nodes). Snake_case payloads — the historical test fixtures and
+the CLI's stored indexes — keep working unchanged.
 """
 
 from __future__ import annotations
@@ -88,6 +96,7 @@ from backend.ingestion.code_graph import (
     CodeEdge,
     CodeGraph,
     CodeNode,
+    _delete_nodes_for_paths,
     write_code_graph,
     write_index_meta,
 )
@@ -293,6 +302,7 @@ def _add_file_and_symbols(
             line=1,
             language=language,
             resolved=True,
+            resolution="scip",
         )
     )
     def_lines = _definition_lines(document)
@@ -339,6 +349,7 @@ def _add_symbol_node(
             line=int(def_lines.get(symbol) or 0),
             language=language,
             resolved=True,
+            resolution="scip",
         )
     )
     builder.defined[symbol] = node
@@ -408,6 +419,32 @@ def _add_reference_edges(
         builder.add_edge("REFERENCES", source, target)
 
 
+# Real `scip print --json` keys (protobuf-JSON camelCase) -> the
+# snake_case keys this parser reads. Only keys the parser consumes
+# are mapped; everything else passes through untouched.
+_SCIP_KEY_ALIASES = {
+    "relativePath": "relative_path",
+    "symbolRoles": "symbol_roles",
+    "enclosingRange": "enclosing_range",
+    "displayName": "display_name",
+    "signatureDocumentation": "signature_documentation",
+    "projectRoot": "project_root",
+    "toolInfo": "tool_info",
+}
+
+
+def _normalize_scip_keys(value: Any) -> Any:
+    """Recursively rewrite camelCase SCIP JSON keys to snake_case."""
+    if isinstance(value, dict):
+        return {
+            _SCIP_KEY_ALIASES.get(key, key): _normalize_scip_keys(item)
+            for key, item in value.items()
+        }
+    if isinstance(value, list):
+        return [_normalize_scip_keys(item) for item in value]
+    return value
+
+
 def parse_scip_payload(payload: dict[str, Any], repo_key: str = "") -> CodeGraph:
     """Parse a ``scip print --json`` payload dict into a :class:`CodeGraph`.
 
@@ -419,6 +456,7 @@ def parse_scip_payload(payload: dict[str, Any], repo_key: str = "") -> CodeGraph
     """
     if not isinstance(payload, dict):
         raise ValueError("SCIP payload must be a JSON object")  # noqa: TRY004
+    payload = _normalize_scip_keys(payload)
     documents = payload.get("documents")
     if not isinstance(documents, list):
         raise ValueError("SCIP payload must contain a 'documents' list")  # noqa: TRY004
@@ -488,9 +526,21 @@ def write_scip_graph(
     same value namespaces the graph's nodes as their repo key, so
     the stamp and the nodes it describes always agree.
     """
-    metadata = payload.get("metadata") or {}
+    metadata = _normalize_scip_keys(payload.get("metadata") or {})
     repo_key = str(metadata.get("project_root") or "scip-upload")
     graph = parse_scip_payload(payload, repo_key=repo_key)
+    # SCIP wins (ADR-0007): within this repo partition, the nodes —
+    # and with them the edges — of every file the index covers are
+    # replaced by the SCIP versions, so stale heuristic edges for a
+    # covered file cannot survive alongside compiler-grade ones.
+    # Files the index does not cover are untouched and keep their
+    # heuristic graph. (The two qualified-name schemes differ, so
+    # this replacement is scoped to the SCIP partition's own
+    # repo_key; it never deletes another partition's nodes.)
+    covered_paths = sorted(
+        {node.path for node in graph.nodes if node.label == "CodeFile" and node.path}
+    )
+    _delete_nodes_for_paths(client, tenant_id, covered_paths, repo_key=repo_key)
     counts = write_code_graph(client, graph, tenant_id=tenant_id)
     write_index_meta(
         client,

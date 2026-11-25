@@ -258,3 +258,56 @@ qualified-name schemes differ (SCIP `path::descriptor` vs AST dotted
 names), so cross-scheme node replacement is not attempted, and the
 assignment-alias regression above is the known cost when SCIP
 coverage replaces heuristic edges for a file.
+
+## Phase 4 result (2026-11-25, built on the GO above)
+
+- **Parser fix (the precondition).** `parse_scip_payload` now
+  normalizes protobuf-JSON camelCase keys to the parser's snake_case
+  shape on entry (`_normalize_scip_keys` in `scip_ingest.py`);
+  snake_case payloads are unchanged. Regression tests parse a
+  camelCase rewrite of the existing fixture to the identical graph,
+  plus a verbatim document from a real scip-python run.
+- **Generation (local runner / CI only).** `veraxi xray index
+  --generate-scip <repo>` (`run_xray_index_generate_scip` in the CLI
+  package) runs `scip-python index` (always with
+  `--project-version`: the checkout's git HEAD, else `0.0.0`) and
+  `scip print --json` on the operator's machine, then uploads via
+  the existing `--scip` route. Binaries resolve via
+  `VERAXI_SCIP_PYTHON_BIN` / `VERAXI_SCIP_BIN` or PATH. Because
+  scip-python is npm-distributed, it is **not** declared in
+  `pyproject.toml` — not even as an optional extra: pip cannot
+  install it, and a declaration that cannot resolve would be a lie.
+  The backend gains no dependency at all in this phase and stays
+  JSON-only (no protobuf).
+- **SCIP wins, scoped.** `write_scip_graph` now deletes the stored
+  nodes (DETACH DELETE, via the existing `_delete_nodes_for_paths`)
+  for exactly the files the index covers, within the SCIP
+  partition's own `repo_key`, before writing — so a covered file's
+  heuristic edges cannot survive next to its SCIP edges, and
+  uncovered files keep their heuristic graph untouched. Cross-
+  partition replacement is not attempted (the qualified-name
+  schemes differ; see the spike condition 3).
+- **Resolution provenance.** Provenance is recorded on **nodes**
+  (`CodeNode.resolution`, persisted as the `resolution` property —
+  `scip` or `heuristic`); this refines Decision 2's "every code
+  edge" wording, because the graph writer's edge model carries no
+  per-edge properties, while every edge's endpoints live in exactly
+  one resolution partition after the scoped replacement above.
+  `impact_analysis` now returns additive `resolution` /
+  `confidence` fields (plus `confidence_note` when a "no impact"
+  or "not found" verdict rests only on heuristic resolution):
+  scip-backed = high, mixed = medium, heuristic-only = low.
+- **Security benchmark.** `evaluation/security_benchmark.py`
+  re-run: 5/6 in this VM, identical before and after Phase 4 — the
+  one failing case (`treesitter_polyglot_calls`) is the known
+  tree-sitter language-pack environment failure, unrelated to this
+  phase; the benchmark's own test records 6/6 as the expectation
+  in a correct environment. No recorded standalone baseline file
+  exists; the before/after comparison here is the baseline record.
+- **Phase 5 revisit note.** The spike strengthens the deferred
+  Dart/LSP case in one respect — pyright-grade resolution found
+  exactly the dispatch patterns the heuristic parser misses — but
+  Dart's indexer maturity is unchanged by anything measured here,
+  and the node-volume cost (~10× the AST graph) argues for the
+  local-runner-first design when Phase 5 is revisited. No Phase 5
+  work was built.
