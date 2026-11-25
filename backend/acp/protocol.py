@@ -168,7 +168,8 @@ class AcpTurnAdapter:
         method = message.get("method")
         if method == "session/update":
             params = message.get("params") or {}
-            update = params.get("update") if isinstance(params.get("update"), dict) else params
+            raw_update = params.get("update")
+            update = raw_update if isinstance(raw_update, dict) else params
             return self._translate_session_update(update)
         return []
 
@@ -255,7 +256,8 @@ class AcpTurnAdapter:
     def translate_permission_request(self, message: dict[str, Any]) -> dict[str, Any]:
         """Convert an inbound ``session/request_permission`` RPC into an SSE event."""
         params = message.get("params") or {}
-        tool_call = params.get("toolCall") if isinstance(params.get("toolCall"), dict) else {}
+        raw_tool_call = params.get("toolCall")
+        tool_call = raw_tool_call if isinstance(raw_tool_call, dict) else {}
         return {
             "event": "acp_permission_request",
             "session_id": self.veraxi_session_id,

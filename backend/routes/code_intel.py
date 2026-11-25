@@ -1033,7 +1033,7 @@ def register_code_intel_routes(
         else:
             effective_key = repo_key or indexed.get("repo_key") or ""
             try:
-                content = await _fetch_github_app_code_file(
+                fetched = await _fetch_github_app_code_file(
                     request, _get_supabase, config, tenant_id, effective_key, path
                 )
             except Exception as e:
@@ -1041,10 +1041,11 @@ def register_code_intel_routes(
                 raise HTTPException(
                     status_code=404, detail="Code file unavailable from GitHub"
                 ) from e
-            if content is None:
+            if fetched is None:
                 raise HTTPException(
                     status_code=404, detail="Code file not found on server"
                 )
+            content = fetched
             source_kind = "github_app"
         lines = content.splitlines()
         return {

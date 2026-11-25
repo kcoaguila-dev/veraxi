@@ -257,7 +257,13 @@ async def _resolve_github_app_token(
             get_config(), None, int(row["installation_id"])
         )
     except Exception as exc:
-        logger.debug("GitHub App token fallback unavailable for %s: %s", repo, exc)
+        # Log only the exception type: the exception string comes from the
+        # GitHub App token path and may embed credential-related detail.
+        logger.debug(
+            "GitHub App fallback unavailable for %s: %s",
+            repo,
+            type(exc).__name__,
+        )
         return None
 
 

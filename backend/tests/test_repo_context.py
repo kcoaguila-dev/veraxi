@@ -17,6 +17,8 @@ class _FakeNeo4j:
     def execute_read(self, query: str, params: dict):
         del query
         repo_key = params.get("repo_key")
+        if repo_key is None:
+            return []
         meta = self.meta_by_repo.get(repo_key)
         return [meta] if meta else []
 

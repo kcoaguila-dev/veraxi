@@ -647,7 +647,7 @@ def register_github_app_routes(
         if not owner or owner != tenant_id:
             raise HTTPException(status_code=404, detail="Job not found")
         try:
-            from arq.jobs import Job
+            from arq.jobs import Job, JobResult
 
             job = Job(job_id, redis=redis_client)
             status = await job.status()
@@ -679,14 +679,22 @@ def register_github_app_routes(
             progress = None
 
         if status.value == "complete" and info is not None:
-            if not getattr(info, "success", True):
+            if isinstance(info, JobResult):
+                job_success = info.success
+                job_result = info.result
+            else:
+                # Fallback for info objects that are not JobResult (plain
+                # JobDef or test doubles): read attributes defensively.
+                job_success = getattr(info, "success", True)
+                job_result = getattr(info, "result", None)
+            if not job_success:
                 return {
                     "job_id": job_id,
                     "status": "failed",
-                    "error": str(info.result)[:300],
+                    "error": str(job_result)[:300],
                     "progress": progress,
                 }
-            result = info.result if isinstance(info.result, dict) else None
+            result = job_result if isinstance(job_result, dict) else None
             return {
                 "job_id": job_id,
                 "status": "complete",
