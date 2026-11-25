@@ -685,3 +685,135 @@ def test_parse_repo_emits_file_count_progress_and_merkle_diff(tmp_path: Path):
     root_b, hashes_b = compute_repo_merkle(root, files)
     assert root_a != root_b
     assert diff_merkle_hashes(hashes_a, hashes_b) == {"mod_3.py"}
+
+
+# ---------------------------------------------------------------------------
+# Phase 16 (ADR-0007): alias / re-export resolution regression tests.
+#
+# Dogfood pattern: `impact_analysis("build_video_item")` reported zero
+# callers because call sites reached the symbol through a re-exported
+# private name (`_build_video_item`) and the recorded CALLS edge aimed
+# at the re-export name instead of the defining symbol.
+# ---------------------------------------------------------------------------
+
+
+def _parse_files(tmp_path: Path, files: dict[str, str]):
+    root = tmp_path / "repo"
+    for relative, content in files.items():
+        target = root / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(content, encoding="utf-8")
+    return parse_repo(root)
+
+
+def test_regression_build_video_item_via_init_reexport_renamed(tmp_path: Path):
+    graph = _parse_files(
+        tmp_path,
+        {
+            "pkg/__init__.py": (
+                "from .impl import build_video_item as _build_video_item\n"
+            ),
+            "pkg/impl.py": "def build_video_item():\n    pass\n",
+            "caller.py": (
+                "from pkg import _build_video_item\n"
+                "\n\ndef caller():\n    _build_video_item()\n"
+            ),
+        },
+    )
+    calls = _edge_set(graph, "CALLS")
+    assert ("caller.caller", "pkg.impl.build_video_item") in calls
+    # No edge may remain aimed at the re-export placeholder name.
+    assert all(target != "pkg._build_video_item" for _, target in calls)
+
+
+def test_regression_build_video_item_via_assignment_alias(tmp_path: Path):
+    graph = _parse_files(
+        tmp_path,
+        {
+            "mod.py": (
+                "def _build_video_item():\n    pass\n"
+                "\n\nbuild_video_item = _build_video_item\n"
+                "\n\ndef caller():\n    build_video_item()\n"
+            )
+        },
+    )
+    assert ("mod.caller", "mod._build_video_item") in _edge_set(graph, "CALLS")
+
+
+def test_assignment_alias_of_imported_symbol(tmp_path: Path):
+    graph = _parse_files(
+        tmp_path,
+        {
+            "impl.py": "def build_video_item():\n    pass\n",
+            "caller.py": (
+                "from impl import build_video_item\n"
+                "\n\n_build_video_item = build_video_item\n"
+                "\n\ndef caller():\n    _build_video_item()\n"
+            ),
+        },
+    )
+    assert ("caller.caller", "impl.build_video_item") in _edge_set(graph, "CALLS")
+
+
+def test_init_reexport_plain_and_chained(tmp_path: Path):
+    graph = _parse_files(
+        tmp_path,
+        {
+            "pkg/__init__.py": "from .sub import build_video_item\n",
+            "pkg/sub.py": "from .impl import build_video_item\n",
+            "pkg/impl.py": "def build_video_item():\n    pass\n",
+            "caller.py": (
+                "from pkg import build_video_item\n"
+                "\n\ndef caller():\n    build_video_item()\n"
+            ),
+        },
+    )
+    assert ("caller.caller", "pkg.impl.build_video_item") in _edge_set(
+        graph, "CALLS"
+    )
+
+
+def test_same_name_functions_in_different_modules_do_not_merge(tmp_path: Path):
+    graph = _parse_files(
+        tmp_path,
+        {
+            "alpha.py": "def shout():\n    pass\n\n\ndef call_alpha():\n    shout()\n",
+            "beta.py": "def shout():\n    pass\n\n\ndef call_beta():\n    shout()\n",
+            "caller.py": (
+                "from alpha import shout as alpha_shout\n"
+                "from beta import shout as beta_shout\n"
+                "\n\ndef caller():\n    alpha_shout()\n    beta_shout()\n"
+            ),
+        },
+    )
+    calls = _edge_set(graph, "CALLS")
+    assert ("alpha.call_alpha", "alpha.shout") in calls
+    assert ("beta.call_beta", "beta.shout") in calls
+    assert ("caller.caller", "alpha.shout") in calls
+    assert ("caller.caller", "beta.shout") in calls
+    # No cross-links between the two same-named functions.
+    assert ("alpha.call_alpha", "beta.shout") not in calls
+    assert ("beta.call_beta", "alpha.shout") not in calls
+    assert graph.node("Function", "alpha.shout") is not graph.node(
+        "Function", "beta.shout"
+    )
+
+
+def test_same_name_via_reexport_does_not_merge(tmp_path: Path):
+    graph = _parse_files(
+        tmp_path,
+        {
+            "pa/__init__.py": "from .impl import build\n",
+            "pa/impl.py": "def build():\n    pass\n",
+            "pb/__init__.py": "from .impl import build\n",
+            "pb/impl.py": "def build():\n    pass\n",
+            "caller.py": (
+                "from pa import build as build_a\n"
+                "from pb import build as build_b\n"
+                "\n\ndef caller():\n    build_a()\n    build_b()\n"
+            ),
+        },
+    )
+    calls = _edge_set(graph, "CALLS")
+    assert ("caller.caller", "pa.impl.build") in calls
+    assert ("caller.caller", "pb.impl.build") in calls
