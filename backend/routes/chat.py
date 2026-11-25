@@ -1106,7 +1106,7 @@ async def _stream_events(
         yield f"data: {json.dumps({'event': 'metadata', 'data': {'thread_id': thread_id}})}\n\n"
         ts = _effective_tool_settings(chat_request)
 
-        if chat_request.agent_runtime == "antigravity_acp":
+        if getattr(chat_request, "agent_runtime", "veraxi") == "antigravity_acp":
             from backend.acp.broker import get_acp_broker
 
             event_stream = get_acp_broker().stream_prompt(

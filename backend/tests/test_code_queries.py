@@ -65,9 +65,13 @@ class FakeCodeGraphClient:
             and (repo_key is None or node.repo_key == repo_key)
         ]
 
-    def find_file(self, tenant_id, path):
+    def find_file(self, tenant_id, path, repo_key=None):
         for node in self.graph.nodes:
-            if node.label == "CodeFile" and node.path == path:
+            if (
+                node.label == "CodeFile"
+                and node.path == path
+                and (repo_key is None or node.repo_key == repo_key)
+            ):
                 return self._row(node)
         return None
 
