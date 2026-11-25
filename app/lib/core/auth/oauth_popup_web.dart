@@ -61,6 +61,9 @@ OAuthPopupResult? _parseOAuthMessage(JSAny? rawData, String expectedProvider) {
   if (status == 'connected') {
     return const OAuthPopupResult(completed: true);
   }
+  if (status == 'pending') {
+    return const OAuthPopupResult(completed: false, pending: true);
+  }
   final error = dartData['error'] as String?;
   return OAuthPopupResult(
     completed: false,

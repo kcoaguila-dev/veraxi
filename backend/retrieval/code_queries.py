@@ -79,12 +79,14 @@ class CodeGraphClient(Protocol):
         """Return code nodes matching a qualified name or a simple name."""
         ...
 
-    def find_file(self, tenant_id: str, path: str) -> dict[str, Any] | None:
+    def find_file(
+        self, tenant_id: str, path: str, repo_key: str | None = None
+    ) -> dict[str, Any] | None:
         """Return the CodeFile row for ``path`` under ``tenant_id``.
 
-        The row carries ``path`` and ``language``. ``None`` means the
-        tenant's code graph holds no file at that path — the tenant
-        scoping check for serving code file content.
+        The row carries ``path``, ``language``, and ``repo_key``. ``None``
+        means the tenant's code graph holds no file at that path — the
+        tenant-scoping check for serving code file content.
         """
         ...
 
@@ -219,14 +221,21 @@ class Neo4jCodeGraphClient:
         """
         return self._read(query, params)
 
-    def find_file(self, tenant_id: str, path: str) -> dict[str, Any] | None:
+    def find_file(
+        self, tenant_id: str, path: str, repo_key: str | None = None
+    ) -> dict[str, Any] | None:
         query = """
         MATCH (n:CodeFile)
-        WHERE n.tenant_id = $tenant_id AND n.path = $path
-        RETURN n.path AS path, n.language AS language
+        WHERE n.tenant_id = $tenant_id
+          AND n.path = $path
+          AND ($repo_key IS NULL OR coalesce(n.repo_key, '') = $repo_key)
+        RETURN n.path AS path, n.language AS language,
+               coalesce(n.repo_key, '') AS repo_key
         LIMIT 1
         """
-        rows = self._read(query, {"tenant_id": tenant_id, "path": path})
+        rows = self._read(
+            query, {"tenant_id": tenant_id, "path": path, "repo_key": repo_key}
+        )
         return rows[0] if rows else None
 
     def list_files(
@@ -540,6 +549,7 @@ def symbol_lookup(
 def indexed_file(
     path: str,
     tenant_id: str = "default",
+    repo_key: str | None = None,
     client: CodeGraphClient | None = None,
 ) -> dict[str, Any] | None:
     """Return the indexed CodeFile row for ``path`` under ``tenant_id``.
@@ -553,7 +563,7 @@ def indexed_file(
     query = (path or "").strip()
     if not query:
         return None
-    return graph_client.find_file(tenant_id, query)
+    return graph_client.find_file(tenant_id, query, repo_key=repo_key)
 
 
 def list_code_files(

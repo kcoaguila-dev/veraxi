@@ -19,7 +19,8 @@ class _FakeCodeFileRepository extends CodeFileRepository {
   final Future<CodeFileContent> Function(String path) _handler;
 
   @override
-  Future<CodeFileContent> fetchFile(String path) => _handler(path);
+  Future<CodeFileContent> fetchFile(String path, {String? repoKey}) =>
+      _handler(path);
 }
 
 CodeFileContent _fileContent({

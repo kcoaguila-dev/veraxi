@@ -1279,6 +1279,40 @@ def write_parsed_code_graph(
     return counts
 
 
+def write_repo_code_graph_with_key(
+    root: str | Path,
+    *,
+    repo_key: str,
+    repo_root: str | None = None,
+    source_commit: str | None = None,
+    kind: str = "repo",
+    tenant_id: str = "default",
+    client: Any = None,
+) -> dict[str, int]:
+    """Parse ``root`` and persist its code graph under an explicit ``repo_key``.
+
+    Used by remote connectors (such as the GitHub App ephemeral tarball
+    ingestor) where the canonical identity is ``owner/repo`` rather than
+    a persistent local checkout path.
+    """
+    if client is None:
+        from backend.storage.neo4j_client import Neo4jStorageClient
+
+        client = Neo4jStorageClient.from_config(_load_config())
+    root_path = Path(os.path.realpath(root))
+    graph = parse_repo(root_path, repo_key=repo_key)
+    counts = write_code_graph(client, graph, tenant_id=tenant_id)
+    write_index_meta(
+        client,
+        tenant_id,
+        repo_key=repo_key,
+        repo_root=repo_root or repo_key,
+        source_commit=source_commit,
+        kind=kind,
+    )
+    return counts
+
+
 def write_repo_code_graph(
     root: str | Path, tenant_id: str = "default", client: Any = None
 ) -> dict[str, int]:
@@ -1289,23 +1323,16 @@ def write_repo_code_graph(
     The graph and the stamp share one repo key, derived from the
     checkout (see :func:`derive_repo_key`).
     """
-    if client is None:
-        from backend.storage.neo4j_client import Neo4jStorageClient
-
-        client = Neo4jStorageClient.from_config(_load_config())
     root_path = Path(os.path.realpath(root))
-    repo_key = derive_repo_key(root_path)
-    graph = parse_repo(root_path, repo_key=repo_key)
-    counts = write_code_graph(client, graph, tenant_id=tenant_id)
-    write_index_meta(
-        client,
-        tenant_id,
-        repo_key=repo_key,
+    return write_repo_code_graph_with_key(
+        root_path,
+        repo_key=derive_repo_key(root_path),
         repo_root=str(root_path),
         source_commit=git_head_sha(root_path),
         kind="repo",
+        tenant_id=tenant_id,
+        client=client,
     )
-    return counts
 
 
 # ---------------------------------------------------------------------------
@@ -1707,7 +1734,11 @@ def plan_incremental_update(
 
 
 def update_code_graph_incremental(
-    stored: CodeGraph, root: str | Path, changed_paths: set[str]
+    stored: CodeGraph,
+    root: str | Path,
+    changed_paths: set[str],
+    *,
+    repo_key: str | None = None,
 ) -> tuple[CodeGraph, set[str]]:
     """Apply an incremental update to ``stored`` purely, in memory.
 
@@ -1723,11 +1754,12 @@ def update_code_graph_incremental(
     survivor_qns = {node.qualified_name for node in survivors}
     kept_edges = [edge for edge in stored.edges if edge.source_qn in survivor_qns]
     known_labels = {node.qualified_name: node.label for node in survivors}
+    effective_key = repo_key if repo_key is not None else derive_repo_key(root)
     fresh = parse_files(
         root,
         sorted(reparse_paths),
         known_target_labels=known_labels,
-        repo_key=derive_repo_key(root),
+        repo_key=effective_key,
     )
     merged: dict[tuple[str, str, str], CodeEdge] = {}
     for edge in kept_edges + fresh.edges:
@@ -1788,6 +1820,92 @@ def _delete_orphan_placeholders(
     )
 
 
+def apply_incremental_files(
+    root: str | Path,
+    *,
+    tenant_id: str,
+    repo_key: str,
+    changed_paths: set[str],
+    head_sha: str | None,
+    repo_root: str | None = None,
+    kind: str = "repo",
+    client: Any = None,
+) -> dict[str, Any]:
+    """Incrementally update Neo4j for an explicit set of ``changed_paths``.
+
+    Shared by local ``git diff`` updates and remote GitHub Compare API
+    updates so Neo4j node deletion, re-parsing, placeholder cleanup, and
+    index stamping stay in one place.
+    """
+    if client is None:
+        from backend.storage.neo4j_client import Neo4jStorageClient
+
+        client = Neo4jStorageClient.from_config(_load_config())
+    root_path = Path(os.path.realpath(root))
+    if not changed_paths:
+        return {
+            "nodes_written": 0,
+            "edges_written": 0,
+            "changed_files": 0,
+            "reparsed_files": 0,
+            "mode": "incremental",
+            "source_commit": head_sha,
+            "repo_key": repo_key,
+        }
+    stored = load_stored_code_graph(client, tenant_id, repo_key=repo_key)
+    updated, reparse_paths = update_code_graph_incremental(
+        stored, root_path, changed_paths, repo_key=repo_key
+    )
+    _delete_nodes_for_paths(
+        client, tenant_id, sorted(reparse_paths), repo_key=repo_key
+    )
+    path_by_qn = {node.qualified_name: node.path for node in updated.nodes}
+    sub_nodes = [node for node in updated.nodes if node.path in reparse_paths]
+    sub_edges = [
+        edge for edge in updated.edges if path_by_qn.get(edge.source_qn) in reparse_paths
+    ]
+    known_keys = {node.key for node in updated.nodes}
+    for node in sub_nodes:
+        _write_node(client, node, tenant_id)
+    for edge in sub_edges:
+        _write_placeholder_node(client, edge, tenant_id, known_keys)
+    for edge in sub_edges:
+        _write_edge(client, edge, tenant_id)
+    _delete_orphan_placeholders(client, tenant_id, repo_key=repo_key)
+    stamp = write_index_meta(
+        client,
+        tenant_id,
+        repo_key=repo_key,
+        repo_root=repo_root or str(root_path),
+        source_commit=head_sha,
+        kind=kind,
+    )
+    return {
+        "nodes_written": len(sub_nodes),
+        "edges_written": len(sub_edges),
+        "changed_files": len(changed_paths),
+        "reparsed_files": len(reparse_paths),
+        "mode": "incremental",
+        "source_commit": head_sha,
+        "indexed_at": stamp["indexed_at"],
+        "repo_key": repo_key,
+    }
+
+
+def delete_repo_code_graph(client: Any, tenant_id: str, repo_key: str) -> None:
+    """Purge all code-graph nodes and index metadata for ``(tenant_id, repo_key)``."""
+    client.execute_write(
+        """
+        MATCH (n)
+        WHERE n.tenant_id = $tenant_id
+          AND coalesce(n.repo_key, '') = $repo_key
+          AND (n:CodeFile OR n:CodeModule OR n:Class OR n:Function OR n:CodeIndexMeta)
+        DETACH DELETE n
+        """,
+        {"tenant_id": tenant_id, "repo_key": repo_key},
+    )
+
+
 def update_repo_code_graph(
     root: str | Path, tenant_id: str = "default", client: Any = None
 ) -> dict[str, Any]:
@@ -1826,54 +1944,16 @@ def update_repo_code_graph(
         )
         counts = write_repo_code_graph(root_path, tenant_id=tenant_id, client=client)
         return {**counts, "mode": "full", "changed_files": None, "repo_key": repo_key}
-    if not changed:
-        return {
-            "nodes_written": 0,
-            "edges_written": 0,
-            "changed_files": 0,
-            "reparsed_files": 0,
-            "mode": "incremental",
-            "source_commit": head_sha,
-            "repo_key": repo_key,
-        }
-    stored = load_stored_code_graph(client, tenant_id, repo_key=repo_key)
-    updated, reparse_paths = update_code_graph_incremental(
-        stored, root_path, changed
-    )
-    _delete_nodes_for_paths(
-        client, tenant_id, sorted(reparse_paths), repo_key=repo_key
-    )
-    path_by_qn = {node.qualified_name: node.path for node in updated.nodes}
-    sub_nodes = [node for node in updated.nodes if node.path in reparse_paths]
-    sub_edges = [
-        edge for edge in updated.edges if path_by_qn.get(edge.source_qn) in reparse_paths
-    ]
-    known_keys = {node.key for node in updated.nodes}
-    for node in sub_nodes:
-        _write_node(client, node, tenant_id)
-    for edge in sub_edges:
-        _write_placeholder_node(client, edge, tenant_id, known_keys)
-    for edge in sub_edges:
-        _write_edge(client, edge, tenant_id)
-    _delete_orphan_placeholders(client, tenant_id, repo_key=repo_key)
-    stamp = write_index_meta(
-        client,
-        tenant_id,
+    return apply_incremental_files(
+        root_path,
+        tenant_id=tenant_id,
         repo_key=repo_key,
+        changed_paths=changed,
+        head_sha=head_sha,
         repo_root=str(root_path),
-        source_commit=head_sha,
         kind="repo",
+        client=client,
     )
-    return {
-        "nodes_written": len(sub_nodes),
-        "edges_written": len(sub_edges),
-        "changed_files": len(changed),
-        "reparsed_files": len(reparse_paths),
-        "mode": "incremental",
-        "source_commit": head_sha,
-        "indexed_at": stamp["indexed_at"],
-        "repo_key": repo_key,
-    }
 
 
 def _load_config() -> Any:
@@ -1890,6 +1970,8 @@ __all__ = [
     "CodeEdge",
     "CodeGraph",
     "CodeNode",
+    "apply_incremental_files",
+    "delete_repo_code_graph",
     "derive_repo_key",
     "find_index_meta_for_root",
     "git_changed_paths",

@@ -738,9 +738,12 @@ class CodeIntelViewModel extends StateNotifier<CodeIntelState> {
     }
   }
 
-  Future<Map<String, dynamic>?> fetchIndexedFile(String path) async {
+  Future<Map<String, dynamic>?> fetchIndexedFile(
+    String path, {
+    String? repoKey,
+  }) async {
     try {
-      return await _repository.fetchIndexedFile(path);
+      return await _repository.fetchIndexedFile(path, repoKey: repoKey);
     } catch (e, st) {
       await Sentry.captureException(e, stackTrace: st);
       return null;

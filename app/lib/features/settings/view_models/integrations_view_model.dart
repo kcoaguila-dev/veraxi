@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:veraxi_app/features/settings/data/integrations_repository.dart';
-import 'package:veraxi_app/features/settings/view_models/oauth_popup.dart';
+import 'package:veraxi_app/core/auth/oauth_popup.dart';
 
 // Re-export the models so views can import them from the ViewModel layer
 // without violating the views → view_models → data dependency contract.

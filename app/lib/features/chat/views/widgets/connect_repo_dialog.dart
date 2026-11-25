@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:veraxi_app/core/providers/workspace_mode_provider.dart';
 import 'package:veraxi_app/features/chat/view_models/connect_repo_view_model.dart';
+import 'package:veraxi_app/features/chat/views/widgets/connect_repo_github_app_tab.dart';
 
 /// Opens the centered Connect Repository modal from Code Chat or the
 /// sidebar without navigating away from the user's active thread.
@@ -16,10 +17,10 @@ Future<void> showConnectRepoDialog(BuildContext context) {
 /// Centered modal dialog for connecting a codebase into Veraxi's
 /// Neo4j + Qdrant GraphRAG index.
 ///
-/// Mirrors the visual contract in `docs/design/connect_repo_modal.svg`:
-/// Local Path and Git URL / PAT tabs are live; GitHub App is cleanly
-/// staged behind a Coming Soon state; submitting triggers non-blocking
-/// background indexing so the user stays in Code Chat.
+/// Mirrors the visual contract in `docs/design/connect_repo_modal.svg`
+/// and `docs/design/connect_repo_github_app.svg`: Local Path and
+/// GitHub App (Selected-Repos Read-Only OAuth) are live; submitting
+/// triggers non-blocking background indexing so the user stays in Code Chat.
 class ConnectRepoDialog extends ConsumerStatefulWidget {
   const ConnectRepoDialog({super.key});
 
@@ -40,6 +41,7 @@ class _ConnectRepoDialogState extends ConsumerState<ConnectRepoDialog> {
   final TextEditingController _branchController =
       TextEditingController(text: 'main');
   final TextEditingController _patController = TextEditingController();
+  final TextEditingController _ghSearchController = TextEditingController();
 
   ConnectRepoSourceTab _activeTab = ConnectRepoSourceTab.localPath;
   String? _inlineValidation;
@@ -50,15 +52,25 @@ class _ConnectRepoDialogState extends ConsumerState<ConnectRepoDialog> {
     _gitUrlController.dispose();
     _branchController.dispose();
     _patController.dispose();
+    _ghSearchController.dispose();
     super.dispose();
   }
 
   void _submit() {
     if (_activeTab == ConnectRepoSourceTab.githubApp) {
-      setState(() {
-        _inlineValidation =
-            'GitHub App OAuth is coming soon — switch to Local Path or Git URL / PAT.';
-      });
+      final selected =
+          ref.read(connectRepoViewModelProvider).selectedGitHubAppRepo;
+      if (selected == null) {
+        setState(() {
+          _inlineValidation =
+              'Select a granted GitHub repository from the list first.';
+        });
+        return;
+      }
+      ref
+          .read(connectRepoViewModelProvider.notifier)
+          .startGitHubAppIndexing(selected);
+      Navigator.of(context).pop();
       return;
     }
 
@@ -87,6 +99,54 @@ class _ConnectRepoDialogState extends ConsumerState<ConnectRepoDialog> {
   void _openFullRepoXray() {
     Navigator.of(context).pop();
     ref.read(codeSubViewProvider.notifier).state = CodeSubView.repoXray;
+  }
+
+  Future<void> _confirmDisconnectGitHubRepo(GitHubAppRepoItem repo) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: _surfaceBg,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: const BorderSide(color: _borderColor),
+        ),
+        title: Text(
+          'Disconnect ${repo.fullName}?',
+          style: const TextStyle(
+            color: Color(0xFFF4F4F5),
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        content: const Text(
+          'Its indexed code graph and dependency snapshot will be permanently purged from Veraxi.',
+          style: TextStyle(color: Color(0xFFA1A1AA), fontSize: 12.5),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(color: Color(0xFFA1A1AA)),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFDC2626),
+              foregroundColor: Colors.white,
+              elevation: 0,
+            ),
+            child: const Text('Disconnect & Purge'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && mounted) {
+      await ref
+          .read(connectRepoViewModelProvider.notifier)
+          .disconnectGitHubAppRepo(repo);
+    }
   }
 
   @override
@@ -216,7 +276,6 @@ class _ConnectRepoDialogState extends ConsumerState<ConnectRepoDialog> {
           ),
           _SourceTabButton(
             label: 'GitHub App',
-            badge: 'SOON',
             selected: _activeTab == ConnectRepoSourceTab.githubApp,
             onTap: () => _switchTab(ConnectRepoSourceTab.githubApp),
           ),
@@ -230,9 +289,17 @@ class _ConnectRepoDialogState extends ConsumerState<ConnectRepoDialog> {
       _activeTab = tab;
       _inlineValidation = null;
     });
+    if (tab == ConnectRepoSourceTab.githubApp) {
+      final vmState = ref.read(connectRepoViewModelProvider);
+      if (vmState.githubAppStatus == null && !vmState.githubAppLoading) {
+        ref.read(connectRepoViewModelProvider.notifier).loadGitHubApp();
+      }
+    }
   }
 
   Widget _buildTabBody(List<IndexedRepoItem> repos, String? selectedRepo) {
+    final vmState = ref.watch(connectRepoViewModelProvider);
+    final vmNotifier = ref.read(connectRepoViewModelProvider.notifier);
     switch (_activeTab) {
       case ConnectRepoSourceTab.localPath:
         return _LocalPathTab(
@@ -252,8 +319,18 @@ class _ConnectRepoDialogState extends ConsumerState<ConnectRepoDialog> {
           onSwitchToLocal: () => _switchTab(ConnectRepoSourceTab.localPath),
         );
       case ConnectRepoSourceTab.githubApp:
-        return _GitHubAppStagedTab(
+        return ConnectRepoGitHubAppTab(
           key: const ValueKey('github_app_tab'),
+          state: vmState,
+          searchController: _ghSearchController,
+          inputDecorationBuilder: _inputDecoration,
+          onConnect: vmNotifier.connectGitHubApp,
+          onRefresh: vmNotifier.loadGitHubApp,
+          onManageOnGitHub: vmNotifier.openManageGitHubRepos,
+          onSearchChanged: vmNotifier.setGitHubAppSearchQuery,
+          onSelectRepo: vmNotifier.selectGitHubAppRepo,
+          onDisconnectRepo: _confirmDisconnectGitHubRepo,
+          onToggleAutoSync: vmNotifier.setAutoSyncOnPush,
           onSwitchToLocal: () => _switchTab(ConnectRepoSourceTab.localPath),
           onSwitchToGitUrl: () => _switchTab(ConnectRepoSourceTab.gitUrl),
         );
@@ -261,6 +338,13 @@ class _ConnectRepoDialogState extends ConsumerState<ConnectRepoDialog> {
   }
 
   Widget _buildTrustBar() {
+    final isGitHubApp = _activeTab == ConnectRepoSourceTab.githubApp;
+    final title = isGitHubApp
+        ? 'Read-only & zero-retention by default'
+        : 'Read-only & local-first by default';
+    final subtitle = isGitHubApp
+        ? 'Scoped strictly to selected repos. Indexes AST into Neo4j, wipes temporary archives immediately, and never pushes or trains on code.'
+        : 'Veraxi indexes locally into Neo4j & Qdrant. Never pushes, modifies files, or trains on code.';
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
@@ -283,22 +367,22 @@ class _ConnectRepoDialogState extends ConsumerState<ConnectRepoDialog> {
             child: const Icon(Icons.check, size: 11, color: _emerald),
           ),
           const SizedBox(width: 10),
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Read-only & local-first by default',
-                  style: TextStyle(
+                  title,
+                  style: const TextStyle(
                     color: Color(0xFFE4E4E7),
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-                SizedBox(height: 2),
+                const SizedBox(height: 2),
                 Text(
-                  'Veraxi indexes locally into Neo4j & Qdrant. Never pushes, modifies files, or trains on code.',
-                  style: TextStyle(
+                  subtitle,
+                  style: const TextStyle(
                     color: Color(0xFFA1A1AA),
                     fontSize: 11,
                   ),
@@ -312,7 +396,9 @@ class _ConnectRepoDialogState extends ConsumerState<ConnectRepoDialog> {
   }
 
   Widget _buildFooter() {
-    final canSubmit = _activeTab != ConnectRepoSourceTab.githubApp;
+    final vmState = ref.watch(connectRepoViewModelProvider);
+    final canSubmit = _activeTab != ConnectRepoSourceTab.githubApp ||
+        vmState.selectedGitHubAppRepo != null;
     return Row(
       children: [
         Expanded(
@@ -380,13 +466,11 @@ class _ConnectRepoDialogState extends ConsumerState<ConnectRepoDialog> {
 
 class _SourceTabButton extends StatelessWidget {
   final String label;
-  final String? badge;
   final bool selected;
   final VoidCallback onTap;
 
   const _SourceTabButton({
     required this.label,
-    this.badge,
     required this.selected,
     required this.onTap,
   });
@@ -407,46 +491,16 @@ class _SourceTabButton extends StatelessWidget {
             border:
                 selected ? Border.all(color: const Color(0xFF32323A)) : null,
           ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Flexible(
-                child: Text(
-                  label,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: selected
-                        ? const Color(0xFFF4F4F5)
-                        : badge != null
-                            ? const Color(0xFF71717A)
-                            : const Color(0xFFA1A1AA),
-                    fontSize: 12,
-                    fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-                  ),
-                ),
-              ),
-              if (badge != null) ...[
-                const SizedBox(width: 6),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF18181D),
-                    borderRadius: BorderRadius.circular(4),
-                    border: Border.all(color: const Color(0xFF27272A)),
-                  ),
-                  child: Text(
-                    badge!,
-                    style: const TextStyle(
-                      color: Color(0xFF71717A),
-                      fontSize: 9.5,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ],
-            ],
+          child: Text(
+            label,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: selected
+                  ? const Color(0xFFF4F4F5)
+                  : const Color(0xFFA1A1AA),
+              fontSize: 12,
+              fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+            ),
           ),
         ),
       ),
@@ -770,84 +824,6 @@ class _GitUrlTab extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _GitHubAppStagedTab extends StatelessWidget {
-  final VoidCallback onSwitchToLocal;
-  final VoidCallback onSwitchToGitUrl;
-
-  const _GitHubAppStagedTab({
-    super.key,
-    required this.onSwitchToLocal,
-    required this.onSwitchToGitUrl,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFF121217),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFF27272D)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Row(
-            children: [
-              Icon(Icons.lock_outline, size: 16, color: Color(0xFF34D399)),
-              SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'GitHub App (Selected-Repos OAuth) — Coming Soon',
-                  style: TextStyle(
-                    color: Color(0xFFE4E4E7),
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'One-click repository picker scoped strictly to repositories you select with read-only permissions — never blanket account-wide access.',
-            style: TextStyle(color: Color(0xFFA1A1AA), fontSize: 12),
-          ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 12,
-            runSpacing: 8,
-            children: [
-              InkWell(
-                onTap: onSwitchToLocal,
-                child: const Text(
-                  'Use Local Path now →',
-                  style: TextStyle(
-                    color: Color(0xFF34D399),
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-              InkWell(
-                onTap: onSwitchToGitUrl,
-                child: const Text(
-                  'Use Git URL / PAT →',
-                  style: TextStyle(
-                    color: Color(0xFFA1A1AA),
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
     );
   }
 }

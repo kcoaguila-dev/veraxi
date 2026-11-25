@@ -47,6 +47,7 @@ def _app_origin(app_base: str) -> str:
 
 _ALLOWED_PROVIDERS: dict[str, str] = {
     "github": "github",
+    "github_app": "github_app",
     "google_drive": "google_drive",
     "notion": "notion",
     "linear": "linear",
@@ -55,6 +56,7 @@ _ALLOWED_PROVIDERS: dict[str, str] = {
 
 _ALLOWED_STATUSES: dict[str, str] = {
     "connected": "connected",
+    "pending": "pending",
     "error": "error",
 }
 
@@ -111,12 +113,19 @@ def _oauth_callback_html(
     origin_json = _script_safe_json(target_origin)
     fallback_json = _script_safe_json(clean_app_url)
     heading = (
-        "Connection complete" if safe_status == "connected" else "Authorization failed"
-    )
-    detail = (
-        f"{html.escape(safe_provider)} is now connected. You can close this window."
+        "Connection complete"
         if safe_status == "connected"
-        else f"Could not connect {html.escape(safe_provider)}. "
+        else "Approval requested"
+        if safe_status == "pending"
+        else "Authorization failed"
+    )
+    provider_label = "GitHub App" if safe_provider == "github_app" else safe_provider
+    detail = (
+        f"{html.escape(provider_label)} is now connected. You can close this window."
+        if safe_status == "connected"
+        else "Installation approval was requested from your organization admin. You can close this window."
+        if safe_status == "pending"
+        else f"Could not connect {html.escape(provider_label)}. "
         "You can close this window."
     )
     body = f"""<!doctype html>

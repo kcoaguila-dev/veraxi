@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from typing import Any
 
 import sentry_sdk
 from arq import cron
@@ -130,6 +131,113 @@ async def sync_github_repo_task(
     return result
 
 
+async def index_github_app_repo_task(
+    ctx,
+    tenant_id: str,
+    installation_id: int,
+    repo_full_name: str,
+    branch: str | None = None,
+):
+    """Background worker task to ephemerally index a GitHub App repository."""
+    from supabase import create_client
+
+    from backend.services.github_app_ingest import index_github_app_repo
+
+    config = get_config()
+    if not config.supabase_url or not config.supabase_service_key:
+        return {"status": "error", "message": "Supabase is not configured"}
+    sb = create_client(config.supabase_url, config.supabase_service_key)
+    redis = ctx.get("redis") if isinstance(ctx, dict) else None
+    return await index_github_app_repo(
+        config,
+        sb,
+        redis,
+        tenant_id=tenant_id,
+        installation_id=int(installation_id),
+        repo_full_name=repo_full_name,
+        branch=branch,
+    )
+
+
+async def sync_github_app_push_task(
+    ctx,
+    installation_id: int,
+    repo_full_name: str,
+    head_sha: str,
+    branch: str | None = None,
+):
+    """Background worker task to incrementally refresh GitHub App repos on push."""
+    from supabase import create_client
+
+    from backend.services import github_app_store as gh_store
+    from backend.services.github_app_ingest import update_github_app_repo_incremental
+
+    config = get_config()
+    if not config.supabase_url or not config.supabase_service_key:
+        return {"status": "error", "message": "Supabase is not configured"}
+    sb = create_client(config.supabase_url, config.supabase_service_key)
+    redis = ctx.get("redis") if isinstance(ctx, dict) else None
+    lock_key = f"ghapp:push-lock:{int(installation_id)}:{repo_full_name}"
+    if redis is not None:
+        acquired = bool(await redis.set(lock_key, head_sha, nx=True, ex=15))
+        if not acquired:
+            return {"status": "debounced", "repo": repo_full_name}
+    try:
+        rows = await asyncio.to_thread(
+            gh_store.find_repos_by_installation_and_name,
+            sb,
+            int(installation_id),
+            repo_full_name,
+        )
+        results: dict[str, Any] = {}
+        for row in rows:
+            if not row.get("auto_sync_on_push", True):
+                continue
+            if branch and row.get("default_branch") and branch != row.get("default_branch"):
+                continue
+            tenant_id = row["tenant_id"]
+            try:
+                results[tenant_id] = await update_github_app_repo_incremental(
+                    config,
+                    sb,
+                    redis,
+                    tenant_id=tenant_id,
+                    installation_id=int(installation_id),
+                    repo_full_name=repo_full_name,
+                    head_sha=head_sha,
+                    branch=branch,
+                )
+            except Exception as exc:
+                sentry_sdk.capture_exception(exc)
+                results[tenant_id] = {"status": "error", "message": str(exc)}
+        return {"status": "ok", "repo": repo_full_name, "results": results}
+    finally:
+        if redis is not None:
+            try:
+                await redis.delete(lock_key)
+            except Exception as exc:
+                sentry_sdk.capture_exception(exc)
+
+
+async def purge_github_app_repos_task(ctx, targets: list[list[str]]):
+    """Background worker task to purge Neo4j code graphs after webhook removal."""
+    from backend.services.github_app_ingest import purge_github_app_repo
+
+    purged = 0
+    errors: list[str] = []
+    for pair in targets:
+        if len(pair) != 2:
+            continue
+        tenant_id, repo_full_name = pair[0], pair[1]
+        try:
+            await purge_github_app_repo(tenant_id, repo_full_name)
+            purged += 1
+        except Exception as exc:
+            sentry_sdk.capture_exception(exc)
+            errors.append(f"{tenant_id}/{repo_full_name}: {exc}")
+    return {"status": "ok" if not errors else "partial", "purged": purged, "errors": errors}
+
+
 def _sync_public_vuln_intel() -> dict:
     from backend.ingestion.vuln_intel import fetch_and_write_vuln_intel
     from backend.storage.neo4j_client import Neo4jStorageClient
@@ -208,6 +316,9 @@ class WorkerSettings:
     functions = [  # noqa: RUF012
         process_ingestion_task,
         sync_github_repo_task,
+        index_github_app_repo_task,
+        sync_github_app_push_task,
+        purge_github_app_repos_task,
         sync_public_vuln_intel_task,
         sync_public_attack_intel_task,
     ]

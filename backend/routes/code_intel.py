@@ -534,6 +534,58 @@ def _sync_vuln_intel(tenant_id: str) -> dict:
     )
 
 
+async def _fetch_github_app_code_file(
+    request: Request,
+    _get_supabase,
+    config: Any,
+    tenant_id: str,
+    repo_key: str,
+    path: str,
+) -> str | None:
+    """Fetch a cited code file at its pinned ``source_commit`` for GitHub App repos."""
+    if not repo_key or not _get_supabase:
+        return None
+    sb = _get_supabase()
+    if not sb:
+        return None
+    from backend.config import get_config
+    from backend.ingestion.code_graph import read_index_meta
+    from backend.services import github_app_client as gh_client
+    from backend.services import github_app_store as gh_store
+
+    meta = await asyncio.to_thread(
+        read_index_meta, _default_neo4j_client(), tenant_id, repo_key=repo_key
+    )
+    if not meta or meta.get("kind") != "github_app":
+        return None
+    repo_row = await asyncio.to_thread(gh_store.get_repo, sb, tenant_id, repo_key)
+    if not repo_row:
+        return None
+    ref = meta.get("source_commit") or repo_row.get("default_branch") or "main"
+    redis = getattr(getattr(request, "app", None), "state", None)
+    redis_client = getattr(redis, "redis", None)
+    cache_key = f"ghapp:file:{tenant_id}:{repo_key}:{ref}:{path}"
+    if redis_client is not None:
+        cached = await redis_client.get(cache_key)
+        if cached:
+            return cached.decode("utf-8") if isinstance(cached, bytes) else str(cached)
+
+    cfg = config or get_config()
+    token = await gh_client.get_installation_token(
+        cfg, redis_client, int(repo_row["installation_id"])
+    )
+    content = await gh_client.fetch_file_at_ref(
+        token,
+        repo_key,
+        path,
+        str(ref),
+        max_bytes=MAX_CODE_FILE_VIEW_BYTES,
+    )
+    if content is not None and redis_client is not None:
+        await redis_client.setex(cache_key, 300, content)
+    return content
+
+
 def register_code_intel_routes(
     app_router, get_tenant_id, _get_supabase=None, config=None
 ):
@@ -873,7 +925,12 @@ def register_code_intel_routes(
             ) from e
 
     @app_router.get("/api/v1/code/file")
-    async def get_code_file(path: str = "", tenant_id: str = Depends(get_tenant_id)):
+    async def get_code_file(
+        request: Request,
+        path: str = "",
+        repo_key: str | None = None,
+        tenant_id: str = Depends(get_tenant_id),
+    ):
         """Serve one indexed code file's content for citation viewing.
 
         ``path`` is the repo-relative path carried by line-anchored
@@ -881,19 +938,29 @@ def register_code_intel_routes(
         served only when the tenant's own code graph holds a CodeFile
         node for it — this endpoint never acts as a general file
         reader — and only from inside the allowed roots, resolved
-        through the same scandir discipline as document serving.
+        through the same scandir discipline as document serving, or
+        on-demand at the pinned ``source_commit`` when indexed via the
+        GitHub App.
 
         The response labels what was served via ``source`` (``file``
-        for full on-disk content) and reports the 1-based line range
-        the content covers, so the viewer can number lines truthfully
-        for any future excerpt source.
+        for full on-disk content, ``github_app`` for pinned-SHA fetch)
+        and reports the 1-based line range the content covers, so the
+        viewer can number lines truthfully for any future excerpt
+        source.
         """
         if not path or "\x00" in path:
             raise HTTPException(status_code=400, detail="path required")
         if _is_code_file_traversal(path):
             raise HTTPException(status_code=403, detail="Path traversal is forbidden")
         try:
-            indexed = await asyncio.to_thread(indexed_file, path, tenant_id=tenant_id)
+            if repo_key is not None:
+                indexed = await asyncio.to_thread(
+                    indexed_file, path, tenant_id=tenant_id, repo_key=repo_key
+                )
+            else:
+                indexed = await asyncio.to_thread(
+                    indexed_file, path, tenant_id=tenant_id
+                )
         except Exception as e:
             sentry_sdk.capture_exception(e)
             raise HTTPException(
@@ -902,13 +969,29 @@ def register_code_intel_routes(
         if indexed is None:
             raise HTTPException(status_code=404, detail="Code file not indexed")
         resolved = await asyncio.to_thread(_resolve_code_file_on_disk, path)
-        if resolved is None:
-            raise HTTPException(status_code=404, detail="Code file not found on server")
-        content = await asyncio.to_thread(_read_code_file_text, resolved)
+        if resolved is not None:
+            content = await asyncio.to_thread(_read_code_file_text, resolved)
+            source_kind = "file"
+        else:
+            effective_key = repo_key or indexed.get("repo_key") or ""
+            try:
+                content = await _fetch_github_app_code_file(
+                    request, _get_supabase, config, tenant_id, effective_key, path
+                )
+            except Exception as e:
+                sentry_sdk.capture_exception(e)
+                raise HTTPException(
+                    status_code=404, detail="Code file unavailable from GitHub"
+                ) from e
+            if content is None:
+                raise HTTPException(
+                    status_code=404, detail="Code file not found on server"
+                )
+            source_kind = "github_app"
         lines = content.splitlines()
         return {
             "path": path,
-            "source": "file",
+            "source": source_kind,
             "language": indexed.get("language"),
             "content": content,
             "start_line": 1,
@@ -950,6 +1033,24 @@ def register_code_intel_routes(
             dependencies = await asyncio.to_thread(
                 extract_dependencies_from_repo, resolved
             )
+        elif payload.repo and _get_supabase:
+            sb = _get_supabase()
+            if not sb:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Provide repo_path, dependencies, or sbom_json",
+                )
+            from backend.services import github_app_store as gh_store
+
+            repo_row = await asyncio.to_thread(
+                gh_store.get_repo, sb, tenant_id, payload.repo
+            )
+            if not repo_row:
+                raise HTTPException(
+                    status_code=404,
+                    detail="GitHub App repository not found for vulnerability report",
+                )
+            dependencies = list(repo_row.get("dependencies_snapshot") or [])
         else:
             raise HTTPException(
                 status_code=400,

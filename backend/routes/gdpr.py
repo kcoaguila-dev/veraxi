@@ -159,6 +159,16 @@ def register_gdpr_routes(
             await asyncio.gather(
                 *(request.app.state.redis.delete(k) for k in redis_keys)
             )
+            # 4. Delete GitHub App installation/repo bindings from Supabase
+            try:
+                from backend.api_gateway import _get_supabase
+                from backend.services.github_app_store import delete_tenant_github_app_data
+
+                sb = _get_supabase()
+                if sb:
+                    await asyncio.to_thread(delete_tenant_github_app_data, sb, tenant_id)
+            except Exception as e:
+                logger.error(f"Error deleting GitHub App data: {e}")
             return {"status": "success", "message": "All user data deleted"}
         except Exception as e:
             logger.error("ERROR IN DELETE_USER_DATA: %s", repr(e))

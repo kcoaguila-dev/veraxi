@@ -162,7 +162,10 @@ class _FakeCodeIntelRepository extends CodeIntelRepository {
   Future<List<Map<String, dynamic>>> fetchIndexedRepos() async => reposToReturn;
 
   @override
-  Future<Map<String, dynamic>> fetchIndexedFile(String path) async {
+  Future<Map<String, dynamic>> fetchIndexedFile(
+    String path, {
+    String? repoKey,
+  }) async {
     if (fileResponseBuilder != null) {
       return fileResponseBuilder!(path);
     }

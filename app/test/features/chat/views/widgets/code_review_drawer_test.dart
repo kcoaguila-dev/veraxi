@@ -71,7 +71,7 @@ class _FakeCodeFileRepository extends CodeFileRepository {
   _FakeCodeFileRepository() : super(apiClient: ApiClient());
 
   @override
-  Future<CodeFileContent> fetchFile(String path) async {
+  Future<CodeFileContent> fetchFile(String path, {String? repoKey}) async {
     const lines = ['line one', 'line two', 'line three'];
     return CodeFileContent(
       path: path,

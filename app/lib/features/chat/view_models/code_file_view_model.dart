@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:veraxi_app/core/providers/workspace_mode_provider.dart';
 import 'package:veraxi_app/features/chat/data/code_file_repository.dart';
 
 // Re-export the model so views can import it from the ViewModel layer
@@ -67,7 +68,8 @@ class CodeCitationTarget {
 final codeFileProvider = FutureProvider.autoDispose
     .family<CodeFileContent, CodeCitationTarget>((ref, target) {
   final repository = ref.watch(codeFileRepositoryProvider);
-  return repository.fetchFile(target.path);
+  final repoKey = ref.watch(selectedIndexedRepoProvider);
+  return repository.fetchFile(target.path, repoKey: repoKey);
 });
 
 /// Indexed-file search for the Code composer's `@` picker, backed by

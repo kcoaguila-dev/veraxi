@@ -118,6 +118,16 @@ class Config:
     github_client_id: str = ""
     github_client_secret: str = ""
     oauth_redirect_base_url: str = ""
+    # GitHub App (Selected-Repos Read-Only Code Graph Integration)
+    github_app_id: str = ""
+    github_app_slug: str = ""
+    github_app_client_id: str = ""
+    github_app_client_secret: str = ""
+    github_app_private_key: str = ""
+    github_app_private_key_path: str = ""
+    github_app_private_key_secondary: str = ""
+    github_app_webhook_secret: str = ""
+    github_app_max_repo_mb: int = 100
     vision_enabled: bool = False
     vision_base_url: str = ""
     vision_api_key: str = ""
@@ -309,6 +319,21 @@ class Config:
             oauth_redirect_base_url=os.environ.get(
                 "OAUTH_REDIRECT_BASE_URL", ""
             ).rstrip("/"),
+            github_app_id=os.environ.get("GITHUB_APP_ID", ""),
+            github_app_slug=os.environ.get("GITHUB_APP_SLUG", ""),
+            github_app_client_id=os.environ.get("GITHUB_APP_CLIENT_ID", ""),
+            github_app_client_secret=os.environ.get("GITHUB_APP_CLIENT_SECRET", ""),
+            github_app_private_key=os.environ.get("GITHUB_APP_PRIVATE_KEY", ""),
+            github_app_private_key_path=os.environ.get(
+                "GITHUB_APP_PRIVATE_KEY_PATH", ""
+            ),
+            github_app_private_key_secondary=os.environ.get(
+                "GITHUB_APP_PRIVATE_KEY_SECONDARY", ""
+            ),
+            github_app_webhook_secret=os.environ.get("GITHUB_APP_WEBHOOK_SECRET", ""),
+            github_app_max_repo_mb=int(
+                os.environ.get("GITHUB_APP_MAX_REPO_MB", "100")
+            ),
             default_search_limit=int(os.environ.get("DEFAULT_SEARCH_LIMIT", "10")),
             default_max_hops=int(os.environ.get("DEFAULT_MAX_HOPS", "2")),
             searxng_url=os.environ.get("SEARXNG_BASE_URL", "http://searxng:8080/"),

@@ -723,9 +723,15 @@ class CodeIntelRepository {
   }
 
   /// Fetch an indexed source file for line-anchored code citation viewing.
-  Future<Map<String, dynamic>> fetchIndexedFile(String path) async {
+  Future<Map<String, dynamic>> fetchIndexedFile(
+    String path, {
+    String? repoKey,
+  }) async {
     final encoded = Uri.encodeQueryComponent(path);
-    final data = await apiClient.get('/v1/code/file?path=$encoded');
+    final repoParam = (repoKey != null && repoKey.isNotEmpty)
+        ? '&repo_key=${Uri.encodeQueryComponent(repoKey)}'
+        : '';
+    final data = await apiClient.get('/v1/code/file?path=$encoded$repoParam');
     return Map<String, dynamic>.from(data as Map);
   }
 

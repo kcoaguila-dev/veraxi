@@ -528,6 +528,16 @@ def extract_dependencies_from_file(path: str | Path) -> list[dict[str, Any]]:
     return parser(text, source_file=file_path.name)
 
 
+def is_dependency_manifest_path(rel_path: str) -> bool:
+    """Return True if ``rel_path`` is a supported manifest outside skipped dirs."""
+    clean_parts = [p for p in Path(rel_path).parts if p and p != "."]
+    if not clean_parts or any(p == ".." or p.startswith("/") for p in clean_parts):
+        return False
+    if any(part in _SKIPPED_DIRS for part in clean_parts[:-1]):
+        return False
+    return _parser_for_filename(clean_parts[-1]) is not None
+
+
 def _is_allowed_manifest(path: Path, root_path: Path) -> bool:
     if _parser_for_filename(path.name) is None or path.is_symlink() or not path.is_file():
         return False
@@ -567,6 +577,7 @@ __all__ = [
     "MANIFEST_NAMES",
     "extract_dependencies_from_file",
     "extract_dependencies_from_repo",
+    "is_dependency_manifest_path",
     "normalize_package_name",
     "parse_package_json_text",
     "parse_pubspec_text",

@@ -340,6 +340,7 @@ from backend.routes.corpus_insights import register_corpus_insights_routes
 from backend.routes.evals import register_eval_routes
 from backend.routes.files import register_file_routes
 from backend.routes.gdpr import register_gdpr_routes
+from backend.routes.github_app import register_github_app_routes
 from backend.routes.ingestion import register_ingestion_routes
 from backend.routes.integrations import register_integration_routes
 from backend.routes.mcp_transport import register_mcp_transport_routes
@@ -375,6 +376,7 @@ register_usage_routes(app, get_tenant_id, _get_supabase, config)
 register_acp_routes(app, get_tenant_id, _get_supabase, config)
 register_corpus_insights_routes(app, get_tenant_id, _get_supabase, config)
 register_code_intel_routes(app, get_tenant_id, _get_supabase, config)
+register_github_app_routes(app, get_tenant_id, _get_supabase, config)
 register_eval_routes(app, get_tenant_id, _get_supabase, config)
 register_sync_routes(app, get_tenant_id, _get_supabase, config)
 register_gdpr_routes(app, get_tenant_id, verify_infrastructure_access, limiter, config)
