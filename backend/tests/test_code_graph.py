@@ -610,3 +610,78 @@ def test_treesitter_parses_cpp_csharp_ruby_kotlin(tmp_path: Path):
     assert parsed.node("Function", "app.Worker.perform") is not None
     assert parsed.node("Class", "Main.App") is not None
     assert parsed.node("Function", "Main.App.start") is not None
+
+
+def test_large_graph_uses_unwind_batching_and_deduplicates_placeholders():
+    from backend.ingestion.code_graph import CodeEdge, CodeGraph, CodeNode
+
+    nodes = [
+        CodeNode(
+            label="Function",
+            name=f"fn_{i}",
+            qualified_name=f"pkg.mod.fn_{i}",
+            path="pkg/mod.py",
+            line=i + 1,
+            language="python",
+            repo_key="acme/repo",
+        )
+        for i in range(60)
+    ]
+    # All 60 functions import the same external symbol `os` — should be
+    # deduplicated into 1 placeholder row instead of 60 writes.
+    edges = [
+        CodeEdge(
+            type="IMPORTS",
+            source_qn=f"pkg.mod.fn_{i}",
+            source_label="Function",
+            target_qn="os",
+            target_label="CodeModule",
+            repo_key="acme/repo",
+        )
+        for i in range(60)
+    ]
+    client = FakeNeo4jClient()
+    result = write_code_graph(
+        client, CodeGraph(nodes=nodes, edges=edges), tenant_id="tenant-b"
+    )
+
+    assert result == {"nodes_written": 60, "edges_written": 60}
+    # 1 UNWIND batch for Function nodes, 1 for CodeModule placeholder, 1 for IMPORTS edges
+    assert len(client.calls) == 3
+    for query, params in client.calls:
+        assert "UNWIND $rows AS row" in query
+        assert "tenant-b" not in query
+        assert "$" in query
+        assert "tenant-b" in str(params)
+
+    placeholder_calls = [
+        params for q, params in client.calls if "MERGE (n:CodeModule" in q
+    ]
+    assert len(placeholder_calls) == 1
+    assert len(placeholder_calls[0]["rows"]) == 1
+    assert placeholder_calls[0]["rows"][0]["properties"]["resolved"] is False
+
+
+def test_parse_repo_emits_file_count_progress_and_merkle_diff(tmp_path: Path):
+    from backend.ingestion.code_graph import collect_parseable_files
+    from backend.ingestion.merkle import compute_repo_merkle, diff_merkle_hashes
+
+    root = tmp_path / "repo"
+    root.mkdir()
+    for i in range(10):
+        (root / f"mod_{i}.py").write_text(f"def f_{i}():\n    return {i}\n", encoding="utf-8")
+
+    events: list[tuple[str, str]] = []
+    parsed = parse_repo(root, progress_callback=lambda s, m: events.append((s, m)))
+    assert len(parsed.nodes) >= 10
+    assert events
+    assert events[0][0] == "parsing"
+    assert "1/10 files" in events[0][1]
+    assert "10/10 files" in events[-1][1]
+
+    files = collect_parseable_files(root)
+    root_a, hashes_a = compute_repo_merkle(root, files)
+    (root / "mod_3.py").write_text("def f_3():\n    return 999\n", encoding="utf-8")
+    root_b, hashes_b = compute_repo_merkle(root, files)
+    assert root_a != root_b
+    assert diff_merkle_hashes(hashes_a, hashes_b) == {"mod_3.py"}

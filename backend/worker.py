@@ -313,6 +313,7 @@ async def sync_public_attack_intel_task(ctx):
 class WorkerSettings:
     config = get_config()
     redis_settings = RedisSettings.from_dsn(config.redis_url)
+    job_timeout = 900  # 15 min: full-repo GitHub App indexing can exceed ARQ's 300s default.
     functions = [  # noqa: RUF012
         process_ingestion_task,
         sync_github_repo_task,

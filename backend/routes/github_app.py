@@ -11,7 +11,7 @@ from typing import Any
 
 import sentry_sdk
 from fastapi import Depends, HTTPException, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
 from backend.routes.integrations_oauth import _oauth_callback_html
@@ -606,6 +606,11 @@ def register_github_app_routes(
                     await redis_client.setex(
                         f"ghapp:job:{job_id}", _JOB_OWNER_TTL_SEC, tenant_id
                     )
+                    await redis_client.setex(
+                        f"ghapp:job_repo:{job_id}",
+                        _JOB_OWNER_TTL_SEC,
+                        payload.repo_full_name,
+                    )
                 return JSONResponse(
                     status_code=202,
                     content={
@@ -630,15 +635,9 @@ def register_github_app_routes(
             branch=branch,
         )
 
-    @app_router.get("/api/v1/github-app/jobs/{job_id}")
-    async def get_github_app_job(
-        job_id: str,
-        request: Request,
-        tenant_id: str = Depends(get_tenant_id),
-    ):
-        redis_client = _redis(request)
-        if not redis_client:
-            raise HTTPException(status_code=503, detail="Redis is unavailable")
+    async def _read_job_snapshot(
+        redis_client: Any, job_id: str, tenant_id: str
+    ) -> dict[str, Any]:
         owner_raw = await redis_client.get(f"ghapp:job:{job_id}")
         owner = (
             owner_raw.decode("utf-8")
@@ -657,16 +656,96 @@ def register_github_app_routes(
             sentry_sdk.capture_exception(exc)
             raise HTTPException(status_code=404, detail="Job not found") from exc
 
+        progress = None
+        try:
+            repo_raw = await redis_client.get(f"ghapp:job_repo:{job_id}")
+            repo_name = (
+                repo_raw.decode("utf-8")
+                if isinstance(repo_raw, bytes)
+                else str(repo_raw or "")
+            )
+            if repo_name:
+                prog_raw = await redis_client.get(
+                    f"ghapp:progress:{tenant_id}:{repo_name}"
+                )
+                if prog_raw:
+                    prog_str = (
+                        prog_raw.decode("utf-8")
+                        if isinstance(prog_raw, bytes)
+                        else str(prog_raw)
+                    )
+                    progress = json.loads(prog_str)
+        except Exception:
+            progress = None
+
         if status.value == "complete" and info is not None:
             if not getattr(info, "success", True):
                 return {
                     "job_id": job_id,
                     "status": "failed",
                     "error": str(info.result)[:300],
+                    "progress": progress,
                 }
             result = info.result if isinstance(info.result, dict) else None
-            return {"job_id": job_id, "status": "complete", "result": result}
-        return {"job_id": job_id, "status": status.value, "result": None}
+            return {
+                "job_id": job_id,
+                "status": "complete",
+                "result": result,
+                "progress": progress,
+            }
+        return {
+            "job_id": job_id,
+            "status": status.value,
+            "result": None,
+            "progress": progress,
+        }
+
+    @app_router.get("/api/v1/github-app/jobs/{job_id}")
+    async def get_github_app_job(
+        job_id: str,
+        request: Request,
+        tenant_id: str = Depends(get_tenant_id),
+    ):
+        redis_client = _redis(request)
+        if not redis_client:
+            raise HTTPException(status_code=503, detail="Redis is unavailable")
+        return await _read_job_snapshot(redis_client, job_id, tenant_id)
+
+    @app_router.get("/api/v1/github-app/jobs/{job_id}/stream")
+    async def stream_github_app_job(
+        job_id: str,
+        request: Request,
+        tenant_id: str = Depends(get_tenant_id),
+    ):
+        redis_client = _redis(request)
+        if not redis_client:
+            raise HTTPException(status_code=503, detail="Redis is unavailable")
+        # Validate job ownership up front before opening SSE stream.
+        initial = await _read_job_snapshot(redis_client, job_id, tenant_id)
+
+        async def _event_stream():
+            last_payload = ""
+            snapshot = initial
+            while True:
+                encoded = json.dumps(snapshot)
+                if encoded != last_payload:
+                    last_payload = encoded
+                    yield f"data: {encoded}\n\n"
+                if snapshot.get("status") in ("complete", "failed"):
+                    break
+                if await request.is_disconnected():
+                    break
+                await asyncio.sleep(1.0)
+                snapshot = await _read_job_snapshot(redis_client, job_id, tenant_id)
+
+        return StreamingResponse(
+            _event_stream(),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "X-Accel-Buffering": "no",
+            },
+        )
 
     @app_router.delete("/api/v1/github-app/repos/{owner}/{repo}")
     async def disconnect_github_app_repo(

@@ -198,6 +198,11 @@ class TestWorkerTask:
 
         assert sync_github_repo_task in WorkerSettings.functions
 
+    def test_worker_job_timeout_supports_full_repo_indexing(self):
+        from backend.worker import WorkerSettings
+
+        assert WorkerSettings.job_timeout >= 900
+
 
 class TestDispatchGate:
     @pytest.mark.asyncio

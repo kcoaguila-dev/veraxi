@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart';
@@ -153,7 +154,12 @@ class ApiClient {
 
       // 201: several create endpoints (API keys, integrations) return
       // 201 Created with the created resource as JSON.
-      if (response.statusCode == 200 || response.statusCode == 201) {
+      // 202: async job-enqueue endpoints (e.g. GitHub App indexing) return
+      // 202 Accepted with queued job metadata.
+      if (response.statusCode == 200 ||
+          response.statusCode == 201 ||
+          response.statusCode == 202) {
+        if (response.body.isEmpty) return <String, dynamic>{};
         return jsonDecode(response.body);
       }
       if (response.statusCode == 402) {
@@ -320,6 +326,35 @@ class ApiClient {
     } catch (e, stackTrace) {
       Sentry.captureException(e, stackTrace: stackTrace);
       rethrow;
+    }
+  }
+
+  /// Opens a GET Server-Sent Events stream at [path] and yields decoded JSON
+  /// `data:` payloads until the server closes the stream.
+  Stream<Map<String, dynamic>> streamSse(String path) async* {
+    final requestHeaders = await getDefaultHeaders()
+      ..['Accept'] = 'text/event-stream';
+    final request = http.Request('GET', Uri.parse('$baseUrl$path'))
+      ..headers.addAll(requestHeaders);
+    final streamed = await client.send(request).timeout(
+          const Duration(seconds: 30),
+        );
+    if (streamed.statusCode != 200) {
+      throw Exception('SSE stream error: ${streamed.statusCode}');
+    }
+    final lines = streamed.stream
+        .transform(utf8.decoder)
+        .transform(const LineSplitter());
+    await for (final line in lines) {
+      if (!line.startsWith('data:')) continue;
+      final payload = line.substring(5).trim();
+      if (payload.isEmpty) continue;
+      final decoded = jsonDecode(payload);
+      if (decoded is Map<String, dynamic>) {
+        yield decoded;
+      } else if (decoded is Map) {
+        yield Map<String, dynamic>.from(decoded);
+      }
     }
   }
 }

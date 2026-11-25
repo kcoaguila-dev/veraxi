@@ -263,3 +263,58 @@ def upsert_structural_edge(
         query,
         {"from_key": from_key, "to_key": to_key, "tenant_id": tenant_id},
     )
+
+
+def upsert_structural_nodes_batch(
+    client: Any,
+    *,
+    label: str,
+    allowed_labels: tuple[str, ...],
+    key_field: str,
+    rows: list[dict[str, Any]],
+    chunk_size: int = 500,
+) -> None:
+    """Batch-MERGE structural nodes of one whitelisted label via UNWIND."""
+    if label not in allowed_labels:
+        raise ValueError(f"Unsupported structural node label: {label}")
+    if key_field not in _STRUCTURAL_KEY_FIELDS:
+        raise ValueError(f"Unsupported structural key field: {key_field}")
+    if not rows:
+        return
+    query = f"""
+    UNWIND $rows AS row
+    MERGE (n:{label} {{{key_field}: row.key}})
+    SET n += row.properties
+    """
+    for i in range(0, len(rows), chunk_size):
+        client.execute_write(query, {"rows": rows[i : i + chunk_size]})
+
+
+def upsert_structural_edges_batch(
+    client: Any,
+    *,
+    edge_type: str,
+    allowed_edge_types: tuple[str, ...],
+    key_field: str,
+    rows: list[dict[str, Any]],
+    tenant_id: str,
+    chunk_size: int = 500,
+) -> None:
+    """Batch-MERGE directed structural edges of one whitelisted type via UNWIND."""
+    if edge_type not in allowed_edge_types:
+        raise ValueError(f"Unsupported structural edge type: {edge_type}")
+    if key_field not in _STRUCTURAL_KEY_FIELDS:
+        raise ValueError(f"Unsupported structural key field: {key_field}")
+    if not rows:
+        return
+    query = f"""
+    UNWIND $rows AS row
+    MATCH (a {{{key_field}: row.from_key}})
+    MATCH (b {{{key_field}: row.to_key}})
+    MERGE (a)-[r:{edge_type}]->(b)
+    SET r.tenant_id = $tenant_id
+    """
+    for i in range(0, len(rows), chunk_size):
+        client.execute_write(
+            query, {"rows": rows[i : i + chunk_size], "tenant_id": tenant_id}
+        )

@@ -55,6 +55,11 @@ class _FakeConnectRepoRepository extends ConnectRepoRepository {
   }
 
   @override
+  Stream<Map<String, dynamic>> streamGitHubAppJob(String jobId) async* {
+    yield await pollGitHubAppJob(jobId);
+  }
+
+  @override
   Future<void> disconnectGitHubAppRepo(String owner, String repo) async {
     disconnectedGitHubRepos.add((owner, repo));
   }
@@ -474,6 +479,76 @@ void main() {
     expect(
       ConnectRepoViewModel.friendlyGitHubAppAuthError('oauth_failed'),
       'GitHub App authorization failed (oauth_failed).',
+    );
+  });
+
+  test('hydrateActiveIndexing resumes in-flight GitHub App indexing on reload',
+      () async {
+    var pollCount = 0;
+    final repo = _FakeConnectRepoRepository(
+      stubGitHubAppStatus: const GitHubAppStatus(
+        configured: true,
+        appSlug: 'veraxi-app',
+        manageUrl: 'https://github.com/apps/veraxi-app/installations/new',
+        installations: [
+          GitHubAppInstallation(
+            installationId: 42,
+            accountLogin: 'acme-org',
+            accountType: 'Organization',
+            repositorySelection: 'selected',
+            status: 'active',
+          ),
+        ],
+      ),
+      stubGitHubAppRepos: const [
+        GitHubAppRepoItem(
+          installationId: 42,
+          accountLogin: 'acme-org',
+          fullName: 'acme-org/api-gateway',
+          defaultBranch: 'main',
+          isPrivate: true,
+          autoSyncOnPush: true,
+          indexStatus: 'indexing',
+        ),
+      ],
+    );
+
+    final container = ProviderContainer(
+      overrides: [
+        connectRepoRepositoryProvider.overrideWithValue(repo),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    final notifier = container.read(connectRepoViewModelProvider.notifier);
+    final future = notifier.hydrateActiveIndexing();
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+
+    expect(container.read(connectRepoViewModelProvider).indexing, isTrue);
+    expect(
+      container.read(connectRepoViewModelProvider).activeTarget,
+      'acme-org/api-gateway',
+    );
+
+    pollCount++;
+    repo.stubGitHubAppRepos = const [
+      GitHubAppRepoItem(
+        installationId: 42,
+        accountLogin: 'acme-org',
+        fullName: 'acme-org/api-gateway',
+        defaultBranch: 'main',
+        isPrivate: true,
+        autoSyncOnPush: true,
+        indexStatus: 'indexed',
+      ),
+    ];
+
+    await future;
+    expect(pollCount, 1);
+    expect(container.read(connectRepoViewModelProvider).indexing, isFalse);
+    expect(
+      container.read(connectRepoViewModelProvider).statusMessage,
+      'Indexed acme-org/api-gateway',
     );
   });
 }

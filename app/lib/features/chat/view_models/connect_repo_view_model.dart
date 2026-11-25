@@ -22,6 +22,7 @@ enum ConnectRepoSourceTab {
 class ConnectRepoState {
   final bool indexing;
   final String? activeTarget;
+  final String? progressMessage;
   final String? statusMessage;
   final String? errorMessage;
   final bool githubAppLoading;
@@ -36,6 +37,7 @@ class ConnectRepoState {
   const ConnectRepoState({
     this.indexing = false,
     this.activeTarget,
+    this.progressMessage,
     this.statusMessage,
     this.errorMessage,
     this.githubAppLoading = false,
@@ -52,6 +54,8 @@ class ConnectRepoState {
     bool? indexing,
     String? activeTarget,
     bool clearActiveTarget = false,
+    String? progressMessage,
+    bool clearProgress = false,
     String? statusMessage,
     bool clearStatus = false,
     String? errorMessage,
@@ -69,6 +73,8 @@ class ConnectRepoState {
       indexing: indexing ?? this.indexing,
       activeTarget:
           clearActiveTarget ? null : (activeTarget ?? this.activeTarget),
+      progressMessage:
+          clearProgress ? null : (progressMessage ?? this.progressMessage),
       statusMessage: clearStatus ? null : (statusMessage ?? this.statusMessage),
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
       githubAppLoading: githubAppLoading ?? this.githubAppLoading,
@@ -96,6 +102,7 @@ final connectRepoViewModelProvider =
 class ConnectRepoViewModel extends StateNotifier<ConnectRepoState> {
   final ConnectRepoRepository _repository;
   final Ref _ref;
+  bool _hydrationChecked = false;
 
   /// Creates a [ConnectRepoViewModel].
   ConnectRepoViewModel({
@@ -118,8 +125,65 @@ class ConnectRepoViewModel extends StateNotifier<ConnectRepoState> {
   void clearBanner() {
     state = state.copyWith(
       clearActiveTarget: true,
+      clearProgress: true,
       clearStatus: true,
       clearError: true,
+    );
+  }
+
+  /// Re-attaches the indexing indicator if the user reloads the tab while a
+  /// GitHub App repository is still indexing in the background.
+  Future<void> hydrateActiveIndexing() async {
+    if (_hydrationChecked || state.indexing) return;
+    _hydrationChecked = true;
+    try {
+      final status = await _repository.fetchGitHubAppStatus();
+      if (!status.configured || !status.isConnected) return;
+      final ghRepos = await _repository.fetchGitHubAppRepos();
+      final active = ghRepos.where((r) => r.indexStatus == 'indexing').toList();
+      if (active.isEmpty || state.indexing) return;
+
+      final target = active.first.fullName;
+      state = state.copyWith(
+        indexing: true,
+        activeTarget: target,
+        clearStatus: true,
+        clearError: true,
+      );
+      await _pollRepoStatusUntilDone(target);
+    } catch (e, st) {
+      await Sentry.captureException(e, stackTrace: st);
+    }
+  }
+
+  Future<void> _pollRepoStatusUntilDone(String repoFullName) async {
+    for (var attempt = 0; attempt < 300; attempt++) {
+      await Future<void>.delayed(const Duration(seconds: 3));
+      final ghRepos = await _repository.fetchGitHubAppRepos();
+      final matched = ghRepos.where((r) => r.fullName == repoFullName).toList();
+      if (matched.isEmpty) break;
+      final current = matched.first;
+      if (current.indexStatus == 'indexed') {
+        final repos = await _repository.fetchIndexedRepos();
+        _ref.read(indexedReposProvider.notifier).state = repos;
+        _ref.read(selectedIndexedRepoProvider.notifier).state = repoFullName;
+        state = state.copyWith(
+          indexing: false,
+          statusMessage: 'Indexed $repoFullName',
+        );
+        return;
+      }
+      if (current.indexStatus == 'error') {
+        state = state.copyWith(
+          indexing: false,
+          errorMessage: 'GitHub App indexing failed for $repoFullName.',
+        );
+        return;
+      }
+    }
+    state = state.copyWith(
+      indexing: false,
+      errorMessage: 'GitHub App indexing timed out for $repoFullName.',
     );
   }
 
@@ -273,6 +337,7 @@ class ConnectRepoViewModel extends StateNotifier<ConnectRepoState> {
     state = state.copyWith(
       indexing: true,
       activeTarget: repo.fullName,
+      progressMessage: 'Queued…',
       clearStatus: true,
       clearError: true,
     );
@@ -292,25 +357,63 @@ class ConnectRepoViewModel extends StateNotifier<ConnectRepoState> {
       _ref.read(indexedReposProvider.notifier).state = repos;
       _ref.read(selectedIndexedRepoProvider.notifier).state = repo.fullName;
 
+      final skipped = finalResult['skipped'] == true;
       final nodes = finalResult['nodes_written'] ?? 0;
       final edges = finalResult['edges_written'] ?? 0;
       state = state.copyWith(
         indexing: false,
-        statusMessage: 'Indexed ${repo.fullName} ($nodes nodes · $edges edges)',
+        clearProgress: true,
+        statusMessage: skipped
+            ? 'Indexed ${repo.fullName} (already up to date)'
+            : 'Indexed ${repo.fullName} ($nodes nodes · $edges edges)',
       );
     } catch (e, st) {
       await Sentry.captureException(e, stackTrace: st);
       state = state.copyWith(
         indexing: false,
+        clearProgress: true,
         errorMessage: 'GitHub App indexing failed for ${repo.fullName}.',
       );
     }
   }
 
+  void _applyJobProgress(Map<String, dynamic> job) {
+    final progress = job['progress'];
+    if (progress is Map) {
+      final msg = progress['message']?.toString();
+      if (msg != null && msg.isNotEmpty) {
+        state = state.copyWith(progressMessage: msg);
+      }
+    }
+  }
+
   Future<Map<String, dynamic>> _pollJobUntilDone(String jobId) async {
-    for (var attempt = 0; attempt < 60; attempt++) {
+    // Prefer real-time SSE stream; fall back to polling if stream drops.
+    try {
+      await for (final event in _repository.streamGitHubAppJob(jobId)) {
+        _applyJobProgress(event);
+        final status = event['status'] as String? ?? '';
+        if (status == 'complete') {
+          final res = event['result'];
+          return res is Map<String, dynamic> ? res : <String, dynamic>{};
+        }
+        if (status == 'failed') {
+          throw StateError(
+            event['error']?.toString() ?? 'GitHub App indexing job failed',
+          );
+        }
+      }
+    } on StateError {
+      rethrow;
+    } catch (_) {
+      // Fall through to HTTP polling fallback.
+    }
+
+    // Allow up to 15 minutes (450 * 2s) to match ARQ WorkerSettings.job_timeout.
+    for (var attempt = 0; attempt < 450; attempt++) {
       await Future<void>.delayed(const Duration(seconds: 2));
       final job = await _repository.pollGitHubAppJob(jobId);
+      _applyJobProgress(job);
       final status = job['status'] as String? ?? '';
       if (status == 'complete') {
         final res = job['result'];

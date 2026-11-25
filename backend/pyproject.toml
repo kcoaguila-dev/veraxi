@@ -63,6 +63,7 @@ dependencies = [
     "e2b",
     "tree-sitter>=0.26.1",
     "tree-sitter-language-pack>=1.25.2",
+    "orjson",
 ]
 
 [project.optional-dependencies]

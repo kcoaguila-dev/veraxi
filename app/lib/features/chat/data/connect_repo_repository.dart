@@ -190,6 +190,11 @@ class ConnectRepoRepository {
     return Map<String, dynamic>.from(data as Map);
   }
 
+  /// Streams live SSE status & progress updates for an ARQ GitHub App job.
+  Stream<Map<String, dynamic>> streamGitHubAppJob(String jobId) {
+    return apiClient.streamSse('/v1/github-app/jobs/$jobId/stream');
+  }
+
   /// Disconnects and purges a GitHub App repository's code graph.
   Future<void> disconnectGitHubAppRepo(String owner, String repo) async {
     await apiClient.delete('/v1/github-app/repos/$owner/$repo');

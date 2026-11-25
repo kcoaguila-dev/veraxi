@@ -77,10 +77,11 @@ import logging
 import os
 import re
 import subprocess
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 logger = logging.getLogger(__name__)
 
@@ -1025,7 +1026,69 @@ def _parse_one_file(builder: _GraphBuilder, root_path: Path, path: Path) -> None
         )
 
 
-def parse_repo(root: str | Path, repo_key: str | None = None) -> CodeGraph:
+ProgressCallback = Callable[[str, str], None]
+
+_SHARD_PARSE_THRESHOLD = 200
+
+
+def collect_parseable_files(root_path: Path) -> list[Path]:
+    """Return sorted parseable source files under ``root_path``."""
+    if not root_path.is_dir():
+        return []
+    return [
+        path
+        for path in sorted(root_path.rglob("*"))
+        if path.is_file() and _is_parseable_file(path, root_path)
+    ]
+
+
+def _emit_parse_progress(
+    progress_callback: ProgressCallback | None,
+    done: int,
+    total: int,
+) -> None:
+    if progress_callback is None or total <= 0:
+        return
+    step = max(1, total // 20)
+    if done == 1 or done == total or done % step == 0:
+        progress_callback("parsing", f"Parsing {done}/{total} files…")
+
+
+def _parse_shard(
+    root_path: Path, files: list[Path], repo_key: str
+) -> CodeGraph:
+    builder = _GraphBuilder(repo_key=repo_key)
+    for path in files:
+        _parse_one_file(builder, root_path, path)
+    return builder.build()
+
+
+def _merge_shard_graphs(shards: list[CodeGraph]) -> CodeGraph:
+    nodes_by_key: dict[tuple[str, str, str], CodeNode] = {}
+    edges_seen: set[tuple[str, str, str, str, str]] = set()
+    edges: list[CodeEdge] = []
+    for shard in shards:
+        for node in shard.nodes:
+            nodes_by_key.setdefault(node.key, node)
+        for edge in shard.edges:
+            ekey = (
+                edge.type,
+                edge.source_label,
+                edge.source_qn,
+                edge.target_label,
+                edge.target_qn,
+            )
+            if ekey not in edges_seen:
+                edges_seen.add(ekey)
+                edges.append(edge)
+    return CodeGraph(nodes=list(nodes_by_key.values()), edges=edges)
+
+
+def parse_repo(
+    root: str | Path,
+    repo_key: str | None = None,
+    progress_callback: ProgressCallback | None = None,
+) -> CodeGraph:
     """Parse the repo tree at ``root`` into an in-memory :class:`CodeGraph`.
 
     Pure: no database or network access. Paths on nodes are relative to
@@ -1035,15 +1098,36 @@ def parse_repo(root: str | Path, repo_key: str | None = None) -> CodeGraph:
     reads the checkout's local git config only).
     """
     root_path = Path(os.path.realpath(root))
-    builder = _GraphBuilder(
-        repo_key=derive_repo_key(root_path) if repo_key is None else repo_key
-    )
-    if not root_path.is_dir():
-        return builder.build()
-    for path in sorted(root_path.rglob("*")):
-        if not path.is_file() or not _is_parseable_file(path, root_path):
-            continue
+    resolved_key = derive_repo_key(root_path) if repo_key is None else repo_key
+    files = collect_parseable_files(root_path)
+    total = len(files)
+    if total == 0:
+        return _GraphBuilder(repo_key=resolved_key).build()
+
+    if total >= _SHARD_PARSE_THRESHOLD:
+        workers = min(4, os.cpu_count() or 2)
+        chunk_size = max(1, (total + workers - 1) // workers)
+        shards_input = [
+            files[i : i + chunk_size] for i in range(0, total, chunk_size)
+        ]
+        _emit_parse_progress(progress_callback, 1, total)
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            futures = [
+                pool.submit(_parse_shard, root_path, shard, resolved_key)
+                for shard in shards_input
+            ]
+            shard_graphs: list[CodeGraph] = []
+            completed_files = 0
+            for shard, fut in zip(shards_input, futures, strict=True):
+                shard_graphs.append(fut.result())
+                completed_files += len(shard)
+                _emit_parse_progress(progress_callback, completed_files, total)
+        return _merge_shard_graphs(shard_graphs)
+
+    builder = _GraphBuilder(repo_key=resolved_key)
+    for idx, path in enumerate(files, 1):
         _parse_one_file(builder, root_path, path)
+        _emit_parse_progress(progress_callback, idx, total)
     return builder.build()
 
 
@@ -1151,8 +1235,118 @@ def _write_edge(client: Any, edge: CodeEdge, tenant_id: str) -> None:
     )
 
 
+_BATCH_WRITE_THRESHOLD = 100
+
+
+def _collect_placeholder_nodes(
+    edges: list[CodeEdge],
+    parsed_keys: set[tuple[str, str, str]],
+) -> list[CodeNode]:
+    """Deduplicate bare placeholder nodes for resolved targets outside the parsed tree."""
+    seen: set[tuple[str, str, str]] = set()
+    placeholders: list[CodeNode] = []
+    for edge in edges:
+        key = (edge.repo_key, edge.target_label, edge.target_qn)
+        if key in parsed_keys or key in seen or edge.target_label not in NODE_LABELS:
+            continue
+        seen.add(key)
+        name = edge.target_qn.rsplit(".", 1)[-1].rsplit("/", 1)[-1]
+        placeholders.append(
+            CodeNode(
+                label=edge.target_label,
+                name=name,
+                qualified_name=edge.target_qn,
+                path="",
+                line=0,
+                language="",
+                resolved=False,
+                repo_key=edge.repo_key,
+            )
+        )
+    return placeholders
+
+
+def _write_code_graph_batched(
+    client: Any,
+    graph: CodeGraph,
+    placeholders: list[CodeNode],
+    tenant_id: str,
+    progress_callback: ProgressCallback | None = None,
+) -> None:
+    """Persist nodes and edges in UNWIND batches grouped by label/edge type."""
+    from backend.ingestion.graph_write import (
+        structural_key,
+        upsert_structural_edges_batch,
+        upsert_structural_nodes_batch,
+    )
+
+    nodes_by_label: dict[str, list[dict[str, Any]]] = {}
+    for node in (*graph.nodes, *placeholders):
+        key = structural_key(
+            tenant_id, node.label, _key_identifier(node.repo_key, node.qualified_name)
+        )
+        props = node.properties(tenant_id)
+        props["code_key"] = key
+        nodes_by_label.setdefault(node.label, []).append(
+            {"key": key, "properties": props}
+        )
+
+    total_nodes = sum(len(rows) for rows in nodes_by_label.values())
+    written_nodes = 0
+    for label, rows in nodes_by_label.items():
+        upsert_structural_nodes_batch(
+            client,
+            label=label,
+            allowed_labels=NODE_LABELS,
+            key_field="code_key",
+            rows=rows,
+        )
+        written_nodes += len(rows)
+        if progress_callback is not None and total_nodes > 0:
+            progress_callback(
+                "writing_graph", f"Writing graph ({written_nodes}/{total_nodes} nodes)…"
+            )
+
+    edges_by_type: dict[str, list[dict[str, Any]]] = {}
+    for edge in graph.edges:
+        edges_by_type.setdefault(edge.type, []).append(
+            {
+                "from_key": structural_key(
+                    tenant_id,
+                    edge.source_label,
+                    _key_identifier(edge.repo_key, edge.source_qn),
+                ),
+                "to_key": structural_key(
+                    tenant_id,
+                    edge.target_label,
+                    _key_identifier(edge.repo_key, edge.target_qn),
+                ),
+            }
+        )
+
+    total_edges = sum(len(rows) for rows in edges_by_type.values())
+    written_edges = 0
+    for edge_type, rows in edges_by_type.items():
+        upsert_structural_edges_batch(
+            client,
+            edge_type=edge_type,
+            allowed_edge_types=EDGE_TYPES,
+            key_field="code_key",
+            rows=rows,
+            tenant_id=tenant_id,
+        )
+        written_edges += len(rows)
+        if progress_callback is not None and total_edges > 0:
+            progress_callback(
+                "writing_graph", f"Linking edges ({written_edges}/{total_edges})…"
+            )
+
+
 def write_code_graph(
-    client: Any, graph: CodeGraph, tenant_id: str = "default"
+    client: Any,
+    graph: CodeGraph,
+    tenant_id: str = "default",
+    progress_callback: ProgressCallback | None = None,
 ) -> dict[str, int]:
     """Persist a parsed :class:`CodeGraph` to Neo4j via ``client``.
 
@@ -1163,6 +1357,13 @@ def write_code_graph(
     no Qdrant point ID (see module docstring). Returns write counts.
     """
     parsed_keys = {node.key for node in graph.nodes}
+    if len(graph.nodes) + len(graph.edges) >= _BATCH_WRITE_THRESHOLD:
+        placeholders = _collect_placeholder_nodes(graph.edges, parsed_keys)
+        _write_code_graph_batched(
+            client, graph, placeholders, tenant_id, progress_callback=progress_callback
+        )
+        return {"nodes_written": len(graph.nodes), "edges_written": len(graph.edges)}
+
     for node in graph.nodes:
         _write_node(client, node, tenant_id)
     for edge in graph.edges:
@@ -1172,8 +1373,8 @@ def write_code_graph(
     return {"nodes_written": len(graph.nodes), "edges_written": len(graph.edges)}
 
 
-MAX_INGEST_NODES = 20000
-MAX_INGEST_EDGES = 50000
+MAX_INGEST_NODES = 200_000
+MAX_INGEST_EDGES = 500_000
 
 
 def graph_from_payload(
@@ -1279,6 +1480,37 @@ def write_parsed_code_graph(
     return counts
 
 
+_STREAMING_FILE_THRESHOLD = 2000
+_STREAMING_SHARD_SIZE = 500
+
+
+def _write_repo_streaming(
+    root_path: Path,
+    files: list[Path],
+    *,
+    repo_key: str,
+    tenant_id: str,
+    client: Any,
+    progress_callback: ProgressCallback | None = None,
+) -> dict[str, int]:
+    """Parse and write huge repos in bounded-memory file shards."""
+    total_files = len(files)
+    total_nodes = 0
+    total_edges = 0
+    for start in range(0, total_files, _STREAMING_SHARD_SIZE):
+        shard_files = files[start : start + _STREAMING_SHARD_SIZE]
+        done = min(start + len(shard_files), total_files)
+        if progress_callback is not None:
+            progress_callback(
+                "parsing", f"Streaming monorepo ({done}/{total_files} files)…"
+            )
+        shard_graph = _parse_shard(root_path, shard_files, repo_key)
+        counts = write_code_graph(client, shard_graph, tenant_id=tenant_id)
+        total_nodes += counts["nodes_written"]
+        total_edges += counts["edges_written"]
+    return {"nodes_written": total_nodes, "edges_written": total_edges}
+
+
 def write_repo_code_graph_with_key(
     root: str | Path,
     *,
@@ -1288,6 +1520,7 @@ def write_repo_code_graph_with_key(
     kind: str = "repo",
     tenant_id: str = "default",
     client: Any = None,
+    progress_callback: ProgressCallback | None = None,
 ) -> dict[str, int]:
     """Parse ``root`` and persist its code graph under an explicit ``repo_key``.
 
@@ -1300,8 +1533,23 @@ def write_repo_code_graph_with_key(
 
         client = Neo4jStorageClient.from_config(_load_config())
     root_path = Path(os.path.realpath(root))
-    graph = parse_repo(root_path, repo_key=repo_key)
-    counts = write_code_graph(client, graph, tenant_id=tenant_id)
+    files = collect_parseable_files(root_path)
+    if len(files) >= _STREAMING_FILE_THRESHOLD:
+        counts = _write_repo_streaming(
+            root_path,
+            files,
+            repo_key=repo_key,
+            tenant_id=tenant_id,
+            client=client,
+            progress_callback=progress_callback,
+        )
+    else:
+        graph = parse_repo(
+            root_path, repo_key=repo_key, progress_callback=progress_callback
+        )
+        counts = write_code_graph(
+            client, graph, tenant_id=tenant_id, progress_callback=progress_callback
+        )
     write_index_meta(
         client,
         tenant_id,

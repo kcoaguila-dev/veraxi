@@ -16,9 +16,9 @@ ENV PYTHONPATH=/app
 ARG INSTALL_EXTRAS=""
 RUN apt-get update && \
     if echo "$INSTALL_EXTRAS" | grep -Eq "ocr|full"; then \
-        apt-get install -y --no-install-recommends libgl1 libglib2.0-0 libmagic1 libpango-1.0-0 libpangoft2-1.0-0 libcairo2 libgdk-pixbuf-2.0-0 libffi8 shared-mime-info; \
+        apt-get install -y --no-install-recommends ripgrep libgl1 libglib2.0-0 libmagic1 libpango-1.0-0 libpangoft2-1.0-0 libcairo2 libgdk-pixbuf-2.0-0 libffi8 shared-mime-info; \
     else \
-        apt-get install -y --no-install-recommends libmagic1 libpango-1.0-0 libpangoft2-1.0-0 libcairo2 libgdk-pixbuf-2.0-0 libffi8 shared-mime-info; \
+        apt-get install -y --no-install-recommends ripgrep libmagic1 libpango-1.0-0 libpangoft2-1.0-0 libcairo2 libgdk-pixbuf-2.0-0 libffi8 shared-mime-info; \
     fi && \
     rm -rf /var/lib/apt/lists/*
 

@@ -45,6 +45,15 @@ class _CodeChatPaneState extends ConsumerState<CodeChatPane> {
   final ScrollController _scrollController = ScrollController();
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ref.read(connectRepoViewModelProvider.notifier).hydrateActiveIndexing();
+    });
+  }
+
+  @override
   void dispose() {
     _scrollController.dispose();
     super.dispose();
@@ -65,8 +74,11 @@ class _CodeChatPaneState extends ConsumerState<CodeChatPane> {
   void _handleSend(String text, {List<PlatformFile>? attachments}) {
     final selectedRepo = ref.read(selectedIndexedRepoProvider);
     final sources = ref.read(codeSelectedSourcesProvider);
+    final connectState = ref.read(connectRepoViewModelProvider);
     final repoKey = selectedRepo ??
-        (sources.repoKeys.isNotEmpty ? sources.repoKeys.first : null);
+        (sources.repoKeys.isNotEmpty
+            ? sources.repoKeys.first
+            : (connectState.indexing ? connectState.activeTarget : null));
     final model = ref.read(modelSelectionProvider).selectedModel;
     final caps = ref.read(modelCapabilitiesProvider).valueOrNull ??
         const <String, ModelThinkingCapability>{};
@@ -340,6 +352,7 @@ class _CodeChatPaneState extends ConsumerState<CodeChatPane> {
     if (connectState.indexing) {
       return _IndexingStatusPill(
         target: connectState.activeTarget ?? 'repo',
+        progressMessage: connectState.progressMessage,
       );
     }
     if (connectState.errorMessage != null) {
@@ -356,11 +369,18 @@ class _CodeChatPaneState extends ConsumerState<CodeChatPane> {
 
 class _IndexingStatusPill extends StatelessWidget {
   final String target;
+  final String? progressMessage;
 
-  const _IndexingStatusPill({required this.target});
+  const _IndexingStatusPill({
+    required this.target,
+    this.progressMessage,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final label = (progressMessage != null && progressMessage!.isNotEmpty)
+        ? 'Indexing $target · $progressMessage'
+        : 'Indexing $target…';
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
@@ -382,7 +402,7 @@ class _IndexingStatusPill extends StatelessWidget {
           const SizedBox(width: 6),
           Flexible(
             child: Text(
-              'Indexing $target…',
+              label,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
                 color: Color(0xFF34D399),

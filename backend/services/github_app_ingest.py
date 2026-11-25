@@ -9,24 +9,49 @@ and deletes the temporary directory immediately in ``finally:``.
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import os
 import shutil
 import tempfile
+import zlib
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 import sentry_sdk
 
+try:
+    import orjson as _orjson
+except ImportError:  # pragma: no cover - fallback when optional orjson absent
+    _orjson = None
+
+
+def _dumps_json_bytes(obj: Any) -> bytes:
+    if _orjson is not None:
+        return _orjson.dumps(obj)
+    return json.dumps(obj).encode("utf-8")
+
+
+def _loads_json_bytes(raw: bytes | str) -> Any:
+    if _orjson is not None:
+        return _orjson.loads(raw)
+    return json.loads(raw.decode("utf-8") if isinstance(raw, bytes) else raw)
+
 from backend.ingestion.code_graph import (
     apply_incremental_files,
+    collect_parseable_files,
     delete_repo_code_graph,
+    graph_from_payload,
     load_stored_code_graph,
+    parse_repo,
     plan_incremental_update,
     read_index_meta,
+    write_code_graph,
+    write_index_meta,
     write_repo_code_graph_with_key,
 )
+from backend.ingestion.merkle import compute_repo_merkle, diff_merkle_hashes
 from backend.ingestion.dependencies import (
     extract_dependencies_from_file,
     extract_dependencies_from_repo,
@@ -90,6 +115,150 @@ def _refresh_dependencies_snapshot(
     return retained
 
 
+async def _report_progress(
+    redis_client: Any,
+    tenant_id: str,
+    repo_full_name: str,
+    stage: str,
+    message: str,
+) -> None:
+    """Best-effort write of current indexing stage to Redis for SSE/polling."""
+    if redis_client is None:
+        return
+    try:
+        await redis_client.setex(
+            f"ghapp:progress:{tenant_id}:{repo_full_name}",
+            1800,
+            json.dumps({"stage": stage, "message": message}),
+        )
+    except Exception:
+        pass
+
+
+def _make_threadsafe_progress_cb(
+    loop: asyncio.AbstractEventLoop,
+    redis_client: Any,
+    tenant_id: str,
+    repo_full_name: str,
+):
+    def _cb(stage: str, message: str) -> None:
+        try:
+            asyncio.run_coroutine_threadsafe(
+                _report_progress(redis_client, tenant_id, repo_full_name, stage, message),
+                loop,
+            )
+        except Exception:
+            pass
+
+    return _cb
+
+
+async def _load_merkle_state(
+    redis_client: Any, tenant_id: str, repo_full_name: str
+) -> tuple[str | None, dict[str, str]]:
+    if redis_client is None:
+        return None, {}
+    try:
+        raw = await redis_client.get(f"ghapp:merkle:{tenant_id}:{repo_full_name}")
+        if not raw:
+            return None, {}
+        data = json.loads(raw.decode("utf-8") if isinstance(raw, bytes) else str(raw))
+        return data.get("merkle_root"), dict(data.get("file_hashes") or {})
+    except Exception:
+        return None, {}
+
+
+async def _save_merkle_state(
+    redis_client: Any,
+    tenant_id: str,
+    repo_full_name: str,
+    merkle_root: str,
+    file_hashes: dict[str, str],
+) -> None:
+    if redis_client is None:
+        return
+    try:
+        await redis_client.setex(
+            f"ghapp:merkle:{tenant_id}:{repo_full_name}",
+            86400 * 7,
+            json.dumps({"merkle_root": merkle_root, "file_hashes": file_hashes}),
+        )
+    except Exception:
+        pass
+
+
+async def _load_shared_graph(
+    redis_client: Any, repo_full_name: str, merkle_root: str
+):
+    if redis_client is None or not merkle_root:
+        return None
+    try:
+        raw = await redis_client.get(
+            f"ghapp:merkle_shared:{repo_full_name}:{merkle_root}"
+        )
+        if not raw:
+            return None
+        if isinstance(raw, bytes):
+            try:
+                raw_payload: bytes | str = zlib.decompress(raw)
+            except zlib.error:
+                raw_payload = raw
+        else:
+            raw_payload = str(raw)
+        data = _loads_json_bytes(raw_payload)
+        return graph_from_payload(
+            data.get("nodes") or [],
+            data.get("edges") or [],
+            repo_key=repo_full_name,
+        )
+    except Exception:
+        return None
+
+
+async def _save_shared_graph(
+    redis_client: Any, repo_full_name: str, merkle_root: str, graph: Any
+) -> None:
+    if redis_client is None or not merkle_root:
+        return
+    try:
+        payload = _dumps_json_bytes(
+            {
+                "nodes": [
+                    {
+                        "label": n.label,
+                        "name": n.name,
+                        "qualified_name": n.qualified_name,
+                        "path": n.path,
+                        "line": n.line,
+                        "language": n.language,
+                        "resolved": n.resolved,
+                        "end_line": n.end_line,
+                    }
+                    for n in graph.nodes
+                ],
+                "edges": [
+                    {
+                        "type": e.type,
+                        "source_qn": e.source_qn,
+                        "source_label": e.source_label,
+                        "target_qn": e.target_qn,
+                        "target_label": e.target_label,
+                    }
+                    for e in graph.edges
+                ],
+            }
+        )
+        compressed = zlib.compress(payload, level=6)
+        if len(compressed) <= 15_000_000:
+            await redis_client.setex(
+                f"ghapp:merkle_shared:{repo_full_name}:{merkle_root}",
+                86400,
+                compressed,
+            )
+    except Exception:
+        pass
+
+
 async def index_github_app_repo(
     config: Any,
     sb: Any,
@@ -100,6 +269,7 @@ async def index_github_app_repo(
     repo_full_name: str,
     branch: str | None = None,
     neo4j_client: Any = None,
+    force: bool = False,
 ) -> dict[str, Any]:
     """Ephemerally download, parse, and index ``repo_full_name`` into Neo4j."""
     existing = await asyncio.to_thread(
@@ -109,6 +279,9 @@ async def index_github_app_repo(
     target_branch = branch or (existing or {}).get("default_branch") or "main"
     is_private = bool((existing or {}).get("is_private", True))
 
+    await _report_progress(
+        redis_client, tenant_id, repo_full_name, "starting", "Checking repository…"
+    )
     await asyncio.to_thread(
         gh_store.upsert_repo,
         sb,
@@ -130,21 +303,170 @@ async def index_github_app_repo(
         head_sha = await gh_client.get_branch_head_sha(
             token, repo_full_name, target_branch
         )
+        if (
+            not force
+            and head_sha
+            and (existing or {}).get("index_status") == "indexed"
+            and (existing or {}).get("last_indexed_sha") == head_sha
+        ):
+            now_iso = datetime.now(UTC).isoformat()
+            await asyncio.to_thread(
+                gh_store.upsert_repo,
+                sb,
+                tenant_id,
+                installation_id=installation_id,
+                github_repo_id=github_repo_id,
+                repo_full_name=repo_full_name,
+                default_branch=target_branch,
+                is_private=is_private,
+                index_status="indexed",
+                last_indexed_sha=head_sha,
+                last_indexed_at=now_iso,
+                last_error="",
+            )
+            await _report_progress(
+                redis_client, tenant_id, repo_full_name, "complete", "Already up to date"
+            )
+            return {
+                "status": "ok",
+                "skipped": True,
+                "reason": "up_to_date",
+                "repo_key": repo_full_name,
+                "source_commit": head_sha,
+                "nodes_written": 0,
+                "edges_written": 0,
+            }
+
         ref = head_sha or target_branch
         max_bytes = int(getattr(config, "github_app_max_repo_mb", 100)) * 1024 * 1024
+        await _report_progress(
+            redis_client, tenant_id, repo_full_name, "downloading", "Downloading tarball…"
+        )
         await gh_client.download_repo_tarball(
             token, repo_full_name, ref, Path(tmp_dir), max_bytes=max_bytes
         )
         client = neo4j_client or _default_neo4j_client()
-        counts = await asyncio.to_thread(
-            write_repo_code_graph_with_key,
-            tmp_dir,
-            repo_key=repo_full_name,
-            repo_root=f"github://{repo_full_name}",
-            source_commit=head_sha,
-            kind="github_app",
-            tenant_id=tenant_id,
-            client=client,
+        loop = asyncio.get_running_loop()
+        progress_cb = _make_threadsafe_progress_cb(
+            loop, redis_client, tenant_id, repo_full_name
+        )
+
+        root_path = Path(os.path.realpath(tmp_dir))
+        parseable_files = await asyncio.to_thread(collect_parseable_files, root_path)
+        merkle_root, file_hashes = await asyncio.to_thread(
+            compute_repo_merkle, root_path, parseable_files
+        )
+        old_root, old_hashes = await _load_merkle_state(
+            redis_client, tenant_id, repo_full_name
+        )
+
+        if (
+            not force
+            and old_root == merkle_root
+            and (existing or {}).get("index_status") == "indexed"
+        ):
+            counts = {"nodes_written": 0, "edges_written": 0, "skipped": True}
+        elif (
+            not force
+            and old_hashes
+            and (existing or {}).get("index_status") == "indexed"
+            and 0 < len(diff_merkle_hashes(old_hashes, file_hashes)) <= 200
+        ):
+            changed_paths = diff_merkle_hashes(old_hashes, file_hashes)
+            await _report_progress(
+                redis_client,
+                tenant_id,
+                repo_full_name,
+                "incremental",
+                f"Merkle sync ({len(changed_paths)} changed files)…",
+            )
+            counts = await asyncio.to_thread(
+                apply_incremental_files,
+                root_path,
+                tenant_id=tenant_id,
+                repo_key=repo_full_name,
+                changed_paths=changed_paths,
+                head_sha=head_sha,
+                repo_root=f"github://{repo_full_name}",
+                kind="github_app",
+                client=client,
+            )
+        else:
+            shared_graph = await _load_shared_graph(
+                redis_client, repo_full_name, merkle_root
+            )
+            if shared_graph is not None:
+                await _report_progress(
+                    redis_client,
+                    tenant_id,
+                    repo_full_name,
+                    "writing_graph",
+                    "Reusing Merkle-cached graph…",
+                )
+                counts = await asyncio.to_thread(
+                    write_code_graph,
+                    client,
+                    shared_graph,
+                    tenant_id=tenant_id,
+                    progress_callback=progress_cb,
+                )
+                await asyncio.to_thread(
+                    write_index_meta,
+                    client,
+                    tenant_id,
+                    repo_key=repo_full_name,
+                    repo_root=f"github://{repo_full_name}",
+                    source_commit=head_sha,
+                    kind="github_app",
+                )
+            elif len(parseable_files) >= 2000:
+                counts = await asyncio.to_thread(
+                    write_repo_code_graph_with_key,
+                    root_path,
+                    repo_key=repo_full_name,
+                    repo_root=f"github://{repo_full_name}",
+                    source_commit=head_sha,
+                    kind="github_app",
+                    tenant_id=tenant_id,
+                    client=client,
+                    progress_callback=progress_cb,
+                )
+            else:
+                graph = await asyncio.to_thread(
+                    parse_repo,
+                    root_path,
+                    repo_key=repo_full_name,
+                    progress_callback=progress_cb,
+                )
+                await _save_shared_graph(
+                    redis_client, repo_full_name, merkle_root, graph
+                )
+                counts = await asyncio.to_thread(
+                    write_code_graph,
+                    client,
+                    graph,
+                    tenant_id=tenant_id,
+                    progress_callback=progress_cb,
+                )
+                await asyncio.to_thread(
+                    write_index_meta,
+                    client,
+                    tenant_id,
+                    repo_key=repo_full_name,
+                    repo_root=f"github://{repo_full_name}",
+                    source_commit=head_sha,
+                    kind="github_app",
+                )
+
+        await _save_merkle_state(
+            redis_client, tenant_id, repo_full_name, merkle_root, file_hashes
+        )
+        await _report_progress(
+            redis_client,
+            tenant_id,
+            repo_full_name,
+            "dependencies",
+            "Detecting dependencies…",
         )
         deps = await asyncio.to_thread(extract_dependencies_from_repo, tmp_dir)
         now_iso = datetime.now(UTC).isoformat()
@@ -163,6 +485,9 @@ async def index_github_app_repo(
             last_error="",
             dependencies_snapshot=deps,
         )
+        await _report_progress(
+            redis_client, tenant_id, repo_full_name, "complete", "Indexed"
+        )
         return {
             "status": "ok",
             "repo_key": repo_full_name,
@@ -177,6 +502,9 @@ async def index_github_app_repo(
             repo_full_name,
             tenant_id,
             exc,
+        )
+        await _report_progress(
+            redis_client, tenant_id, repo_full_name, "error", str(exc)[:120]
         )
         await asyncio.to_thread(
             gh_store.upsert_repo,
