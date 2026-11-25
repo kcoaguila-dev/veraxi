@@ -179,6 +179,7 @@ class ConnectRepoRepository {
         if (branch != null && branch.isNotEmpty) 'branch': branch,
         'auto_sync_on_push': autoSyncOnPush,
       },
+      timeout: const Duration(minutes: 3),
     );
     return Map<String, dynamic>.from(data as Map);
   }

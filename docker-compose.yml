@@ -52,7 +52,7 @@ services:
       - SEARXNG_URL=${SEARXNG_URL:-http://searxng:8080/search}
       - REDIS_URL=${REDIS_URL:-redis://redis:6379/0}
       - IS_ENTERPRISE=${IS_ENTERPRISE:-true}
-      - WORKER_MODE=${WORKER_MODE:-inline}
+      - WORKER_MODE=${WORKER_MODE:-arq}
     env_file:
       - ./backend/.env
     depends_on:
