@@ -46,6 +46,7 @@ class _ComposerTrigger {
 class CodeChatComposer extends ConsumerStatefulWidget {
   final bool isLoading;
   final Function(String, {List<PlatformFile>? attachments}) onSend;
+  final VoidCallback? onStop;
   final String? errorText;
   final VoidCallback? onDismissError;
   final TokenUsageSummary? usageSummary;
@@ -68,6 +69,7 @@ class CodeChatComposer extends ConsumerStatefulWidget {
     super.key,
     required this.isLoading,
     required this.onSend,
+    this.onStop,
     this.errorText,
     this.onDismissError,
     this.usageSummary,
@@ -287,6 +289,7 @@ class _CodeChatComposerState extends ConsumerState<CodeChatComposer> {
                 controller: _controller,
                 isLoading: widget.isLoading,
                 onSend: _handleComposerSend,
+                onStop: widget.onStop,
                 errorText: widget.errorText,
                 onDismissError: widget.onDismissError,
                 model: selectedModel == 'Select a model' ? null : selectedModel,

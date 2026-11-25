@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -48,8 +49,15 @@ class ChatThreadState {
 class ChatThreadViewModel extends Notifier<ChatThreadState> {
   DateTime? _currentRequestStartTime;
 
+  StreamSubscription<Map<String, dynamic>>? _activeStreamSubscription;
+  Completer<void>? _activeStreamCompleter;
+  bool _generationCancelled = false;
+
   @override
   ChatThreadState build() {
+    ref.onDispose(() {
+      unawaited(_activeStreamSubscription?.cancel());
+    });
     _init();
     return ChatThreadState();
   }
@@ -222,18 +230,21 @@ class ChatThreadViewModel extends Notifier<ChatThreadState> {
     const int maxRetries = 1;
     bool success = false;
     String currentQuery = queryText;
+    _generationCancelled = false;
 
-    while (!success && retries <= maxRetries) {
+    while (!success && retries <= maxRetries && !_generationCancelled) {
       try {
-        await for (final event in ref.read(chatRepositoryProvider).streamChat(
+        final stream = ref.read(chatRepositoryProvider).streamChat(
               currentQuery,
               threadId: state.threadId,
               isTemporary: ref.read(chatHistoryProvider).isTemporary,
               model: model,
               calculateGrounding: state.showTelemetry,
               toolSettings: toolSettings,
-            )) {
-          _handleStreamEvent(event);
+            );
+        await _consumeChatStream(stream);
+        if (_generationCancelled) {
+          break;
         }
         final responseMetrics = state.messages.isNotEmpty
             ? Map<String, dynamic>.from(state.messages.last.metrics ?? {})
@@ -247,6 +258,9 @@ class ChatThreadViewModel extends Notifier<ChatThreadState> {
         state = state.copyWith(isLoading: false);
         success = true;
       } catch (e, st) {
+        if (_generationCancelled) {
+          break;
+        }
         final errorStr = e.toString();
         bool isNetworkError = errorStr.contains("SocketException") ||
             errorStr.contains("ClientException") ||
@@ -651,6 +665,62 @@ class ChatThreadViewModel extends Notifier<ChatThreadState> {
       Sentry.captureException(e, stackTrace: st);
       state = state.copyWith(error: 'Failed to save memory: $e');
     }
+  }
+
+  Future<void> _consumeChatStream(Stream<Map<String, dynamic>> stream) async {
+    final completer = Completer<void>();
+    _activeStreamCompleter = completer;
+    _activeStreamSubscription = stream.listen(
+      (event) {
+        if (!_generationCancelled) {
+          _handleStreamEvent(event);
+        }
+      },
+      onError: (Object error, StackTrace stackTrace) {
+        if (!completer.isCompleted) {
+          completer.completeError(error, stackTrace);
+        }
+      },
+      onDone: () {
+        if (!completer.isCompleted) {
+          completer.complete();
+        }
+      },
+      cancelOnError: true,
+    );
+    try {
+      await completer.future;
+    } finally {
+      await _activeStreamSubscription?.cancel();
+      _activeStreamSubscription = null;
+      _activeStreamCompleter = null;
+    }
+  }
+
+  /// Cancels the active streaming response and clears the loading state.
+  void stopGeneration() {
+    if (!state.isLoading) return;
+    _generationCancelled = true;
+    unawaited(_activeStreamSubscription?.cancel());
+    if (_activeStreamCompleter != null &&
+        !_activeStreamCompleter!.isCompleted) {
+      _activeStreamCompleter!.complete();
+    }
+    if (state.messages.isNotEmpty) {
+      final last = state.messages.last;
+      final activity = last.activity
+          .map((step) => step.status == ActivityStepStatus.running
+              ? step.copyWith(status: ActivityStepStatus.complete)
+              : step)
+          .toList();
+      _updateLastMessage(
+        content: last.content == 'Thinking...' ? '' : null,
+        isStreaming: false,
+        activeTool: null,
+        activity: activity,
+      );
+    }
+    state = state.copyWith(isLoading: false);
   }
 }
 

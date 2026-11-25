@@ -251,6 +251,22 @@ void main() {
         expect(find.text('File Search'), findsWidgets);
         expect(find.text('Vector + Graph'), findsOneWidget);
       });
+
+      testWidgets('Stop button invokes onStop when isLoading is true',
+          (tester) async {
+        var stopTapped = false;
+        await tester.pumpWidget(wrap(ChatInput(
+          isLoading: true,
+          onSend: (text, {attachments}) {},
+          onStop: () => stopTapped = true,
+        )));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byKey(const Key('chat-input-stop-button')));
+        await tester.pump();
+
+        expect(stopTapped, isTrue);
+      });
     });
   });
 }

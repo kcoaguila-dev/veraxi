@@ -1257,6 +1257,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                                               isLoading: state
                                                                       .isLoading ||
                                                                   _autoCompactBusy,
+                                                              onStop: viewModel
+                                                                  .stopGeneration,
                                                               onSend: (text, {attachments}) => viewModel.sendMessage(
                                                                   text,
                                                                   model: _selectedModel ==
@@ -1470,6 +1472,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     _selectedModel == 'Select a model' ? null : _selectedModel,
                 projectName: state.activeProjectName,
                 isLoading: state.isLoading,
+                onStop: viewModel.stopGeneration,
                 onSend: (text, {attachments}) => viewModel.sendMessage(text,
                     model: _selectedModel == 'Select a model'
                         ? null

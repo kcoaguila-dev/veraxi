@@ -253,6 +253,7 @@ class _CodeChatPaneState extends ConsumerState<CodeChatPane> {
                           : null,
                       isLoading: state.isLoading,
                       onSend: _handleSend,
+                      onStop: viewModel.stopGeneration,
                       errorText: state.error,
                       onDismissError: () => viewModel.clearError(),
                       usageSummary: viewModel.tokenUsageStyle ==

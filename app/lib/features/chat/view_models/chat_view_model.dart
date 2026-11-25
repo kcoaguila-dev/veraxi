@@ -66,6 +66,9 @@ class ChatViewModel extends StateNotifier<ChatState> {
   DateTime? _currentRequestStartTime;
   StreamSubscription<AuthState>? _authSubscription;
   StreamSubscription<Map<String, dynamic>>? _syncSubscription;
+  StreamSubscription<Map<String, dynamic>>? _activeStreamSubscription;
+  Completer<void>? _activeStreamCompleter;
+  bool _generationCancelled = false;
   bool _isInitializing = true;
   bool _lastLoadThreadsSucceeded = false;
 
@@ -285,6 +288,7 @@ class ChatViewModel extends StateNotifier<ChatState> {
 
   @override
   void dispose() {
+    unawaited(_activeStreamSubscription?.cancel());
     _authSubscription?.cancel();
     _syncSubscription?.cancel();
     super.dispose();
@@ -581,8 +585,9 @@ class ChatViewModel extends StateNotifier<ChatState> {
     const int maxRetries = 1;
     bool success = false;
     String currentQuery = queryText;
+    _generationCancelled = false;
 
-    while (!success && retries <= maxRetries) {
+    while (!success && retries <= maxRetries && !_generationCancelled) {
       try {
         // Code Mode sends carry the Phase 1 scope; plain chat keeps
         // the exact legacy invocation shape.
@@ -615,8 +620,9 @@ class ChatViewModel extends StateNotifier<ChatState> {
                 agentRuntime: isAcpActive ? 'antigravity_acp' : null,
                 attachVeraxiMcp: acpState?.attachVeraxiMcp ?? true,
               );
-        await for (final event in stream) {
-          _handleStreamEvent(event);
+        await _consumeChatStream(stream);
+        if (_generationCancelled) {
+          break;
         }
         final responseMetrics = state.messages.isNotEmpty
             ? Map<String, dynamic>.from(state.messages.last.metrics ?? {})
@@ -630,6 +636,9 @@ class ChatViewModel extends StateNotifier<ChatState> {
         state = state.copyWith(isLoading: false);
         success = true;
       } catch (e, st) {
+        if (_generationCancelled) {
+          break;
+        }
         final errorStr = e.toString();
 
         bool isNetworkError = errorStr.contains("SocketException") ||
@@ -1319,5 +1328,62 @@ class ChatViewModel extends StateNotifier<ChatState> {
       state = state.copyWith(error: 'Failed to share chat: $e');
       return null;
     }
+  }
+
+  Future<void> _consumeChatStream(Stream<Map<String, dynamic>> stream) async {
+    final completer = Completer<void>();
+    _activeStreamCompleter = completer;
+    _activeStreamSubscription = stream.listen(
+      (event) {
+        if (!_generationCancelled) {
+          _handleStreamEvent(event);
+        }
+      },
+      onError: (Object error, StackTrace stackTrace) {
+        if (!completer.isCompleted) {
+          completer.completeError(error, stackTrace);
+        }
+      },
+      onDone: () {
+        if (!completer.isCompleted) {
+          completer.complete();
+        }
+      },
+      cancelOnError: true,
+    );
+    try {
+      await completer.future;
+    } finally {
+      await _activeStreamSubscription?.cancel();
+      _activeStreamSubscription = null;
+      _activeStreamCompleter = null;
+    }
+  }
+
+  /// Cancels the active streaming response and clears the loading state.
+  void stopGeneration() {
+    if (!state.isLoading) return;
+    _generationCancelled = true;
+    unawaited(_activeStreamSubscription?.cancel());
+    if (_activeStreamCompleter != null &&
+        !_activeStreamCompleter!.isCompleted) {
+      _activeStreamCompleter!.complete();
+    }
+    if (state.messages.isNotEmpty) {
+      final last = state.messages.last;
+      final activity = last.activity
+          .map((step) => step.status == ActivityStepStatus.running
+              ? step.copyWith(status: ActivityStepStatus.complete)
+              : step)
+          .toList();
+      _updateLastMessage(
+        content: last.content == 'Thinking...' ? '' : null,
+        isStreaming: false,
+        activeTool: null,
+        activity: activity,
+      );
+    }
+    state = state.copyWith(isLoading: false);
+    _currentRequestStartTime = null;
   }
 }

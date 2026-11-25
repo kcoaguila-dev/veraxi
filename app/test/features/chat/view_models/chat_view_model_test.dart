@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -186,6 +187,57 @@ void main() {
 
       expect(viewModel.state.isLoadingThreads, isFalse);
       expect(viewModel.state.pastThreads, isEmpty);
+    });
+
+    test('stopGeneration cancels active stream and clears loading state',
+        () async {
+      SharedPreferences.setMockInitialValues({});
+      FlutterSecureStorage.setMockInitialValues({});
+      var streamCancelled = false;
+      final streamStarted = Completer<void>();
+      final controller = StreamController<Map<String, dynamic>>(
+        onListen: () {
+          if (!streamStarted.isCompleted) {
+            streamStarted.complete();
+          }
+        },
+        onCancel: () {
+          streamCancelled = true;
+        },
+      );
+
+      when(() => mockChatRepository.getThreads()).thenAnswer((_) async => []);
+      when(
+        () => mockChatRepository.streamChat(
+          any(),
+          threadId: any(named: 'threadId'),
+          isTemporary: any(named: 'isTemporary'),
+          model: any(named: 'model'),
+          calculateGrounding: any(named: 'calculateGrounding'),
+          toolSettings: any(named: 'toolSettings'),
+          codeScope: any(named: 'codeScope'),
+          thinkingLevel: any(named: 'thinkingLevel'),
+          agentRuntime: any(named: 'agentRuntime'),
+          attachVeraxiMcp: any(named: 'attachVeraxiMcp'),
+        ),
+      ).thenAnswer((_) => controller.stream);
+
+      final viewModel = ChatViewModel(
+        mockChatRepository,
+        mockTTSRepository,
+        mockMemoryRepository,
+      );
+
+      final sendFuture = viewModel.sendMessage('hello', model: 'gpt-4o');
+      await streamStarted.future;
+
+      expect(viewModel.state.isLoading, isTrue);
+      viewModel.stopGeneration();
+      await sendFuture;
+
+      expect(streamCancelled, isTrue);
+      expect(viewModel.state.isLoading, isFalse);
+      expect(viewModel.state.messages.last.isStreaming, isFalse);
     });
   });
 }

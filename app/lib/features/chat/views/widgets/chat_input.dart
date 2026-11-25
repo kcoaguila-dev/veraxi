@@ -68,11 +68,15 @@ class ChatInput extends StatefulWidget {
   /// unified composer card can own the outer container and borders.
   final bool embedded;
 
+  /// Called when the user taps the Stop button while [isLoading] is true.
+  final VoidCallback? onStop;
+
   const ChatInput({
     super.key,
     required this.isLoading,
     this.projectName,
     required this.onSend,
+    this.onStop,
     this.errorText,
     this.onDismissError,
     this.model,
@@ -828,32 +832,41 @@ class _ChatInputState extends State<ChatInput> {
                   ),
                   SizedBox(width: 8),
                   GestureDetector(
-                    onTap: (widget.isLoading || !_hasText) ? null : _handleSend,
-                    child: Container(
-                      width: 32,
-                      height: 32,
-                      decoration: BoxDecoration(
-                        color: (widget.isLoading || _hasText)
-                            ? Colors.white
-                            : const Color(0xFF424242),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Center(
-                        child: widget.isLoading
-                            ? Icon(
-                                Icons.stop_rounded,
-                                color: Colors.black,
-                                size: 16,
-                              )
-                            : Icon(
-                                Icons.arrow_upward,
-                                color: _hasText
-                                    ? Colors.black
-                                    : Theme.of(context)
-                                        .extension<AppThemeExtension>()!
-                                        .iconColor,
-                                size: 20,
-                              ),
+                    key: widget.isLoading
+                        ? const Key('chat-input-stop-button')
+                        : null,
+                    onTap: widget.isLoading
+                        ? widget.onStop
+                        : (_hasText ? _handleSend : null),
+                    child: Tooltip(
+                      message:
+                          widget.isLoading ? 'Stop generating' : 'Send message',
+                      child: Container(
+                        width: 32,
+                        height: 32,
+                        decoration: BoxDecoration(
+                          color: (widget.isLoading || _hasText)
+                              ? Colors.white
+                              : const Color(0xFF424242),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Center(
+                          child: widget.isLoading
+                              ? Icon(
+                                  Icons.stop_rounded,
+                                  color: Colors.black,
+                                  size: 16,
+                                )
+                              : Icon(
+                                  Icons.arrow_upward,
+                                  color: _hasText
+                                      ? Colors.black
+                                      : Theme.of(context)
+                                          .extension<AppThemeExtension>()!
+                                          .iconColor,
+                                  size: 20,
+                                ),
+                        ),
                       ),
                     ),
                   ),
