@@ -15,6 +15,7 @@ import 'package:veraxi_app/features/chat/view_models/token_usage.dart';
 import 'package:veraxi_app/features/chat/views/widgets/chat_message_list_item.dart';
 import 'package:veraxi_app/features/chat/views/widgets/acp_permission_banner.dart';
 import 'package:veraxi_app/features/chat/views/widgets/code_chat_composer.dart';
+import 'package:veraxi_app/features/chat/views/widgets/selection_edge_auto_scroll.dart';
 import 'package:veraxi_app/features/chat/views/widgets/compaction_sheet.dart';
 import 'package:veraxi_app/features/chat/views/widgets/composer_context_bar.dart';
 import 'package:veraxi_app/features/chat/views/widgets/connect_repo_dialog.dart';
@@ -216,23 +217,26 @@ class _CodeChatPaneState extends ConsumerState<CodeChatPane> {
                   )
                 : isEmpty
                     ? _buildEmptyBody(state, ext)
-                    : ListView.builder(
+                    : SelectionEdgeAutoScroll(
                         controller: _scrollController,
-                        padding: const EdgeInsets.only(
-                          left: 16,
-                          right: 16,
-                          top: 24,
-                          bottom: 24,
+                        builder: (context, controller) => ListView.builder(
+                          controller: controller,
+                          padding: const EdgeInsets.only(
+                            left: 16,
+                            right: 16,
+                            top: 24,
+                            bottom: 24,
+                          ),
+                          itemCount: state.messages.length,
+                          itemBuilder: (context, index) {
+                            return ChatMessageListItem(
+                              msg: state.messages[index],
+                              theme: theme,
+                              ext: ext,
+                              showTelemetry: state.showTelemetry,
+                            );
+                          },
                         ),
-                        itemCount: state.messages.length,
-                        itemBuilder: (context, index) {
-                          return ChatMessageListItem(
-                            msg: state.messages[index],
-                            theme: theme,
-                            ext: ext,
-                            showTelemetry: state.showTelemetry,
-                          );
-                        },
                       ),
           ),
           Padding(

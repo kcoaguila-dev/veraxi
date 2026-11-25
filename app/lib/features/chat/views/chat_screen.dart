@@ -38,6 +38,7 @@ import 'package:veraxi_app/features/chat/view_models/sandbox_drawer_view_model.d
 import 'package:veraxi_app/features/chat/view_models/sandbox_toggle_view_model.dart';
 import 'package:veraxi_app/core/providers/active_sources_provider.dart';
 import 'package:veraxi_app/features/chat/views/widgets/sandbox_drawer.dart';
+import 'package:veraxi_app/features/chat/views/widgets/selection_edge_auto_scroll.dart';
 import 'package:veraxi_app/features/chat/views/widgets/code_review_drawer.dart';
 
 class ChatScreen extends ConsumerStatefulWidget {
@@ -734,28 +735,27 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                                                             return false;
                                                                           },
                                                                           child:
-                                                                              ListView.builder(
+                                                                              SelectionEdgeAutoScroll(
                                                                             controller:
                                                                                 _scrollController,
-                                                                            scrollCacheExtent:
-                                                                                const ScrollCacheExtent.pixels(3000),
-                                                                            padding: const EdgeInsets.only(
-                                                                                left: 16,
-                                                                                right: 16,
-                                                                                top: 80,
-                                                                                bottom: 140),
-                                                                            itemCount:
-                                                                                state.messages.length,
-                                                                            itemBuilder:
-                                                                                (context, index) {
-                                                                              final msg = state.messages[index];
-                                                                              return ChatMessageListItem(
-                                                                                msg: msg,
-                                                                                theme: theme,
-                                                                                ext: ext,
-                                                                                showTelemetry: state.showTelemetry,
-                                                                              );
-                                                                            },
+                                                                            bottomEdgeInset:
+                                                                                100.0,
+                                                                            builder: (context, controller) =>
+                                                                                ListView.builder(
+                                                                              controller: controller,
+                                                                              scrollCacheExtent: const ScrollCacheExtent.pixels(3000),
+                                                                              padding: const EdgeInsets.only(left: 16, right: 16, top: 80, bottom: 140),
+                                                                              itemCount: state.messages.length,
+                                                                              itemBuilder: (context, index) {
+                                                                                final msg = state.messages[index];
+                                                                                return ChatMessageListItem(
+                                                                                  msg: msg,
+                                                                                  theme: theme,
+                                                                                  ext: ext,
+                                                                                  showTelemetry: state.showTelemetry,
+                                                                                );
+                                                                              },
+                                                                            ),
                                                                           ),
                                                                         ),
                                                                       ),

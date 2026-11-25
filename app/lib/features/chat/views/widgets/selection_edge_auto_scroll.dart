@@ -14,9 +14,19 @@ class SelectionEdgeAutoScroll extends StatefulWidget {
   final Widget Function(BuildContext context, ScrollController controller)
       builder;
 
+  /// Optional externally-owned [ScrollController]. When omitted, this widget
+  /// creates and disposes its own controller.
+  final ScrollController? controller;
+
+  /// Extra bottom inset (e.g. height of a floating composer) before the
+  /// downward auto-scroll zone starts.
+  final double bottomEdgeInset;
+
   const SelectionEdgeAutoScroll({
     super.key,
     required this.builder,
+    this.controller,
+    this.bottomEdgeInset = 0.0,
   });
 
   @override
@@ -30,7 +40,8 @@ class _SelectionEdgeAutoScrollState extends State<SelectionEdgeAutoScroll> {
   static const double _minStepPx = 4.0;
   static const double _maxStepPx = 18.0;
 
-  final ScrollController _controller = ScrollController();
+  late final ScrollController _ownedController = ScrollController();
+  ScrollController get _controller => widget.controller ?? _ownedController;
   Timer? _scrollTimer;
   bool _isMouseDragging = false;
   Offset? _lastGlobalPosition;
@@ -38,7 +49,7 @@ class _SelectionEdgeAutoScrollState extends State<SelectionEdgeAutoScroll> {
   @override
   void dispose() {
     _stopTimer();
-    _controller.dispose();
+    _ownedController.dispose();
     super.dispose();
   }
 
@@ -86,12 +97,12 @@ class _SelectionEdgeAutoScrollState extends State<SelectionEdgeAutoScroll> {
 
     final localY = box.globalToLocal(_lastGlobalPosition!).dy;
     final height = box.size.height;
-    if (height <= _edgeZonePx * 2) return 0.0;
+    final bottomTriggerY = height - widget.bottomEdgeInset - _edgeZonePx;
+    if (bottomTriggerY <= _edgeZonePx) return 0.0;
 
-    if (localY >= height - _edgeZonePx) {
-      final depth =
-          (localY - (height - _edgeZonePx)).clamp(0.0, _edgeZonePx * 2) /
-              (_edgeZonePx * 2);
+    if (localY >= bottomTriggerY) {
+      final depth = (localY - bottomTriggerY).clamp(0.0, _edgeZonePx * 2) /
+          (_edgeZonePx * 2);
       return _minStepPx + depth * (_maxStepPx - _minStepPx);
     }
     if (localY <= _edgeZonePx) {
