@@ -51872,7 +51872,7 @@ return j},
 dka(a){var s
 if(a.d==null)return!1
 s=a.b
-return B.d.n(s,"web_search")||B.d.n(s,"merge_rank")||B.d.n(s,"search_vectors")||B.d.n(s,"query_graph")||B.d.n(s,"build_lazy_dossier")||B.d.n(s,"code_symbol")||B.d.n(s,"code_impact")||B.d.n(s,"code_overview")},
+return B.d.n(s,"web_search")||B.d.n(s,"merge_rank")||B.d.n(s,"search_vectors")||B.d.n(s,"query_graph")||B.d.n(s,"build_lazy_dossier")||B.d.n(s,"code_symbol")||B.d.n(s,"code_impact")||B.d.n(s,"code_overview")||B.d.n(s,"code_read_file")},
 dkb(a){var s,r,q,p,o,n,m=null,l="chunks"
 if(typeof a=="string")try{s=B.S.c1(0,a,m)
 p=t.j
