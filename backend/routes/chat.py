@@ -1108,11 +1108,19 @@ async def _stream_events(
 
         if getattr(chat_request, "agent_runtime", "veraxi") == "antigravity_acp":
             from backend.acp.broker import get_acp_broker
+            from backend.services.repo_context import resolve_active_repo_key
+            from backend.services.repo_files import _resolve_local_root_dir
+
+            acp_cwd: str | None = None
+            active_repo = resolve_active_repo_key(ts)
+            if active_repo:
+                acp_cwd = _resolve_local_root_dir(active_repo)
 
             event_stream = get_acp_broker().stream_prompt(
                 tenant_id=tenant_id,
                 thread_id=thread_id,
                 prompt_text=chat_request.question,
+                cwd=acp_cwd,
                 attach_veraxi_mcp=chat_request.attach_veraxi_mcp,
                 model=chat_request.model,
             )

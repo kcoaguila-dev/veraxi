@@ -787,6 +787,64 @@ def _apply_deterministic_artifact_delivery(
         response.content = f"{summary}\n\n{fallback_block}"
 
 
+MAX_CODE_TOOL_ROUNDS = 6
+
+
+def _is_code_workspace(tool_settings: dict | None) -> bool:
+    if not isinstance(tool_settings, dict):
+        return False
+    if str(tool_settings.get("workspace_mode") or "").lower() == "code":
+        return True
+    from backend.services.repo_context import resolve_active_repo_key
+
+    return resolve_active_repo_key(tool_settings) is not None
+
+
+def _count_tool_rounds_this_turn(messages: Sequence[BaseMessage]) -> int:
+    """Count AI tool-calling rounds since the latest human message."""
+    return sum(
+        1
+        for msg in _current_turn_messages(messages)
+        if getattr(msg, "tool_calls", None)
+    )
+
+
+def _last_tool_paused_for_control(last_msg: BaseMessage) -> bool:
+    """True if the last tool result asked for confirmation or hit plan mode."""
+    artifact = getattr(last_msg, "artifact", None)
+    if isinstance(artifact, list):
+        for entry in artifact:
+            if not isinstance(entry, dict):
+                continue
+            payload = entry.get("payload")
+            if isinstance(payload, dict) and (
+                "tool_confirmation_required" in payload
+                or "approval_required" in payload
+                or "plan_mode_blocked" in payload
+            ):
+                return True
+    return False
+
+
+def _can_bind_tools_this_step(
+    messages: Sequence[BaseMessage],
+    tool_settings: dict | None,
+    *,
+    is_fallback: bool,
+    is_after_tool: bool,
+) -> bool:
+    """Decide whether the agent may invoke tools on this model step."""
+    if is_fallback:
+        return False
+    if not is_after_tool:
+        return True
+    if not _is_code_workspace(tool_settings):
+        return False
+    if _last_tool_paused_for_control(messages[-1]):
+        return False
+    return _count_tool_rounds_this_turn(messages) < MAX_CODE_TOOL_ROUNDS
+
+
 async def call_model(state: AgentState):
     """The AI Agent node that decides what to do."""
     messages = state["messages"]
@@ -840,8 +898,9 @@ async def call_model(state: AgentState):
             )
         )
 
-    # Determine if we should bind tools. We do not bind tools if we are executing a fallback,
-    # OR if we just received a ToolMessage (to prevent the LLM from hallucinating more tool calls and looping).
+    # Determine if we should bind tools. Chat Mode stops after one tool
+    # round (`is_after_tool`); Code Mode allows a bounded multi-step loop
+    # (`MAX_CODE_TOOL_ROUNDS`) so the agent can list -> read -> answer.
     last_msg = messages[-1]
     is_fallback = getattr(
         last_msg, "type", ""
@@ -850,14 +909,25 @@ async def call_model(state: AgentState):
         getattr(last_msg, "type", "") == "tool"
         or last_msg.__class__.__name__ == "ToolMessage"
     )
+    can_bind_tools = _can_bind_tools_this_step(
+        messages, tool_settings, is_fallback=is_fallback, is_after_tool=is_after_tool
+    )
+
+    from backend.services.repo_context import build_workspace_context_prompt
+
+    workspace_note = await build_workspace_context_prompt(
+        state.get("tenant_id"), tool_settings
+    )
+    if workspace_note:
+        extra_system_messages.append(SystemMessage(content=workspace_note))
 
     file_search_enabled = tool_settings.get("file_search_enabled", False)
     web_search = tool_settings.get("web_search", {})
     web_enabled = (
         web_search.get("enabled", False) if isinstance(web_search, dict) else False
     )
-    if file_search_enabled or web_enabled:
-        if is_after_tool or is_fallback:
+    if file_search_enabled or web_enabled or workspace_note is not None:
+        if not can_bind_tools:
             rule_2 = (
                 "2. ANTI-ATTRIBUTION-DRIFT: NEVER reuse citations from previous turns to justify new claims. "
                 "Tool execution for this turn is already complete and NO tools are available right now — "
@@ -894,7 +964,7 @@ async def call_model(state: AgentState):
     modified_messages = _sanitize_messages_for_provider(modified_messages)
 
     bound_tools: list = []
-    if is_fallback or is_after_tool:
+    if not can_bind_tools:
         llm_with_tools = llm
     else:
         tools_list = await get_tools(
@@ -1188,12 +1258,8 @@ async def evaluate_context(state: AgentState):
 
     context_str = state.get("retrieved_context", "")
 
-    # If the DB returned nothing or is empty
-    if not context_str or "No results found." in context_str:
-        logger.info("CRAG: No DB results found. Grading as irrelevant.")
-        return {"context_relevance": "no"}
-
-    # Short-circuit if only non-retrieval tools were called (e.g. code runner, time, external MCP)
+    # Short-circuit if only non-retrieval / workspace tools were called
+    # (e.g. code_read_file, code_list_files, code_symbol, code runner, external MCP)
     last_aimsg = next(
         (m for m in reversed(messages) if hasattr(m, "tool_calls") and m.tool_calls),
         None,
@@ -1213,6 +1279,11 @@ async def evaluate_context(state: AgentState):
             "CRAG: Non-retrieval tools invoked. Skipping document relevance grading."
         )
         return {"context_relevance": "yes"}
+
+    # If the DB returned nothing or is empty
+    if not context_str or "No results found." in context_str:
+        logger.info("CRAG: No DB results found. Grading as irrelevant.")
+        return {"context_relevance": "no"}
 
     logger.info("CRAG: Evaluating retrieved context...")
 

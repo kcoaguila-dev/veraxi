@@ -178,6 +178,45 @@ def mcp_code_overview(path_prefix: str = "") -> str:
 
 
 @mcp_server.tool(
+    name="mcp_code_list_files",
+    description="List files and directories in an indexed repository (includes README.md, docs, configs, and source files).",
+)
+async def mcp_code_list_files(
+    repo: str, path: str = "", pattern: str = "", limit: int = 80
+) -> str:
+    return await _adispatch(
+        "mcp_code_list_files",
+        {
+            "repo": repo,
+            "path": path,
+            "pattern": pattern or None,
+            "limit": limit,
+        },
+    )
+
+
+@mcp_server.tool(
+    name="mcp_code_read_file",
+    description="Read a UTF-8 text file from an indexed repository with 1-based line numbers.",
+)
+async def mcp_code_read_file(
+    repo: str,
+    path: str,
+    start_line: int | None = None,
+    end_line: int | None = None,
+) -> str:
+    return await _adispatch(
+        "mcp_code_read_file",
+        {
+            "repo": repo,
+            "path": path,
+            "start_line": start_line,
+            "end_line": end_line,
+        },
+    )
+
+
+@mcp_server.tool(
     name="mcp_vuln_report",
     description="Vulnerability report: which dependencies have known CVEs (NVD/CISA KEV), from an explicit dependency list or a repo path whose manifests are parsed.",
 )

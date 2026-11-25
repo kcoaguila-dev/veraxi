@@ -179,6 +179,34 @@ REGISTERED_TOOLS = [
         },
     ),
     Tool(
+        name="mcp_code_list_files",
+        description="List files and directories in an indexed repository (includes README.md, docs, configs, and source files).",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "repo": {"type": "string"},
+                "path": {"type": "string", "default": ""},
+                "pattern": {"type": "string"},
+                "limit": {"type": "integer", "default": 80},
+            },
+            "required": ["repo"],
+        },
+    ),
+    Tool(
+        name="mcp_code_read_file",
+        description="Read a UTF-8 text file from an indexed repository with 1-based line numbers.",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "repo": {"type": "string"},
+                "path": {"type": "string"},
+                "start_line": {"type": "integer"},
+                "end_line": {"type": "integer"},
+            },
+            "required": ["repo", "path"],
+        },
+    ),
+    Tool(
         name="mcp_vuln_report",
         description="Vulnerability report: which dependencies have known CVEs (NVD/CISA KEV), from an explicit dependency list or a repo path whose manifests are parsed.",
         input_schema={

@@ -69,11 +69,14 @@ TOOL_DEFS: list[dict] = [
         "parameters": {
             "type": "object",
             "properties": {
-                "repo": {"type": "string", "description": "owner/repo."},
+                "repo": {
+                    "type": "string",
+                    "description": "Optional owner/repo. Defaults to the active workspace repository.",
+                },
                 "path": {"type": "string", "description": "Path within the repo."},
                 "ref": {"type": "string", "description": "Optional branch/tag/SHA."},
             },
-            "required": ["repo", "path"],
+            "required": ["path"],
         },
     },
     {
@@ -82,7 +85,10 @@ TOOL_DEFS: list[dict] = [
         "parameters": {
             "type": "object",
             "properties": {
-                "repo": {"type": "string", "description": "owner/repo."},
+                "repo": {
+                    "type": "string",
+                    "description": "Optional owner/repo. Defaults to the active workspace repository.",
+                },
                 "state": {
                     "type": "string",
                     "enum": ["open", "closed", "all"],
@@ -94,7 +100,7 @@ TOOL_DEFS: list[dict] = [
                     "description": "List issues or pull requests.",
                 },
             },
-            "required": ["repo", "type"],
+            "required": ["type"],
         },
     },
     {
@@ -103,10 +109,13 @@ TOOL_DEFS: list[dict] = [
         "parameters": {
             "type": "object",
             "properties": {
-                "repo": {"type": "string", "description": "owner/repo."},
+                "repo": {
+                    "type": "string",
+                    "description": "Optional owner/repo. Defaults to the active workspace repository.",
+                },
                 "pr_number": {"type": "integer", "description": "Pull request number."},
             },
-            "required": ["repo", "pr_number"],
+            "required": ["pr_number"],
         },
     },
     {
@@ -225,13 +234,60 @@ async def _github_request(token: str, method: str, path: str, **kwargs) -> httpx
         return response
 
 
+async def _resolve_github_app_token(
+    tenant_id: str, repo: str | None, supabase=None
+) -> str | None:
+    """Fallback to a tenant-owned GitHub App installation token for ``repo``."""
+    if not repo or "/" not in repo:
+        return None
+    sb = supabase if supabase is not None else _default_supabase()
+    if sb is None:
+        return None
+    try:
+        import asyncio
+
+        from backend.config import get_config
+        from backend.services import github_app_client as gh_client
+        from backend.services import github_app_store as gh_store
+
+        row = await asyncio.to_thread(gh_store.get_repo, sb, tenant_id, repo)
+        if not row:
+            return None
+        return await gh_client.get_installation_token(
+            get_config(), None, int(row["installation_id"])
+        )
+    except Exception as exc:
+        logger.debug("GitHub App token fallback unavailable for %s: %s", repo, exc)
+        return None
+
+
 async def execute_github_tool(
-    tool_name: str, tool_input: dict, tenant_id: str, supabase=None
+    tool_name: str,
+    tool_input: dict,
+    tenant_id: str,
+    supabase=None,
+    default_repo: str | None = None,
 ) -> str:
     """Execute one curated GitHub tool and return a text result."""
-    token = await _resolve_token(tenant_id, supabase=supabase)
+    effective_args = dict(tool_input or {})
+    if not effective_args.get("repo") and default_repo and "/" in default_repo:
+        effective_args["repo"] = default_repo
+    repo_arg = effective_args.get("repo")
+    if tool_name != "github_list_repos" and tool_name != "github_search_code" and not repo_arg:
+        return f"Missing required 'repo' (owner/repo) for {tool_name}."
+
     try:
-        return await _execute_with_token(tool_name, tool_input, token)
+        token = await _resolve_token(tenant_id, supabase=supabase)
+    except Exception as oauth_exc:
+        app_token = await _resolve_github_app_token(
+            tenant_id, repo_arg, supabase=supabase
+        )
+        if not app_token:
+            raise oauth_exc
+        token = app_token
+
+    try:
+        return await _execute_with_token(tool_name, effective_args, token)
     except httpx.HTTPStatusError as e:
         sentry_sdk.capture_exception(e)
         return f"GitHub API error ({e.response.status_code}) for {tool_name}."

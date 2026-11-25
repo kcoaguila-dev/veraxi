@@ -474,3 +474,124 @@ def test_simple_helpers():
     assert len(new_msgs) == 3
     assert new_msgs[1].content == "sys"
     assert new_msgs[2].content == "test"
+
+
+@pytest.mark.asyncio
+async def test_code_mode_auto_enables_repo_tools_and_defaults_repo(mock_config):
+    from unittest.mock import AsyncMock, patch
+
+    from backend.mcp_server.tool_dispatch import execute_tools_internal, get_tools
+
+    tools = await get_tools(
+        {"workspace_mode": "code", "repo_key": "kcoaguila-dev/veraxi", "file_search_enabled": False},
+        tenant_id="t1",
+    )
+    names = {t["function"]["name"] for t in tools}
+    assert {"code_read_file", "code_list_files", "code_symbol", "code_impact", "code_overview"} <= names
+
+    with patch(
+        "backend.mcp_server.tools.code_tools.code_read_file",
+        new=AsyncMock(
+            return_value={
+                "path": "README.md",
+                "repo_key": "kcoaguila-dev/veraxi",
+                "start_line": 1,
+                "end_line": 1,
+                "total_lines": 1,
+                "url": "file://README.md#L1-L1",
+                "content": "# Veraxi",
+                "truncated": False,
+            }
+        ),
+    ) as mock_read:
+        ctx, _ = await execute_tools_internal(
+            [{"id": "tc1", "name": "code_read_file", "args": {"path": "README.md"}}],
+            "t1",
+            {"workspace_mode": "code", "repo_key": "kcoaguila-dev/veraxi"},
+        )
+        assert mock_read.await_args.kwargs["repo"] == "kcoaguila-dev/veraxi"
+        assert "# Veraxi" in ctx
+        assert "file://README.md#L1-L1" in ctx
+
+
+@pytest.mark.asyncio
+async def test_call_model_injects_workspace_context_and_allows_multistep_in_code_mode(mock_config):
+    from unittest.mock import AsyncMock, MagicMock, patch
+
+    from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
+
+    from backend.mcp_server.orchestrator import MAX_CODE_TOOL_ROUNDS, call_model
+
+    captured_messages = []
+
+    class FakeBoundLlm:
+        async def ainvoke(self, msgs):
+            captured_messages.append(msgs)
+            return AIMessage(content="Done reading README.")
+
+    fake_llm = MagicMock()
+    fake_llm.bind_tools.return_value = FakeBoundLlm()
+    fake_llm.ainvoke = AsyncMock(return_value=AIMessage(content="No tools."))
+
+    with (
+        patch("backend.mcp_server.orchestrator._create_chat_llm", return_value=fake_llm),
+        patch(
+            "backend.services.repo_context.build_workspace_context_prompt",
+            new=AsyncMock(return_value="<workspace_context>\nActive Repository: kcoaguila-dev/veraxi\n</workspace_context>"),
+        ),
+        patch("backend.mcp_server.orchestrator.get_tools", new=AsyncMock(return_value=[{"type": "function", "function": {"name": "code_read_file", "parameters": {"type": "object", "properties": {}}}}])),
+    ):
+        # After 1 tool round in Code Mode -> tools are STILL bound!
+        state_after_one_tool = {
+            "messages": [
+                HumanMessage(content="read the readme"),
+                AIMessage(content="", tool_calls=[{"id": "c1", "name": "code_list_files", "args": {}}]),
+                ToolMessage(content="README.md", tool_call_id="c1"),
+            ],
+            "tenant_id": "t1",
+            "context_relevance": "",
+            "retrieved_context": "",
+            "query_embedding": None,
+            "calculate_grounding": False,
+            "tool_settings": {"workspace_mode": "code", "repo_key": "kcoaguila-dev/veraxi"},
+        }
+        await call_model(state_after_one_tool)
+        assert fake_llm.bind_tools.called
+        assert any(
+            "Active Repository: kcoaguila-dev/veraxi" in str(m.content)
+            for m in captured_messages[0]
+        )
+
+        # At MAX_CODE_TOOL_ROUNDS -> tools are NOT bound anymore (hard cap)
+        fake_llm.bind_tools.reset_mock()
+        many_msgs = [HumanMessage(content="loop")]
+        for i in range(MAX_CODE_TOOL_ROUNDS):
+            many_msgs.append(
+                AIMessage(content="", tool_calls=[{"id": f"c{i}", "name": "code_list_files", "args": {}}])
+            )
+            many_msgs.append(ToolMessage(content="README.md", tool_call_id=f"c{i}"))
+        state_at_cap = {
+            **state_after_one_tool,
+            "messages": many_msgs,
+        }
+        await call_model(state_at_cap)
+        assert not fake_llm.bind_tools.called
+        assert fake_llm.ainvoke.called
+
+
+@pytest.mark.asyncio
+async def test_evaluate_context_skips_web_fallback_for_empty_code_tool(mock_config):
+    from langchain_core.messages import AIMessage, HumanMessage
+
+    from backend.mcp_server.orchestrator import evaluate_context
+
+    state = {
+        "messages": [
+            HumanMessage(content="do you see the readme?"),
+            AIMessage(content="", tool_calls=[{"id": "c1", "name": "code_read_file", "args": {"path": "README.md"}}]),
+        ],
+        "tenant_id": "t1",
+        "retrieved_context": "No results found.",
+    }
+    res = await evaluate_context(state)
+    assert res["context_relevance"] == "yes"

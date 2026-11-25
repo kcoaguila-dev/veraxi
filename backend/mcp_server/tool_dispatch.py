@@ -25,6 +25,30 @@ _MCP_TOOL_CACHE: dict[str, Any] = {}  # Cache tool schemas to avoid frequent han
 PLAN_MUTATING_TOOL_NAMES = {"sandbox_exec", "sandbox_write_file"}
 
 
+def _has_active_repo_context(tool_settings: dict | None) -> bool:
+    """True when Code Mode or an active repository scope is set."""
+    if not isinstance(tool_settings, dict):
+        return False
+    if str(tool_settings.get("workspace_mode") or "").lower() == "code":
+        return True
+    from backend.services.repo_context import resolve_active_repo_key
+
+    return resolve_active_repo_key(tool_settings) is not None
+
+
+def _resolve_active_repo(
+    tool_input: dict | None, tool_settings: dict | None
+) -> str | None:
+    """Return explicit ``repo`` arg or fall back to the active workspace repo."""
+    if isinstance(tool_input, dict):
+        explicit = tool_input.get("repo")
+        if isinstance(explicit, str) and explicit.strip():
+            return explicit.strip()
+    from backend.services.repo_context import resolve_active_repo_key
+
+    return resolve_active_repo_key(tool_settings)
+
+
 def _tool_name_of(tool: Any) -> str | None:
     if isinstance(tool, dict):
         fn = tool.get("function")
@@ -149,23 +173,30 @@ async def get_tools(
         )
         # Repo X-Ray code-graph tools read the same tenant graph as
         # query_graph, so they share its file_search gate.
-        from backend.mcp_server.tools.code_tools import (
-            tool_schemas as _code_tool_schemas,
-        )
         from backend.mcp_server.tools.corpus_tools import (
             tool_schemas as _corpus_tool_schemas,
         )
         from backend.mcp_server.tools.dbt_tools import (
             tool_schemas as _dbt_tool_schemas,
         )
+
+        all_tools.extend(_corpus_tool_schemas())
+        all_tools.extend(_dbt_tool_schemas())
+
+    if file_search_enabled or _has_active_repo_context(tool_settings):
+        from backend.mcp_server.tools.code_tools import (
+            repo_file_tool_schemas as _repo_file_tool_schemas,
+        )
+        from backend.mcp_server.tools.code_tools import (
+            tool_schemas as _code_tool_schemas,
+        )
         from backend.mcp_server.tools.vuln_tools import (
             tool_schemas as _vuln_tool_schemas,
         )
 
         all_tools.extend(_code_tool_schemas())
+        all_tools.extend(_repo_file_tool_schemas())
         all_tools.extend(_vuln_tool_schemas())
-        all_tools.extend(_corpus_tool_schemas())
-        all_tools.extend(_dbt_tool_schemas())
 
     if web_search_enabled:
         all_tools.append(
@@ -534,7 +565,7 @@ def _execute_single_tool(
         )
 
     elif tool_name in ("code_symbol", "code_impact", "code_overview"):
-        if not settings.get("file_search_enabled", False):
+        if not settings.get("file_search_enabled", False) and not _has_active_repo_context(settings):
             return [], []
 
         class CodeHit:
@@ -549,23 +580,29 @@ def _execute_single_tool(
             code_symbol,
         )
 
+        active_repo = _resolve_active_repo(tool_input, settings)
+        repo_kwargs = {"repo": active_repo} if active_repo else {}
         if tool_name == "code_symbol":
-            result = code_symbol(tool_input["name"], tenant_id=tenant_id)
+            result = code_symbol(
+                tool_input["name"], tenant_id=tenant_id, **repo_kwargs
+            )
         elif tool_name == "code_impact":
             result = code_impact(
                 tool_input["symbol"],
                 tenant_id=tenant_id,
                 max_depth=int(tool_input.get("max_depth", 3)),
+                **repo_kwargs,
             )
         else:
             result = code_overview(
                 tenant_id=tenant_id,
                 path_prefix=tool_input.get("path_prefix"),
+                **repo_kwargs,
             )
         return [CodeHit(result)], []
 
     elif tool_name == "vuln_report":
-        if not settings.get("file_search_enabled", False):
+        if not settings.get("file_search_enabled", False) and not _has_active_repo_context(settings):
             return [], []
 
         class VulnHit:
@@ -1460,6 +1497,62 @@ def _build_context_string(merged_results: list[Any]) -> str:
     return "\n".join(context_parts)
 
 
+def _format_code_read_output(res: dict[str, Any]) -> str:
+    if res.get("error"):
+        return f"Error reading {res.get('path', 'file')}: {res['error']}"
+    header = (
+        f"File: {res.get('path')} (repo: {res.get('repo_key')}, "
+        f"lines {res.get('start_line')}-{res.get('end_line')} of {res.get('total_lines')}, "
+        f"url: {res.get('url')})"
+    )
+    if res.get("truncated"):
+        header += " [truncated]"
+    start = int(res.get("start_line") or 1)
+    numbered = "\n".join(
+        f"{idx}: {line}"
+        for idx, line in enumerate(str(res.get("content") or "").splitlines(), start=start)
+    )
+    return f"{header}\n{numbered}"
+
+
+def _format_code_list_output(res: dict[str, Any]) -> str:
+    if res.get("error"):
+        return f"Error listing {res.get('path') or '/'}: {res['error']}"
+    entries = res.get("entries") or []
+    if not entries:
+        return f"No entries found in {res.get('repo_key')} at '{res.get('path') or '.'}'."
+    lines = [
+        f"{'[dir] ' if e.get('type') == 'dir' else ''}{e.get('path')}"
+        for e in entries
+    ]
+    return f"Entries in {res.get('repo_key')} ({res.get('path') or '.'}):\n" + "\n".join(lines)
+
+
+async def _execute_async_repo_tool(
+    t_name: str, t_input: dict, tenant_id: str, tool_settings: dict
+) -> McpHit:
+    from backend.mcp_server.tools.code_tools import code_list_files, code_read_file
+
+    active_repo = _resolve_active_repo(t_input, tool_settings)
+    if t_name == "code_read_file":
+        res = await code_read_file(
+            str(t_input.get("path") or ""),
+            start_line=t_input.get("start_line"),
+            end_line=t_input.get("end_line"),
+            tenant_id=tenant_id,
+            repo=active_repo,
+        )
+        return McpHit(_format_code_read_output(res), "", "Repo X-Ray")
+    res = await code_list_files(
+        str(t_input.get("path") or ""),
+        pattern=t_input.get("pattern"),
+        limit=int(t_input.get("limit") or 80),
+        tenant_id=tenant_id,
+        repo=active_repo,
+    )
+    return McpHit(_format_code_list_output(res), "", "Repo X-Ray")
+
+
 async def execute_tools_internal(
     tool_calls: list[dict], tenant_id: str, tool_settings: dict
 ) -> tuple[str, list[Any]]:
@@ -1490,10 +1583,20 @@ async def execute_tools_internal(
                 t_name, t_input, tool_settings, tenant_id
             )
             return [], [], m_hits
+        if t_name in ("code_read_file", "code_list_files"):
+            repo_hit = await _execute_async_repo_tool(
+                t_name, t_input, tenant_id, tool_settings
+            )
+            return [], [], [repo_hit]
         if t_name.startswith("github_"):
             from backend.mcp_server.tools.github_tools import execute_github_tool
 
-            result_text = await execute_github_tool(t_name, t_input, tenant_id)
+            effective_input = dict(t_input or {})
+            if not effective_input.get("repo"):
+                active_repo = _resolve_active_repo(effective_input, tool_settings)
+                if active_repo and "/" in active_repo:
+                    effective_input["repo"] = active_repo
+            result_text = await execute_github_tool(t_name, effective_input, tenant_id)
             return [], [], [McpHit(result_text, "", "GitHub")]
         if t_name.startswith("api__"):
             from backend.services.openapi_importer import (

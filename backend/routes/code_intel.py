@@ -995,6 +995,36 @@ def register_code_intel_routes(
                 status_code=500, detail="Failed to look up code file"
             ) from e
         if indexed is None:
+            if repo_key:
+                from backend.services.repo_files import RepoFileError, read_repo_file
+
+                redis_obj = getattr(getattr(request, "app", None), "state", None)
+                redis_client = getattr(redis_obj, "redis", None)
+                try:
+                    file_res = await read_repo_file(
+                        tenant_id,
+                        repo_key,
+                        path,
+                        max_chars=None,
+                        neo4j_client=_default_neo4j_client(),
+                        supabase=_get_supabase() if _get_supabase else None,
+                        redis_client=redis_client,
+                        config=config,
+                    )
+                    lines = file_res["content"].splitlines()
+                    return {
+                        "path": path,
+                        "source": file_res["source"],
+                        "language": None,
+                        "content": file_res["content"],
+                        "start_line": 1,
+                        "end_line": len(lines),
+                        "line_count": len(lines),
+                    }
+                except RepoFileError as exc:
+                    raise HTTPException(
+                        status_code=exc.status_code, detail=exc.detail
+                    ) from exc
             raise HTTPException(status_code=404, detail="Code file not indexed")
         resolved = await asyncio.to_thread(_resolve_code_file_on_disk, path)
         if resolved is not None:

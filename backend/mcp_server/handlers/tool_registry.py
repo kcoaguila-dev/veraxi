@@ -450,6 +450,32 @@ def _handle_code_overview(args: dict, tenant_id: str) -> list[TextContent]:
     return [TextContent(type="text", text=json.dumps(results))]
 
 
+async def _handle_code_list_files(args: dict, tenant_id: str) -> list[TextContent]:
+    from backend.mcp_server.tools.code_tools import code_list_files
+
+    results = await code_list_files(
+        path=str(args.get("path") or ""),
+        pattern=args.get("pattern"),
+        limit=int(args.get("limit") or 80),
+        tenant_id=tenant_id,
+        repo=args.get("repo"),
+    )
+    return [TextContent(type="text", text=json.dumps(results))]
+
+
+async def _handle_code_read_file(args: dict, tenant_id: str) -> list[TextContent]:
+    from backend.mcp_server.tools.code_tools import code_read_file
+
+    results = await code_read_file(
+        str(args.get("path") or ""),
+        start_line=args.get("start_line"),
+        end_line=args.get("end_line"),
+        tenant_id=tenant_id,
+        repo=args.get("repo"),
+    )
+    return [TextContent(type="text", text=json.dumps(results))]
+
+
 def _handle_corpus_briefing(args: dict, tenant_id: str) -> list[TextContent]:
     from backend.mcp_server.tools.corpus_tools import corpus_briefing
 
@@ -726,6 +752,8 @@ TOOL_HANDLERS = {
     "mcp_code_symbol": _handle_code_symbol,
     "mcp_code_impact": _handle_code_impact,
     "mcp_code_overview": _handle_code_overview,
+    "mcp_code_list_files": _handle_code_list_files,
+    "mcp_code_read_file": _handle_code_read_file,
     "mcp_vuln_report": _handle_vuln_report,
     "mcp_corpus_briefing": _handle_corpus_briefing,
     "mcp_dataset_discovery": _handle_dataset_discovery,

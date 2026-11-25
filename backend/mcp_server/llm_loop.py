@@ -210,6 +210,14 @@ TOOL_LABELS: dict[str, str] = {
     "mcp_get_graph_schema": "Inspect Graph Schema",
     "mcp_run_community_detection": "Run Community Detection",
     "mcp_ingest_document": "Ingest Document",
+    "code_read_file": "Read Repository File",
+    "code_list_files": "Browse Repository Files",
+    "code_symbol": "Inspect Code Symbol",
+    "code_impact": "Analyze Code Impact",
+    "code_overview": "Inspect Repository Overview",
+    "github_get_file": "Read GitHub File",
+    "github_search_code": "Search GitHub Code",
+    "github_list_repos": "List GitHub Repositories",
 }
 
 

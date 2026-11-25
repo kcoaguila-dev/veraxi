@@ -545,6 +545,80 @@ async def fetch_file_at_ref(
         raise GitHubAppError("Code file is not UTF-8 text") from exc
 
 
+async def list_dir_at_ref(
+    token: str,
+    repo_full_name: str,
+    path: str,
+    ref: str,
+) -> list[dict[str, Any]]:
+    """List directory entries from GitHub Contents API at a pinned commit/ref."""
+    clean_path = path.strip("/")
+    endpoint = (
+        f"{GITHUB_API_BASE}/repos/{repo_full_name}/contents/{clean_path}"
+        if clean_path
+        else f"{GITHUB_API_BASE}/repos/{repo_full_name}/contents"
+    )
+    resp = await _request_with_backoff(
+        "GET",
+        endpoint,
+        headers=_gh_headers(token),
+        params={"ref": ref},
+    )
+    data = resp.json()
+    entries = data if isinstance(data, list) else ([data] if isinstance(data, dict) else [])
+    return [
+        {
+            "name": str(entry.get("name") or ""),
+            "path": str(entry.get("path") or ""),
+            "type": "dir" if entry.get("type") == "dir" else "file",
+            "size": entry.get("size"),
+        }
+        for entry in entries
+        if isinstance(entry, dict) and entry.get("path")
+    ]
+
+
+async def fetch_repo_tree_at_ref(
+    token: str,
+    repo_full_name: str,
+    ref: str,
+    *,
+    recursive: bool = True,
+    max_entries: int = 5000,
+) -> list[dict[str, Any]]:
+    """Fetch repository tree entries via GitHub Git Trees API at ``ref``."""
+    params = {"recursive": "1"} if recursive else None
+    resp = await _request_with_backoff(
+        "GET",
+        f"{GITHUB_API_BASE}/repos/{repo_full_name}/git/trees/{ref}",
+        headers=_gh_headers(token),
+        params=params,
+    )
+    data = resp.json()
+    raw_tree = data.get("tree") if isinstance(data, dict) else []
+    if not isinstance(raw_tree, list):
+        return []
+    entries: list[dict[str, Any]] = []
+    for item in raw_tree:
+        if not isinstance(item, dict):
+            continue
+        item_type = item.get("type")
+        item_path = item.get("path")
+        if item_type not in ("blob", "tree") or not isinstance(item_path, str):
+            continue
+        entries.append(
+            {
+                "path": item_path,
+                "name": item_path.rsplit("/", 1)[-1],
+                "type": "dir" if item_type == "tree" else "file",
+                "size": item.get("size"),
+            }
+        )
+        if len(entries) >= max_entries:
+            break
+    return entries
+
+
 def _safe_extract_tarball(archive_bytes: bytes, dest_dir: Path) -> None:
     """Extract a GitHub tarball into ``dest_dir``, stripping the top-level prefix.
 

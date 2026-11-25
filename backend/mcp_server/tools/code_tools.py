@@ -31,7 +31,7 @@ TOOL_DEFS: list[dict] = [
                 },
                 "repo": {
                     "type": "string",
-                    "description": "Optional repo key (origin slug or repo root path) to scope the lookup to one indexed repo.",
+                    "description": "Optional repo key (owner/repo or root path). Defaults to the active workspace repository.",
                 },
             },
             "required": ["name"],
@@ -56,7 +56,7 @@ TOOL_DEFS: list[dict] = [
                 },
                 "repo": {
                     "type": "string",
-                    "description": "Optional repo key (origin slug or repo root path) to scope the analysis to one indexed repo.",
+                    "description": "Optional repo key (owner/repo or root path). Defaults to the active workspace repository.",
                 },
             },
             "required": ["symbol"],
@@ -77,16 +77,77 @@ TOOL_DEFS: list[dict] = [
                 },
                 "repo": {
                     "type": "string",
-                    "description": "Optional repo key (origin slug or repo root path) to scope counts to one indexed repo.",
+                    "description": "Optional repo key (owner/repo or root path). Defaults to the active workspace repository.",
                 },
             },
         },
     },
 ]
 
+FILE_TOOL_DEFS: list[dict] = [
+    {
+        "name": "code_list_files",
+        "description": (
+            "List files and directories in the active repository (includes "
+            "README.md, docs, configs, and source files). Use `pattern` to "
+            "search by filename or glob."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "path": {
+                    "type": "string",
+                    "description": "Optional directory path relative to repo root (default '' for root).",
+                },
+                "pattern": {
+                    "type": "string",
+                    "description": "Optional filename substring or glob pattern (e.g. '*readme*', '*.py').",
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "Maximum entries to return (default 80, max 200).",
+                },
+                "repo": {
+                    "type": "string",
+                    "description": "Optional repo key. Defaults to the active workspace repository.",
+                },
+            },
+        },
+    },
+    {
+        "name": "code_read_file",
+        "description": (
+            "Read a UTF-8 text file from the active repository (such as "
+            "README.md, AGENTS.md, configs, or source files) with 1-based "
+            "line numbers and a citable file:// URL."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "path": {
+                    "type": "string",
+                    "description": "Repo-relative path to the file (e.g. 'README.md', 'backend/config.py').",
+                },
+                "start_line": {
+                    "type": "integer",
+                    "description": "Optional 1-based start line.",
+                },
+                "end_line": {
+                    "type": "integer",
+                    "description": "Optional 1-based inclusive end line.",
+                },
+                "repo": {
+                    "type": "string",
+                    "description": "Optional repo key. Defaults to the active workspace repository.",
+                },
+            },
+            "required": ["path"],
+        },
+    },
+]
 
-def tool_schemas() -> list[dict]:
-    """OpenAI-style function schemas for the Repo X-Ray tools."""
+
+def _to_openai_schemas(defs: list[dict]) -> list[dict]:
     return [
         {
             "type": "function",
@@ -96,8 +157,18 @@ def tool_schemas() -> list[dict]:
                 "parameters": d["parameters"],
             },
         }
-        for d in TOOL_DEFS
+        for d in defs
     ]
+
+
+def tool_schemas() -> list[dict]:
+    """OpenAI-style function schemas for the Repo X-Ray graph tools."""
+    return _to_openai_schemas(TOOL_DEFS)
+
+
+def repo_file_tool_schemas() -> list[dict]:
+    """OpenAI-style function schemas for the Repo X-Ray file/tree tools."""
+    return _to_openai_schemas(FILE_TOOL_DEFS)
 
 
 def code_symbol(
@@ -170,3 +241,53 @@ def code_overview(
             "top_connected": [],
             "error": str(e),
         }
+
+
+async def code_list_files(
+    path: str = "",
+    *,
+    pattern: str | None = None,
+    limit: int = 80,
+    tenant_id: str = "default",
+    repo: str | None = None,
+) -> dict[str, Any]:
+    """List files/directories in a tenant-accessible repository."""
+    from backend.services.repo_files import RepoFileError, list_repo_entries
+
+    if not repo:
+        return {"path": path, "entries": [], "error": "No active repository specified."}
+    try:
+        return await list_repo_entries(
+            tenant_id, repo, path=path, pattern=pattern, limit=limit
+        )
+    except RepoFileError as exc:
+        return {"repo_key": repo, "path": path, "entries": [], "error": exc.detail}
+    except Exception as exc:
+        sentry_sdk.capture_exception(exc)
+        logger.error("code_list_files failed for %s: %s", repo, exc)
+        return {"repo_key": repo, "path": path, "entries": [], "error": str(exc)}
+
+
+async def code_read_file(
+    path: str,
+    *,
+    start_line: int | None = None,
+    end_line: int | None = None,
+    tenant_id: str = "default",
+    repo: str | None = None,
+) -> dict[str, Any]:
+    """Read a UTF-8 text file from a tenant-accessible repository."""
+    from backend.services.repo_files import RepoFileError, read_repo_file
+
+    if not repo:
+        return {"path": path, "error": "No active repository specified."}
+    try:
+        return await read_repo_file(
+            tenant_id, repo, path, start_line=start_line, end_line=end_line
+        )
+    except RepoFileError as exc:
+        return {"repo_key": repo, "path": path, "error": exc.detail}
+    except Exception as exc:
+        sentry_sdk.capture_exception(exc)
+        logger.error("code_read_file failed for %s/%s: %s", repo, path, exc)
+        return {"repo_key": repo, "path": path, "error": str(exc)}
