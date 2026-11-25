@@ -328,7 +328,7 @@ void main() {
     test('computeReviewPaneWidth clamps within safe bounds', () {
       expect(computeReviewPaneWidth(1400, 0.55), closeTo(770.0, 0.001));
       expect(computeReviewPaneWidth(1400, 0.1), 380.0);
-      expect(computeReviewPaneWidth(1400, 0.95), 1040.0);
+      expect(computeReviewPaneWidth(1400, 0.95), 1020.0);
     });
 
     testWidgets(

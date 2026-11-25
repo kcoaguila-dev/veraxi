@@ -198,109 +198,116 @@ class _CodeWorkbenchViewState extends ConsumerState<CodeWorkbenchView> {
     final review = activeReview;
     final showReview = review != null && workspaceMode == WorkspaceMode.code;
 
-    return Stack(
-      children: [
-        Row(
+    return LayoutBuilder(
+      builder: (context, workbenchConstraints) {
+        final workspaceWidth = workbenchConstraints.maxWidth;
+        return Stack(
           children: [
-            Expanded(
-              child: Column(
-                children: [
-                  if (!isCodeChat)
-                    _buildHeaderBar(
-                      context: context,
-                      title: _subViewTitle(activeSubView),
-                      repoLabel: selectedRepo,
-                      isWideDesktop: isWideDesktop,
-                      activeSubView: activeSubView,
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    children: [
+                      if (!isCodeChat)
+                        _buildHeaderBar(
+                          context: context,
+                          title: _subViewTitle(activeSubView),
+                          repoLabel: selectedRepo,
+                          isWideDesktop: isWideDesktop,
+                          activeSubView: activeSubView,
+                        ),
+                      Expanded(
+                        child: IndexedStack(
+                          index: activeSubView.index,
+                          children: [
+                            SingleChildScrollView(
+                              padding: const EdgeInsets.all(24),
+                              child: VulnIntelPanel(
+                                repoPathController: _repoPathController,
+                                workbenchMode: true,
+                                hideToolbarActions: isWideDesktop,
+                                onAskFinding: _openFindingCodeThread,
+                                onInspectCallSite: _openCallSiteViewer,
+                                onOpenRepoXray: () => ref
+                                    .read(codeSubViewProvider.notifier)
+                                    .state = CodeSubView.repoXray,
+                              ),
+                            ),
+                            SingleChildScrollView(
+                              padding: const EdgeInsets.all(24),
+                              child: RepoXrayPanel(
+                                repoPathController: _repoPathController,
+                              ),
+                            ),
+                            const SingleChildScrollView(
+                              padding: EdgeInsets.all(24),
+                              child: SecurityFeedPanel(),
+                            ),
+                            const SingleChildScrollView(
+                              padding: EdgeInsets.all(24),
+                              child: CorpusBriefingPanel(
+                                sectionFilter:
+                                    CorpusBriefingSectionFilter.briefingOnly,
+                              ),
+                            ),
+                            const SingleChildScrollView(
+                              padding: EdgeInsets.all(24),
+                              child: CorpusBriefingPanel(
+                                sectionFilter:
+                                    CorpusBriefingSectionFilter.dbtLineageOnly,
+                              ),
+                            ),
+                            // CodeSubView.codeChat (index 5, the default
+                            // sub-view since Phase 3): the Code Chat pane
+                            // from the chat feature.
+                            const CodeChatPane(),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (showReview && isWideDesktop)
+                  SizedBox(
+                    width: computeReviewPaneWidth(
+                      workspaceWidth,
+                      ref.watch(reviewPaneWidthFractionProvider),
                     ),
-                  Expanded(
-                    child: IndexedStack(
-                      index: activeSubView.index,
-                      children: [
-                        SingleChildScrollView(
-                          padding: const EdgeInsets.all(24),
-                          child: VulnIntelPanel(
-                            repoPathController: _repoPathController,
-                            workbenchMode: true,
-                            hideToolbarActions: isWideDesktop,
-                            onAskFinding: _openFindingCodeThread,
-                            onInspectCallSite: _openCallSiteViewer,
-                            onOpenRepoXray: () => ref
-                                .read(codeSubViewProvider.notifier)
-                                .state = CodeSubView.repoXray,
-                          ),
-                        ),
-                        SingleChildScrollView(
-                          padding: const EdgeInsets.all(24),
-                          child: RepoXrayPanel(
-                            repoPathController: _repoPathController,
-                          ),
-                        ),
-                        const SingleChildScrollView(
-                          padding: EdgeInsets.all(24),
-                          child: SecurityFeedPanel(),
-                        ),
-                        const SingleChildScrollView(
-                          padding: EdgeInsets.all(24),
-                          child: CorpusBriefingPanel(
-                            sectionFilter:
-                                CorpusBriefingSectionFilter.briefingOnly,
-                          ),
-                        ),
-                        const SingleChildScrollView(
-                          padding: EdgeInsets.all(24),
-                          child: CorpusBriefingPanel(
-                            sectionFilter:
-                                CorpusBriefingSectionFilter.dbtLineageOnly,
-                          ),
-                        ),
-                        // CodeSubView.codeChat (index 5, the default
-                        // sub-view since Phase 3): the Code Chat pane
-                        // from the chat feature.
-                        const CodeChatPane(),
-                      ],
+                    child: CodeReviewDrawer(
+                      key: ValueKey(
+                          'review-${review.sessionId}-${review.turnId}'),
+                      review: review,
+                      maxSplitWidth: workspaceWidth,
                     ),
                   ),
-                ],
-              ),
+              ],
             ),
-            if (showReview && isWideDesktop)
-              SizedBox(
-                width: computeReviewPaneWidth(
-                  screenWidth,
-                  ref.watch(reviewPaneWidthFractionProvider),
-                ),
-                child: CodeReviewDrawer(
-                  key: ValueKey('review-${review.sessionId}-${review.turnId}'),
-                  review: review,
-                  maxSplitWidth: screenWidth,
+            if (showReview && !isWideDesktop)
+              Positioned.fill(
+                child: GestureDetector(
+                  onTap: () => ref
+                      .read(activeReviewSessionProvider.notifier)
+                      .state = null,
+                  child: Container(
+                    color: Colors.black54,
+                    alignment: Alignment.centerRight,
+                    child: GestureDetector(
+                      onTap: () {},
+                      child: SizedBox(
+                        width: (screenWidth * 0.92).clamp(320.0, 640.0),
+                        child: CodeReviewDrawer(
+                          key: ValueKey(
+                              'review-sheet-${review.sessionId}-${review.turnId}'),
+                          review: review,
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
               ),
           ],
-        ),
-        if (showReview && !isWideDesktop)
-          Positioned.fill(
-            child: GestureDetector(
-              onTap: () =>
-                  ref.read(activeReviewSessionProvider.notifier).state = null,
-              child: Container(
-                color: Colors.black54,
-                alignment: Alignment.centerRight,
-                child: GestureDetector(
-                  onTap: () {},
-                  child: SizedBox(
-                    width: (screenWidth * 0.92).clamp(320.0, 640.0),
-                    child: CodeReviewDrawer(
-                      key: ValueKey(
-                          'review-sheet-${review.sessionId}-${review.turnId}'),
-                      review: review,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-      ],
+        );
+      },
     );
   }
 

@@ -670,643 +670,760 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                           isSidebarOpen: isSidebarOpen, isMobile: false),
                   // Main Workspace: [ Chat | Code ] preserved via IndexedStack
                   Expanded(
-                    child: IndexedStack(
-                      index: workspaceMode == WorkspaceMode.chat ? 0 : 1,
-                      children: [
-                        Row(
+                    child: LayoutBuilder(
+                      builder: (context, workspaceConstraints) {
+                        final workspaceWidth = workspaceConstraints.maxWidth;
+                        return Row(
                           children: [
                             Expanded(
-                              child: SafeArea(
-                                child: Stack(
-                                  children: [
-                                    // Main Content
-                                    Column(
-                                      children: [
-                                        Expanded(
-                                          child: state.showAllProjectsDashboard
-                                              ? const AllProjectsDashboardView()
-                                              : state.showProjectDashboard
-                                                  ? const ProjectDashboardView()
-                                                  : state.isLoadingHistory
-                                                      ? const Center(
-                                                          child: SizedBox(
-                                                            width: 24,
-                                                            height: 24,
-                                                            child:
-                                                                CircularProgressIndicator(
-                                                              strokeWidth: 2.0,
-                                                              valueColor:
-                                                                  AlwaysStoppedAnimation<
-                                                                          Color>(
-                                                                      Color(
-                                                                          0xFF878787)),
+                              child: IndexedStack(
+                                index:
+                                    workspaceMode == WorkspaceMode.chat ? 0 : 1,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: SafeArea(
+                                          child: Stack(
+                                            children: [
+                                              // Main Content
+                                              Column(
+                                                children: [
+                                                  Expanded(
+                                                    child: state
+                                                            .showAllProjectsDashboard
+                                                        ? const AllProjectsDashboardView()
+                                                        : state
+                                                                .showProjectDashboard
+                                                            ? const ProjectDashboardView()
+                                                            : state
+                                                                    .isLoadingHistory
+                                                                ? const Center(
+                                                                    child:
+                                                                        SizedBox(
+                                                                      width: 24,
+                                                                      height:
+                                                                          24,
+                                                                      child:
+                                                                          CircularProgressIndicator(
+                                                                        strokeWidth:
+                                                                            2.0,
+                                                                        valueColor:
+                                                                            AlwaysStoppedAnimation<Color>(Color(0xFF878787)),
+                                                                      ),
+                                                                    ),
+                                                                  )
+                                                                : state.messages
+                                                                        .isEmpty
+                                                                    ? _buildEmptyState(
+                                                                        theme,
+                                                                        ext,
+                                                                        state,
+                                                                        viewModel,
+                                                                        sandboxEnabled:
+                                                                            sandboxEnabled)
+                                                                    : Opacity(
+                                                                        opacity: _pendingHistoryScrollRestore
+                                                                            ? 0.0
+                                                                            : 1.0,
+                                                                        child: NotificationListener<
+                                                                            ScrollMetricsNotification>(
+                                                                          onNotification:
+                                                                              (notification) {
+                                                                            _syncScrolledUp(notification.metrics);
+                                                                            return false;
+                                                                          },
+                                                                          child:
+                                                                              ListView.builder(
+                                                                            controller:
+                                                                                _scrollController,
+                                                                            scrollCacheExtent:
+                                                                                const ScrollCacheExtent.pixels(3000),
+                                                                            padding: const EdgeInsets.only(
+                                                                                left: 16,
+                                                                                right: 16,
+                                                                                top: 80,
+                                                                                bottom: 140),
+                                                                            itemCount:
+                                                                                state.messages.length,
+                                                                            itemBuilder:
+                                                                                (context, index) {
+                                                                              final msg = state.messages[index];
+                                                                              return ChatMessageListItem(
+                                                                                msg: msg,
+                                                                                theme: theme,
+                                                                                ext: ext,
+                                                                                showTelemetry: state.showTelemetry,
+                                                                              );
+                                                                            },
+                                                                          ),
+                                                                        ),
+                                                                      ),
+                                                  ),
+                                                ],
+                                              ),
+
+                                              // Top Bar Background to prevent text overlap
+                                              if (!state
+                                                      .showAllProjectsDashboard &&
+                                                  !state
+                                                      .showProjectDashboard) ...[
+                                                Positioned(
+                                                  top: 0,
+                                                  left: 0,
+                                                  right: 0,
+                                                  height: 60,
+                                                  child: Container(
+                                                    decoration: BoxDecoration(
+                                                      gradient: LinearGradient(
+                                                        begin:
+                                                            Alignment.topCenter,
+                                                        end: Alignment
+                                                            .bottomCenter,
+                                                        colors: [
+                                                          theme
+                                                              .scaffoldBackgroundColor,
+                                                          theme
+                                                              .scaffoldBackgroundColor
+                                                              .withValues(
+                                                                  alpha: 0.9),
+                                                          theme
+                                                              .scaffoldBackgroundColor
+                                                              .withValues(
+                                                                  alpha: 0.0),
+                                                        ],
+                                                        stops: const [
+                                                          0.6,
+                                                          0.9,
+                                                          1.0
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+
+                                                // Top Bar: Model Selector (like LibreChat)
+                                                Positioned(
+                                                  top: 12,
+                                                  left: isMobile ? 56 : 16,
+                                                  right: 16,
+                                                  child: Wrap(
+                                                    alignment:
+                                                        WrapAlignment.start,
+                                                    crossAxisAlignment:
+                                                        WrapCrossAlignment
+                                                            .center,
+                                                    spacing: 12,
+                                                    runSpacing: 8,
+                                                    children: [
+                                                      ModelSelectorMenu(
+                                                        selectedModel:
+                                                            _selectedModel,
+                                                        pinnedModels:
+                                                            _pinnedModels
+                                                                .toList(),
+                                                        onModelSelected:
+                                                            (model) async {
+                                                          setState(() {
+                                                            _selectedModel =
+                                                                model;
+                                                          });
+                                                          ref
+                                                              .read(
+                                                                  modelSelectionProvider
+                                                                      .notifier)
+                                                              .selectModel(
+                                                                  model);
+                                                          final prefs =
+                                                              await SharedPreferences
+                                                                  .getInstance();
+                                                          await prefs.setString(
+                                                              'selected_model',
+                                                              model);
+                                                        },
+                                                        onModelPinned: (model) {
+                                                          setState(() =>
+                                                              _pinnedModels
+                                                                  .add(model));
+                                                        },
+                                                        onModelUnpinned:
+                                                            (model) {
+                                                          setState(() =>
+                                                              _pinnedModels
+                                                                  .remove(
+                                                                      model));
+                                                        },
+                                                        child: Container(
+                                                          padding:
+                                                              const EdgeInsets
+                                                                  .symmetric(
+                                                                  horizontal:
+                                                                      12,
+                                                                  vertical: 6),
+                                                          decoration:
+                                                              BoxDecoration(
+                                                            color: const Color(
+                                                                0xFF1E1E1E),
+                                                            borderRadius:
+                                                                BorderRadius
+                                                                    .circular(
+                                                                        8),
+                                                            border: Border.all(
+                                                                color: const Color(
+                                                                    0xFF2A2A2A)),
+                                                          ),
+                                                          child: Row(
+                                                            mainAxisSize:
+                                                                MainAxisSize
+                                                                    .min,
+                                                            children: [
+                                                              if (_selectedModel !=
+                                                                  'Select a model') ...[
+                                                                currentProvider !=
+                                                                        null
+                                                                    ? buildProviderIcon(
+                                                                        currentProvider)
+                                                                    : const Icon(
+                                                                        Icons
+                                                                            .psychology,
+                                                                        size:
+                                                                            16,
+                                                                        color: Colors
+                                                                            .white),
+                                                                const SizedBox(
+                                                                    width: 8),
+                                                              ],
+                                                              Text(
+                                                                  _selectedModel,
+                                                                  style: const TextStyle(
+                                                                      color: Colors
+                                                                          .white,
+                                                                      fontSize:
+                                                                          14,
+                                                                      fontWeight:
+                                                                          FontWeight
+                                                                              .w500)),
+                                                              const SizedBox(
+                                                                  width: 4),
+                                                              const Icon(
+                                                                  Icons
+                                                                      .keyboard_arrow_down,
+                                                                  size: 16,
+                                                                  color: Colors
+                                                                      .white),
+                                                            ],
+                                                          ),
+                                                        ),
+                                                      ),
+                                                      ThinkingLevelSelector(
+                                                        selectedModel:
+                                                            _selectedModel,
+                                                      ),
+                                                      // Metrics toggle — flush next to the model pill
+                                                      Tooltip(
+                                                        message: state
+                                                                .showTelemetry
+                                                            ? 'Metrics (On)'
+                                                            : 'Show Metrics',
+                                                        child: InkWell(
+                                                          borderRadius:
+                                                              BorderRadius
+                                                                  .circular(6),
+                                                          onTap: () => viewModel
+                                                              .toggleTelemetry(),
+                                                          child: Padding(
+                                                            padding:
+                                                                const EdgeInsets
+                                                                    .symmetric(
+                                                                    horizontal:
+                                                                        8,
+                                                                    vertical:
+                                                                        4),
+                                                            child: Row(
+                                                              mainAxisSize:
+                                                                  MainAxisSize
+                                                                      .min,
+                                                              children: [
+                                                                Text(
+                                                                  'Metrics',
+                                                                  style:
+                                                                      TextStyle(
+                                                                    color: const Color(
+                                                                        0xFF878787),
+                                                                    fontSize:
+                                                                        13,
+                                                                    fontWeight:
+                                                                        FontWeight
+                                                                            .w500,
+                                                                  ),
+                                                                ),
+                                                                const SizedBox(
+                                                                    width: 8),
+                                                                VeraxiSwitch(
+                                                                  value: state
+                                                                      .showTelemetry,
+                                                                  onChanged: (_) =>
+                                                                      viewModel
+                                                                          .toggleTelemetry(),
+                                                                  semanticLabel:
+                                                                      'Metrics',
+                                                                ),
+                                                              ],
                                                             ),
                                                           ),
-                                                        )
-                                                      : state.messages.isEmpty
-                                                          ? _buildEmptyState(
-                                                              theme,
-                                                              ext,
-                                                              state,
-                                                              viewModel,
-                                                              sandboxEnabled:
-                                                                  sandboxEnabled)
-                                                          : Opacity(
-                                                              opacity:
-                                                                  _pendingHistoryScrollRestore
-                                                                      ? 0.0
-                                                                      : 1.0,
-                                                              child: NotificationListener<
-                                                                  ScrollMetricsNotification>(
-                                                                onNotification:
-                                                                    (notification) {
-                                                                  _syncScrolledUp(
-                                                                      notification
-                                                                          .metrics);
-                                                                  return false;
-                                                                },
-                                                                child: ListView
-                                                                    .builder(
-                                                                  controller:
-                                                                      _scrollController,
-                                                                  scrollCacheExtent:
-                                                                      const ScrollCacheExtent
-                                                                          .pixels(
-                                                                          3000),
-                                                                  padding: const EdgeInsets
-                                                                      .only(
-                                                                      left: 16,
-                                                                      right: 16,
-                                                                      top: 80,
-                                                                      bottom:
-                                                                          140),
-                                                                  itemCount: state
-                                                                      .messages
-                                                                      .length,
-                                                                  itemBuilder:
-                                                                      (context,
-                                                                          index) {
-                                                                    final msg =
-                                                                        state.messages[
-                                                                            index];
-                                                                    return ChatMessageListItem(
-                                                                      msg: msg,
-                                                                      theme:
-                                                                          theme,
-                                                                      ext: ext,
-                                                                      showTelemetry:
-                                                                          state
-                                                                              .showTelemetry,
-                                                                    );
-                                                                  },
-                                                                ),
+                                                        ),
+                                                      ),
+                                                      // Token-usage indicator style — always in
+                                                      // the header so "Off" stays reversible.
+                                                      PopupMenuButton<
+                                                          TokenUsageIndicatorStyle>(
+                                                        tooltip:
+                                                            'Token usage indicator',
+                                                        color: const Color(
+                                                            0xFF1C1C1C),
+                                                        icon: const Icon(
+                                                          Icons
+                                                              .data_usage_outlined,
+                                                          size: 18,
+                                                          color:
+                                                              Color(0xFF878787),
+                                                        ),
+                                                        onSelected: viewModel
+                                                            .setTokenUsageStyle,
+                                                        itemBuilder:
+                                                            (menuContext) => [
+                                                          for (final style
+                                                              in TokenUsageIndicatorStyle
+                                                                  .values)
+                                                            PopupMenuItem(
+                                                              value: style,
+                                                              child: Row(
+                                                                children: [
+                                                                  Icon(
+                                                                    viewModel.tokenUsageStyle ==
+                                                                            style
+                                                                        ? Icons
+                                                                            .check
+                                                                        : null,
+                                                                    size: 16,
+                                                                    color: Colors
+                                                                        .white,
+                                                                  ),
+                                                                  const SizedBox(
+                                                                      width: 8),
+                                                                  Text(
+                                                                    style ==
+                                                                            TokenUsageIndicatorStyle
+                                                                                .ring
+                                                                        ? 'Ring'
+                                                                        : style ==
+                                                                                TokenUsageIndicatorStyle.bar
+                                                                            ? 'Bar'
+                                                                            : 'Off',
+                                                                    style:
+                                                                        const TextStyle(
+                                                                      color: Colors
+                                                                          .white,
+                                                                      fontSize:
+                                                                          13,
+                                                                    ),
+                                                                  ),
+                                                                ],
                                                               ),
                                                             ),
-                                        ),
-                                      ],
-                                    ),
-
-                                    // Top Bar Background to prevent text overlap
-                                    if (!state.showAllProjectsDashboard &&
-                                        !state.showProjectDashboard) ...[
-                                      Positioned(
-                                        top: 0,
-                                        left: 0,
-                                        right: 0,
-                                        height: 60,
-                                        child: Container(
-                                          decoration: BoxDecoration(
-                                            gradient: LinearGradient(
-                                              begin: Alignment.topCenter,
-                                              end: Alignment.bottomCenter,
-                                              colors: [
-                                                theme.scaffoldBackgroundColor,
-                                                theme.scaffoldBackgroundColor
-                                                    .withValues(alpha: 0.9),
-                                                theme.scaffoldBackgroundColor
-                                                    .withValues(alpha: 0.0),
-                                              ],
-                                              stops: const [0.6, 0.9, 1.0],
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-
-                                      // Top Bar: Model Selector (like LibreChat)
-                                      Positioned(
-                                        top: 12,
-                                        left: isMobile ? 56 : 16,
-                                        right: 16,
-                                        child: Wrap(
-                                          alignment: WrapAlignment.start,
-                                          crossAxisAlignment:
-                                              WrapCrossAlignment.center,
-                                          spacing: 12,
-                                          runSpacing: 8,
-                                          children: [
-                                            ModelSelectorMenu(
-                                              selectedModel: _selectedModel,
-                                              pinnedModels:
-                                                  _pinnedModels.toList(),
-                                              onModelSelected: (model) async {
-                                                setState(() {
-                                                  _selectedModel = model;
-                                                });
-                                                ref
-                                                    .read(modelSelectionProvider
-                                                        .notifier)
-                                                    .selectModel(model);
-                                                final prefs =
-                                                    await SharedPreferences
-                                                        .getInstance();
-                                                await prefs.setString(
-                                                    'selected_model', model);
-                                              },
-                                              onModelPinned: (model) {
-                                                setState(() =>
-                                                    _pinnedModels.add(model));
-                                              },
-                                              onModelUnpinned: (model) {
-                                                setState(() => _pinnedModels
-                                                    .remove(model));
-                                              },
-                                              child: Container(
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                        horizontal: 12,
-                                                        vertical: 6),
-                                                decoration: BoxDecoration(
-                                                  color:
-                                                      const Color(0xFF1E1E1E),
-                                                  borderRadius:
-                                                      BorderRadius.circular(8),
-                                                  border: Border.all(
-                                                      color: const Color(
-                                                          0xFF2A2A2A)),
-                                                ),
-                                                child: Row(
-                                                  mainAxisSize:
-                                                      MainAxisSize.min,
-                                                  children: [
-                                                    if (_selectedModel !=
-                                                        'Select a model') ...[
-                                                      currentProvider != null
-                                                          ? buildProviderIcon(
-                                                              currentProvider)
-                                                          : const Icon(
-                                                              Icons.psychology,
-                                                              size: 16,
-                                                              color:
-                                                                  Colors.white),
-                                                      const SizedBox(width: 8),
+                                                        ],
+                                                      ),
                                                     ],
-                                                    Text(_selectedModel,
-                                                        style: const TextStyle(
-                                                            color: Colors.white,
-                                                            fontSize: 14,
-                                                            fontWeight:
-                                                                FontWeight
-                                                                    .w500)),
-                                                    const SizedBox(width: 4),
-                                                    const Icon(
-                                                        Icons
-                                                            .keyboard_arrow_down,
-                                                        size: 16,
-                                                        color: Colors.white),
-                                                  ],
+                                                  ),
                                                 ),
-                                              ),
-                                            ),
-                                            ThinkingLevelSelector(
-                                              selectedModel: _selectedModel,
-                                            ),
-                                            // Metrics toggle — flush next to the model pill
-                                            Tooltip(
-                                              message: state.showTelemetry
-                                                  ? 'Metrics (On)'
-                                                  : 'Show Metrics',
-                                              child: InkWell(
-                                                borderRadius:
-                                                    BorderRadius.circular(6),
-                                                onTap: () =>
-                                                    viewModel.toggleTelemetry(),
-                                                child: Padding(
-                                                  padding: const EdgeInsets
-                                                      .symmetric(
-                                                      horizontal: 8,
-                                                      vertical: 4),
-                                                  child: Row(
-                                                    mainAxisSize:
-                                                        MainAxisSize.min,
-                                                    children: [
-                                                      Text(
-                                                        'Metrics',
-                                                        style: TextStyle(
+
+                                                // Temporary Chat before the first message; afterward,
+                                                // this becomes the action for starting a new thread.
+                                                Positioned(
+                                                  top: 12,
+                                                  right: 16,
+                                                  child: Tooltip(
+                                                    message: state
+                                                            .messages.isNotEmpty
+                                                        ? 'New chat'
+                                                        : state.isTemporary
+                                                            ? 'Temporary Chat (Enabled)'
+                                                            : 'Temporary Chat',
+                                                    child: IconButton(
+                                                      icon: Icon(
+                                                        state.messages
+                                                                .isNotEmpty
+                                                            ? Icons.edit_square
+                                                            : Icons.data_usage,
+                                                        color: state.messages
+                                                                .isNotEmpty
+                                                            ? const Color(
+                                                                0xFF878787)
+                                                            : state.isTemporary
+                                                                ? ext
+                                                                    .primaryGradientStart
+                                                                : const Color(
+                                                                    0xFF878787),
+                                                        size: 20,
+                                                      ),
+                                                      onPressed: state.messages
+                                                              .isNotEmpty
+                                                          ? viewModel
+                                                              .startNewChat
+                                                          : viewModel
+                                                              .toggleTemporaryChat,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+
+                                              if (isMobile)
+                                                Positioned(
+                                                  top: 12,
+                                                  left: 8,
+                                                  child: IconButton(
+                                                    icon: const Icon(Icons.menu,
+                                                        color:
+                                                            Color(0xFFB4B4B4)),
+                                                    onPressed: () =>
+                                                        Scaffold.of(context)
+                                                            .openDrawer(),
+                                                  ),
+                                                ),
+
+                                              // Gradient background at bottom behind input
+                                              if (state.messages.isNotEmpty)
+                                                Positioned(
+                                                  bottom: 0,
+                                                  left: 0,
+                                                  right: 0,
+                                                  height: 140,
+                                                  child: Container(
+                                                    decoration: BoxDecoration(
+                                                      gradient: LinearGradient(
+                                                        begin:
+                                                            Alignment.topCenter,
+                                                        end: Alignment
+                                                            .bottomCenter,
+                                                        colors: [
+                                                          theme
+                                                              .scaffoldBackgroundColor
+                                                              .withValues(
+                                                                  alpha: 0.0),
+                                                          theme
+                                                              .scaffoldBackgroundColor,
+                                                        ],
+                                                        stops: const [0.0, 0.3],
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+
+                                              // Floating scroll to bottom button
+                                              if (_isScrolledUp &&
+                                                  state.messages.isNotEmpty)
+                                                Positioned(
+                                                  bottom: 180,
+                                                  left: 0,
+                                                  right: 0,
+                                                  child: Center(
+                                                    child: GestureDetector(
+                                                      onTap: () {
+                                                        _scrollToBottom();
+                                                      },
+                                                      child: Container(
+                                                        width: 32,
+                                                        height: 32,
+                                                        decoration:
+                                                            BoxDecoration(
+                                                          color: const Color(
+                                                              0xFF2A2A2A),
+                                                          shape:
+                                                              BoxShape.circle,
+                                                          border: Border.all(
+                                                              color: const Color(
+                                                                  0xFF3F3F3F)),
+                                                          boxShadow: [
+                                                            BoxShadow(
+                                                              color: Colors
+                                                                  .black
+                                                                  .withValues(
+                                                                      alpha:
+                                                                          0.2),
+                                                              blurRadius: 4,
+                                                              offset:
+                                                                  const Offset(
+                                                                      0, 2),
+                                                            )
+                                                          ],
+                                                        ),
+                                                        child: const Icon(
+                                                            Icons
+                                                                .arrow_downward,
+                                                            color: Colors.white,
+                                                            size: 16),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+
+                                              // Floating Input Area at Bottom (only if messages exist)
+                                              if (state.messages.isNotEmpty)
+                                                Positioned(
+                                                  bottom: 40,
+                                                  left: 0,
+                                                  right: 0,
+                                                  child: Center(
+                                                    child: ConstrainedBox(
+                                                      constraints:
+                                                          const BoxConstraints(
+                                                              maxWidth: 800),
+                                                      child: Padding(
+                                                        padding:
+                                                            const EdgeInsets
+                                                                .symmetric(
+                                                                horizontal: 16),
+                                                        child: Column(
+                                                          mainAxisSize:
+                                                              MainAxisSize.min,
+                                                          crossAxisAlignment:
+                                                              CrossAxisAlignment
+                                                                  .stretch,
+                                                          children: [
+                                                            if (sandboxEnabled) ...[
+                                                              const SandboxDrawer(),
+                                                              const SizedBox(
+                                                                  height: 8),
+                                                            ],
+                                                            if (viewModel
+                                                                        .tokenUsageStyle ==
+                                                                    TokenUsageIndicatorStyle
+                                                                        .bar &&
+                                                                usageSummary !=
+                                                                    null) ...[
+                                                              TokenUsageBar(
+                                                                usage:
+                                                                    usageSummary,
+                                                                indicatorStyle:
+                                                                    viewModel
+                                                                        .tokenUsageStyle,
+                                                                onIndicatorStyleChanged:
+                                                                    viewModel
+                                                                        .setTokenUsageStyle,
+                                                                autoCompactMode:
+                                                                    viewModel
+                                                                        .autoCompactMode,
+                                                                onAutoCompactModeChanged:
+                                                                    viewModel
+                                                                        .setAutoCompactMode,
+                                                                onCompactPressed: () =>
+                                                                    _openCompaction(
+                                                                        context,
+                                                                        viewModel),
+                                                              ),
+                                                              const SizedBox(
+                                                                  height: 8),
+                                                            ],
+                                                            const AcpPermissionBanner(),
+                                                            ChatInput(
+                                                              usageSummary: viewModel
+                                                                          .tokenUsageStyle ==
+                                                                      TokenUsageIndicatorStyle
+                                                                          .ring
+                                                                  ? usageSummary
+                                                                  : null,
+                                                              tokenUsageStyle:
+                                                                  viewModel
+                                                                      .tokenUsageStyle,
+                                                              onTokenUsageStyleChanged:
+                                                                  viewModel
+                                                                      .setTokenUsageStyle,
+                                                              autoCompactMode:
+                                                                  viewModel
+                                                                      .autoCompactMode,
+                                                              onAutoCompactModeChanged:
+                                                                  viewModel
+                                                                      .setAutoCompactMode,
+                                                              onCompactPressed: () =>
+                                                                  _openCompaction(
+                                                                      context,
+                                                                      viewModel),
+                                                              model: _selectedModel ==
+                                                                      'Select a model'
+                                                                  ? null
+                                                                  : _selectedModel,
+                                                              projectName: state
+                                                                  .activeProjectName,
+                                                              isLoading: state
+                                                                      .isLoading ||
+                                                                  _autoCompactBusy,
+                                                              onSend: (text, {attachments}) => viewModel.sendMessage(
+                                                                  text,
+                                                                  model: _selectedModel ==
+                                                                          'Select a model'
+                                                                      ? null
+                                                                      : _selectedModel,
+                                                                  attachments:
+                                                                      attachments,
+                                                                  thinkingLevel:
+                                                                      _effectiveThinkingLevel()),
+                                                              errorText:
+                                                                  state.error,
+                                                              onDismissError:
+                                                                  () => viewModel
+                                                                      .clearError(),
+                                                            ),
+                                                          ],
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+
+                                              // Footer Legal Text
+                                              if (MediaQuery.of(context)
+                                                      .size
+                                                      .width >
+                                                  600)
+                                                Positioned(
+                                                  bottom: 16,
+                                                  left: 16,
+                                                  right: 16,
+                                                  child: Center(
+                                                    child: Text(
+                                                      'Veraxi v0.1.0 - Sovereign Intelligence. Privacy policy | Terms of service',
+                                                      textAlign:
+                                                          TextAlign.center,
+                                                      style: TextStyle(
                                                           color: const Color(
                                                               0xFF878787),
-                                                          fontSize: 13,
-                                                          fontWeight:
-                                                              FontWeight.w500,
-                                                        ),
-                                                      ),
-                                                      const SizedBox(width: 8),
-                                                      VeraxiSwitch(
-                                                        value:
-                                                            state.showTelemetry,
-                                                        onChanged: (_) => viewModel
-                                                            .toggleTelemetry(),
-                                                        semanticLabel:
-                                                            'Metrics',
-                                                      ),
-                                                    ],
+                                                          fontSize: 12),
+                                                    ),
                                                   ),
                                                 ),
-                                              ),
-                                            ),
-                                            // Token-usage indicator style — always in
-                                            // the header so "Off" stays reversible.
-                                            PopupMenuButton<
-                                                TokenUsageIndicatorStyle>(
-                                              tooltip: 'Token usage indicator',
-                                              color: const Color(0xFF1C1C1C),
-                                              icon: const Icon(
-                                                Icons.data_usage_outlined,
-                                                size: 18,
-                                                color: Color(0xFF878787),
-                                              ),
-                                              onSelected:
-                                                  viewModel.setTokenUsageStyle,
-                                              itemBuilder: (menuContext) => [
-                                                for (final style
-                                                    in TokenUsageIndicatorStyle
-                                                        .values)
-                                                  PopupMenuItem(
-                                                    value: style,
-                                                    child: Row(
-                                                      children: [
-                                                        Icon(
-                                                          viewModel.tokenUsageStyle ==
-                                                                  style
-                                                              ? Icons.check
-                                                              : null,
-                                                          size: 16,
-                                                          color: Colors.white,
-                                                        ),
-                                                        const SizedBox(
-                                                            width: 8),
-                                                        Text(
-                                                          style ==
-                                                                  TokenUsageIndicatorStyle
-                                                                      .ring
-                                                              ? 'Ring'
-                                                              : style ==
-                                                                      TokenUsageIndicatorStyle
-                                                                          .bar
-                                                                  ? 'Bar'
-                                                                  : 'Off',
-                                                          style:
-                                                              const TextStyle(
-                                                            color: Colors.white,
-                                                            fontSize: 13,
+
+                                              // Mobile: the code panel covers the chat full-screen
+                                              // instead of splitting beside it.
+                                              if (isMobile &&
+                                                  openArtifact != null)
+                                                Positioned.fill(
+                                                  child: CodeArtifactPanel(
+                                                    key: ValueKey(openArtifact),
+                                                    open: openArtifact,
+                                                    onClose:
+                                                        _closeArtifactPanel,
+                                                    onQuickAction: (prompt) =>
+                                                        viewModel.sendMessage(
+                                                      prompt,
+                                                      model: _selectedModel,
+                                                      thinkingLevel:
+                                                          _effectiveThinkingLevel(),
+                                                    ),
+                                                  ),
+                                                ),
+                                              if (workspaceMode ==
+                                                      WorkspaceMode.chat &&
+                                                  activeReview != null &&
+                                                  constraints.maxWidth < 1200)
+                                                Positioned.fill(
+                                                  child: GestureDetector(
+                                                    onTap: () => ref
+                                                        .read(
+                                                            activeReviewSessionProvider
+                                                                .notifier)
+                                                        .state = null,
+                                                    child: Container(
+                                                      color: Colors.black54,
+                                                      alignment:
+                                                          Alignment.centerRight,
+                                                      child: GestureDetector(
+                                                        onTap: () {},
+                                                        child: SizedBox(
+                                                          width: (constraints
+                                                                      .maxWidth *
+                                                                  0.92)
+                                                              .clamp(
+                                                                  320.0, 640.0),
+                                                          child:
+                                                              CodeReviewDrawer(
+                                                            key: ValueKey(
+                                                                'review-sheet-${activeReview.sessionId}-${activeReview.turnId}'),
+                                                            review:
+                                                                activeReview,
                                                           ),
                                                         ),
-                                                      ],
+                                                      ),
                                                     ),
                                                   ),
-                                              ],
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-
-                                      // Temporary Chat before the first message; afterward,
-                                      // this becomes the action for starting a new thread.
-                                      Positioned(
-                                        top: 12,
-                                        right: 16,
-                                        child: Tooltip(
-                                          message: state.messages.isNotEmpty
-                                              ? 'New chat'
-                                              : state.isTemporary
-                                                  ? 'Temporary Chat (Enabled)'
-                                                  : 'Temporary Chat',
-                                          child: IconButton(
-                                            icon: Icon(
-                                              state.messages.isNotEmpty
-                                                  ? Icons.edit_square
-                                                  : Icons.data_usage,
-                                              color: state.messages.isNotEmpty
-                                                  ? const Color(0xFF878787)
-                                                  : state.isTemporary
-                                                      ? ext.primaryGradientStart
-                                                      : const Color(0xFF878787),
-                                              size: 20,
-                                            ),
-                                            onPressed: state.messages.isNotEmpty
-                                                ? viewModel.startNewChat
-                                                : viewModel.toggleTemporaryChat,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-
-                                    if (isMobile)
-                                      Positioned(
-                                        top: 12,
-                                        left: 8,
-                                        child: IconButton(
-                                          icon: const Icon(Icons.menu,
-                                              color: Color(0xFFB4B4B4)),
-                                          onPressed: () =>
-                                              Scaffold.of(context).openDrawer(),
-                                        ),
-                                      ),
-
-                                    // Gradient background at bottom behind input
-                                    if (state.messages.isNotEmpty)
-                                      Positioned(
-                                        bottom: 0,
-                                        left: 0,
-                                        right: 0,
-                                        height: 140,
-                                        child: Container(
-                                          decoration: BoxDecoration(
-                                            gradient: LinearGradient(
-                                              begin: Alignment.topCenter,
-                                              end: Alignment.bottomCenter,
-                                              colors: [
-                                                theme.scaffoldBackgroundColor
-                                                    .withValues(alpha: 0.0),
-                                                theme.scaffoldBackgroundColor,
-                                              ],
-                                              stops: const [0.0, 0.3],
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-
-                                    // Floating scroll to bottom button
-                                    if (_isScrolledUp &&
-                                        state.messages.isNotEmpty)
-                                      Positioned(
-                                        bottom: 180,
-                                        left: 0,
-                                        right: 0,
-                                        child: Center(
-                                          child: GestureDetector(
-                                            onTap: () {
-                                              _scrollToBottom();
-                                            },
-                                            child: Container(
-                                              width: 32,
-                                              height: 32,
-                                              decoration: BoxDecoration(
-                                                color: const Color(0xFF2A2A2A),
-                                                shape: BoxShape.circle,
-                                                border: Border.all(
-                                                    color: const Color(
-                                                        0xFF3F3F3F)),
-                                                boxShadow: [
-                                                  BoxShadow(
-                                                    color: Colors.black
-                                                        .withValues(alpha: 0.2),
-                                                    blurRadius: 4,
-                                                    offset: const Offset(0, 2),
-                                                  )
-                                                ],
-                                              ),
-                                              child: const Icon(
-                                                  Icons.arrow_downward,
-                                                  color: Colors.white,
-                                                  size: 16),
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-
-                                    // Floating Input Area at Bottom (only if messages exist)
-                                    if (state.messages.isNotEmpty)
-                                      Positioned(
-                                        bottom: 40,
-                                        left: 0,
-                                        right: 0,
-                                        child: Center(
-                                          child: ConstrainedBox(
-                                            constraints: const BoxConstraints(
-                                                maxWidth: 800),
-                                            child: Padding(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                      horizontal: 16),
-                                              child: Column(
-                                                mainAxisSize: MainAxisSize.min,
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.stretch,
-                                                children: [
-                                                  if (sandboxEnabled) ...[
-                                                    const SandboxDrawer(),
-                                                    const SizedBox(height: 8),
-                                                  ],
-                                                  if (viewModel
-                                                              .tokenUsageStyle ==
-                                                          TokenUsageIndicatorStyle
-                                                              .bar &&
-                                                      usageSummary != null) ...[
-                                                    TokenUsageBar(
-                                                      usage: usageSummary,
-                                                      indicatorStyle: viewModel
-                                                          .tokenUsageStyle,
-                                                      onIndicatorStyleChanged:
-                                                          viewModel
-                                                              .setTokenUsageStyle,
-                                                      autoCompactMode: viewModel
-                                                          .autoCompactMode,
-                                                      onAutoCompactModeChanged:
-                                                          viewModel
-                                                              .setAutoCompactMode,
-                                                      onCompactPressed: () =>
-                                                          _openCompaction(
-                                                              context,
-                                                              viewModel),
-                                                    ),
-                                                    const SizedBox(height: 8),
-                                                  ],
-                                                  const AcpPermissionBanner(),
-                                                  ChatInput(
-                                                    usageSummary: viewModel
-                                                                .tokenUsageStyle ==
-                                                            TokenUsageIndicatorStyle
-                                                                .ring
-                                                        ? usageSummary
-                                                        : null,
-                                                    tokenUsageStyle: viewModel
-                                                        .tokenUsageStyle,
-                                                    onTokenUsageStyleChanged:
-                                                        viewModel
-                                                            .setTokenUsageStyle,
-                                                    autoCompactMode: viewModel
-                                                        .autoCompactMode,
-                                                    onAutoCompactModeChanged:
-                                                        viewModel
-                                                            .setAutoCompactMode,
-                                                    onCompactPressed: () =>
-                                                        _openCompaction(
-                                                            context, viewModel),
-                                                    model: _selectedModel ==
-                                                            'Select a model'
-                                                        ? null
-                                                        : _selectedModel,
-                                                    projectName:
-                                                        state.activeProjectName,
-                                                    isLoading:
-                                                        state.isLoading ||
-                                                            _autoCompactBusy,
-                                                    onSend: (text,
-                                                            {attachments}) =>
-                                                        viewModel.sendMessage(
-                                                            text,
-                                                            model: _selectedModel ==
-                                                                    'Select a model'
-                                                                ? null
-                                                                : _selectedModel,
-                                                            attachments:
-                                                                attachments,
-                                                            thinkingLevel:
-                                                                _effectiveThinkingLevel()),
-                                                    errorText: state.error,
-                                                    onDismissError: () =>
-                                                        viewModel.clearError(),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-
-                                    // Footer Legal Text
-                                    if (MediaQuery.of(context).size.width > 600)
-                                      Positioned(
-                                        bottom: 16,
-                                        left: 16,
-                                        right: 16,
-                                        child: Center(
-                                          child: Text(
-                                            'Veraxi v0.1.0 - Sovereign Intelligence. Privacy policy | Terms of service',
-                                            textAlign: TextAlign.center,
-                                            style: TextStyle(
-                                                color: const Color(0xFF878787),
-                                                fontSize: 12),
-                                          ),
-                                        ),
-                                      ),
-
-                                    // Mobile: the code panel covers the chat full-screen
-                                    // instead of splitting beside it.
-                                    if (isMobile && openArtifact != null)
-                                      Positioned.fill(
-                                        child: CodeArtifactPanel(
-                                          key: ValueKey(openArtifact),
-                                          open: openArtifact,
-                                          onClose: _closeArtifactPanel,
-                                          onQuickAction: (prompt) =>
-                                              viewModel.sendMessage(
-                                            prompt,
-                                            model: _selectedModel,
-                                            thinkingLevel:
-                                                _effectiveThinkingLevel(),
-                                          ),
-                                        ),
-                                      ),
-                                    if (workspaceMode == WorkspaceMode.chat &&
-                                        activeReview != null &&
-                                        constraints.maxWidth < 1200)
-                                      Positioned.fill(
-                                        child: GestureDetector(
-                                          onTap: () => ref
-                                              .read(activeReviewSessionProvider
-                                                  .notifier)
-                                              .state = null,
-                                          child: Container(
-                                            color: Colors.black54,
-                                            alignment: Alignment.centerRight,
-                                            child: GestureDetector(
-                                              onTap: () {},
-                                              child: SizedBox(
-                                                width: (constraints.maxWidth *
-                                                        0.92)
-                                                    .clamp(320.0, 640.0),
-                                                child: CodeReviewDrawer(
-                                                  key: ValueKey(
-                                                      'review-sheet-${activeReview.sessionId}-${activeReview.turnId}'),
-                                                  review: activeReview,
                                                 ),
-                                              ),
-                                            ),
+                                            ],
                                           ),
                                         ),
                                       ),
-                                  ],
-                                ),
+                                      // Desktop / web: code panel splits in on the right side,
+                                      // Claude-style, narrowing the chat column. The split is
+                                      // responsive — ~55% of the window, clamped so the slide
+                                      // viewer's thumbnail rail and 16:9 stage breathe — and
+                                      // the panel's expand toggle widens it further.
+                                      if (!isMobile && openArtifact != null)
+                                        SizedBox(
+                                          width: panelExpanded
+                                              ? (constraints.maxWidth * 0.85)
+                                                  .clamp(520.0, 1400.0)
+                                              : (constraints.maxWidth * 0.55)
+                                                  .clamp(520.0, 900.0),
+                                          child: CodeArtifactPanel(
+                                            key: ValueKey(openArtifact),
+                                            open: openArtifact,
+                                            onClose: _closeArtifactPanel,
+                                            onQuickAction: (prompt) =>
+                                                viewModel.sendMessage(
+                                              prompt,
+                                              model: _selectedModel,
+                                              thinkingLevel:
+                                                  _effectiveThinkingLevel(),
+                                            ),
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                  SafeArea(
+                                    child: CodeWorkbenchView(
+                                      onOpenMobileSidebar: isMobile
+                                          ? () => _scaffoldKey.currentState
+                                              ?.openDrawer()
+                                          : null,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
-                            // Desktop / web: code panel splits in on the right side,
-                            // Claude-style, narrowing the chat column. The split is
-                            // responsive — ~55% of the window, clamped so the slide
-                            // viewer's thumbnail rail and 16:9 stage breathe — and
-                            // the panel's expand toggle widens it further.
-                            if (!isMobile && openArtifact != null)
+                            // Phase 5 review pane host (Chat Mode, wide
+                            // layouts): a ~55% right split beside the chat /
+                            // code IndexedStack. Code Mode hosts the drawer
+                            // itself (split + narrow overlay) inside
+                            // CodeWorkbenchView, so this host is gated to
+                            // Chat Mode to avoid mounting it twice.
+                            if (workspaceMode == WorkspaceMode.chat &&
+                                activeReview != null &&
+                                constraints.maxWidth >= 1200)
                               SizedBox(
-                                width: panelExpanded
-                                    ? (constraints.maxWidth * 0.85)
-                                        .clamp(520.0, 1400.0)
-                                    : (constraints.maxWidth * 0.55)
-                                        .clamp(520.0, 900.0),
-                                child: CodeArtifactPanel(
-                                  key: ValueKey(openArtifact),
-                                  open: openArtifact,
-                                  onClose: _closeArtifactPanel,
-                                  onQuickAction: (prompt) =>
-                                      viewModel.sendMessage(
-                                    prompt,
-                                    model: _selectedModel,
-                                    thinkingLevel: _effectiveThinkingLevel(),
-                                  ),
+                                width: computeReviewPaneWidth(
+                                  workspaceWidth,
+                                  ref.watch(reviewPaneWidthFractionProvider),
+                                ),
+                                child: CodeReviewDrawer(
+                                  key: ValueKey(
+                                      'review-${activeReview.sessionId}-${activeReview.turnId}'),
+                                  review: activeReview,
+                                  maxSplitWidth: workspaceWidth,
                                 ),
                               ),
                           ],
-                        ),
-                        SafeArea(
-                          child: CodeWorkbenchView(
-                            onOpenMobileSidebar: isMobile
-                                ? () => _scaffoldKey.currentState?.openDrawer()
-                                : null,
-                          ),
-                        ),
-                      ],
+                        );
+                      },
                     ),
                   ),
-                  // Phase 5 review pane host (Chat Mode, wide
-                  // layouts): a ~55% right split beside the chat /
-                  // code IndexedStack. Code Mode hosts the drawer
-                  // itself (split + narrow overlay) inside
-                  // CodeWorkbenchView, so this host is gated to
-                  // Chat Mode to avoid mounting it twice.
-                  if (workspaceMode == WorkspaceMode.chat &&
-                      activeReview != null &&
-                      constraints.maxWidth >= 1200)
-                    SizedBox(
-                      width: computeReviewPaneWidth(
-                        constraints.maxWidth,
-                        ref.watch(reviewPaneWidthFractionProvider),
-                      ),
-                      child: CodeReviewDrawer(
-                        key: ValueKey(
-                            'review-${activeReview.sessionId}-${activeReview.turnId}'),
-                        review: activeReview,
-                        maxSplitWidth: constraints.maxWidth,
-                      ),
-                    ),
                 ],
               );
             },

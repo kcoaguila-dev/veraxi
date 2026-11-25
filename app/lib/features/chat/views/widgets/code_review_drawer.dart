@@ -268,7 +268,7 @@ class _CodeReviewDrawerState extends ConsumerState<CodeReviewDrawer> {
     final nextWidth = currentWidth - details.delta.dx;
     final minFraction = (380.0 / totalWidth).clamp(0.2, 0.5);
     final maxFraction =
-        ((totalWidth - 360.0) / totalWidth).clamp(minFraction, 0.85);
+        ((totalWidth - 380.0) / totalWidth).clamp(minFraction, 0.85);
     ref.read(reviewPaneWidthFractionProvider.notifier).state =
         (nextWidth / totalWidth).clamp(minFraction, maxFraction);
   }

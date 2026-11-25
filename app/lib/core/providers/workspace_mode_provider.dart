@@ -321,7 +321,7 @@ final pendingSecurityThreadPromptProvider =
 const double kDefaultReviewPaneFraction = 0.55;
 
 /// Expanded split-pane width fraction for [CodeReviewDrawer] on desktop.
-const double kExpandedReviewPaneFraction = 0.78;
+const double kExpandedReviewPaneFraction = 0.72;
 
 /// User-adjusted desktop split-pane width fraction for [CodeReviewDrawer],
 /// shared across Chat Mode and Code Mode.
@@ -334,7 +334,7 @@ double computeReviewPaneWidth(
   double totalWidth,
   double fraction, {
   double minWidth = 380.0,
-  double minRemainingWidth = 360.0,
+  double minRemainingWidth = 380.0,
 }) {
   final maxAllowed =
       (totalWidth - minRemainingWidth).clamp(minWidth, totalWidth);
