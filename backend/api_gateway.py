@@ -76,7 +76,10 @@ async def _verify_github_app_startup(config) -> None:
         if ok:
             logger.info("%s", detail)
         else:
-            logger.error("GitHub App credential preflight failed: %s", detail)
+            # Do not log ``detail``: it is built from credential-verification
+            # failures (JWT minting / GitHub /app diagnostics) and may embed
+            # exception text or configured credential identifiers.
+            logger.error("GitHub App credential preflight failed")
     except Exception as exc:
         logger.warning("GitHub App startup verification error: %s", exc)
 
