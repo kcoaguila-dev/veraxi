@@ -306,8 +306,8 @@ async def _fetch_github_app_file(
             if cached:
                 text = cached.decode("utf-8") if isinstance(cached, bytes) else str(cached)
                 return text, ref
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Redis file cache read skipped: %s", exc)
 
     cfg = config or get_config()
     token = await gh_client.get_installation_token(
@@ -323,8 +323,8 @@ async def _fetch_github_app_file(
     if content is not None and redis_client is not None:
         try:
             await redis_client.setex(cache_key, _FILE_CACHE_TTL_SEC, content)
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Redis file cache write skipped: %s", exc)
     return content, ref
 
 
@@ -386,10 +386,8 @@ def _slice_file_lines(
             "end_line": 0,
             "truncated": False,
         }
-    if start > total_lines:
-        start = total_lines
-    if end < start:
-        end = start
+    start = min(start, total_lines)
+    end = max(end, start)
     selected = "\n".join(lines[start - 1 : end])
     truncated = False
     if max_chars is not None and len(selected) > max_chars:
@@ -581,8 +579,8 @@ async def _get_cached_github_tree(
                 parsed = json.loads(raw)
                 if isinstance(parsed, list):
                     return parsed
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Redis tree cache read skipped: %s", exc)
 
     cfg = config or get_config()
     token = await gh_client.get_installation_token(
@@ -592,8 +590,8 @@ async def _get_cached_github_tree(
     if redis_client is not None and tree:
         try:
             await redis_client.setex(cache_key, _TREE_CACHE_TTL_SEC, json.dumps(tree))
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Redis tree cache write skipped: %s", exc)
     return tree
 
 

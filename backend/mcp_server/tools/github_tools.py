@@ -278,12 +278,12 @@ async def execute_github_tool(
 
     try:
         token = await _resolve_token(tenant_id, supabase=supabase)
-    except Exception as oauth_exc:
+    except Exception:
         app_token = await _resolve_github_app_token(
             tenant_id, repo_arg, supabase=supabase
         )
         if not app_token:
-            raise oauth_exc
+            raise
         token = app_token
 
     try:
