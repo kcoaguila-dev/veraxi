@@ -92,7 +92,7 @@ dev = [
     "pytest-asyncio",
     "import-linter",
     "testcontainers[neo4j,qdrant]",
-    "ruff==0.17.5",
+    "ruff==0.17.6",
     "mypy==2.4.1",
 ]
 eval = [
