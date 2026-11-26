@@ -64,11 +64,6 @@ dependencies = [
     "tree-sitter>=0.26.1",
     "tree-sitter-language-pack>=1.25.2",
     "orjson",
-    # Linters as claims (ADR-0007 Phase 2): run at ingestion/review
-    # time by backend/ingestion/lint_findings.py, so they are runtime
-    # dependencies, not just CI/pre-commit tools as before.
-    "ruff",
-    "mypy",
 ]
 
 [project.optional-dependencies]

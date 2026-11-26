@@ -35,22 +35,3 @@ calls, and same-name functions in different modules staying separate.
 
 All 16 cases pass. The earlier "0.89–0.92" estimate language is
 retired in favour of these measured fixture numbers (ADR-0007).
-
-## Phase 3 SCIP comparison (2026-11-25, spike — ADR-0007)
-
-Same fixture, SCIP (scip-python 0.6.8 → `scip print --json` →
-`parse_scip_payload`, after a mechanical camelCase→snake_case key
-translation the shipped parser does not yet do):
-
-- SCIP: **14 / 18** expected edges. Misses: all three
-  assignment-alias cases and the assignment re-export case
-  (pyright points the reference at the alias variable, not through
-  it to the definition).
-- AST (post-Phase-1): **18 / 18**.
-
-On six constructed harder patterns (inherited-method dispatch,
-`import pkg.sub` chain, instance-method calls ×2, cross-file
-classmethod, dict-dispatch control): AST 0/6, SCIP 5/6 — the five
-SCIP-only correct edges are the Phase 3 criterion-(b) evidence.
-The fixture therefore no longer discriminates in SCIP's favour;
-the two resolvers are complementary. Full spike record: ADR-0007.

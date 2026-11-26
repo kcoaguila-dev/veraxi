@@ -112,13 +112,10 @@ class CodeGraphClient(Protocol):
 
         Each row: ``source_qn``, ``source_name``, ``source_label``,
         ``source_path``, ``source_line``, ``source_end_line``,
-        ``source_repo_key``, ``source_resolution``, ``edge_type``
-        and ``target_qn``. The line fields mirror the source node's
-        stored ``line``/``end_line`` and may be missing on clients
-        backed by graphs ingested before they existed.
-        ``source_resolution`` is the source node's ADR-0007
-        provenance (``scip`` / ``heuristic``) and may likewise be
-        missing on older clients.
+        ``source_repo_key``, ``edge_type`` and ``target_qn``. The line
+        fields mirror the source node's stored ``line``/``end_line``
+        and may be missing on clients backed by graphs ingested
+        before they existed.
         """
         ...
 
@@ -219,8 +216,7 @@ class Neo4jCodeGraphClient:
                n.qualified_name AS qualified_name, n.path AS path,
                n.line AS line, n.end_line AS end_line, n.language AS language,
                coalesce(n.resolved, true) AS resolved,
-               coalesce(n.repo_key, '') AS repo_key,
-               coalesce(n.resolution, 'heuristic') AS resolution
+               coalesce(n.repo_key, '') AS repo_key
         ORDER BY qualified_name
         """
         return self._read(query, params)
@@ -290,7 +286,6 @@ class Neo4jCodeGraphClient:
                labels(source)[0] AS source_label, source.path AS source_path,
                source.line AS source_line, source.end_line AS source_end_line,
                coalesce(source.repo_key, '') AS source_repo_key,
-               coalesce(source.resolution, 'heuristic') AS source_resolution,
                type(r) AS edge_type, target.qualified_name AS target_qn
         """
         return self._read(
@@ -592,34 +587,6 @@ def list_code_files(
     )
 
 
-def _resolution_confidence(
-    resolutions: set[str], *, impacted_count: int
-) -> dict[str, Any]:
-    """ADR-0007 confidence block for an impact verdict.
-
-    ``resolutions`` holds the provenance of every node the verdict
-    rests on (roots + impacted callers). A verdict backed only by
-    heuristic (AST) resolution is *low* confidence — most importantly
-    when it is a "no impact" verdict, because a heuristic miss reads
-    exactly like "not reachable", which is the dangerous direction
-    for security triage. SCIP-backed verdicts are high; a mix is
-    medium.
-    """
-    if resolutions == {"scip"}:
-        block: dict[str, Any] = {"resolution": "scip", "confidence": "high"}
-    elif "scip" in resolutions:
-        block = {"resolution": "mixed", "confidence": "medium"}
-    else:
-        block = {"resolution": "heuristic", "confidence": "low"}
-    if impacted_count == 0 and block["resolution"] == "heuristic":
-        block["confidence_note"] = (
-            "No impacted callers were found, but this verdict rests only on "
-            "heuristic (AST) edges; a compiler-grade SCIP index could find "
-            "callers this graph missed. Treat 'not reachable' as unproven."
-        )
-    return block
-
-
 def impact_analysis(
     symbol: str,
     tenant_id: str = "default",
@@ -654,16 +621,7 @@ def impact_analysis(
             "max_depth": depth_limit,
             "impacted": [],
             "freshness": freshness,
-            "resolution": "unknown",
-            "confidence": "low",
-            "confidence_note": (
-                "The symbol itself was not found; whether it exists at all "
-                "rests on the heuristic index, so absence is unproven."
-            ),
         }
-    resolutions: set[str] = {
-        str(root.get("resolution") or "heuristic") for root in roots
-    }
     # Frontier and visited set are keyed by (repo_key, qualified
     # name): the same qualified name in two repos is two distinct
     # nodes, and each repo's walk proceeds independently.
@@ -690,7 +648,6 @@ def impact_analysis(
                 source_qn = row.get("source_qn")
                 if not source_qn:
                     continue
-                resolutions.add(str(row.get("source_resolution") or "heuristic"))
                 source_key = str(row.get("source_repo_key") or root_key)
                 if (source_key, source_qn) in seen:
                     continue
@@ -722,7 +679,6 @@ def impact_analysis(
         "max_depth": depth_limit,
         "impacted": impacted,
         "freshness": freshness,
-        **_resolution_confidence(resolutions, impacted_count=len(impacted)),
         **_repo_disambiguation(roots),
     }
 

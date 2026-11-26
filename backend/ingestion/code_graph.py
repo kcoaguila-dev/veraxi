@@ -180,16 +180,6 @@ class CodeNode:
     # same relative path, and their nodes must never merge. Empty
     # only for graphs built by hand, outside every ingestion path.
     repo_key: str = ""
-    # Resolution provenance (ADR-0007): how this node's identity was
-    # resolved — "scip" for compiler-grade SCIP index data,
-    # "heuristic" for AST / tree-sitter inference. This field is the
-    # one place the provenance vocabulary is defined; consumers
-    # (e.g. impact_analysis confidence) read it from the stored node
-    # properties. Edges inherit the provenance of the partition that
-    # wrote them: a SCIP write replaces the nodes (and therefore the
-    # edges) of the files it covers — see
-    # :func:`backend.ingestion.scip_ingest.write_scip_graph`.
-    resolution: str = "heuristic"
 
     @property
     def key(self) -> tuple[str, str, str]:
@@ -205,7 +195,6 @@ class CodeNode:
             "language": self.language,
             "resolved": self.resolved,
             "repo_key": self.repo_key,
-            "resolution": self.resolution,
         }
         if self.end_line is not None:
             props["end_line"] = self.end_line
@@ -1565,11 +1554,6 @@ def graph_from_payload(
                     else None
                 ),
                 repo_key=repo_key,
-                resolution=(
-                    str(raw["resolution"])
-                    if raw.get("resolution") in ("scip", "heuristic")
-                    else "heuristic"
-                ),
             )
         )
     parsed_edges: list[CodeEdge] = []
