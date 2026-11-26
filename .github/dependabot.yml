@@ -36,14 +36,20 @@ updates:
         update-types:
           - "minor"
           - "patch"
-    # objectbox 6.x and sqlite3_flutter_libs >= 0.6.0 (the 0.6.0+eol line)
-    # were pulled into a "minor-and-patch" bundle by PR #213 even though
-    # both are breaking, intentional post-v1.0 migrations. Keep them out of
-    # Dependabot's automatic updates until those migrations are scheduled:
-    # https://github.com/kcoaguila-dev/veraxi/pull/213
+        exclude-patterns:
+          - "objectbox*"
+    # objectbox 6.x (incl. 6.0.0-rc.1) and sqlite3_flutter_libs >= 0.6.0
+    # were pulled into a "minor-and-patch" bundle even though both are
+    # breaking, intentional post-v1.0 migrations. Dependabot's pub
+    # resolver did not match `6.0.0-rc.1` against `>=6.0.0-0`, so use
+    # `>=5.99.0` with explicit package names.
     ignore:
-      - dependency-name: "objectbox*"
-        versions: [">=6.0.0-0"]
+      - dependency-name: "objectbox"
+        versions: [">=5.99.0"]
+      - dependency-name: "objectbox_flutter_libs"
+        versions: [">=5.99.0"]
+      - dependency-name: "objectbox_generator"
+        versions: [">=5.99.0"]
       - dependency-name: "sqlite3_flutter_libs"
         versions: [">=0.6.0"]
 
