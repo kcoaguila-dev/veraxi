@@ -467,3 +467,48 @@ class TestRepoKeyPartition:
         )
         assert ast_result["resolution"] == "heuristic"
         assert ast_result["confidence"] == "low"
+
+    def test_enum_int_and_omitted_kind_classes_labeled_class(self):
+        payload = {
+            "metadata": {"project_root": "repo"},
+            "documents": [
+                {
+                    "relative_path": "pkg/models.py",
+                    "language": "python",
+                    "symbols": [
+                        {
+                            "symbol": "scip-python python pkg 0.1.0 `pkg.models`/Widget#",
+                            "kind": 7,
+                            "display_name": "Widget",
+                        },
+                        {
+                            "symbol": "scip-python python pkg 0.1.0 `pkg.models`/build().",
+                            "kind": 17,
+                            "display_name": "build",
+                        },
+                    ],
+                    "occurrences": [
+                        {
+                            "symbol": "scip-python python pkg 0.1.0 `pkg.models`/Widget#",
+                            "range": [0, 6, 0, 12],
+                            "symbol_roles": 1,
+                        },
+                        {
+                            "symbol": "scip-python python pkg 0.1.0 `pkg.models`/Gadget#",
+                            "range": [4, 6, 4, 12],
+                            "symbol_roles": 1,
+                        },
+                        {
+                            "symbol": "scip-python python pkg 0.1.0 `pkg.models`/build().",
+                            "range": [8, 4, 8, 9],
+                            "symbol_roles": 1,
+                        },
+                    ],
+                }
+            ],
+        }
+        graph = parse_scip_payload(payload)
+        labels = {n.name: n.label for n in graph.nodes}
+        assert labels["Widget"] == "Class"
+        assert labels["Gadget"] == "Class"
+        assert labels["build"] == "Function"
