@@ -1,21 +1,39 @@
 name: Backend CI
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - 'packages/veraxi-cli/**'
+      - '.github/workflows/backend*.yml'
   pull_request:
-    branches:
-      - main
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - 'packages/veraxi-cli/**'
+      - '.github/workflows/backend*.yml'
 
 jobs:
   test-and-lint:
     runs-on: ubuntu-latest
     env:
       TESTCONTAINERS_RYUK_DISABLED: "true"
+    services:
+      redis:
+        image: redis:alpine
+        ports:
+          - 6379:6379
     defaults:
       run:
         working-directory: backend
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
+
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/share/boost "$AGENT_TOOLSDIRECTORY" || true
 
       - name: Set up Python 3.12
         uses: actions/setup-python@v6
@@ -26,7 +44,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install --upgrade pip
-          pip install ruff pip-audit
+          pip install pip-audit
           pip install -e ../packages/veraxi-cli
           pip install -e ".[dev]"
           python -m spacy download en_core_web_sm || true
@@ -36,7 +54,6 @@ jobs:
 
       - name: Static Type Checking with Mypy
         run: |
-          pip install mypy
           mypy . --ignore-missing-imports
 
       - name: AST Semantic Scan with Semgrep
