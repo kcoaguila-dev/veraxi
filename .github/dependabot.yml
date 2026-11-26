@@ -12,6 +12,15 @@ updates:
         update-types:
           - "minor"
           - "patch"
+    # datasets>=5.2.0 is incompatible with deepeval (see the comment in
+    # backend/pyproject.toml [dependency-groups]): datasets 5.2 pulls
+    # huggingface-hub>=1.31, which requires click>=8.4.2, while deepeval
+    # requires click<8.4.0, so universal `uv lock` resolution fails.
+    # PR #225 proposed exactly this bump; keep datasets below 5.2.0 until
+    # deepeval relaxes its click bound.
+    ignore:
+      - dependency-name: "datasets"
+        versions: [">=5.2.0"]
 
   # Scan the frontend for Flutter dependencies (pub)
   - package-ecosystem: "pub"
