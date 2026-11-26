@@ -1,8 +1,13 @@
 # Veraxi
 
-Veraxi is a reference architecture for **Hybrid GraphRAG** that combines a knowledge graph (Neo4j) with dual vector search (Qdrant with MiniLM dense + SPLADE sparse embeddings) and fuses results via Reciprocal Rank Fusion (RRF). 
+[![Backend CI](https://github.com/kcoaguila-dev/veraxi/actions/workflows/backend-ci.yml/badge.svg)](https://github.com/kcoaguila-dev/veraxi/actions/workflows/backend-ci.yml)
+[![Frontend CI](https://github.com/kcoaguila-dev/veraxi/actions/workflows/frontend-ci.yml/badge.svg)](https://github.com/kcoaguila-dev/veraxi/actions/workflows/frontend-ci.yml)
+[![CodeQL](https://github.com/kcoaguila-dev/veraxi/actions/workflows/codeql.yml/badge.svg)](https://github.com/kcoaguila-dev/veraxi/actions/workflows/codeql.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-It gives LLMs autonomous, tool-based access to both relational topology and semantic context over the Model Context Protocol (MCP), eliminating hallucinations on complex multi-hop queries. The engine is written in FastAPI/Python and the client is a cross-platform Flutter application.
+Veraxi is an evidence-first research workbench built on a **Hybrid GraphRAG** engine: a knowledge graph (Neo4j) combined with dual vector search (Qdrant — MiniLM dense + BM25 sparse by default; SPLADE is available via `SPARSE_EMBEDDING_MODEL_NAME`) and fused via Reciprocal Rank Fusion (RRF).
+
+It gives LLMs autonomous, tool-based access to both relational topology and semantic context over the Model Context Protocol (MCP), so answers to complex multi-hop queries arrive with the sources and graph paths they were built from. An adversarial grounding check (the Skeptic node) scores claims against the retrieved evidence and sends ungrounded claims back for revision. That does not eliminate hallucinations — it makes them detectable and correctable, which is the point. The engine is written in FastAPI/Python and the client is a cross-platform Flutter application.
 
 ## 🌐 Live Demo & Endpoints
 - **Frontend (Flutter Web):** [https://veraxi.me](https://veraxi.me)
@@ -10,63 +15,6 @@ It gives LLMs autonomous, tool-based access to both relational topology and sema
 - **Interactive Documentation:** `http://localhost:8000/docs`
 
 ![Veraxi UI](docs/images/demo.png)
-
-## Why Hybrid GraphRAG? (The Architectural Tradeoff)
-
-Standard Vector RAG retrieves text chunks based solely on mathematical proximity (cosine similarity). This frequently collapses on multi-hop questions where synthesizing truth requires connecting facts across non-adjacent documents—the "Similarity Trap", where distracting chunks outscore the actual truth.
-
-**Hybrid GraphRAG** addresses this by extracting and traversing hard relational edges alongside vector similarity:
-```
-[Elena Rostova] ──(FOUNDED)──▶ [Acme AI] ──(ACQUIRED_BY)──▶ [GlobalTech] ──(DEPLOYS)──▶ [Veraxi]
-```
-
-By querying deterministic graph edges and semantic vector embeddings simultaneously, the LLM retrieves the exact isolated facts required to resolve multi-hop queries without hallucination.
-
-### 🏛️ Architecture Layers: Core Engine vs. Creator Studio
-Veraxi is intentionally decoupled into two distinct architectural layers:
-1. **Core Hybrid GraphRAG Engine & MCP Server:** The high-performance database retrieval foundation (Neo4j + Qdrant Dense/SPLADE + RRF, Just-In-Time graph weaving, and stateless MCP tools).
-2. **Creator & Research Studio (Flutter Client + Optional Media Tools):** NotebookLM-style voice synthesis (Fish Audio, GPT-SoVITS, native OS TTS) and NLE timeline exports (`.otio` / `.fcpxml`). Researchers and content creators can turn multi-hop investigations and multi-agent debates directly into narrated audio and DaVinci Resolve or Final Cut Pro editing timelines. Core engine users can run without media dependencies.
-
----
-
-## ⚡ Just-In-Time (Lazy) GraphRAG Architecture
-
-Traditional GraphRAG pipelines (such as Microsoft GraphRAG) extract every noun and relation upfront using expensive LLM calls, creating cost traps ($50–$200 per book) and producing dense "hairballs" of noisy sentence-level co-occurrences (`MENTIONED_WITH`, `WORKS_FOR`).
-
-Veraxi eliminates this with a **Two-Tier Just-In-Time Pipeline**:
-
-1. **Tier 1 — Base Ingestion & Cross-Document Linking (CPU-Optimized, Free):**
-   * Raw text (PDFs, Markdown, text files) is chunked and indexed into Qdrant using dual embeddings: **MiniLM (dense semantics)** and **SPLADE (lexical keywords)**.
-   * Lightweight entity anchors are resolved across documents using **acronym and suffix normalization** (e.g., matching "WHO" ↔ "World Health Organization", "Apple Inc." ↔ "Apple").
-   * Multi-document provenance is maintained with **bidirectional UUID links** (`qdrant_point_ids` list ↔ `neo4j_node_ids`).
-   * Ingestion runs at **under 2 minutes per 500-page book** on pure CPU with 0 GPU VRAM.
-
-2. **Tier 2 — On-Demand Causal Graph Weaving (Just-In-Time):**
-   * When an agent researches a topic or complex multi-hop question, seed chunks are retrieved via `mcp_build_lazy_dossier`.
-   * The model extracts high-precision, verified **causal relationships** and commits them via `mcp_insert_graph_nodes`.
-   * The knowledge graph grows organically into a curated knowledge base without upfront API bills.
-
----
-
-## 🤖 Dual Execution Modes: Fast vs. Deep Research
-
-Veraxi separates high-throughput conversational chat from deep investigative research:
-
-1. **Fast Mode (Standard Chat):**
-   * Powered by a single chat model loop with sub-second to 2s streaming via SSE.
-   * Answers general, conversational, and direct questions with minimal latency and minimal token consumption.
-   * Invokes internal tools (`mcp_search_vectors`, `mcp_query_graph`) only when context is required.
-
-2. **Deep Research Mode (Multi-Agent Swarm):**
-   * Powered by a specialized LangGraph state machine (`mcp_agentic_debate`).
-   * Dispatches concurrent specialist subagents:
-     * **Vector Specialist:** Dual dense + SPLADE sparse retrieval from Qdrant.
-     * **Graph Specialist:** Entity relationship and multi-hop graph traversal from Neo4j.
-     * **Web Specialist:** Live web search and ephemeral web indexing.
-   * **Synthesizer & Writer:** Fuses multi-modal context into structured reports with strict inline bracketed citations (`[Vector Source X]`, `[Graph Relation X]`, `[Web Source X]`).
-   * **Skeptic Node:** An adversarial judge evaluating mathematical claim grounding (`mcp_evaluate_grounding`). Ungrounded claims trigger an iterative revision loop back to the Writer (up to 3 rounds).
-
----
 
 ## 🛠 Quickstart (Local Development)
 
@@ -115,6 +63,64 @@ make run-backend
 cd app
 flutter run -d linux
 ```
+
+---
+
+
+## Why Hybrid GraphRAG? (The Architectural Tradeoff)
+
+Standard Vector RAG retrieves text chunks based solely on mathematical proximity (cosine similarity). This frequently collapses on multi-hop questions where synthesizing truth requires connecting facts across non-adjacent documents—the "Similarity Trap", where distracting chunks outscore the actual truth.
+
+**Hybrid GraphRAG** addresses this by extracting and traversing hard relational edges alongside vector similarity:
+```
+[Elena Rostova] ──(FOUNDED)──▶ [Acme AI] ──(ACQUIRED_BY)──▶ [GlobalTech] ──(DEPLOYS)──▶ [Veraxi]
+```
+
+By querying deterministic graph edges and semantic vector embeddings simultaneously, the LLM retrieves the exact isolated facts required to resolve multi-hop queries — each with its provenance attached, so a claim can be checked instead of trusted.
+
+### 🏛️ Architecture Layers: Core Engine vs. Creator Studio
+Veraxi is intentionally decoupled into two distinct architectural layers:
+1. **Core Hybrid GraphRAG Engine & MCP Server:** The high-performance database retrieval foundation (Neo4j + Qdrant dense/sparse + RRF, Just-In-Time graph weaving, and stateless MCP tools).
+2. **Creator & Research Studio (Flutter Client + Optional Media Tools):** NotebookLM-style voice synthesis (Fish Audio, GPT-SoVITS, native OS TTS) and NLE timeline exports (`.otio` / `.fcpxml`). Researchers and content creators can turn multi-hop investigations and multi-agent debates directly into narrated audio and DaVinci Resolve or Final Cut Pro editing timelines. Core engine users can run without media dependencies.
+
+---
+
+## ⚡ Just-In-Time (Lazy) GraphRAG Architecture
+
+Traditional GraphRAG pipelines (such as Microsoft GraphRAG) extract every noun and relation upfront using expensive LLM calls, creating cost traps ($50–$200 per book) and producing dense "hairballs" of noisy sentence-level co-occurrences (`MENTIONED_WITH`, `WORKS_FOR`).
+
+Veraxi eliminates this with a **Two-Tier Just-In-Time Pipeline**:
+
+1. **Tier 1 — Base Ingestion & Cross-Document Linking (CPU-Optimized, Free):**
+   * Raw text (PDFs, Markdown, text files) is chunked and indexed into Qdrant using dual embeddings: **MiniLM (dense semantics)** and **BM25 (lexical keywords)** by default — the sparse model is configurable, and SPLADE can be selected via `SPARSE_EMBEDDING_MODEL_NAME`.
+   * Lightweight entity anchors are resolved across documents using **acronym and suffix normalization** (e.g., matching "WHO" ↔ "World Health Organization", "Apple Inc." ↔ "Apple").
+   * Multi-document provenance is maintained with **bidirectional UUID links** (`qdrant_point_ids` list ↔ `neo4j_node_ids`).
+   * Ingestion runs at **under 2 minutes per 500-page book** on pure CPU with 0 GPU VRAM.
+
+2. **Tier 2 — On-Demand Causal Graph Weaving (Just-In-Time):**
+   * When an agent researches a topic or complex multi-hop question, seed chunks are retrieved via `mcp_build_lazy_dossier`.
+   * The model extracts high-precision, verified **causal relationships** and commits them via `mcp_insert_graph_nodes`.
+   * The knowledge graph grows organically into a curated knowledge base without upfront API bills.
+
+---
+
+## 🤖 Dual Execution Modes: Fast vs. Deep Research
+
+Veraxi separates high-throughput conversational chat from deep investigative research:
+
+1. **Fast Mode (Standard Chat):**
+   * Powered by a single chat model loop with sub-second to 2s streaming via SSE.
+   * Answers general, conversational, and direct questions with minimal latency and minimal token consumption.
+   * Invokes internal tools (`mcp_search_vectors`, `mcp_query_graph`) only when context is required.
+
+2. **Deep Research Mode (Multi-Agent Swarm):**
+   * Powered by a specialized LangGraph state machine (`mcp_agentic_debate`).
+   * Dispatches concurrent specialist subagents:
+     * **Vector Specialist:** Dual dense + sparse retrieval from Qdrant.
+     * **Graph Specialist:** Entity relationship and multi-hop graph traversal from Neo4j.
+     * **Web Specialist:** Live web search and ephemeral web indexing.
+   * **Synthesizer & Writer:** Fuses multi-modal context into structured reports with strict inline bracketed citations (`[Vector Source X]`, `[Graph Relation X]`, `[Web Source X]`).
+   * **Skeptic Node:** An adversarial judge evaluating mathematical claim grounding (`mcp_evaluate_grounding`). Ungrounded claims trigger an iterative revision loop back to the Writer (up to 3 rounds).
 
 ---
 
@@ -191,7 +197,7 @@ The exact set of tools exposed via MCP depends on the `VERAXI_MCP_PROFILE` envir
 | `mcp_query_graph` | **[FAST - Graph Only (<50ms)]** Multi-hop causal relationship and entity path traversal in Neo4j from a known entity. |
 | `mcp_agentic_debate` | **[HEAVY - Long Running (15-30s)]** High-accuracy GraphRAG research debate. Dispatches Vector, Knowledge Graph, and Web specialists with strict citations and an adversarial Skeptic verification loop. |
 | `mcp_ephemeral_web_rag` | **[DEEP WEB CRAWL & RAG - Moderate (3-8s)]** Full-page web crawler and temporary GraphRAG indexer. Reads full contents of URLs into an ephemeral sandboxed graph and vector space for structured RAG. |
-| `mcp_build_lazy_dossier` | Retrieves ground-truth excerpts via Hybrid Search (Dense + SPLADE) fused with Neo4j entity anchors, returning a structured analytical dossier. |
+| `mcp_build_lazy_dossier` | Retrieves ground-truth excerpts via Hybrid Search (Dense + Sparse) fused with Neo4j entity anchors, returning a structured analytical dossier. |
 | `mcp_insert_graph_nodes` | Upserts/merges structured causal entities and rich relations into Neo4j, preserving Qdrant vector links without duplicates. |
 | `mcp_purge_noisy_relationships` | Purges uncurated co-occurrence edges from Neo4j for a tenant while keeping all entity nodes and vector links intact. |
 | `mcp_get_database_stats` | Live counts of nodes, vectors, and relationships for the current tenant. |
@@ -254,8 +260,22 @@ Veraxi includes an automated [DeepEval](https://github.com/confident-ai/deepeval
 
 ---
 
+## Limitations & When Not to Use Veraxi
+
+Honest limits, so you can decide quickly:
+
+- **Grounding is detection, not proof.** The Skeptic loop flags claims that the retrieved evidence does not support and forces revision, but a cited answer can still be wrong. Citations are checkable evidence, not a guarantee — that is why they are shown.
+- **Retrieval quality is bounded by ingestion quality.** Poorly extracted documents produce weak chunks and weak graph edges, and no ranking fixes that afterwards.
+- **If you only need single-document semantic search, plain vector RAG is simpler and cheaper.** Veraxi earns its complexity on multi-hop questions, code intelligence, and security triage, where facts must be connected across sources.
+- **The hosted demo is a single-operator deployment.** For production or multi-user use, self-host with your own Neo4j/Qdrant (or the free cloud tiers described in the Quickstart) and your own model keys (BYOK) or local models.
+
+---
+
 ## Contributing
 See [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## Security
+Please do not report vulnerabilities in public issues. See the [security policy](.github/SECURITY.md) for the private disclosure route.
 
 ## License
 MIT — see [LICENSE](LICENSE).

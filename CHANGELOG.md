@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **README Senior-Grade Pass**: Added CI/CodeQL/license badges, moved the Quickstart into the first screen, and added a "Limitations & When Not to Use Veraxi" section plus a Security section linking the disclosure policy.
 - **Landing Page Redesign**: Replaced the Flutter landing screen with a new design built around a working answer demo. Visitors pick a sample question and select a highlighted phrase to see the passages and path behind it. The page has its own light palette and type (Schibsted Grotesk, Literata, IBM Plex Mono) and no longer follows the app's light/dark toggle. Adds `features/landing/data/demo_samples.dart` and `view_models/landing_demo_view_model.dart`, plus widget and view-model tests.
 - **Custom TTS Voices**: Configured a custom GPT-SoVITS TTS voice persona ("Luiz") with reference audio in `backend/tts/voices.json`.
 - **Frontend TTS Auto-Recovery**: Added state recovery in the Flutter chat UI (`chat_view_model.dart` and `tts_settings_view_model.dart`) to silently intercept and correct corrupted `default_system` voice IDs when using custom GPT-SoVITS endpoints.
@@ -21,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - **GitHub Actions SHA Pinning**: All 29 `uses:` references across the 8 workflows are now pinned to full commit SHAs with the version kept as a comment (the uv/Astral pattern; Dependabot's existing `github-actions` entry keeps the pins updated). `aquasecurity/trivy-action` moved from the mutable `@master` branch to the pinned v0.36.0 release. No version upgrades otherwise — where workflows disagree on a version (checkout v4 vs v7, setup-java v3 vs v6, action-gh-release v1 vs v3), each was pinned at the version it already used; aligning those is a separate deliberate change.
+- **README Accuracy Fixes**: Corrected the sparse-retrieval description to match `backend/config.py` (BM25 is the shipped default; SPLADE is optional via `SPARSE_EMBEDDING_MODEL_NAME`) and replaced "eliminating hallucinations" claims with the accurate grounding claim (the Skeptic loop makes ungrounded claims detectable and correctable).
 - **Landing Page Widgets**: Removed the old `HeroSection`, `FeaturesSection`, `CodeSnippetVisualization` and `DevelopmentBanner` widgets, which only the landing screen used. The shared `NavBar` is unchanged and still used by the docs screen.
 - **Storage Client Factories**: Replaced 15+ redundant instances of `Neo4jStorageClient` and `QdrantStorageClient` initialization with a unified DRY `from_config()` factory pattern.
 - **Connection Pools**: Refactored `chat_repository.dart` and `control_panel_repository.dart` to reuse the centralized `ApiClient` connection pool instead of repeatedly opening new HTTP clients.
