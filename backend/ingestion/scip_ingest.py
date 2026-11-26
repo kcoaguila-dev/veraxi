@@ -257,8 +257,8 @@ def symbol_display_name(symbol: str, fallback: str = "") -> str:
     return tokens[-1] if tokens else path or str(symbol)
 
 
-def _label_for_kind(kind: Any) -> str:
-    """Map a SCIP symbol kind (string name or enum int) to a node label."""
+def _label_for_kind(kind: Any, symbol: str = "") -> str:
+    """Map a SCIP symbol kind (string name or enum int) and descriptor to a node label."""
     if isinstance(kind, str):
         normalized = kind.replace("_", "").replace(" ", "").lower()
         # Enum names arrive in forms like "Class", "CLASS" or, from some
@@ -268,6 +268,11 @@ def _label_for_kind(kind: Any) -> str:
             return "Class"
         if any(name in normalized for name in _FUNCTION_KINDS):
             return "Function"
+    # Real `scip print --json` payloads emit integer enum values or omit
+    # `kind` on occurrence-synthesized symbols; in the SCIP symbol
+    # grammar, type/class descriptors always end with `#`.
+    if symbol.endswith("#"):
+        return "Class"
     return "Function"
 
 
@@ -402,7 +407,7 @@ def _add_symbol_node(
     info: dict[str, Any],
     def_lines: dict[str, int],
 ) -> CodeNode:
-    label = _label_for_kind(info.get("kind"))
+    label = _label_for_kind(info.get("kind"), symbol)
     qualified_name = f"{relative_path}::{descriptor_path(symbol)}"
     node = builder.add_node(
         CodeNode(
