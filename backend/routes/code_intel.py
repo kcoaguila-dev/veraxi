@@ -34,6 +34,8 @@ from fastapi import Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, ValidationError
 
+from backend.services.pr_review import ReviewRequest, run_structured_review
+
 from backend.ingestion.code_graph import (
     MAX_INGEST_EDGES,
     MAX_INGEST_NODES,
@@ -1223,6 +1225,53 @@ def register_code_intel_routes(
             sentry_sdk.capture_exception(e)
             raise HTTPException(
                 status_code=500, detail="Failed to audit diff"
+            ) from e
+
+    @app_router.post("/api/v1/code/review")
+    async def structured_code_review(
+        payload: ReviewRequest,
+        tenant_id: str = Depends(get_tenant_id),
+    ):
+        """Run structured diff/PR review with deterministic lint deduplication."""
+        validated_root: str | None = None
+        if payload.run_server_lint:
+            if not payload.root:
+                raise HTTPException(
+                    status_code=400,
+                    detail="root is required when run_server_lint is true",
+                )
+            validated_root = _validate_repo_path(payload.root)
+
+        touched_files = _extract_diff_paths(payload.files, payload.diff)
+
+        def _run() -> dict:
+            qdrant_client = None
+            if payload.persist_lint_findings:
+                try:
+                    from backend.config import get_config
+                    from backend.storage.qdrant_client import QdrantStorageClient
+
+                    qdrant_client = QdrantStorageClient.from_config(get_config())
+                except Exception as exc:
+                    logger.warning("Qdrant unavailable during review: %s", exc)
+            result = run_structured_review(
+                payload,
+                touched_files=touched_files,
+                tenant_id=tenant_id,
+                validated_root=validated_root,
+                neo4j_client=_default_neo4j_client(),
+                qdrant_client=qdrant_client,
+            )
+            return result.model_dump()
+
+        try:
+            return await asyncio.to_thread(_run)
+        except HTTPException:
+            raise
+        except Exception as e:
+            sentry_sdk.capture_exception(e)
+            raise HTTPException(
+                status_code=500, detail="Failed to run structured code review"
             ) from e
 
     @app_router.post("/api/v1/vuln/sarif")

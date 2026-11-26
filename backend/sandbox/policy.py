@@ -220,6 +220,27 @@ def _git_branch_is_read_only(args: list[str]) -> bool:
     return True
 
 
+_RUFF_MUTATING_FLAGS = {
+    "--fix", "--fix-only", "--unsafe-fixes", "--add-noqa",
+    "-e", "--exit-non-zero-on-fix", "--output", "-o", "--output-file",
+}
+
+
+def _ruff_is_read_only(args: list[str]) -> bool:
+    """Only ``ruff check`` without fix/output flags is read-only."""
+    if not args or args[0] != "check":
+        return False
+    for token in args[1:]:
+        if token in _RUFF_MUTATING_FLAGS or token.startswith(("--output=", "-o=", "--output-file=")):
+            return False
+    return True
+
+
+def _mypy_is_read_only(args: list[str]) -> bool:
+    """``mypy`` is read-only unless ``--install-types`` is requested."""
+    return not any(token == "--install-types" or token.startswith("--install-types=") for token in args)
+
+
 def _segment_is_read_only(segment: str) -> bool:
     lowered = segment.lower()
     if any(lowered.startswith(p) or lowered == p for p in _READ_ONLY_PHRASES):
@@ -242,6 +263,10 @@ def _segment_is_read_only(segment: str) -> bool:
         return not any(a == "--output" or a.startswith("--output=") for a in rest)
     if head == "find":
         return not any(t in _FIND_MUTATING_FLAGS for t in tokens[1:])
+    if head == "ruff":
+        return _ruff_is_read_only(tokens[1:])
+    if head == "mypy":
+        return _mypy_is_read_only(tokens[1:])
     if head == "pytest":
         return True
     if head in _MUTATING_TOKENS:

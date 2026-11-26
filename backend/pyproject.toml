@@ -67,6 +67,14 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# Linters as claims (ADR-0007 Phase 2): run at ingestion/review time
+# by backend/ingestion/lint_findings.py when the `lint` extra is
+# installed. Optional (not core) so a plain backend install does not
+# pull linter tooling; pinned to match the dev extra.
+lint = [
+    "ruff==0.17.6",
+    "mypy==2.4.1",
+]
 ocr = [
     "docling",
 ]
