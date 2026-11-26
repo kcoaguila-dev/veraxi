@@ -1084,3 +1084,90 @@ class TestVulnWorkbenchSignals:
         assert len(report["findings"]) == 1
         assert report["findings"][0]["package"] == "urllib3"
         assert report["kev_count"] == 0
+
+
+class TestScipRepoKeyForwarding:
+    _PAYLOAD = TestScipIngestRoute._PAYLOAD
+
+    def test_ingest_scip_forwards_repo_key(self, client, monkeypatch):
+        seen = {}
+
+        def fake_write(payload, tenant_id):
+            seen["repo_key"] = payload.repo_key
+            return {"nodes_written": 2, "edges_written": 1}
+
+        monkeypatch.setattr(routes, "_write_scip", fake_write)
+        resp = client.post(
+            "/api/v1/code/ingest-scip",
+            json={"scip": self._PAYLOAD, "repo_key": "owner/repo"},
+        )
+        assert resp.status_code == 200, resp.text
+        assert seen["repo_key"] == "owner/repo"
+
+    def test_ingest_scip_repo_key_defaults_to_none(self, client, monkeypatch):
+        seen = {}
+
+        def fake_write(payload, tenant_id):
+            seen["repo_key"] = payload.repo_key
+            return {"nodes_written": 2, "edges_written": 1}
+
+        monkeypatch.setattr(routes, "_write_scip", fake_write)
+        resp = client.post("/api/v1/code/ingest-scip", json={"scip": self._PAYLOAD})
+        assert resp.status_code == 200, resp.text
+        assert seen["repo_key"] is None
+
+
+class TestScipIngestGzip:
+    """Content-Encoding: gzip request bodies (CLI SCIP uploads)."""
+
+    _PAYLOAD = TestScipIngestRoute._PAYLOAD
+
+    def test_ingest_scip_gzipped_body_matches_plain(self, client, monkeypatch):
+        import gzip
+        import json as json_mod
+
+        seen = {}
+
+        def fake_write(payload, tenant_id):
+            seen["documents"] = len(payload.scip["documents"])
+            seen["repo_key"] = payload.repo_key
+            return {"nodes_written": 2, "edges_written": 1}
+
+        monkeypatch.setattr(routes, "_write_scip", fake_write)
+        raw = json_mod.dumps(
+            {"scip": self._PAYLOAD, "repo_key": "owner/repo"}
+        ).encode("utf-8")
+        resp = client.post(
+            "/api/v1/code/ingest-scip",
+            content=gzip.compress(raw),
+            headers={
+                "Content-Type": "application/json",
+                "Content-Encoding": "gzip",
+            },
+        )
+        assert resp.status_code == 200, resp.text
+        assert resp.json() == {
+            "status": "ok",
+            "nodes_written": 2,
+            "edges_written": 1,
+        }
+        assert seen == {"documents": 1, "repo_key": "owner/repo"}
+
+    def test_ingest_scip_invalid_gzip_is_400(self, client):
+        resp = client.post(
+            "/api/v1/code/ingest-scip",
+            content=b"this is not gzip",
+            headers={
+                "Content-Type": "application/json",
+                "Content-Encoding": "gzip",
+            },
+        )
+        assert resp.status_code == 400
+
+    def test_ingest_scip_invalid_json_is_422(self, client):
+        resp = client.post(
+            "/api/v1/code/ingest-scip",
+            content=b"{not json",
+            headers={"Content-Type": "application/json"},
+        )
+        assert resp.status_code == 422
