@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Scratch Files Cleanup**: Purged untracked Python test scripts (`test_audio.py`, `test_redis.py`) and miscellaneous TTS scratch files from the repository root.
 
 ### Changed
+- **GitHub Actions SHA Pinning**: All 29 `uses:` references across the 8 workflows are now pinned to full commit SHAs with the version kept as a comment (the uv/Astral pattern; Dependabot's existing `github-actions` entry keeps the pins updated). `aquasecurity/trivy-action` moved from the mutable `@master` branch to the pinned v0.36.0 release. No version upgrades otherwise — where workflows disagree on a version (checkout v4 vs v7, setup-java v3 vs v6, action-gh-release v1 vs v3), each was pinned at the version it already used; aligning those is a separate deliberate change.
 - **Landing Page Widgets**: Removed the old `HeroSection`, `FeaturesSection`, `CodeSnippetVisualization` and `DevelopmentBanner` widgets, which only the landing screen used. The shared `NavBar` is unchanged and still used by the docs screen.
 - **Storage Client Factories**: Replaced 15+ redundant instances of `Neo4jStorageClient` and `QdrantStorageClient` initialization with a unified DRY `from_config()` factory pattern.
 - **Connection Pools**: Refactored `chat_repository.dart` and `control_panel_repository.dart` to reuse the centralized `ApiClient` connection pool instead of repeatedly opening new HTTP clients.
