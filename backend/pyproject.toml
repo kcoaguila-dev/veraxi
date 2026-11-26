@@ -72,12 +72,12 @@ ocr = [
 ]
 browser = [
     "browser-use>=1.0.5",
-    "playwright>=1.64.1",
+    "playwright>=1.65.2",
 ]
 full = [
     "docling",
     "browser-use>=1.0.5",
-    "playwright>=1.64.1",
+    "playwright>=1.65.2",
     "opentimelineio",
     "stripe",
 ]
