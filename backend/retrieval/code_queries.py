@@ -21,7 +21,7 @@ from typing import Any, Protocol, runtime_checkable
 logger = logging.getLogger(__name__)
 
 CODE_NODE_LABELS = ("CodeFile", "CodeModule", "Class", "Function")
-IMPACT_EDGE_TYPES = ("CALLS", "IMPORTS")
+IMPACT_EDGE_TYPES = ("CALLS", "IMPORTS", "REFERENCES")
 MAX_IMPACT_DEPTH = 10
 
 

@@ -468,6 +468,33 @@ class TestRepoKeyPartition:
         assert ast_result["resolution"] == "heuristic"
         assert ast_result["confidence"] == "low"
 
+    def test_impact_analysis_walks_scip_references(self):
+        from backend.retrieval.code_queries import IMPACT_EDGE_TYPES
+
+        assert "REFERENCES" in IMPACT_EDGE_TYPES
+        client = _FakeCodeClient(
+            [_root("pkg/core.py::target().", resolution="scip")],
+            edges_by_target={
+                "pkg/core.py::target().": [
+                    {
+                        "source_qn": "pkg/app.py::caller().",
+                        "source_name": "caller",
+                        "source_label": "Function",
+                        "source_path": "pkg/app.py",
+                        "source_line": 12,
+                        "source_repo_key": "owner/repo",
+                        "source_resolution": "scip",
+                        "edge_type": "REFERENCES",
+                        "target_qn": "pkg/core.py::target().",
+                    }
+                ]
+            },
+        )
+        res = impact_analysis("target", client=client)
+        assert res["resolution"] == "scip"
+        assert res["confidence"] == "high"
+        assert [c["qualified_name"] for c in res["impacted"]] == ["pkg/app.py::caller()."]
+
     def test_enum_int_and_omitted_kind_classes_labeled_class(self):
         payload = {
             "metadata": {"project_root": "repo"},
