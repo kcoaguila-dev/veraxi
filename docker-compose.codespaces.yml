@@ -1,0 +1,16 @@
+# Codespaces-only override for docker-compose.yml.
+#
+# Why this exists: in the base compose file the Flutter `web` service
+# publishes no port — in production it is only reachable through the Caddy
+# container, whose Caddyfile site block is bound to the api.veraxi.me host
+# and therefore does not answer Codespaces forwarded hosts
+# (*.app.github.dev). This override publishes the web container directly
+# on 8080 and skips Caddy entirely.
+#
+# Usage (see .devcontainer/host-up.sh):
+#   docker compose -f docker-compose.yml -f docker-compose.codespaces.yml \
+#     --profile ui up -d --build neo4j qdrant redis backend web
+services:
+  web:
+    ports:
+      - "8080:80"
