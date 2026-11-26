@@ -12,6 +12,49 @@ otherwise works.
 - **No Placeholders**: Never write `# TODO: implement`, `pass`, or leave mocked data in a finished feature unless explicitly instructed to build a stub. Implement the full logic.
 - **Read Before Writing**: If a task involves architecture, state management, or infrastructure, you MUST search and read the `docs/adr/` (Architectural Decision Records) directory before proposing a plan.
 
+## Working method
+
+How work is done here, in the AI era — see `docs/agent-workflow.md` for the
+reasoning and the comparison it came from.
+
+- **Spec first for anything non-trivial**: a short written spec or plan the
+  human approves before code. Irreversible decisions get an ADR in `docs/adr/`;
+  phase order lives in `docs/ROADMAP.md`. A one-sentence diff skips the spec —
+  just do it test-first.
+- **One problem per PR**, delivered as a vertical slice: contract, backend,
+  client, tests, and docs for that one problem. Cleanup, refactors, and second
+  fixes go in their own PRs.
+- **Test-first inside the slice**: write the failing test before the fix. The
+  agent implementing a change must not modify, weaken, or skip the tests that
+  define it (see Testing expectations).
+- **Verification is evidence, not assertion**: the PR body names the commands
+  run, what was observed, and what was *not* checked. "Tests pass" alone is
+  not verification.
+- **Small PRs, merged promptly**, with a conventional-commit title.
+
+## Hit every surface
+
+The most common defect in this repo is a change that works on the path tested
+and is missing everywhere else. Before calling work done, walk this list and
+give each entry a decision, even if the decision is "not applicable here":
+
+- **Entry points.** Chat, Code, Library (Knowledge Hub), and Activity — plus
+  the `vx` CLI and the MCP tools, which expose the same capabilities to other
+  agents. Fixing one surface is not fixing the feature.
+- **Clients.** Flutter web, desktop, and mobile share one feature structure;
+  a view change that only works on one form factor is unfinished.
+- **Runtimes.** Veraxi's native engine and the external ACP runtime
+  (ADR-0005) are different loops behind one UI. A capability change needs a
+  stated decision for each.
+- **Connection modes.** Hosted backend, self-hosted Docker, and the local
+  runner (`local_runner`) execute the same request under different trust and
+  environment rules — check the mode you did not test on, or say you didn't.
+- **Reverse states.** Every way in needs a way out and a way to see it
+  (archive/restore, connect/disconnect, enable/disable). A one-way door is a
+  bug.
+- **Docs.** If behaviour changed, `docs/`, `CONTRIBUTING.md`, and the CLI help
+  text are part of the change, not a follow-up.
+
 ## Project shape
 
 - `backend/` — Python. Organized by responsibility, not feature-first,
