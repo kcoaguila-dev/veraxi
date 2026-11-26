@@ -169,6 +169,16 @@ def main():
     review_parser.add_argument(
         "--endpoint", default="https://api.veraxi.me/sse", help="Veraxi API endpoint"
     )
+    review_parser.add_argument(
+        "--structured",
+        action="store_true",
+        help="Run structured PR/diff review with deterministic lint deduplication",
+    )
+    review_parser.add_argument(
+        "--with-lint",
+        action="store_true",
+        help="Run local ruff SARIF on changed Python files and attach to structured review",
+    )
     review_parser.add_argument("--json", action="store_true", help="Output raw JSON")
 
     # --- ingest ---
@@ -1211,6 +1221,8 @@ def main():
             project=getattr(args, "project", None),
             strict=getattr(args, "strict", False),
             as_json=getattr(args, "json", False),
+            structured=getattr(args, "structured", False),
+            with_lint=getattr(args, "with_lint", False),
         )
 
     elif args.subcommand == "ingest":
