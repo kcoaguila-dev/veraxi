@@ -248,6 +248,8 @@ See [docs/architecture.md](docs/architecture.md) for a deep dive into the depend
 
 ## 📊 Evaluation & Benchmarks
 
+Published numbers, methodology, and caveats: **[BENCHMARKS.md](BENCHMARKS.md)**. If a number is not there, it is not a claim we make.
+
 Veraxi includes an automated [DeepEval](https://github.com/confident-ai/deepeval) benchmark suite that scores Vector RAG against Hybrid GraphRAG on a medical test corpus (`backend/evaluation/benchmark_rag.py`).
 
 **Evaluation Infrastructure:**
