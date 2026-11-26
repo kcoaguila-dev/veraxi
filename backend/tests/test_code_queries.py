@@ -419,7 +419,7 @@ def test_neo4j_adapter_parameterized():
         assert "pkg.helpers.shout" not in query
         assert params["tenant_id"] == "tenant-a"
     assert stub.calls[2][1]["target_qns"] == ["pkg.helpers.shout"]
-    assert stub.calls[2][1]["edge_types"] == ["CALLS", "IMPORTS"]
+    assert stub.calls[2][1]["edge_types"] == ["CALLS", "IMPORTS", "REFERENCES"]
 
 
 # ---------------------------------------------------------------------------
