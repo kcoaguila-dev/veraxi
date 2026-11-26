@@ -1,0 +1,21 @@
+cff-version: 1.2.0
+message: "If you use Veraxi in research, please cite it as below."
+title: "Veraxi"
+abstract: >-
+  An evidence-first research workbench built on a Hybrid GraphRAG engine
+  (Neo4j knowledge graph + Qdrant dense/sparse vector search, fused via
+  Reciprocal Rank Fusion), with machine-verified citations, code
+  intelligence, and security-graph analysis. FastAPI/Python backend and
+  a cross-platform Flutter client, exposed to LLMs over MCP with BYOK
+  and local-model support.
+authors:
+  - family-names: "Coaguila"
+    given-names: "Kazuo"
+repository-code: "https://github.com/kcoaguila-dev/veraxi"
+license: "MIT"
+keywords:
+  - graphrag
+  - retrieval-augmented-generation
+  - code-intelligence
+  - application-security
+  - model-context-protocol

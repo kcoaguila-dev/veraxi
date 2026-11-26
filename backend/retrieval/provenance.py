@@ -8,7 +8,7 @@ results — it never invents it:
 - ``legs`` is the subset of ``KNOWN_LEGS`` present in a result's
   ``sources`` list, exactly as recorded by ``merge_rank``. Note what
   that means in practice: the Qdrant hybrid search (dense MiniLM +
-  sparse SPLADE, fused inside Qdrant by
+  sparse BM25, the shipped default, fused inside Qdrant by
   ``QdrantStorageClient.search_hybrid``) returns a single fused hit, so
   a per-hit dense-vs-sparse split does not exist anywhere in the
   pipeline. Hybrid hits are therefore honestly labelled with the single
