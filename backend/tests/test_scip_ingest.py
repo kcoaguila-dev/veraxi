@@ -78,6 +78,51 @@ class TestRealScipOutputParsing:
         graph = parse_scip_payload(payload)
         assert graph.node("CodeFile", "tests/test_itsdangerous/__init__.py") is not None
 
+    def test_enum_int_and_omitted_kind_classes_labeled_class(self):
+        payload = {
+            "metadata": {"project_root": "repo"},
+            "documents": [
+                {
+                    "relative_path": "pkg/models.py",
+                    "language": "python",
+                    "symbols": [
+                        {
+                            "symbol": "scip-python python pkg 0.1.0 `pkg.models`/Widget#",
+                            "kind": 7,
+                            "display_name": "Widget",
+                        },
+                        {
+                            "symbol": "scip-python python pkg 0.1.0 `pkg.models`/build().",
+                            "kind": 17,
+                            "display_name": "build",
+                        },
+                    ],
+                    "occurrences": [
+                        {
+                            "symbol": "scip-python python pkg 0.1.0 `pkg.models`/Widget#",
+                            "range": [0, 6, 0, 12],
+                            "symbol_roles": 1,
+                        },
+                        {
+                            "symbol": "scip-python python pkg 0.1.0 `pkg.models`/Gadget#",
+                            "range": [4, 6, 4, 12],
+                            "symbol_roles": 1,
+                        },
+                        {
+                            "symbol": "scip-python python pkg 0.1.0 `pkg.models`/build().",
+                            "range": [8, 4, 8, 9],
+                            "symbol_roles": 1,
+                        },
+                    ],
+                }
+            ],
+        }
+        graph = parse_scip_payload(payload)
+        labels = {n.name: n.label for n in graph.nodes}
+        assert labels["Widget"] == "Class"
+        assert labels["Gadget"] == "Class"
+        assert labels["build"] == "Function"
+
 
 class TestResolutionProvenance:
     def test_scip_nodes_carry_scip_resolution(self):
@@ -245,6 +290,33 @@ class TestImpactConfidence:
         result = impact_analysis("target", client=client)
         for key in ("symbol", "found", "roots", "max_depth", "impacted", "freshness"):
             assert key in result
+
+    def test_impact_analysis_walks_scip_references(self):
+        from backend.retrieval.code_queries import IMPACT_EDGE_TYPES
+
+        assert "REFERENCES" in IMPACT_EDGE_TYPES
+        client = _FakeCodeClient(
+            [_root("pkg/core.py::target().", resolution="scip")],
+            edges_by_target={
+                "pkg/core.py::target().": [
+                    {
+                        "source_qn": "pkg/app.py::caller().",
+                        "source_name": "caller",
+                        "source_label": "Function",
+                        "source_path": "pkg/app.py",
+                        "source_line": 12,
+                        "source_repo_key": "owner/repo",
+                        "source_resolution": "scip",
+                        "edge_type": "REFERENCES",
+                        "target_qn": "pkg/core.py::target().",
+                    }
+                ]
+            },
+        )
+        res = impact_analysis("target", client=client)
+        assert res["resolution"] == "scip"
+        assert res["confidence"] == "high"
+        assert [c["qualified_name"] for c in res["impacted"]] == ["pkg/app.py::caller()."]
 
 
 def test_code_graph_still_pure():
@@ -467,75 +539,3 @@ class TestRepoKeyPartition:
         )
         assert ast_result["resolution"] == "heuristic"
         assert ast_result["confidence"] == "low"
-
-    def test_impact_analysis_walks_scip_references(self):
-        from backend.retrieval.code_queries import IMPACT_EDGE_TYPES
-
-        assert "REFERENCES" in IMPACT_EDGE_TYPES
-        client = _FakeCodeClient(
-            [_root("pkg/core.py::target().", resolution="scip")],
-            edges_by_target={
-                "pkg/core.py::target().": [
-                    {
-                        "source_qn": "pkg/app.py::caller().",
-                        "source_name": "caller",
-                        "source_label": "Function",
-                        "source_path": "pkg/app.py",
-                        "source_line": 12,
-                        "source_repo_key": "owner/repo",
-                        "source_resolution": "scip",
-                        "edge_type": "REFERENCES",
-                        "target_qn": "pkg/core.py::target().",
-                    }
-                ]
-            },
-        )
-        res = impact_analysis("target", client=client)
-        assert res["resolution"] == "scip"
-        assert res["confidence"] == "high"
-        assert [c["qualified_name"] for c in res["impacted"]] == ["pkg/app.py::caller()."]
-
-    def test_enum_int_and_omitted_kind_classes_labeled_class(self):
-        payload = {
-            "metadata": {"project_root": "repo"},
-            "documents": [
-                {
-                    "relative_path": "pkg/models.py",
-                    "language": "python",
-                    "symbols": [
-                        {
-                            "symbol": "scip-python python pkg 0.1.0 `pkg.models`/Widget#",
-                            "kind": 7,
-                            "display_name": "Widget",
-                        },
-                        {
-                            "symbol": "scip-python python pkg 0.1.0 `pkg.models`/build().",
-                            "kind": 17,
-                            "display_name": "build",
-                        },
-                    ],
-                    "occurrences": [
-                        {
-                            "symbol": "scip-python python pkg 0.1.0 `pkg.models`/Widget#",
-                            "range": [0, 6, 0, 12],
-                            "symbol_roles": 1,
-                        },
-                        {
-                            "symbol": "scip-python python pkg 0.1.0 `pkg.models`/Gadget#",
-                            "range": [4, 6, 4, 12],
-                            "symbol_roles": 1,
-                        },
-                        {
-                            "symbol": "scip-python python pkg 0.1.0 `pkg.models`/build().",
-                            "range": [8, 4, 8, 9],
-                            "symbol_roles": 1,
-                        },
-                    ],
-                }
-            ],
-        }
-        graph = parse_scip_payload(payload)
-        labels = {n.name: n.label for n in graph.nodes}
-        assert labels["Widget"] == "Class"
-        assert labels["Gadget"] == "Class"
-        assert labels["build"] == "Function"
