@@ -6,6 +6,7 @@ Bearer auth, JSON bodies/query params, timeouts, and readable errors:
 4xx/5xx -> stderr + SystemExit(1). Never prints the API key.
 """
 
+import gzip
 import json
 import sys
 import urllib.error
@@ -18,7 +19,7 @@ def base_url(endpoint):
     return base.removesuffix("/sse")
 
 
-def api_request(method, path, body=None, endpoint=None, key=None, tenant=None, params=None, timeout=30, quiet=False):
+def api_request(method, path, body=None, endpoint=None, key=None, tenant=None, params=None, timeout=30, quiet=False, gzip_body=False):
     """Call the Veraxi HTTP API and return the parsed JSON dict.
 
     On HTTP or network error, prints a readable message to stderr and
@@ -33,6 +34,12 @@ def api_request(method, path, body=None, endpoint=None, key=None, tenant=None, p
     headers = {"Accept": "application/json"}
     if data is not None:
         headers["Content-Type"] = "application/json"
+        if gzip_body:
+            # Opt-in request compression (stdlib gzip): used for large
+            # SCIP uploads; the backend decompresses when it sees the
+            # Content-Encoding header.
+            data = gzip.compress(data)
+            headers["Content-Encoding"] = "gzip"
     req = urllib.request.Request(url, data=data, headers=headers, method=method)
     if key:
         req.add_header("Authorization", f"Bearer {key}")

@@ -30,7 +30,11 @@ so the qualified name must be stable across runs and must not merge distinct
 symbols that happen to share a display name in different files. A
 SCIP index has no checkout to derive a repo key from, so
 :func:`write_scip_graph` namespaces the whole index under the
-payload's ``metadata.project_root`` (or ``"scip-upload"``).
+payload's ``metadata.project_root`` (or ``"scip-upload"``) —
+unless the caller passes an explicit ``repo_key`` (the canonical
+``owner/repo`` identity the repo's AST ingest used), in which case
+that key wins and the SCIP graph replaces the AST graph of the
+files it covers in the same partition.
 
 * ``CodeFile`` nodes use ``qualified_name = relative_path`` — exactly
   like :func:`backend.ingestion.code_graph.parse_repo`.
@@ -73,6 +77,14 @@ nodes for edge targets, so emitting edges to undefined symbols would
 flood the graph with external placeholders; SCIP indexes already
 distinguish definitions, so under-claiming here is exact, not lossy,
 for everything the index itself defines.
+
+Real ``scip print --json`` output uses protobuf-JSON **camelCase**
+keys (``relativePath``, ``symbolRoles``, ``enclosingRange``,
+``displayName``, ``projectRoot``); the parser's internal shape is
+snake_case. :func:`parse_scip_payload` normalizes either form on
+entry (ADR-0007 Phase 3 spike: without this, a real index parsed to
+zero nodes). Snake_case payloads — the historical test fixtures and
+the CLI's stored indexes — keep working unchanged.
 """
 
 from __future__ import annotations
@@ -88,6 +100,7 @@ from backend.ingestion.code_graph import (
     CodeEdge,
     CodeGraph,
     CodeNode,
+    _delete_nodes_for_paths,
     write_code_graph,
     write_index_meta,
 )
@@ -124,6 +137,41 @@ _FUNCTION_KINDS = {
     "setter",
     "macro",
 }
+
+# Non-architectural symbol kinds (ADR-0007 Phase 4 prep): local
+# variables, parameters, fields/properties and type parameters are
+# not structural graph nodes — the AST graph has no node for them
+# either, and a real SCIP index emits them in bulk (the Phase 3 spike
+# counted ~10x node volume vs AST). Symbols of these kinds, ``local
+# <n>`` symbols, and symbols with no descriptor path are filtered out
+# of :func:`parse_scip_payload` entirely: no node, no DEFINES edge,
+# and references to them produce no REFERENCES edge. Module-level
+# constants stay (kind ``constant`` maps to a Function node, matching
+# the AST graph's treatment of module constants), as do classes,
+# functions, methods, constructors, getters/setters and symbols whose
+# kind the index does not report (e.g. module symbols).
+_NON_ARCHITECTURAL_KINDS = {
+    "parameter",
+    "variable",
+    "field",
+    "property",
+    "event",
+    "typeparameter",
+    "local",
+}
+
+
+def _is_architectural_symbol(symbol: str, kind: Any) -> bool:
+    """True when a SCIP symbol belongs in the structural graph."""
+    if not symbol or symbol.startswith("local "):
+        return False
+    if not descriptor_path(symbol):
+        return False
+    if isinstance(kind, str):
+        normalized = kind.replace("_", "").replace(" ", "").lower()
+        if any(name in normalized for name in _NON_ARCHITECTURAL_KINDS):
+            return False
+    return True
 
 # Trailing descriptor decorations stripped when deriving a display name.
 _NAME_SPLIT_RE = re.compile(r"[/#.\s]+")
@@ -293,20 +341,29 @@ def _add_file_and_symbols(
             line=1,
             language=language,
             resolved=True,
+            resolution="scip",
         )
     )
     def_lines = _definition_lines(document)
+    filtered: set[str] = set()
     for info in document.get("symbols") or []:
         if not isinstance(info, dict):
             continue
         symbol = str(info.get("symbol") or "")
         if not symbol:
             continue
+        if not _is_architectural_symbol(symbol, info.get("kind")):
+            filtered.add(symbol)
+            continue
         _add_symbol_node(builder, file_node, relative_path, language, symbol, info, def_lines)
     # Symbols defined by a definition occurrence but absent from
-    # symbols[] still get a node (default Function label).
+    # symbols[] still get a node (default Function label) — unless
+    # they were filtered above or are non-architectural on their face
+    # (``local <n>`` symbols carry no kind outside symbols[]).
     for symbol in def_lines:
-        if symbol not in builder.defined:
+        if symbol not in builder.defined and symbol not in filtered:
+            if not _is_architectural_symbol(symbol, None):
+                continue
             _add_symbol_node(
                 builder,
                 file_node,
@@ -339,6 +396,7 @@ def _add_symbol_node(
             line=int(def_lines.get(symbol) or 0),
             language=language,
             resolved=True,
+            resolution="scip",
         )
     )
     builder.defined[symbol] = node
@@ -408,6 +466,32 @@ def _add_reference_edges(
         builder.add_edge("REFERENCES", source, target)
 
 
+# Real `scip print --json` keys (protobuf-JSON camelCase) -> the
+# snake_case keys this parser reads. Only keys the parser consumes
+# are mapped; everything else passes through untouched.
+_SCIP_KEY_ALIASES = {
+    "relativePath": "relative_path",
+    "symbolRoles": "symbol_roles",
+    "enclosingRange": "enclosing_range",
+    "displayName": "display_name",
+    "signatureDocumentation": "signature_documentation",
+    "projectRoot": "project_root",
+    "toolInfo": "tool_info",
+}
+
+
+def _normalize_scip_keys(value: Any) -> Any:
+    """Recursively rewrite camelCase SCIP JSON keys to snake_case."""
+    if isinstance(value, dict):
+        return {
+            _SCIP_KEY_ALIASES.get(key, key): _normalize_scip_keys(item)
+            for key, item in value.items()
+        }
+    if isinstance(value, list):
+        return [_normalize_scip_keys(item) for item in value]
+    return value
+
+
 def parse_scip_payload(payload: dict[str, Any], repo_key: str = "") -> CodeGraph:
     """Parse a ``scip print --json`` payload dict into a :class:`CodeGraph`.
 
@@ -419,6 +503,7 @@ def parse_scip_payload(payload: dict[str, Any], repo_key: str = "") -> CodeGraph
     """
     if not isinstance(payload, dict):
         raise ValueError("SCIP payload must be a JSON object")  # noqa: TRY004
+    payload = _normalize_scip_keys(payload)
     documents = payload.get("documents")
     if not isinstance(documents, list):
         raise ValueError("SCIP payload must contain a 'documents' list")  # noqa: TRY004
@@ -471,7 +556,10 @@ def load_scip_payload(text: str) -> dict[str, Any]:
 
 
 def write_scip_graph(
-    client: Any, payload: dict[str, Any], tenant_id: str = "default"
+    client: Any,
+    payload: dict[str, Any],
+    tenant_id: str = "default",
+    repo_key: str | None = None,
 ) -> dict[str, int]:
     """Parse a SCIP payload and persist it via ``write_code_graph``.
 
@@ -487,10 +575,32 @@ def write_scip_graph(
     present — the commit stays unknown rather than fabricated. The
     same value namespaces the graph's nodes as their repo key, so
     the stamp and the nodes it describes always agree.
+
+    ``repo_key`` (ADR-0007 Phase 4 prep): when the caller knows the
+    canonical repo identity — the ``owner/repo`` slug an AST ingest
+    of the same repo used (see
+    :func:`backend.ingestion.code_graph.derive_repo_key`) — it passes
+    it explicitly, and the SCIP graph lands in that same partition:
+    the SCIP-wins deletion then replaces the AST nodes of covered
+    files instead of writing a parallel graph under
+    ``metadata.project_root``. Only when ``repo_key`` is omitted does
+    the historical ``project_root`` / ``"scip-upload"`` fallback apply.
     """
-    metadata = payload.get("metadata") or {}
-    repo_key = str(metadata.get("project_root") or "scip-upload")
+    metadata = _normalize_scip_keys(payload.get("metadata") or {})
+    repo_key = repo_key or str(metadata.get("project_root") or "scip-upload")
     graph = parse_scip_payload(payload, repo_key=repo_key)
+    # SCIP wins (ADR-0007): within this repo partition, the nodes —
+    # and with them the edges — of every file the index covers are
+    # replaced by the SCIP versions, so stale heuristic edges for a
+    # covered file cannot survive alongside compiler-grade ones.
+    # Files the index does not cover are untouched and keep their
+    # heuristic graph. (The two qualified-name schemes differ, so
+    # this replacement is scoped to the SCIP partition's own
+    # repo_key; it never deletes another partition's nodes.)
+    covered_paths = sorted(
+        {node.path for node in graph.nodes if node.label == "CodeFile" and node.path}
+    )
+    _delete_nodes_for_paths(client, tenant_id, covered_paths, repo_key=repo_key)
     counts = write_code_graph(client, graph, tenant_id=tenant_id)
     write_index_meta(
         client,

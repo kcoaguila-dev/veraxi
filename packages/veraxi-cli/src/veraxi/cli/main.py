@@ -41,7 +41,7 @@ from veraxi.cli.rules import run_rules_lint, run_rules_sync
 from veraxi.cli.schema import run_schema
 from veraxi.cli.stats import run_stats
 from veraxi.cli.trace import run_trace
-from veraxi.cli.code_intel import run_vuln_attack_sync, run_vuln_recon, run_vuln_report, run_vuln_sarif, run_vuln_sync, run_xray_impact, run_xray_index, run_xray_index_scip, run_xray_symbol
+from veraxi.cli.code_intel import run_vuln_attack_sync, run_vuln_recon, run_vuln_report, run_vuln_sarif, run_vuln_sync, run_xray_impact, run_xray_index, run_xray_index_generate_scip, run_xray_index_scip, run_xray_symbol
 from veraxi.cli.corpus import run_briefing, run_dbt_lineage, run_dbt_upload
 from veraxi.cli.evals import run_eval_ablation
 from veraxi.cli.web import run_web
@@ -789,6 +789,7 @@ def main():
         _sp.add_argument("--local", action="store_true", help="Index: parse the repo locally and upload the graph")
         _sp.add_argument("--update", action="store_true", help="Index: incrementally refresh an already-indexed repo (server-side; re-parses only changed files)")
         _sp.add_argument("--scip", dest="scip", help="Index: upload a SCIP JSON index file (scip print --json output) instead of a repo path")
+        _sp.add_argument("--generate-scip", action="store_true", dest="generate_scip", help="Index: generate a SCIP index locally with scip-python + scip print (local runner / CI only) and upload it")
         _sp.add_argument("--resolved-only", action="store_true", dest="resolved_only", help="Symbol: hide external/unresolved placeholders")
         _sp.add_argument("--key", help="Veraxi API key (vx-...)")
         _sp.add_argument("--tenant", help="Tenant ID")
@@ -1338,7 +1339,12 @@ def main():
         key, endpoint = resolve_credentials(args.key, args.endpoint)
         tenant_id = _resolve_tenant_id(args.tenant)
         if args.xray_command == "index":
-            if getattr(args, "scip", None):
+            if getattr(args, "generate_scip", False):
+                if not args.target:
+                    parser.parse_args(["xray", "index", "--help"])
+                    sys.exit(0)
+                run_xray_index_generate_scip(args.target, endpoint=endpoint, key=key, tenant=tenant_id, as_json=args.json)
+            elif getattr(args, "scip", None):
                 run_xray_index_scip(args.scip, endpoint=endpoint, key=key, tenant=tenant_id, as_json=args.json)
             elif not args.target:
                 parser.parse_args(["xray", "index", "--help"])

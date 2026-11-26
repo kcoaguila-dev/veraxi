@@ -225,6 +225,44 @@ def test_xray_index_scip_posts_payload(tmp_path, capsys):
     assert "nodes=3 edges=2" in capsys.readouterr().out
 
 
+def test_api_request_gzip_body_round_trips(monkeypatch):
+    """gzip_body=True sends a gzipped JSON body with Content-Encoding:
+    gzip, and the bytes decompress back to the exact original payload."""
+    import gzip
+
+    from veraxi.cli import http_client
+
+    captured = {}
+
+    class _Resp:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            return False
+
+        def read(self):
+            return b'{"status": "ok"}'
+
+    def fake_urlopen(req, timeout=None):
+        captured["data"] = req.data
+        captured["headers"] = {k.lower(): v for k, v in req.header_items()}
+        return _Resp()
+
+    monkeypatch.setattr(http_client.urllib.request, "urlopen", fake_urlopen)
+    body = {"scip": {"documents": [{"relative_path": "a.py"}]}, "repo_key": "o/r"}
+    out = http_client.api_request(
+        "POST", "/api/v1/code/ingest-scip", body=body, gzip_body=True
+    )
+    assert out == {"status": "ok"}
+    assert captured["headers"]["content-encoding"] == "gzip"
+    assert json.loads(gzip.decompress(captured["data"])) == body
+    # The compressed form must actually be smaller for a repetitive payload.
+    big = {"scip": {"documents": [{"relative_path": "a.py", "symbols": ["x" * 64] * 50}]}}
+    http_client.api_request("POST", "/api/v1/code/ingest-scip", body=big, gzip_body=True)
+    assert len(captured["data"]) < len(json.dumps(big))
+
+
 def test_xray_index_scip_rejects_invalid_json(tmp_path):
     from veraxi.cli.code_intel import run_xray_index_scip
 
@@ -232,6 +270,83 @@ def test_xray_index_scip_rejects_invalid_json(tmp_path):
     bad.write_text("{not json", encoding="utf-8")
     with pytest.raises(SystemExit) as exc:
         run_xray_index_scip(str(bad))
+    assert exc.value.code == 1
+
+
+def test_xray_index_generate_scip_runs_tools_and_uploads(tmp_path, monkeypatch):
+    """ADR-0007 Phase 4: generation runs scip-python + scip print
+    locally (argument lists, --project-version always passed), then
+    uploads through the existing ingest-scip path."""
+    import subprocess as sp
+
+    from veraxi.cli import code_intel as cli_mod
+    from veraxi.cli.code_intel import run_xray_index_generate_scip
+
+    repo = tmp_path / "demo"
+    repo.mkdir()
+    (repo / "mod.py").write_text("def f():\n    pass\n", encoding="utf-8")
+    monkeypatch.setenv("VERAXI_SCIP_PYTHON_BIN", "/tools/scip-python")
+    monkeypatch.setenv("VERAXI_SCIP_BIN", "/tools/scip")
+    calls = []
+
+    def fake_run(argv, **kwargs):
+        calls.append(argv)
+        if argv[0] == "/tools/scip-python":
+            # The --output target must be created, as the real tool does.
+            out = argv[argv.index("--output") + 1]
+            with open(out, "wb") as fh:
+                fh.write(b"fake-index")
+            return sp.CompletedProcess(argv, 0, stdout="", stderr="")
+        if argv[0] == "/tools/scip":
+            payload = {"documents": [], "metadata": {"projectRoot": "file:///demo"}}
+            return sp.CompletedProcess(argv, 0, stdout=json.dumps(payload), stderr="")
+        return sp.CompletedProcess(argv, 1, stdout="", stderr="")  # git: no HEAD
+
+    monkeypatch.setattr(cli_mod.subprocess, "run", fake_run)
+    with patch(
+        PATCH_TARGET, return_value={"status": "ok", "nodes_written": 1, "edges_written": 0}
+    ) as mock, pytest.raises(SystemExit) as exc:
+        run_xray_index_generate_scip(
+            str(repo), endpoint="https://api.veraxi.me/sse", key="vx-k", tenant="t1"
+        )
+    assert exc.value.code == 0
+    index_argv = next(a for a in calls if a[0] == "/tools/scip-python")
+    assert index_argv[1] == "index"
+    assert "--project-version" in index_argv  # non-git fallback, never omitted
+    assert index_argv[index_argv.index("--project-version") + 1] == "0.0.0"
+    print_argv = next(a for a in calls if a[0] == "/tools/scip")
+    assert print_argv[1:3] == ["print", "--json"]
+    args, kwargs = mock.call_args
+    assert args[:2] == ("POST", "/api/v1/code/ingest-scip")
+    assert kwargs["body"]["scip"]["documents"] == []
+
+
+def test_xray_index_generate_scip_missing_tools_exit_1(tmp_path, monkeypatch):
+    from veraxi.cli.code_intel import run_xray_index_generate_scip
+
+    monkeypatch.delenv("VERAXI_SCIP_PYTHON_BIN", raising=False)
+    monkeypatch.delenv("VERAXI_SCIP_BIN", raising=False)
+    monkeypatch.setenv("PATH", str(tmp_path))  # empty PATH: tools not found
+    with pytest.raises(SystemExit) as exc:
+        run_xray_index_generate_scip(str(tmp_path))
+    assert exc.value.code == 1
+
+
+def test_xray_index_generate_scip_indexer_failure_exit_1(tmp_path, monkeypatch):
+    import subprocess as sp
+
+    from veraxi.cli import code_intel as cli_mod
+    from veraxi.cli.code_intel import run_xray_index_generate_scip
+
+    monkeypatch.setenv("VERAXI_SCIP_PYTHON_BIN", "/tools/scip-python")
+    monkeypatch.setenv("VERAXI_SCIP_BIN", "/tools/scip")
+
+    def failing_run(argv, **kwargs):
+        return sp.CompletedProcess(argv, 2, stdout="", stderr="boom")
+
+    monkeypatch.setattr(cli_mod.subprocess, "run", failing_run)
+    with pytest.raises(SystemExit) as exc:
+        run_xray_index_generate_scip(str(tmp_path))
     assert exc.value.code == 1
 
 
@@ -255,3 +370,64 @@ def test_vuln_attack_sync_and_recon_cli(tmp_path):
         run_vuln_recon(str(nuclei_file))
     assert exc.value.code == 0
     assert mock.call_args.args[:2] == ("POST", "/api/v1/vuln/recon")
+
+
+def test_derive_repo_key_from_git_origin_https_and_ssh(tmp_path, monkeypatch):
+    import subprocess as sp
+
+    from veraxi.cli import code_intel as cli_mod
+    from veraxi.cli.code_intel import _derive_repo_key
+
+    for url in ("https://github.com/owner/repo.git\n", "git@github.com:owner/repo.git\n"):
+        def fake_run(argv, _url=url, **kw):
+            return sp.CompletedProcess(argv, 0, stdout=_url, stderr="")
+
+        monkeypatch.setattr(cli_mod.subprocess, "run", fake_run)
+        assert _derive_repo_key(str(tmp_path)) == "owner/repo"
+
+
+def test_derive_repo_key_falls_back_to_resolved_path(tmp_path, monkeypatch):
+    import subprocess as sp
+
+    from veraxi.cli import code_intel as cli_mod
+    from veraxi.cli.code_intel import _derive_repo_key
+
+    monkeypatch.setattr(
+        cli_mod.subprocess, "run",
+        lambda argv, **kw: sp.CompletedProcess(argv, 1, stdout="", stderr="no remote"),
+    )
+    assert _derive_repo_key(str(tmp_path)) == str(tmp_path.resolve())
+
+
+def test_xray_index_generate_scip_includes_repo_key_from_origin(tmp_path, monkeypatch):
+    import subprocess as sp
+
+    from veraxi.cli import code_intel as cli_mod
+    from veraxi.cli.code_intel import run_xray_index_generate_scip
+
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    monkeypatch.setenv("VERAXI_SCIP_PYTHON_BIN", "/tools/scip-python")
+    monkeypatch.setenv("VERAXI_SCIP_BIN", "/tools/scip")
+
+    def fake_run(argv, **kwargs):
+        if argv[0] == "/tools/scip-python":
+            out = argv[argv.index("--output") + 1]
+            with open(out, "wb") as fh:
+                fh.write(b"fake-index")
+            return sp.CompletedProcess(argv, 0, stdout="", stderr="")
+        if argv[0] == "/tools/scip":
+            return sp.CompletedProcess(argv, 0, stdout=json.dumps({"documents": []}), stderr="")
+        if "remote" in argv:  # git remote get-url origin
+            return sp.CompletedProcess(argv, 0, stdout="https://github.com/owner/repo.git\n", stderr="")
+        if "rev-parse" in argv:
+            return sp.CompletedProcess(argv, 0, stdout="abc123\n", stderr="")
+        return sp.CompletedProcess(argv, 1, stdout="", stderr="")
+
+    monkeypatch.setattr(cli_mod.subprocess, "run", fake_run)
+    with patch(
+        PATCH_TARGET, return_value={"status": "ok", "nodes_written": 1, "edges_written": 0}
+    ) as mock, pytest.raises(SystemExit) as exc:
+        run_xray_index_generate_scip(str(repo))
+    assert exc.value.code == 0
+    assert mock.call_args.kwargs["body"]["repo_key"] == "owner/repo"

@@ -20,6 +20,7 @@ outside the allowed roots are rejected before any filesystem walk.
 """
 
 import asyncio
+import gzip
 import hashlib
 import hmac
 import json
@@ -31,7 +32,7 @@ from typing import Any, Literal
 import sentry_sdk
 from fastapi import Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 
 from backend.ingestion.code_graph import (
     MAX_INGEST_EDGES,
@@ -345,6 +346,12 @@ class AlertIngestRequest(BaseModel):
 
 class ScipIngestRequest(BaseModel):
     scip: dict
+    # Optional canonical repo identity (owner/repo, as derive_repo_key
+    # derives it for an AST ingest of the same repo). When given, the
+    # SCIP graph is written into that repo partition so it replaces
+    # the AST nodes of covered files; when omitted, write_scip_graph
+    # falls back to the payload's metadata.project_root.
+    repo_key: str | None = None
 
 
 class VulnIgnoreRequest(BaseModel):
@@ -479,7 +486,12 @@ def _write_scip(payload: ScipIngestRequest, tenant_id: str) -> dict:
     """Parse a SCIP payload and write it through the ingestion writer."""
     from backend.ingestion.scip_ingest import write_scip_graph
 
-    return write_scip_graph(_default_neo4j_client(), payload.scip, tenant_id=tenant_id)
+    return write_scip_graph(
+        _default_neo4j_client(),
+        payload.scip,
+        tenant_id=tenant_id,
+        repo_key=payload.repo_key,
+    )
 
 
 def _resolve_webhook_checkout(full_name: str) -> str | None:
@@ -814,7 +826,7 @@ def register_code_intel_routes(
 
     @app_router.post("/api/v1/code/ingest-scip")
     async def ingest_scip_graph(
-        payload: ScipIngestRequest,
+        request: Request,
         tenant_id: str = Depends(get_tenant_id),
     ):
         """Persist a SCIP index (``scip print --json`` output).
@@ -825,7 +837,24 @@ def register_code_intel_routes(
         same tenant-scoped, whitelist-validated code-graph writer as
         the other ingest paths. Graphs exceeding the ingest node/edge
         bounds are rejected with 413.
+
+        The body is read manually (instead of FastAPI's parsed-body
+        injection) so a ``Content-Encoding: gzip`` request — the CLI
+        gzips SCIP uploads, which are large — can be decompressed
+        before validation. Plain JSON bodies are accepted unchanged.
         """
+        raw_body = await request.body()
+        if request.headers.get("content-encoding") == "gzip":
+            try:
+                raw_body = gzip.decompress(raw_body)
+            except OSError as e:
+                raise HTTPException(
+                    status_code=400, detail="Invalid gzip request body"
+                ) from e
+        try:
+            payload = ScipIngestRequest.model_validate_json(raw_body)
+        except ValidationError as e:
+            raise HTTPException(status_code=422, detail=str(e)) from e
         documents = payload.scip.get("documents")
         if not isinstance(documents, list):
             raise HTTPException(
