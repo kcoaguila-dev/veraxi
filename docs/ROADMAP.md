@@ -101,6 +101,18 @@ builds on this working reliably.
 - [x] Stabilize the `/api/chat` SSE stream for real-time frontend consumption
 - [x] End-to-end testing of the chat feature
 
+## Phase 16 — Accuracy layers: compiler-grade code intelligence 🚧 in progress
+Scoped in ADR-0007 (`docs/adr/0007-compiler-grade-code-intelligence.md`) as
+explicit post-Phase-15 accuracy work during v1.0 polish — not silent scope
+growth. Baseline fixture: `backend/evaluation/code_accuracy.py`
+(call-edge precision 0.7333 / recall 0.6111 before Phase 1).
+- [x] Phase 0 — ADR-0007 + baseline eval fixture with measured precision/recall
+- [x] Phase 1 — Alias fix: assignment aliases + transitive `__init__` re-export resolution in `ingestion/code_graph.py`, with collision tests
+- [ ] Phase 2 — Linters as claims (WP3) — **held in draft PR:** built with ruff/mypy moved to a pinned `lint` extra; merges only when WP5 wires it into the structured review stream
+- [ ] Phase 3 — SCIP spike (Python only, timeboxed, scratch venv) — **gated:** go/no-go against the preset criteria in ADR-0007
+- [ ] Phase 4 — Productionize SCIP generation (local runner / CI only) — **held in draft PR:** repo_key unification + symbol filter built; merges only after the live Neo4j smoke test passes
+- [ ] Phase 5 — Dart + live LSP — deferred, separate ADR/decision
+
 ---
 
-**Currently here:** Phase 15 is complete. We are now in the final polish and bug-bash phase prior to a v1.0 release.
+**Currently here:** Phase 15 is complete. We are now in the final polish and bug-bash phase prior to a v1.0 release. Phase 16 (accuracy layers, ADR-0007) is logged above as explicit scoped work within that polish period; its dependency-gated phases do not start without approval.

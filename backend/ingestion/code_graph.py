@@ -54,7 +54,9 @@ Parsing is deliberately conservative (under-claim):
   module-level function defined in the same file or a symbol brought in
   by a from-import; ``self.``/``cls.`` attribute calls matching a method
   of the enclosing class; or ``alias.func()`` where ``alias`` is an
-  imported module. Dynamic calls, calls on arbitrary objects and
+  imported module. Module-level assignment aliases (``public =
+  _private``) and transitive ``__init__`` re-exports resolve to the
+  defining symbol (ADR-0007). Dynamic calls, calls on arbitrary objects and
   unresolved names produce no ``CALLS`` edge.
 * Dart/JS/TS files use conservative regexes for import / require /
   export-from statements and class / function declarations only. No
@@ -251,6 +253,13 @@ class _GraphBuilder:
         # un-reparsed file still gets its target label corrected,
         # exactly as a full parse of the whole tree would correct it.
         self.known_target_labels = dict(known_target_labels or {})
+        # Cross-file symbol aliases (ADR-0007): qualified name a symbol
+        # is *bound* under in some module (a from-imported or
+        # assignment-aliased name, e.g. a package ``__init__``
+        # re-export) -> qualified name it ultimately refers to.
+        # Consulted at build() time so edges recorded against a
+        # re-export name are rewritten to the defining symbol.
+        self.symbol_aliases: dict[str, str] = {}
         # The repo every node/edge in this parse belongs to. Parsers
         # create nodes without a repo identity; the builder stamps
         # this one onto each of them (and onto edges, via their
@@ -282,6 +291,39 @@ class _GraphBuilder:
                 repo_key=source.repo_key,
             )
 
+    def register_symbol_alias(self, alias_qn: str, target_qn: str) -> None:
+        """Record that ``alias_qn`` is a binding for ``target_qn``.
+
+        Used for re-exports and assignment aliases (ADR-0007): the
+        alias name itself has no defining node, so edges aimed at it
+        would otherwise land on a placeholder and impact analysis
+        would report zero callers for the real symbol.
+        """
+        if alias_qn and target_qn and alias_qn != target_qn:
+            self.symbol_aliases.setdefault(alias_qn, target_qn)
+
+    def _resolve_alias_target(self, target_qn: str, parsed_qns: set[str]) -> str:
+        """Follow the alias chain for ``target_qn`` to a parsed symbol.
+
+        Returns ``target_qn`` unchanged when it is itself a parsed
+        symbol (a real definition always wins over an alias binding),
+        when no chain exists, or when the chain does not end at a
+        parsed symbol (external targets keep their placeholder name).
+        """
+        if target_qn in parsed_qns or target_qn not in self.symbol_aliases:
+            return target_qn
+        seen = {target_qn}
+        current = target_qn
+        while current in self.symbol_aliases:
+            nxt = self.symbol_aliases[current]
+            if nxt in seen:
+                return target_qn
+            seen.add(nxt)
+            current = nxt
+            if current in parsed_qns:
+                return current
+        return target_qn
+
     def build(self) -> CodeGraph:
         # A qualified name identifies one symbol regardless of label;
         # when the target was parsed, correct the edge's target label
@@ -292,19 +334,38 @@ class _GraphBuilder:
             **self.known_target_labels,
             **{node.qualified_name: node.label for node in self.nodes.values()},
         }
+        parsed_qns = set(label_by_qn)
         edges = []
+        seen_edges: set[tuple[str, str, str, str, str]] = set()
         for edge in self.edges.values():
-            parsed_label = label_by_qn.get(edge.target_qn)
-            if parsed_label is not None and parsed_label != edge.target_label:
+            target_qn = edge.target_qn
+            if edge.type in ("CALLS", "INHERITS", "REFERENCES"):
+                target_qn = self._resolve_alias_target(target_qn, parsed_qns)
+            parsed_label = label_by_qn.get(target_qn)
+            target_label = edge.target_label
+            if parsed_label is not None:
+                target_label = parsed_label
+            if target_qn != edge.target_qn or target_label != edge.target_label:
                 edge = CodeEdge(
                     type=edge.type,
                     source_qn=edge.source_qn,
                     source_label=edge.source_label,
-                    target_qn=edge.target_qn,
-                    target_label=parsed_label,
+                    target_qn=target_qn,
+                    target_label=target_label,
                     repo_key=edge.repo_key,
                 )
-            edges.append(edge)
+            # Alias rewriting can make two recorded edges identical
+            # (a caller using both the alias and the real name).
+            edge_key = (
+                edge.type,
+                edge.source_label,
+                edge.source_qn,
+                edge.target_label,
+                edge.target_qn,
+            )
+            if edge_key not in seen_edges:
+                seen_edges.add(edge_key)
+                edges.append(edge)
         return CodeGraph(nodes=list(self.nodes.values()), edges=edges)
 
 
@@ -419,6 +480,9 @@ class _PythonFileParser:
         self.imported_symbols: dict[str, str] = {}
         # alias -> module qualified name for `import x.y as alias`
         self.module_aliases: dict[str, str] = {}
+        # simple name -> (qualified target, label) for module-level
+        # assignment aliases: `public = _private`, `alias = imported`
+        self.assignment_aliases: dict[str, tuple[str, str]] = {}
         self.module_defs: dict[str, tuple[str, str]] = {}
         self.class_methods: dict[str, set[str]] = {}
 
@@ -429,6 +493,8 @@ class _PythonFileParser:
         if name in self.module_defs:
             suffix, label = self.module_defs[name]
             return f"{self.module_qn}.{suffix}", label
+        if name in self.assignment_aliases:
+            return self.assignment_aliases[name]
         if name in self.imported_symbols:
             # Label is a guess here ("Function"); _GraphBuilder.build()
             # corrects it to the parsed node's label when the target
@@ -474,8 +540,63 @@ class _PythonFileParser:
             tree, self.module_qn
         )
         self._collect_imports(tree)
+        self._collect_assignment_aliases(tree)
         for node in tree.body:
             self._visit_top_level(node)
+
+    # -- assignment aliases --------------------------------------------
+
+    def _alias_value_target(self, value: ast.expr) -> tuple[str, str] | None:
+        """Resolve the right-hand side of an assignment alias, if simple."""
+        if isinstance(value, ast.Name):
+            if value.id in self.assignment_aliases:
+                return self.assignment_aliases[value.id]
+            return self._resolve_name(value.id)
+        if isinstance(value, ast.Attribute) and isinstance(value.value, ast.Name):
+            alias = value.value.id
+            if alias in self.module_aliases:
+                return f"{self.module_aliases[alias]}.{value.attr}", "Function"
+        return None
+
+    def _collect_assignment_aliases(self, tree: ast.Module) -> None:
+        """Record module-level `name = <resolvable symbol>` bindings.
+
+        Iterated to a fixpoint so chained aliases (`b = a` after
+        `a = imported`) resolve regardless of statement order. Each
+        binding is also registered with the builder under this
+        module's qualified name, which is what makes an assignment in
+        a package ``__init__`` act as a re-export for other modules.
+        """
+        pending: list[tuple[str, ast.expr]] = []
+        for node in tree.body:
+            if isinstance(node, ast.Assign) and len(node.targets) == 1:
+                target = node.targets[0]
+                if isinstance(target, ast.Name):
+                    pending.append((target.id, node.value))
+            elif (
+                isinstance(node, ast.AnnAssign)
+                and node.value is not None
+                and isinstance(node.target, ast.Name)
+            ):
+                pending.append((node.target.id, node.value))
+        changed = True
+        while changed:
+            changed = False
+            remaining: list[tuple[str, ast.expr]] = []
+            for name, value in pending:
+                if name in self.assignment_aliases or name in self.module_defs:
+                    continue
+                resolved = self._alias_value_target(value)
+                if resolved is None:
+                    remaining.append((name, value))
+                    continue
+                self.assignment_aliases[name] = resolved
+                if self.module_qn:
+                    self.builder.register_symbol_alias(
+                        f"{self.module_qn}.{name}", resolved[0]
+                    )
+                changed = True
+            pending = remaining
 
     def _collect_imports(self, tree: ast.Module) -> None:
         for node in ast.walk(tree):
@@ -504,16 +625,27 @@ class _PythonFileParser:
         for alias in node.names:
             if alias.name == "*":
                 continue
-            self.imported_symbols[alias.asname or alias.name] = (
-                f"{target_module}.{alias.name}"
-            )
+            local_name = alias.asname or alias.name
+            self.imported_symbols[local_name] = f"{target_module}.{alias.name}"
+            # A from-import binds the symbol in this module's namespace,
+            # so other modules may reach it through this module (the
+            # `__init__` re-export pattern). Register the binding so
+            # build() can rewrite edges aimed at the re-export name.
+            if self.module_qn:
+                self.builder.register_symbol_alias(
+                    f"{self.module_qn}.{local_name}",
+                    f"{target_module}.{alias.name}",
+                )
 
     def _import_from_target(self, node: ast.ImportFrom) -> str:
         if node.level:
             package_parts = self.module_qn.split(".")
             # For a package __init__ the module qn IS the package; for a
             # plain module the package is its parent.
-            keep = len(package_parts) - node.level
+            if Path(self.relative_path).name == "__init__.py":
+                keep = len(package_parts) - node.level + 1
+            else:
+                keep = len(package_parts) - node.level
             base = package_parts[:keep] if keep > 0 else []
             if node.module:
                 base = base + node.module.split(".")
