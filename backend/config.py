@@ -149,6 +149,11 @@ class Config:
     reranker_enabled: bool = True
     reranker_model_name: str = "Xenova/ms-marco-MiniLM-L-6-v2"
     near_duplicate_threshold: float = 0.75
+    # Linters as claims (ADR-0007 Phase 2): ruff/mypy findings on
+    # changed files, ingested through the SARIF path. Off by default;
+    # running untrusted-repo code through linters stays opt-in.
+    lint_findings_enabled: bool = False
+    lint_timeout_sec: int = 60
     # External ACP Agent Runtimes (e.g. Google Antigravity CLI `agy acp`)
     acp_enabled: bool = False
     antigravity_acp_bin: str = "agy"
@@ -408,6 +413,11 @@ class Config:
             near_duplicate_threshold=float(
                 os.environ.get("NEAR_DUPLICATE_THRESHOLD", "0.75")
             ),
+            lint_findings_enabled=os.environ.get(
+                "LINT_FINDINGS_ENABLED", "false"
+            ).lower()
+            == "true",
+            lint_timeout_sec=int(os.environ.get("LINT_TIMEOUT_SEC", "60")),
             acp_enabled=os.environ.get("ACP_ENABLED", "false").lower() == "true",
             antigravity_acp_bin=os.environ.get("ANTIGRAVITY_ACP_BIN", "agy"),
             antigravity_data_dir=os.environ.get("ANTIGRAVITY_DATA_DIR", ""),

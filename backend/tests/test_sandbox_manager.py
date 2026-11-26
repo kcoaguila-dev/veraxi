@@ -695,3 +695,10 @@ class TestSandboxPolicyHardening:
         assert classify_command("find . -name '*.py'") == "read_only"
         assert requires_approval("auto_workspace_writes", "ln -s /etc/passwd leak") is True
         assert requires_approval("auto_workspace_writes", "cp a --target-directory=/etc") is True
+
+        # Read-only linters (ruff check / mypy) vs mutating flags.
+        assert classify_command("ruff check --output-format sarif a.py") == "read_only"
+        assert classify_command("ruff check --fix a.py") == "mutating"
+        assert classify_command("ruff format a.py") == "mutating"
+        assert classify_command("mypy --output json a.py") == "read_only"
+        assert classify_command("mypy --install-types a.py") == "mutating"

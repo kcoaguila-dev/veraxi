@@ -7703,6 +7703,10 @@ full = [
     { name = "playwright" },
     { name = "stripe" },
 ]
+lint = [
+    { name = "mypy" },
+    { name = "ruff" },
+]
 ocr = [
     { name = "docling" },
 ]
@@ -7753,6 +7757,7 @@ requires-dist = [
     { name = "mcp-types", specifier = ">=2.3.0" },
     { name = "modal" },
     { name = "mypy", marker = "extra == 'dev'", specifier = "==2.4.1" },
+    { name = "mypy", marker = "extra == 'lint'", specifier = "==2.4.1" },
     { name = "neo4j" },
     { name = "openai" },
     { name = "openpyxl" },
@@ -7775,6 +7780,7 @@ requires-dist = [
     { name = "qdrant-client" },
     { name = "redis" },
     { name = "ruff", marker = "extra == 'dev'", specifier = "==0.17.6" },
+    { name = "ruff", marker = "extra == 'lint'", specifier = "==0.17.6" },
     { name = "sentry-sdk", extras = ["fastapi"] },
     { name = "slowapi" },
     { name = "spacy" },
@@ -7788,7 +7794,7 @@ requires-dist = [
     { name = "uvicorn", specifier = ">=0.54.0" },
     { name = "weasyprint" },
 ]
-provides-extras = ["ocr", "browser", "full", "studio", "enterprise", "dev", "eval"]
+provides-extras = ["lint", "ocr", "browser", "full", "studio", "enterprise", "dev", "eval"]
 
 [package.metadata.requires-dev]
 dev = [
