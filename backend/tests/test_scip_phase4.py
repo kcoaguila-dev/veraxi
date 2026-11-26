@@ -323,6 +323,66 @@ class TestArchitecturalFilter:
         assert refs == {("pkg/mod.py::Greeter#greet().", "pkg/mod.py::helper().")}
 
 
+# Same shape as _MIXED_PAYLOAD but as a real indexer emits it: kinds
+# are enum ints, not strings (``scip print --json``), so the
+# string-kind filter cannot see the parameter at all. Also carries a
+# parameter that exists only as a definition occurrence (never listed
+# in symbols[]) and a type parameter. Measured motivation: on real
+# scip-python 0.6.8 output the pre-fix filter let parameters through
+# and node counts landed at ~1.01x the payload symbol count.
+_REAL_SHAPE_PAYLOAD = {
+    "metadata": {"project_root": "demo-repo"},
+    "documents": [
+        {
+            "relative_path": "pkg/mod.py",
+            "language": "python",
+            "symbols": [
+                {"symbol": "scip-python python demo 1.0 `pkg/mod.py`Greeter#", "kind": 9, "display_name": "Greeter"},
+                {"symbol": "scip-python python demo 1.0 `pkg/mod.py`Greeter#greet().", "kind": 30, "display_name": "greet"},
+                {"symbol": "scip-python python demo 1.0 `pkg/mod.py`helper().", "kind": 22, "display_name": "helper"},
+                {"symbol": "scip-python python demo 1.0 `pkg/mod.py`MAX_RETRIES.", "kind": 10, "display_name": "MAX_RETRIES"},
+                {"symbol": "scip-python python demo 1.0 `pkg/mod.py`Greeter#greet().(text)", "kind": 38, "display_name": "text"},
+                {"symbol": "scip-python python demo 1.0 `pkg/mod.py`Greeter#[T]", "kind": 54, "display_name": "T"},
+            ],
+            "occurrences": [
+                {"range": [0, 6, 13], "symbol": "scip-python python demo 1.0 `pkg/mod.py`Greeter#", "symbol_roles": 1, "enclosing_range": [0, 0, 5, 20]},
+                {"range": [1, 8, 13], "symbol": "scip-python python demo 1.0 `pkg/mod.py`Greeter#greet().", "symbol_roles": 1, "enclosing_range": [1, 4, 3, 30]},
+                {"range": [2, 15, 21], "symbol": "scip-python python demo 1.0 `pkg/mod.py`helper().", "symbol_roles": 8, "enclosing_range": [1, 4, 3, 30]},
+                {"range": [6, 4, 10], "symbol": "scip-python python demo 1.0 `pkg/mod.py`helper().", "symbol_roles": 1, "enclosing_range": [6, 0, 7, 20]},
+                {"range": [8, 0, 11], "symbol": "scip-python python demo 1.0 `pkg/mod.py`MAX_RETRIES.", "symbol_roles": 1},
+                {"range": [1, 20, 24], "symbol": "scip-python python demo 1.0 `pkg/mod.py`Greeter#greet().(text)", "symbol_roles": 1},
+                {"range": [2, 22, 26], "symbol": "scip-python python demo 1.0 `pkg/mod.py`Greeter#greet().(text)", "symbol_roles": 8, "enclosing_range": [1, 4, 3, 30]},
+                {"range": [6, 11, 16], "symbol": "scip-python python demo 1.0 `pkg/mod.py`helper().(shout)", "symbol_roles": 1},
+            ],
+        }
+    ],
+}
+
+
+class TestArchitecturalFilterRealPayloadShapes:
+    def test_enum_int_kinds_still_filter_parameters(self):
+        graph = parse_scip_payload(copy.deepcopy(_REAL_SHAPE_PAYLOAD))
+        # CodeFile + Class + Method + Function + Constant; the
+        # parameter, the type parameter and the occurrence-only
+        # parameter are all filtered despite their non-string kinds.
+        assert len(graph.nodes) == 5
+        assert len(graph.edges) == 5
+
+    def test_enum_int_kinds_keep_architectural_symbols(self):
+        graph = parse_scip_payload(copy.deepcopy(_REAL_SHAPE_PAYLOAD))
+        qns = {n.qualified_name for n in graph.nodes}
+        assert "pkg/mod.py::Greeter#" in qns
+        assert "pkg/mod.py::Greeter#greet()." in qns
+        assert "pkg/mod.py::helper()." in qns
+        assert "pkg/mod.py::MAX_RETRIES." in qns
+        assert not any("(text)" in q or "(shout)" in q or "[T]" in q for q in qns)
+
+    def test_reference_to_enum_kind_parameter_produces_no_edge(self):
+        graph = parse_scip_payload(copy.deepcopy(_REAL_SHAPE_PAYLOAD))
+        refs = {(e.source_qn, e.target_qn) for e in graph.edges if e.type == "REFERENCES"}
+        assert refs == {("pkg/mod.py::Greeter#greet().", "pkg/mod.py::helper().")}
+
+
 class TestRepoKeyPartition:
     def test_explicit_repo_key_wins_over_project_root(self):
         client = FakeNeo4jClient()

@@ -161,11 +161,28 @@ _NON_ARCHITECTURAL_KINDS = {
 }
 
 
+# Terminal descriptors that mark a symbol as non-architectural from
+# its string alone: a parameter descriptor ``(name)`` after its parent
+# callable (``greet().(text)``) and a type-parameter descriptor
+# ``[name]`` after its parent (``Greeter#[T]``). Real indexes do not
+# reliably report ``kind`` as a string (``scip print --json`` carries
+# enum values), so the string-kind check below cannot see parameters
+# in real payloads — measured on scip-python 0.6.8 output, where the
+# filter let parameters through and node counts came out at ~1.01x
+# the payload symbol count instead of below it. The descriptor check
+# is representation-independent, and it also covers symbols
+# synthesized from definition occurrences, which carry no kind at all.
+_TERMINAL_NON_ARCHITECTURAL_RE = re.compile(r"\.\([^()]+\)$|\[[^\[\]]+\]$")
+
+
 def _is_architectural_symbol(symbol: str, kind: Any) -> bool:
     """True when a SCIP symbol belongs in the structural graph."""
     if not symbol or symbol.startswith("local "):
         return False
-    if not descriptor_path(symbol):
+    path = descriptor_path(symbol)
+    if not path:
+        return False
+    if _TERMINAL_NON_ARCHITECTURAL_RE.search(path):
         return False
     if isinstance(kind, str):
         normalized = kind.replace("_", "").replace(" ", "").lower()
