@@ -906,18 +906,23 @@ def _execute_single_tool(
     elif tool_name == "web_browser":
         from backend.config import get_config
         from backend.mcp_server.orchestrator import (
-            _create_chat_llm,
             _request_api_key,
             _request_base_url,
             _request_model,
         )
-        from backend.mcp_server.tools.web_browser import mcp_web_browser
+        from backend.mcp_server.tools.web_browser import (
+            build_browser_llm,
+            mcp_web_browser,
+        )
 
         config = get_config()
         effective_model = _request_model.get() or config.llm_model_name
         effective_api_key = _request_api_key.get() or config.llm_api_key
         effective_base_url = _request_base_url.get() or None
-        llm = _create_chat_llm(effective_model, effective_api_key, effective_base_url)
+        # browser-use 1.0 rejects LangChain chat models, so the browser tool
+        # gets a native browser_use.llm model built from the same settings
+        # _create_chat_llm would route through LiteLLM.
+        llm = build_browser_llm(effective_model, effective_api_key, effective_base_url)
 
         # We need to run the async web browser tool here but this method is called within a threadpool by loop.run_in_executor
         # So we can safely use asyncio.run
