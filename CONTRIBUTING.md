@@ -78,3 +78,11 @@ Veraxi follows strict architectural boundaries that **must** be adhered to:
 
 - Keep PRs scoped to one concern where possible.
 - Make sure tests pass locally before opening a PR.
+- **Show that it works.** Fill in the PR template's Verification section: say
+  how you found the bug (or what the feature changes), which commands or
+  manual checks you ran, and what you actually saw. "Tests pass" is not
+  evidence. UI changes need before/after screenshots, uploaded to the PR —
+  do not commit PR-only assets. State plainly anything you could not check.
+  If an AI agent did the work, say so at the end of the PR body, naming the
+  model and harness. (This rule, and the template's shape, are adapted from
+  T3 Code's contributor rules — see `docs/agent-workflow.md`.)
