@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import shutil
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -180,15 +181,18 @@ class LspSidecarManager:
             session.reader_task = asyncio.create_task(self._reader_loop(session))
             self._sessions[key] = session
 
-        await self._rpc(
-            session,
-            "initialize",
-            {
-                "processId": None,
-                "rootUri": self.repo.as_uri(),
-                "capabilities": {},
-            },
-        )
+        init_params: dict[str, Any] = {
+            "processId": None,
+            "rootUri": self.repo.as_uri(),
+            "capabilities": {},
+        }
+        if lang == "typescript":
+            tsc_bin = shutil.which("tsc")
+            if tsc_bin:
+                tsserver_js = Path(tsc_bin).resolve().parent.parent / "lib" / "tsserver.js"
+                if tsserver_js.is_file():
+                    init_params["initializationOptions"] = {"tsserver": {"path": str(tsserver_js)}}
+        await self._rpc(session, "initialize", init_params)
         await self._send(session, {"jsonrpc": "2.0", "method": "initialized", "params": {}})
         return {"language": lang, "status": "running", "pid": getattr(proc, "pid", None)}
 
