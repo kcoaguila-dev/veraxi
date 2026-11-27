@@ -39,17 +39,12 @@ updates:
         exclude-patterns:
           - "objectbox*"
     # objectbox 6.x (incl. 6.0.0-rc.1) and sqlite3_flutter_libs >= 0.6.0
-    # were pulled into a "minor-and-patch" bundle even though both are
-    # breaking, intentional post-v1.0 migrations. Dependabot's pub
-    # resolver did not match `6.0.0-rc.1` against `>=6.0.0-0`, so use
-    # `>=5.99.0` with explicit package names.
+    # are breaking, intentional post-v1.0 migrations. Ignore all
+    # objectbox* updates until the 6.x migration is scheduled.
     ignore:
       - dependency-name: "objectbox"
-        versions: [">=5.99.0"]
       - dependency-name: "objectbox_flutter_libs"
-        versions: [">=5.99.0"]
       - dependency-name: "objectbox_generator"
-        versions: [">=5.99.0"]
       - dependency-name: "sqlite3_flutter_libs"
         versions: [">=0.6.0"]
 
