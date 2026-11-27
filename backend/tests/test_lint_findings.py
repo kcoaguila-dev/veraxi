@@ -136,12 +136,14 @@ class TestCollectFindings:
         assert parsed[0]["tool"] == "mypy"
         assert parsed[0]["rule_id"] == "return-value"
 
-    def test_non_python_files_skipped(self, tmp_path):
+    def test_unsupported_files_skipped(self, tmp_path):
         def exploding_runner(argv, **_kwargs):  # pragma: no cover
             raise AssertionError("runner must not be called")
 
         assert (
-            collect_lint_findings(["app.ts"], root=tmp_path, runner=exploding_runner)
+            collect_lint_findings(
+                ["README.md", "logo.png"], root=tmp_path, runner=exploding_runner
+            )
             == []
         )
 
@@ -363,3 +365,121 @@ def test_real_tools_end_to_end(tmp_path):
     tools = {f["tool"] for f in findings}
     assert "ruff" in tools  # F401 unused import of os
     assert any(f["rule_id"] == "F401" for f in findings)
+
+
+class TestLanguageAgnosticLinters:
+    def test_dart_analyze_json_converted_to_sarif_findings(self, tmp_path):
+        dart_payload = {
+            "version": 1,
+            "diagnostics": [
+                {
+                    "code": "unused_import",
+                    "severity": "WARNING",
+                    "type": "STATIC_WARNING",
+                    "location": {
+                        "file": str(tmp_path / "lib/main.dart"),
+                        "range": {
+                            "start": {"line": 2, "column": 8},
+                            "end": {"line": 2, "column": 24},
+                        },
+                    },
+                    "problemMessage": "Unused import: 'dart:math'.",
+                },
+                {
+                    "code": "invalid_assignment",
+                    "severity": "ERROR",
+                    "type": "COMPILE_TIME_ERROR",
+                    "location": {
+                        "file": str(tmp_path / "lib/main.dart"),
+                        "range": {
+                            "start": {"line": 5, "column": 11},
+                            "end": {"line": 5, "column": 15},
+                        },
+                    },
+                    "problemMessage": "A value of type 'String' can't be assigned to 'int'.",
+                },
+            ],
+        }
+
+        def run(argv, **_kwargs):
+            assert argv[:3] == ["dart", "analyze", "--format"]
+            return _completed(argv, stdout=json.dumps(dart_payload), returncode=3)
+
+        findings = collect_lint_findings(["lib/main.dart"], root=tmp_path, runner=run)
+        assert len(findings) == 2
+        assert findings[0]["tool"] == "dart"
+        assert findings[0]["rule_id"] == "unused_import"
+        assert findings[0]["category"] == "unused-import"
+        assert findings[0]["severity"] == "MEDIUM"
+        assert findings[0]["path"] == "lib/main.dart"
+        assert findings[0]["line"] == 2
+        assert findings[1]["rule_id"] == "invalid_assignment"
+        assert findings[1]["category"] == "type-error"
+        assert findings[1]["severity"] == "HIGH"
+
+    def test_eslint_json_converted_to_sarif_findings(self, tmp_path):
+        eslint_payload = [
+            {
+                "filePath": str(tmp_path / "src/app.ts"),
+                "messages": [
+                    {
+                        "ruleId": "no-unused-vars",
+                        "severity": 1,
+                        "message": "'x' is assigned a value but never used.",
+                        "line": 7,
+                        "endLine": 7,
+                    }
+                ],
+            }
+        ]
+
+        def run(argv, **_kwargs):
+            assert argv[:3] == ["eslint", "--format", "json"]
+            return _completed(argv, stdout=json.dumps(eslint_payload), returncode=1)
+
+        findings = collect_lint_findings(["src/app.ts"], root=tmp_path, runner=run)
+        assert len(findings) == 1
+        assert findings[0]["tool"] == "eslint"
+        assert findings[0]["rule_id"] == "no-unused-vars"
+        assert findings[0]["category"] == "unused-variable"
+        assert findings[0]["severity"] == "MEDIUM"
+        assert findings[0]["path"] == "src/app.ts"
+        assert findings[0]["line"] == 7
+
+    def test_missing_optional_non_python_tool_degrades_gracefully(self, tmp_path, sentry_calls):
+        def run(argv, **_kwargs):
+            raise FileNotFoundError(argv[0])
+
+        findings = collect_lint_findings(
+            ["lib/main.dart", "src/app.ts"], root=tmp_path, runner=run
+        )
+        assert findings == []
+        assert sentry_calls == []
+
+    def test_dedupe_works_for_dart_findings(self):
+        findings = [
+            {
+                "tool": "dart",
+                "rule_id": "unused_import",
+                "category": "unused-import",
+                "path": "lib/main.dart",
+                "line": 2,
+                "end_line": 2,
+            }
+        ]
+        comments = [
+            {
+                "path": "lib/main.dart",
+                "line": 2,
+                "category": "unused-import",
+                "body": "Remove unused import.",
+            }
+        ]
+        kept, dropped = dedupe_review_comments(comments, findings)
+        assert kept == []
+        assert len(dropped) == 1
+
+    def test_rule_category_supports_dart_and_eslint(self):
+        assert rule_category("dart", "unused_import") == "unused-import"
+        assert rule_category("dart", "invalid_assignment") == "type-error"
+        assert rule_category("eslint", "@typescript-eslint/no-unused-vars") == "unused-variable"
