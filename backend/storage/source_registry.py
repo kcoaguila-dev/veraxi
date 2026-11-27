@@ -319,8 +319,9 @@ def _target_collections(collection_name: str) -> list[str]:
 
     collections = [collection_name]
     try:
-        code_col = getattr(get_config(), "code_qdrant_collection_name", "")
-        if code_col and code_col not in collections:
+        cfg = get_config()
+        code_col = getattr(cfg, "code_qdrant_collection_name", "")
+        if getattr(cfg, "code_embedding_model_name", "") and code_col and code_col not in collections:
             collections.append(code_col)
     except Exception as exc:
         logger.debug("Skipping code collection lookup: %s", exc)

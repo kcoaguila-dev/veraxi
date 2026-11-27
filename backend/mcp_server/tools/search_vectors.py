@@ -15,18 +15,27 @@ _EMBED_EXECUTOR = ThreadPoolExecutor(
 )
 
 
+def _embed_dense_and_sparse(query_text: str, dense_fn):
+    future_dense = _EMBED_EXECUTOR.submit(dense_fn, query_text)
+    future_sparse = _EMBED_EXECUTOR.submit(embed_text_sparse, query_text)
+    try:
+        query_vector = future_dense.result()
+    except Exception:
+        future_sparse.cancel()
+        raise
+    sparse_query_vector = future_sparse.result()
+    return query_vector, sparse_query_vector
+
+
 def _search_collection(
     qdrant_client: QdrantStorageClient,
     collection_name: str,
-    query_text: str,
-    dense_fn,
+    query_vector,
     sparse_query_vector,
     limit: int,
     tenant_id: str,
     source_scope: dict | None,
 ) -> list[VectorHit]:
-    future_dense = _EMBED_EXECUTOR.submit(dense_fn, query_text)
-    query_vector = future_dense.result()
     results = qdrant_client.search_hybrid(
         collection_name=collection_name,
         query_vector=query_vector,
@@ -63,26 +72,24 @@ def search_vectors(
     has_repo_scope = bool(repo_keys) or has_legacy_repos
     code_model_enabled = bool(getattr(config, "code_embedding_model_name", ""))
 
-    sparse_query_vector = _EMBED_EXECUTOR.submit(embed_text_sparse, query_text).result()
-
     if code_model_enabled and has_repo_scope:
+        q_vec, s_vec = _embed_dense_and_sparse(query_text, embed_code_text)
         return _search_collection(
             qdrant_client,
             config.code_qdrant_collection_name,
-            query_text,
-            embed_code_text,
-            sparse_query_vector,
+            q_vec,
+            s_vec,
             limit,
             tenant_id,
             source_scope,
         )
 
+    q_vec, s_vec = _embed_dense_and_sparse(query_text, embed_text)
     hits = _search_collection(
         qdrant_client,
         config.qdrant_collection_name,
-        query_text,
-        embed_text,
-        sparse_query_vector,
+        q_vec,
+        s_vec,
         limit,
         tenant_id,
         source_scope,
@@ -90,12 +97,12 @@ def search_vectors(
 
     if code_model_enabled and not source_ids:
         try:
+            code_vec = _EMBED_EXECUTOR.submit(embed_code_text, query_text).result()
             code_hits = _search_collection(
                 qdrant_client,
                 config.code_qdrant_collection_name,
-                query_text,
-                embed_code_text,
-                sparse_query_vector,
+                code_vec,
+                s_vec,
                 limit,
                 tenant_id,
                 source_scope,
