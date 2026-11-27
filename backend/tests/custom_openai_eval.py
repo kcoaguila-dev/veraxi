@@ -1,44 +1,8 @@
-from deepeval.models.base_model import DeepEvalBaseLLM
-from openai import AsyncOpenAI, OpenAI
+"""Backward-compatibility re-export of OpenAIDeepEvalModel.
 
-from backend.config import get_config
+Single source of truth lives in ``backend/evaluation/deepeval_model.py``.
+"""
 
+from backend.evaluation.deepeval_model import OpenAIDeepEvalModel
 
-class OpenAIDeepEvalModel(DeepEvalBaseLLM):
-    """
-    Custom DeepEval Judge that uses the openai SDK
-    to evaluate metrics using the configured model.
-    """
-
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.config = get_config()
-
-        client_args = self.config.get_llm_client_args()
-
-        self.client = OpenAI(**client_args)
-        self.async_client = AsyncOpenAI(**client_args)
-        self.model_name = self.config.llm_model_name
-
-    def load_model(self):
-        return self.client
-
-    def generate(self, prompt: str) -> str:
-        response = self.client.chat.completions.create(
-            model=self.model_name,
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.0,
-        )
-        return response.choices[0].message.content
-
-    async def a_generate(self, prompt: str) -> str:
-        # DeepEval uses async for parallel evaluations.
-        response = await self.async_client.chat.completions.create(
-            model=self.model_name,
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.0,
-        )
-        return response.choices[0].message.content
-
-    def get_model_name(self):
-        return self.model_name
+__all__ = ["OpenAIDeepEvalModel"]

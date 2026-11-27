@@ -26,23 +26,28 @@ def generate_multihop(num_samples: int):
     corpus_paragraphs = []
     evaluation_dataset = []
 
-    for item in samples:
+    for idx, item in enumerate(samples):
         question = item["query"]
         answer = item["answer"]
         evidence_list = item.get("evidence_list", [])
+        evidence_texts: list[str] = []
 
         for evidence in evidence_list:
             title = evidence.get("title", "Unknown Title")
             fact = evidence.get("fact", "")
             if fact:
                 full_paragraph = f"{title}: {fact}"
+                evidence_texts.append(full_paragraph)
                 if full_paragraph not in corpus_paragraphs:
                     corpus_paragraphs.append(full_paragraph)
 
         evaluation_dataset.append(
             {
+                "id": f"multihop-{idx:04d}",
+                "question_type": item.get("question_type", "multi_hop"),
                 "query": question,
                 "expected_answer": answer,
+                "evidence": evidence_texts,
             }
         )
 
@@ -86,22 +91,26 @@ def generate_graphrag_bench(num_samples: int):
     corpus_paragraphs = []
     evaluation_dataset = []
 
-    for item in samples:
+    for idx, item in enumerate(samples):
         question = item["question"]
         answer = item["answer"]
 
         evidence = item.get("evidence", [])
         if isinstance(evidence, str):
             evidence = [evidence]
+        evidence_texts = [e for e in evidence if isinstance(e, str) and e]
 
-        for e in evidence:
-            if e and e not in corpus_paragraphs:
+        for e in evidence_texts:
+            if e not in corpus_paragraphs:
                 corpus_paragraphs.append(e)
 
         evaluation_dataset.append(
             {
+                "id": str(item.get("id") or f"graphrag-{idx:04d}"),
+                "question_type": str(item.get("question_type") or "unknown"),
                 "query": question,
                 "expected_answer": answer,
+                "evidence": evidence_texts,
             }
         )
 

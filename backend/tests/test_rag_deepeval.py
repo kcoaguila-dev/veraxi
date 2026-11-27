@@ -35,11 +35,22 @@ def get_test_cases():
     return dataset
 
 
+def _has_real_eval_llm() -> bool:
+    has_gemini = (
+        os.environ.get("GEMINI_API_KEY", "test_gemini_key") != "test_gemini_key"
+    )
+    has_local_llm = bool(
+        os.environ.get("LLM_BASE_URL", "").strip()
+        or os.environ.get("JUDGE_LLM_BASE_URL", "").strip()
+    )
+    return has_gemini or has_local_llm
+
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize("item", get_test_cases())
 @pytest.mark.skipif(
-    os.environ.get("GEMINI_API_KEY", "test_gemini_key") == "test_gemini_key",
-    reason="Needs real GEMINI_API_KEY",
+    not _has_real_eval_llm(),
+    reason="Needs real GEMINI_API_KEY or local LLM_BASE_URL / JUDGE_LLM_BASE_URL",
 )
 async def test_rag_pipeline(item, patch_env):
     """
