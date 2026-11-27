@@ -271,6 +271,10 @@ class _GraphBuilder:
         # Consulted at build() time so edges recorded against a
         # re-export name are rewritten to the defining symbol.
         self.symbol_aliases: dict[str, str] = {}
+        # Per-file Dart AST metadata for cross-file import/inherit/call
+        # resolution (ADR-0008). Empty when no Dart files are parsed.
+        self.dart_contexts: dict[str, _DartFileContext] = {}
+        self.dart_package_roots: dict[str, str] = {}
         # The repo every node/edge in this parse belongs to. Parsers
         # create nodes without a repo identity; the builder stamps
         # this one onto each of them (and onto edges, via their
@@ -336,6 +340,8 @@ class _GraphBuilder:
         return target_qn
 
     def build(self) -> CodeGraph:
+        if self.dart_contexts:
+            _resolve_dart_builder(self)
         # A qualified name identifies one symbol regardless of label;
         # when the target was parsed, correct the edge's target label
         # to the parsed node's label (e.g. a call to an imported class).
@@ -796,6 +802,8 @@ _TS_CLASS_TYPES = {
     "struct_specifier",
     "enum_item",
     "trait_item",
+    "mixin_declaration",
+    "extension_declaration",
     "class",
     "module",
 }
@@ -806,6 +814,7 @@ _TS_FUNC_TYPES = {
     "method_definition",
     "function_item",
     "function_signature",
+    "method_signature",
     "method",
 }
 _TS_IMPORT_TYPES = {
@@ -813,6 +822,8 @@ _TS_IMPORT_TYPES = {
     "import_declaration",
     "import_spec",
     "import_or_export",
+    "part_directive",
+    "part_of_directive",
     "use_declaration",
     "preproc_include",
     "using_directive",
@@ -835,6 +846,13 @@ def _ts_node_text(node: Any, source: bytes) -> str:
 
 
 def _ts_child_name(node: Any, source: bytes) -> str | None:
+    if node.type == "method_signature":
+        for child in node.children:
+            if child.type in ("function_signature", "factory_constructor_signature", "getter_signature", "setter_signature"):
+                return _ts_child_name(child, source)
+    if node.type == "factory_constructor_signature":
+        ids = [_ts_node_text(c, source).strip() for c in node.children if c.type == "identifier"]
+        return ids[-1] if ids else None
     name_node = node.child_by_field_name("name")
     if name_node is not None:
         return _ts_node_text(name_node, source).strip()
@@ -859,13 +877,15 @@ def _ts_extract_superclasses(node: Any, source: bytes) -> list[str]:
             "extends_clause",
             "extends_type_clause",
             "super_interfaces",
+            "mixins",
+            "interfaces",
         ):
             for sub in child.children:
                 if sub.type in ("type_identifier", "identifier"):
                     val = _ts_node_text(sub, source).strip()
                     if val:
                         bases.append(val)
-                elif sub.type in ("extends_clause", "type_identifier"):
+                elif sub.type in ("extends_clause", "type_identifier", "mixins", "interfaces"):
                     bases.extend(_ts_extract_superclasses(sub, source))
     return bases
 
@@ -909,6 +929,317 @@ def _ts_extract_call_target(
     return None
 
 
+@dataclass(frozen=True)
+class _DartDirective:
+    uri: str
+    alias: str | None
+    kind: str  # "import" | "export" | "part" | "part_of"
+
+
+@dataclass(frozen=True)
+class _DartPendingCall:
+    caller: CodeNode
+    enclosing_class_qn: str | None
+    receiver: str | None
+    name: str
+
+
+@dataclass
+class _DartFileContext:
+    relative_path: str
+    module_node: CodeNode
+    directives: list[_DartDirective] = field(default_factory=list)
+    top_defs: dict[str, tuple[str, str]] = field(default_factory=dict)
+    classes: dict[str, str] = field(default_factory=dict)
+    class_methods: dict[str, dict[str, str]] = field(default_factory=dict)
+    pending_calls: list[_DartPendingCall] = field(default_factory=list)
+    pending_inherits: list[tuple[CodeNode, str]] = field(default_factory=list)
+
+
+_DART_PUBSPEC_NAME_RE = re.compile(r"^\s*name\s*:\s*([A-Za-z0-9_]+)\b", re.MULTILINE)
+
+
+def _discover_dart_package_roots(root_path: Path) -> dict[str, str]:
+    """Map Dart package names from ``pubspec.yaml`` to their ``lib`` dir."""
+    roots: dict[str, str] = {}
+    candidates = [root_path / "pubspec.yaml"]
+    try:
+        for entry in root_path.iterdir():
+            if entry.is_dir() and entry.name not in _SKIPPED_DIRS:
+                candidates.append(entry / "pubspec.yaml")
+    except OSError:
+        pass
+    for pubspec in candidates:
+        if not pubspec.is_file():
+            continue
+        try:
+            text = pubspec.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        match = _DART_PUBSPEC_NAME_RE.search(text)
+        if not match:
+            continue
+        pkg_name = match.group(1)
+        rel_dir = pubspec.parent.relative_to(root_path).as_posix()
+        lib_prefix = "lib" if rel_dir == "." else f"{rel_dir}/lib"
+        roots.setdefault(pkg_name, lib_prefix)
+    return roots
+
+
+def _resolve_dart_uri(
+    uri: str,
+    current_rel_path: str,
+    package_roots: dict[str, str],
+    known_paths: set[str],
+) -> str | None:
+    """Resolve a Dart import/export/part URI to a parsed repo-relative path."""
+    if not uri or uri.startswith("dart:"):
+        return None
+    if uri.startswith("package:"):
+        rest = uri[len("package:") :]
+        if "/" not in rest:
+            return None
+        pkg_name, sub_path = rest.split("/", 1)
+        lib_prefix = package_roots.get(pkg_name)
+        if lib_prefix is None:
+            return None
+        candidate = f"{lib_prefix}/{sub_path}"
+        return candidate if candidate in known_paths else None
+    base_dir = Path(current_rel_path).parent
+    joined = (base_dir / uri).as_posix()
+    # Normalize '..' segments lexically
+    parts: list[str] = []
+    for seg in joined.split("/"):
+        if not seg or seg == ".":
+            continue
+        if seg == "..":
+            if not parts:
+                return None
+            parts.pop()
+        else:
+            parts.append(seg)
+    candidate = "/".join(parts)
+    return candidate if candidate in known_paths else None
+
+
+def _dart_extract_directive(node: Any, source: bytes) -> _DartDirective | None:
+    """Extract a Dart import/export/part directive with optional ``as`` alias."""
+    uris = _ts_extract_import_targets(node, source)
+    if not uris:
+        return None
+    uri = uris[0]
+    if node.type == "part_directive":
+        return _DartDirective(uri=uri, alias=None, kind="part")
+    if node.type == "part_of_directive":
+        return _DartDirective(uri=uri, alias=None, kind="part_of")
+    text = _ts_node_text(node, source)
+    kind = "export" if re.search(r"\bexport\b", text) else "import"
+    alias_match = re.search(r"\bas\s+([A-Za-z_]\w*)\b", text)
+    alias = alias_match.group(1) if alias_match else None
+    return _DartDirective(uri=uri, alias=alias, kind=kind)
+
+
+def _dart_is_arg_selector(node: Any) -> bool:
+    return node.type == "selector" and any(c.type == "argument_part" for c in node.children)
+
+
+def _dart_selector_member(node: Any, source: bytes) -> str | None:
+    if node.type != "selector":
+        return None
+    for child in node.children:
+        if child.type in ("unconditional_assignable_selector", "conditional_assignable_selector"):
+            for sub in child.children:
+                if sub.type == "identifier":
+                    return _ts_node_text(sub, source).strip()
+    return None
+
+
+def _dart_collect_calls_in_children(
+    children: list[Any],
+    source: bytes,
+    caller: CodeNode,
+    enclosing_class_qn: str | None,
+    out: list[_DartPendingCall],
+) -> None:
+    """Scan sibling AST nodes for ``id(...)``, ``this.m(...)``, ``recv.fn(...)``."""
+    idx = 0
+    count = len(children)
+    while idx < count:
+        head = children[idx]
+        if head.type in ("identifier", "this") and idx + 1 < count:
+            head_text = "this" if head.type == "this" else _ts_node_text(head, source).strip()
+            nxt = children[idx + 1]
+            if head.type == "identifier" and _dart_is_arg_selector(nxt):
+                if head_text not in _NON_FUNCTION_NAMES:
+                    out.append(_DartPendingCall(caller, enclosing_class_qn, None, head_text))
+                idx += 2
+                continue
+            member = _dart_selector_member(nxt, source)
+            if member and idx + 2 < count and _dart_is_arg_selector(children[idx + 2]):
+                out.append(_DartPendingCall(caller, enclosing_class_qn, head_text, member))
+                idx += 3
+                continue
+        idx += 1
+
+
+def _dart_reachable_files(
+    start_path: str,
+    contexts: dict[str, _DartFileContext],
+    resolved_uris: dict[tuple[str, str], str],
+    *,
+    include_imports: bool = True,
+) -> list[str]:
+    """Return parsed Dart file paths reachable via imports/exports/parts."""
+    visited: set[str] = {start_path}
+    ordered: list[str] = []
+    queue: list[tuple[str, bool]] = [(start_path, True)]
+    while queue:
+        cur_path, allow_imports = queue.pop(0)
+        ctx = contexts.get(cur_path)
+        if ctx is None:
+            continue
+        for directive in ctx.directives:
+            if directive.kind == "import" and not (include_imports and allow_imports):
+                continue
+            target_path = resolved_uris.get((cur_path, directive.uri))
+            if target_path and target_path not in visited:
+                visited.add(target_path)
+                ordered.append(target_path)
+                # Follow transitive exports and parts, not transitive imports.
+                queue.append((target_path, False))
+    return ordered
+
+
+def _dart_find_method(
+    class_qn: str,
+    method_name: str,
+    contexts: dict[str, _DartFileContext],
+    resolved_bases: dict[str, list[str]],
+) -> str | None:
+    """Resolve ``method_name`` on ``class_qn`` or its resolved base classes."""
+    seen: set[str] = set()
+    queue = [class_qn]
+    while queue:
+        cur = queue.pop(0)
+        if cur in seen:
+            continue
+        seen.add(cur)
+        for ctx in contexts.values():
+            methods = ctx.class_methods.get(cur)
+            if methods and method_name in methods:
+                return methods[method_name]
+        queue.extend(resolved_bases.get(cur, ()))
+    return None
+
+
+def _dart_resolve_call(
+    call: _DartPendingCall,
+    ctx: _DartFileContext,
+    contexts: dict[str, _DartFileContext],
+    resolved_uris: dict[tuple[str, str], str],
+    resolved_bases: dict[str, list[str]],
+) -> tuple[str, str] | None:
+    """Resolve one Dart call site conservatively; returns (target_qn, label) or None."""
+    if call.receiver == "this":
+        if not call.enclosing_class_qn:
+            return None
+        target = _dart_find_method(
+            call.enclosing_class_qn, call.name, contexts, resolved_bases
+        )
+        return (target, "Function") if target else None
+
+    if call.receiver is not None:
+        for directive in ctx.directives:
+            if directive.kind == "import" and directive.alias == call.receiver:
+                target_path = resolved_uris.get((ctx.relative_path, directive.uri))
+                if target_path is None:
+                    return None
+                for cand_path in [target_path, *_dart_reachable_files(target_path, contexts, resolved_uris, include_imports=False)]:
+                    cand_ctx = contexts.get(cand_path)
+                    if cand_ctx and call.name in cand_ctx.top_defs:
+                        return cand_ctx.top_defs[call.name]
+                return None
+        # Static / factory call: ClassName.method(...)
+        class_qn = ctx.classes.get(call.receiver)
+        if class_qn is None:
+            for rpath in _dart_reachable_files(ctx.relative_path, contexts, resolved_uris):
+                rctx = contexts.get(rpath)
+                if rctx and call.receiver in rctx.classes:
+                    class_qn = rctx.classes[call.receiver]
+                    break
+        if class_qn:
+            target = _dart_find_method(class_qn, call.name, contexts, resolved_bases)
+            if target:
+                return target, "Function"
+        return None
+
+    # Bare call: enclosing class -> same file -> reachable imported/exported/part files
+    if call.enclosing_class_qn:
+        target = _dart_find_method(
+            call.enclosing_class_qn, call.name, contexts, resolved_bases
+        )
+        if target:
+            return target, "Function"
+    if call.name in ctx.top_defs:
+        return ctx.top_defs[call.name]
+    if call.name in ctx.classes:
+        return ctx.classes[call.name], "Class"
+    for rpath in _dart_reachable_files(ctx.relative_path, contexts, resolved_uris):
+        rctx = contexts.get(rpath)
+        if rctx is None:
+            continue
+        if call.name in rctx.top_defs:
+            return rctx.top_defs[call.name]
+        if call.name in rctx.classes:
+            return rctx.classes[call.name], "Class"
+    return None
+
+
+def _resolve_dart_builder(builder: _GraphBuilder) -> None:
+    """Resolve cross-file Dart IMPORTS, INHERITS, and CALLS in ``builder``."""
+    contexts = builder.dart_contexts
+    known_paths = set(contexts)
+    resolved_uris: dict[tuple[str, str], str] = {}
+    for rel_path, ctx in contexts.items():
+        for directive in ctx.directives:
+            target = _resolve_dart_uri(
+                directive.uri, rel_path, builder.dart_package_roots, known_paths
+            )
+            if target is not None:
+                resolved_uris[(rel_path, directive.uri)] = target
+                if directive.kind in ("import", "export"):
+                    target_mod_qn = contexts[target].module_node.qualified_name
+                    old_key = ("IMPORTS", ctx.module_node.qualified_name, directive.uri)
+                    builder.edges.pop(old_key, None)
+                    builder.add_edge("IMPORTS", ctx.module_node, target_mod_qn, "CodeModule")
+
+    resolved_bases: dict[str, list[str]] = {}
+    for rel_path, ctx in contexts.items():
+        reachable = _dart_reachable_files(rel_path, contexts, resolved_uris)
+        for class_node, base_name in ctx.pending_inherits:
+            base_qn = ctx.classes.get(base_name)
+            if base_qn is None:
+                for rpath in reachable:
+                    rctx = contexts.get(rpath)
+                    if rctx and base_name in rctx.classes:
+                        base_qn = rctx.classes[base_name]
+                        break
+            if base_qn is not None:
+                old_key = ("INHERITS", class_node.qualified_name, base_name)
+                builder.edges.pop(old_key, None)
+                builder.add_edge("INHERITS", class_node, base_qn, "Class")
+                resolved_bases.setdefault(class_node.qualified_name, []).append(base_qn)
+
+    for ctx in contexts.values():
+        for call in ctx.pending_calls:
+            resolved = _dart_resolve_call(
+                call, ctx, contexts, resolved_uris, resolved_bases
+            )
+            if resolved is not None:
+                target_qn, target_label = resolved
+                builder.add_edge("CALLS", call.caller, target_qn, target_label)
+
+
 def _parse_treesitter_file(
     builder: _GraphBuilder,
     module_node: CodeNode,
@@ -930,16 +1261,45 @@ def _parse_treesitter_file(
     defined_funcs: dict[str, str] = {}
     imported_aliases: dict[str, str] = {}
     pending_calls: list[tuple[CodeNode, Any]] = []
+    dart_ctx = (
+        _DartFileContext(relative_path=relative_path, module_node=module_node)
+        if language == "dart"
+        else None
+    )
 
-    def walk(node: Any, container: CodeNode) -> None:
+    def _walk_children(
+        children: list[Any], container: CodeNode, enclosing_class_qn: str | None
+    ) -> None:
+        last_func_node: CodeNode | None = None
+        for child in children:
+            if (
+                dart_ctx is not None
+                and child.type == "function_body"
+                and last_func_node is not None
+            ):
+                walk(child, last_func_node, enclosing_class_qn)
+                last_func_node = None
+                continue
+            last_func_node = walk(child, container, enclosing_class_qn)
+
+    def walk(
+        node: Any, container: CodeNode, enclosing_class_qn: str | None = None
+    ) -> CodeNode | None:
         ntype = node.type
         if ntype in _TS_IMPORT_TYPES:
+            if dart_ctx is not None:
+                directive = _dart_extract_directive(node, source)
+                if directive is not None:
+                    dart_ctx.directives.append(directive)
+                    if directive.kind in ("import", "export"):
+                        builder.add_edge("IMPORTS", module_node, directive.uri, "CodeModule")
+                return None
             for target in _ts_extract_import_targets(node, source):
                 builder.add_edge("IMPORTS", module_node, target, "CodeModule")
                 alias = target.rsplit("/", 1)[-1].rsplit(".", 1)[-1]
                 if alias:
                     imported_aliases[alias] = target
-            return
+            return None
 
         if ntype in _TS_CLASS_TYPES:
             name = _ts_child_name(node, source)
@@ -957,11 +1317,15 @@ def _parse_treesitter_file(
                     )
                 )
                 builder.add_edge("DEFINES", container, class_qn, "Class")
+                if dart_ctx is not None:
+                    dart_ctx.classes[name] = class_qn
+                    dart_ctx.class_methods.setdefault(class_qn, {})
                 for base in _ts_extract_superclasses(node, source):
                     builder.add_edge("INHERITS", class_node, base, "Class")
-                for child in node.children:
-                    walk(child, class_node)
-                return
+                    if dart_ctx is not None:
+                        dart_ctx.pending_inherits.append((class_node, base))
+                _walk_children(node.children, class_node, class_qn)
+                return None
 
         if ntype in _TS_FUNC_TYPES:
             name = _ts_child_name(node, source)
@@ -980,17 +1344,27 @@ def _parse_treesitter_file(
                 )
                 builder.add_edge("DEFINES", container, func_qn, "Function")
                 defined_funcs[name] = func_qn
-                for child in node.children:
-                    walk(child, func_node)
-                return
+                if dart_ctx is not None:
+                    if container.label == "Class":
+                        dart_ctx.class_methods.setdefault(container.qualified_name, {})[name] = func_qn
+                    else:
+                        dart_ctx.top_defs[name] = (func_qn, "Function")
+                _walk_children(node.children, func_node, enclosing_class_qn)
+                return func_node
 
-        if ntype in _TS_CALL_TYPES and container.label == "Function":
+        if dart_ctx is not None and container.label == "Function":
+            _dart_collect_calls_in_children(
+                node.children, source, container, enclosing_class_qn, dart_ctx.pending_calls
+            )
+        elif ntype in _TS_CALL_TYPES and container.label == "Function":
             pending_calls.append((container, node))
 
-        for child in node.children:
-            walk(child, container)
+        _walk_children(node.children, container, enclosing_class_qn)
+        return None
 
-    walk(tree.root_node, module_node)
+    walk(tree.root_node, module_node, None)
+    if dart_ctx is not None:
+        builder.dart_contexts[relative_path] = dart_ctx
     for caller_node, call_node in pending_calls:
         resolved = _ts_extract_call_target(
             call_node, source, defined_funcs, imported_aliases
@@ -1200,32 +1574,28 @@ def _emit_parse_progress(
 
 def _parse_shard(
     root_path: Path, files: list[Path], repo_key: str
-) -> CodeGraph:
+) -> _GraphBuilder:
     builder = _GraphBuilder(repo_key=repo_key)
     for path in files:
         _parse_one_file(builder, root_path, path)
-    return builder.build()
+    return builder
 
 
-def _merge_shard_graphs(shards: list[CodeGraph]) -> CodeGraph:
-    nodes_by_key: dict[tuple[str, str, str], CodeNode] = {}
-    edges_seen: set[tuple[str, str, str, str, str]] = set()
-    edges: list[CodeEdge] = []
-    for shard in shards:
-        for node in shard.nodes:
-            nodes_by_key.setdefault(node.key, node)
-        for edge in shard.edges:
-            ekey = (
-                edge.type,
-                edge.source_label,
-                edge.source_qn,
-                edge.target_label,
-                edge.target_qn,
-            )
-            if ekey not in edges_seen:
-                edges_seen.add(ekey)
-                edges.append(edge)
-    return CodeGraph(nodes=list(nodes_by_key.values()), edges=edges)
+def _merge_shard_builders(
+    builders: list[_GraphBuilder],
+    repo_key: str,
+    dart_package_roots: dict[str, str],
+) -> CodeGraph:
+    merged = _GraphBuilder(repo_key=repo_key)
+    merged.dart_package_roots = dart_package_roots
+    for shard in builders:
+        for node in shard.nodes.values():
+            merged.add_node(node)
+        for key, edge in shard.edges.items():
+            merged.edges.setdefault(key, edge)
+        merged.symbol_aliases.update(shard.symbol_aliases)
+        merged.dart_contexts.update(shard.dart_contexts)
+    return merged.build()
 
 
 def parse_repo(
@@ -1248,6 +1618,7 @@ def parse_repo(
     if total == 0:
         return _GraphBuilder(repo_key=resolved_key).build()
 
+    dart_package_roots = _discover_dart_package_roots(root_path)
     if total >= _SHARD_PARSE_THRESHOLD:
         workers = min(4, os.cpu_count() or 2)
         chunk_size = max(1, (total + workers - 1) // workers)
@@ -1260,15 +1631,16 @@ def parse_repo(
                 pool.submit(_parse_shard, root_path, shard, resolved_key)
                 for shard in shards_input
             ]
-            shard_graphs: list[CodeGraph] = []
+            shard_builders: list[_GraphBuilder] = []
             completed_files = 0
             for shard, fut in zip(shards_input, futures, strict=True):
-                shard_graphs.append(fut.result())
+                shard_builders.append(fut.result())
                 completed_files += len(shard)
                 _emit_parse_progress(progress_callback, completed_files, total)
-        return _merge_shard_graphs(shard_graphs)
+        return _merge_shard_builders(shard_builders, resolved_key, dart_package_roots)
 
     builder = _GraphBuilder(repo_key=resolved_key)
+    builder.dart_package_roots = dart_package_roots
     for idx, path in enumerate(files, 1):
         _parse_one_file(builder, root_path, path)
         _emit_parse_progress(progress_callback, idx, total)
@@ -1295,6 +1667,7 @@ def parse_files(
         known_target_labels=known_target_labels,
         repo_key=derive_repo_key(root_path) if repo_key is None else repo_key,
     )
+    builder.dart_package_roots = _discover_dart_package_roots(root_path)
     if not root_path.is_dir():
         return builder.build()
     for relative_path in relative_paths:
