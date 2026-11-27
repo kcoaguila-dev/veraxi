@@ -1331,7 +1331,8 @@ def _discover_tsconfig_paths(root_path: Path) -> tuple[str, dict[str, list[str]]
             raw = cfg.read_text(encoding="utf-8", errors="replace")
             cleaned = re.sub(r"//[^\n]*", "", raw)
             data = json.loads(cleaned)
-        except Exception:
+        except (OSError, ValueError) as exc:
+            logger.debug("Skipping unreadable %s: %s", name, exc)
             continue
         opts = data.get("compilerOptions") or {}
         if not isinstance(opts, dict):
