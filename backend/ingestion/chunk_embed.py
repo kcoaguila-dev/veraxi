@@ -286,6 +286,8 @@ class _DenseEmbeddingAdapter:
             and any(p in self.model_name for p in _matryoshka_prefixes)
         )
 
+        self.client: Any = None
+        self.model: Any = None
         if self.is_remote:
             from openai import OpenAI
 
@@ -293,11 +295,9 @@ class _DenseEmbeddingAdapter:
                 api_key=self.api_key or "local",
                 base_url=self.base_url or None,
             )
-            self.model = None
         else:
             from fastembed import TextEmbedding
 
-            self.client = None
             self.model = TextEmbedding(
                 model_name=self.model_name,
                 threads=config.embedding_threads,

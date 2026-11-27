@@ -1644,8 +1644,8 @@ def _resolve_go_builder(builder: _GraphBuilder) -> None:
                 type_ref = call.var_types[call.receiver]
                 if "." in type_ref:
                     pkg_alias, struct_name = type_ref.split(".", 1)
-                    imp_path = ctx.imports.get(pkg_alias)
-                    pkg_dir = _pkg_dir_for_import(imp_path) if imp_path else None
+                    resolved_imp = ctx.imports.get(pkg_alias)
+                    pkg_dir = _pkg_dir_for_import(resolved_imp) if resolved_imp else None
                     if pkg_dir:
                         target_qn = _find_struct_method(pkg_dir, struct_name, call.name)
                 else:
