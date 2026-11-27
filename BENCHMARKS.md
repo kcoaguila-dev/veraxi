@@ -87,6 +87,25 @@ bash backend/evaluation/run_deterministic_suite.sh
 PYTHONPATH=. python -m backend.evaluation.benchmark_rag   # full DeepEval suite
 ```
 
+## 4. End-to-End Code Retrieval & Token Efficiency (`code_e2e_benchmark.py`)
+
+Measured offline across **10 multi-file architectural/debugging tasks** on this repository (`258` indexed non-test Python files) using `backend/.venv/bin/python -m backend.evaluation.code_e2e_benchmark`:
+
+| Strategy | Recall@5 | Symbol Correctness | Avg Latency (ms) | Avg Context Tokens |
+| --- | ---: | ---: | ---: | ---: |
+| `grep_only` (regex scan + full-file read) | 0.8000 | 1.0000 | 12.59 | 16,586 |
+| `vector_ast_chunks` (AST-chunked + identifier-split BM25) | 1.0000 | 1.0000 | 19.95 | 1,248 |
+| `veraxi_full_stack` (`parse_repo` graph + AST chunks) | 0.9500 | 1.0000 | 34.08 | 811 |
+
+- **Token efficiency:** AST-boundary chunking + graph-guided lookup reduces average context tokens from **16,586** (`grep_only`) to **811** (`veraxi_full_stack`, ~20.5× reduction).
+- **TypeScript / JavaScript fixture (`ts_code_accuracy.py`):** 13 cases (relative imports, `index.ts` barrel re-exports, `export { a as b }`, `tsconfig.json` path aliases, arrow functions, `this.` / `new Class()` calls, inheritance, same-name collisions, dynamic negative control) — `1.0000` precision, `1.0000` recall.
+
+**Reproduce:**
+```bash
+backend/.venv/bin/python -m backend.evaluation.code_e2e_benchmark
+backend/.venv/bin/python -m backend.evaluation.ts_code_accuracy
+```
+
 ## What we do not claim
 
 - No retrieval-quality percentage until a complete, un-rate-limited
