@@ -1665,11 +1665,8 @@ def _resolve_go_builder(builder: _GraphBuilder) -> None:
                 resolved_raw_imports.add((ctx.module_node.qualified_name, imp_path))
                 for target_ctx in by_pkg_dir[pkg_dir]:
                     builder.add_edge("IMPORTS", ctx.module_node, target_ctx.module_node.qualified_name, "CodeModule")
-        if resolved_raw_imports:
-            builder.edges = [
-                e for e in builder.edges
-                if not (e.type == "IMPORTS" and (e.source_qn, e.target_qn) in resolved_raw_imports)
-            ]
+        for src_qn, imp_path in resolved_raw_imports:
+            builder.edges.pop(("IMPORTS", src_qn, imp_path), None)
         for call in ctx.pending_calls:
             target_qn: str | None = None
             target_label = "Function"
