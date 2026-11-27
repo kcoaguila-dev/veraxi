@@ -297,10 +297,14 @@ def _scip_tool_binary(name, env_var, extra_candidates=()):
 def _detect_scip_language(repo, lang):
     """Resolve ``auto`` language for ``--generate-scip`` from repo manifests."""
     normalized = (lang or "auto").strip().lower()
-    if normalized in ("python", "dart"):
+    if normalized in ("python", "dart", "typescript", "go"):
         return normalized
     if (repo / "pubspec.yaml").is_file():
         return "dart"
+    if (repo / "go.mod").is_file():
+        return "go"
+    if (repo / "tsconfig.json").is_file() or (repo / "package.json").is_file():
+        return "typescript"
     return "python"
 
 
@@ -318,7 +322,7 @@ def _repo_head_version(repo):
 
 
 def _prepare_scip_index_command(repo, index_path, language):
-    """Resolve indexer binary + argv for ``language`` (python or dart)."""
+    """Resolve indexer binary + argv for ``language`` (python, dart, typescript, go)."""
     if language == "dart":
         if not (repo / ".dart_tool" / "package_config.json").is_file():
             print(
@@ -341,6 +345,34 @@ def _prepare_scip_index_command(repo, index_path, language):
             )
             sys.exit(1)
         return [scip_dart, "-o", str(index_path), str(repo)], "scip_dart"
+
+    if language == "typescript":
+        scip_ts = _scip_tool_binary("scip-typescript", "VERAXI_SCIP_TYPESCRIPT_BIN")
+        if not scip_ts:
+            print(
+                "Error: TypeScript SCIP generation needs `scip-typescript` "
+                "(npm: @sourcegraph/scip-typescript) on PATH or "
+                "VERAXI_SCIP_TYPESCRIPT_BIN set.",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        return [scip_ts, "index", "--output", str(index_path)], "scip-typescript"
+
+    if language == "go":
+        scip_go = _scip_tool_binary(
+            "scip-go",
+            "VERAXI_SCIP_GO_BIN",
+            extra_candidates=(Path.home() / "go" / "bin" / "scip-go",),
+        )
+        if not scip_go:
+            print(
+                "Error: Go SCIP generation needs `scip-go` "
+                "(go install github.com/sourcegraph/scip-go/cmd/scip-go@latest) "
+                "on PATH or in ~/go/bin, or VERAXI_SCIP_GO_BIN set.",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        return [scip_go, "--output", str(index_path)], "scip-go"
 
     scip_python = _scip_tool_binary("scip-python", "VERAXI_SCIP_PYTHON_BIN")
     if not scip_python:
@@ -496,7 +528,9 @@ def run_xray_index_generate_scip(
         index_path = Path(tmp) / "index.scip"
         index_cmd, tool_label = _prepare_scip_index_command(repo, index_path, language)
         try:
-            indexed = subprocess.run(index_cmd, capture_output=True, text=True, timeout=1800, check=False)
+            indexed = subprocess.run(
+                index_cmd, cwd=str(repo), capture_output=True, text=True, timeout=1800, check=False
+            )
         except (OSError, subprocess.TimeoutExpired) as exc:
             print(f"Error: {tool_label} failed to run: {exc}", file=sys.stderr)
             sys.exit(1)

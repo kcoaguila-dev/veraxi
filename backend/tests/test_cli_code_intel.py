@@ -619,3 +619,79 @@ def test_xray_index_generate_scip_incremental_runs_when_code_changed(tmp_path, m
         run_xray_index_generate_scip(str(repo), incremental=True)
     assert exc.value.code == 0
     assert any(cmd[0] == "/tools/scip-python" for cmd in seen_cmds)
+
+
+def test_xray_index_generate_scip_typescript_auto_detect(tmp_path, monkeypatch):
+    import subprocess as sp
+    from unittest.mock import patch
+    from veraxi.cli import code_intel as cli_mod
+    from veraxi.cli.code_intel import run_xray_index_generate_scip
+
+    repo = tmp_path / "ts_repo"
+    repo.mkdir()
+    (repo / "tsconfig.json").write_text("{}", encoding="utf-8")
+    monkeypatch.setenv("VERAXI_SCIP_TYPESCRIPT_BIN", "/tools/scip-typescript")
+    monkeypatch.setenv("VERAXI_SCIP_BIN", "/tools/scip")
+
+    seen_cmds = []
+
+    def fake_run(argv, **kwargs):
+        seen_cmds.append(argv)
+        if argv[0] == "/tools/scip-typescript":
+            out = argv[argv.index("--output") + 1]
+            with open(out, "wb") as fh:
+                fh.write(b"fake-ts-index")
+            return sp.CompletedProcess(argv, 0, stdout="", stderr="")
+        if argv[0] == "/tools/scip":
+            return sp.CompletedProcess(
+                argv, 0, stdout=json.dumps({"documents": [{"relativePath": "src/index.ts"}]}), stderr=""
+            )
+        if "remote" in argv:
+            return sp.CompletedProcess(argv, 0, stdout="https://github.com/owner/ts_repo.git\n", stderr="")
+        return sp.CompletedProcess(argv, 1, stdout="", stderr="")
+
+    monkeypatch.setattr(cli_mod.subprocess, "run", fake_run)
+    with patch(
+        PATCH_TARGET, return_value={"status": "ok", "nodes_written": 2, "edges_written": 1}
+    ), pytest.raises(SystemExit) as exc:
+        run_xray_index_generate_scip(str(repo))
+    assert exc.value.code == 0
+    assert any(cmd[0] == "/tools/scip-typescript" for cmd in seen_cmds)
+
+
+def test_xray_index_generate_scip_go_auto_detect(tmp_path, monkeypatch):
+    import subprocess as sp
+    from unittest.mock import patch
+    from veraxi.cli import code_intel as cli_mod
+    from veraxi.cli.code_intel import run_xray_index_generate_scip
+
+    repo = tmp_path / "go_repo"
+    repo.mkdir()
+    (repo / "go.mod").write_text("module example.com/app\n", encoding="utf-8")
+    monkeypatch.setenv("VERAXI_SCIP_GO_BIN", "/tools/scip-go")
+    monkeypatch.setenv("VERAXI_SCIP_BIN", "/tools/scip")
+
+    seen_cmds = []
+
+    def fake_run(argv, **kwargs):
+        seen_cmds.append(argv)
+        if argv[0] == "/tools/scip-go":
+            out = argv[argv.index("--output") + 1]
+            with open(out, "wb") as fh:
+                fh.write(b"fake-go-index")
+            return sp.CompletedProcess(argv, 0, stdout="", stderr="")
+        if argv[0] == "/tools/scip":
+            return sp.CompletedProcess(
+                argv, 0, stdout=json.dumps({"documents": [{"relativePath": "main.go"}]}), stderr=""
+            )
+        if "remote" in argv:
+            return sp.CompletedProcess(argv, 0, stdout="https://github.com/owner/go_repo.git\n", stderr="")
+        return sp.CompletedProcess(argv, 1, stdout="", stderr="")
+
+    monkeypatch.setattr(cli_mod.subprocess, "run", fake_run)
+    with patch(
+        PATCH_TARGET, return_value={"status": "ok", "nodes_written": 2, "edges_written": 1}
+    ), pytest.raises(SystemExit) as exc:
+        run_xray_index_generate_scip(str(repo))
+    assert exc.value.code == 0
+    assert any(cmd[0] == "/tools/scip-go" for cmd in seen_cmds)

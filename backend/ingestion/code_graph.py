@@ -75,8 +75,10 @@ services layer.
 from __future__ import annotations
 
 import ast
+import json
 import logging
 import os
+import posixpath
 import re
 import subprocess
 from collections.abc import Callable
@@ -275,6 +277,11 @@ class _GraphBuilder:
         # resolution (ADR-0008). Empty when no Dart files are parsed.
         self.dart_contexts: dict[str, _DartFileContext] = {}
         self.dart_package_roots: dict[str, str] = {}
+        # Per-file TS/JS and Go AST metadata for cross-file resolution.
+        self.ts_contexts: dict[str, _TsJsFileContext] = {}
+        self.tsconfig_paths: tuple[str, dict[str, list[str]]] = ("", {})
+        self.go_contexts: dict[str, _GoFileContext] = {}
+        self.go_module_prefix: str | None = None
         # The repo every node/edge in this parse belongs to. Parsers
         # create nodes without a repo identity; the builder stamps
         # this one onto each of them (and onto edges, via their
@@ -342,6 +349,10 @@ class _GraphBuilder:
     def build(self) -> CodeGraph:
         if self.dart_contexts:
             _resolve_dart_builder(self)
+        if self.ts_contexts:
+            _resolve_ts_builder(self)
+        if self.go_contexts:
+            _resolve_go_builder(self)
         # A qualified name identifies one symbol regardless of label;
         # when the target was parsed, correct the edge's target label
         # to the parsed node's label (e.g. a call to an imported class).
@@ -871,7 +882,15 @@ def _ts_extract_superclasses(node: Any, source: bytes) -> list[str]:
     """Extract base class/interface names from heritage/superclass children."""
     bases: list[str] = []
     for child in node.children:
-        if child.type in (
+        if child.type in ("type_identifier", "identifier") and node.type in (
+            "extends_clause",
+            "extends_type_clause",
+            "implements_clause",
+        ):
+            val = _ts_node_text(child, source).strip()
+            if val:
+                bases.append(val)
+        elif child.type in (
             "superclass",
             "class_heritage",
             "extends_clause",
@@ -1240,6 +1259,406 @@ def _resolve_dart_builder(builder: _GraphBuilder) -> None:
                 builder.add_edge("CALLS", call.caller, target_qn, target_label)
 
 
+@dataclass(frozen=True)
+class _TsJsImport:
+    specifier: str
+    named: dict[str, str]  # local_name -> remote_name
+    namespace: str | None = None
+    default_alias: str | None = None
+
+
+@dataclass(frozen=True)
+class _TsJsReexport:
+    specifier: str
+    named: dict[str, str]  # exported_name -> remote_name
+    star: bool = False
+
+
+@dataclass(frozen=True)
+class _TsJsPendingCall:
+    caller: CodeNode
+    enclosing_class_qn: str | None
+    receiver: str | None
+    name: str
+    var_types: dict[str, str]
+
+
+@dataclass
+class _TsJsFileContext:
+    relative_path: str
+    module_node: CodeNode
+    imports: list[_TsJsImport] = field(default_factory=list)
+    reexports: list[_TsJsReexport] = field(default_factory=list)
+    top_defs: dict[str, tuple[str, str]] = field(default_factory=dict)
+    classes: dict[str, str] = field(default_factory=dict)
+    class_methods: dict[str, dict[str, str]] = field(default_factory=dict)
+    pending_calls: list[_TsJsPendingCall] = field(default_factory=list)
+    pending_inherits: list[tuple[CodeNode, str]] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class _GoPendingCall:
+    caller: CodeNode
+    receiver: str | None
+    name: str
+    var_types: dict[str, str]
+
+
+@dataclass
+class _GoFileContext:
+    relative_path: str
+    package_dir: str
+    module_node: CodeNode
+    package_name: str = ""
+    imports: dict[str, str] = field(default_factory=dict)
+    top_defs: dict[str, tuple[str, str]] = field(default_factory=dict)
+    structs: dict[str, str] = field(default_factory=dict)
+    struct_methods: dict[str, dict[str, str]] = field(default_factory=dict)
+    pending_calls: list[_GoPendingCall] = field(default_factory=list)
+
+
+_TS_EXTENSIONS = (".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs")
+_GO_MOD_RE = re.compile(r"^\s*module\s+(\S+)", re.MULTILINE)
+
+
+def _discover_tsconfig_paths(root_path: Path) -> tuple[str, dict[str, list[str]]]:
+    """Read compilerOptions.baseUrl and paths from tsconfig.json/jsconfig.json."""
+    for name in ("tsconfig.json", "jsconfig.json"):
+        cfg = root_path / name
+        if not cfg.is_file():
+            continue
+        try:
+            raw = cfg.read_text(encoding="utf-8", errors="replace")
+            cleaned = re.sub(r"//[^\n]*", "", raw)
+            data = json.loads(cleaned)
+        except Exception:
+            continue
+        opts = data.get("compilerOptions") or {}
+        if not isinstance(opts, dict):
+            continue
+        base_url = str(opts.get("baseUrl") or ".").strip().strip("./")
+        raw_paths = opts.get("paths") or {}
+        paths: dict[str, list[str]] = {}
+        if isinstance(raw_paths, dict):
+            for pat, targets in raw_paths.items():
+                if isinstance(pat, str) and isinstance(targets, list):
+                    paths[pat] = [str(t) for t in targets if isinstance(t, str)]
+        return base_url, paths
+    return "", {}
+
+
+def _discover_go_module_prefix(root_path: Path) -> str | None:
+    """Read the module path from root go.mod, or None."""
+    go_mod = root_path / "go.mod"
+    if not go_mod.is_file():
+        return None
+    try:
+        text = go_mod.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return None
+    m = _GO_MOD_RE.search(text)
+    return m.group(1).strip() if m else None
+
+
+def _probe_ts_candidate(candidate: str, known_paths: set[str]) -> str | None:
+    clean = candidate.lstrip("./")
+    if clean in known_paths:
+        return clean
+    for ext in _TS_EXTENSIONS:
+        if f"{clean}{ext}" in known_paths:
+            return f"{clean}{ext}"
+    for ext in _TS_EXTENSIONS:
+        if f"{clean}/index{ext}" in known_paths:
+            return f"{clean}/index{ext}"
+    return None
+
+
+def _resolve_ts_specifier(
+    specifier: str,
+    importer_rel: str,
+    known_paths: set[str],
+    tsconfig: tuple[str, dict[str, list[str]]],
+) -> str | None:
+    if not specifier:
+        return None
+    if specifier.startswith("."):
+        base_dir = Path(importer_rel).parent
+        joined = posixpath.normpath((base_dir / specifier).as_posix())
+        return _probe_ts_candidate(joined, known_paths)
+    base_url, paths_map = tsconfig
+    for pat, targets in paths_map.items():
+        if "*" in pat:
+            prefix, suffix = pat.split("*", 1)
+            if specifier.startswith(prefix) and specifier.endswith(suffix):
+                star_val = specifier[len(prefix) : len(specifier) - len(suffix) if suffix else None]
+                for target in targets:
+                    mapped = target.replace("*", star_val)
+                    if base_url:
+                        mapped = posixpath.normpath(f"{base_url}/{mapped}")
+                    hit = _probe_ts_candidate(mapped, known_paths)
+                    if hit:
+                        return hit
+        elif specifier == pat:
+            for target in targets:
+                mapped = posixpath.normpath(f"{base_url}/{target}" if base_url else target)
+                hit = _probe_ts_candidate(mapped, known_paths)
+                if hit:
+                    return hit
+    return None
+
+
+def _ts_extract_import_stmt(node: Any, source: bytes) -> _TsJsImport | None:
+    specifier = ""
+    for child in node.children:
+        if child.type in ("string", "string_literal"):
+            specifier = _ts_node_text(child, source).strip().strip("'\"`")
+    if not specifier:
+        return None
+    named: dict[str, str] = {}
+    namespace: str | None = None
+    default_alias: str | None = None
+    for child in node.children:
+        if child.type != "import_clause":
+            continue
+        for sub in child.children:
+            if sub.type == "identifier":
+                default_alias = _ts_node_text(sub, source).strip()
+            elif sub.type == "namespace_import":
+                ids = [_ts_node_text(c, source).strip() for c in sub.children if c.type == "identifier"]
+                if ids:
+                    namespace = ids[-1]
+            elif sub.type == "named_imports":
+                for spec in sub.children:
+                    if spec.type != "import_specifier":
+                        continue
+                    name_n = spec.child_by_field_name("name")
+                    alias_n = spec.child_by_field_name("alias")
+                    if name_n is not None:
+                        remote = _ts_node_text(name_n, source).strip()
+                        local = _ts_node_text(alias_n, source).strip() if alias_n is not None else remote
+                        named[local] = remote
+    return _TsJsImport(specifier=specifier, named=named, namespace=namespace, default_alias=default_alias)
+
+
+def _ts_extract_export_stmt(node: Any, source: bytes) -> _TsJsReexport | None:
+    specifier = ""
+    for child in node.children:
+        if child.type in ("string", "string_literal"):
+            specifier = _ts_node_text(child, source).strip().strip("'\"`")
+    if not specifier:
+        return None
+    named: dict[str, str] = {}
+    star = False
+    for child in node.children:
+        if child.type == "*" or _ts_node_text(child, source).strip() == "*":
+            star = True
+        elif child.type == "export_clause":
+            for spec in child.children:
+                if spec.type != "export_specifier":
+                    continue
+                name_n = spec.child_by_field_name("name")
+                alias_n = spec.child_by_field_name("alias")
+                if name_n is not None:
+                    remote = _ts_node_text(name_n, source).strip()
+                    exported = _ts_node_text(alias_n, source).strip() if alias_n is not None else remote
+                    named[exported] = remote
+    return _TsJsReexport(specifier=specifier, named=named, star=star)
+
+
+def _ts_lookup_exported(
+    file_path: str,
+    symbol_name: str,
+    contexts: dict[str, _TsJsFileContext],
+    tsconfig: tuple[str, dict[str, list[str]]],
+    visited: set[tuple[str, str]],
+) -> tuple[str, str] | None:
+    if (file_path, symbol_name) in visited:
+        return None
+    visited.add((file_path, symbol_name))
+    ctx = contexts.get(file_path)
+    if ctx is None:
+        return None
+    if symbol_name in ctx.top_defs:
+        return ctx.top_defs[symbol_name]
+    known = set(contexts)
+    for reexp in ctx.reexports:
+        target_path = _resolve_ts_specifier(reexp.specifier, file_path, known, tsconfig)
+        if not target_path:
+            continue
+        if symbol_name in reexp.named:
+            hit = _ts_lookup_exported(target_path, reexp.named[symbol_name], contexts, tsconfig, visited)
+            if hit:
+                return hit
+        if reexp.star:
+            hit = _ts_lookup_exported(target_path, symbol_name, contexts, tsconfig, visited)
+            if hit:
+                return hit
+    return None
+
+
+def _ts_find_method(
+    class_qn: str,
+    method_name: str,
+    contexts: dict[str, _TsJsFileContext],
+    resolved_bases: dict[str, list[str]],
+    visited: set[str] | None = None,
+) -> str | None:
+    seen = visited if visited is not None else set()
+    if class_qn in seen:
+        return None
+    seen.add(class_qn)
+    for ctx in contexts.values():
+        methods = ctx.class_methods.get(class_qn)
+        if methods and method_name in methods:
+            return methods[method_name]
+    for base_qn in resolved_bases.get(class_qn, ()):
+        hit = _ts_find_method(base_qn, method_name, contexts, resolved_bases, seen)
+        if hit:
+            return hit
+    return None
+
+
+def _ts_resolve_symbol_in_ctx(
+    ctx: _TsJsFileContext,
+    name: str,
+    contexts: dict[str, _TsJsFileContext],
+    tsconfig: tuple[str, dict[str, list[str]]],
+) -> tuple[str, str] | None:
+    if name in ctx.top_defs:
+        return ctx.top_defs[name]
+    known = set(contexts)
+    for imp in ctx.imports:
+        target_path = _resolve_ts_specifier(imp.specifier, ctx.relative_path, known, tsconfig)
+        if not target_path:
+            continue
+        if name in imp.named:
+            hit = _ts_lookup_exported(target_path, imp.named[name], contexts, tsconfig, set())
+            if hit:
+                return hit
+        if name == imp.default_alias:
+            hit = _ts_lookup_exported(target_path, "default", contexts, tsconfig, set())
+            if hit:
+                return hit
+    return None
+
+
+def _resolve_ts_builder(builder: _GraphBuilder) -> None:
+    contexts = builder.ts_contexts
+    tsconfig = builder.tsconfig_paths
+    known = set(contexts)
+    for ctx in contexts.values():
+        for imp in ctx.imports:
+            target_path = _resolve_ts_specifier(imp.specifier, ctx.relative_path, known, tsconfig)
+            if target_path and target_path in contexts:
+                builder.add_edge("IMPORTS", ctx.module_node, contexts[target_path].module_node.qualified_name, "CodeModule")
+        for reexp in ctx.reexports:
+            target_path = _resolve_ts_specifier(reexp.specifier, ctx.relative_path, known, tsconfig)
+            if target_path and target_path in contexts:
+                builder.add_edge("IMPORTS", ctx.module_node, contexts[target_path].module_node.qualified_name, "CodeModule")
+
+    resolved_bases: dict[str, list[str]] = {}
+    for ctx in contexts.values():
+        for class_node, base_name in ctx.pending_inherits:
+            resolved = _ts_resolve_symbol_in_ctx(ctx, base_name, contexts, tsconfig)
+            if resolved and resolved[1] == "Class":
+                builder.add_edge("INHERITS", class_node, resolved[0], "Class")
+                resolved_bases.setdefault(class_node.qualified_name, []).append(resolved[0])
+
+    for ctx in contexts.values():
+        for call in ctx.pending_calls:
+            target: tuple[str, str] | None = None
+            if call.receiver in ("this", "super") and call.enclosing_class_qn:
+                m_qn = _ts_find_method(call.enclosing_class_qn, call.name, contexts, resolved_bases)
+                if m_qn:
+                    target = (m_qn, "Function")
+            elif call.receiver and call.receiver in call.var_types:
+                cls_name = call.var_types[call.receiver]
+                cls_resolved = _ts_resolve_symbol_in_ctx(ctx, cls_name, contexts, tsconfig)
+                if cls_resolved and cls_resolved[1] == "Class":
+                    m_qn = _ts_find_method(cls_resolved[0], call.name, contexts, resolved_bases)
+                    if m_qn:
+                        target = (m_qn, "Function")
+            elif call.receiver:
+                for imp in ctx.imports:
+                    if imp.namespace == call.receiver:
+                        target_path = _resolve_ts_specifier(imp.specifier, ctx.relative_path, known, tsconfig)
+                        if target_path:
+                            target = _ts_lookup_exported(target_path, call.name, contexts, tsconfig, set())
+                        break
+            else:
+                target = _ts_resolve_symbol_in_ctx(ctx, call.name, contexts, tsconfig)
+                if target is None and call.enclosing_class_qn:
+                    m_qn = _ts_find_method(call.enclosing_class_qn, call.name, contexts, resolved_bases)
+                    if m_qn:
+                        target = (m_qn, "Function")
+            if target is not None:
+                builder.add_edge("CALLS", call.caller, target[0], target[1])
+
+
+def _resolve_go_builder(builder: _GraphBuilder) -> None:
+    contexts = builder.go_contexts
+    by_pkg_dir: dict[str, list[_GoFileContext]] = {}
+    for ctx in contexts.values():
+        by_pkg_dir.setdefault(ctx.package_dir, []).append(ctx)
+    mod_prefix = builder.go_module_prefix
+
+    def _pkg_dir_for_import(import_path: str) -> str | None:
+        if mod_prefix and import_path == mod_prefix:
+            return "."
+        if mod_prefix and import_path.startswith(mod_prefix + "/"):
+            return import_path[len(mod_prefix) + 1 :]
+        return None
+
+    def _find_in_pkg(pkg_dir: str, sym: str) -> tuple[str, str] | None:
+        for fctx in by_pkg_dir.get(pkg_dir, ()):
+            if sym in fctx.top_defs:
+                return fctx.top_defs[sym]
+        return None
+
+    def _find_struct_method(pkg_dir: str, struct_name: str, method_name: str) -> str | None:
+        for fctx in by_pkg_dir.get(pkg_dir, ()):
+            struct_qn = fctx.structs.get(struct_name)
+            if not struct_qn:
+                continue
+            for mctx in by_pkg_dir.get(pkg_dir, ()):
+                methods = mctx.struct_methods.get(struct_qn)
+                if methods and method_name in methods:
+                    return methods[method_name]
+        return None
+
+    for ctx in contexts.values():
+        for imp_path in ctx.imports.values():
+            pkg_dir = _pkg_dir_for_import(imp_path)
+            if pkg_dir and pkg_dir in by_pkg_dir:
+                for target_ctx in by_pkg_dir[pkg_dir]:
+                    builder.add_edge("IMPORTS", ctx.module_node, target_ctx.module_node.qualified_name, "CodeModule")
+        for call in ctx.pending_calls:
+            target_qn: str | None = None
+            target_label = "Function"
+            if call.receiver is None:
+                hit = _find_in_pkg(ctx.package_dir, call.name)
+                if hit:
+                    target_qn, target_label = hit
+            elif call.receiver in call.var_types:
+                type_ref = call.var_types[call.receiver]
+                if "." in type_ref:
+                    pkg_alias, struct_name = type_ref.split(".", 1)
+                    imp_path = ctx.imports.get(pkg_alias)
+                    pkg_dir = _pkg_dir_for_import(imp_path) if imp_path else None
+                    if pkg_dir:
+                        target_qn = _find_struct_method(pkg_dir, struct_name, call.name)
+                else:
+                    target_qn = _find_struct_method(ctx.package_dir, type_ref, call.name)
+            elif call.receiver in ctx.imports:
+                pkg_dir = _pkg_dir_for_import(ctx.imports[call.receiver])
+                if pkg_dir:
+                    hit = _find_in_pkg(pkg_dir, call.name)
+                    if hit:
+                        target_qn, target_label = hit
+            if target_qn:
+                builder.add_edge("CALLS", call.caller, target_qn, target_label)
+
+
 def _parse_treesitter_file(
     builder: _GraphBuilder,
     module_node: CodeNode,
@@ -1266,6 +1685,51 @@ def _parse_treesitter_file(
         if language == "dart"
         else None
     )
+    ts_ctx = (
+        _TsJsFileContext(relative_path=relative_path, module_node=module_node)
+        if language in ("typescript", "javascript")
+        else None
+    )
+    go_ctx = (
+        _GoFileContext(
+            relative_path=relative_path,
+            package_dir=str(Path(relative_path).parent).replace("\\", "/") or ".",
+            module_node=module_node,
+        )
+        if language == "go"
+        else None
+    )
+    var_types_stack: list[dict[str, str]] = [{}]
+
+    def _current_vars() -> dict[str, str]:
+        return var_types_stack[-1]
+
+    def _ts_record_new_var(decl_node: Any) -> None:
+        for child in decl_node.children:
+            if child.type != "variable_declarator":
+                continue
+            name_n = child.child_by_field_name("name")
+            val_n = child.child_by_field_name("value")
+            if name_n is None or val_n is None:
+                continue
+            vname = _ts_node_text(name_n, source).strip()
+            if val_n.type == "new_expression":
+                ctor_n = val_n.child_by_field_name("constructor") or (
+                    val_n.children[1] if len(val_n.children) > 1 else None
+                )
+                if ctor_n is not None and vname:
+                    _current_vars()[vname] = _ts_node_text(ctor_n, source).strip()
+
+    def _go_record_short_var(node: Any) -> None:
+        left_n = node.child_by_field_name("left")
+        right_n = node.child_by_field_name("right")
+        if left_n is None or right_n is None:
+            return
+        vname = _ts_node_text(left_n, source).strip().split(",")[0].strip()
+        raw_rhs = _ts_node_text(right_n, source).strip()
+        m = re.match(r"^&?\s*([A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)?)\s*\{", raw_rhs)
+        if m and vname:
+            _current_vars()[vname] = m.group(1)
 
     def _walk_children(
         children: list[Any], container: CodeNode, enclosing_class_qn: str | None
@@ -1286,6 +1750,123 @@ def _parse_treesitter_file(
         node: Any, container: CodeNode, enclosing_class_qn: str | None = None
     ) -> CodeNode | None:
         ntype = node.type
+        if go_ctx is not None and ntype == "package_clause":
+            for child in node.children:
+                if child.type == "package_identifier":
+                    go_ctx.package_name = _ts_node_text(child, source).strip()
+            return None
+
+        if go_ctx is not None and ntype == "import_spec":
+            alias: str | None = None
+            imp_path = ""
+            for child in node.children:
+                if child.type == "package_identifier":
+                    alias = _ts_node_text(child, source).strip()
+                elif child.type == "interpreted_string_literal":
+                    imp_path = _ts_node_text(child, source).strip().strip('"')
+            if imp_path:
+                pkg_alias = alias or imp_path.rsplit("/", 1)[-1]
+                go_ctx.imports[pkg_alias] = imp_path
+                builder.add_edge("IMPORTS", module_node, imp_path, "CodeModule")
+            return None
+
+        if go_ctx is not None and ntype == "type_spec":
+            name_n = node.child_by_field_name("name")
+            type_n = node.child_by_field_name("type")
+            if name_n is not None and type_n is not None and type_n.type == "struct_type":
+                sname = _ts_node_text(name_n, source).strip()
+                if sname:
+                    sqn = f"{container.qualified_name}.{sname}"
+                    snode = builder.add_node(
+                        CodeNode(
+                            label="Class",
+                            name=sname,
+                            qualified_name=sqn,
+                            path=relative_path,
+                            line=node.start_point[0] + 1,
+                            language=language,
+                            end_line=node.end_point[0] + 1,
+                        )
+                    )
+                    builder.add_edge("DEFINES", container, sqn, "Class")
+                    go_ctx.structs[sname] = sqn
+                    go_ctx.top_defs[sname] = (sqn, "Class")
+                    go_ctx.struct_methods.setdefault(sqn, {})
+                    return snode
+            return None
+
+        if go_ctx is not None and ntype == "method_declaration":
+            recv_n = node.child_by_field_name("receiver")
+            name_n = node.child_by_field_name("name")
+            if recv_n is not None and name_n is not None:
+                mname = _ts_node_text(name_n, source).strip()
+                recv_text = _ts_node_text(recv_n, source)
+                m = re.search(r"\*?\s*([A-Za-z_][A-Za-z0-9_]*)\s*\)$", recv_text.strip())
+                struct_name = m.group(1) if m else ""
+                recv_var_m = re.match(r"^\(\s*([A-Za-z_][A-Za-z0-9_]*)\s+", recv_text.strip())
+                recv_var = recv_var_m.group(1) if recv_var_m else ""
+                if struct_name and mname:
+                    struct_qn = go_ctx.structs.get(struct_name) or f"{module_node.qualified_name}.{struct_name}"
+                    func_qn = f"{struct_qn}.{mname}"
+                    func_node = builder.add_node(
+                        CodeNode(
+                            label="Function",
+                            name=mname,
+                            qualified_name=func_qn,
+                            path=relative_path,
+                            line=node.start_point[0] + 1,
+                            language=language,
+                            end_line=node.end_point[0] + 1,
+                        )
+                    )
+                    builder.add_edge("DEFINES", module_node, func_qn, "Function")
+                    go_ctx.struct_methods.setdefault(struct_qn, {})[mname] = func_qn
+                    var_types_stack.append({recv_var: struct_name} if recv_var else {})
+                    _walk_children(node.children, func_node, struct_qn)
+                    var_types_stack.pop()
+                    return func_node
+
+        if go_ctx is not None and ntype == "short_var_declaration":
+            _go_record_short_var(node)
+
+        if ts_ctx is not None and ntype == "export_statement":
+            reexp = _ts_extract_export_stmt(node, source)
+            if reexp is not None:
+                ts_ctx.reexports.append(reexp)
+                builder.add_edge("IMPORTS", module_node, reexp.specifier, "CodeModule")
+                return None
+
+        if ts_ctx is not None and ntype in ("lexical_declaration", "variable_declaration"):
+            if container.label == "Function":
+                _ts_record_new_var(node)
+            for child in node.children:
+                if child.type != "variable_declarator":
+                    continue
+                name_n = child.child_by_field_name("name")
+                val_n = child.child_by_field_name("value")
+                if name_n is not None and val_n is not None and val_n.type in ("arrow_function", "function_expression"):
+                    fname = _ts_node_text(name_n, source).strip()
+                    if fname and fname not in _NON_FUNCTION_NAMES:
+                        func_qn = f"{container.qualified_name}.{fname}"
+                        func_node = builder.add_node(
+                            CodeNode(
+                                label="Function",
+                                name=fname,
+                                qualified_name=func_qn,
+                                path=relative_path,
+                                line=node.start_point[0] + 1,
+                                language=language,
+                                end_line=node.end_point[0] + 1,
+                            )
+                        )
+                        builder.add_edge("DEFINES", container, func_qn, "Function")
+                        defined_funcs[fname] = func_qn
+                        ts_ctx.top_defs[fname] = (func_qn, "Function")
+                        var_types_stack.append({})
+                        _walk_children(val_n.children, func_node, enclosing_class_qn)
+                        var_types_stack.pop()
+                        return func_node
+
         if ntype in _TS_IMPORT_TYPES:
             if dart_ctx is not None:
                 directive = _dart_extract_directive(node, source)
@@ -1293,6 +1874,15 @@ def _parse_treesitter_file(
                     dart_ctx.directives.append(directive)
                     if directive.kind in ("import", "export"):
                         builder.add_edge("IMPORTS", module_node, directive.uri, "CodeModule")
+                return None
+            if ts_ctx is not None:
+                imp = _ts_extract_import_stmt(node, source)
+                if imp is not None:
+                    ts_ctx.imports.append(imp)
+                    builder.add_edge("IMPORTS", module_node, imp.specifier, "CodeModule")
+                return None
+            if go_ctx is not None:
+                _walk_children(node.children, container, enclosing_class_qn)
                 return None
             for target in _ts_extract_import_targets(node, source):
                 builder.add_edge("IMPORTS", module_node, target, "CodeModule")
@@ -1320,10 +1910,17 @@ def _parse_treesitter_file(
                 if dart_ctx is not None:
                     dart_ctx.classes[name] = class_qn
                     dart_ctx.class_methods.setdefault(class_qn, {})
+                if ts_ctx is not None:
+                    ts_ctx.classes[name] = class_qn
+                    ts_ctx.top_defs[name] = (class_qn, "Class")
+                    ts_ctx.class_methods.setdefault(class_qn, {})
                 for base in _ts_extract_superclasses(node, source):
-                    builder.add_edge("INHERITS", class_node, base, "Class")
-                    if dart_ctx is not None:
-                        dart_ctx.pending_inherits.append((class_node, base))
+                    if ts_ctx is not None:
+                        ts_ctx.pending_inherits.append((class_node, base))
+                    else:
+                        builder.add_edge("INHERITS", class_node, base, "Class")
+                        if dart_ctx is not None:
+                            dart_ctx.pending_inherits.append((class_node, base))
                 _walk_children(node.children, class_node, class_qn)
                 return None
 
@@ -1353,13 +1950,48 @@ def _parse_treesitter_file(
                     # function_signature, not a child; recursing here would
                     # visit function_signature inside method_signature twice.
                     return func_node
+                if ts_ctx is not None:
+                    if container.label == "Class":
+                        ts_ctx.class_methods.setdefault(container.qualified_name, {})[name] = func_qn
+                    else:
+                        ts_ctx.top_defs[name] = (func_qn, "Function")
+                if go_ctx is not None:
+                    go_ctx.top_defs[name] = (func_qn, "Function")
+                var_types_stack.append({})
                 _walk_children(node.children, func_node, enclosing_class_qn)
+                var_types_stack.pop()
                 return func_node
 
         if dart_ctx is not None and container.label == "Function":
             _dart_collect_calls_in_children(
                 node.children, source, container, enclosing_class_qn, dart_ctx.pending_calls
             )
+        elif ts_ctx is not None and ntype in _TS_CALL_TYPES and container.label == "Function":
+            fn_node = node.child_by_field_name("function") or (node.children[0] if node.children else None)
+            if fn_node is not None:
+                raw_fn = _ts_node_text(fn_node, source).strip()
+                if "." in raw_fn:
+                    recv, cname = raw_fn.rsplit(".", 1)
+                    ts_ctx.pending_calls.append(
+                        _TsJsPendingCall(container, enclosing_class_qn, recv.strip(), cname.strip(), dict(_current_vars()))
+                    )
+                elif raw_fn:
+                    ts_ctx.pending_calls.append(
+                        _TsJsPendingCall(container, enclosing_class_qn, None, raw_fn, dict(_current_vars()))
+                    )
+        elif go_ctx is not None and ntype in _TS_CALL_TYPES and container.label == "Function":
+            fn_node = node.child_by_field_name("function") or (node.children[0] if node.children else None)
+            if fn_node is not None:
+                raw_fn = _ts_node_text(fn_node, source).strip()
+                if "." in raw_fn:
+                    recv, cname = raw_fn.rsplit(".", 1)
+                    go_ctx.pending_calls.append(
+                        _GoPendingCall(container, recv.strip(), cname.strip(), dict(_current_vars()))
+                    )
+                elif raw_fn:
+                    go_ctx.pending_calls.append(
+                        _GoPendingCall(container, None, raw_fn, dict(_current_vars()))
+                    )
         elif ntype in _TS_CALL_TYPES and container.label == "Function":
             pending_calls.append((container, node))
 
@@ -1369,6 +2001,10 @@ def _parse_treesitter_file(
     walk(tree.root_node, module_node, None)
     if dart_ctx is not None:
         builder.dart_contexts[relative_path] = dart_ctx
+    if ts_ctx is not None:
+        builder.ts_contexts[relative_path] = ts_ctx
+    if go_ctx is not None:
+        builder.go_contexts[relative_path] = go_ctx
     for caller_node, call_node in pending_calls:
         resolved = _ts_extract_call_target(
             call_node, source, defined_funcs, imported_aliases
@@ -1590,6 +2226,10 @@ def _parse_shard(
 ) -> CodeGraph:
     builder = _parse_shard_builder(root_path, files, repo_key)
     builder.dart_package_roots = _discover_dart_package_roots(root_path)
+    builder.tsconfig_paths = _discover_tsconfig_paths(root_path)
+    builder.go_module_prefix = _discover_go_module_prefix(root_path)
+    builder.tsconfig_paths = _discover_tsconfig_paths(root_path)
+    builder.go_module_prefix = _discover_go_module_prefix(root_path)
     return builder.build()
 
 
@@ -1597,9 +2237,13 @@ def _merge_shard_builders(
     builders: list[_GraphBuilder],
     repo_key: str,
     dart_package_roots: dict[str, str],
+    tsconfig_paths: tuple[str, dict[str, list[str]]] = ("", {}),
+    go_module_prefix: str | None = None,
 ) -> CodeGraph:
     merged = _GraphBuilder(repo_key=repo_key)
     merged.dart_package_roots = dart_package_roots
+    merged.tsconfig_paths = tsconfig_paths
+    merged.go_module_prefix = go_module_prefix
     for shard in builders:
         for node in shard.nodes.values():
             merged.add_node(node)
@@ -1607,6 +2251,8 @@ def _merge_shard_builders(
             merged.edges.setdefault(key, edge)
         merged.symbol_aliases.update(shard.symbol_aliases)
         merged.dart_contexts.update(shard.dart_contexts)
+        merged.ts_contexts.update(shard.ts_contexts)
+        merged.go_contexts.update(shard.go_contexts)
     return merged.build()
 
 
@@ -1631,6 +2277,8 @@ def parse_repo(
         return _GraphBuilder(repo_key=resolved_key).build()
 
     dart_package_roots = _discover_dart_package_roots(root_path)
+    tsconfig_paths = _discover_tsconfig_paths(root_path)
+    go_module_prefix = _discover_go_module_prefix(root_path)
     if total >= _SHARD_PARSE_THRESHOLD:
         workers = min(4, os.cpu_count() or 2)
         chunk_size = max(1, (total + workers - 1) // workers)
@@ -1649,10 +2297,14 @@ def parse_repo(
                 shard_builders.append(fut.result())
                 completed_files += len(shard)
                 _emit_parse_progress(progress_callback, completed_files, total)
-        return _merge_shard_builders(shard_builders, resolved_key, dart_package_roots)
+        return _merge_shard_builders(
+            shard_builders, resolved_key, dart_package_roots, tsconfig_paths, go_module_prefix
+        )
 
     builder = _GraphBuilder(repo_key=resolved_key)
     builder.dart_package_roots = dart_package_roots
+    builder.tsconfig_paths = tsconfig_paths
+    builder.go_module_prefix = go_module_prefix
     for idx, path in enumerate(files, 1):
         _parse_one_file(builder, root_path, path)
         _emit_parse_progress(progress_callback, idx, total)
@@ -1680,6 +2332,8 @@ def parse_files(
         repo_key=derive_repo_key(root_path) if repo_key is None else repo_key,
     )
     builder.dart_package_roots = _discover_dart_package_roots(root_path)
+    builder.tsconfig_paths = _discover_tsconfig_paths(root_path)
+    builder.go_module_prefix = _discover_go_module_prefix(root_path)
     if not root_path.is_dir():
         return builder.build()
     for relative_path in relative_paths:
