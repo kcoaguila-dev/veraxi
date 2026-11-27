@@ -817,3 +817,90 @@ def test_same_name_via_reexport_does_not_merge(tmp_path: Path):
     calls = _edge_set(graph, "CALLS")
     assert ("caller.caller", "pa.impl.build") in calls
     assert ("caller.caller", "pb.impl.build") in calls
+
+
+def test_dart_treesitter_resolves_calls_imports_and_inherits(tmp_path: Path):
+    graph = _parse_files(
+        tmp_path,
+        {
+            "pubspec.yaml": "name: sample_app\n",
+            "lib/base.dart": (
+                "class BaseService {\n"
+                "  void logEvent() {}\n"
+                "}\n"
+            ),
+            "lib/impl.dart": "void target() {}\n",
+            "lib/caller.dart": (
+                "import 'package:sample_app/base.dart';\n"
+                "import 'impl.dart' as impl;\n"
+                "\n"
+                "class AuthService extends BaseService {\n"
+                "  void authenticate() {\n"
+                "    this.helper();\n"
+                "    impl.target();\n"
+                "  }\n"
+                "  void helper() {}\n"
+                "}\n"
+            ),
+        },
+    )
+    imports = _edge_set(graph, "IMPORTS")
+    assert ("lib.caller", "lib.base") in imports
+    assert ("lib.caller", "lib.impl") in imports
+
+    inherits = _edge_set(graph, "INHERITS")
+    assert ("lib.caller.AuthService", "lib.base.BaseService") in inherits
+
+    calls = _edge_set(graph, "CALLS")
+    assert (
+        "lib.caller.AuthService.authenticate",
+        "lib.caller.AuthService.helper",
+    ) in calls
+    assert ("lib.caller.AuthService.authenticate", "lib.impl.target") in calls
+
+
+def test_dart_treesitter_resolves_barrel_exports_and_same_name_collision(tmp_path: Path):
+    graph = _parse_files(
+        tmp_path,
+        {
+            "pubspec.yaml": "name: sample_app\n",
+            "lib/src/impl.dart": "void buildItem() {}\n",
+            "lib/barrel.dart": "export 'src/impl.dart';\n",
+            "lib/alpha.dart": "void shout() {}\n",
+            "lib/beta.dart": "void shout() {}\n",
+            "lib/caller.dart": (
+                "import 'barrel.dart';\n"
+                "import 'alpha.dart' as alpha;\n"
+                "import 'beta.dart' as beta;\n"
+                "\n"
+                "void caller() {\n"
+                "  buildItem();\n"
+                "  alpha.shout();\n"
+                "  beta.shout();\n"
+                "}\n"
+            ),
+        },
+    )
+    calls = _edge_set(graph, "CALLS")
+    assert ("lib.caller.caller", "impl.buildItem") in calls
+    assert ("lib.caller.caller", "lib.alpha.shout") in calls
+    assert ("lib.caller.caller", "lib.beta.shout") in calls
+
+
+def test_dart_treesitter_does_not_claim_dynamic_or_method_channel_calls(tmp_path: Path):
+    graph = _parse_files(
+        tmp_path,
+        {
+            "lib/handler.dart": "void runTermuxCommand() {}\n",
+            "lib/bridge.dart": (
+                "void caller(dynamic obj, dynamic channel) {\n"
+                "  obj.mystery();\n"
+                "  channel.invokeMethod('runTermuxCommand');\n"
+                "}\n"
+            ),
+        },
+    )
+    assert all(
+        source != "lib.bridge.caller"
+        for source, _ in _edge_set(graph, "CALLS")
+    )
