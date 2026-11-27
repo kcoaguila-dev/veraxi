@@ -111,7 +111,7 @@ growth. Baseline fixture: `backend/evaluation/code_accuracy.py`
 - [x] Phase 2 — Linters as claims (WP3): ruff/mypy promoted to runtime dependencies (approved 2026-11-25); `ingestion/lint_findings.py` feeds the SARIF path behind `LINT_FINDINGS_ENABLED` (default off); de-dupe pure function built, wiring waits on structured review comments (WP5)
 - [x] Phase 3 — SCIP spike (Python only, timeboxed): **GO** against the preset criteria in ADR-0007 (builds 4/4 real projects; exactly 5 SCIP-only correct edges on constructed hard cases; ~52 s for the backend). Spike also found the shipped SCIP parser rejects real `scip print --json` output (camelCase keys) — Phase 4 must fix that first
 - [x] Phase 4 — Productionize SCIP generation (local runner / CI only): real-output parser fix (camelCase), `veraxi xray index --generate-scip`, SCIP-wins replacement scoped to covered files in the SCIP partition, `resolution` provenance on code nodes, `impact_analysis` confidence surfacing. Security benchmark unchanged (5/6 in the VM, tree-sitter env failure pre-existing; 6/6 expected in a correct environment)
-- [ ] Phase 5 — Dart + live LSP — deferred, separate ADR/decision
+- [x] Phase 5 — Dart + live LSP — ADR-0008 (`docs/adr/0008-dart-code-intelligence.md`): 5A baseline (`0.0000` recall), 5B dual spike (`scip_dart` 0.9565 recall / 89.75 s on `app/`; live LSP deferred), 5D slices in progress
 
 ---
 
