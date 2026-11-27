@@ -367,7 +367,7 @@ def _prepare_scip_index_command(repo, index_path, language):
         if not scip_go:
             print(
                 "Error: Go SCIP generation needs `scip-go` "
-                "(go install github.com/sourcegraph/scip-go/cmd/scip-go@latest) "
+                "(go install github.com/scip-code/scip-go/cmd/scip-go@latest) "
                 "on PATH or in ~/go/bin, or VERAXI_SCIP_GO_BIN set.",
                 file=sys.stderr,
             )
