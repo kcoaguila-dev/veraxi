@@ -297,10 +297,14 @@ def _scip_tool_binary(name, env_var, extra_candidates=()):
 def _detect_scip_language(repo, lang):
     """Resolve ``auto`` language for ``--generate-scip`` from repo manifests."""
     normalized = (lang or "auto").strip().lower()
-    if normalized in ("python", "dart"):
+    if normalized in ("python", "dart", "typescript", "go"):
         return normalized
     if (repo / "pubspec.yaml").is_file():
         return "dart"
+    if (repo / "go.mod").is_file():
+        return "go"
+    if (repo / "tsconfig.json").is_file() or (repo / "package.json").is_file():
+        return "typescript"
     return "python"
 
 
@@ -318,7 +322,7 @@ def _repo_head_version(repo):
 
 
 def _prepare_scip_index_command(repo, index_path, language):
-    """Resolve indexer binary + argv for ``language`` (python or dart)."""
+    """Resolve indexer binary + argv for ``language`` (python, dart, typescript, go)."""
     if language == "dart":
         if not (repo / ".dart_tool" / "package_config.json").is_file():
             print(
@@ -342,6 +346,37 @@ def _prepare_scip_index_command(repo, index_path, language):
             sys.exit(1)
         return [scip_dart, "-o", str(index_path), str(repo)], "scip_dart"
 
+    if language == "typescript":
+        scip_ts = _scip_tool_binary("scip-typescript", "VERAXI_SCIP_TYPESCRIPT_BIN")
+        if not scip_ts:
+            print(
+                "Error: TypeScript SCIP generation needs `scip-typescript` "
+                "(npm: @sourcegraph/scip-typescript) on PATH or "
+                "VERAXI_SCIP_TYPESCRIPT_BIN set.",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        cmd = [scip_ts, "index", "--output", str(index_path)]
+        if not (repo / "tsconfig.json").is_file() and not (repo / "jsconfig.json").is_file():
+            cmd.append("--infer-tsconfig")
+        return cmd, "scip-typescript"
+
+    if language == "go":
+        scip_go = _scip_tool_binary(
+            "scip-go",
+            "VERAXI_SCIP_GO_BIN",
+            extra_candidates=(Path.home() / "go" / "bin" / "scip-go",),
+        )
+        if not scip_go:
+            print(
+                "Error: Go SCIP generation needs `scip-go` "
+                "(go install github.com/scip-code/scip-go/cmd/scip-go@latest) "
+                "on PATH or in ~/go/bin, or VERAXI_SCIP_GO_BIN set.",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        return [scip_go, "--output", str(index_path)], "scip-go"
+
     scip_python = _scip_tool_binary("scip-python", "VERAXI_SCIP_PYTHON_BIN")
     if not scip_python:
         print(
@@ -360,8 +395,106 @@ def _prepare_scip_index_command(repo, index_path, language):
     ], "scip-python"
 
 
+_NON_CODE_EXTENSIONS = {".md", ".mdx", ".txt", ".rst", ".adoc", ".png", ".jpg", ".jpeg", ".gif", ".svg", ".ico"}
+_NON_CODE_PREFIXES = ("docs/", ".github/")
+
+
+def _is_non_code_path(rel_path):
+    """Return True when a repo-relative path is documentation or static assets."""
+    normalized = rel_path.strip().replace("\\", "/").lstrip("./")
+    if not normalized:
+        return True
+    if normalized.startswith(_NON_CODE_PREFIXES):
+        return True
+    suffix = Path(normalized).suffix.lower()
+    return suffix in _NON_CODE_EXTENSIONS
+
+
+def _git_status_paths(repo):
+    """Return list of dirty/untracked paths from git status --porcelain, or None on error."""
+    try:
+        res = subprocess.run(
+            ["git", "-C", str(repo), "status", "--porcelain"],
+            capture_output=True, text=True, timeout=15, check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if res.returncode != 0:
+        return None
+    paths = []
+    for line in res.stdout.splitlines():
+        if len(line) > 3:
+            entry = line[3:].strip()
+            if " -> " in entry:
+                entry = entry.split(" -> ", 1)[1].strip()
+            paths.append(entry)
+    return paths
+
+
+def _git_diff_paths(repo, base_commit, head_commit):
+    """Return list of changed paths between base_commit and head_commit, or None on error."""
+    try:
+        res = subprocess.run(
+            ["git", "-C", str(repo), "diff", "--name-only", base_commit, head_commit],
+            capture_output=True, text=True, timeout=15, check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if res.returncode != 0:
+        return None
+    return [line.strip() for line in res.stdout.splitlines() if line.strip()]
+
+
+def _fetch_server_source_commit(repo_key, endpoint, key, tenant):
+    """Fetch the indexed source_commit for repo_key from GET /api/v1/code/repos."""
+    from veraxi.cli.http_client import api_request
+
+    try:
+        data = api_request(
+            "GET", "/api/v1/code/repos", endpoint=endpoint, key=key, tenant=tenant, timeout=30,
+        )
+    except SystemExit:
+        return None
+    if not isinstance(data, dict):
+        return None
+    for item in data.get("repos") or []:
+        if isinstance(item, dict) and item.get("repo_key") == repo_key:
+            return item.get("source_commit") or None
+    return None
+
+
+def _check_incremental_scip_skip(repo, repo_key, endpoint, key, tenant):
+    """Return skip payload dict if SCIP regeneration can be skipped, else None."""
+    local_head = _local_git_head(repo)
+    if not local_head:
+        return None
+    server_commit = _fetch_server_source_commit(repo_key, endpoint, key, tenant)
+    if not server_commit:
+        return None
+    dirty_paths = _git_status_paths(repo)
+    if dirty_paths is None:
+        return None
+    if local_head == server_commit and not dirty_paths:
+        return {"status": "skipped", "reason": "up_to_date", "commit": local_head, "repo_key": repo_key}
+    changed = list(dirty_paths)
+    if local_head != server_commit:
+        diff_paths = _git_diff_paths(repo, server_commit, local_head)
+        if diff_paths is None:
+            return None
+        changed.extend(diff_paths)
+    if changed and all(_is_non_code_path(p) for p in changed):
+        return {
+            "status": "skipped",
+            "reason": "non_code_changes_only",
+            "commit": local_head,
+            "repo_key": repo_key,
+            "changed_files": changed,
+        }
+    return None
+
+
 def run_xray_index_generate_scip(
-    repo_path, endpoint=None, key=None, tenant=None, as_json=False, lang="auto"
+    repo_path, endpoint=None, key=None, tenant=None, as_json=False, lang="auto", incremental=False
 ):
     """Generate a SCIP index locally and upload it (ADR-0007 Phase 4 / ADR-0008).
 
@@ -377,6 +510,14 @@ def run_xray_index_generate_scip(
     if not repo.is_dir():
         print(f"Error: repo path {repo_path} is not a directory", file=sys.stderr)
         sys.exit(1)
+    repo_key = _derive_repo_key(repo)
+    if incremental:
+        skip_info = _check_incremental_scip_skip(repo, repo_key, endpoint, key, tenant)
+        if skip_info is not None:
+            _print_result(skip_info, as_json, lambda d: print(
+                f"SCIP skipped ({d['reason']}) for {d['repo_key']} at {d['commit'][:12]}"
+            ))
+            sys.exit(0)
     language = _detect_scip_language(repo, lang)
     scip_cli = _scip_tool_binary("scip", "VERAXI_SCIP_BIN")
     if not scip_cli:
@@ -386,11 +527,14 @@ def run_xray_index_generate_scip(
             file=sys.stderr,
         )
         sys.exit(1)
+    resolved_repo = Path(repo).resolve()
     with tempfile.TemporaryDirectory() as tmp:
         index_path = Path(tmp) / "index.scip"
-        index_cmd, tool_label = _prepare_scip_index_command(repo, index_path, language)
+        index_cmd, tool_label = _prepare_scip_index_command(resolved_repo, index_path, language)
         try:
-            indexed = subprocess.run(index_cmd, capture_output=True, text=True, timeout=1800, check=False)
+            indexed = subprocess.run(
+                index_cmd, cwd=str(resolved_repo), capture_output=True, text=True, timeout=1800, check=False
+            )
         except (OSError, subprocess.TimeoutExpired) as exc:
             print(f"Error: {tool_label} failed to run: {exc}", file=sys.stderr)
             sys.exit(1)

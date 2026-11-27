@@ -35,11 +35,24 @@ def delete_vector(document_id: str, tenant_id: str = "default") -> str:
     """
     config = get_config()
     qdrant = QdrantStorageClient.from_config(config)
-    COLLECTION_NAME = config.qdrant_collection_name
+    collections = [config.qdrant_collection_name]
+    code_col = getattr(config, "code_qdrant_collection_name", "")
+    if code_col and code_col not in collections:
+        collections.append(code_col)
 
-    # Check whether the point belongs to this tenant
-    points = qdrant.get_points(collection_name=COLLECTION_NAME, point_ids=[document_id])
-    if not points:
+    target_collection = None
+    points = []
+    for col in collections:
+        try:
+            pts = qdrant.get_points(collection_name=col, point_ids=[document_id])
+        except Exception:
+            pts = []
+        if pts:
+            target_collection = col
+            points = pts
+            break
+
+    if not points or target_collection is None:
         return f"Document ID '{document_id}' not found."
 
     pt = points[0]
@@ -47,7 +60,7 @@ def delete_vector(document_id: str, tenant_id: str = "default") -> str:
     if payload.get("tenant_id") and payload.get("tenant_id") != tenant_id:
         return f"Unauthorized: Document ID '{document_id}' does not belong to tenant '{tenant_id}'."
 
-    qdrant.delete_points(collection_name=COLLECTION_NAME, point_ids=[document_id])
+    qdrant.delete_points(collection_name=target_collection, point_ids=[document_id])
 
     # Cleanse reference from Neo4j nodes
     _cleanse_vector_from_neo4j(config, document_id, tenant_id)

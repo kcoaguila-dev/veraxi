@@ -27,6 +27,7 @@ class RunnerRegistry:
 
     def __init__(self):
         self._sockets: dict[str, object] = {}
+        self.pending: dict[str, asyncio.Queue] = {}
 
     def register(self, tenant_id: str, websocket) -> None:
         self._sockets[tenant_id] = websocket
@@ -54,7 +55,7 @@ class WsRunnerProvider(SandboxProvider):
         super().__init__(settings, secrets)
         self.registry = registry or GLOBAL_REGISTRY
         self._infos: dict[str, SandboxSessionInfo] = {}
-        self._pending: dict[str, asyncio.Queue] = {}
+        self._pending: dict[str, asyncio.Queue] = self.registry.pending
         self._request_timeout = float(
             (settings or {}).get("config", {}).get("request_timeout_sec")
             or REQUEST_TIMEOUT_SEC
@@ -182,3 +183,45 @@ class WsRunnerProvider(SandboxProvider):
 
     async def stop_session(self, session_id: str) -> None:
         self._infos.pop(session_id, None)
+
+    # -- live LSP sidecar RPCs (ADR-0009) -------------------------------
+    async def lsp_start(
+        self, tenant_id: str, *, language: str | None = None, path: str | None = None
+    ) -> dict:
+        return await self._request(
+            tenant_id, "lsp_start", {"language": language, "path": path}
+        )
+
+    async def lsp_request(
+        self,
+        tenant_id: str,
+        *,
+        path: str,
+        method: str,
+        line: int | None = None,
+        character: int | None = None,
+        content: str | None = None,
+        params: dict | None = None,
+    ) -> dict:
+        return await self._request(
+            tenant_id,
+            "lsp_request",
+            {
+                "path": path,
+                "method": method,
+                "line": line,
+                "character": character,
+                "content": content,
+                "params": params,
+            },
+        )
+
+    async def lsp_notify(
+        self, tenant_id: str, *, path: str, method: str, params: dict | None = None
+    ) -> dict:
+        return await self._request(
+            tenant_id, "lsp_notify", {"path": path, "method": method, "params": params}
+        )
+
+    async def lsp_stop(self, tenant_id: str, *, language: str | None = None) -> dict:
+        return await self._request(tenant_id, "lsp_stop", {"language": language})

@@ -76,6 +76,14 @@ class LocalExecutor:
         self.runtime = runtime
         self.offline = offline
         self.image = image
+        self._lsp = None
+
+    def _get_lsp(self):
+        if self._lsp is None:
+            from veraxi_runner.lsp_sidecar import LspSidecarManager
+
+            self._lsp = LspSidecarManager(self.repo)
+        return self._lsp
 
     # -- dispatch ---------------------------------------------------------
     async def handle(self, method: str, params: dict, emit=None) -> dict:
@@ -92,6 +100,27 @@ class LocalExecutor:
             return {"ok": True}
         if method == "diff":
             return {"diff": await self.get_diff()}
+        if method == "lsp_start":
+            return await self._get_lsp().start(
+                language=params.get("language"), path=params.get("path")
+            )
+        if method == "lsp_request":
+            return await self._get_lsp().request(
+                path=str(params.get("path") or ""),
+                method=str(params.get("method") or ""),
+                line=params.get("line"),
+                character=params.get("character"),
+                content=params.get("content"),
+                params=params.get("params"),
+            )
+        if method == "lsp_notify":
+            return await self._get_lsp().notify(
+                path=str(params.get("path") or ""),
+                method=str(params.get("method") or ""),
+                params=params.get("params"),
+            )
+        if method == "lsp_stop":
+            return await self._get_lsp().stop(language=params.get("language"))
         raise ValueError(f"Unknown runner method {method!r}")
 
     # -- operations ---------------------------------------------------------

@@ -43,6 +43,7 @@ _MODEL_DIMENSIONS = {
     "google/embeddinggemma-300m": 768,
     "BAAI/bge-large-en-v1.5": 1024,
     "intfloat/multilingual-e5-large": 1024,
+    "jinaai/jina-embeddings-v2-base-code": 768,
     "jinaai/jina-embeddings-v3": 1024,
     "Qwen/Qwen3-Embedding-0.6B": 1024,
     "Qwen/Qwen3-Embedding-0.6B-Q": 1024,
@@ -140,6 +141,9 @@ class Config:
     embedding_base_url: str = ""
     embedding_dimension: int = 384
     embedding_threads: int = 2
+    code_embedding_model_name: str = ""
+    code_embedding_dimension: int = 768
+    code_qdrant_collection_name: str = "veraxi_code_chunks"
     entity_resolution_threshold: float = 0.90
     document_parser: str = "pypdf"
     worker_mode: str = "inline"
@@ -245,6 +249,44 @@ class Config:
             )
         embedding_base_url = os.environ.get("EMBEDDING_BASE_URL", "")
         embedding_threads = int(os.environ.get("EMBEDDING_THREADS", "2"))
+        code_embedding_model_name = _resolve_embedding_model_name(
+            os.environ.get("CODE_EMBEDDING_MODEL", "").strip()
+        )
+        known_code_dim = _MODEL_DIMENSIONS.get(code_embedding_model_name)
+        env_code_dim = os.environ.get("CODE_EMBEDDING_DIMENSION", "").strip()
+        if env_code_dim:
+            code_embedding_dimension = int(env_code_dim)
+            if code_embedding_dimension <= 0:
+                raise ValueError(
+                    f"Invalid CODE_EMBEDDING_DIMENSION: {code_embedding_dimension}. "
+                    "Dimension must be a positive integer."
+                )
+            if known_code_dim is not None and code_embedding_dimension != known_code_dim:
+                if (
+                    is_remote_embed
+                    and code_embedding_model_name in _MATRYOSHKA_MODELS
+                    and code_embedding_dimension <= known_code_dim
+                ):
+                    logger.info(
+                        "Matryoshka code embedding dimension override: '%s' (%d -> %d).",
+                        code_embedding_model_name,
+                        known_code_dim,
+                        code_embedding_dimension,
+                    )
+                else:
+                    raise ValueError(
+                        f"Configuration mismatch: Code embedding model '{code_embedding_model_name}' "
+                        f"natively has dimension {known_code_dim}, but CODE_EMBEDDING_DIMENSION is "
+                        f"configured as {code_embedding_dimension}."
+                    )
+        else:
+            code_embedding_dimension = (
+                known_code_dim if known_code_dim is not None else 768
+            )
+        code_qdrant_collection_name = (
+            os.environ.get("CODE_QDRANT_COLLECTION", "veraxi_code_chunks").strip()
+            or "veraxi_code_chunks"
+        )
         entity_resolution_threshold = float(
             os.environ.get("ENTITY_RESOLUTION_THRESHOLD", "0.90")
         )
@@ -392,6 +434,9 @@ class Config:
             embedding_base_url=embedding_base_url,
             embedding_dimension=embedding_dimension,
             embedding_threads=embedding_threads,
+            code_embedding_model_name=code_embedding_model_name,
+            code_embedding_dimension=code_embedding_dimension,
+            code_qdrant_collection_name=code_qdrant_collection_name,
             entity_resolution_threshold=entity_resolution_threshold,
             document_parser=document_parser,
             worker_mode=worker_mode,

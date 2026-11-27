@@ -6,7 +6,7 @@ import threading
 from typing import Any
 
 from backend.config import get_config
-from backend.ingestion.chunk_embed import chunk_and_embed
+from backend.ingestion.chunk_embed import chunk_and_embed, is_code_file
 from backend.ingestion.document_parser import (
     strip_and_resolve_citation_metadata,
 )
@@ -83,9 +83,18 @@ def run_ingestion(
     qdrant = QdrantStorageClient.from_config(config)
     neo4j = Neo4jStorageClient.from_config(config)
 
-    # Ensure qdrant collection exists
-    COLLECTION_NAME = config.qdrant_collection_name
-    qdrant.create_collection(COLLECTION_NAME)
+    # Ensure qdrant collection exists (route code files to dedicated collection
+    # when CODE_EMBEDDING_MODEL is configured so dimensions stay isolated).
+    is_code = source_type == "code" or is_code_file(source)
+    use_code_model = bool(is_code and config.code_embedding_model_name)
+    if use_code_model:
+        COLLECTION_NAME = config.code_qdrant_collection_name
+        qdrant.create_collection(
+            COLLECTION_NAME, vector_size=config.code_embedding_dimension
+        )
+    else:
+        COLLECTION_NAME = config.qdrant_collection_name
+        qdrant.create_collection(COLLECTION_NAME)
 
     if file_hash is None and text:
         file_hash = hashlib.sha256(text.encode("utf-8")).hexdigest()
@@ -107,9 +116,18 @@ def run_ingestion(
     logging.info(f"Starting ingestion for tenant: {tenant_id}...")  # noqa: LOG015
 
     # 2. Chunk and embed
-    chunks_and_embeddings = chunk_and_embed(
-        text, chunk_size=chunk_size, chunk_overlap=chunk_overlap
-    )
+    if is_code:
+        chunks_and_embeddings = chunk_and_embed(
+            text,
+            chunk_size=chunk_size,
+            chunk_overlap=chunk_overlap,
+            file_path=source,
+            use_code_model=use_code_model,
+        )
+    else:
+        chunks_and_embeddings = chunk_and_embed(
+            text, chunk_size=chunk_size, chunk_overlap=chunk_overlap
+        )
 
     ingested_at_iso = datetime.now(UTC).isoformat()
     vectors = []
