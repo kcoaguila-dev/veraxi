@@ -182,3 +182,45 @@ class WsRunnerProvider(SandboxProvider):
 
     async def stop_session(self, session_id: str) -> None:
         self._infos.pop(session_id, None)
+
+    # -- live LSP sidecar RPCs (ADR-0009) -------------------------------
+    async def lsp_start(
+        self, tenant_id: str, *, language: str | None = None, path: str | None = None
+    ) -> dict:
+        return await self._request(
+            tenant_id, "lsp_start", {"language": language, "path": path}
+        )
+
+    async def lsp_request(
+        self,
+        tenant_id: str,
+        *,
+        path: str,
+        method: str,
+        line: int | None = None,
+        character: int | None = None,
+        content: str | None = None,
+        params: dict | None = None,
+    ) -> dict:
+        return await self._request(
+            tenant_id,
+            "lsp_request",
+            {
+                "path": path,
+                "method": method,
+                "line": line,
+                "character": character,
+                "content": content,
+                "params": params,
+            },
+        )
+
+    async def lsp_notify(
+        self, tenant_id: str, *, path: str, method: str, params: dict | None = None
+    ) -> dict:
+        return await self._request(
+            tenant_id, "lsp_notify", {"path": path, "method": method, "params": params}
+        )
+
+    async def lsp_stop(self, tenant_id: str, *, language: str | None = None) -> dict:
+        return await self._request(tenant_id, "lsp_stop", {"language": language})

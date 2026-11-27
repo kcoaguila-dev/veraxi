@@ -350,6 +350,12 @@ async def get_tools(
     if tool_settings and tool_settings.get("sandbox_enabled"):
         all_tools.extend(_sandbox_tool_definitions())
 
+    if tenant_id and (file_search_enabled or _has_active_repo_context(tool_settings)):
+        from backend.sandbox.ws_runner_provider import GLOBAL_REGISTRY
+
+        if GLOBAL_REGISTRY.is_connected(tenant_id):
+            all_tools.extend(_lsp_tool_definitions())
+
     # External MCP tools come from the hardened client manager: stored
     # tenant integrations first (no skills_enabled gate), legacy
     # tool_settings servers as fallback (legacy gate preserved inside
@@ -966,6 +972,98 @@ def _execute_single_tool(
 SANDBOX_TOOL_NAMES = {
     "sandbox_exec", "sandbox_read_file", "sandbox_write_file", "sandbox_diff",
 }
+
+LSP_TOOL_NAMES = {"lsp_definition", "lsp_references", "lsp_diagnostics"}
+
+
+def _lsp_tool_definitions() -> list:
+    """Read-only Live LSP tools backed by the user's connected veraxi-runner."""
+    _pos_props = {
+        "path": {"type": "string", "description": "Repo-relative file path."},
+        "line": {"type": "integer", "description": "0-based line number."},
+        "character": {"type": "integer", "description": "0-based column offset."},
+        "content": {"type": "string", "description": "Optional dirty buffer contents."},
+    }
+    return [
+        {
+            "type": "function",
+            "function": {
+                "name": "lsp_definition",
+                "description": "Resolve live go-to-definition via the connected local LSP sidecar.",
+                "parameters": {
+                    "type": "object",
+                    "properties": _pos_props,
+                    "required": ["path", "line", "character"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "lsp_references",
+                "description": "Find live symbol references via the connected local LSP sidecar.",
+                "parameters": {
+                    "type": "object",
+                    "properties": _pos_props,
+                    "required": ["path", "line", "character"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "lsp_diagnostics",
+                "description": "Fetch live compiler/linter diagnostics for a file via the connected local LSP sidecar.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "path": {"type": "string", "description": "Repo-relative file path."},
+                        "content": {"type": "string", "description": "Optional dirty buffer contents."},
+                    },
+                    "required": ["path"],
+                },
+            },
+        },
+    ]
+
+
+async def execute_lsp_tool(tool_name: str, args: dict | None, tenant_id: str) -> dict:
+    """Execute one read-only LSP tool via WsRunnerProvider; fail closed when offline."""
+    from backend.sandbox.ws_runner_provider import GLOBAL_REGISTRY, WsRunnerProvider
+
+    if not GLOBAL_REGISTRY.is_connected(tenant_id):
+        return {
+            "status": "runner_offline",
+            "tool": tool_name,
+            "fallback_hint": "veraxi-runner is offline; fall back to SCIP/Neo4j symbol_lookup or impact_analysis.",
+        }
+    t_input = dict(args or {})
+    method_map = {
+        "lsp_definition": "textDocument/definition",
+        "lsp_references": "textDocument/references",
+        "lsp_diagnostics": "textDocument/publishDiagnostics",
+    }
+    lsp_method = method_map.get(tool_name)
+    if not lsp_method:
+        return {"status": "error", "error": f"Unknown LSP tool {tool_name!r}"}
+    provider = WsRunnerProvider({}, registry=GLOBAL_REGISTRY)
+    try:
+        res = await provider.lsp_request(
+            tenant_id,
+            path=str(t_input.get("path") or ""),
+            method=lsp_method,
+            line=t_input.get("line"),
+            character=t_input.get("character"),
+            content=t_input.get("content"),
+        )
+        return {"status": "ok", "tool": tool_name, **res}
+    except Exception as exc:
+        return {
+            "status": "lsp_error",
+            "tool": tool_name,
+            "error": str(exc),
+            "fallback_hint": "LSP request failed; fall back to SCIP/Neo4j symbol_lookup or impact_analysis.",
+        }
 
 _sandbox_manager_override = None
 
@@ -1605,6 +1703,11 @@ async def execute_tools_internal(
         if t_name in SANDBOX_TOOL_NAMES:
             s_hits = await _execute_sandbox_tool(tc, tenant_id, tool_settings)
             return [], [], s_hits
+        if t_name in LSP_TOOL_NAMES:
+            import json as _json
+
+            lsp_res = await execute_lsp_tool(t_name, t_input, tenant_id)
+            return [], [], [McpHit(_json.dumps(lsp_res), "", "LSP")]
         if t_name.startswith("mcp__"):
             m_hits, _ = await _execute_mcp_tool(
                 t_name, t_input, tool_settings, tenant_id
