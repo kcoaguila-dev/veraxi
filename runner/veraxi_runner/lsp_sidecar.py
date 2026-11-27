@@ -15,7 +15,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from veraxi_runner.local_exec import PathConfinementError, resolve_under_repo, scrubbed_env
+from veraxi_runner.local_exec import resolve_under_repo, scrubbed_env
 
 _EXT_TO_LANGUAGE: dict[str, str] = {
     ".py": "python",
