@@ -4,9 +4,13 @@ from __future__ import annotations
 
 import asyncio
 import json
+import sys
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "runner"))
 
 from veraxi_runner.local_exec import LocalExecutor, PathConfinementError
 
