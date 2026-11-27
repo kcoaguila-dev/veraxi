@@ -1349,6 +1349,10 @@ def _parse_treesitter_file(
                         dart_ctx.class_methods.setdefault(container.qualified_name, {})[name] = func_qn
                     else:
                         dart_ctx.top_defs[name] = (func_qn, "Function")
+                    # Dart's function_body is a sibling of method_signature /
+                    # function_signature, not a child; recursing here would
+                    # visit function_signature inside method_signature twice.
+                    return func_node
                 _walk_children(node.children, func_node, enclosing_class_qn)
                 return func_node
 
