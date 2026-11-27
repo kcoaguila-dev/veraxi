@@ -280,12 +280,28 @@ def run_xray_index_scip(scip_path, endpoint=None, key=None, tenant=None, as_json
     sys.exit(0)
 
 
-def _scip_tool_binary(name, env_var):
-    """Resolve a SCIP tool binary: explicit env override, else PATH."""
+def _scip_tool_binary(name, env_var, extra_candidates=()):
+    """Resolve a SCIP tool binary: explicit env override, PATH, or fallback paths."""
     override = os.environ.get(env_var)
     if override:
         return override
-    return shutil.which(name)
+    found = shutil.which(name)
+    if found:
+        return found
+    for candidate in extra_candidates:
+        if Path(candidate).is_file():
+            return str(candidate)
+    return None
+
+
+def _detect_scip_language(repo, lang):
+    """Resolve ``auto`` language for ``--generate-scip`` from repo manifests."""
+    normalized = (lang or "auto").strip().lower()
+    if normalized in ("python", "dart"):
+        return normalized
+    if (repo / "pubspec.yaml").is_file():
+        return "dart"
+    return "python"
 
 
 def _repo_head_version(repo):
@@ -301,26 +317,33 @@ def _repo_head_version(repo):
     return sha or None
 
 
-def run_xray_index_generate_scip(repo_path, endpoint=None, key=None, tenant=None, as_json=False):
-    """Generate a SCIP index locally and upload it (ADR-0007 Phase 4).
+def _prepare_scip_index_command(repo, index_path, language):
+    """Resolve indexer binary + argv for ``language`` (python or dart)."""
+    if language == "dart":
+        if not (repo / ".dart_tool" / "package_config.json").is_file():
+            print(
+                "Error: Dart package config not found (.dart_tool/package_config.json). "
+                "Run 'flutter pub get' or 'dart pub get' first.",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        scip_dart = _scip_tool_binary(
+            "scip_dart",
+            "VERAXI_SCIP_DART_BIN",
+            extra_candidates=(Path.home() / ".pub-cache" / "bin" / "scip_dart",),
+        )
+        if not scip_dart:
+            print(
+                "Error: Dart SCIP generation needs `scip_dart` "
+                "(dart pub global activate scip_dart) on PATH or in "
+                "~/.pub-cache/bin, or VERAXI_SCIP_DART_BIN set.",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        return [scip_dart, "-o", str(index_path), str(repo)], "scip_dart"
 
-    Runs ``scip-python index`` and ``scip print --json`` on *this*
-    machine — the local runner / CI case, never the hosted backend —
-    then uploads through the existing ``--scip`` path
-    (:func:`run_xray_index_scip`). ``scip-python`` is distributed via
-    npm (``@sourcegraph/scip-python``), not PyPI, so it is a tool the
-    operator installs, never a backend dependency; binaries resolve
-    via ``VERAXI_SCIP_PYTHON_BIN`` / ``VERAXI_SCIP_BIN`` or PATH.
-    ``--project-version`` is always passed: scip-python crashes on
-    projects whose version it cannot determine (non-git checkouts).
-    """
-    repo = Path(repo_path)
-    if not repo.is_dir():
-        print(f"Error: repo path {repo_path} is not a directory", file=sys.stderr)
-        sys.exit(1)
     scip_python = _scip_tool_binary("scip-python", "VERAXI_SCIP_PYTHON_BIN")
-    scip_cli = _scip_tool_binary("scip", "VERAXI_SCIP_BIN")
-    if not scip_python or not scip_cli:
+    if not scip_python:
         print(
             "Error: SCIP generation needs both `scip-python` "
             "(npm: @sourcegraph/scip-python) and the `scip` CLI "
@@ -330,21 +353,50 @@ def run_xray_index_generate_scip(repo_path, endpoint=None, key=None, tenant=None
         )
         sys.exit(1)
     version = _repo_head_version(repo) or "0.0.0"
+    return [
+        scip_python, "index", "--cwd", str(repo),
+        "--project-name", repo.name, "--project-version", version,
+        "--output", str(index_path),
+    ], "scip-python"
+
+
+def run_xray_index_generate_scip(
+    repo_path, endpoint=None, key=None, tenant=None, as_json=False, lang="auto"
+):
+    """Generate a SCIP index locally and upload it (ADR-0007 Phase 4 / ADR-0008).
+
+    Runs ``scip-python index`` (Python) or ``scip_dart`` (Dart) and
+    ``scip print --json`` on *this* machine — the local runner / CI
+    case, never the hosted backend — then uploads through the existing
+    ``--scip`` path (:func:`run_xray_index_scip`). Both indexers are
+    operator-installed CLI tools, never backend dependencies; binaries
+    resolve via ``VERAXI_SCIP_PYTHON_BIN`` / ``VERAXI_SCIP_DART_BIN`` /
+    ``VERAXI_SCIP_BIN`` or PATH.
+    """
+    repo = Path(repo_path)
+    if not repo.is_dir():
+        print(f"Error: repo path {repo_path} is not a directory", file=sys.stderr)
+        sys.exit(1)
+    language = _detect_scip_language(repo, lang)
+    scip_cli = _scip_tool_binary("scip", "VERAXI_SCIP_BIN")
+    if not scip_cli:
+        print(
+            "Error: SCIP generation needs the `scip` CLI "
+            "(sourcegraph/scip releases) on PATH or VERAXI_SCIP_BIN set.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
     with tempfile.TemporaryDirectory() as tmp:
         index_path = Path(tmp) / "index.scip"
-        index_cmd = [
-            scip_python, "index", "--cwd", str(repo),
-            "--project-name", repo.name, "--project-version", version,
-            "--output", str(index_path),
-        ]
+        index_cmd, tool_label = _prepare_scip_index_command(repo, index_path, language)
         try:
             indexed = subprocess.run(index_cmd, capture_output=True, text=True, timeout=1800, check=False)
         except (OSError, subprocess.TimeoutExpired) as exc:
-            print(f"Error: scip-python failed to run: {exc}", file=sys.stderr)
+            print(f"Error: {tool_label} failed to run: {exc}", file=sys.stderr)
             sys.exit(1)
         if indexed.returncode != 0 or not index_path.exists():
             print(
-                f"Error: scip-python index failed ({indexed.returncode}): "
+                f"Error: {tool_label} failed ({indexed.returncode}): "
                 f"{(indexed.stderr or '')[-500:]}",
                 file=sys.stderr,
             )

@@ -431,3 +431,77 @@ def test_xray_index_generate_scip_includes_repo_key_from_origin(tmp_path, monkey
         run_xray_index_generate_scip(str(repo))
     assert exc.value.code == 0
     assert mock.call_args.kwargs["body"]["repo_key"] == "owner/repo"
+
+
+def test_xray_index_generate_scip_dart_auto_detect_and_upload(tmp_path, monkeypatch):
+    import subprocess as sp
+
+    from veraxi.cli import code_intel as cli_mod
+    from veraxi.cli.code_intel import run_xray_index_generate_scip
+
+    repo = tmp_path / "dart_repo"
+    (repo / ".dart_tool").mkdir(parents=True)
+    (repo / "pubspec.yaml").write_text("name: sample_app\n", encoding="utf-8")
+    (repo / ".dart_tool" / "package_config.json").write_text("{}", encoding="utf-8")
+    monkeypatch.setenv("VERAXI_SCIP_DART_BIN", "/tools/scip_dart")
+    monkeypatch.setenv("VERAXI_SCIP_BIN", "/tools/scip")
+
+    seen_cmds = []
+
+    def fake_run(argv, **kwargs):
+        seen_cmds.append(argv)
+        if argv[0] == "/tools/scip_dart":
+            out = argv[argv.index("-o") + 1]
+            with open(out, "wb") as fh:
+                fh.write(b"fake-dart-index")
+            return sp.CompletedProcess(argv, 0, stdout="", stderr="")
+        if argv[0] == "/tools/scip":
+            return sp.CompletedProcess(
+                argv, 0, stdout=json.dumps({"documents": [{"relativePath": "lib/main.dart"}]}), stderr=""
+            )
+        if "remote" in argv:
+            return sp.CompletedProcess(argv, 0, stdout="https://github.com/owner/dart_repo.git\n", stderr="")
+        return sp.CompletedProcess(argv, 1, stdout="", stderr="")
+
+    monkeypatch.setattr(cli_mod.subprocess, "run", fake_run)
+    with patch(
+        PATCH_TARGET, return_value={"status": "ok", "nodes_written": 2, "edges_written": 1}
+    ) as mock, pytest.raises(SystemExit) as exc:
+        run_xray_index_generate_scip(str(repo))
+    assert exc.value.code == 0
+    assert any(cmd[0] == "/tools/scip_dart" for cmd in seen_cmds)
+    assert mock.call_args.kwargs["body"]["repo_key"] == "owner/dart_repo"
+
+
+def test_xray_index_generate_scip_dart_missing_package_config_exit_1(tmp_path, monkeypatch, capsys):
+    from veraxi.cli.code_intel import run_xray_index_generate_scip
+
+    repo = tmp_path / "dart_repo"
+    repo.mkdir()
+    (repo / "pubspec.yaml").write_text("name: sample_app\n", encoding="utf-8")
+    monkeypatch.setenv("VERAXI_SCIP_DART_BIN", "/tools/scip_dart")
+    monkeypatch.setenv("VERAXI_SCIP_BIN", "/tools/scip")
+
+    with pytest.raises(SystemExit) as exc:
+        run_xray_index_generate_scip(str(repo), lang="dart")
+    assert exc.value.code == 1
+    assert "pub get" in capsys.readouterr().err
+
+
+def test_xray_index_generate_scip_dart_missing_tools_exit_1(tmp_path, monkeypatch, capsys):
+    from veraxi.cli import code_intel as cli_mod
+    from veraxi.cli.code_intel import run_xray_index_generate_scip
+
+    repo = tmp_path / "dart_repo"
+    (repo / ".dart_tool").mkdir(parents=True)
+    (repo / "pubspec.yaml").write_text("name: sample_app\n", encoding="utf-8")
+    (repo / ".dart_tool" / "package_config.json").write_text("{}", encoding="utf-8")
+    monkeypatch.delenv("VERAXI_SCIP_DART_BIN", raising=False)
+    monkeypatch.setenv("VERAXI_SCIP_BIN", "/tools/scip")
+    monkeypatch.setattr(cli_mod.shutil, "which", lambda _name: None)
+    monkeypatch.setattr(cli_mod.Path, "home", lambda: tmp_path / "empty_home")
+
+    with pytest.raises(SystemExit) as exc:
+        run_xray_index_generate_scip(str(repo), lang="dart")
+    assert exc.value.code == 1
+    assert "scip_dart" in capsys.readouterr().err
