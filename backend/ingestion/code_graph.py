@@ -1572,13 +1572,21 @@ def _emit_parse_progress(
         progress_callback("parsing", f"Parsing {done}/{total} files…")
 
 
-def _parse_shard(
+def _parse_shard_builder(
     root_path: Path, files: list[Path], repo_key: str
 ) -> _GraphBuilder:
     builder = _GraphBuilder(repo_key=repo_key)
     for path in files:
         _parse_one_file(builder, root_path, path)
     return builder
+
+
+def _parse_shard(
+    root_path: Path, files: list[Path], repo_key: str
+) -> CodeGraph:
+    builder = _parse_shard_builder(root_path, files, repo_key)
+    builder.dart_package_roots = _discover_dart_package_roots(root_path)
+    return builder.build()
 
 
 def _merge_shard_builders(
@@ -1628,7 +1636,7 @@ def parse_repo(
         _emit_parse_progress(progress_callback, 1, total)
         with ThreadPoolExecutor(max_workers=workers) as pool:
             futures = [
-                pool.submit(_parse_shard, root_path, shard, resolved_key)
+                pool.submit(_parse_shard_builder, root_path, shard, resolved_key)
                 for shard in shards_input
             ]
             shard_builders: list[_GraphBuilder] = []
