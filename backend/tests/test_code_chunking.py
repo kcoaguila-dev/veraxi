@@ -77,3 +77,39 @@ def test_code_embedding_config_dedicated_collection(monkeypatch):
     # Standard collection and dimension remain untouched
     assert cfg.embedding_dimension == baseline.embedding_dimension
     assert cfg.qdrant_collection_name == baseline.qdrant_collection_name
+
+
+def test_run_ingestion_routes_code_files_to_ast_and_code_collection(monkeypatch):
+    from unittest.mock import MagicMock, patch
+
+    from backend.ingestion.__main__ import run_ingestion
+
+    monkeypatch.setenv("CODE_EMBEDDING_MODEL", "jinaai/jina-embeddings-v2-base-code")
+    cfg = Config.from_env()
+
+    fake_qdrant = MagicMock()
+    fake_qdrant.has_file_hash.return_value = False
+    fake_qdrant.insert_points.return_value = ["pt-1"]
+    fake_neo4j = MagicMock()
+
+    with (
+        patch("backend.ingestion.__main__.QdrantStorageClient.from_config", return_value=fake_qdrant),
+        patch("backend.ingestion.__main__.Neo4jStorageClient.from_config", return_value=fake_neo4j),
+        patch("backend.ingestion.__main__.chunk_and_embed", return_value=[("# file: src/worker.py\ndef run(): pass", [0.1] * 768, {"indices": [1], "values": [1.0]})]) as mock_ce,
+        patch("backend.ingestion.__main__.extract_entities_and_relations_fast", return_value=([], [])),
+        patch("backend.ingestion.__main__.resolve_entities", return_value=([], {})),
+        patch("backend.ingestion.__main__.write_to_graph", return_value=({}, {}, {})),
+    ):
+        run_ingestion(
+            cfg,
+            "def run(): pass\n",
+            {},
+            tenant_id="t1",
+            source="src/worker.py",
+            source_type="code",
+            fast_extraction=True,
+        )
+
+    fake_qdrant.create_collection.assert_called_once_with("veraxi_code_chunks", vector_size=768)
+    assert mock_ce.call_args.kwargs["file_path"] == "src/worker.py"
+    assert mock_ce.call_args.kwargs["use_code_model"] is True

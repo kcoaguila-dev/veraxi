@@ -41,6 +41,14 @@ _TS_AST_BLOCK_TYPES = {
 }
 
 
+def is_code_file(file_path: str | None) -> bool:
+    """Return True when ``file_path`` has a supported source-code extension."""
+    if not file_path:
+        return False
+    suffix = Path(file_path).suffix.lower()
+    return suffix == ".py" or suffix in _CODE_EXT_TO_TS
+
+
 def expand_code_identifiers(text: str) -> str:
     """Expand camelCase and snake_case identifiers into space-separated sub-tokens.
 
@@ -443,12 +451,9 @@ def chunk_and_embed(
     use_code_model: bool = False,
 ) -> list[tuple[str, list[float], dict]]:
     """Chunks text and returns list of (chunk_text, dense_vector, sparse_vector)."""
-    if file_path and (
-        Path(file_path).suffix.lower() == ".py"
-        or Path(file_path).suffix.lower() in _CODE_EXT_TO_TS
-    ):
+    if is_code_file(file_path):
         raw_chunks = chunk_code(
-            text, file_path=file_path, chunk_size=max(chunk_size, 1200), overlap=chunk_overlap
+            text, file_path=file_path or "", chunk_size=max(chunk_size, 1200), overlap=chunk_overlap
         )
     else:
         raw_chunks = chunk_text(text, chunk_size=chunk_size, overlap=chunk_overlap)
