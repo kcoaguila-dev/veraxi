@@ -322,8 +322,8 @@ def _target_collections(collection_name: str) -> list[str]:
         code_col = getattr(get_config(), "code_qdrant_collection_name", "")
         if code_col and code_col not in collections:
             collections.append(code_col)
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("Skipping code collection lookup: %s", exc)
     return collections
 
 
@@ -339,7 +339,9 @@ def _delete_qdrant_across_collections(
     for col in _target_collections(collection_name):
         try:
             count, pids = _delete_qdrant_by_field(qdrant, col, tenant_id, field, value)
-        except Exception:
+        except Exception as exc:
+            sentry_sdk.capture_exception(exc)
+            logger.debug("Skipping Qdrant delete on collection %s: %s", col, exc)
             continue
         total_deleted += count
         all_ids.extend(pids)
