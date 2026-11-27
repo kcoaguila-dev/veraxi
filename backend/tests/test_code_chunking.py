@@ -113,3 +113,28 @@ def test_run_ingestion_routes_code_files_to_ast_and_code_collection(monkeypatch)
     fake_qdrant.create_collection.assert_called_once_with("veraxi_code_chunks", vector_size=768)
     assert mock_ce.call_args.kwargs["file_path"] == "src/worker.py"
     assert mock_ce.call_args.kwargs["use_code_model"] is True
+
+
+def test_search_vectors_routes_code_scope_to_code_collection(monkeypatch):
+    from unittest.mock import MagicMock, patch
+
+    from backend.mcp_server.tools.search_vectors import search_vectors
+
+    monkeypatch.setenv("CODE_EMBEDDING_MODEL", "jinaai/jina-embeddings-v2-base-code")
+    cfg = Config.from_env()
+    fake_qdrant = MagicMock()
+    fake_qdrant.search_hybrid.return_value = [
+        {"id": "1", "score": 0.9, "payload": {"text": "def run(): pass", "path": "src/worker.py"}}
+    ]
+
+    with (
+        patch("backend.mcp_server.tools.search_vectors.get_config", return_value=cfg),
+        patch("backend.mcp_server.tools.search_vectors.QdrantStorageClient.from_config", return_value=fake_qdrant),
+        patch("backend.mcp_server.tools.search_vectors.embed_code_text", return_value=[0.2] * 768) as mock_code_emb,
+        patch("backend.mcp_server.tools.search_vectors.embed_text_sparse", return_value={"indices": [1], "values": [1.0]}),
+    ):
+        hits = search_vectors("run worker", tenant_id="t1", source_scope={"repos": ["owner/repo"]})
+
+    assert len(hits) == 1
+    mock_code_emb.assert_called_once_with("run worker")
+    assert fake_qdrant.search_hybrid.call_args.kwargs["collection_name"] == "veraxi_code_chunks"

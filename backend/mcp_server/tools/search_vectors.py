@@ -1,6 +1,6 @@
 from concurrent.futures import ThreadPoolExecutor
 from backend.config import get_config
-from backend.ingestion.chunk_embed import embed_text, embed_text_sparse
+from backend.ingestion.chunk_embed import embed_code_text, embed_text, embed_text_sparse
 from backend.retrieval.merge_rank import VectorHit
 from backend.storage.qdrant_client import QdrantStorageClient
 
@@ -26,10 +26,20 @@ def search_vectors(
     config = get_config()
     qdrant_client = QdrantStorageClient.from_config(config)
 
-    COLLECTION_NAME = config.qdrant_collection_name
+    use_code_collection = bool(
+        getattr(config, "code_embedding_model_name", "")
+        and isinstance(source_scope, dict)
+        and source_scope.get("repos")
+    )
+    COLLECTION_NAME = (
+        config.code_qdrant_collection_name
+        if use_code_collection
+        else config.qdrant_collection_name
+    )
+    dense_fn = embed_code_text if use_code_collection else embed_text
 
     # Embed the query in parallel (dense + sparse)
-    future_dense = _EMBED_EXECUTOR.submit(embed_text, query_text)
+    future_dense = _EMBED_EXECUTOR.submit(dense_fn, query_text)
     future_sparse = _EMBED_EXECUTOR.submit(embed_text_sparse, query_text)
     try:
         query_vector = future_dense.result()
