@@ -76,6 +76,20 @@ async def _read_lsp_message(stdout: asyncio.StreamReader) -> dict[str, Any]:
     return json.loads(body.decode("utf-8"))
 
 
+_EXT_TO_LANGUAGE_ID: dict[str, str] = {
+    ".js": "javascript",
+    ".jsx": "javascriptreact",
+    ".ts": "typescript",
+    ".tsx": "typescriptreact",
+    ".mjs": "javascript",
+    ".cjs": "javascript",
+}
+
+
+def _lsp_language_id(file_path: Path, session_language: str) -> str:
+    return _EXT_TO_LANGUAGE_ID.get(file_path.suffix.lower(), session_language)
+
+
 @dataclass
 class _LspSession:
     language: str
@@ -83,7 +97,10 @@ class _LspSession:
     last_used: float = field(default_factory=time.monotonic)
     next_id: int = 1
     opened_versions: dict[str, int] = field(default_factory=dict)
+    opened_texts: dict[str, str] = field(default_factory=dict)
     diagnostics: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
+    diagnostics_versions: dict[str, int | None] = field(default_factory=dict)
+    diagnostics_events: dict[str, asyncio.Event] = field(default_factory=dict)
     pending: dict[int, asyncio.Future[dict[str, Any]]] = field(default_factory=dict)
     reader_task: asyncio.Task[None] | None = None
 
@@ -126,8 +143,15 @@ class LspSidecarManager:
                     params = msg.get("params") or {}
                     uri = str(params.get("uri") or "")
                     diags = params.get("diagnostics") or []
+                    diag_ver = params.get("version")
                     if uri:
                         session.diagnostics[uri] = list(diags)
+                        session.diagnostics_versions[uri] = diag_ver
+                        ev = session.diagnostics_events.get(uri)
+                        if ev is not None:
+                            expected_ver = session.opened_versions.get(uri)
+                            if diag_ver is None or expected_ver is None or diag_ver >= expected_ver:
+                                ev.set()
         except (asyncio.IncompleteReadError, EOFError, asyncio.CancelledError):
             pass
         finally:
@@ -175,7 +199,7 @@ class LspSidecarManager:
                 env=scrubbed_env(),
                 stdin=asyncio.subprocess.PIPE,
                 stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.DEVNULL,
             )
             session = _LspSession(language=lang, proc=proc)
             session.reader_task = asyncio.create_task(self._reader_loop(session))
@@ -192,18 +216,34 @@ class LspSidecarManager:
                 tsserver_js = Path(tsc_bin).resolve().parent.parent / "lib" / "tsserver.js"
                 if tsserver_js.is_file():
                     init_params["initializationOptions"] = {"tsserver": {"path": str(tsserver_js)}}
-        await self._rpc(session, "initialize", init_params)
-        await self._send(session, {"jsonrpc": "2.0", "method": "initialized", "params": {}})
+        try:
+            await self._rpc(session, "initialize", init_params)
+            await self._send(session, {"jsonrpc": "2.0", "method": "initialized", "params": {}})
+        except BaseException:
+            async with self._lock:
+                if self._sessions.get(key) is session:
+                    self._sessions.pop(key, None)
+            if session.reader_task is not None:
+                session.reader_task.cancel()
+            if session.proc.returncode is None:
+                session.proc.terminate()
+                try:
+                    await asyncio.wait_for(session.proc.wait(), timeout=2.0)
+                except TimeoutError:
+                    session.proc.kill()
+            raise
         return {"language": lang, "status": "running", "pid": getattr(proc, "pid", None)}
 
     async def _sync_document(
         self, session: _LspSession, file_path: Path, content: str | None
     ) -> str:
         uri = file_path.as_uri()
-        text = content if content is not None else file_path.read_text(encoding="utf-8", errors="replace")
         version = session.opened_versions.get(uri)
         if version is None:
+            text = content if content is not None else file_path.read_text(encoding="utf-8", errors="replace")
             session.opened_versions[uri] = 1
+            session.opened_texts[uri] = text
+            session.diagnostics_events[uri] = asyncio.Event()
             await self._send(
                 session,
                 {
@@ -212,27 +252,31 @@ class LspSidecarManager:
                     "params": {
                         "textDocument": {
                             "uri": uri,
-                            "languageId": session.language,
+                            "languageId": _lsp_language_id(file_path, session.language),
                             "version": 1,
                             "text": text,
                         }
                     },
                 },
             )
-        elif content is not None:
-            next_v = version + 1
-            session.opened_versions[uri] = next_v
-            await self._send(
-                session,
-                {
-                    "jsonrpc": "2.0",
-                    "method": "textDocument/didChange",
-                    "params": {
-                        "textDocument": {"uri": uri, "version": next_v},
-                        "contentChanges": [{"text": text}],
+        else:
+            text = content if content is not None else file_path.read_text(encoding="utf-8", errors="replace")
+            if text != session.opened_texts.get(uri):
+                next_v = version + 1
+                session.opened_versions[uri] = next_v
+                session.opened_texts[uri] = text
+                session.diagnostics_events[uri] = asyncio.Event()
+                await self._send(
+                    session,
+                    {
+                        "jsonrpc": "2.0",
+                        "method": "textDocument/didChange",
+                        "params": {
+                            "textDocument": {"uri": uri, "version": next_v},
+                            "contentChanges": [{"text": text}],
+                        },
                     },
-                },
-            )
+                )
         return uri
 
     async def request(
@@ -252,8 +296,18 @@ class LspSidecarManager:
         uri = await self._sync_document(session, resolved, content)
 
         if method == "textDocument/publishDiagnostics":
-            await asyncio.sleep(0.05)
-            return {"uri": uri, "diagnostics": session.diagnostics.get(uri, [])}
+            ev = session.diagnostics_events.get(uri)
+            pending = False
+            if ev is not None and not ev.is_set():
+                try:
+                    await asyncio.wait_for(ev.wait(), timeout=0.5)
+                except TimeoutError:
+                    pending = uri not in session.diagnostics
+            return {
+                "uri": uri,
+                "diagnostics": session.diagnostics.get(uri, []),
+                "pending": pending,
+            }
 
         req_params = dict(params or {})
         req_params.setdefault("textDocument", {"uri": uri})

@@ -356,7 +356,10 @@ def _prepare_scip_index_command(repo, index_path, language):
                 file=sys.stderr,
             )
             sys.exit(1)
-        return [scip_ts, "index", "--output", str(index_path)], "scip-typescript"
+        cmd = [scip_ts, "index", "--output", str(index_path)]
+        if not (repo / "tsconfig.json").is_file() and not (repo / "jsconfig.json").is_file():
+            cmd.append("--infer-tsconfig")
+        return cmd, "scip-typescript"
 
     if language == "go":
         scip_go = _scip_tool_binary(
@@ -524,12 +527,13 @@ def run_xray_index_generate_scip(
             file=sys.stderr,
         )
         sys.exit(1)
+    resolved_repo = Path(repo).resolve()
     with tempfile.TemporaryDirectory() as tmp:
         index_path = Path(tmp) / "index.scip"
-        index_cmd, tool_label = _prepare_scip_index_command(repo, index_path, language)
+        index_cmd, tool_label = _prepare_scip_index_command(resolved_repo, index_path, language)
         try:
             indexed = subprocess.run(
-                index_cmd, cwd=str(repo), capture_output=True, text=True, timeout=1800, check=False
+                index_cmd, cwd=str(resolved_repo), capture_output=True, text=True, timeout=1800, check=False
             )
         except (OSError, subprocess.TimeoutExpired) as exc:
             print(f"Error: {tool_label} failed to run: {exc}", file=sys.stderr)

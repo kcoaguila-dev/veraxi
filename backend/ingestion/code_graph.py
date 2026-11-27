@@ -1314,11 +1314,26 @@ class _GoFileContext:
     top_defs: dict[str, tuple[str, str]] = field(default_factory=dict)
     structs: dict[str, str] = field(default_factory=dict)
     struct_methods: dict[str, dict[str, str]] = field(default_factory=dict)
+    struct_methods_by_name: dict[str, dict[str, str]] = field(default_factory=dict)
     pending_calls: list[_GoPendingCall] = field(default_factory=list)
 
 
 _TS_EXTENSIONS = (".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs")
 _GO_MOD_RE = re.compile(r"^\s*module\s+(\S+)", re.MULTILINE)
+_JSONC_TOKEN_RE = re.compile(
+    r'"(?:\\.|[^"\\])*"|//[^\n]*|/\*.*?\*/',
+    re.DOTALL,
+)
+_JSON_TRAILING_COMMA_RE = re.compile(r",\s*([\]}])")
+
+
+def _strip_jsonc(raw: str) -> str:
+    def _replace(match: re.Match[str]) -> str:
+        tok = match.group(0)
+        return tok if tok.startswith('"') else ""
+
+    no_comments = _JSONC_TOKEN_RE.sub(_replace, raw)
+    return _JSON_TRAILING_COMMA_RE.sub(r"\1", no_comments)
 
 
 def _discover_tsconfig_paths(root_path: Path) -> tuple[str, dict[str, list[str]]]:
@@ -1329,10 +1344,11 @@ def _discover_tsconfig_paths(root_path: Path) -> tuple[str, dict[str, list[str]]
             continue
         try:
             raw = cfg.read_text(encoding="utf-8", errors="replace")
-            cleaned = re.sub(r"//[^\n]*", "", raw)
-            data = json.loads(cleaned)
+            data = json.loads(_strip_jsonc(raw))
         except (OSError, ValueError) as exc:
             logger.debug("Skipping unreadable %s: %s", name, exc)
+            continue
+        if not isinstance(data, dict):
             continue
         opts = data.get("compilerOptions") or {}
         if not isinstance(opts, dict):
@@ -1365,6 +1381,17 @@ def _probe_ts_candidate(candidate: str, known_paths: set[str]) -> str | None:
     clean = candidate.lstrip("./")
     if clean in known_paths:
         return clean
+    for js_ext, ts_exts in (
+        (".js", (".ts", ".tsx")),
+        (".jsx", (".tsx", ".ts")),
+        (".mjs", (".mts", ".ts")),
+        (".cjs", (".cts", ".ts")),
+    ):
+        if clean.endswith(js_ext):
+            stem = clean[: -len(js_ext)]
+            for ts_ext in ts_exts:
+                if f"{stem}{ts_ext}" in known_paths:
+                    return f"{stem}{ts_ext}"
     for ext in _TS_EXTENSIONS:
         if f"{clean}{ext}" in known_paths:
             return f"{clean}{ext}"
@@ -1619,20 +1646,30 @@ def _resolve_go_builder(builder: _GraphBuilder) -> None:
     def _find_struct_method(pkg_dir: str, struct_name: str, method_name: str) -> str | None:
         for fctx in by_pkg_dir.get(pkg_dir, ()):
             struct_qn = fctx.structs.get(struct_name)
-            if not struct_qn:
-                continue
-            for mctx in by_pkg_dir.get(pkg_dir, ()):
-                methods = mctx.struct_methods.get(struct_qn)
-                if methods and method_name in methods:
-                    return methods[method_name]
+            if struct_qn:
+                for mctx in by_pkg_dir.get(pkg_dir, ()):
+                    methods = mctx.struct_methods.get(struct_qn)
+                    if methods and method_name in methods:
+                        return methods[method_name]
+        for mctx in by_pkg_dir.get(pkg_dir, ()):
+            by_name = mctx.struct_methods_by_name.get(struct_name)
+            if by_name and method_name in by_name:
+                return by_name[method_name]
         return None
 
     for ctx in contexts.values():
+        resolved_raw_imports: set[tuple[str, str]] = set()
         for imp_path in ctx.imports.values():
             pkg_dir = _pkg_dir_for_import(imp_path)
             if pkg_dir and pkg_dir in by_pkg_dir:
+                resolved_raw_imports.add((ctx.module_node.qualified_name, imp_path))
                 for target_ctx in by_pkg_dir[pkg_dir]:
                     builder.add_edge("IMPORTS", ctx.module_node, target_ctx.module_node.qualified_name, "CodeModule")
+        if resolved_raw_imports:
+            builder.edges = [
+                e for e in builder.edges
+                if not (e.type == "IMPORTS" and (e.source_qn, e.target_qn) in resolved_raw_imports)
+            ]
         for call in ctx.pending_calls:
             target_qn: str | None = None
             target_label = "Function"
@@ -1822,6 +1859,7 @@ def _parse_treesitter_file(
                     )
                     builder.add_edge("DEFINES", module_node, func_qn, "Function")
                     go_ctx.struct_methods.setdefault(struct_qn, {})[mname] = func_qn
+                    go_ctx.struct_methods_by_name.setdefault(struct_name, {})[mname] = func_qn
                     var_types_stack.append({recv_var: struct_name} if recv_var else {})
                     _walk_children(node.children, func_node, struct_qn)
                     var_types_stack.pop()
@@ -1840,6 +1878,7 @@ def _parse_treesitter_file(
         if ts_ctx is not None and ntype in ("lexical_declaration", "variable_declaration"):
             if container.label == "Function":
                 _ts_record_new_var(node)
+            last_func: CodeNode | None = None
             for child in node.children:
                 if child.type != "variable_declarator":
                     continue
@@ -1862,11 +1901,14 @@ def _parse_treesitter_file(
                         )
                         builder.add_edge("DEFINES", container, func_qn, "Function")
                         defined_funcs[fname] = func_qn
-                        ts_ctx.top_defs[fname] = (func_qn, "Function")
+                        if container is module_node:
+                            ts_ctx.top_defs[fname] = (func_qn, "Function")
                         var_types_stack.append({})
                         _walk_children(val_n.children, func_node, enclosing_class_qn)
                         var_types_stack.pop()
-                        return func_node
+                        last_func = func_node
+            if last_func is not None:
+                return last_func
 
         if ntype in _TS_IMPORT_TYPES:
             if dart_ctx is not None:

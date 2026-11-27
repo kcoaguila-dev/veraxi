@@ -254,11 +254,35 @@ class Config:
         )
         known_code_dim = _MODEL_DIMENSIONS.get(code_embedding_model_name)
         env_code_dim = os.environ.get("CODE_EMBEDDING_DIMENSION", "").strip()
-        code_embedding_dimension = (
-            int(env_code_dim)
-            if env_code_dim
-            else (known_code_dim if known_code_dim is not None else 768)
-        )
+        if env_code_dim:
+            code_embedding_dimension = int(env_code_dim)
+            if code_embedding_dimension <= 0:
+                raise ValueError(
+                    f"Invalid CODE_EMBEDDING_DIMENSION: {code_embedding_dimension}. "
+                    "Dimension must be a positive integer."
+                )
+            if known_code_dim is not None and code_embedding_dimension != known_code_dim:
+                if (
+                    is_remote_embed
+                    and code_embedding_model_name in _MATRYOSHKA_MODELS
+                    and code_embedding_dimension <= known_code_dim
+                ):
+                    logger.info(
+                        "Matryoshka code embedding dimension override: '%s' (%d -> %d).",
+                        code_embedding_model_name,
+                        known_code_dim,
+                        code_embedding_dimension,
+                    )
+                else:
+                    raise ValueError(
+                        f"Configuration mismatch: Code embedding model '{code_embedding_model_name}' "
+                        f"natively has dimension {known_code_dim}, but CODE_EMBEDDING_DIMENSION is "
+                        f"configured as {code_embedding_dimension}."
+                    )
+        else:
+            code_embedding_dimension = (
+                known_code_dim if known_code_dim is not None else 768
+            )
         code_qdrant_collection_name = (
             os.environ.get("CODE_QDRANT_COLLECTION", "veraxi_code_chunks").strip()
             or "veraxi_code_chunks"

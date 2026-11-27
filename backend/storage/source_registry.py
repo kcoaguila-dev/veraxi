@@ -314,6 +314,38 @@ def _delete_qdrant_by_field(
     return len(point_ids), point_ids
 
 
+def _target_collections(collection_name: str) -> list[str]:
+    from backend.config import get_config
+
+    collections = [collection_name]
+    try:
+        code_col = getattr(get_config(), "code_qdrant_collection_name", "")
+        if code_col and code_col not in collections:
+            collections.append(code_col)
+    except Exception:
+        pass
+    return collections
+
+
+def _delete_qdrant_across_collections(
+    qdrant: Any,
+    collection_name: str,
+    tenant_id: str,
+    field: str,
+    value: str,
+) -> tuple[int, list[str]]:
+    total_deleted = 0
+    all_ids: list[str] = []
+    for col in _target_collections(collection_name):
+        try:
+            count, pids = _delete_qdrant_by_field(qdrant, col, tenant_id, field, value)
+        except Exception:
+            continue
+        total_deleted += count
+        all_ids.extend(pids)
+    return total_deleted, all_ids
+
+
 def delete_tenant_source(
     tenant_id: str,
     source_id: str,
@@ -327,7 +359,7 @@ def delete_tenant_source(
     deleted_vectors = 0
 
     if category == "repo":
-        deleted_vectors, _ = _delete_qdrant_by_field(
+        deleted_vectors, _ = _delete_qdrant_across_collections(
             qdrant, collection_name, tenant_id, "repo_key", source_id
         )
         rows = neo4j.execute_write(
@@ -357,7 +389,7 @@ def delete_tenant_source(
         return {"deleted_nodes": deleted_nodes, "deleted_vectors": 0}
 
     # Document source cleanup: purge Qdrant points first, then unlink/delete Neo4j nodes.
-    deleted_vectors, point_ids = _delete_qdrant_by_field(
+    deleted_vectors, point_ids = _delete_qdrant_across_collections(
         qdrant, collection_name, tenant_id, "source", source_id
     )
     neo4j.execute_write(

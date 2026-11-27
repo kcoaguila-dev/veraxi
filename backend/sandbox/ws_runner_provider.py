@@ -27,6 +27,7 @@ class RunnerRegistry:
 
     def __init__(self):
         self._sockets: dict[str, object] = {}
+        self.pending: dict[str, asyncio.Queue] = {}
 
     def register(self, tenant_id: str, websocket) -> None:
         self._sockets[tenant_id] = websocket
@@ -54,7 +55,7 @@ class WsRunnerProvider(SandboxProvider):
         super().__init__(settings, secrets)
         self.registry = registry or GLOBAL_REGISTRY
         self._infos: dict[str, SandboxSessionInfo] = {}
-        self._pending: dict[str, asyncio.Queue] = {}
+        self._pending: dict[str, asyncio.Queue] = self.registry.pending
         self._request_timeout = float(
             (settings or {}).get("config", {}).get("request_timeout_sec")
             or REQUEST_TIMEOUT_SEC
