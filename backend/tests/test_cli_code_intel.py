@@ -505,3 +505,117 @@ def test_xray_index_generate_scip_dart_missing_tools_exit_1(tmp_path, monkeypatc
         run_xray_index_generate_scip(str(repo), lang="dart")
     assert exc.value.code == 1
     assert "scip_dart" in capsys.readouterr().err
+
+
+def test_xray_index_generate_scip_incremental_skips_when_head_matches_clean(tmp_path, monkeypatch, capsys):
+    import subprocess as sp
+    from unittest.mock import patch
+    from veraxi.cli import code_intel as cli_mod
+    from veraxi.cli.code_intel import run_xray_index_generate_scip
+
+    repo = tmp_path / "py_repo"
+    repo.mkdir()
+    (repo / "app.py").write_text("x = 1\n", encoding="utf-8")
+    monkeypatch.setenv("VERAXI_SCIP_PYTHON_BIN", "/tools/scip-python")
+    monkeypatch.setenv("VERAXI_SCIP_BIN", "/tools/scip")
+
+    def fake_run(argv, **kwargs):
+        if "rev-parse" in argv:
+            return sp.CompletedProcess(argv, 0, stdout="deadbeef1234\n", stderr="")
+        if "remote" in argv:
+            return sp.CompletedProcess(argv, 0, stdout="https://github.com/owner/py_repo.git\n", stderr="")
+        if "status" in argv:
+            return sp.CompletedProcess(argv, 0, stdout="", stderr="")
+        raise AssertionError(f"Unexpected command run when SCIP should be skipped: {argv}")
+
+    monkeypatch.setattr(cli_mod.subprocess, "run", fake_run)
+    with patch(
+        PATCH_TARGET,
+        return_value={"repos": [{"repo_key": "owner/py_repo", "source_commit": "deadbeef1234"}]},
+    ), pytest.raises(SystemExit) as exc:
+        run_xray_index_generate_scip(str(repo), incremental=True, as_json=True)
+    assert exc.value.code == 0
+    out = json.loads(capsys.readouterr().out)
+    assert out["status"] == "skipped"
+    assert out["reason"] == "up_to_date"
+
+
+def test_xray_index_generate_scip_incremental_skips_when_only_docs_changed(tmp_path, monkeypatch, capsys):
+    import subprocess as sp
+    from unittest.mock import patch
+    from veraxi.cli import code_intel as cli_mod
+    from veraxi.cli.code_intel import run_xray_index_generate_scip
+
+    repo = tmp_path / "py_repo"
+    repo.mkdir()
+    monkeypatch.setenv("VERAXI_SCIP_PYTHON_BIN", "/tools/scip-python")
+    monkeypatch.setenv("VERAXI_SCIP_BIN", "/tools/scip")
+
+    def fake_run(argv, **kwargs):
+        if "rev-parse" in argv:
+            return sp.CompletedProcess(argv, 0, stdout="newsha9999\n", stderr="")
+        if "remote" in argv:
+            return sp.CompletedProcess(argv, 0, stdout="https://github.com/owner/py_repo.git\n", stderr="")
+        if "status" in argv:
+            return sp.CompletedProcess(argv, 0, stdout="", stderr="")
+        if "diff" in argv:
+            return sp.CompletedProcess(argv, 0, stdout="README.md\ndocs/guide.md\n", stderr="")
+        raise AssertionError(f"Unexpected command run when only docs changed: {argv}")
+
+    monkeypatch.setattr(cli_mod.subprocess, "run", fake_run)
+    with patch(
+        PATCH_TARGET,
+        return_value={"repos": [{"repo_key": "owner/py_repo", "source_commit": "oldsha1111"}]},
+    ), pytest.raises(SystemExit) as exc:
+        run_xray_index_generate_scip(str(repo), incremental=True, as_json=True)
+    assert exc.value.code == 0
+    out = json.loads(capsys.readouterr().out)
+    assert out["status"] == "skipped"
+    assert out["reason"] == "non_code_changes_only"
+
+
+def test_xray_index_generate_scip_incremental_runs_when_code_changed(tmp_path, monkeypatch):
+    import subprocess as sp
+    from unittest.mock import patch
+    from veraxi.cli import code_intel as cli_mod
+    from veraxi.cli.code_intel import run_xray_index_generate_scip
+
+    repo = tmp_path / "py_repo"
+    repo.mkdir()
+    monkeypatch.setenv("VERAXI_SCIP_PYTHON_BIN", "/tools/scip-python")
+    monkeypatch.setenv("VERAXI_SCIP_BIN", "/tools/scip")
+
+    seen_cmds = []
+
+    def fake_run(argv, **kwargs):
+        seen_cmds.append(argv)
+        if "rev-parse" in argv:
+            return sp.CompletedProcess(argv, 0, stdout="newsha9999\n", stderr="")
+        if "remote" in argv:
+            return sp.CompletedProcess(argv, 0, stdout="https://github.com/owner/py_repo.git\n", stderr="")
+        if "status" in argv:
+            return sp.CompletedProcess(argv, 0, stdout="", stderr="")
+        if "diff" in argv:
+            return sp.CompletedProcess(argv, 0, stdout="README.md\nsrc/app.py\n", stderr="")
+        if argv[0] == "/tools/scip-python":
+            out = argv[argv.index("--output") + 1]
+            with open(out, "wb") as fh:
+                fh.write(b"fake-scip-index")
+            return sp.CompletedProcess(argv, 0, stdout="", stderr="")
+        if argv[0] == "/tools/scip":
+            return sp.CompletedProcess(
+                argv, 0, stdout=json.dumps({"documents": [{"relativePath": "src/app.py"}]}), stderr=""
+            )
+        return sp.CompletedProcess(argv, 1, stdout="", stderr="")
+
+    monkeypatch.setattr(cli_mod.subprocess, "run", fake_run)
+    with patch(
+        PATCH_TARGET,
+        side_effect=[
+            {"repos": [{"repo_key": "owner/py_repo", "source_commit": "oldsha1111"}]},
+            {"status": "ok", "nodes_written": 3, "edges_written": 2},
+        ],
+    ), pytest.raises(SystemExit) as exc:
+        run_xray_index_generate_scip(str(repo), incremental=True)
+    assert exc.value.code == 0
+    assert any(cmd[0] == "/tools/scip-python" for cmd in seen_cmds)

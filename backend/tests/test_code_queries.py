@@ -263,6 +263,24 @@ def test_repo_overview_counts(fake, parsed):
     assert connections[0] > 0
 
 
+def test_edge_counts_includes_references():
+    """edge_counts() must include REFERENCES so SCIP-backed graphs report reference edges."""
+    from backend.retrieval.code_queries import Neo4jCodeGraphClient
+
+    captured: list[str] = []
+
+    class _RecordingClient:
+        def execute_read(self, query, parameters=None):
+            captured.append(query)
+            return [{"edge_type": "REFERENCES", "count": 42}, {"edge_type": "CALLS", "count": 7}]
+
+    adapter = Neo4jCodeGraphClient(neo4j_client=_RecordingClient())
+    counts = adapter.edge_counts(tenant_id="t")
+    assert counts["REFERENCES"] == 42
+    assert counts["CALLS"] == 7
+    assert "'REFERENCES'" in captured[0]
+
+
 def test_repo_overview_path_prefix(fake):
     result = repo_overview(tenant_id="t", path_prefix="lib/", client=fake)
     assert result["node_counts"] == {"CodeFile": 1, "CodeModule": 1, "Class": 1, "Function": 1}

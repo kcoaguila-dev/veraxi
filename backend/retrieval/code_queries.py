@@ -337,7 +337,7 @@ class Neo4jCodeGraphClient:
         MATCH (a)-[r]->(b)
         WHERE a.tenant_id = $tenant_id
           AND b.tenant_id = $tenant_id
-          AND type(r) IN ['IMPORTS', 'CALLS', 'DEFINES', 'INHERITS']
+          AND type(r) IN ['IMPORTS', 'CALLS', 'DEFINES', 'INHERITS', 'REFERENCES']
           AND ($path_prefix IS NULL OR a.path STARTS WITH $path_prefix)
           AND ($repo_key IS NULL OR (coalesce(a.repo_key, '') = $repo_key
                AND coalesce(b.repo_key, '') = $repo_key))

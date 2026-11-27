@@ -800,6 +800,7 @@ def main():
         _sp.add_argument("--update", action="store_true", help="Index: incrementally refresh an already-indexed repo (server-side; re-parses only changed files)")
         _sp.add_argument("--scip", dest="scip", help="Index: upload a SCIP JSON index file (scip print --json output) instead of a repo path")
         _sp.add_argument("--generate-scip", action="store_true", dest="generate_scip", help="Index: generate a SCIP index locally with scip-python / scip_dart + scip print (local runner / CI only) and upload it")
+        _sp.add_argument("--incremental", action="store_true", dest="incremental", help="Index: with --generate-scip, skip regeneration when HEAD matches server source_commit (clean tree) or only non-code files changed")
         _sp.add_argument("--lang", choices=("auto", "python", "dart"), default="auto", help="Index: language for --generate-scip (default: auto-detect from pubspec.yaml)")
         _sp.add_argument("--resolved-only", action="store_true", dest="resolved_only", help="Symbol: hide external/unresolved placeholders")
         _sp.add_argument("--key", help="Veraxi API key (vx-...)")
@@ -1356,7 +1357,7 @@ def main():
                 if not args.target:
                     parser.parse_args(["xray", "index", "--help"])
                     sys.exit(0)
-                run_xray_index_generate_scip(args.target, endpoint=endpoint, key=key, tenant=tenant_id, as_json=args.json, lang=getattr(args, "lang", "auto"))
+                run_xray_index_generate_scip(args.target, endpoint=endpoint, key=key, tenant=tenant_id, as_json=args.json, lang=getattr(args, "lang", "auto"), incremental=getattr(args, "incremental", False))
             elif getattr(args, "scip", None):
                 run_xray_index_scip(args.scip, endpoint=endpoint, key=key, tenant=tenant_id, as_json=args.json)
             elif not args.target:
