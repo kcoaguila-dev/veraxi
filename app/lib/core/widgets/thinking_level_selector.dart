@@ -89,7 +89,6 @@ class ThinkingLevelSelector extends ConsumerWidget {
     final theme = Theme.of(context);
     final bg = backgroundColor ?? const Color(0xFF1E1E1E);
     final border = borderColor ?? const Color(0xFF2A2A2A);
-    final isOff = effective == 'off';
 
     return PopupMenuButton<String>(
       key: ValueKey('thinking-$selectedModel-$effective'),
@@ -147,27 +146,15 @@ class ThinkingLevelSelector extends ConsumerWidget {
       ],
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
         decoration: BoxDecoration(
           color: bg,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: isOff
-                ? border
-                : theme.colorScheme.primary.withValues(alpha: 0.45),
-          ),
+          borderRadius: BorderRadius.circular(7),
+          border: Border.all(color: border),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              isOff ? Icons.lightbulb_outline : Icons.auto_awesome,
-              size: 14,
-              color: isOff
-                  ? theme.colorScheme.onSurface.withValues(alpha: 0.65)
-                  : theme.colorScheme.primary,
-            ),
-            const SizedBox(width: 6),
             Text(
               'Thinking: ${_displayLabel(effective)}',
               style: TextStyle(
@@ -176,7 +163,7 @@ class ThinkingLevelSelector extends ConsumerWidget {
                 fontWeight: FontWeight.w500,
               ),
             ),
-            const SizedBox(width: 4),
+            const SizedBox(width: 3),
             Icon(
               Icons.keyboard_arrow_down,
               size: 14,

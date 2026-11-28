@@ -313,6 +313,7 @@ class _CodeChatComposerState extends ConsumerState<CodeChatComposer> {
                   ],
                 ),
                 embedded: true,
+                showToolsMenu: false,
               ),
             ],
           ),
