@@ -115,6 +115,7 @@ void main() {
         expect(find.text('Skills'), findsOneWidget);
         expect(find.text('Commands'), findsOneWidget);
         expect(find.text('Web & Browser'), findsOneWidget);
+        expect(find.byIcon(Icons.settings_outlined), findsOneWidget);
         expect(find.text('Paste Text'), findsOneWidget);
         expect(find.text('Connectors'), findsOneWidget);
       });
