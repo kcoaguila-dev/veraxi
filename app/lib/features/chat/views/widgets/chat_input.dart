@@ -118,6 +118,7 @@ class _ChatInputState extends State<ChatInput> {
   bool _artifactsPinned = false;
   bool _artifactsActive = false;
   final List<PlatformFile> _attachedFiles = [];
+  final List<({String name, String content})> _pastedSnippets = [];
 
   final SpeechToText _speechToText = SpeechToText();
   bool _speechEnabled = false;
@@ -428,8 +429,12 @@ class _ChatInputState extends State<ChatInput> {
   }
 
   void _handleSend() {
-    final text = _effectiveController.text;
-    if (text.trim().isNotEmpty && !widget.isLoading) {
+    final rawText = _effectiveController.text;
+    final hasSnippets = _pastedSnippets.isNotEmpty;
+    if ((rawText.trim().isNotEmpty || hasSnippets) && !widget.isLoading) {
+      final text = hasSnippets
+          ? '${_pastedSnippets.map((s) => '```text\n// ${s.name}\n${s.content}\n```').join('\n\n')}${rawText.trim().isNotEmpty ? '\n\n$rawText' : ''}'
+          : rawText;
       final attachments = _attachedFiles.isNotEmpty
           ? List<PlatformFile>.from(_attachedFiles)
           : null;
@@ -440,6 +445,7 @@ class _ChatInputState extends State<ChatInput> {
       _effectiveController.clear();
       setState(() {
         _attachedFiles.clear();
+        _pastedSnippets.clear();
         if (!_fileSearchPinned) _fileSearchActive = false;
         if (!_webSearchPinned) _webSearchActive = false;
         if (!_skillsPinned) _skillsActive = false;
@@ -482,6 +488,54 @@ class _ChatInputState extends State<ChatInput> {
   void _removeAttachment(int index) {
     setState(() {
       _attachedFiles.removeAt(index);
+    });
+  }
+
+  /// Inserts an inline trigger sigil (`@`, `$`, `/`) at the end of the
+  /// draft and notifies listeners so autocomplete overlays open immediately.
+  void _insertTriggerSigil(String sigil) {
+    final current = _effectiveController.text;
+    final needsSpace = current.isNotEmpty && !current.endsWith(' ');
+    final nextText = '$current${needsSpace ? ' ' : ''}$sigil';
+    _effectiveController.value = TextEditingValue(
+      text: nextText,
+      selection: TextSelection.collapsed(offset: nextText.length),
+    );
+    widget.onChanged?.call(nextText);
+  }
+
+  /// Opens a modal dialog for pasting raw text or logs as an attached
+  /// `.txt` snippet without bloating the prompt text field.
+  Future<void> _showPasteTextDialog() async {
+    final pasted = await showDialog<String>(
+      context: context,
+      builder: (_) => const _PasteTextDialog(),
+    );
+    if (pasted == null || pasted.trim().isEmpty || !mounted) return;
+    final idx = _pastedSnippets.length + 1;
+    setState(() {
+      _pastedSnippets.add((name: 'pasted-snippet-$idx.txt', content: pasted));
+    });
+  }
+
+  void _expandSnippet(int index) {
+    final snippet = _pastedSnippets[index];
+    final current = _effectiveController.text;
+    final nextText =
+        current.isEmpty ? snippet.content : '$current\n${snippet.content}';
+    _effectiveController.value = TextEditingValue(
+      text: nextText,
+      selection: TextSelection.collapsed(offset: nextText.length),
+    );
+    widget.onChanged?.call(nextText);
+    setState(() {
+      _pastedSnippets.removeAt(index);
+    });
+  }
+
+  void _removeSnippet(int index) {
+    setState(() {
+      _pastedSnippets.removeAt(index);
     });
   }
 
@@ -542,38 +596,86 @@ class _ChatInputState extends State<ChatInput> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              if (_attachedFiles.isNotEmpty)
+              if (_attachedFiles.isNotEmpty || _pastedSnippets.isNotEmpty)
                 Padding(
                   padding:
                       EdgeInsets.only(bottom: 8.0, left: 12.0, right: 12.0),
                   child: Wrap(
                     spacing: 8.0,
                     runSpacing: 4.0,
-                    children: _attachedFiles.asMap().entries.map((entry) {
-                      final idx = entry.key;
-                      final file = entry.value;
-                      return Chip(
-                        label: Text(
-                          file.name,
-                          style: TextStyle(color: Colors.white, fontSize: 12),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        backgroundColor: Theme.of(context)
-                            .extension<AppThemeExtension>()!
-                            .borderColorStrong,
-                        deleteIconColor: Theme.of(context)
-                            .extension<AppThemeExtension>()!
-                            .iconColor,
-                        onDeleted: () => _removeAttachment(idx),
-                        padding: EdgeInsets.zero,
-                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          side: BorderSide.none,
-                        ),
-                      );
-                    }).toList(),
+                    children: [
+                      ..._attachedFiles.asMap().entries.map((entry) {
+                        final idx = entry.key;
+                        final file = entry.value;
+                        return Chip(
+                          label: Text(
+                            file.name,
+                            style: TextStyle(color: Colors.white, fontSize: 12),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          backgroundColor: Theme.of(context)
+                              .extension<AppThemeExtension>()!
+                              .borderColorStrong,
+                          deleteIconColor: Theme.of(context)
+                              .extension<AppThemeExtension>()!
+                              .iconColor,
+                          onDeleted: () => _removeAttachment(idx),
+                          padding: EdgeInsets.zero,
+                          materialTapTargetSize:
+                              MaterialTapTargetSize.shrinkWrap,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            side: BorderSide.none,
+                          ),
+                        );
+                      }),
+                      ..._pastedSnippets.asMap().entries.map((entry) {
+                        final idx = entry.key;
+                        final snippet = entry.value;
+                        final ext =
+                            Theme.of(context).extension<AppThemeExtension>()!;
+                        return Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: ext.borderColorStrong,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                snippet.name,
+                                style: const TextStyle(
+                                    color: Colors.white, fontSize: 12),
+                              ),
+                              const SizedBox(width: 8),
+                              GestureDetector(
+                                onTap: () => _expandSnippet(idx),
+                                child: const Text(
+                                  'Expand',
+                                  style: TextStyle(
+                                    color: Color(0xFF60A5FA),
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              GestureDetector(
+                                onTap: () => _removeSnippet(idx),
+                                child: Icon(
+                                  Icons.close,
+                                  size: 14,
+                                  color: ext.iconColor,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }),
+                    ],
                   ),
                 ),
               Stack(
@@ -641,74 +743,7 @@ class _ChatInputState extends State<ChatInput> {
               // Bottom Row: Actions (Attachment, Tune/Tools | Mic, Send Arrow)
               Row(
                 children: [
-                  Theme(
-                    data: Theme.of(context).copyWith(
-                      hoverColor: Colors.transparent,
-                      splashColor: Colors.transparent,
-                      highlightColor: Colors.transparent,
-                    ),
-                    child: PopupMenuButton<String>(
-                      icon: Icon(Icons.attach_file,
-                          color: Theme.of(context)
-                              .extension<AppThemeExtension>()!
-                              .iconColor,
-                          size: 20),
-                      tooltip: 'Attach file',
-                      color: Theme.of(context)
-                          .extension<AppThemeExtension>()!
-                          .borderColor,
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8)),
-                      position: PopupMenuPosition.over,
-                      enabled: !widget.isLoading,
-                      onSelected: (value) {
-                        _pickFiles();
-                      },
-                      itemBuilder: (BuildContext context) =>
-                          <PopupMenuEntry<String>>[
-                        PopupMenuItem<String>(
-                          value: 'provider',
-                          height: 40,
-                          child: Row(
-                            children: [
-                              Icon(Icons.upload_file,
-                                  color: Theme.of(context)
-                                      .extension<AppThemeExtension>()!
-                                      .iconColor,
-                                  size: 16),
-                              SizedBox(width: 8),
-                              Text('Upload to Provider',
-                                  style: TextStyle(
-                                      color: Theme.of(context)
-                                          .extension<AppThemeExtension>()!
-                                          .iconColor,
-                                      fontSize: 13)),
-                            ],
-                          ),
-                        ),
-                        PopupMenuItem<String>(
-                          value: 'text',
-                          height: 40,
-                          child: Row(
-                            children: [
-                              Icon(Icons.text_snippet,
-                                  color: Theme.of(context)
-                                      .extension<AppThemeExtension>()!
-                                      .iconColor,
-                                  size: 16),
-                              SizedBox(width: 8),
-                              Text('Upload as Text',
-                                  style: TextStyle(
-                                      color: Theme.of(context)
-                                          .extension<AppThemeExtension>()!
-                                          .iconColor,
-                                      fontSize: 13)),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                  _buildAddContextMenu(),
                   MenuAnchor(
                     style: MenuStyle(
                       backgroundColor: WidgetStatePropertyAll(Theme.of(context)
@@ -877,6 +912,189 @@ class _ChatInputState extends State<ChatInput> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildAddContextMenu() {
+    final ext = Theme.of(context).extension<AppThemeExtension>()!;
+    return Theme(
+      data: Theme.of(context).copyWith(
+        hoverColor: Colors.transparent,
+        splashColor: Colors.transparent,
+        highlightColor: Colors.transparent,
+      ),
+      child: PopupMenuButton<String>(
+        tooltip: 'Add context',
+        enabled: !widget.isLoading,
+        color: ext.sidebarBackground,
+        elevation: 10,
+        position: PopupMenuPosition.over,
+        offset: const Offset(0, -10),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+          side: BorderSide(color: ext.borderColorStrong),
+        ),
+        icon: Container(
+          width: 30,
+          height: 30,
+          decoration: BoxDecoration(
+            color: ext.borderColor.withValues(alpha: 0.45),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: ext.borderColorStrong),
+          ),
+          child: Icon(Icons.add, color: ext.iconColor, size: 18),
+        ),
+        onSelected: _handleAddContextSelection,
+        itemBuilder: (context) => <PopupMenuEntry<String>>[
+          _buildAddContextHeader('ADD CONTEXT'),
+          _buildAddContextItem(
+            value: 'files',
+            icon: Icons.attach_file,
+            label: 'Files',
+            trailingHint: 'Auto',
+          ),
+          _buildAddContextItem(
+            value: 'mentions',
+            icon: Icons.alternate_email,
+            label: 'Mentions',
+            keycap: '@',
+          ),
+          const PopupMenuDivider(height: 8),
+          _buildAddContextItem(
+            value: 'skills',
+            icon: Icons.bolt_outlined,
+            label: 'Skills',
+            keycap: r'$',
+          ),
+          _buildAddContextItem(
+            value: 'commands',
+            icon: Icons.terminal,
+            label: 'Commands',
+            keycap: '/',
+          ),
+          _buildAddContextItem(
+            value: 'web',
+            icon: Icons.language,
+            label: 'Web & Browser',
+            trailingHint: _webSearchActive ? 'On' : null,
+            trailingAccent: _webSearchActive,
+          ),
+          _buildAddContextItem(
+            value: 'paste_text',
+            icon: Icons.description_outlined,
+            label: 'Paste Text',
+            trailingHint: 'Snippet',
+          ),
+          const PopupMenuDivider(height: 8),
+          _buildAddContextItem(
+            value: 'connectors',
+            icon: Icons.extension_outlined,
+            label: 'Connectors',
+            trailingHint: 'Set up',
+            trailingAccent: true,
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _handleAddContextSelection(String value) {
+    switch (value) {
+      case 'files':
+        _pickFiles();
+      case 'mentions':
+        _insertTriggerSigil('@');
+      case 'skills':
+        _insertTriggerSigil(r'$');
+      case 'commands':
+        _insertTriggerSigil('/');
+      case 'web':
+        _toggleActive('web_search', _webSearchActive);
+      case 'paste_text':
+        _showPasteTextDialog();
+      case 'connectors':
+        context.go('/admin');
+    }
+  }
+
+  PopupMenuEntry<String> _buildAddContextHeader(String title) {
+    return PopupMenuItem<String>(
+      enabled: false,
+      height: 28,
+      padding: const EdgeInsets.symmetric(horizontal: 14),
+      child: Text(
+        title,
+        style: TextStyle(
+          color: Theme.of(context).extension<AppThemeExtension>()!.textTertiary,
+          fontSize: 10.5,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0.7,
+        ),
+      ),
+    );
+  }
+
+  PopupMenuItem<String> _buildAddContextItem({
+    required String value,
+    required IconData icon,
+    required String label,
+    String? keycap,
+    String? trailingHint,
+    bool trailingAccent = false,
+  }) {
+    final ext = Theme.of(context).extension<AppThemeExtension>()!;
+    return PopupMenuItem<String>(
+      value: value,
+      height: 36,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: SizedBox(
+        width: 210,
+        child: Row(
+          children: [
+            Icon(icon, color: ext.iconColor, size: 16),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                label,
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurface,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+            if (keycap != null)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: ext.cardBackground,
+                  borderRadius: BorderRadius.circular(5),
+                  border: Border.all(color: ext.borderColorStrong),
+                ),
+                child: Text(
+                  keycap,
+                  style: TextStyle(
+                    color: ext.textTertiary,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              )
+            else if (trailingHint != null)
+              Text(
+                trailingHint,
+                style: TextStyle(
+                  color: trailingAccent
+                      ? const Color(0xFF60A5FA)
+                      : ext.textTertiary,
+                  fontSize: 11.5,
+                  fontWeight:
+                      trailingAccent ? FontWeight.w600 : FontWeight.w400,
+                ),
+              ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -1186,5 +1404,68 @@ class _ChatInputState extends State<ChatInput> {
     _effectiveController.removeListener(_handleControllerChange);
     _controller.dispose();
     super.dispose();
+  }
+}
+
+class _PasteTextDialog extends StatefulWidget {
+  const _PasteTextDialog();
+
+  @override
+  State<_PasteTextDialog> createState() => _PasteTextDialogState();
+}
+
+class _PasteTextDialogState extends State<_PasteTextDialog> {
+  final TextEditingController _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ext = Theme.of(context).extension<AppThemeExtension>()!;
+    return AlertDialog(
+      backgroundColor: ext.cardBackground,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: BorderSide(color: ext.borderColorStrong),
+      ),
+      title: const Text(
+        'Paste Text Snippet',
+        style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+      ),
+      content: SizedBox(
+        width: 480,
+        child: TextField(
+          controller: _controller,
+          autofocus: true,
+          minLines: 6,
+          maxLines: 14,
+          style: const TextStyle(fontSize: 13),
+          decoration: InputDecoration(
+            hintText: 'Paste logs, code, or raw text here…',
+            hintStyle: TextStyle(color: ext.textTertiary, fontSize: 13),
+            filled: true,
+            fillColor: ext.sidebarBackground,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(color: ext.borderColor),
+            ),
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(context).pop(_controller.text),
+          child: const Text('Attach Snippet'),
+        ),
+      ],
+    );
   }
 }

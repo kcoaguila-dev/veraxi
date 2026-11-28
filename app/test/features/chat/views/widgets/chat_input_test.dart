@@ -21,7 +21,7 @@ void main() {
 
       expect(find.byType(TextField), findsOneWidget);
       expect(find.byIcon(Icons.arrow_upward), findsOneWidget);
-      expect(find.byIcon(Icons.attach_file), findsOneWidget);
+      expect(find.byIcon(Icons.add), findsOneWidget);
       expect(find.byIcon(Icons.tune), findsOneWidget);
       expect(find.byIcon(Icons.mic_none_outlined), findsOneWidget);
       expect(find.byIcon(Icons.error_outline), findsNothing);
@@ -91,10 +91,90 @@ void main() {
       final textField = tester.widget<TextField>(find.byType(TextField));
       expect(textField.enabled, isFalse);
 
-      await tester.tap(find.byIcon(Icons.attach_file));
+      await tester.tap(find.byIcon(Icons.add));
       await tester.pump();
 
       expect(called, isFalse);
+      expect(find.text('ADD CONTEXT'), findsNothing);
+    });
+
+    group('Add Context (+) Menu', () {
+      testWidgets('opens unified Add Context menu with expected items',
+          (tester) async {
+        await tester.pumpWidget(wrap(ChatInput(
+          isLoading: false,
+          onSend: (_, {attachments}) {},
+        )));
+
+        await tester.tap(find.byIcon(Icons.add));
+        await tester.pumpAndSettle();
+
+        expect(find.text('ADD CONTEXT'), findsOneWidget);
+        expect(find.text('Files'), findsOneWidget);
+        expect(find.text('Mentions'), findsOneWidget);
+        expect(find.text('Skills'), findsOneWidget);
+        expect(find.text('Commands'), findsOneWidget);
+        expect(find.text('Web & Browser'), findsOneWidget);
+        expect(find.text('Paste Text'), findsOneWidget);
+        expect(find.text('Connectors'), findsOneWidget);
+      });
+
+      testWidgets('selecting Mentions inserts @ and notifies onChanged',
+          (tester) async {
+        final controller = TextEditingController();
+        String? changed;
+        await tester.pumpWidget(wrap(ChatInput(
+          isLoading: false,
+          controller: controller,
+          onChanged: (v) => changed = v,
+          onSend: (_, {attachments}) {},
+        )));
+
+        await tester.tap(find.byIcon(Icons.add));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Mentions'));
+        await tester.pumpAndSettle();
+
+        expect(controller.text, '@');
+        expect(changed, '@');
+        controller.dispose();
+      });
+
+      testWidgets('Paste Text attaches a conditional snippet chip',
+          (tester) async {
+        await tester.pumpWidget(wrap(ChatInput(
+          isLoading: false,
+          onSend: (_, {attachments}) {},
+        )));
+
+        // No chips visible in default empty state.
+        expect(find.byType(Chip), findsNothing);
+
+        await tester.tap(find.byIcon(Icons.add));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Paste Text'));
+        await tester.pumpAndSettle();
+
+        await tester.enterText(
+          find.byType(TextField).last,
+          'Stack trace line 1\nStack trace line 2',
+        );
+        await tester.tap(find.text('Attach Snippet'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('pasted-snippet-1.txt'), findsOneWidget);
+        expect(find.text('Expand'), findsOneWidget);
+
+        await tester.tap(find.text('Expand'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('pasted-snippet-1.txt'), findsNothing);
+        final textField = tester.widget<TextField>(find.byType(TextField));
+        expect(
+          textField.controller!.text,
+          'Stack trace line 1\nStack trace line 2',
+        );
+      });
     });
 
     testWidgets(
