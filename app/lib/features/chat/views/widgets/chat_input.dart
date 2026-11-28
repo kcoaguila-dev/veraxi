@@ -68,6 +68,10 @@ class ChatInput extends StatefulWidget {
   /// unified composer card can own the outer container and borders.
   final bool embedded;
 
+  /// Whether to show the `Tools` (`Icons.tune`) menu next to `+`.
+  /// Code mode disables this since context/tools live in `+` and the top bar.
+  final bool showToolsMenu;
+
   /// Called when the user taps the Stop button while [isLoading] is true.
   final VoidCallback? onStop;
 
@@ -92,6 +96,7 @@ class ChatInput extends StatefulWidget {
     this.leadingFooterSlot,
     this.trailingSlot,
     this.embedded = false,
+    this.showToolsMenu = true,
   });
 
   @override
@@ -744,59 +749,61 @@ class _ChatInputState extends State<ChatInput> {
               Row(
                 children: [
                   _buildAddContextMenu(),
-                  MenuAnchor(
-                    style: MenuStyle(
-                      backgroundColor: WidgetStatePropertyAll(Theme.of(context)
-                          .extension<AppThemeExtension>()!
-                          .sidebarBackground),
-                      shape: WidgetStatePropertyAll(RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        side: BorderSide(
-                            color: Theme.of(context)
+                  if (widget.showToolsMenu)
+                    MenuAnchor(
+                      style: MenuStyle(
+                        backgroundColor: WidgetStatePropertyAll(
+                            Theme.of(context)
                                 .extension<AppThemeExtension>()!
-                                .borderColor),
-                      )),
-                      padding: const WidgetStatePropertyAll(
-                          EdgeInsets.symmetric(vertical: 8)),
+                                .sidebarBackground),
+                        shape: WidgetStatePropertyAll(RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          side: BorderSide(
+                              color: Theme.of(context)
+                                  .extension<AppThemeExtension>()!
+                                  .borderColor),
+                        )),
+                        padding: const WidgetStatePropertyAll(
+                            EdgeInsets.symmetric(vertical: 8)),
+                      ),
+                      builder: (context, controller, child) {
+                        return IconButton(
+                          icon: Icon(Icons.tune,
+                              color: Theme.of(context)
+                                  .extension<AppThemeExtension>()!
+                                  .iconColor,
+                              size: 20),
+                          tooltip: 'Tools',
+                          onPressed: () {
+                            if (controller.isOpen) {
+                              controller.close();
+                            } else {
+                              controller.open();
+                            }
+                          },
+                        );
+                      },
+                      menuChildren: [
+                        _buildToolItem('file_search', 'File Search',
+                            Icons.grid_view_outlined,
+                            subtitle: 'Vector + Graph',
+                            isActive: _fileSearchActive,
+                            isPinned: _fileSearchPinned),
+                        _buildWebSearchItem(
+                            isActive: _webSearchActive,
+                            isPinned: _webSearchPinned),
+                        _buildSkillsItem(
+                            isActive: _skillsActive, isPinned: _skillsPinned),
+                        _buildToolItem('run_code', 'Run Code', Icons.terminal,
+                            isActive: _runCodeActive, isPinned: _runCodePinned),
+                        _buildToolItem(
+                            'artifacts', 'Artifacts >', Icons.auto_awesome,
+                            isActive: _artifactsActive,
+                            isPinned: _artifactsPinned),
+                        const ToolsMenuSandbox(),
+                        const ToolsMenuIntegrations(),
+                      ],
                     ),
-                    builder: (context, controller, child) {
-                      return IconButton(
-                        icon: Icon(Icons.tune,
-                            color: Theme.of(context)
-                                .extension<AppThemeExtension>()!
-                                .iconColor,
-                            size: 20),
-                        tooltip: 'Tools',
-                        onPressed: () {
-                          if (controller.isOpen) {
-                            controller.close();
-                          } else {
-                            controller.open();
-                          }
-                        },
-                      );
-                    },
-                    menuChildren: [
-                      _buildToolItem('file_search', 'File Search',
-                          Icons.grid_view_outlined,
-                          subtitle: 'Vector + Graph',
-                          isActive: _fileSearchActive,
-                          isPinned: _fileSearchPinned),
-                      _buildWebSearchItem(
-                          isActive: _webSearchActive,
-                          isPinned: _webSearchPinned),
-                      _buildSkillsItem(
-                          isActive: _skillsActive, isPinned: _skillsPinned),
-                      _buildToolItem('run_code', 'Run Code', Icons.terminal,
-                          isActive: _runCodeActive, isPinned: _runCodePinned),
-                      _buildToolItem(
-                          'artifacts', 'Artifacts >', Icons.auto_awesome,
-                          isActive: _artifactsActive,
-                          isPinned: _artifactsPinned),
-                      const ToolsMenuSandbox(),
-                      const ToolsMenuIntegrations(),
-                    ],
-                  ),
                   SizedBox(width: 4),
                   Expanded(
                     child: SingleChildScrollView(
