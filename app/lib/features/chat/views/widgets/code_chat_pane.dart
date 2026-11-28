@@ -152,19 +152,8 @@ class _CodeChatPaneState extends ConsumerState<CodeChatPane> {
   }
 
   String _repoBreadcrumb(ChatState state) {
-    final repos = ref.watch(indexedReposProvider);
-    final selectedRepo = ref.watch(selectedIndexedRepoProvider);
-    String? repoLabel;
-    for (final repo in repos) {
-      if (repo.repoKey == selectedRepo) {
-        repoLabel = repo.displayName;
-        break;
-      }
-    }
-    repoLabel ??= selectedRepo;
-    if (repoLabel == null && state.threadId == null) return '';
-    final title = _threadTitle(state);
-    return repoLabel == null ? title : '$repoLabel / $title';
+    if (state.threadId == null) return '';
+    return _threadTitle(state);
   }
 
   @override

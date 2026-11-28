@@ -322,7 +322,7 @@ void main() {
     expect(container0.read(activeReviewSessionProvider), isNull);
     expect(find.byType(CodeChatPane), findsOneWidget);
     expect(find.byType(CodeReviewDrawer), findsNothing);
-    expect(find.text('veraxi/custom-service / New chat'), findsOneWidget);
+    expect(find.text('New chat'), findsNothing);
     expect(
         find.text('Ask anything about veraxi/custom-service.'), findsOneWidget);
     expect(find.text('Run Vulnerability Scan'), findsNothing);
