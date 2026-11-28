@@ -655,7 +655,7 @@ class _CodeChatComposerState extends ConsumerState<CodeChatComposer> {
     final ext = theme.extension<AppThemeExtension>()!;
     return Container(
       decoration: BoxDecoration(
-        color: ext.cardBackground,
+        color: ext.sidebarBackground,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: ext.borderColorStrong),
       ),
@@ -663,31 +663,62 @@ class _CodeChatComposerState extends ConsumerState<CodeChatComposer> {
         mainAxisSize: MainAxisSize.min,
         children: [
           for (final value in CodeExecutionMode.values)
-            InkWell(
-              onTap: () =>
-                  ref.read(codeExecutionModeProvider.notifier).state = value,
-              borderRadius: BorderRadius.circular(7),
-              child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            _buildPlanActSegment(value, mode == value, theme, ext),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPlanActSegment(
+    CodeExecutionMode value,
+    bool isSelected,
+    ThemeData theme,
+    AppThemeExtension ext,
+  ) {
+    final isPlan = value == CodeExecutionMode.plan;
+    final accentColor =
+        isPlan ? const Color(0xFFF59E0B) : const Color(0xFF60A5FA);
+    return InkWell(
+      onTap: () => ref.read(codeExecutionModeProvider.notifier).state = value,
+      borderRadius: BorderRadius.circular(7),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 140),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? accentColor.withValues(alpha: 0.14)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(7),
+          border: isSelected
+              ? Border.all(color: accentColor.withValues(alpha: 0.4))
+              : null,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (isSelected) ...[
+              Container(
+                width: 6,
+                height: 6,
                 decoration: BoxDecoration(
-                  color:
-                      mode == value ? ext.surfaceHighlight : Colors.transparent,
-                  borderRadius: BorderRadius.circular(7),
-                ),
-                child: Text(
-                  value == CodeExecutionMode.plan ? 'Plan' : 'Act',
-                  style: TextStyle(
-                    color: mode == value
-                        ? theme.colorScheme.onSurface
-                        : ext.textTertiary,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                  ),
+                  color: accentColor,
+                  shape: BoxShape.circle,
                 ),
               ),
+              const SizedBox(width: 5),
+            ],
+            Text(
+              isPlan ? 'Plan' : 'Act',
+              style: TextStyle(
+                color: isSelected
+                    ? theme.colorScheme.onSurface
+                    : ext.textTertiary,
+                fontSize: 12,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+              ),
             ),
-        ],
+          ],
+        ),
       ),
     );
   }
