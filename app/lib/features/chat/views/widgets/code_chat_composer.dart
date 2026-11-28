@@ -710,9 +710,8 @@ class _CodeChatComposerState extends ConsumerState<CodeChatComposer> {
             Text(
               isPlan ? 'Plan' : 'Act',
               style: TextStyle(
-                color: isSelected
-                    ? theme.colorScheme.onSurface
-                    : ext.textTertiary,
+                color:
+                    isSelected ? theme.colorScheme.onSurface : ext.textTertiary,
                 fontSize: 12,
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
               ),
