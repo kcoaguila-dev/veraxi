@@ -8,6 +8,7 @@ import 'package:veraxi_app/core/providers/workspace_mode_provider.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
 import 'package:veraxi_app/core/widgets/language_file_icon.dart';
 import 'package:veraxi_app/core/widgets/model_selector_menu.dart';
+import 'package:veraxi_app/core/widgets/provider_icon.dart';
 import 'package:veraxi_app/core/widgets/thinking_level_selector.dart';
 import 'package:veraxi_app/features/chat/view_models/auto_compact.dart';
 import 'package:veraxi_app/features/chat/view_models/code_chat_view_model.dart';
@@ -285,35 +286,47 @@ class _CodeChatComposerState extends ConsumerState<CodeChatComposer> {
                     ],
                   ),
                 ),
-              ChatInput(
-                controller: _controller,
-                isLoading: widget.isLoading,
-                onSend: _handleComposerSend,
-                onStop: widget.onStop,
-                errorText: widget.errorText,
-                onDismissError: widget.onDismissError,
-                model: selectedModel == 'Select a model' ? null : selectedModel,
-                usageSummary: widget.usageSummary,
-                tokenUsageStyle: widget.tokenUsageStyle,
-                onTokenUsageStyleChanged: widget.onTokenUsageStyleChanged,
-                autoCompactMode: widget.autoCompactMode,
-                onAutoCompactModeChanged: widget.onAutoCompactModeChanged,
-                onCompactPressed: widget.onCompactPressed,
-                hintText:
-                    'Ask anything. @ files, \$ skills, / commands (/security-review)',
-                leadingFooterSlot: _buildInlineFooterControls(),
-                trailingSlot: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _buildPlanActToggle(ref.watch(codeExecutionModeProvider)),
-                    const SizedBox(width: 6),
-                    const CodeSourcesPill(),
-                    const SizedBox(width: 4),
-                    const LocalPermissionsTrigger(),
-                  ],
-                ),
-                embedded: true,
-                showToolsMenu: false,
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final isCompact = constraints.maxWidth < 430;
+                  return ChatInput(
+                    controller: _controller,
+                    isLoading: widget.isLoading,
+                    onSend: _handleComposerSend,
+                    onStop: widget.onStop,
+                    errorText: widget.errorText,
+                    onDismissError: widget.onDismissError,
+                    model: selectedModel == 'Select a model'
+                        ? null
+                        : selectedModel,
+                    usageSummary: isCompact ? null : widget.usageSummary,
+                    tokenUsageStyle: widget.tokenUsageStyle,
+                    onTokenUsageStyleChanged: widget.onTokenUsageStyleChanged,
+                    autoCompactMode: widget.autoCompactMode,
+                    onAutoCompactModeChanged: widget.onAutoCompactModeChanged,
+                    onCompactPressed: widget.onCompactPressed,
+                    hintText: isCompact
+                        ? 'Ask anything, @ to mention, / for actions'
+                        : 'Ask anything — @ files, \$ skills, / commands',
+                    leadingFooterSlot:
+                        _buildInlineFooterControls(compact: isCompact),
+                    trailingSlot: isCompact
+                        ? const LocalPermissionsTrigger()
+                        : Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              _buildPlanActToggle(
+                                  ref.watch(codeExecutionModeProvider)),
+                              const SizedBox(width: 6),
+                              const CodeSourcesPill(),
+                              const SizedBox(width: 4),
+                              const LocalPermissionsTrigger(),
+                            ],
+                          ),
+                    embedded: true,
+                    showToolsMenu: false,
+                  );
+                },
               ),
             ],
           ),
@@ -575,16 +588,17 @@ class _CodeChatComposerState extends ConsumerState<CodeChatComposer> {
     );
   }
 
-  Widget _buildInlineFooterControls() {
+  Widget _buildInlineFooterControls({bool compact = false}) {
     final modelSelection = ref.watch(modelSelectionProvider);
 
     final theme = Theme.of(context);
     final ext = theme.extension<AppThemeExtension>()!;
+    final selected = modelSelection.selectedModel;
+    final provider = selected.contains('/') ? selected.split('/').first : null;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        const AcpRuntimePill(),
-        const SizedBox(width: 6),
+        if (!compact) const AcpRuntimePill(),
         ModelSelectorMenu(
           selectedModel: modelSelection.selectedModel,
           pinnedModels: modelSelection.pinnedModels.toList(),
@@ -596,38 +610,48 @@ class _CodeChatComposerState extends ConsumerState<CodeChatComposer> {
           onModelUnpinned: (model) =>
               ref.read(modelSelectionProvider.notifier).unpinModel(model),
           child: _inlineControlPill(
-            icon: Icons.psychology_outlined,
+            leading: provider != null
+                ? buildProviderIcon(provider)
+                : Icon(Icons.psychology_outlined,
+                    size: 14, color: ext.iconColor),
             label: modelSelection.selectedModel,
+            maxWidth: compact ? 96 : 130,
           ),
         ),
-        const SizedBox(width: 6),
-        ThinkingLevelSelector(
-          selectedModel: modelSelection.selectedModel,
-          openUpward: true,
-          backgroundColor: ext.cardBackground,
-          onChanged: (level) {
-            final title = level[0].toUpperCase() + level.substring(1);
-            if (CodeThinkingLevelNotifier.levels.contains(title)) {
-              ref.read(codeThinkingLevelProvider.notifier).setLevel(title);
-            }
-          },
-        ),
+        if (!compact) ...[
+          const SizedBox(width: 6),
+          ThinkingLevelSelector(
+            selectedModel: modelSelection.selectedModel,
+            openUpward: true,
+            backgroundColor: ext.cardBackground,
+            onChanged: (level) {
+              final title = level[0].toUpperCase() + level.substring(1);
+              if (CodeThinkingLevelNotifier.levels.contains(title)) {
+                ref.read(codeThinkingLevelProvider.notifier).setLevel(title);
+              }
+            },
+          ),
+        ],
       ],
     );
   }
 
-  Widget _inlineControlPill({required IconData icon, required String label}) {
+  Widget _inlineControlPill({
+    required Widget leading,
+    required String label,
+    double maxWidth = 130,
+  }) {
     final theme = Theme.of(context);
     final ext = theme.extension<AppThemeExtension>()!;
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 14, color: ext.iconColor),
+          leading,
           const SizedBox(width: 5),
           ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 130),
+            constraints: BoxConstraints(maxWidth: maxWidth),
             child: Text(
               label,
               style: TextStyle(
@@ -693,30 +717,13 @@ class _CodeChatComposerState extends ConsumerState<CodeChatComposer> {
               ? Border.all(color: accentColor.withValues(alpha: 0.4))
               : null,
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (isSelected) ...[
-              Container(
-                width: 6,
-                height: 6,
-                decoration: BoxDecoration(
-                  color: accentColor,
-                  shape: BoxShape.circle,
-                ),
-              ),
-              const SizedBox(width: 5),
-            ],
-            Text(
-              isPlan ? 'Plan' : 'Act',
-              style: TextStyle(
-                color:
-                    isSelected ? theme.colorScheme.onSurface : ext.textTertiary,
-                fontSize: 12,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-              ),
-            ),
-          ],
+        child: Text(
+          isPlan ? 'Plan' : 'Act',
+          style: TextStyle(
+            color: isSelected ? theme.colorScheme.onSurface : ext.textTertiary,
+            fontSize: 12,
+            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+          ),
         ),
       ),
     );

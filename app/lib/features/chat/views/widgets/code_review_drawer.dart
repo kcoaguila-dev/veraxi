@@ -140,6 +140,7 @@ class _CodeReviewDrawerState extends ConsumerState<CodeReviewDrawer> {
   bool _focusedScrollDone = false;
   bool _sashHovered = false;
   bool _sashDragging = false;
+  bool _isAuditing = false;
   late bool _showMarkdownPreview = _defaultMarkdownPreview();
 
   bool get _isLive => widget.review.hasLiveSandbox;
@@ -362,87 +363,44 @@ class _CodeReviewDrawerState extends ConsumerState<CodeReviewDrawer> {
                       ],
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  OutlinedButton.icon(
-                    key: const Key('code-review-audit-diff-button'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFF93C5FD),
-                      side: const BorderSide(color: Color(0xFF252833)),
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 6),
-                      minimumSize: const Size(0, 30),
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(7),
-                      ),
-                    ),
-                    onPressed: _triggerAuditDiff,
-                    icon: const Icon(Icons.shield_outlined, size: 13),
-                    label: const Text(
-                      'Audit Diff',
-                      style: TextStyle(
-                          fontSize: 11.5, fontWeight: FontWeight.w500),
-                    ),
-                  ),
-                  if (_isLive) ...[
+                  if (_isLive ||
+                      (ref.watch(codeReviewProvider).diff?.files.isNotEmpty ??
+                          false)) ...[
                     const SizedBox(width: 8),
-                    TextButton(
-                      key: const Key('code-review-discard-button'),
-                      onPressed: _close,
-                      child: const Text(
-                        'Discard',
-                        style:
-                            TextStyle(fontSize: 11.5, color: Color(0xFFF87171)),
-                      ),
-                    ),
                     OutlinedButton(
-                      key: const Key('code-review-apply-locally-button'),
+                      key: const Key('code-review-audit-diff-button'),
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: const Color(0xFFE4E4E7),
-                        side: const BorderSide(
-                            color: ObsidianTokens.borderStrong),
+                        foregroundColor: const Color(0xFF93C5FD),
+                        side: const BorderSide(color: Color(0xFF252833)),
                         padding: const EdgeInsets.symmetric(
                             horizontal: 10, vertical: 6),
-                        minimumSize: const Size(0, 28),
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      ),
-                      onPressed: () {
-                        final files =
-                            ref.read(codeReviewProvider).diff?.files ??
-                                const <CodeReviewDiffFile>[];
-                        for (final f in files) {
-                          ref
-                              .read(codeReviewProvider.notifier)
-                              .acceptFile(f.path);
-                        }
-                      },
-                      child: const Text(
-                        'Apply Locally',
-                        style: TextStyle(
-                            fontSize: 11.5, fontWeight: FontWeight.w500),
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    ElevatedButton(
-                      key: const Key('code-review-draft-pr-button'),
-                      onPressed: ref.watch(codeReviewProvider).isCommitting
-                          ? null
-                          : _openCommitDialog,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF1D4ED8),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 6),
-                        minimumSize: const Size(0, 28),
+                        minimumSize: const Size(0, 30),
                         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(7),
                         ),
                       ),
-                      child: const Text(
-                        'Open Draft PR',
-                        style: TextStyle(
-                            fontSize: 11.5, fontWeight: FontWeight.w600),
+                      onPressed: _isAuditing ? null : _triggerAuditDiff,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (_isAuditing) ...[
+                            const SizedBox(
+                              width: 11,
+                              height: 11,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 1.6,
+                                color: Color(0xFF93C5FD),
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                          ],
+                          Text(
+                            _isAuditing ? 'Auditing…' : 'Security Audit',
+                            style: const TextStyle(
+                                fontSize: 11.5, fontWeight: FontWeight.w500),
+                          ),
+                        ],
                       ),
                     ),
                   ],
@@ -450,6 +408,10 @@ class _CodeReviewDrawerState extends ConsumerState<CodeReviewDrawer> {
               ),
             ),
           ),
+          if (_isLive) ...[
+            _buildCommitSplitButton(),
+            const SizedBox(width: 4),
+          ],
           if (widget.maxSplitWidth != null) _buildExpandButton(),
           IconButton(
             key: const Key('code-review-close'),
@@ -482,15 +444,145 @@ class _CodeReviewDrawerState extends ConsumerState<CodeReviewDrawer> {
     );
   }
 
+  Widget _buildCommitSplitButton() {
+    final isCommitting = ref.watch(codeReviewProvider).isCommitting;
+    return Container(
+      height: 28,
+      decoration: BoxDecoration(
+        color: isCommitting ? const Color(0xFF1E3A8A) : const Color(0xFF2563EB),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          InkWell(
+            key: const Key('code-review-draft-pr-button'),
+            onTap: isCommitting ? null : _openCommitDialog,
+            borderRadius:
+                const BorderRadius.horizontal(left: Radius.circular(8)),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              child: Text(
+                isCommitting ? 'Committing…' : 'Commit',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ),
+          Container(
+            width: 1,
+            height: 16,
+            color: Colors.white.withValues(alpha: 0.22),
+          ),
+          PopupMenuButton<String>(
+            tooltip: 'More review actions',
+            color: const Color(0xFF1C1C1F),
+            elevation: 10,
+            offset: const Offset(0, 32),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: const BorderSide(color: Color(0xFF34343A)),
+            ),
+            onSelected: (action) {
+              switch (action) {
+                case 'commit':
+                  _openCommitDialog();
+                case 'apply':
+                  final files = ref.read(codeReviewProvider).diff?.files ??
+                      const <CodeReviewDiffFile>[];
+                  for (final f in files) {
+                    ref.read(codeReviewProvider.notifier).acceptFile(f.path);
+                  }
+                case 'discard':
+                  _close();
+              }
+            },
+            itemBuilder: (_) => const [
+              PopupMenuItem<String>(
+                value: 'commit',
+                height: 36,
+                child: Row(
+                  children: [
+                    Icon(Icons.commit, size: 15, color: Color(0xFFE4E4E7)),
+                    SizedBox(width: 8),
+                    Text('Commit / Open Draft PR',
+                        style: TextStyle(
+                            color: Color(0xFFE4E4E7), fontSize: 12.5)),
+                  ],
+                ),
+              ),
+              PopupMenuItem<String>(
+                key: Key('code-review-apply-locally-button'),
+                value: 'apply',
+                height: 36,
+                child: Row(
+                  children: [
+                    Icon(Icons.download_done_outlined,
+                        size: 15, color: Color(0xFFE4E4E7)),
+                    SizedBox(width: 8),
+                    Text('Apply Locally',
+                        style: TextStyle(
+                            color: Color(0xFFE4E4E7), fontSize: 12.5)),
+                  ],
+                ),
+              ),
+              PopupMenuDivider(height: 8),
+              PopupMenuItem<String>(
+                key: Key('code-review-discard-button'),
+                value: 'discard',
+                height: 36,
+                child: Row(
+                  children: [
+                    Icon(Icons.delete_outline,
+                        size: 15, color: Color(0xFFF87171)),
+                    SizedBox(width: 8),
+                    Text('Discard',
+                        style: TextStyle(
+                            color: Color(0xFFF87171), fontSize: 12.5)),
+                  ],
+                ),
+              ),
+            ],
+            child: const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 6, vertical: 5),
+              child: Icon(
+                Icons.keyboard_arrow_down,
+                size: 15,
+                color: Colors.white,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _triggerAuditDiff() async {
-    final files =
-        ref.read(codeReviewProvider).diff?.files.map((f) => f.path).toList() ??
-            const <String>[];
-    final repo = ref.read(selectedIndexedRepoProvider);
-    final auditSummary = await ref
-        .read(codeReviewProvider.notifier)
-        .runSecurityDiffAudit(files: files, repo: repo);
-    ref.read(pendingSecurityThreadPromptProvider.notifier).state = auditSummary;
+    if (_isAuditing) return;
+    setState(() => _isAuditing = true);
+    try {
+      final files = ref
+              .read(codeReviewProvider)
+              .diff
+              ?.files
+              .map((f) => f.path)
+              .toList() ??
+          const <String>[];
+      final repo = ref.read(selectedIndexedRepoProvider);
+      final auditSummary = await ref
+          .read(codeReviewProvider.notifier)
+          .runSecurityDiffAudit(files: files, repo: repo);
+      if (!mounted) return;
+      ref.read(pendingSecurityThreadPromptProvider.notifier).state =
+          auditSummary;
+    } finally {
+      if (mounted) {
+        setState(() => _isAuditing = false);
+      }
+    }
   }
 
   Widget _buildForTurnBar() {

@@ -10,8 +10,8 @@ import 'package:veraxi_app/features/settings/views/widgets/settings_dialog.dart'
 
 /// Connected top context strip inside the Code Thread composer card.
 ///
-/// Renders the execution target (`Chat only` / `Cloud Sandbox`), repo
-/// scope (`No repo (Scratchpad)` or indexed repo), and branch/worktree
+/// Renders the execution target (`Direct` / `Cloud Sandbox`), repo
+/// scope (`No repo` or indexed repo), and branch/worktree
 /// selector (`main` / `main · new worktree`), each opening an
 /// upward-anchored popover directly above its trigger.
 class ComposerContextBar extends ConsumerWidget {
@@ -33,7 +33,7 @@ class ComposerContextBar extends ConsumerWidget {
           (r) => r?.repoKey == selectedRepo,
           orElse: () => null,
         );
-    final repoLabel = activeRepo?.displayName ?? 'No repo (Scratchpad)';
+    final repoLabel = activeRepo?.displayName ?? 'No repo';
     final branchLabel = newWorktree ? '$branch · new worktree' : branch;
 
     return Padding(
@@ -327,7 +327,7 @@ class _ExecutionTargetTriggerState
             : Icons.chat_bubble_outline,
         iconColor:
             widget.sandboxEnabled ? const Color(0xFF34D399) : ext.iconColor,
-        label: widget.sandboxEnabled ? 'Cloud Sandbox' : 'Chat only',
+        label: widget.sandboxEnabled ? 'Cloud' : 'Direct',
         onTap: () {
           if (_controller.isShowing) {
             close();
@@ -358,7 +358,7 @@ class _ExecutionTargetTriggerState
               children: [
                 _PopoverOptionRow(
                   icon: Icons.chat_bubble_outline,
-                  title: 'Chat only',
+                  title: 'Direct',
                   subtitle: 'Runs without sandbox',
                   selected: !widget.sandboxEnabled,
                   onHover: () {
@@ -604,7 +604,7 @@ class _RepoSelectorTriggerState extends ConsumerState<_RepoSelectorTrigger> {
                 ),
                 _PopoverOptionRow(
                   icon: Icons.folder_off_outlined,
-                  title: 'No repo (Scratchpad)',
+                  title: 'No repo',
                   selected: widget.selectedRepoKey == null,
                   onTap: () => _selectRepo(null, close),
                 ),

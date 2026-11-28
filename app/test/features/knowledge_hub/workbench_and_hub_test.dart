@@ -322,7 +322,7 @@ void main() {
     expect(container0.read(activeReviewSessionProvider), isNull);
     expect(find.byType(CodeChatPane), findsOneWidget);
     expect(find.byType(CodeReviewDrawer), findsNothing);
-    expect(find.text('veraxi/custom-service / New chat'), findsOneWidget);
+    expect(find.text('New chat'), findsNothing);
     expect(
         find.text('Ask anything about veraxi/custom-service.'), findsOneWidget);
     expect(find.text('Run Vulnerability Scan'), findsNothing);
@@ -1105,8 +1105,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Chat only'), findsOneWidget);
-    expect(find.text('No repo (Scratchpad)'), findsOneWidget);
+    expect(find.text('Direct'), findsOneWidget);
+    expect(find.text('No repo'), findsOneWidget);
     expect(find.text('+ Connect repo'), findsOneWidget);
     expect(
       find.text('Ask anything, paste code, or connect a repo.'),
@@ -1115,7 +1115,7 @@ void main() {
     expect(find.text('Index a repo in Repo X-Ray →'), findsNothing);
 
     // Selecting Cloud Sandbox from the tray updates sandboxToggleViewModelProvider.
-    await tester.tap(find.text('Chat only'));
+    await tester.tap(find.text('Direct'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Cloud Sandbox').last);
     await tester.pumpAndSettle();
