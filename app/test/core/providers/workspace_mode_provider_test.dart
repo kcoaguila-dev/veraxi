@@ -21,7 +21,8 @@ void main() {
     second.dispose();
   });
 
-  test('codeAutonomyModeProvider persists and restores selected permission tier',
+  test(
+      'codeAutonomyModeProvider persists and restores selected permission tier',
       () async {
     SharedPreferences.setMockInitialValues({});
 

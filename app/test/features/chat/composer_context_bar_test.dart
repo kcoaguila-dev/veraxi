@@ -185,7 +185,8 @@ void main() {
       (w) =>
           w is SvgPicture &&
           w.bytesLoader is SvgAssetLoader &&
-          (w.bytesLoader as SvgAssetLoader).assetName == 'assets/icons/groq.svg',
+          (w.bytesLoader as SvgAssetLoader).assetName ==
+              'assets/icons/groq.svg',
     );
     final openaiSvg = find.byWidgetPredicate(
       (w) =>
