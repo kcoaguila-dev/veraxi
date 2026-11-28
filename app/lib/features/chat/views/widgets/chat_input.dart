@@ -862,7 +862,7 @@ class _ChatInputState extends State<ChatInput> {
                   IconButton(
                     padding: EdgeInsets.zero,
                     constraints:
-                        const BoxConstraints(minWidth: 40, minHeight: 40),
+                        const BoxConstraints(minWidth: 32, minHeight: 32),
                     icon: Icon(
                       _isListening ? Icons.mic : Icons.mic_none_outlined,
                       color: _isListening
@@ -875,7 +875,7 @@ class _ChatInputState extends State<ChatInput> {
                     onPressed: widget.isLoading ? null : _toggleListening,
                     tooltip: 'Voice input',
                   ),
-                  SizedBox(width: 8),
+                  const SizedBox(width: 4),
                   GestureDetector(
                     key: widget.isLoading
                         ? const Key('chat-input-stop-button')
@@ -915,7 +915,7 @@ class _ChatInputState extends State<ChatInput> {
                       ),
                     ),
                   ),
-                  SizedBox(width: 8),
+                  const SizedBox(width: 2),
                 ],
               ),
             ],
