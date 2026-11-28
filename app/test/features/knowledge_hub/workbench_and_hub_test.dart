@@ -1106,7 +1106,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Chat only'), findsOneWidget);
-    expect(find.text('No repo (Scratchpad)'), findsOneWidget);
+    expect(find.text('No repo'), findsOneWidget);
     expect(find.text('+ Connect repo'), findsOneWidget);
     expect(
       find.text('Ask anything, paste code, or connect a repo.'),

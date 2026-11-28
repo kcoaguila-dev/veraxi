@@ -94,7 +94,7 @@ void main() {
     await tester.pumpWidget(buildHarness(repos: repos));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('No repo (Scratchpad)'));
+    await tester.tap(find.text('No repo'));
     await tester.pumpAndSettle();
 
     expect(find.text('Search Projects'), findsOneWidget);

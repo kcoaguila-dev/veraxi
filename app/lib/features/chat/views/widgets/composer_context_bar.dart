@@ -11,7 +11,7 @@ import 'package:veraxi_app/features/settings/views/widgets/settings_dialog.dart'
 /// Connected top context strip inside the Code Thread composer card.
 ///
 /// Renders the execution target (`Chat only` / `Cloud Sandbox`), repo
-/// scope (`No repo (Scratchpad)` or indexed repo), and branch/worktree
+/// scope (`No repo` or indexed repo), and branch/worktree
 /// selector (`main` / `main · new worktree`), each opening an
 /// upward-anchored popover directly above its trigger.
 class ComposerContextBar extends ConsumerWidget {
@@ -33,7 +33,7 @@ class ComposerContextBar extends ConsumerWidget {
           (r) => r?.repoKey == selectedRepo,
           orElse: () => null,
         );
-    final repoLabel = activeRepo?.displayName ?? 'No repo (Scratchpad)';
+    final repoLabel = activeRepo?.displayName ?? 'No repo';
     final branchLabel = newWorktree ? '$branch · new worktree' : branch;
 
     return Padding(
@@ -604,7 +604,7 @@ class _RepoSelectorTriggerState extends ConsumerState<_RepoSelectorTrigger> {
                 ),
                 _PopoverOptionRow(
                   icon: Icons.folder_off_outlined,
-                  title: 'No repo (Scratchpad)',
+                  title: 'No repo',
                   selected: widget.selectedRepoKey == null,
                   onTap: () => _selectRepo(null, close),
                 ),
