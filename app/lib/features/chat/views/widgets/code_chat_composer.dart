@@ -302,12 +302,14 @@ class _CodeChatComposerState extends ConsumerState<CodeChatComposer> {
                 hintText:
                     'Ask anything. @ files, \$ skills, / commands (/security-review)',
                 leadingFooterSlot: _buildInlineFooterControls(),
-                trailingSlot: const Row(
+                trailingSlot: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    CodeSourcesPill(),
-                    SizedBox(width: 4),
-                    LocalPermissionsTrigger(),
+                    _buildPlanActToggle(ref.watch(codeExecutionModeProvider)),
+                    const SizedBox(width: 6),
+                    const CodeSourcesPill(),
+                    const SizedBox(width: 4),
+                    const LocalPermissionsTrigger(),
                   ],
                 ),
                 embedded: true,
@@ -574,7 +576,6 @@ class _CodeChatComposerState extends ConsumerState<CodeChatComposer> {
 
   Widget _buildInlineFooterControls() {
     final modelSelection = ref.watch(modelSelectionProvider);
-    final executionMode = ref.watch(codeExecutionModeProvider);
 
     final theme = Theme.of(context);
     final ext = theme.extension<AppThemeExtension>()!;
@@ -610,8 +611,6 @@ class _CodeChatComposerState extends ConsumerState<CodeChatComposer> {
             }
           },
         ),
-        const SizedBox(width: 6),
-        _buildPlanActToggle(executionMode),
       ],
     );
   }
@@ -627,7 +626,7 @@ class _CodeChatComposerState extends ConsumerState<CodeChatComposer> {
           Icon(icon, size: 14, color: ext.iconColor),
           const SizedBox(width: 5),
           ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 180),
+            constraints: const BoxConstraints(maxWidth: 130),
             child: Text(
               label,
               style: TextStyle(
