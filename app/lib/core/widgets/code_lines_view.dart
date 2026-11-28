@@ -49,11 +49,12 @@ class CodeLinesView extends StatefulWidget {
   final Color? codeTextColor;
   final bool autoScrollToHighlight;
 
-  /// Accent used for the cited-range band and cited gutter numbers.
-  static const Color accentColor = Color(0xFF4F8EF7);
+  /// Accent used for the cited-range left border and cited gutter numbers.
+  static const Color accentColor = Color(0xFF58A6FF);
 
-  /// Background of the cited-range band.
-  static const Color citedBandColor = Color(0xFF1D2A44);
+  /// Subtle translucent background of the cited-range band (~12% alpha) so
+  /// dark-mode canvas bleeds through and code text remains high-contrast.
+  static const Color citedBandColor = Color(0x1E58A6FF);
 
   /// Fixed row height; scroll-to-cited-line math depends on it.
   static const double lineHeight = 21.0;
@@ -179,13 +180,18 @@ class _CodeLinesViewState extends State<CodeLinesView> {
     final cited = widget.highlightStartLine != null &&
         lineNumber >= widget.highlightStartLine! &&
         lineNumber <= (widget.highlightEndLine ?? widget.highlightStartLine!);
+    final resolvedCodeColor = widget.codeTextColor ??
+        (Theme.of(context).brightness == Brightness.dark
+            ? const Color(0xFFE6EDF3)
+            : Theme.of(context).colorScheme.onSurface);
     return Container(
       color: cited ? CodeLinesView.citedBandColor : null,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Container(
-            width: 2,
+            width: 3,
+            height: CodeLinesView.lineHeight,
             color: cited ? CodeLinesView.accentColor : Colors.transparent,
           ),
           SizedBox(
@@ -209,7 +215,7 @@ class _CodeLinesViewState extends State<CodeLinesView> {
             style: TextStyle(
               fontFamily: 'monospace',
               fontSize: 12.5,
-              color: widget.codeTextColor,
+              color: resolvedCodeColor,
             ),
           ),
         ],
