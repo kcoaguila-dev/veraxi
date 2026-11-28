@@ -7,8 +7,10 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 import 'web_search_dialog.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
 import 'package:veraxi_app/features/chat/view_models/auto_compact.dart';
+import 'package:veraxi_app/features/chat/view_models/integration_chips_view_model.dart';
 import 'package:veraxi_app/features/chat/view_models/token_usage.dart';
 import 'package:veraxi_app/features/chat/views/widgets/deep_cost_preflight.dart';
 import 'package:veraxi_app/features/chat/views/widgets/integration_chips_bar.dart';
@@ -979,13 +981,7 @@ class _ChatInputState extends State<ChatInput> {
             label: 'Commands',
             keycap: '/',
           ),
-          _buildAddContextItem(
-            value: 'web',
-            icon: Icons.language,
-            label: 'Web & Browser',
-            trailingHint: _webSearchActive ? 'On' : null,
-            trailingAccent: _webSearchActive,
-          ),
+          _buildWebAddContextItem(),
           _buildAddContextItem(
             value: 'paste_text',
             icon: Icons.description_outlined,
@@ -993,19 +989,161 @@ class _ChatInputState extends State<ChatInput> {
             trailingHint: 'Snippet',
           ),
           const PopupMenuDivider(height: 8),
-          _buildAddContextItem(
-            value: 'connectors',
-            icon: Icons.extension_outlined,
-            label: 'Connectors',
-            trailingHint: 'Set up',
-            trailingAccent: true,
-          ),
+          ..._buildConnectorAddContextItems(),
         ],
       ),
     );
   }
 
+  IntegrationChipsState? _readIntegrationState() {
+    try {
+      final container = ProviderScope.containerOf(context);
+      final state = container.read(integrationChipsViewModelProvider);
+      return (state.loaded && state.integrations.isNotEmpty) ? state : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  List<PopupMenuEntry<String>> _buildConnectorAddContextItems() {
+    final integrationState = _readIntegrationState();
+    if (integrationState == null) {
+      return [
+        _buildAddContextItem(
+          value: 'connectors',
+          icon: Icons.extension_outlined,
+          label: 'Connectors',
+          trailingHint: 'Set up',
+          trailingAccent: true,
+        ),
+      ];
+    }
+    final ext = Theme.of(context).extension<AppThemeExtension>()!;
+    return [
+      _buildAddContextHeader('CONNECTED APPS'),
+      ...integrationState.integrations.map((item) {
+        final selected = integrationState.isSelected(item);
+        return PopupMenuItem<String>(
+          value: 'integration:${item.id}',
+          height: 36,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: SizedBox(
+            width: 210,
+            child: Row(
+              children: [
+                Icon(
+                  Icons.extension_outlined,
+                  color: selected ? const Color(0xFF60A5FA) : ext.iconColor,
+                  size: 16,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    item.displayName,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurface,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                Icon(
+                  selected ? Icons.check_box : Icons.check_box_outline_blank,
+                  size: 16,
+                  color: selected ? const Color(0xFF60A5FA) : ext.textTertiary,
+                ),
+              ],
+            ),
+          ),
+        );
+      }),
+      _buildAddContextItem(
+        value: 'connectors',
+        icon: Icons.tune,
+        label: 'Connectors',
+        trailingHint: 'Manage',
+        trailingAccent: true,
+      ),
+    ];
+  }
+
+  PopupMenuItem<String> _buildWebAddContextItem() {
+    final ext = Theme.of(context).extension<AppThemeExtension>()!;
+    return PopupMenuItem<String>(
+      value: 'web',
+      height: 36,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: SizedBox(
+        width: 210,
+        child: Row(
+          children: [
+            Icon(
+              Icons.language,
+              color: _webSearchActive ? const Color(0xFF60A5FA) : ext.iconColor,
+              size: 16,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Web & Browser',
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurface,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+            if (_webSearchActive) ...[
+              const Text(
+                'On',
+                style: TextStyle(
+                  color: Color(0xFF60A5FA),
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(width: 6),
+            ],
+            GestureDetector(
+              onTap: () async {
+                Navigator.of(context).pop();
+                await showDialog(
+                  context: context,
+                  builder: (_) => const WebSearchDialog(),
+                );
+                _loadToolSettings();
+              },
+              child: Padding(
+                padding: const EdgeInsets.all(4.0),
+                child: Icon(
+                  Icons.settings_outlined,
+                  color: ext.textTertiary,
+                  size: 15,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   void _handleAddContextSelection(String value) {
+    if (value.startsWith('integration:')) {
+      final id = value.substring('integration:'.length);
+      final state = _readIntegrationState();
+      if (state == null) return;
+      for (final item in state.integrations) {
+        if (item.id == id) {
+          ProviderScope.containerOf(context)
+              .read(integrationChipsViewModelProvider.notifier)
+              .toggle(item);
+          break;
+        }
+      }
+      return;
+    }
     switch (value) {
       case 'files':
         _pickFiles();
