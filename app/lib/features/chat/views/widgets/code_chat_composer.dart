@@ -300,8 +300,7 @@ class _CodeChatComposerState extends ConsumerState<CodeChatComposer> {
                 autoCompactMode: widget.autoCompactMode,
                 onAutoCompactModeChanged: widget.onAutoCompactModeChanged,
                 onCompactPressed: widget.onCompactPressed,
-                hintText:
-                    'Ask anything. @ files, \$ skills, / commands (/security-review)',
+                hintText: 'Ask anything — @ files, \$ skills, / commands',
                 leadingFooterSlot: _buildInlineFooterControls(),
                 trailingSlot: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -701,8 +700,7 @@ class _CodeChatComposerState extends ConsumerState<CodeChatComposer> {
         child: Text(
           isPlan ? 'Plan' : 'Act',
           style: TextStyle(
-            color:
-                isSelected ? theme.colorScheme.onSurface : ext.textTertiary,
+            color: isSelected ? theme.colorScheme.onSurface : ext.textTertiary,
             fontSize: 12,
             fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
           ),
