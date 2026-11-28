@@ -1105,7 +1105,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Chat only'), findsOneWidget);
+    expect(find.text('Direct'), findsOneWidget);
     expect(find.text('No repo'), findsOneWidget);
     expect(find.text('+ Connect repo'), findsOneWidget);
     expect(
@@ -1115,7 +1115,7 @@ void main() {
     expect(find.text('Index a repo in Repo X-Ray →'), findsNothing);
 
     // Selecting Cloud Sandbox from the tray updates sandboxToggleViewModelProvider.
-    await tester.tap(find.text('Chat only'));
+    await tester.tap(find.text('Direct'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Cloud Sandbox').last);
     await tester.pumpAndSettle();

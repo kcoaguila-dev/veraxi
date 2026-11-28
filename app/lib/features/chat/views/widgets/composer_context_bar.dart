@@ -10,7 +10,7 @@ import 'package:veraxi_app/features/settings/views/widgets/settings_dialog.dart'
 
 /// Connected top context strip inside the Code Thread composer card.
 ///
-/// Renders the execution target (`Chat only` / `Cloud Sandbox`), repo
+/// Renders the execution target (`Direct` / `Cloud Sandbox`), repo
 /// scope (`No repo` or indexed repo), and branch/worktree
 /// selector (`main` / `main · new worktree`), each opening an
 /// upward-anchored popover directly above its trigger.
@@ -327,7 +327,7 @@ class _ExecutionTargetTriggerState
             : Icons.chat_bubble_outline,
         iconColor:
             widget.sandboxEnabled ? const Color(0xFF34D399) : ext.iconColor,
-        label: widget.sandboxEnabled ? 'Cloud Sandbox' : 'Chat only',
+        label: widget.sandboxEnabled ? 'Cloud' : 'Direct',
         onTap: () {
           if (_controller.isShowing) {
             close();
@@ -358,7 +358,7 @@ class _ExecutionTargetTriggerState
               children: [
                 _PopoverOptionRow(
                   icon: Icons.chat_bubble_outline,
-                  title: 'Chat only',
+                  title: 'Direct',
                   subtitle: 'Runs without sandbox',
                   selected: !widget.sandboxEnabled,
                   onHover: () {
