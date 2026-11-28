@@ -8,6 +8,7 @@ import 'package:veraxi_app/core/providers/workspace_mode_provider.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
 import 'package:veraxi_app/core/widgets/language_file_icon.dart';
 import 'package:veraxi_app/core/widgets/model_selector_menu.dart';
+import 'package:veraxi_app/core/widgets/provider_icon.dart';
 import 'package:veraxi_app/core/widgets/thinking_level_selector.dart';
 import 'package:veraxi_app/features/chat/view_models/auto_compact.dart';
 import 'package:veraxi_app/features/chat/view_models/code_chat_view_model.dart';
@@ -580,11 +581,12 @@ class _CodeChatComposerState extends ConsumerState<CodeChatComposer> {
 
     final theme = Theme.of(context);
     final ext = theme.extension<AppThemeExtension>()!;
+    final selected = modelSelection.selectedModel;
+    final provider = selected.contains('/') ? selected.split('/').first : null;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         const AcpRuntimePill(),
-        const SizedBox(width: 6),
         ModelSelectorMenu(
           selectedModel: modelSelection.selectedModel,
           pinnedModels: modelSelection.pinnedModels.toList(),
@@ -596,7 +598,10 @@ class _CodeChatComposerState extends ConsumerState<CodeChatComposer> {
           onModelUnpinned: (model) =>
               ref.read(modelSelectionProvider.notifier).unpinModel(model),
           child: _inlineControlPill(
-            icon: Icons.psychology_outlined,
+            leading: provider != null
+                ? buildProviderIcon(provider)
+                : Icon(Icons.psychology_outlined,
+                    size: 14, color: ext.iconColor),
             label: modelSelection.selectedModel,
           ),
         ),
@@ -616,15 +621,15 @@ class _CodeChatComposerState extends ConsumerState<CodeChatComposer> {
     );
   }
 
-  Widget _inlineControlPill({required IconData icon, required String label}) {
+  Widget _inlineControlPill({required Widget leading, required String label}) {
     final theme = Theme.of(context);
     final ext = theme.extension<AppThemeExtension>()!;
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 14, color: ext.iconColor),
+          leading,
           const SizedBox(width: 5),
           ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 130),
@@ -693,30 +698,14 @@ class _CodeChatComposerState extends ConsumerState<CodeChatComposer> {
               ? Border.all(color: accentColor.withValues(alpha: 0.4))
               : null,
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (isSelected) ...[
-              Container(
-                width: 6,
-                height: 6,
-                decoration: BoxDecoration(
-                  color: accentColor,
-                  shape: BoxShape.circle,
-                ),
-              ),
-              const SizedBox(width: 5),
-            ],
-            Text(
-              isPlan ? 'Plan' : 'Act',
-              style: TextStyle(
-                color:
-                    isSelected ? theme.colorScheme.onSurface : ext.textTertiary,
-                fontSize: 12,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-              ),
-            ),
-          ],
+        child: Text(
+          isPlan ? 'Plan' : 'Act',
+          style: TextStyle(
+            color:
+                isSelected ? theme.colorScheme.onSurface : ext.textTertiary,
+            fontSize: 12,
+            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+          ),
         ),
       ),
     );

@@ -15,16 +15,27 @@ import 'package:veraxi_app/core/theme_extension.dart';
 /// import another feature's view models directly). Every toggle
 /// writes straight to [codeSelectedSourcesProvider], which the next
 /// send stamps as `source_scope`.
-class CodeSourcesPill extends StatefulWidget {
+class CodeSourcesPill extends ConsumerStatefulWidget {
   const CodeSourcesPill({super.key});
 
   @override
-  State<CodeSourcesPill> createState() => _CodeSourcesPillState();
+  ConsumerState<CodeSourcesPill> createState() => _CodeSourcesPillState();
 }
 
-class _CodeSourcesPillState extends State<CodeSourcesPill> {
+class _CodeSourcesPillState extends ConsumerState<CodeSourcesPill> {
   final OverlayPortalController _overlayController = OverlayPortalController();
   final LayerLink _link = LayerLink();
+
+  @override
+  void initState() {
+    super.initState();
+    // Pre-fetch Knowledge Hub sources on composer mount so opening the
+    // popover renders all available sources immediately without delay.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ensureIndexedKnowledgeSourcesLoaded(ref);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -122,18 +133,62 @@ class _CodeSourcesPopoverState extends ConsumerState<_CodeSourcesPopover> {
   bool _matches(String label) =>
       _filter.isEmpty || label.toLowerCase().contains(_filter.toLowerCase());
 
+  Future<void> _confirmClearSources(
+    BuildContext context,
+    StateController<CodeSelectedSources> notifier,
+    AppThemeExtension ext,
+    int count,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: ext.cardBackground,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+          side: BorderSide(color: ext.borderColorStrong),
+        ),
+        title: const Text(
+          'Clear selected sources?',
+          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+        ),
+        content: Text(
+          'This will deselect $count ${count == 1 ? 'source' : 'sources'} for this thread.',
+          style: TextStyle(color: ext.textTertiary, fontSize: 13),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Clear'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      notifier.state = const CodeSelectedSources();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final repos = ref.watch(indexedReposProvider);
+    final activeRepoKey = ref.watch(selectedIndexedRepoProvider);
     final docs = ref.watch(indexedKnowledgeSourcesProvider);
     final selected = ref.watch(codeSelectedSourcesProvider);
     final notifier = ref.read(codeSelectedSourcesProvider.notifier);
 
+    // Exclude the repo already selected in the composer's top bar to avoid
+    // showing it redundantly as an extra source.
+    final otherRepos =
+        repos.where((repo) => repo.repoKey != activeRepoKey).toList();
     final visibleRepos =
-        repos.where((repo) => _matches(repo.displayName)).toList();
+        otherRepos.where((repo) => _matches(repo.displayName)).toList();
     final visibleDocs = docs.where((doc) => _matches(doc.name)).toList();
     final allKeys = <String>{
-      for (final repo in repos) repo.repoKey,
+      for (final repo in otherRepos) repo.repoKey,
     };
     final allDocIds = <String>{for (final doc in docs) doc.id};
     final hasAny = allKeys.isNotEmpty || allDocIds.isNotEmpty;
@@ -192,17 +247,21 @@ class _CodeSourcesPopoverState extends ConsumerState<_CodeSourcesPopover> {
                         ),
                         if (selected.repoKeys.isNotEmpty ||
                             selected.docIds.isNotEmpty)
-                          TextButton(
-                            onPressed: () {
-                              notifier.state = const CodeSelectedSources();
-                            },
-                            child: const Text(
-                              'Clear all',
-                              style: TextStyle(
-                                color: Color(0xFFA1A1AA),
-                                fontSize: 11.5,
-                                fontWeight: FontWeight.w600,
-                              ),
+                          IconButton(
+                            tooltip: 'Clear selected sources',
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(
+                                minWidth: 28, minHeight: 28),
+                            icon: Icon(
+                              Icons.delete_outline,
+                              size: 16,
+                              color: ext.textTertiary,
+                            ),
+                            onPressed: () => _confirmClearSources(
+                              context,
+                              notifier,
+                              ext,
+                              selected.repoKeys.length + selected.docIds.length,
                             ),
                           ),
                         if (!allSelected && hasAny)

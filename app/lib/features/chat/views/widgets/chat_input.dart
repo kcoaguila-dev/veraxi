@@ -751,7 +751,7 @@ class _ChatInputState extends State<ChatInput> {
               Row(
                 children: [
                   _buildAddContextMenu(),
-                  if (widget.showToolsMenu)
+                  if (widget.showToolsMenu) ...[
                     MenuAnchor(
                       style: MenuStyle(
                         backgroundColor: WidgetStatePropertyAll(
@@ -806,7 +806,8 @@ class _ChatInputState extends State<ChatInput> {
                         const ToolsMenuIntegrations(),
                       ],
                     ),
-                  SizedBox(width: 4),
+                    const SizedBox(width: 4),
+                  ],
                   Expanded(
                     child: SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
@@ -935,6 +936,7 @@ class _ChatInputState extends State<ChatInput> {
       child: PopupMenuButton<String>(
         tooltip: 'Add context',
         enabled: !widget.isLoading,
+        padding: EdgeInsets.zero,
         color: ext.sidebarBackground,
         elevation: 10,
         position: PopupMenuPosition.over,
