@@ -1,6 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:veraxi_app/core/providers/model_selection_provider.dart';
 import 'package:veraxi_app/core/providers/workspace_mode_provider.dart';
 import 'package:veraxi_app/core/theme.dart';
 import 'package:veraxi_app/features/chat/views/widgets/code_chat_composer.dart';
@@ -153,5 +156,46 @@ void main() {
     );
     expect(container.read(codeAutonomyModeProvider), 'autonomous');
     expect(find.text('Turbo'), findsOneWidget);
+  });
+
+  testWidgets('CodeChatComposer shows Groq icon for openai/gpt-oss-20b',
+      (WidgetTester tester) async {
+    SharedPreferences.setMockInitialValues({});
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    await tester.pumpWidget(buildHarness());
+    await tester.pumpAndSettle();
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(CodeChatComposer)),
+    );
+    await container
+        .read(modelSelectionProvider.notifier)
+        .selectModel('openai/gpt-oss-20b');
+    await tester.pumpAndSettle();
+
+    expect(find.text('openai/gpt-oss-20b'), findsOneWidget);
+
+    final groqSvg = find.byWidgetPredicate(
+      (w) =>
+          w is SvgPicture &&
+          w.bytesLoader is SvgAssetLoader &&
+          (w.bytesLoader as SvgAssetLoader).assetName == 'assets/icons/groq.svg',
+    );
+    final openaiSvg = find.byWidgetPredicate(
+      (w) =>
+          w is SvgPicture &&
+          w.bytesLoader is SvgAssetLoader &&
+          (w.bytesLoader as SvgAssetLoader).assetName ==
+              'assets/icons/openai.svg',
+    );
+
+    expect(groqSvg, findsOneWidget);
+    expect(openaiSvg, findsNothing);
   });
 }

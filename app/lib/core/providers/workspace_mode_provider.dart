@@ -191,9 +191,64 @@ class IngestionQueueItem {
   });
 }
 
-/// Active workspace mode (`Chat` vs `Code`), preserved across tab switches.
-final workspaceModeProvider =
-    StateProvider<WorkspaceMode>((ref) => WorkspaceMode.chat);
+StateProvider<T> _persistedStateProvider<T>({
+  required T defaultValue,
+  required String storageKey,
+  required String Function(T value) serialize,
+  required T? Function(String? raw) deserialize,
+  bool Function(T value)? isValid,
+}) {
+  return StateProvider<T>((ref) {
+    var userChanged = false;
+    var restoring = false;
+    void Function()? removeListener;
+    ref.onDispose(() => removeListener?.call());
+
+    Future.microtask(() async {
+      final controller = ref.controller;
+      if (controller.state != defaultValue) {
+        userChanged = true;
+      }
+      removeListener = controller.addListener((next) {
+        if (restoring || (isValid != null && !isValid(next))) return;
+        userChanged = true;
+        SharedPreferences.getInstance().then((prefs) {
+          prefs.setString(storageKey, serialize(next));
+        }).catchError((_) {});
+      }, fireImmediately: userChanged);
+
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final restored = deserialize(prefs.getString(storageKey));
+        if (!userChanged && restored != null) {
+          restoring = true;
+          controller.state = restored;
+          restoring = false;
+        }
+      } catch (_) {
+        // Ignore SharedPreferences errors in tests/headless environments.
+      }
+    });
+    return defaultValue;
+  });
+}
+
+/// SharedPreferences key for persisting the active [WorkspaceMode].
+const String workspaceModeStorageKey = 'workspace_mode';
+
+/// Active workspace mode (`Chat` vs `Code`), persisted across refreshes.
+final workspaceModeProvider = _persistedStateProvider<WorkspaceMode>(
+  defaultValue: WorkspaceMode.chat,
+  storageKey: workspaceModeStorageKey,
+  serialize: (mode) => mode.name,
+  deserialize: (raw) {
+    if (raw == null) return null;
+    for (final mode in WorkspaceMode.values) {
+      if (mode.name == raw) return mode;
+    }
+    return null;
+  },
+);
 
 /// Active sub-view inside `Code` mode. Defaults to the Code chat
 /// surface; the intel/analysis panels are reached from it.
@@ -244,12 +299,28 @@ class CodeThinkingLevelNotifier extends Notifier<String> {
 final codeExecutionModeProvider =
     StateProvider<CodeExecutionMode>((ref) => CodeExecutionMode.act);
 
+/// SharedPreferences key for persisting the active Code `autonomy_mode`.
+const String codeAutonomyModeStorageKey = 'code_autonomy_mode';
+
+const Set<String> _validAutonomyModes = {
+  'ask_all',
+  'auto_read_test',
+  'auto_workspace_writes',
+  'autonomous',
+};
+
 /// Sandbox autonomy tier for Code threads, using the backend
 /// `autonomy_mode` values (`ask_all`, `auto_read_test`,
 /// `auto_workspace_writes`, `autonomous`). Defaults to
-/// `auto_read_test`.
-final codeAutonomyModeProvider =
-    StateProvider<String>((ref) => 'auto_read_test');
+/// `auto_read_test` and persists across refreshes.
+final codeAutonomyModeProvider = _persistedStateProvider<String>(
+  defaultValue: 'auto_read_test',
+  storageKey: codeAutonomyModeStorageKey,
+  serialize: (mode) => mode,
+  deserialize: (raw) =>
+      raw != null && _validAutonomyModes.contains(raw) ? raw : null,
+  isValid: _validAutonomyModes.contains,
+);
 
 /// Sources the next Code thread is scoped to (repo keys + doc ids).
 final codeSelectedSourcesProvider =

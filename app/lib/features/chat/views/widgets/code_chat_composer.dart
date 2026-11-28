@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:file_picker/file_picker.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:veraxi_app/core/models/model_provider_mapper.dart';
 import 'package:veraxi_app/core/providers/model_selection_provider.dart';
 import 'package:veraxi_app/core/providers/workspace_mode_provider.dart';
 import 'package:veraxi_app/core/theme_extension.dart';
@@ -594,7 +595,15 @@ class _CodeChatComposerState extends ConsumerState<CodeChatComposer> {
     final theme = Theme.of(context);
     final ext = theme.extension<AppThemeExtension>()!;
     final selected = modelSelection.selectedModel;
-    final provider = selected.contains('/') ? selected.split('/').first : null;
+    final resolved = ModelProviderMapper.resolve(selected);
+    final provider = resolved != 'unknown'
+        ? resolved
+        : (selected.endsWith('.gguf')
+            ? 'local'
+            : (selected.toLowerCase().startsWith('mistral') ||
+                    selected.toLowerCase().startsWith('mixtral'))
+                ? 'mistral'
+                : (selected.contains('/') ? selected.split('/').first : null));
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
